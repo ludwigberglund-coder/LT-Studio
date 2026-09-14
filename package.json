@@ -1,0 +1,15 @@
+{
+  "name": "rollands-ekonomi",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": { "pdf-lib": "1.17.1" },
+  "description": "Rollands – samlad webb- och ekonomiplattform",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "node --test test/finance.test.js test/receivables-tools.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
