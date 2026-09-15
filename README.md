@@ -6,6 +6,7 @@ GitHub är projektets enda källa för kod, redigerbart innehåll, dokumentation
 - **Projektadmin:** <https://ludwigberglund-coder.github.io/Rollands/admin/>
 - **Öreskalkylator:** <https://ludwigberglund-coder.github.io/Rollands/admin/#/money>
 - **Roller och behörigheter:** <https://ludwigberglund-coder.github.io/Rollands/admin/#/access>
+- **Verifikationer och perioder:** <https://ludwigberglund-coder.github.io/Rollands/admin/#/journal>
 - **Tidigare systemdemo:** <https://ludwigberglund-coder.github.io/Rollands/legacy/#/overview>
 
 > GitHub Pages är en demo- och granskningsmiljö. Skarp bokföringsdata, kunddata, bankdata, fakturor och hemligheter får aldrig lagras där eller i det publika repot.
@@ -34,11 +35,11 @@ Alla nya ekonomifunktioner använder `packages/accounting/money.js` som gemensam
 - svenska decimaler med komma eller punkt accepteras,
 - osäker precision och för stora värden stoppas i stället för att gissas.
 
-Projektadmin har en interaktiv öreskalkylator som använder exakt samma modul som kommande fakturering, lager och bokföring. Se [penningmodellens dokumentation](docs/MONEY-DOMAIN.md).
+Projektadmin har en interaktiv öreskalkylator som använder exakt samma modul som fakturering, lager och bokföring bygger på. Se [penningmodellens dokumentation](docs/MONEY-DOMAIN.md).
 
 ## Roller och behörighetsgränser
 
-Alla nya skyddade funktioner ska använda `packages/access-control/authorization.js`. Regelverket bygger på:
+Alla nya skyddade funktioner använder `packages/access-control/authorization.js`. Regelverket bygger på:
 
 - default deny – allt nekas tills en uttrycklig behörighet finns,
 - personliga konton i produktion,
@@ -47,16 +48,31 @@ Alla nya skyddade funktioner ska använda `packages/access-control/authorization
 - separata roller för systemadministration och ekonomiska beslut,
 - fyrögonprincip för leverantörsattest, betalningar, periodupplåsning och lagerjustering.
 
-Projektadmin visar en rollmatris och kan simulera både vanliga behörighetsbeslut och separationsregler. Det är en regel- och granskningsdemo, inte en verklig inloggning. Riktig identitet, session, MFA och serverkontroll byggs senare i backend. Se [behörighetsdokumentationen](docs/ACCESS-CONTROL.md).
+Projektadmin visar en rollmatris och kan simulera både vanliga behörighetsbeslut och separationsregler. Det är en regel- och granskningsdemo, inte en verklig inloggning. Se [behörighetsdokumentationen](docs/ACCESS-CONTROL.md).
+
+## Verifikations- och periodmotor
+
+`packages/accounting/journal.js` är den nya bokföringskärnan. Den:
+
+- kräver balanserade verifikationer i ören,
+- ger obrutna löpnummer per serie och år,
+- stoppar ogiltiga konton, datum och behörigheter,
+- blockerar bokföring i låsta perioder,
+- kräver separat beställare vid periodupplåsning,
+- rättar bokförda poster med motverifikation och valfri ersättningspost,
+- bevarar originalposten och behandlingshistoriken,
+- kontrollerar dubbletter, totalsummor, nummerserier och rättelsekopplingar.
+
+Projektadmin innehåller en interaktiv demo där roller, bokföring, periodlås och motverifikationer kan provas lokalt i webbläsaren. Se [verifikationsdomänens dokumentation](docs/JOURNAL-DOMAIN.md).
 
 ## Ny projektstruktur
 
 ```text
 apps/
   website/               Ny publik webbplats
-  admin/                 Projektadmin och innehållsförhandsvisning
+  admin/                 Projektadmin och domändemos
 packages/
-  accounting/            Gemensamma ekonomiska domänregler, med öresprecision
+  accounting/            Penning-, verifikations- och periodregler
   access-control/        Roller, behörigheter och attestseparation
   shared/browser/        Delade, små webbläsarverktyg
 content/                  Redigerbara texter och företagsuppgifter
@@ -66,7 +82,7 @@ scripts/                  Validering, bygge och lokal förhandsvisning
 test/                     Automatiska tester
 ```
 
-Den tidigare versionen ligger kvar under `/legacy/` medan nya delar byggs från grunden. Detta minskar risken: varje ny modul kan jämföras med befintliga affärsflöden innan den gamla tas bort.
+Den tidigare versionen ligger kvar under `/legacy/` medan nya delar byggs från grunden. Varje ny modul kan därför jämföras med befintliga affärsflöden innan den gamla tas bort.
 
 ## Automatisk publicering
 
@@ -74,12 +90,12 @@ När en ändring slås ihop till `main` sker följande:
 
 1. Innehålls-, verksamhets- och behörighetsfiler valideras.
 2. JavaScript syntaxkontrolleras.
-3. Bokförings-, säkerhets-, penning-, behörighets- och grundtester körs.
+3. Bokförings-, säkerhets-, penning-, behörighets-, verifikations- och grundtester körs.
 4. Produktionsberoenden granskas.
 5. En statisk demo byggs.
 6. GitHub Pages publiceras automatiskt.
 
-En felaktig innehållsfil, okänd behörighet, bruten separationsregel eller ett testfel stoppar publiceringen.
+En felaktig innehållsfil, okänd behörighet, obalanserad verifikation, bruten separationsregel eller ett testfel stoppar publiceringen.
 
 ## Starta lokalt
 
@@ -112,6 +128,6 @@ npm run export:sie4i
 
 ## Långsiktig riktning
 
-Öreskärnan och den centrala behörighetsmotorn är nu separata, testade byggblock. Nästa tekniska lager är den nya verifikations- och periodmotorn ovanpå dessa regler, följt av reskontra, bank, lager, lön och rapportering som separata moduler. Se [målarkitekturen](docs/ARCHITECTURE-REBUILD.md) och [verksamhetsbesluten](docs/VERKSAMHETSBESLUT.md).
+Öreskärnan, behörighetsmotorn och verifikations-/periodmotorn är separata, testade byggblock. Nästa verksamhetslager är ny kund- och leverantörsreskontra ovanpå dessa regler, följt av bank, lager, lön och rapportering. Se [målarkitekturen](docs/ARCHITECTURE-REBUILD.md) och [verksamhetsbesluten](docs/VERKSAMHETSBESLUT.md).
 
 Skarp drift kommer senare att använda samma GitHub-repo men en riktig backend, transaktionsdatabas och skyddad dokumentlagring. GitHub förblir källan för programmet – inte databasen för företagets bokföring.
