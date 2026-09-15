@@ -93,6 +93,11 @@ test('obalans, ogiltiga konton, datum, reserverade typer och otillräcklig behö
     () => Journal.postEntry(ledger, balancedDraft(), context(auditor)),
     error => error.code === 'ACCESS_DENIED'
   );
+
+  assert.throws(
+    () => Journal.postEntry(ledger, balancedDraft(), context(auditor, {permissionId: 'reports.view'})),
+    error => error.code === 'ACCESS_DENIED'
+  );
   assert.equal(ledger.entries.length, 0);
 });
 
@@ -171,7 +176,13 @@ test('rättelse bevarar originalet och skapar motverifikation samt valfri ersät
   reversal.links.reversalOf = 'entry-wrong-target';
   const relinkReport = Journal.validateLedger(relinked);
   assert.equal(relinkReport.ok, false);
-  assert.ok(relinkReport.errors.some(error => /fel ursprungskoppling/.test(error)));
+  assert.ok(relinkReport.errors.some(error => /fel ursprungskoppling|saknar motsvarande rättelsepost/.test(error)));
+
+  const orphaned = structuredClone(corrected.state);
+  delete orphaned.corrections[posted.entry.id];
+  const orphanReport = Journal.validateLedger(orphaned);
+  assert.equal(orphanReport.ok, false);
+  assert.ok(orphanReport.errors.some(error => /saknar motsvarande rättelsepost/.test(error)));
 
   assert.throws(
     () => Journal.correctEntry(corrected.state, {
