@@ -10,6 +10,8 @@
       "accountant",
       "approver",
       "controller",
+      "sales",
+      "inventory-manager",
       "payroll-admin"
     ]
   },
