@@ -71,16 +71,18 @@ test('leverantörsattest kräver både rätt roll och en annan person', () => {
   assert.equal(wrongRole.code, 'ACCESS_DENIED');
 });
 
-test('felaktiga roller, dubbletter och okända behörigheter stoppas vid start', () => {
+test('felaktiga roller, dubbletter, fältnycklar och okända behörigheter stoppas vid start', () => {
   const broken = structuredClone(config);
   broken.permissions.push({...broken.permissions[0]});
   broken.roles[0].permissions.push('unknown.permission');
   broken.policy.mfaRequiredRoles.push('missing-role');
+  broken.workflows[0].fields[0].id = 'registered by';
 
   const report = AccessControl.validateConfig(broken);
   assert.equal(report.ok, false);
   assert.ok(report.errors.some(error => /Dubblerad behörighet/.test(error)));
   assert.ok(report.errors.some(error => /okänd behörighet/.test(error)));
   assert.ok(report.errors.some(error => /okänd roll/.test(error)));
+  assert.ok(report.errors.some(error => /fields\[0\]\.id har ogiltigt format/.test(error)));
   assert.throws(() => AccessControl.createModel(broken), error => error.code === 'INVALID_ACCESS_CONFIG');
 });
