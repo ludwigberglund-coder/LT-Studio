@@ -1,10 +1,4 @@
-const path = require('node:path');
-const os = require('node:os');
-let pdfLibrary;
-try { pdfLibrary = require('pdf-lib'); } catch {
-  pdfLibrary = require(path.join(os.homedir(), '.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/pdf-lib'));
-}
-const {PDFDocument,StandardFonts,rgb} = pdfLibrary;
+const {PDFDocument,StandardFonts,rgb} = require('pdf-lib');
 const Model = require('./public/invoice-model');
 async function invoicePdf(invoice,business) {
   const seller = invoice.seller || business;

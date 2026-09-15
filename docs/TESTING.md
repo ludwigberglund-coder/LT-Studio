@@ -2,22 +2,60 @@
 
 ## Automatiska tester
 
-Kör:
-
 ```powershell
-npm install
+npm ci
 npm test
 ```
 
-Testsviten täcker bokföringslogik och reskontraverktyg. `test/receivables-browser.cjs` innehåller en separat webbläsarkontroll för reskontraflöden och kräver Playwright/Microsoft Edge i miljön där den körs.
+Testsviten täcker bland annat:
 
-## Viktiga manuella kontrollflöden
-1. Skapa kundfaktura och kontrollera reskontra/restbelopp.
-2. Registrera delbetalning och kontrollera att fakturastatus, reskontra och verifikation uppdateras tillsammans.
-3. Importera CAMT.054 eller enkel BAM/text och kontrollera att osäkra poster hamnar i granskningskön.
-4. Registrera leverantörsfaktura/PDF och kontrollera atteststatus.
-5. Testa kvittning/omföring och kontrollera buntnummer och revisionsspår.
-6. Kontrollera dashboard, kund-/leverantörsregister och mobilnavigation.
+- kund- och leverantörsreskontra,
+- delbetalning, överbetalning, kvittning och omföring,
+- fakturering, PDF och idempotens,
+- balanserade verifikationer och unika buntnummer,
+- atomisk lagring, backupåterläsning och trasig revisionskedja,
+- tom normalstart utan automatisk demodata,
+- administratörsnyckel och sessionscookie,
+- säkerhetsrubriker, innehållstyp, storleksgräns, värdnamnskontroll och sökvägsskydd,
+- CSV-formelinjektion,
+- driftspärr och diagnostik när datalagret är korrupt.
+
+`test/receivables-browser.cjs` är ett separat webbläsartest som kräver Playwright och Microsoft Edge i testmiljön.
+
+## CI i GitHub
+
+`.github/workflows/ci.yml` kör vid pull request och push till `main`:
+
+1. `npm ci` från `package-lock.json`.
+2. Syntaxkontroll av all JavaScript-källkod.
+3. `npm test`.
+4. `npm audit --omit=dev --audit-level=high`.
+5. Byggnad av den statiska webbplatsen.
+6. Kontroll att `dist/` motsvarar `public/`.
+7. Tillfällig granskningsartefakt utan databas, hemligheter och installerade beroenden.
+
+## Datakontroll
+
+Mot ett valt datalager:
+
+```powershell
+$env:ROLLANDS_DATA_DIR = 'C:\RollandsData'
+npm run data:check
+```
+
+Kommandot ska avslutas med status 0 innan uppgradering eller driftstart. Varningar om demodata eller olåsta perioder måste bedömas manuellt.
+
+## Obligatoriska manuella acceptanstester före produktion
+
+1. Skapa, kreditera och betala fakturor med verklighetstrogna anonymiserade belopp.
+2. Kontrollera varje verifikation mot förväntad debet/kredit och moms.
+3. Återställ en säkerhetskopia i en separat miljö och jämför kontrollsummor och saldon.
+4. Importera bankens exakta CAMT/BAM-varianter, inklusive dubbletter, valuta, återföringar och samlingsposter.
+5. Kontrollera periodlås, behörighetsseparation och attest med flera verkliga roller.
+6. Prova export/import mot mottagande redovisnings- och revisionssystem.
+7. Låt redovisningskonsult/revisor godkänna kontoplan, momsflöden, bokslut och arkiveringsrutiner.
+8. Genomför extern säkerhetsgranskning av den verkliga driftsmiljön.
 
 ## Miljönotering
-I en begränsad körmiljö där `npm install` inte kan hämta `pdf-lib` kommer server-/PDF-relaterade tester inte att kunna starta. JavaScript-syntax och de fristående reskontratesterna kan fortfarande valideras separat. På en normal utvecklingsdator installerar `npm install` det deklarerade beroendet.
+
+Server- och PDF-tester kräver `pdf-lib`. Beroendet ska installeras via `npm ci`; det finns inte längre någon maskinspecifik reservsökväg. En miljö som inte kan nå npm-registret kan fortfarande köra syntaxkontroll och fristående tester, men det ersätter inte den fullständiga CI-körningen.

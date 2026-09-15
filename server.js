@@ -1,17 +1,29 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const os = require('node:os');
 const crypto = require('node:crypto');
 const Finance = require('./public/finance.js');
+const AccountPlan = require('./public/account-plan.js');
+const Store = require('./lib/store.js');
 
 const root = __dirname;
 const publicDir = path.join(root, 'public');
-// ROLLANDS_DATA_DIR should point to a persistent, access-controlled application-data folder in production.
-// The temporary default keeps the local demo writable even when the source folder is a cloud-synchronised workspace.
-const dataDir = process.env.ROLLANDS_DATA_DIR || path.join(os.tmpdir(), 'rollands-ekonomi');
+const publicDirReal = fs.realpathSync(publicDir);
+const dataDir = Store.resolveDataDir();
 const dataFile = path.join(dataDir, 'store.json');
 const port = Number(process.env.PORT || 4173);
+const host = String(process.env.ROLLANDS_HOST || '127.0.0.1').trim();
+const timeZone = String(process.env.ROLLANDS_TIME_ZONE || 'Europe/Stockholm').trim();
+const demoDataEnabled = process.env.ROLLANDS_DEMO_DATA === '1';
+const adminToken = String(process.env.ROLLANDS_ADMIN_TOKEN || '');
+const secureCookie = process.env.ROLLANDS_SECURE_COOKIE === '1';
+const configuredAllowedHosts = String(process.env.ROLLANDS_ALLOWED_HOSTS || '').split(',').map(value => value.trim()).filter(Boolean);
+const configuredMaxRequestBytes = Number(process.env.ROLLANDS_MAX_REQUEST_BYTES || 4_000_000);
+const maxRequestBytes = Number.isSafeInteger(configuredMaxRequestBytes)
+  ? Math.max(64 * 1024, Math.min(20 * 1024 * 1024, configuredMaxRequestBytes))
+  : 4_000_000;
+const sessions = new Map();
+const loginAttempts = new Map();
 
 const mime = {
   '.css': 'text/css; charset=utf-8',
@@ -25,8 +37,14 @@ const {invoicePdf} = require('./invoice-pdf');
 const InvoiceModel = require('./public/invoice-model');
 
 function money(n) { return Math.round(Number(n || 0)); }
-function id(prefix) { return `${prefix}_${crypto.randomUUID().slice(0, 8)}`; }
-function today() { return new Date().toISOString().slice(0, 10); }
+function id(prefix) { return `${prefix}_${crypto.randomUUID()}`; }
+function today() {
+  return new Intl.DateTimeFormat('sv-SE', {timeZone, year: 'numeric', month: '2-digit', day: '2-digit'}).format(new Date());
+}
+function currentFiscalYear() {
+  const year = Number(today().slice(0, 4));
+  return `${year}-01-01 – ${year}-12-31`;
+}
 function isoToSwedish(value) {
   if (!value) return today();
   const raw = value.trim();
@@ -40,6 +58,39 @@ function decodeXml(value = '') {
 function xmlText(xml, tag) {
   const match = xml.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, 'i'));
   return match ? decodeXml(match[1].replace(/<[^>]+>/g, '').trim()) : '';
+}
+
+function emptyState() {
+  return {
+    business: {
+      name: 'Rollands Frukt och Grönt AB',
+      displayName: 'Rollands Saluhall',
+      orgNumber: '556406-5059',
+      address: 'Bolshedens Industriväg 22, 427 50 Billdal',
+      phone: '031-91 32 23',
+      email: 'frukt@rollands.se',
+      sni: '47210 – Detaljhandel med frukt och grönsaker',
+      vatNumber: 'SE556406505901'
+    },
+    settings: {
+      fiscalYear: currentFiscalYear(),
+      bankAccount: '1930 Företagskonto',
+      aiAutoBookLimit: 0.92,
+      emailInbox: 'fakturor@rollands.se',
+      attestResponsible: 'Ej angiven',
+      attestSubstitute: 'Ej angiven',
+      lastBankImport: '',
+      lastInvoiceEmail: '',
+      lockedPeriods: []
+    },
+    invoices: [],
+    supplierInvoices: [],
+    bankTransactions: [],
+    journal: [],
+    activity: [],
+    auditLog: [],
+    schemaVersion: 5
+  };
 }
 
 function seedState() {
@@ -83,9 +134,9 @@ function seedState() {
       { id: 'bank_004', date: '2026-09-08', text: 'KORTKÖP MARKETPLACE', amount: -459, direction: 'out', reference: '', status: 'Granska', confidence: 0.38, proposal: 'Ingen säker bokning', account: '', transactionRef: 'HB-20260908-017', reason: 'Okänd leverantör. Behöver kvitto eller konto.' }
     ],
     journal: [
-      { id: 'ver_A25', date: '2026-09-10', series: 'A', number: 'A25', description: 'Inbetalning kundfaktura 2026-1004', rows: [{ account: '1930 Företagskonto', debit: 4375, credit: 0 }, { account: '1510 Kundfordringar', debit: 0, credit: 4375 }], source: 'Bankimport' },
-      { id: 'ver_A24', date: '2026-09-10', series: 'A', number: 'A24', description: 'Betalning KE-442881', rows: [{ account: '2440 Leverantörsskulder', debit: 1890, credit: 0 }, { account: '1930 Företagskonto', debit: 0, credit: 1890 }], source: 'Bankimport' },
-      { id: 'ver_A23', date: '2026-09-09', series: 'A', number: 'A23', description: 'Inköp Berglunds Bageri, BG-20918', rows: [{ account: '4010 Inköp av varor', debit: 2608, credit: 0 }, { account: '2641 Ingående moms', debit: 652, credit: 0 }, { account: '2440 Leverantörsskulder', debit: 0, credit: 3260 }], source: 'E-post PDF' }
+      { id: 'ver_A25', date: '2026-09-10', postingDate: '2026-09-10', series: 'A', number: 'A25', batchNumber: '1025', description: 'Inbetalning kundfaktura 2026-1004', rows: [{ account: '1930 Företagskonto', debit: 4375, credit: 0 }, { account: '1510 Kundfordringar', debit: 0, credit: 4375 }], source: 'Bankimport' },
+      { id: 'ver_A24', date: '2026-09-10', postingDate: '2026-09-10', series: 'A', number: 'A24', batchNumber: '1024', description: 'Betalning KE-442881', rows: [{ account: '2440 Leverantörsskulder', debit: 1890, credit: 0 }, { account: '1930 Företagskonto', debit: 0, credit: 1890 }], source: 'Bankimport' },
+      { id: 'ver_A23', date: '2026-09-09', postingDate: '2026-09-09', series: 'A', number: 'A23', batchNumber: '1023', description: 'Inköp Berglunds Bageri, BG-20918', rows: [{ account: '4010 Inköp av varor', debit: 2608, credit: 0 }, { account: '2641 Ingående moms', debit: 652, credit: 0 }, { account: '2440 Leverantörsskulder', debit: 0, credit: 3260 }], source: 'E-post PDF' }
     ],
     activity: [
       { time: '09:42', text: 'AI matchade inbetalning 4 375 kr mot faktura 2026-1004.', kind: 'success' },
@@ -123,12 +174,12 @@ function addExpandedTestData(store) {
   const suppliers = [
     ['test_s01','L-4101','Frukt & Grönt Grossisten Väst AB','FGV-60101',4820,'2026-09-05','2026-09-19','4010 Inköp av varor','Attest väntar'],
     ['test_s02','L-4102','Bergs Kaffe & Te AB','BKT-88412',2140,'2026-09-07','2026-09-21','4010 Inköp av varor','Bokförd'],
-    ['test_s03','L-4103','Göteborgs Kylservice AB','GK-202609',3380,'2026-09-08','2020 Reparation och underhåll','Attest väntar'],
-    ['test_s04','L-4104','Västfrakt Logistik AB','VF-77102',7650,'2026-09-09','5710 Frakt och transport','Bokförd'],
-    ['test_s05','L-4105','Billdal Kontorsmaterial AB','BK-44381',1280,'2026-09-10','5460 Förbrukningsmaterial','Attest väntar'],
-    ['test_s06','L-4106','Handelsbanken Företag','HB-09-2026',920,'2026-09-11','6570 Bankkostnader','Bokförd'],
-    ['test_s07','L-4107','Ren Stad Göteborg AB','RS-99201',1890,'2026-09-12','5060 Städning','Attest väntar'],
-    ['test_s08','L-4108','Matgrossisten Väst AB','MG-77119',6380,'2026-09-13','4010 Inköp av varor','Bokförd']
+    ['test_s03','L-4103','Göteborgs Kylservice AB','GK-202609',3380,'2026-09-08','2026-09-22','5500 Reparation och underhåll','Attest väntar'],
+    ['test_s04','L-4104','Västfrakt Logistik AB','VF-77102',7650,'2026-09-09','2026-09-23','5710 Frakter och transporter','Bokförd'],
+    ['test_s05','L-4105','Billdal Kontorsmaterial AB','BK-44381',1280,'2026-09-10','2026-09-24','5460 Förbrukningsmaterial','Attest väntar'],
+    ['test_s06','L-4106','Handelsbanken Företag','HB-09-2026',920,'2026-09-11','2026-09-25','6570 Bankkostnader','Bokförd'],
+    ['test_s07','L-4107','Ren Stad Göteborg AB','RS-99201',1890,'2026-09-12','2026-09-26','5060 Städning och renhållning','Attest väntar'],
+    ['test_s08','L-4108','Matgrossisten Väst AB','MG-77119',6380,'2026-09-13','2026-09-27','4010 Inköp av varor','Bokförd']
   ];
   const supplierRows = suppliers.map(([idValue, supplierNumber, supplier, invoiceNumber, total, received, dueDate, suggestedAccount, status], index) => ({ id:idValue, supplierNumber, supplier, invoiceNumber, received, dueDate, total, net:Math.round(total/1.12), vat:total-Math.round(total/1.12), suggestedAccount, status, source:'E-post PDF', confidence: index % 3 === 0 ? .78 : .96, payments: status === 'Bokförd' && index % 2 === 1 ? [{id:`${idValue}_pay`, amount:total, date:'2026-09-14', method:'Bank', reference:`TEST-LEV-${index+1}`, journalNumber:`A${200+index}`}] : [] }));
   const bank = [
@@ -145,7 +196,7 @@ function addExpandedTestData(store) {
   store.invoices.push(...invoiceRows);
   store.supplierInvoices.push(...supplierRows);
   store.bankTransactions.push(...bank);
-  store.journal.push(...journals, {id:'test_v_diff',date:'2026-09-14',series:'A',number:'A999',description:'TESTDATA – avstämningsdiff för manuell åtgärd',source:'Testdata',rows:[{account:'1930 Företagskonto',debit:1250,credit:0},{account:'6570 Bankkostnader',debit:0,credit:1200}]});
+  store.journal.push(...journals);
   store.activity.unshift({time:'09:10',text:'Testdata v2: 12 kundfakturor, 8 leverantörsfakturor och 8 bankhändelser har lagts till.',kind:'notice'});
   store.settings.testDataVersion = 2;
   return true;
@@ -174,32 +225,65 @@ function ensureBatchNumbers(store) {
 }
 
 function ensureStore() {
-  fs.mkdirSync(dataDir, { recursive: true });
-  const needsSeed = !fs.existsSync(dataFile) || !JSON.parse(fs.readFileSync(dataFile, 'utf8')).business;
-  if (needsSeed) fs.writeFileSync(dataFile, JSON.stringify(seedState(), null, 2));
+  fs.mkdirSync(dataDir, {recursive: true, mode: 0o700});
+  if (!fs.existsSync(dataFile) && !fs.existsSync(`${dataFile}.bak`)) Store.atomicWriteJson(dataFile, demoDataEnabled ? seedState() : emptyState());
 }
-function readStore() {
+function readStore({allowInvalid = false} = {}) {
   ensureStore();
-  const store = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-  const expanded = addExpandedTestData(store);
+  const loaded = Store.loadJsonWithBackup(dataFile);
+  const store = loaded.data;
+  const expanded = demoDataEnabled ? addExpandedTestData(store) : false;
   const migrate = store.schemaVersion !== 5;
   Finance.normalize(store);
   const batches = ensureBatchNumbers(store);
   let auditBackfilled = false;
   if (!store.auditLog.length && store.journal?.length) {
-    store.auditLog = store.journal.slice(0, 100).map(entry => ({ id: id('audit'), at: `${entry.date}T12:00:00.000Z`, actor: 'Systemimport', action: 'VERIFIKATION_IMPORTERAD', details: `${entry.number}: ${entry.description}` }));
+    store.auditLog = [];
+    for (const entry of [...store.journal].reverse()) {
+      Store.appendAudit(store, {id: id('audit'), at: `${entry.date}T12:00:00.000Z`, actor: 'Systemimport', action: 'VERIFIKATION_IMPORTERAD', details: `${entry.number}: ${entry.description}`});
+    }
     auditBackfilled = true;
   }
-  if (migrate || auditBackfilled || expanded || batches) writeStore(store);
+  const auditChained = Store.ensureAuditChain(store);
+  let recovered = false;
+  if (loaded.recovered) {
+    recovered = true;
+    const corruptFile = `${dataFile}.corrupt-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+    if (fs.existsSync(dataFile)) fs.renameSync(dataFile, corruptFile);
+    Store.appendAudit(store, {id: id('audit'), at: new Date().toISOString(), actor: 'System', action: 'DATALAGER_ÅTERSTÄLLT', details: `Primärfilen kunde inte läsas. Återställd från ${path.basename(loaded.source)}.`});
+  }
+  const report = Store.validateStore(store);
+  if (!report.ok && !allowInvalid) {
+    const error = new Store.IntegrityError(`Datalagret är spärrat: ${report.errors[0]}`, report);
+    error.statusCode = 503;
+    throw error;
+  }
+  if ((migrate || auditBackfilled || expanded || batches || auditChained || recovered) && report.ok) writeStore(store);
   return store;
 }
-function writeStore(data) { fs.writeFileSync(dataFile, JSON.stringify(data, null, 2)); }
-function send(res, status, body, type = 'application/json; charset=utf-8') {
-  res.writeHead(status, { 'Content-Type': type, 'Cache-Control': 'no-store' });
-  res.end(type.includes('json') ? JSON.stringify(body) : body);
+function writeStore(data) { return Store.atomicWriteJson(dataFile, data); }
+const baseSecurityHeaders = {
+  'Cache-Control': 'no-store',
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Resource-Policy': 'same-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+  'Referrer-Policy': 'no-referrer',
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY'
+};
+function responseHeaders(extra = {}) {
+  return {...baseSecurityHeaders, ...(secureCookie ? {'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'} : {}), ...extra};
+}
+function send(res, status, body, type = 'application/json; charset=utf-8', extraHeaders = {}) {
+  if (res.writableEnded) return;
+  const content = type.includes('json') ? JSON.stringify(body) : body;
+  res.writeHead(status, responseHeaders({'Content-Type': type, ...extraHeaders}));
+  if (res.req?.method === 'HEAD') return res.end();
+  res.end(content);
 }
 function appendActivity(store, text, kind = 'notice') {
-  const time = new Intl.DateTimeFormat('sv-SE', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+  const time = new Intl.DateTimeFormat('sv-SE', { timeZone, hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
   store.activity.unshift({ time, text, kind });
   store.activity = store.activity.slice(0, 12);
 }
@@ -211,9 +295,7 @@ function assertOpenPeriod(store, dateValue) {
   if (isPeriodLocked(store, dateValue)) throw new Error(`Bokföringsperioden ${String(dateValue).slice(0, 7)} är låst. Skapa en motverifikation i en öppen period.`);
 }
 function appendAudit(store, action, details, actor = 'Administratör') {
-  store.auditLog ||= [];
-  store.auditLog.unshift({ id: id('audit'), at: new Date().toISOString(), actor, action, details });
-  store.auditLog = store.auditLog.slice(0, 300);
+  return Store.appendAudit(store, {id: id('audit'), at: new Date().toISOString(), actor, action, details});
 }
 function nextInvoiceNumber(store) {
   const used = new Set();
@@ -351,8 +433,8 @@ function reclassifyPayment(store, payload) {
 function writeOff(store, kind, invoice, reason, account) {
   const remaining = Math.abs(Finance.remaining(invoice));
   if (Finance.remaining(invoice)<=0 || invoice.status === 'Attest väntar') throw new Error('Posten kan inte bokas ut i nuvarande läge.');
-  const target = account || (kind === 'customer' ? '6351 Kundförluster' : '6990 Övriga externa kostnader');
-  if (!/^[3-8]\d{3}\s/.test(target)) throw new Error('Välj ett giltigt resultatkonto för utbokningen.');
+  const target = canonicalAccount(account || (kind === 'customer' ? '6351' : '6990'), /^[3-8]\d{3}(?=\s|$)/);
+  if (!target) throw new Error('Välj ett giltigt resultatkonto ur kontoplanen för utbokningen.');
   const rows = kind === 'customer' ? [{ account: target, debit: remaining, credit: 0 }, { account: '1510 Kundfordringar', debit: 0, credit: remaining }] : [{ account: '2440 Leverantörsskulder', debit: remaining, credit: 0 }, { account: target, debit: 0, credit: remaining }];
   const entry = addJournal(store, { date: today(), description: `Utbokning ${Finance.invoiceNumber(invoice)} – ${reason || 'Korrigering'}`, rows, source: 'Manuell utbokning' });
   invoice.writeOffAmount = money((invoice.writeOffAmount || 0) + remaining); invoice.writeOffDate = entry.date; invoice.writeOffJournalNumber = entry.number; invoice.writeOffReason = reason || 'Korrigering'; invoice.status = 'Avskriven'; invoice.paid = true;
@@ -416,7 +498,7 @@ function parseBam(text, store) {
     if (!Number.isFinite(parsedAmount) || parsedAmount === 0) return;
     const date = isoToSwedish(cells[0]);
     const textValue = cells.slice(1, -1).join(' ') || 'Banktransaktion från BAM';
-    const transactionRef = `BAM-${date.replace(/-/g, '')}-${index + 1}`;
+    const transactionRef = `BAM-${date.replace(/-/g, '')}-${crypto.createHash('sha256').update(line).digest('hex').slice(0, 20)}`;
     if (existingRefs.has(transactionRef)) return;
     const invoice = store.invoices.find(inv => !inv.paid && (textValue.includes(inv.number) || Math.abs(inv.total - Math.abs(parsedAmount)) < 0.01));
     const supplier = store.supplierInvoices.find(inv => inv.status !== 'Betald' && (textValue.includes(inv.invoiceNumber) || Math.abs(inv.total - Math.abs(parsedAmount)) < 0.01));
@@ -451,29 +533,140 @@ function autoBookMatches(store, transactions) {
   return booked;
 }
 function matches(value, query) { return String(value || '').toLowerCase().includes(String(query || '').toLowerCase()); }
+function normalizeHostname(value) {
+  const raw = String(value || '').trim().toLowerCase().replace(/\.$/, '');
+  if (!raw) return '';
+  if (raw === '::' || raw === '::1') return raw;
+  try { return new URL(`http://${raw}`).hostname.replace(/^\[|\]$/g, '').replace(/\.$/, ''); }
+  catch { return raw.replace(/^\[|\]$/g, '').split(':')[0]; }
+}
+function isLoopbackHost(value) {
+  return ['127.0.0.1', 'localhost', '::1'].includes(normalizeHostname(value));
+}
+function requestHostAllowed(req) {
+  const requested = normalizeHostname(req.headers.host);
+  if (!requested) return false;
+  if (isLoopbackHost(requested)) return true;
+  const allowed = new Set(configuredAllowedHosts.map(normalizeHostname).filter(Boolean));
+  const bound = normalizeHostname(host);
+  if (!['0.0.0.0', '::'].includes(bound)) allowed.add(bound);
+  return allowed.has(requested);
+}
+function safeEqual(left, right) {
+  const a = Buffer.from(String(left || ''));
+  const b = Buffer.from(String(right || ''));
+  return a.length === b.length && a.length > 0 && crypto.timingSafeEqual(a, b);
+}
+function parseCookies(req) {
+  const cookies = {};
+  for (const part of String(req.headers.cookie || '').split(';').map(value => value.trim()).filter(Boolean)) {
+    const index = part.indexOf('=');
+    const key = index < 0 ? part : part.slice(0, index);
+    try { cookies[key] = index < 0 ? '' : decodeURIComponent(part.slice(index + 1)); }
+    catch { cookies[key] = ''; }
+  }
+  return cookies;
+}
+function cleanSessions() {
+  const now = Date.now();
+  for (const [sessionId, session] of sessions) if (session.expiresAt <= now) sessions.delete(sessionId);
+  for (const [address, attempt] of loginAttempts) if (attempt.resetAt <= now) loginAttempts.delete(address);
+}
+function bearerToken(req) {
+  const authorization = String(req.headers.authorization || '');
+  return authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : String(req.headers['x-rollands-token'] || '').trim();
+}
+function isAuthenticated(req) {
+  if (!adminToken) return true;
+  cleanSessions();
+  if (safeEqual(bearerToken(req), adminToken)) return true;
+  const sessionId = parseCookies(req).rollands_session;
+  const session = sessionId && sessions.get(sessionId);
+  if (!session || session.expiresAt <= Date.now()) return false;
+  session.expiresAt = Date.now() + 8 * 60 * 60 * 1000;
+  return true;
+}
+function recordLoginFailure(req) {
+  const address = req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const current = loginAttempts.get(address);
+  const attempt = !current || current.resetAt <= now ? {count: 0, resetAt: now + 15 * 60 * 1000} : current;
+  attempt.count += 1;
+  loginAttempts.set(address, attempt);
+  return attempt;
+}
+function loginBlocked(req) {
+  cleanSessions();
+  const attempt = loginAttempts.get(req.socket.remoteAddress || 'unknown');
+  return attempt && attempt.count >= 5 && attempt.resetAt > Date.now();
+}
+function sessionCookie(value, maxAge = 8 * 60 * 60) {
+  return `rollands_session=${encodeURIComponent(value)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${secureCookie ? '; Secure' : ''}`;
+}
+function handleSession(req, res, payload) {
+  if (req.method === 'GET') return send(res, 200, {required: Boolean(adminToken), authenticated: isAuthenticated(req)});
+  if (req.method !== 'POST') return send(res, 405, {error: 'Metoden stöds inte.'}, 'application/json; charset=utf-8', {Allow: 'GET, POST'});
+  if (!adminToken) return send(res, 200, {required: false, authenticated: true});
+  if (loginBlocked(req)) return send(res, 429, {error: 'För många felaktiga försök. Vänta 15 minuter och försök igen.'}, 'application/json; charset=utf-8', {'Retry-After': '900'});
+  if (!safeEqual(payload.token, adminToken)) {
+    recordLoginFailure(req);
+    return send(res, 401, {error: 'Administratörsnyckeln är felaktig.'}, 'application/json; charset=utf-8', {'WWW-Authenticate': 'Bearer realm="Rollands Ekonomi"'});
+  }
+  loginAttempts.delete(req.socket.remoteAddress || 'unknown');
+  const sessionId = crypto.randomBytes(32).toString('base64url');
+  sessions.set(sessionId, {createdAt: Date.now(), expiresAt: Date.now() + 8 * 60 * 60 * 1000});
+  return send(res, 200, {required: true, authenticated: true}, 'application/json; charset=utf-8', {'Set-Cookie': sessionCookie(sessionId)});
+}
+function requireAuthentication(req, res) {
+  if (isAuthenticated(req)) return true;
+  send(res, 401, {error: 'Autentisering krävs.'}, 'application/json; charset=utf-8', {'WWW-Authenticate': 'Bearer realm="Rollands Ekonomi"'});
+  return false;
+}
+function canonicalAccount(value, pattern) {
+  const code = String(value || '').trim().match(pattern)?.[0];
+  const selected = code && AccountPlan.byCode[code];
+  return selected ? `${selected.code} ${selected.name}` : '';
+}
+function safeFilename(value, fallback) {
+  const cleaned = String(value || '').replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+  return cleaned || fallback;
+}
+function sendError(res, error) {
+  if (res.writableEnded) return;
+  if (error?.code === 'STORE_INTEGRITY_ERROR') return send(res, error.statusCode || 409, {error: error.message, integrity: error.report});
+  if (error?.code === 'STORE_READ_ERROR') return send(res, 503, {error: 'Datalagret kan inte läsas. Kontrollera säkerhetskopian innan fler ändringar görs.'});
+  const status = error?.statusCode || 400;
+  return send(res, status, {error: status >= 500 ? 'Ett internt fel uppstod.' : String(error?.message || 'Begäran kunde inte behandlas.')});
+}
 async function handleApi(req, res, url, payload) {
-  let store = readStore();
+  if (url.pathname === '/api/session') return handleSession(req, res, payload);
+  if (url.pathname === '/api/health' && !isAuthenticated(req)) return send(res, 200, {ok: true, authenticated: false, authenticationRequired: Boolean(adminToken), demoMode: demoDataEnabled});
+  if (!requireAuthentication(req, res)) return;
+  const healthRequest = req.method === 'GET' && url.pathname === '/api/health';
+  let store = readStore({allowInvalid: healthRequest});
+  if (healthRequest) {
+    const integrity = Store.validateStore(store);
+    return send(res, integrity.ok ? 200 : 503, {ok: integrity.ok, authenticated: true, authenticationRequired: Boolean(adminToken), demoMode: demoDataEnabled, integrity});
+  }
   if (req.method === 'GET' && url.pathname === '/api/state') return send(res, 200, store);
   if (req.method === 'GET' && url.pathname === '/api/export/reskontra') {
     const kind = url.searchParams.get('kind');
     if (!['customer', 'supplier'].includes(kind)) return send(res, 422, { error: 'Välj reskontratyp.' });
     const filters = Object.fromEntries(url.searchParams.entries());
-    res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="rollands-${kind === 'customer' ? 'kund' : 'leverantors'}reskontra.csv"` });
-    return res.end(Finance.csv(Finance.items(store, kind, filters)));
+    return send(res, 200, Finance.csv(Finance.items(store, kind, filters)), 'text/csv; charset=utf-8', {'Content-Disposition': `attachment; filename="rollands-${kind === 'customer' ? 'kund' : 'leverantors'}reskontra.csv"`});
   }
   if (req.method === 'GET' && url.pathname === '/api/export/excel') {
-    const header = 'Datum;Verifikation;Beskrivning;Konto;Debet;Kredit;Källa';
-    const rows = store.journal.flatMap(entry => entry.rows.map(row => [entry.date, entry.number, `"${entry.description.replace(/"/g, '""')}"`, row.account, row.debit || '', row.credit || '', entry.source].join(';')));
-    res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="rollands-bokforing.csv"' });
-    return res.end('\uFEFF' + [header, ...rows].join('\n'));
+    const header = ['Datum', 'Verifikation', 'Beskrivning', 'Konto', 'Debet', 'Kredit', 'Källa'].map(Finance.csvCell).join(';');
+    const rows = store.journal.flatMap(entry => entry.rows.map(row => [entry.date, entry.number, entry.description, row.account, row.debit || '', row.credit || '', entry.source].map(Finance.csvCell).join(';')));
+    return send(res, 200, '\uFEFF' + [header, ...rows].join('\r\n'), 'text/csv; charset=utf-8', {'Content-Disposition': 'attachment; filename="rollands-bokforing.csv"'});
   }
   const pdfMatch = url.pathname.match(/^\/api\/invoices\/([^/]+)\/pdf$/);
   if (req.method === 'GET' && pdfMatch) {
     const invoice = store.invoices.find(item => item.id === pdfMatch[1]);
     if (!invoice) return send(res, 404, 'Fakturan hittades inte.', 'text/plain; charset=utf-8');
     const pdf = invoice.pdfBase64 && invoice.pdfLayoutVersion===2 ? Buffer.from(invoice.pdfBase64,'base64') : await invoicePdf(invoice, invoice.seller || store.business);
-    res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Disposition': `${url.searchParams.has('download')?'attachment':'inline'}; filename="rollands-${invoice.number}.pdf"`, 'Cache-Control': 'no-store' });
-    return res.end(pdf);
+    const filename = safeFilename(invoice.number, 'faktura');
+    return send(res, 200, pdf, 'application/pdf', {'Content-Disposition': `${url.searchParams.has('download') ? 'attachment' : 'inline'}; filename="rollands-${filename}.pdf"`});
   }
   if (req.method !== 'POST') return send(res, 404, { error: 'Hittades inte' });
 
@@ -562,7 +755,7 @@ async function handleApi(req, res, url, payload) {
   }
   if (url.pathname === '/api/period-locks') {
     const period = String(payload.period || '').trim();
-    if (!/^\d{4}-\d{2}$/.test(period)) return send(res, 422, { error: 'Ange en period i formatet ÅÅÅÅ-MM.' });
+    if (!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(period)) return send(res, 422, { error: 'Ange en giltig period i formatet ÅÅÅÅ-MM.' });
     store.settings.lockedPeriods ||= [];
     if (payload.action === 'unlock') store.settings.lockedPeriods = store.settings.lockedPeriods.filter(item => item !== period);
     else if (payload.action === 'lock') store.settings.lockedPeriods = [...new Set([...store.settings.lockedPeriods, period])].sort();
@@ -617,16 +810,21 @@ async function handleApi(req, res, url, payload) {
     return send(res,201,{invoice,store});
   }
   if (url.pathname === '/api/supplier-invoices') {
+    const supplier = String(payload.supplier || '').trim();
+    const invoiceNumber = String(payload.invoiceNumber || '').trim();
+    const source = String(payload.source || 'Manuell registrering').trim();
     const net = money(payload.net || 0);
-    if (!String(payload.supplier || '').trim() || !Number.isFinite(net) || net <= 0 || ![0,6,12,25].includes(Number(payload.vatRate ?? 25))) return send(res, 422, { error: 'Ange leverantör, belopp och giltig moms.' });
-    const vatRate = Number(payload.vatRate ?? 25) / 100;
-    const invoice = { id: id('sup'), supplier: payload.supplier.trim(), invoiceNumber: (payload.invoiceNumber || `PDF-${Date.now().toString().slice(-5)}`).trim(), received: payload.received || today(), dueDate: payload.dueDate || today(), net, vat: money(net * vatRate), total: money(net * (1 + vatRate)), suggestedAccount: payload.account || '4010 Inköp av varor', status: 'Attest väntar', source: payload.source || 'E-post PDF', confidence: Number(payload.confidence ?? 0) };
-    if (!Finance.validDate(invoice.received) || !Finance.validDate(invoice.dueDate) || invoice.dueDate < invoice.received) return send(res, 422, { error: 'Kontrollera faktura- och förfallodatum.' });
-    if (store.supplierInvoices.some(i => i.supplier.toLocaleLowerCase() === invoice.supplier.toLocaleLowerCase() && i.invoiceNumber === invoice.invoiceNumber)) return send(res, 409, { error: 'Leverantörens fakturanummer finns redan.' });
-    invoice.payments = [];
+    const vatPercent = Number(payload.vatRate ?? 25);
+    const suggestedAccount = canonicalAccount(payload.account || '4010', /^(?:[4-7]\d{3}|84\d{2})(?=\s|$)/);
+    if (!supplier || supplier.length > 200 || !invoiceNumber || invoiceNumber.length > 100 || !Number.isSafeInteger(net) || net <= 0 || net > 100_000_000 || ![0,6,12,25].includes(vatPercent) || !suggestedAccount) return send(res, 422, { error: 'Ange leverantör, fakturanummer, heltalsbelopp, giltig moms och kostnadskonto.' });
+    const vat = money(net * vatPercent / 100);
+    const invoice = {id: id('sup'), supplier, invoiceNumber, received: String(payload.received || today()).slice(0, 10), dueDate: String(payload.dueDate || today()).slice(0, 10), net, vat, total: net + vat, suggestedAccount, status: 'Attest väntar', source: source.slice(0, 240), confidence: Math.max(0, Math.min(1, Number(payload.confidence ?? 0) || 0)), payments: []};
+    if (!Finance.validDate(invoice.received) || !Finance.validDate(invoice.dueDate) || invoice.dueDate < invoice.received || invoice.received > today()) return send(res, 422, { error: 'Kontrollera faktura- och förfallodatum.' });
+    if (store.supplierInvoices.some(i => i.supplier.toLocaleLowerCase('sv') === invoice.supplier.toLocaleLowerCase('sv') && String(i.invoiceNumber).toLocaleLowerCase('sv') === invoice.invoiceNumber.toLocaleLowerCase('sv'))) return send(res, 409, { error: 'Leverantörens fakturanummer finns redan.' });
     store.supplierInvoices.unshift(invoice);
     if (/e-post|email/i.test(invoice.source)) store.settings.lastInvoiceEmail = invoice.received;
     appendActivity(store, `Leverantörsfaktura ${invoice.invoiceNumber} lades i attestflödet.`, 'notice');
+    appendAudit(store, 'LEVERANTÖRSFAKTURA_REGISTRERAD', `${invoice.invoiceNumber}: ${invoice.supplier}, ${invoice.total} kr.`);
     writeStore(store);
     return send(res, 201, { invoice, store });
   }
@@ -657,10 +855,8 @@ async function handleApi(req, res, url, payload) {
     }
     if (payload.action !== 'book') return send(res, 422, { error: 'Välj fakturamatchning eller kontobokning.' });
     const pattern = tx.amount > 0 ? /^3\d{3}(?=\s|$)/ : /^(?:[4-7]\d{3}|84\d{2})(?=\s|$)/;
-    const code = String(payload.account || '').match(pattern)?.[0];
-    const selectedAccount = code && require('./public/account-plan.js').byCode[code];
-    if (!selectedAccount) return send(res, 422, { error: tx.amount > 0 ? 'Välj ett intäktskonto ur kontoplanen för inbetalningen.' : 'Välj ett kostnadskonto ur kontoplanen för utbetalningen.' });
-    const account = `${selectedAccount.code} ${selectedAccount.name}`;
+    const account = canonicalAccount(payload.account, pattern);
+    if (!account) return send(res, 422, { error: tx.amount > 0 ? 'Välj ett intäktskonto ur kontoplanen för inbetalningen.' : 'Välj ett kostnadskonto ur kontoplanen för utbetalningen.' });
     tx.status = 'Bokförd'; tx.proposal = `Manuellt bokförd på ${account}`; tx.account = account;
     const isIncoming = tx.amount > 0;
     const entry = addJournal(store, { date: tx.date, description: `${tx.text} (${tx.transactionRef})`, rows: isIncoming ? [{ account: '1930 Företagskonto', debit: tx.amount, credit: 0 }, { account, debit: 0, credit: tx.amount }] : [{ account, debit: Math.abs(tx.amount), credit: 0 }, { account: '1930 Företagskonto', debit: 0, credit: Math.abs(tx.amount) }], source: 'Bankavstämning' });
@@ -675,8 +871,14 @@ async function handleApi(req, res, url, payload) {
     if (invoice.status !== 'Attest väntar') return send(res, 409, { error: 'Fakturan är redan attesterad.' });
     const postingDate = String(payload.postingDate || today()).slice(0,10);
     if (!Finance.validDate(postingDate) || postingDate > today()) return send(res, 422, { error: 'Bokföringsdagen måste vara giltig och får inte ligga framåt i tiden.' });
+    const expenseAccount = canonicalAccount(invoice.suggestedAccount, /^(?:[4-7]\d{3}|84\d{2})(?=\s|$)/);
+    if (!expenseAccount) return send(res, 422, {error: 'Fakturans kostnadskonto finns inte i kontoplanen.'});
+    invoice.suggestedAccount = expenseAccount;
     invoice.status = 'Bokförd';
-    const entry = addJournal(store, { date: postingDate, description: `Inköp ${invoice.supplier}, ${invoice.invoiceNumber}`, rows: [{ account: invoice.suggestedAccount, debit: invoice.net, credit: 0 }, { account: '2641 Ingående moms', debit: invoice.vat, credit: 0 }, { account: '2440 Leverantörsskulder', debit: 0, credit: invoice.total }], source: invoice.source });
+    const rows = [{account: expenseAccount, debit: invoice.net, credit: 0}];
+    if (invoice.vat) rows.push({account: '2641 Ingående moms', debit: invoice.vat, credit: 0});
+    rows.push({account: '2440 Leverantörsskulder', debit: 0, credit: invoice.total});
+    const entry = addJournal(store, {date: postingDate, description: `Inköp ${invoice.supplier}, ${invoice.invoiceNumber}`, rows, source: invoice.source});
     invoice.journalNumber = entry.number; invoice.bookedDate = entry.date; invoice.postingDate = entry.postingDate; invoice.batchNumber = entry.batchNumber;
     appendActivity(store, `Leverantörsfaktura ${invoice.invoiceNumber} attesterades och bokfördes.`, 'success');
     writeStore(store);
@@ -685,33 +887,151 @@ async function handleApi(req, res, url, payload) {
   return send(res, 404, { error: 'Hittades inte' });
 }
 
-let mutationQueue=Promise.resolve();
-const server = http.createServer((req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  if (url.pathname.startsWith('/api/')) {
-    if (req.method === 'GET') return handleApi(req, res, url, {}).catch(error=>send(res,400,{error:error.message}));
-    let raw = '';
-    req.on('data', chunk => { raw += chunk; if (raw.length > 4_000_000) req.destroy(); });
-    req.on('end', () => {
-      try {
-        const payload=raw ? JSON.parse(raw) : {};
-        mutationQueue=mutationQueue.then(()=>handleApi(req,res,url,payload)).catch(error=>send(res,400,{error:error.message}));
-      }
-      catch (error) { send(res, 400, { error: `Kunde inte läsa begäran: ${error.message}` }); }
-    });
+let mutationQueue = Promise.resolve();
+function queueMutation(task) {
+  const operation = mutationQueue.then(task);
+  mutationQueue = operation.catch(() => undefined);
+  return operation;
+}
+function readJsonRequest(req, res, callback) {
+  const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+  if (contentType !== 'application/json') {
+    send(res, 415, {error: 'API-anrop som ändrar data måste använda application/json.'});
+    req.resume();
     return;
   }
-  const requestPath = url.pathname === '/' ? '/index.html' : url.pathname;
-  const safePath = path.normalize(path.join(publicDir, requestPath));
-  if (!safePath.startsWith(publicDir)) return send(res, 403, 'Åtkomst nekad', 'text/plain; charset=utf-8');
-  fs.readFile(safePath, (err, content) => {
-    if (err) return send(res, 404, 'Sidan hittades inte', 'text/plain; charset=utf-8');
-    send(res, 200, content, mime[path.extname(safePath)] || 'application/octet-stream');
+  const declaredLength = Number(req.headers['content-length'] || 0);
+  if (Number.isFinite(declaredLength) && declaredLength > maxRequestBytes) {
+    send(res, 413, {error: `Begäran är för stor. Max ${maxRequestBytes} byte.`});
+    req.resume();
+    return;
+  }
+  const chunks = [];
+  let size = 0;
+  let tooLarge = false;
+  req.on('data', chunk => {
+    size += chunk.length;
+    if (size > maxRequestBytes) {
+      tooLarge = true;
+      chunks.length = 0;
+      if (!res.writableEnded) send(res, 413, {error: `Begäran är för stor. Max ${maxRequestBytes} byte.`});
+      return;
+    }
+    if (!tooLarge) chunks.push(chunk);
+  });
+  req.on('end', () => {
+    if (tooLarge || res.writableEnded) return;
+    try {
+      const raw = Buffer.concat(chunks).toString('utf8');
+      const payload = raw ? JSON.parse(raw) : {};
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return send(res, 400, {error: 'JSON-innehållet måste vara ett objekt.'});
+      callback(payload);
+    } catch (error) {
+      send(res, 400, {error: `Kunde inte läsa begäran: ${error.message}`});
+    }
+  });
+  req.on('error', error => sendError(res, error));
+}
+function resolveStaticPath(pathname) {
+  let decoded;
+  try { decoded = decodeURIComponent(pathname); } catch { return null; }
+  if (decoded.includes('\0')) return null;
+  const relative = decoded === '/' ? 'index.html' : decoded.replace(/^\/+/, '');
+  const candidate = path.resolve(publicDir, relative);
+  return candidate === publicDir || candidate.startsWith(publicDir + path.sep) ? candidate : null;
+}
+
+const server = http.createServer((req, res) => {
+  const requestId = crypto.randomUUID();
+  res.setHeader('X-Request-Id', requestId);
+  if (!requestHostAllowed(req)) return send(res, 421, {error: 'Värdnamnet är inte tillåtet. Kontrollera ROLLANDS_ALLOWED_HOSTS.'});
+  let url;
+  try { url = new URL(req.url, 'http://localhost'); }
+  catch { return send(res, 400, {error: 'Ogiltig adress.'}); }
+
+  if (url.pathname.startsWith('/api/')) {
+    if (req.method === 'GET') return handleApi(req, res, url, {}).catch(error => sendError(res, error));
+    if (req.method !== 'POST') return send(res, 405, {error: 'Metoden stöds inte.'}, 'application/json; charset=utf-8', {Allow: 'GET, POST'});
+    return readJsonRequest(req, res, payload => {
+      queueMutation(() => handleApi(req, res, url, payload)).catch(error => sendError(res, error));
+    });
+  }
+
+  if (!['GET', 'HEAD'].includes(req.method)) return send(res, 405, 'Metoden stöds inte.', 'text/plain; charset=utf-8', {Allow: 'GET, HEAD'});
+  const safePath = resolveStaticPath(url.pathname);
+  if (!safePath) return send(res, 403, 'Åtkomst nekad', 'text/plain; charset=utf-8');
+  fs.realpath(safePath, (realPathError, realPath) => {
+    if (realPathError || !(realPath === publicDirReal || realPath.startsWith(publicDirReal + path.sep))) return send(res, 404, 'Sidan hittades inte', 'text/plain; charset=utf-8');
+    fs.stat(realPath, (statError, stat) => {
+      if (statError || !stat.isFile()) return send(res, 404, 'Sidan hittades inte', 'text/plain; charset=utf-8');
+      fs.readFile(realPath, (error, content) => {
+        if (error) return send(res, 404, 'Sidan hittades inte', 'text/plain; charset=utf-8');
+        send(res, 200, content, mime[path.extname(realPath)] || 'application/octet-stream');
+      });
+    });
   });
 });
 
-if (require.main === module) {
-  ensureStore();
-  server.listen(port, '127.0.0.1', () => console.log(`Rollands Ekonomi körs på http://localhost:${port}`));
+let lockDescriptor = null;
+const lockFile = path.join(dataDir, 'server.lock');
+function processExists(pid) {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return false;
+  try { process.kill(pid, 0); return true; } catch (error) { return error.code === 'EPERM'; }
 }
-module.exports = { server, seedState, registerPayment, registerPayout, autoBookMatches, applyOffset, reclassifyPayment };
+function acquireDataLock() {
+  fs.mkdirSync(dataDir, {recursive: true, mode: 0o700});
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      lockDescriptor = fs.openSync(lockFile, 'wx', 0o600);
+      try {
+        fs.writeFileSync(lockDescriptor, JSON.stringify({pid: process.pid, startedAt: new Date().toISOString(), host}));
+        fs.fsyncSync(lockDescriptor);
+        return;
+      } catch (error) {
+        try { fs.closeSync(lockDescriptor); } catch {}
+        lockDescriptor = null;
+        fs.rmSync(lockFile, {force: true});
+        throw error;
+      }
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      let current = null;
+      let ageMs = 0;
+      try {
+        current = JSON.parse(fs.readFileSync(lockFile, 'utf8'));
+        ageMs = Date.now() - fs.statSync(lockFile).mtimeMs;
+      } catch {
+        try { ageMs = Date.now() - fs.statSync(lockFile).mtimeMs; } catch {}
+      }
+      if (processExists(Number(current?.pid))) throw new Error(`En annan Rollands-server använder redan datakatalogen (process ${current.pid}).`);
+      if (!current?.pid && ageMs < 30_000) throw new Error('Datalagrets låsfil håller på att skapas av en annan process. Försök igen när den processen har avslutats.');
+      if (attempt === 0) {
+        fs.rmSync(lockFile, {force: true});
+        continue;
+      }
+      throw new Error('Datalagrets låsfil kunde inte tas över på ett säkert sätt.');
+    }
+  }
+}
+function releaseDataLock() {
+  if (lockDescriptor !== null) {
+    try { fs.closeSync(lockDescriptor); } catch {}
+    lockDescriptor = null;
+  }
+  try {
+    const current = JSON.parse(fs.readFileSync(lockFile, 'utf8'));
+    if (Number(current.pid) === process.pid) fs.rmSync(lockFile, {force: true});
+  } catch {}
+}
+
+if (require.main === module) {
+  if (!Number.isSafeInteger(port) || port < 1 || port > 65535) throw new Error('PORT måste vara ett heltal mellan 1 och 65535.');
+  if (!isLoopbackHost(host) && adminToken.length < 24) throw new Error('ROLLANDS_ADMIN_TOKEN måste vara minst 24 tecken innan servern får lyssna utanför den lokala datorn.');
+  if (['0.0.0.0', '::'].includes(normalizeHostname(host)) && !configuredAllowedHosts.length) throw new Error('ROLLANDS_ALLOWED_HOSTS måste anges när ROLLANDS_HOST är en jokeradress.');
+  ensureStore();
+  acquireDataLock();
+  process.once('exit', releaseDataLock);
+  for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => server.close(() => { releaseDataLock(); process.exit(0); }));
+  server.listen(port, host, () => console.log(`Rollands Ekonomi körs på http://${host}:${port}`));
+}
+module.exports = {server, emptyState, seedState, readStore, writeStore, today, dataFile, registerPayment, registerPayout, autoBookMatches, applyOffset, reclassifyPayment};

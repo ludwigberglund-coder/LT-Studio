@@ -4,4 +4,9 @@ data/
 .env
 .env.*
 
-dist/
+# Runtime accounting data must never be committed
+store.json
+store.json.bak
+*.corrupt-*
+server.lock
+backups/
