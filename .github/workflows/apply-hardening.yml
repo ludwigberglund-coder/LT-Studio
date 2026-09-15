@@ -55,8 +55,8 @@ jobs:
           gzip --decompress --stdout "$archive" > "$patch"
           printf '%s  %s\n' 'd7a4d2750f1a35c85bf4b1db1b9710d6946b555388c91bd5a2d4f4b7403ec759' "$patch" | sha256sum --check --strict
 
-          git apply --check "$patch"
-          git apply "$patch"
+          git apply --exclude='dist/**' --check "$patch"
+          git apply --exclude='dist/**' "$patch"
           rm -rf source-export .bootstrap
 
       - name: Install locked dependencies
