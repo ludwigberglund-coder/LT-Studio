@@ -20,6 +20,7 @@
   const ACCOUNT_PATTERN = /^\d{4}$/;
   const SERIES_PATTERN = /^[A-Z][A-Z0-9]{0,3}$/;
   const ENTRY_KINDS = new Set(['standard', 'reversal', 'replacement', 'opening']);
+  const RESERVED_ENTRY_KINDS = new Set(['reversal', 'replacement']);
 
   function journalError(message, code = 'JOURNAL_ERROR', details = undefined) {
     const error = new Error(message);
@@ -249,8 +250,9 @@
   }
 
   function appendEvent(state, type, actorId, at, details, relatedId = '') {
+    const ordinal = state.events.length + 1;
     state.events.push({
-      id: relatedId ? `${relatedId}:${type.toLowerCase()}` : `${type.toLowerCase()}:${state.events.length + 1}`,
+      id: `${relatedId || 'ledger'}:${type.toLowerCase()}:${ordinal}`,
       type,
       actorId,
       at,
@@ -306,6 +308,9 @@
 
   function postEntry(state, draft, context = {}) {
     assertLedger(state);
+    if (RESERVED_ENTRY_KINDS.has(draft?.kind)) {
+      throw journalError('Mot- och ersättningsverifikationer får endast skapas genom rättelseflödet.', 'RESERVED_ENTRY_KIND');
+    }
     return appendEntry(state, draft, context, context.permissionId || 'accounting.post');
   }
 
@@ -453,11 +458,17 @@
     const ids = new Set();
     const numbers = new Set();
     const maxima = new Map();
+    const seenSequences = new Map();
+    const entriesById = new Map();
+
     for (const [index, entry] of state.entries.entries()) {
       const prefix = `entries[${index}]`;
       if (typeof entry.id !== 'string' || !entry.id) errors.push(`${prefix}.id saknas.`);
       else if (ids.has(entry.id)) errors.push(`Dubblerat verifikations-id: ${entry.id}.`);
-      else ids.add(entry.id);
+      else {
+        ids.add(entry.id);
+        entriesById.set(entry.id, entry);
+      }
 
       const numberKey = `${entry.date?.slice(0, 4)}:${entry.number}`;
       if (numbers.has(numberKey)) errors.push(`Dubblerat verifikationsnummer: ${entry.number}.`);
@@ -473,6 +484,9 @@
       if (!validTimestamp(entry.postedAt)) errors.push(`${prefix}.postedAt är ogiltig.`);
       if (typeof entry.createdBy !== 'string' || !entry.createdBy) errors.push(`${prefix}.createdBy saknas.`);
       if (typeof entry.description !== 'string' || entry.description.trim().length < 3) errors.push(`${prefix}.description är ogiltig.`);
+      if (entry.kind === 'reversal' && !entry.links?.reversalOf) errors.push(`${prefix} saknar koppling till ursprungsposten.`);
+      if (entry.kind === 'replacement' && (!entry.links?.replaces || !entry.links?.reversalEntryId)) errors.push(`${prefix} saknar fullständig rättelsekoppling.`);
+
       if (!Array.isArray(entry.rows) || entry.rows.length < 2) errors.push(`${prefix}.rows måste innehålla minst två rader.`);
       else {
         entry.rows.forEach((row, rowIndex) => errors.push(...validateRow(row, rowIndex).map(error => `${prefix}: ${error}`)));
@@ -486,23 +500,75 @@
       }
 
       const key = sequenceKey(entry.series, entry.date?.slice(0, 4));
+      const sequences = seenSequences.get(key) || new Set();
+      if (sequences.has(entry.sequence)) errors.push(`Dubblerat löpnummer ${key}:${entry.sequence}.`);
+      sequences.add(entry.sequence);
+      seenSequences.set(key, sequences);
       maxima.set(key, Math.max(maxima.get(key) || 0, Number(entry.sequence || 0)));
     }
 
-    for (const [key, maximum] of maxima) {
-      if (!Number.isSafeInteger(state.sequences[key]) || state.sequences[key] < maximum) errors.push(`Löpnummer ${key} är lägre än bokförda verifikationer.`);
+    const sequenceKeys = new Set([...Object.keys(state.sequences), ...maxima.keys()]);
+    for (const key of sequenceKeys) {
+      const declared = state.sequences[key];
+      const maximum = maxima.get(key) || 0;
+      if (!Number.isSafeInteger(declared) || declared < 0) {
+        errors.push(`Löpnummer ${key} är ogiltigt.`);
+        continue;
+      }
+      if (declared !== maximum) errors.push(`Löpnummer ${key} ska vara ${maximum} men är ${declared}.`);
+      const seen = seenSequences.get(key) || new Set();
+      for (let sequence = 1; sequence <= maximum; sequence += 1) {
+        if (!seen.has(sequence)) errors.push(`Löpnummer ${key} saknar ${sequence}.`);
+      }
     }
 
     for (const [period, record] of Object.entries(state.periods)) {
       if (!periodWithinFiscalYear(state, period)) errors.push(`Ogiltig periodpost: ${period}.`);
       if (!['open', 'locked'].includes(record?.status)) errors.push(`Period ${period} har ogiltig status.`);
       if (!Array.isArray(record?.history)) errors.push(`Period ${period} saknar historik.`);
+      else {
+        record.history.forEach((item, index) => {
+          if (!['locked', 'unlocked'].includes(item?.action)) errors.push(`Period ${period}, historik ${index + 1}: ogiltig åtgärd.`);
+          if (typeof item?.actorId !== 'string' || !item.actorId) errors.push(`Period ${period}, historik ${index + 1}: aktör saknas.`);
+          if (!validTimestamp(item?.at)) errors.push(`Period ${period}, historik ${index + 1}: tidsstämpel är ogiltig.`);
+          if (typeof item?.reason !== 'string' || item.reason.trim().length < 3) errors.push(`Period ${period}, historik ${index + 1}: orsak saknas.`);
+        });
+      }
     }
 
     for (const [originalId, correction] of Object.entries(state.corrections)) {
-      if (!ids.has(originalId)) errors.push(`Rättelsen hänvisar till okänd ursprungspost ${originalId}.`);
-      if (!ids.has(correction.reversalEntryId)) errors.push(`Rättelsen för ${originalId} saknar motverifikation.`);
-      if (correction.replacementEntryId && !ids.has(correction.replacementEntryId)) errors.push(`Rättelsen för ${originalId} hänvisar till okänd ersättningspost.`);
+      const original = entriesById.get(originalId);
+      const reversal = entriesById.get(correction.reversalEntryId);
+      const replacement = correction.replacementEntryId ? entriesById.get(correction.replacementEntryId) : null;
+      if (!original) errors.push(`Rättelsen hänvisar till okänd ursprungspost ${originalId}.`);
+      if (!reversal) errors.push(`Rättelsen för ${originalId} saknar motverifikation.`);
+      else {
+        if (reversal.kind !== 'reversal') errors.push(`Rättelsen för ${originalId} pekar inte på en motverifikation.`);
+        if (reversal.links?.reversalOf !== originalId) errors.push(`Motverifikationen för ${originalId} har fel ursprungskoppling.`);
+      }
+      if (correction.replacementEntryId && !replacement) errors.push(`Rättelsen för ${originalId} hänvisar till okänd ersättningspost.`);
+      if (replacement) {
+        if (replacement.kind !== 'replacement') errors.push(`Rättelsen för ${originalId} pekar inte på en ersättningspost.`);
+        if (replacement.links?.replaces !== originalId || replacement.links?.reversalEntryId !== correction.reversalEntryId) {
+          errors.push(`Ersättningsposten för ${originalId} har fel rättelsekoppling.`);
+        }
+      }
+      if (correction.originalEntryId !== originalId) errors.push(`Rättelsen för ${originalId} har fel original-id.`);
+      if (typeof correction.correctedBy !== 'string' || !correction.correctedBy) errors.push(`Rättelsen för ${originalId} saknar aktör.`);
+      if (!validTimestamp(correction.correctedAt)) errors.push(`Rättelsen för ${originalId} har ogiltig tidsstämpel.`);
+      if (typeof correction.reason !== 'string' || correction.reason.trim().length < 5) errors.push(`Rättelsen för ${originalId} saknar giltig orsak.`);
+    }
+
+    const eventIds = new Set();
+    for (const [index, event] of state.events.entries()) {
+      const prefix = `events[${index}]`;
+      if (typeof event?.id !== 'string' || !event.id) errors.push(`${prefix}.id saknas.`);
+      else if (eventIds.has(event.id)) errors.push(`Dubblerat händelse-id: ${event.id}.`);
+      else eventIds.add(event.id);
+      if (typeof event?.type !== 'string' || !event.type) errors.push(`${prefix}.type saknas.`);
+      if (typeof event?.actorId !== 'string' || !event.actorId) errors.push(`${prefix}.actorId saknas.`);
+      if (!validTimestamp(event?.at)) errors.push(`${prefix}.at är ogiltig.`);
+      if (typeof event?.details !== 'string' || !event.details) errors.push(`${prefix}.details saknas.`);
     }
 
     return {
