@@ -34,6 +34,10 @@ function buildStatic() {
     path.join(target, 'shared', 'accounting', 'money.js')
   );
   copyFile(
+    path.join(root, 'packages', 'accounting', 'journal.js'),
+    path.join(target, 'shared', 'accounting', 'journal.js')
+  );
+  copyFile(
     path.join(root, 'packages', 'access-control', 'authorization.js'),
     path.join(target, 'shared', 'access-control', 'authorization.js')
   );
@@ -53,8 +57,9 @@ function buildStatic() {
   const required = [
     'index.html', 'app.js', 'styles.css',
     'admin/index.html', 'admin/app.js', 'admin/money-view.js', 'admin/money.css',
-    'admin/access-view.js', 'admin/access.css',
-    'shared/content.js', 'shared/accounting/money.js', 'shared/access-control/authorization.js',
+    'admin/access-view.js', 'admin/access.css', 'admin/journal-view.js', 'admin/journal.css',
+    'shared/content.js', 'shared/accounting/money.js', 'shared/accounting/journal.js',
+    'shared/access-control/authorization.js',
     'content/company.json', 'content/site.json', 'content/admin.json',
     'config/rolands-business-decisions.json', 'config/access-control.json', 'legacy/index.html'
   ];
