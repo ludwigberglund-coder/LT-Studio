@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 process.env.ROLLANDS_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'rollands-reskontra-test-'));
+process.env.ROLLANDS_DEMO_DATA = '1';
 const F = require('../public/finance.js');
 const Model = require('../public/invoice-model.js');
 const { server, seedState, registerPayment, registerPayout, autoBookMatches, applyOffset } = require('../server.js');

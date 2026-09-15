@@ -1,69 +1,137 @@
-# Rollands – senaste källkodsexport
+# Rollands – webbplats och ekonomiplattform
 
-Exporterad 2026-09-14 från den senaste lokala arbetsversionen. Innehåller även förbättringar som ännu inte har publicerats på den delade testsidan.
+Detta repository är projektets enda aktiva källa för kod, dokumentation och tester. Den körande bokföringsinformationen ligger **inte** i GitHub och ska aldrig läggas i ett publikt repository.
 
-## Starta på en annan dator
+## Vad som finns i systemet
 
-Installera Node.js 20 eller senare (via IT om datorn är administrerad). Packa upp hela arkivet, öppna en terminal i mappen och kör:
+- Publik webbplats och administrativ ekonomiarbetsyta.
+- Kund- och leverantörsfakturor, attest, reskontra, betalningar och motverifikationer.
+- Bankimport för CAMT.054 samt en enkel, uttryckligen begränsad BAM/texttolkning.
+- Verifikationer, fyrsiffriga buntnummer, periodlås och manipulationsupptäckande revisionskedja.
+- PDF-fakturor, CSV-export, momsöversikt och grundläggande rapporter.
+- Datakontroll, manuella säkerhetskopior och säker borttagning av kända demoposter.
+- Automatisk GitHub CI som kontrollerar syntax, tester, beroenden och den statiska webbbyggnaden.
+
+Systemet är nu betydligt säkrare än den ursprungliga utvecklingsversionen, men ska fortfarande betraktas som **förproduktionssystem**. Se [granskningsrapporten](docs/AUDIT-2026-09-15.md) för vad som är klart och vad som återstår före skarp bokföring.
+
+## Starta lokalt
+
+Krav: Node.js 24 LTS eller senare.
 
 ```powershell
-npm install
+npm ci
 npm start
 ```
 
-Öppna http://localhost:4173/#/overview. PDF-generering kräver paketet pdf-lib, som installeras av npm install. Servern lyssnar bara på den lokala datorn. Port kan väljas med miljövariabeln PORT.
+Öppna `http://127.0.0.1:4173/#/overview`.
 
-## Innehåll
+Servern lyssnar som standard endast på den lokala datorn. Den lokala körningen kan användas utan administratörsnyckel. Ska servern nås från nätverket måste en slumpmässig nyckel på minst 24 tecken sättas; servern vägrar annars att starta utanför loopback.
 
-- public/: all aktuell HTML, JavaScript och CSS för hemsida och adminportal; även inbyggda demonstrationsdata och kontoplan.
-- server.js: lokal server, API, fakturering, betalningar, bokföring och JSON-lagring.
-- invoice-pdf.js: PDF-generator för kund- och kreditfakturor.
-- test/: bokförings- och integrationstester samt webbläsartest och PDF-exempel.
-- package.json: startkommandon och beroenden.
-- open-rollands.cmd: befintlig Windows-startfil (installera beroenden först).
-- dist/: aktuell statisk kopia av public/, för statisk demonstrationshosting. Den är skapad från senaste källkod, inte den äldre dist-versionen i arbetsmappen.
-- .openai/hosting.json: befintlig Sites-projektkoppling, utan autentiseringsuppgifter. Ändra projektkopplingen om en ny webbplats ska användas.
+```powershell
+$env:ROLLANDS_ADMIN_TOKEN = 'en-lång-slumpmässig-hemlighet'
+$env:ROLLANDS_HOST = '0.0.0.0'
+$env:ROLLANDS_ALLOWED_HOSTS = 'rollands.example.se,192.168.1.50'
+$env:ROLLANDS_SECURE_COOKIE = '1'   # endast när HTTPS används
+npm start
+```
 
-## Senaste beteende
+`ROLLANDS_ALLOWED_HOSTS` ska innehålla de DNS-namn eller IP-adresser som användarna faktiskt öppnar. Det skyddar även den lokala, nyckelfria körningen mot anrop med förfalskat värdnamn. Lägg aldrig nyckeln i GitHub, källkod, skärmbilder eller dokumentation.
 
-- Bedöm bankhändelse visar kundfakturor och intäktskonton för inbetalningar, leverantörsfakturor och kostnadskonton för utbetalningar. Servern validerar samma begränsningar.
-- Alla reskontrarader visar fakturans aktuella restbelopp.
-- Reskontraverktyg innehåller omföring och kvittning med förhandsgranskning, bokföringsdag, ny bunt och spårbar historik.
-- Fakturanummer och OCR är samma sexsiffriga nummer. Bokföringsunderlag får fyrsiffriga buntnummer.
-- PDF-generering stöder kreditbelopp och visar hela kronor.
+## Datalagring
 
-## Lagring och begränsningar
+Standardkatalog:
 
-Gemensam molndatabas och gemensamt sparande mellan användare är INTE anslutna. Statisk hosting använder separat localStorage i varje webbläsare. Den lokala servern sparar i JSON, inte i Excel. Excel-kompatibla rapporter exporteras som CSV.
+- Windows: `%LOCALAPPDATA%\RollandsEkonomi`
+- Linux/macOS: `$XDG_DATA_HOME/rollands-ekonomi` eller `~/.local/share/rollands-ekonomi`
 
-Detta arkiv innehåller källkod och inbyggda testdata, inte befintliga inmatade fakturor, användarnas webbläsardata eller den lokala filen store.json. Inga autentiseringsuppgifter, .env-filer, Git-historik eller installerade beroenden ingår.
-
-Serverns standardlagring är %TEMP%/rollands-ekonomi/store.json. För beständig lokal lagring, välj en egen lämplig datakatalog innan start:
+Egen katalog kan väljas före start:
 
 ```powershell
 $env:ROLLANDS_DATA_DIR = 'C:\RollandsData'
 npm start
 ```
 
-Befintliga data flyttas inte automatiskt när katalogen ändras. Kör bara en serverprocess per datakatalog. Extern bankanslutning, mejlinläsning och extern AI är inte anslutna. Systemet är en utvecklings-/testversion; den statiska demon och lokala servern har inte full funktionsparitet.
+Varje sparning valideras, skrivs via en temporär fil och ersätter sedan huvudfilen. Föregående version sparas som `store.json.bak`. En processlåsfil hindrar två serverprocesser från att skriva i samma datakatalog.
 
-## Tester
+GitHub är basen för **kod och dokumentation**. Fakturor, verifikationer, kunduppgifter, bankhändelser, hemligheter och säkerhetskopior ska lagras i ett skyddat driftsystem – inte i det publika repot.
+
+## Dataverktyg
+
+Kontrollera datalagrets balans, dubbletter, revisionskedja och kända demoposter:
+
+```powershell
+npm run data:check
+```
+
+Skapa en tidsstämplad lokal säkerhetskopia med SHA-256-kontrollsumma:
+
+```powershell
+npm run data:backup
+```
+
+Förhandsgranska borttagning av kända demoposter:
+
+```powershell
+npm run data:remove-demo
+```
+
+Genomför rensningen efter kontroll:
+
+```powershell
+npm run data:remove-demo -- --apply
+```
+
+Rensningsverktyget skapar först en säkerhetskopia och registrerar sedan åtgärden i revisionsloggen.
+
+## Demoläge
+
+Normal serverstart skapar ett tomt datalager. Demonstrationsdata läggs endast in när det uttryckligen begärs:
+
+```powershell
+$env:ROLLANDS_DEMO_DATA = '1'
+npm start
+```
+
+Använd aldrig demoläget mot en datakatalog som innehåller riktig bokföring.
+
+## Tester och byggnad
 
 ```powershell
 npm test
+npm run build:static
 ```
 
-Senast godkänt: 19 bokförings-/integrationstester och isolerad webbläsarkontroll av omföring, kvittning, sparande efter omladdning, restbelopp samt bankval i båda riktningar. Testerna använder separat temporär lagring.
+GitHub Actions kör dessutom:
 
-Webbläsartestet test/receivables-browser.cjs kräver Playwright och Microsoft Edge. Ange PLAYWRIGHT_PATH till en installerad Playwright-modul om den inte finns bland lokala beroenden. Det använder en separat testwebbläsare.
+- installation från låst `package-lock.json`,
+- syntaxkontroll av JavaScript,
+- automatiska bokförings-, lagrings- och säkerhetstester,
+- produktionsberoendegranskning,
+- kontroll att `dist/` kan byggas exakt från `public/`.
 
-## Kravbild från ChatGPT-konversationen (2026-09-14)
+## Viktiga driftgränser
 
-Projektet ska samla Rollands publika webbplats och ett modernt ekonomiadmin i samma plattform. Kravbilden omfattar kund- och leverantörsfakturor, kund- och leverantörsreskontra, bankimport (CAMT.054 och enkel BAM/textimport), bokföring, rapporter, kontoplan, PDF-fakturor, fakturainkorg, attest, avstämning och en granskningskö där osäkra bankhändelser aldrig bokförs automatiskt utan tydligt underlag. Dashboarden ska prioritera dagens åtgärder och visa enkla instrument.
+Följande krävs fortfarande innan systemet kan klassas som komplett produktionssystem:
 
-Den visuella referensen är en modern ekonomidashboard med mörkgrön sidomeny, ljus arbetsyta, stora KPI-kort, prioriterad aktivitetslista och tydliga snabbåtgärder. Befintliga funktioner ska bevaras; nya ändringar ska i första hand fylla verkliga luckor.
+- extern transaktionsdatabas med migreringar, återläsningstest och redundans,
+- riktiga användarkonton, roller, tvåfaktorsautentisering och attestseparation,
+- originalarkiv för inkommande underlag och bilagor,
+- verifierad fullständig BAS 2026-kontoplan för bolagets regelverk,
+- öresprecision i hela bokföringsmotorn,
+- fullständiga SIE-, boksluts-, årsredovisnings-, moms- och deklarationsflöden,
+- verifierade bank-, e-post-, OCR- och AI-integrationer,
+- extern säkerhetsgranskning och godkännande av redovisningskonsult/revisor.
 
-Tillagt i denna revision: separata register för **Kunder** och **Leverantörer**, en **Fakturainkorg** för manuellt PDF-intag, förbättrad navigation och tydligare status kring produktionsintegrationer. Automatisk Microsoft 365-mejlhämtning och extern AI/OCR kräver fortfarande riktiga produktionsanslutningar och är därför inte falskt aktiverade i demon.
+Den inbyggda kontolistan är ett tekniskt arbetsunderlag, inte en fullständig eller verifierad BAS 2026-kontoplan. SIE-Gruppen beskriver SIE 4 som formatet för överföring av fullständiga verifikationer; sådan verifierad export är därför kvar som produktionskrav.
 
-Konversationsreferens: `https://chatgpt.com/s/cx_6aa85ca0a3a48191ae636ebb88718a9b`
-GitHub: `https://github.com/ludwigberglund-coder/Rollands`
+## Struktur
+
+- `public/` – webbplats och administrationsgränssnitt.
+- `dist/` – statisk kopia som byggs från `public/`.
+- `server.js` – HTTP-server, API och bokföringsflöden.
+- `lib/store.js` – validering, atomisk lagring, backup och revisionskedja.
+- `invoice-pdf.js` – PDF-generator.
+- `scripts/` – bygg- och dataverktyg.
+- `test/` – automatiska tester.
+- `docs/` – arkitektur, testplan och granskningsrapport.
+- `.github/workflows/` – permanent kvalitets- och säkerhetskontroll i CI.
