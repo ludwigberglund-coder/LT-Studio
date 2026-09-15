@@ -47,6 +47,16 @@ test('påminnelseavgift läggs inte på utan dokumenterat avtal', () => {
   assert.equal(preview.totalDueOre, 100_000 + 6000 + preview.interestOre);
 });
 
+test('förseningsersättning och påminnelseavgift kombineras inte felaktigt', () => {
+  const invoice={id:'inv-1',dueDate:'2026-09-01',remainingOre:100_000};
+  assert.throws(()=>Receivables.reminderPreview(invoice,{
+    sentDate:'2026-09-10',includeReminderFee:true,reminderFeeAgreed:true,includeBusinessLatePaymentCompensation:true,customerType:'business'
+  },legalRates),error=>error.code==='COLLECTION_COST_OVERLAP');
+  assert.throws(()=>Receivables.reminderPreview(invoice,{
+    sentDate:'2026-09-10',includeBusinessLatePaymentCompensation:true,customerType:'consumer'
+  },legalRates),error=>error.code==='INVALID_LATE_PAYMENT_COMPENSATION');
+});
+
 test('fakturakommentar kräver personlig identitet och bevarar författare och tid', () => {
   assert.throws(() => Receivables.createInvoiceComment({invoiceId:'inv-1',companyId:'co-1',actor:null,text:'Ring kunden'}), error => error.code === 'MISSING_IDENTITY');
   const comment = Receivables.createInvoiceComment({
