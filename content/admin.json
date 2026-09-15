@@ -4,8 +4,9 @@
   "navigation": [
     { "id": "overview", "label": "Översikt", "symbol": "01" },
     { "id": "content", "label": "Webbplatsinnehåll", "symbol": "02" },
-    { "id": "modules", "label": "Systemmoduler", "symbol": "03" },
-    { "id": "decisions", "label": "Verksamhetsbeslut", "symbol": "04" }
+    { "id": "money", "label": "Öreskalkylator", "symbol": "03" },
+    { "id": "modules", "label": "Systemmoduler", "symbol": "04" },
+    { "id": "decisions", "label": "Verksamhetsbeslut", "symbol": "05" }
   ],
   "modules": [
     {
@@ -19,18 +20,18 @@
     {
       "id": "accounting",
       "title": "Bokföring",
-      "description": "Ny modulär bokföringsmotor planeras med öresprecision, periodlås och spårbara rättelser.",
-      "status": "Planerad ombyggnad",
-      "tone": "planned",
-      "href": "../legacy/#/ledger"
+      "description": "Den nya kärnan har nu exakt öresprecision. Nästa lager blir verifikationer, perioder och spårbara rättelser ovanpå samma penningmodell.",
+      "status": "Öresgrund klar",
+      "tone": "progress",
+      "href": "#/money"
     },
     {
       "id": "invoicing",
       "title": "Fakturering och reskontra",
-      "description": "Befintliga flöden används som referens medan nya domänmoduler byggs och testas.",
-      "status": "Referens finns",
+      "description": "Radberäkning, blandad moms och totalsummor använder nu den nya öresmodellen. Befintliga flöden ligger kvar som referens under migreringen.",
+      "status": "Beräkningsgrund klar",
       "tone": "progress",
-      "href": "../legacy/#/invoices"
+      "href": "#/money"
     },
     {
       "id": "inventory",
@@ -60,14 +61,15 @@
   "principles": [
     "GitHub är enda källa för kod, innehåll, dokumentation och tester.",
     "Vanliga texter ändras i content-filer, inte inne i programkoden.",
+    "Alla nya penningbelopp lagras som heltal i ören och aldrig som flyttal.",
     "Skarp ekonomidata lagras aldrig i GitHub eller GitHub Pages.",
     "Varje ändring testas automatiskt innan den publiceras.",
     "Gamla flöden ersätts stegvis och finns kvar som jämförelse under migreringen."
   ],
   "roadmap": [
-    { "step": "01", "title": "Grund och innehåll", "status": "Aktiv" },
-    { "step": "02", "title": "Datamodell i ören", "status": "Nästa" },
-    { "step": "03", "title": "Användare och roller", "status": "Planerad" },
+    { "step": "01", "title": "Grund och innehåll", "status": "Klar" },
+    { "step": "02", "title": "Datamodell i ören", "status": "Aktiv – kärna klar" },
+    { "step": "03", "title": "Användare och roller", "status": "Nästa" },
     { "step": "04", "title": "Bokföringsmotor", "status": "Planerad" },
     { "step": "05", "title": "Reskontra och bank", "status": "Planerad" },
     { "step": "06", "title": "Lager, lön och rapporter", "status": "Planerad" }

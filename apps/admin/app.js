@@ -1,4 +1,5 @@
 import {downloadJson, escapeHtml, loadJson, readLocalJson, safeHref, writeLocalJson} from '../shared/content.js';
+import {handleMoneyClick, handleMoneyInput, moneyView} from './money-view.js';
 
 const PREVIEW_KEY = 'rollands-site-content-preview-v1';
 const app = document.getElementById('admin-app');
@@ -59,7 +60,7 @@ function overviewView() {
   const cards = [
     ['Publicering', 'GitHub Pages', 'Varje godkänd ändring i main bygger om demon automatiskt.'],
     ['Innehåll', '3 tydliga filer', 'Företag, webbplats och admin är separerade från programkod.'],
-    ['Tester', 'Automatiska', 'Innehåll, kod, säkerhet och statisk byggnad kontrolleras före publicering.'],
+    ['Penningmodell', 'Heltal i ören', 'Nya beräkningar använder en gemensam exakt kärna utan flyttalsfel.'],
     ['Skarp data', 'Separat drift', 'Kund-, bank- och bokföringsdata ska inte lagras i GitHub Pages.']
   ].map(([label, value, description]) => `
     <article class="metric-card">
@@ -89,6 +90,10 @@ function overviewView() {
         <div class="panel-heading"><div><span class="kicker">Arbetssätt</span><h2>Regler som håller över tid</h2></div></div>
         <ul class="principles">${principles}</ul>
       </article>
+    </section>
+    <section class="panel callout">
+      <div><span class="kicker">Ny teknisk grund</span><h2>Testa exakta belopp och blandad moms</h2><p>Öreskalkylatorn använder samma fristående penningmodell som kommande fakturering, lager och bokföring ska bygga på.</p></div>
+      <a class="button primary" href="#/money">Öppna öreskalkylatorn</a>
     </section>
     <section class="panel callout">
       <div><span class="kicker">Befintlig referens</span><h2>Den tidigare demon finns kvar under migreringen</h2><p>Vi ersätter inte fungerande flöden blint. Varje ny modul jämförs mot referensen innan den gamla tas bort.</p></div>
@@ -159,7 +164,7 @@ function modulesView() {
       </div>
       <h2>${escapeHtml(module.title)}</h2>
       <p>${escapeHtml(module.description)}</p>
-      ${module.href !== '#' ? `<a href="${escapeHtml(safeHref(module.href))}" target="_blank">Öppna modul →</a>` : '<span class="disabled-link">Inte aktiverad ännu</span>'}
+      ${module.href !== '#' ? `<a href="${escapeHtml(safeHref(module.href))}" ${module.href.startsWith('#') ? '' : 'target="_blank"'}>Öppna modul →</a>` : '<span class="disabled-link">Inte aktiverad ännu</span>'}
     </article>
   `).join('');
   return layout('modules', 'Systemmoduler', 'Varje verksamhetsområde byggs som en avgränsad modul med egna regler och tester.', `<section class="module-grid">${modules}</section>`);
@@ -218,6 +223,7 @@ function showMessage(message, error = false) {
 function render() {
   const view = currentView();
   if (view === 'content') app.innerHTML = contentView();
+  else if (view === 'money') app.innerHTML = layout('money', 'Öreskalkylator', 'Testa den nya gemensamma penningmodellen med exakta belopp och blandad moms.', moneyView());
   else if (view === 'modules') app.innerHTML = modulesView();
   else if (view === 'decisions') app.innerHTML = decisionsView();
   else app.innerHTML = overviewView();
@@ -226,6 +232,7 @@ function render() {
 function bindEvents() {
   window.addEventListener('hashchange', render);
   document.addEventListener('input', event => {
+    if (handleMoneyInput(event.target)) return;
     const path = event.target.dataset.contentPath;
     if (!path) return;
     setValueAtPath(draftSite, path, event.target.value);
@@ -239,6 +246,7 @@ function bindEvents() {
   document.addEventListener('click', async event => {
     const button = event.target.closest('[data-action]');
     if (!button) return;
+    if (handleMoneyClick(button, render)) return;
     const action = button.dataset.action;
     try {
       if (action === 'copy-json') await copyJson();
@@ -260,6 +268,7 @@ function bindEvents() {
 
 async function boot() {
   try {
+    if (!globalThis.RollandsMoney) throw new Error('Öresmodulen kunde inte laddas.');
     [company, publishedSite, adminContent, decisions] = await Promise.all([
       loadJson('../content/company.json'),
       loadJson('../content/site.json'),

@@ -29,6 +29,10 @@ function buildStatic() {
   copyDirectory(path.join(root, 'apps', 'website'), target);
   copyDirectory(path.join(root, 'apps', 'admin'), path.join(target, 'admin'));
   copyDirectory(path.join(root, 'packages', 'shared', 'browser'), path.join(target, 'shared'));
+  copyFile(
+    path.join(root, 'packages', 'accounting', 'money.js'),
+    path.join(target, 'shared', 'accounting', 'money.js')
+  );
   copyDirectory(path.join(root, 'content'), path.join(target, 'content'));
   copyDirectory(path.join(root, 'config'), path.join(target, 'config'));
   copyDirectory(path.join(root, 'public'), path.join(target, 'legacy'));
@@ -43,9 +47,11 @@ function buildStatic() {
   }, null, 2)}\n`);
 
   const required = [
-    'index.html', 'app.js', 'styles.css', 'admin/index.html', 'admin/app.js',
-    'shared/content.js', 'content/company.json', 'content/site.json',
-    'content/admin.json', 'config/rolands-business-decisions.json', 'legacy/index.html'
+    'index.html', 'app.js', 'styles.css',
+    'admin/index.html', 'admin/app.js', 'admin/money-view.js', 'admin/money.css',
+    'shared/content.js', 'shared/accounting/money.js',
+    'content/company.json', 'content/site.json', 'content/admin.json',
+    'config/rolands-business-decisions.json', 'legacy/index.html'
   ];
   for (const relativePath of required) {
     if (!fs.existsSync(path.join(target, relativePath))) throw new Error(`Byggfil saknas: ${relativePath}`);

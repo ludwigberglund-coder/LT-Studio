@@ -4,6 +4,7 @@ GitHub är projektets enda källa för kod, redigerbart innehåll, dokumentation
 
 - **Demo:** <https://ludwigberglund-coder.github.io/Rollands/>
 - **Projektadmin:** <https://ludwigberglund-coder.github.io/Rollands/admin/>
+- **Öreskalkylator:** <https://ludwigberglund-coder.github.io/Rollands/admin/#/money>
 - **Tidigare systemdemo:** <https://ludwigberglund-coder.github.io/Rollands/legacy/#/overview>
 
 > GitHub Pages är en demo- och granskningsmiljö. Skarp bokföringsdata, kunddata, bankdata, fakturor och hemligheter får aldrig lagras där eller i det publika repot.
@@ -21,6 +22,18 @@ Vanliga ändringar görs i tydliga innehållsfiler i stället för inne i progra
 
 Se [den enkla redigeringsguiden](docs/EDITING.md). Projektadmin innehåller dessutom ett formulär för vanliga webbplatstexter, lokal förhandsvisning och export av en färdig `site.json`.
 
+## Exakt penningmodell
+
+Alla nya ekonomifunktioner använder `packages/accounting/money.js` som gemensam kärna:
+
+- belopp lagras som heltal i ören,
+- kvantiteter stöder upp till tre decimaler,
+- moms beräknas per rad och grupperas per momssats,
+- svenska decimaler med komma eller punkt accepteras,
+- osäker precision och för stora värden stoppas i stället för att gissas.
+
+Projektadmin har en interaktiv öreskalkylator som använder exakt samma modul som kommande fakturering, lager och bokföring. Se [penningmodellens dokumentation](docs/MONEY-DOMAIN.md).
+
 ## Ny projektstruktur
 
 ```text
@@ -28,6 +41,7 @@ apps/
   website/               Ny publik webbplats
   admin/                 Projektadmin och innehållsförhandsvisning
 packages/
+  accounting/            Gemensamma ekonomiska domänregler, med öresprecision
   shared/browser/        Delade, små webbläsarverktyg
 content/                  Redigerbara texter och företagsuppgifter
 config/                   Fastställda verksamhetsbeslut
@@ -44,7 +58,7 @@ När en ändring slås ihop till `main` sker följande:
 
 1. Innehållsfiler valideras.
 2. JavaScript syntaxkontrolleras.
-3. Bokförings-, säkerhets- och grundtester körs.
+3. Bokförings-, säkerhets-, penning- och grundtester körs.
 4. Produktionsberoenden granskas.
 5. En statisk demo byggs.
 6. GitHub Pages publiceras automatiskt.
@@ -82,6 +96,6 @@ npm run export:sie4i
 
 ## Långsiktig riktning
 
-Nästa tekniska steg är en ny datamodell där alla belopp lagras som heltal i ören. Därefter byggs användare och roller, bokföringsmotor, reskontra, bank, lager, lön och rapportering som separata moduler. Se [målarkitekturen](docs/ARCHITECTURE-REBUILD.md) och [verksamhetsbesluten](docs/VERKSAMHETSBESLUT.md).
+Den gemensamma datamodellen i ören är nu påbörjad och används i en fungerande kalkylator. Nästa tekniska lager är personliga användare och roller, följt av verifikationsmotor, reskontra, bank, lager, lön och rapportering som separata moduler. Se [målarkitekturen](docs/ARCHITECTURE-REBUILD.md) och [verksamhetsbesluten](docs/VERKSAMHETSBESLUT.md).
 
 Skarp drift kommer senare att använda samma GitHub-repo men en riktig backend, transaktionsdatabas och skyddad dokumentlagring. GitHub förblir källan för programmet – inte databasen för företagets bokföring.

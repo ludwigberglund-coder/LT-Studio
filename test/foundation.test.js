@@ -35,11 +35,13 @@ test('innehållskontrollen stoppar dubblerad navigation och felaktigt organisati
   assert.ok(errors.some(error => /dubblerad navigationslänk/.test(error)));
 });
 
-test('statisk byggnad innehåller ny webbplats, projektadmin, delat innehåll och tidigare demo', () => {
+test('statisk byggnad innehåller ny webbplats, projektadmin, öresdomän, delat innehåll och tidigare demo', () => {
   const target = buildStatic();
   for (const relativePath of [
-    'index.html', 'app.js', 'styles.css', 'admin/index.html', 'admin/app.js',
-    'shared/content.js', 'content/site.json', 'content/company.json',
+    'index.html', 'app.js', 'styles.css',
+    'admin/index.html', 'admin/app.js', 'admin/money-view.js', 'admin/money.css',
+    'shared/content.js', 'shared/accounting/money.js',
+    'content/site.json', 'content/company.json',
     'config/rolands-business-decisions.json', 'legacy/index.html', '.nojekyll'
   ]) assert.equal(fs.existsSync(path.join(target, relativePath)), true, `${relativePath} saknas`);
   assert.equal(fs.existsSync(path.join(target, 'store.json')), false);
