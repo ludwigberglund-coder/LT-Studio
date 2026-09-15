@@ -61,7 +61,7 @@ packages/
   shared/browser/        Delade, små webbläsarverktyg
 content/                  Redigerbara texter och företagsuppgifter
 config/                   Verksamhetsbeslut och behörighetskonfiguration
-a public/                 Tidigare fungerande system som migreringsreferens
+public/                   Tidigare fungerande system som migreringsreferens
 scripts/                  Validering, bygge och lokal förhandsvisning
 test/                     Automatiska tester
 ```
