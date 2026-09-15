@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "currency": "SEK",
+  "interestActMarginBasisPoints": 800,
+  "reminderFeeOre": 6000,
+  "businessLatePaymentCompensationOre": 45000,
+  "rules": {
+    "reminderFeeRequiresAgreement": true,
+    "interestIsCalculatedOnInvoiceAmountIncludingVat": true,
+    "interestOnReminderFee": false,
+    "compoundStatutoryInterest": false
+  },
+  "referenceRates": [
+    { "validFrom": "2025-01-01", "basisPoints": 300 },
+    { "validFrom": "2025-07-01", "basisPoints": 200 },
+    { "validFrom": "2026-01-01", "basisPoints": 200 },
+    { "validFrom": "2026-07-01", "basisPoints": 200 }
+  ],
+  "verifiedAt": "2026-09-15",
+  "sources": [
+    "Sveriges Riksbank – Referensräntan enligt räntelagen",
+    "Räntelag (1975:635) 3, 4, 6 och 9 §§",
+    "Lag (1981:739) om ersättning för inkassokostnader m.m. 2, 4 och 4 a §§"
+  ],
+  "productionNote": "Referensräntan fastställs varje kalenderhalvår. Konfigurationen måste uppdateras och verifieras mot Riksbanken innan ett nytt halvår används i skarp ränteberäkning."
+}
