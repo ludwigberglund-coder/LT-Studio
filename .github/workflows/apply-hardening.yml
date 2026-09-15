@@ -41,8 +41,8 @@ jobs:
           patch="$RUNNER_TEMP/rollands-hardening.patch"
 
           mapfile -t parts < <(find .bootstrap -maxdepth 1 -type f -name 'hardening.patch.gz.b64.part*' -print | sort)
-          if [ "${#parts[@]}" -ne 5 ]; then
-            echo "Expected exactly five patch parts, found ${#parts[@]}." >&2
+          if [ "${#parts[@]}" -ne 9 ]; then
+            echo "Expected exactly nine patch parts, found ${#parts[@]}." >&2
             exit 1
           fi
 
