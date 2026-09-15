@@ -5,11 +5,13 @@
   "dependencies": {
     "pdf-lib": "1.17.1"
   },
-  "description": "Rollands – samlad webb- och ekonomiplattform",
+  "description": "Rollands – innehållsdriven webbplats och modulär ekonomiplattform",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node --test test/finance.test.js test/receivables-tools.test.js test/store.test.js test/server-security.test.js test/accounting-integrity.test.js test/sie4i.test.js test/accounting-reports.test.js",
+    "preview:static": "node scripts/serve-static.js",
+    "test": "node --test test/finance.test.js test/receivables-tools.test.js test/store.test.js test/server-security.test.js test/accounting-integrity.test.js test/sie4i.test.js test/accounting-reports.test.js test/foundation.test.js",
+    "content:check": "node scripts/validate-content.js",
     "build:static": "node scripts/build-static.js",
     "data:check": "node scripts/check-data.js",
     "data:backup": "node scripts/backup-data.js",
