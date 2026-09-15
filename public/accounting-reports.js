@@ -39,7 +39,6 @@
         const credit = Number(row.credit || 0);
         if (from && entry.date < from) {
           account.opening += debit - credit;
-          account.closing += debit - credit;
         } else if (inRange(entry.date, from, to)) {
           account.debit += debit;
           account.credit += credit;
@@ -73,15 +72,7 @@
         }
         if (!inRange(entry.date, from, to)) continue;
         running += net;
-        rows.push({
-          date: entry.date,
-          number: entry.number,
-          batchNumber: entry.batchNumber,
-          description: entry.description,
-          debit,
-          credit,
-          balance: opening + running
-        });
+        rows.push({date: entry.date, number: entry.number, batchNumber: entry.batchNumber, description: entry.description, debit, credit, balance: opening + running});
       }
     }
     return {code, name, opening, closing: opening + running, rows};
@@ -102,9 +93,9 @@
     }));
   }
 
-  function sequenceGaps(store) {
+  function sequenceGapsFromEntries(entries) {
     const bySeries = new Map();
-    for (const entry of journal(store)) {
+    for (const entry of entries || []) {
       const number = String(entry.number || '');
       const match = number.match(/^([A-Za-z]+)(\d+)$/);
       if (!match) continue;
@@ -120,6 +111,10 @@
       }
     }
     return gaps;
+  }
+
+  function sequenceGaps(store) {
+    return sequenceGapsFromEntries(journal(store));
   }
 
   function periodControl(store, options = {}) {
@@ -141,7 +136,7 @@
       unbalanced,
       missingDescription,
       duplicateNumbers,
-      sequenceGaps: sequenceGaps({journal: entries.map(item => (store.journal || []).find(entry => entry.id === item.id) || item)}),
+      sequenceGaps: sequenceGapsFromEntries(entries),
       ok: !unbalanced.length && !missingDescription.length && !duplicateNumbers.length
     };
   }
