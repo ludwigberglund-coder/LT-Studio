@@ -1,15 +1,34 @@
-# Rollands – långsiktig webb- och ekonomiplattform
+# Rollands – komplett småföretagsplattform med Rolands som första referenskund
 
 GitHub är projektets enda källa för kod, redigerbart innehåll, dokumentation, tester och releasehistorik. Den publika demon byggs automatiskt från `main` och publiceras med GitHub Pages.
 
-- **Demo:** <https://ludwigberglund-coder.github.io/Rollands/>
+## Produktens syfte
+
+Vi bygger inte endast en enskild hemsida eller ett isolerat ekonomiprogram för Rolands. Målet är en återanvändbar plattform för saluhallar, småbutiker, mindre restauranger, caféer och närliggande småföretag.
+
+Rolands Frukt o Grönt Aktiebolag är kund nummer ett och vår första kompletta referensimplementation. Den färdiga kedjan ska vara:
+
+`publik hemsida → säker login → privat företagsportal → ekonomi, lager, dokument, webbplats och övriga moduler`
+
+Rolands-specifika texter, färger, inställningar och data ska ligga i företagets konfiguration och egen datamiljö. Gemensamma regler för exempelvis pengar, behörigheter, bokföring och säkerhet ska kunna återanvändas av nästa företag utan en ny kodbas.
+
+Läs först:
+
+- [Produktvision och principer](docs/PRODUCT-VISION.md)
+- [Enkel förklaring av hela nuläget, upplägget och planen](docs/SYSTEM-OVERVIEW.md)
+- [Kort projektbrief](docs/PROJECT-BRIEF.md)
+- [Målarkitektur](docs/ARCHITECTURE-REBUILD.md)
+
+## Aktuella demos
+
+- **Publik hemsida:** <https://ludwigberglund-coder.github.io/Rollands/>
 - **Projektadmin:** <https://ludwigberglund-coder.github.io/Rollands/admin/>
 - **Öreskalkylator:** <https://ludwigberglund-coder.github.io/Rollands/admin/#/money>
 - **Roller och behörigheter:** <https://ludwigberglund-coder.github.io/Rollands/admin/#/access>
 - **Verifikationer och perioder:** <https://ludwigberglund-coder.github.io/Rollands/admin/#/journal>
 - **Tidigare systemdemo:** <https://ludwigberglund-coder.github.io/Rollands/legacy/#/overview>
 
-> GitHub Pages är en demo- och granskningsmiljö. Skarp bokföringsdata, kunddata, bankdata, fakturor och hemligheter får aldrig lagras där eller i det publika repot.
+> GitHub Pages är en demo- och granskningsmiljö. Skarp bokföringsdata, kunddata, bankdata, fakturor, personuppgifter och hemligheter får aldrig lagras där eller i det publika repot.
 
 ## Enklare ändringar
 
@@ -35,7 +54,7 @@ Alla nya ekonomifunktioner använder `packages/accounting/money.js` som gemensam
 - svenska decimaler med komma eller punkt accepteras,
 - osäker precision och för stora värden stoppas i stället för att gissas.
 
-Projektadmin har en interaktiv öreskalkylator som använder exakt samma modul som fakturering, lager och bokföring bygger på. Se [penningmodellens dokumentation](docs/MONEY-DOMAIN.md).
+Projektadmin har en interaktiv öreskalkylator som använder samma modul som fakturering, lager och bokföring ska bygga på. Se [penningmodellens dokumentation](docs/MONEY-DOMAIN.md).
 
 ## Roller och behörighetsgränser
 
@@ -65,21 +84,24 @@ Projektadmin visar en rollmatris och kan simulera både vanliga behörighetsbesl
 
 Projektadmin innehåller en interaktiv demo där roller, bokföring, periodlås och motverifikationer kan provas lokalt i webbläsaren. Se [verifikationsdomänens dokumentation](docs/JOURNAL-DOMAIN.md).
 
-## Ny projektstruktur
+## Projektstruktur
 
 ```text
 apps/
-  website/               Ny publik webbplats
-  admin/                 Projektadmin och domändemos
+  website/               publik webbplats
+  admin/                 projektadmin och domändemos
+
 packages/
-  accounting/            Penning-, verifikations- och periodregler
-  access-control/        Roller, behörigheter och attestseparation
-  shared/browser/        Delade, små webbläsarverktyg
-content/                  Redigerbara texter och företagsuppgifter
-config/                   Verksamhetsbeslut och behörighetskonfiguration
-public/                   Tidigare fungerande system som migreringsreferens
-scripts/                  Validering, bygge och lokal förhandsvisning
-test/                     Automatiska tester
+  accounting/            penning-, verifikations- och periodregler
+  access-control/        roller, behörigheter och attestseparation
+  shared/browser/        delade små webbläsarverktyg
+
+content/                  redigerbara texter och företagsuppgifter
+config/                   verksamhetsbeslut och behörighetskonfiguration
+public/                   tidigare system som migreringsreferens
+docs/                     produktvision, förklaringar, beslut och planer
+scripts/                  validering, bygge och lokal förhandsvisning
+test/                     automatiska tester
 ```
 
 Den tidigare versionen ligger kvar under `/legacy/` medan nya delar byggs från grunden. Varje ny modul kan därför jämföras med befintliga affärsflöden innan den gamla tas bort.
@@ -128,6 +150,14 @@ npm run export:sie4i
 
 ## Långsiktig riktning
 
-Öreskärnan, behörighetsmotorn och verifikations-/periodmotorn är separata, testade byggblock. Nästa verksamhetslager är ny kund- och leverantörsreskontra ovanpå dessa regler, följt av bank, lager, lön och rapportering. Se [målarkitekturen](docs/ARCHITECTURE-REBUILD.md) och [verksamhetsbesluten](docs/VERKSAMHETSBESLUT.md).
+Öreskärnan, behörighetsmotorn och verifikations-/periodmotorn är separata, testade byggblock. Nästa stora plattformssteg är:
 
-Skarp drift kommer senare att använda samma GitHub-repo men en riktig backend, transaktionsdatabas och skyddad dokumentlagring. GitHub förblir källan för programmet – inte databasen för företagets bokföring.
+1. företagsneutral modell och en andra testkund,
+2. riktig backend, PostgreSQL, personlig login, MFA och företagsisolering,
+3. ny kund- och leverantörsreskontra,
+4. bankavstämning,
+5. lager och svinn,
+6. rapportering, moms, SIE, lön, dokument och webbplats-CMS,
+7. säkerhets-, drift- och redovisningsgranskning inför skarp Rolands-miljö.
+
+GitHub ska fortsätta vara sanningskälla för programmet och dokumentationen. Produktionsdatabasen och den skyddade dokumentlagringen ska vara sanningskälla för varje företags privata affärsdata.
