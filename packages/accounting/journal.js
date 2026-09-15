@@ -21,6 +21,7 @@
   const SERIES_PATTERN = /^[A-Z][A-Z0-9]{0,3}$/;
   const ENTRY_KINDS = new Set(['standard', 'reversal', 'replacement', 'opening']);
   const RESERVED_ENTRY_KINDS = new Set(['reversal', 'replacement']);
+  const EVENT_TYPES = new Set(['ENTRY_POSTED', 'ENTRY_CORRECTED', 'PERIOD_LOCKED', 'PERIOD_UNLOCKED']);
 
   function journalError(message, code = 'JOURNAL_ERROR', details = undefined) {
     const error = new Error(message);
@@ -249,16 +250,12 @@
     return `${series}:${year}`;
   }
 
-  function appendEvent(state, type, actorId, at, details, relatedId = '') {
-    const ordinal = state.events.length + 1;
-    state.events.push({
-      id: `${relatedId || 'ledger'}:${type.toLowerCase()}:${ordinal}`,
-      type,
-      actorId,
-      at,
-      details,
-      relatedId
-    });
+  function appendEvent(state, type, actorId, at, details, relatedId, context) {
+    const id = createIdentifier(context, 'event');
+    if (state.events.some(event => event.id === id)) {
+      throw journalError('Händelse-id används redan.', 'DUPLICATE_EVENT_ID');
+    }
+    state.events.push({id, type, actorId, at, details, relatedId: relatedId || ''});
   }
 
   function appendEntry(state, draft, context, permissionId) {
@@ -302,7 +299,7 @@
 
     next.entries.push(entry);
     next.sequences[key] = sequence;
-    appendEvent(next, 'ENTRY_POSTED', actor.id, postedAt, `${number}: ${entry.description}`, id);
+    appendEvent(next, 'ENTRY_POSTED', actor.id, postedAt, `${number}: ${entry.description}`, id, context);
     return {state: next, entry: cloneEntry(entry)};
   }
 
@@ -311,7 +308,7 @@
     if (RESERVED_ENTRY_KINDS.has(draft?.kind)) {
       throw journalError('Mot- och ersättningsverifikationer får endast skapas genom rättelseflödet.', 'RESERVED_ENTRY_KIND');
     }
-    return appendEntry(state, draft, context, context.permissionId || 'accounting.post');
+    return appendEntry(state, draft, context, 'accounting.post');
   }
 
   function swapRows(rows) {
@@ -380,7 +377,7 @@
       correctedBy: actor.id,
       correctedAt: completedAt
     };
-    appendEvent(next, 'ENTRY_CORRECTED', actor.id, completedAt, `${original.number}: ${reason}`, original.id);
+    appendEvent(next, 'ENTRY_CORRECTED', actor.id, completedAt, `${original.number}: ${reason}`, original.id, context);
 
     return {
       state: next,
@@ -403,7 +400,7 @@
     const history = next.periods[period]?.history || [];
     history.push({action: 'locked', actorId: actor.id, at, reason});
     next.periods[period] = {status: 'locked', lockedBy: actor.id, lockedAt: at, reason, history};
-    appendEvent(next, 'PERIOD_LOCKED', actor.id, at, `${period}: ${reason}`, period);
+    appendEvent(next, 'PERIOD_LOCKED', actor.id, at, `${period}: ${reason}`, period, context);
     return {state: next, period: clonePeriod(next.periods[period])};
   }
 
@@ -434,7 +431,7 @@
       reason,
       history
     };
-    appendEvent(next, 'PERIOD_UNLOCKED', actor.id, at, `${period}: ${reason}`, period);
+    appendEvent(next, 'PERIOD_UNLOCKED', actor.id, at, `${period}: ${reason}`, period, context);
     return {state: next, period: clonePeriod(next.periods[period])};
   }
 
@@ -533,6 +530,10 @@
           if (!validTimestamp(item?.at)) errors.push(`Period ${period}, historik ${index + 1}: tidsstämpel är ogiltig.`);
           if (typeof item?.reason !== 'string' || item.reason.trim().length < 3) errors.push(`Period ${period}, historik ${index + 1}: orsak saknas.`);
         });
+        const expectedAction = record.status === 'locked' ? 'locked' : 'unlocked';
+        if (record.history.length === 0 || record.history.at(-1)?.action !== expectedAction) {
+          errors.push(`Period ${period} har en status som inte stämmer med historiken.`);
+        }
       }
     }
 
@@ -559,16 +560,36 @@
       if (typeof correction.reason !== 'string' || correction.reason.trim().length < 5) errors.push(`Rättelsen för ${originalId} saknar giltig orsak.`);
     }
 
+    for (const entry of state.entries) {
+      if (entry.kind === 'reversal') {
+        const correction = state.corrections[entry.links?.reversalOf];
+        if (!correction || correction.reversalEntryId !== entry.id) {
+          errors.push(`Motverifikationen ${entry.id} saknar motsvarande rättelsepost.`);
+        }
+      }
+      if (entry.kind === 'replacement') {
+        const correction = state.corrections[entry.links?.replaces];
+        if (!correction || correction.replacementEntryId !== entry.id || correction.reversalEntryId !== entry.links?.reversalEntryId) {
+          errors.push(`Ersättningsposten ${entry.id} saknar motsvarande rättelsepost.`);
+        }
+      }
+    }
+
     const eventIds = new Set();
     for (const [index, event] of state.events.entries()) {
       const prefix = `events[${index}]`;
       if (typeof event?.id !== 'string' || !event.id) errors.push(`${prefix}.id saknas.`);
       else if (eventIds.has(event.id)) errors.push(`Dubblerat händelse-id: ${event.id}.`);
       else eventIds.add(event.id);
-      if (typeof event?.type !== 'string' || !event.type) errors.push(`${prefix}.type saknas.`);
+      if (!EVENT_TYPES.has(event?.type)) errors.push(`${prefix}.type är ogiltig.`);
       if (typeof event?.actorId !== 'string' || !event.actorId) errors.push(`${prefix}.actorId saknas.`);
       if (!validTimestamp(event?.at)) errors.push(`${prefix}.at är ogiltig.`);
       if (typeof event?.details !== 'string' || !event.details) errors.push(`${prefix}.details saknas.`);
+      if (event?.type === 'ENTRY_POSTED' && !entriesById.has(event.relatedId)) errors.push(`${prefix} hänvisar till okänd verifikation.`);
+      if (event?.type === 'ENTRY_CORRECTED' && !state.corrections[event.relatedId]) errors.push(`${prefix} hänvisar till okänd rättelse.`);
+      if ((event?.type === 'PERIOD_LOCKED' || event?.type === 'PERIOD_UNLOCKED') && !state.periods[event.relatedId]) {
+        errors.push(`${prefix} hänvisar till okänd period.`);
+      }
     }
 
     return {
