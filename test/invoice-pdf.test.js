@@ -19,7 +19,7 @@ const business={
 const invoice={
   number:'310123',ocr:'310123',date:'2026-09-15',dueDate:'2026-10-15',paymentTerms:30,
   customer:'Exempelbutiken AB',customerNumber:'K-1010',address:'Kundgatan 1\n411 01 Göteborg',customerOrgNumber:'559000-1234',
-  reference:'Erik Ek',ourContact:'Anna Andersson',deliveryDate:'2026-09-14',net:1500,vat:205,total:1705,currency:'SEK',
+  reference:'Erik Ek',ourContact:'Anna Andersson',deliveryDate:'2026-09-14',net:1500,vat:245,total:1745,currency:'SEK',
   lines:[
     {description:'Fruktkorg',quantity:2,unit:'st',unitPrice:500,net:1000,vatRate:12},
     {description:'Leverans',quantity:1,unit:'st',unitPrice:500,net:500,vatRate:25}
@@ -57,9 +57,25 @@ test('detaljerad faktura genereras som giltig PDF med dokumentmetadata',async()=
   assert.ok(doc.getPageCount()>=1);
 });
 
-test('kreditfaktura visar dokumenttypen och kan bära referens till ursprungsfaktura',()=>{
-  const data=invoiceDocumentData({...invoice,credit:true,number:'310124',originalInvoiceNumber:'310123',creditReason:'Retur'},business);
+test('kreditfaktura visar ursprungsfaktura och negativa belopp utan teckenkodningsfel',async()=>{
+  const credit={
+    ...invoice,
+    credit:true,
+    number:'310124',
+    originalInvoiceNumber:'310123',
+    creditReason:'Retur',
+    net:-1500,
+    vat:-245,
+    total:-1745,
+    lines:invoice.lines.map(line=>({...line,unitPrice:-Math.abs(line.unitPrice),net:-Math.abs(line.net)})),
+    vatSummary:invoice.vatSummary.map(row=>({...row,net:-Math.abs(row.net),vat:-Math.abs(row.vat)}))
+  };
+  const data=invoiceDocumentData(credit,business);
   assert.equal(data.documentType,'KREDITFAKTURA');
   assert.equal(data.originalInvoiceNumber,'310123');
   assert.equal(data.creditReason,'Retur');
+  const bytes=await invoicePdf(credit,business);
+  assert.ok(bytes.subarray(0,5).equals(Buffer.from('%PDF-')));
+  const doc=await PDFDocument.load(bytes);
+  assert.equal(doc.getTitle(),'KREDITFAKTURA 310124');
 });
