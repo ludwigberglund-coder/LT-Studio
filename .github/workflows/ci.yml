@@ -32,6 +32,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
+      - name: Validate editable content
+        run: npm run content:check
+
       - name: Check JavaScript syntax
         shell: bash
         run: |
@@ -50,17 +53,27 @@ jobs:
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 
-      - name: Build static site
+      - name: Build static demo
         run: npm run build:static
 
-      - name: Verify generated site
+      - name: Verify generated demo
         shell: bash
         run: |
           set -Eeuo pipefail
           test -f dist/index.html
           test -f dist/app.js
-          test -f dist/finance.js
-          diff -qr public dist
+          test -f dist/styles.css
+          test -f dist/admin/index.html
+          test -f dist/admin/app.js
+          test -f dist/shared/content.js
+          test -f dist/content/company.json
+          test -f dist/content/site.json
+          test -f dist/content/admin.json
+          test -f dist/config/rolands-business-decisions.json
+          test -f dist/legacy/index.html
+          test -f dist/.nojekyll
+          test ! -e dist/store.json
+          test ! -e dist/.env
 
       - name: Create review snapshot
         if: always()
@@ -71,6 +84,7 @@ jobs:
           rsync -a \
             --exclude='.git/' \
             --exclude='node_modules/' \
+            --exclude='dist/' \
             --exclude='store.json' \
             --exclude='store.json.bak' \
             --exclude='*.corrupt-*' \
