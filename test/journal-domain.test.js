@@ -60,7 +60,7 @@ test('bokföring skapar en balanserad, numrerad och oföränderlig ny post i ör
   assert.equal(Journal.validateLedger(result.state).ok, true);
 });
 
-test('obalans, ogiltiga konton, datum och otillräcklig behörighet stoppas före bokföring', () => {
+test('obalans, ogiltiga konton, datum, reserverade typer och otillräcklig behörighet stoppas före bokföring', () => {
   const ledger = Journal.createLedger({fiscalYearStart: '2026-01-01', fiscalYearEnd: '2026-12-31'});
 
   assert.throws(
@@ -82,6 +82,11 @@ test('obalans, ogiltiga konton, datum och otillräcklig behörighet stoppas för
   assert.throws(
     () => Journal.postEntry(ledger, balancedDraft({date: '2027-01-01'}), context(accountant)),
     error => error.code === 'INVALID_ENTRY' && /räkenskapsåret/.test(error.message)
+  );
+
+  assert.throws(
+    () => Journal.postEntry(ledger, balancedDraft({kind: 'reversal'}), context(accountant)),
+    error => error.code === 'RESERVED_ENTRY_KIND'
   );
 
   assert.throws(
@@ -121,6 +126,7 @@ test('periodlås stoppar bokföring och upplåsning kräver rätt roll samt en a
   }));
   assert.equal(Journal.periodStatus(unlocked.state, '2026-09'), 'open');
   assert.equal(unlocked.period.history.length, 2);
+  assert.notEqual(unlocked.state.events[0].id, unlocked.state.events[1].id);
 
   const posted = Journal.postEntry(unlocked.state, balancedDraft(), context(accountant, {idFactory: ids}));
   assert.equal(posted.entry.number, 'A1');
@@ -160,6 +166,13 @@ test('rättelse bevarar originalet och skapar motverifikation samt valfri ersät
   assert.equal(corrected.state.corrections[posted.entry.id].replacementEntryId, corrected.replacement.id);
   assert.equal(Journal.validateLedger(corrected.state).ok, true);
 
+  const relinked = structuredClone(corrected.state);
+  const reversal = relinked.entries.find(entry => entry.id === corrected.reversal.id);
+  reversal.links.reversalOf = 'entry-wrong-target';
+  const relinkReport = Journal.validateLedger(relinked);
+  assert.equal(relinkReport.ok, false);
+  assert.ok(relinkReport.errors.some(error => /fel ursprungskoppling/.test(error)));
+
   assert.throws(
     () => Journal.correctEntry(corrected.state, {
       entryId: posted.entry.id,
@@ -170,21 +183,30 @@ test('rättelse bevarar originalet och skapar motverifikation samt valfri ersät
   );
 });
 
-test('integritetskontrollen hittar manipulerade totalsummor, nummer och löpnummer', () => {
-  const posted = Journal.postEntry(
+test('integritetskontrollen hittar manipulerade totalsummor, nummer, serieluckor och händelser', () => {
+  const ids = idFactory();
+  const first = Journal.postEntry(
     Journal.createLedger({fiscalYearStart: '2026-01-01', fiscalYearEnd: '2026-12-31'}),
     balancedDraft(),
-    context(accountant)
+    context(accountant, {idFactory: ids})
   );
-  const broken = structuredClone(posted.state);
+  const second = Journal.postEntry(
+    first.state,
+    balancedDraft({date: '2026-09-16', description: 'Andra inköpet i nummerserien'}),
+    context(accountant, {idFactory: ids, now: '2026-09-16T10:00:00.000Z'})
+  );
+
+  const broken = structuredClone(second.state);
+  broken.entries.shift();
   broken.entries[0].totals.debitOre = 1;
   broken.entries[0].number = 'A99';
-  broken.sequences['A:2026'] = 0;
+  broken.events.push({...broken.events[0]});
 
   const report = Journal.validateLedger(broken);
   assert.equal(report.ok, false);
   assert.ok(report.errors.some(error => /totals stämmer inte/.test(error)));
   assert.ok(report.errors.some(error => /number stämmer inte/.test(error)));
-  assert.ok(report.errors.some(error => /Löpnummer/.test(error)));
+  assert.ok(report.errors.some(error => /Löpnummer A:2026 saknar 1/.test(error)));
+  assert.ok(report.errors.some(error => /Dubblerat händelse-id/.test(error)));
   assert.throws(() => Journal.assertLedger(broken), error => error.code === 'INVALID_LEDGER');
 });
