@@ -17,6 +17,14 @@ test('behörighetskonfigurationen är giltig och använder default deny', () => 
   assert.equal(report.summary.workflows, 4);
 });
 
+test('alla roller med kritiska åtgärder kräver MFA', () => {
+  const critical = new Set(config.permissions.filter(permission => permission.risk === 'critical').map(permission => permission.id));
+  const required = new Set(config.policy.mfaRequiredRoles);
+  const criticalRoles = config.roles.filter(role => role.permissions.some(permission => critical.has(permission)));
+  assert.ok(criticalRoles.length > 0);
+  for (const role of criticalRoles) assert.ok(required.has(role.id), `${role.id} har kritisk behörighet men saknar MFA-krav`);
+});
+
 test('en användare får unionen av sina roller men aldrig okända behörigheter', () => {
   const model = AccessControl.createModel(config);
   const actor = {id: 'user-1', roles: ['sales', 'inventory-manager']};
