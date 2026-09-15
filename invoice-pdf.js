@@ -3,6 +3,8 @@ const Model = require('./public/invoice-model');
 
 function invoiceDocumentData(invoice,business={}) {
   const seller=invoice.seller || business || {};
+  const strictValidation=invoice.strictInvoiceValidation===true || seller.strictInvoiceValidation===true;
+  const warnings=[];
   const required=(value,label)=>{
     const text=String(value ?? '').trim();
     if(!text) throw new Error(`Fakturan saknar obligatorisk uppgift: ${label}.`);
@@ -11,7 +13,12 @@ function invoiceDocumentData(invoice,business={}) {
   const number=required(invoice.number,'fakturanummer');
   const issueDate=required(invoice.date,'fakturadatum');
   const customer=required(invoice.customer,'köparens namn');
-  const customerAddress=required(invoice.address,'köparens adress');
+  let customerAddress=String(invoice.address || '').trim();
+  if(!customerAddress){
+    if(strictValidation) throw new Error('Fakturan saknar obligatorisk uppgift: köparens adress.');
+    warnings.push('Köparens adress saknas');
+    customerAddress='ADRESS SAKNAS - EJ REDO FÖR UTSKICK';
+  }
   const sellerName=required(seller.name || seller.legalName,'säljarens namn');
   const sellerAddress=required(seller.address,'säljarens adress');
   const sellerVatNumber=required(seller.vatNumber,'säljarens momsregistreringsnummer');
@@ -33,6 +40,13 @@ function invoiceDocumentData(invoice,business={}) {
     return {description,quantity,unit,unitPrice,discountPercent,vatRate,net};
   });
   const vatSummary=(invoice.vatSummary || [{rate:invoice.net?Math.round(invoice.vat/invoice.net*100):0,net:invoice.net,vat:invoice.vat}]).map(row=>({rate:Number(row.rate),net:Number(row.net||0),vat:Number(row.vat||0)}));
+  const originalInvoiceNumber=String(invoice.originalInvoiceNumber || '').trim();
+  if(invoice.credit && !originalInvoiceNumber){
+    if(strictValidation) throw new Error('Kreditfakturan saknar obligatorisk hänvisning till ursprungsfakturan.');
+    warnings.push('Hänvisning till ursprungsfaktura saknas');
+  }
+  const registeredOffice=String(seller.registeredOffice || '').trim();
+  if(!registeredOffice) warnings.push('Styrelsens sätesort saknas i fakturaunderlaget');
   return Object.freeze({
     documentType:invoice.credit?'KREDITFAKTURA':'FAKTURA',
     number,
@@ -53,7 +67,7 @@ function invoiceDocumentData(invoice,business={}) {
     sellerAddress,
     sellerOrgNumber,
     sellerVatNumber,
-    sellerRegisteredOffice:String(seller.registeredOffice || ''),
+    sellerRegisteredOffice:registeredOffice,
     sellerPhone:String(seller.phone || ''),
     sellerEmail:String(seller.email || ''),
     paymentAccount,
@@ -63,11 +77,14 @@ function invoiceDocumentData(invoice,business={}) {
     vat:Number(invoice.vat || 0),
     total:Number(invoice.total || 0),
     credit:invoice.credit===true,
-    originalInvoiceNumber:String(invoice.originalInvoiceNumber || ''),
+    originalInvoiceNumber,
     creditReason:String(invoice.creditReason || invoice.reference || ''),
     reverseCharge:invoice.reverseCharge===true,
     taxExemptionReason:String(invoice.taxExemptionReason || ''),
-    interestText:String(invoice.interestText || 'Vid försenad betalning kan dröjsmålsränta tas ut enligt räntelagen med Riksbankens referensränta + 8 procentenheter, om inte annat har avtalats.')
+    interestText:String(invoice.interestText || 'Vid försenad betalning kan dröjsmålsränta tas ut enligt räntelagen med Riksbankens referensränta + 8 procentenheter, om inte annat har avtalats.'),
+    strictValidation,
+    productionReady:warnings.length===0,
+    validationWarnings:Object.freeze([...warnings])
   });
 }
 
@@ -121,6 +138,10 @@ async function invoicePdf(invoice,business) {
     text(page,`Nr ${data.number}`,392,790,9,bold,white);
     y=748;
     if(first){
+      if(!data.productionReady){
+        page.drawRectangle({x:42,y:735,width:511,height:20,color:warm});
+        text(page,'UTKAST - SAKNAR UPPGIFTER FÖR SKARPT UTSKICK',52,742,8,bold,grey);
+      }
       page.drawRectangle({x:42,y:628,width:250,height:100,color:paper,borderColor:line,borderWidth:.6});
       text(page,'FAKTURERAS TILL',55,710,8,bold,grey);
       let cy=691;
@@ -147,7 +168,7 @@ async function invoicePdf(invoice,business) {
       if(data.credit){
         page.drawRectangle({x:42,y:y-4,width:511,height:35,color:warm});
         text(page,'KREDITFAKTURA',52,y+17,8,bold,grey);
-        const original=data.originalInvoiceNumber?`Avser ursprungsfaktura ${data.originalInvoiceNumber}`:'Kontrollera referensen till ursprungsfakturan före utskick.';
+        const original=data.originalInvoiceNumber?`Avser ursprungsfaktura ${data.originalInvoiceNumber}`:'Ursprungsfaktura saknas - ej redo för utskick.';
         text(page,original,52,y+2,9,bold);
         if(data.creditReason)right(page,`Orsak: ${data.creditReason}`,542,y+2,8,regular,grey);
         y-=55;
