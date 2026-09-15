@@ -80,7 +80,7 @@ async function invoicePdf(invoice,business) {
   doc.setCreator('Rollands Plattform');
   const regular=await doc.embedFont(StandardFonts.Helvetica), bold=await doc.embedFont(StandardFonts.HelveticaBold);
   const green=rgb(.055,.22,.17), greenSoft=rgb(.91,.95,.93), grey=rgb(.38,.43,.41), line=rgb(.82,.86,.83), paper=rgb(.98,.985,.98), white=rgb(1,1,1), warm=rgb(.96,.93,.84);
-  const clean=value=>String(value ?? '').replace(/\t/g,' ').replace(/[\u2010-\u2015]/g,'-').replace(/\u00a0/g,' ');
+  const clean=value=>String(value ?? '').replace(/\t/g,' ').replace(/[\u2010-\u2015\u2212]/g,'-').replace(/\u00a0/g,' ');
   const text=(page,value,x,y,size=9,font=regular,color=green)=>page.drawText(clean(value),{x,y,size,font,color});
   const width=(value,size=9,font=regular)=>font.widthOfTextAtSize(clean(value),size);
   function wrap(value,maxWidth,size=9,font=regular){
@@ -130,9 +130,8 @@ async function invoicePdf(invoice,business) {
       if(data.customerVatNumber)block(page,`Momsreg.nr: ${data.customerVatNumber}`,55,cy,224,8,regular,grey);
 
       page.drawRectangle({x:310,y:628,width:243,height:100,color:white,borderColor:line,borderWidth:.6});
-      let my=710;
-      my=labelValue(page,'FAKTURADATUM',data.issueDate,323,my,105);
-      my=labelValue(page,'FÖRFALLODATUM',data.dueDate,440,710,100);
+      labelValue(page,'FAKTURADATUM',data.issueDate,323,710,105);
+      labelValue(page,'FÖRFALLODATUM',data.dueDate,440,710,100);
       labelValue(page,'KUNDNUMMER',data.customerNumber||'-',323,661,105);
       labelValue(page,'OCR / BETALNINGSREFERENS',data.ocr,440,661,100);
 
