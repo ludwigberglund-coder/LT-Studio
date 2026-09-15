@@ -1,0 +1,44 @@
+name: Begär innehållsändring
+description: Be om en ändring av text, kontaktuppgift eller erbjudande utan att redigera kod.
+title: "Innehåll: "
+labels: ["content"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Var ska ändringen göras?
+      options:
+        - Publika webbplatsen
+        - Företagsuppgifter
+        - Projektadmin
+        - Verksamhetsbeslut
+        - Annat
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Nuvarande text eller uppgift
+      description: Klistra in det som står i dag, om det finns.
+    validations:
+      required: false
+  - type: textarea
+    id: requested
+    attributes:
+      label: Önskad text eller uppgift
+      description: Skriv exakt hur ni vill att det ska stå.
+    validations:
+      required: true
+  - type: textarea
+    id: reason
+    attributes:
+      label: Varför ska det ändras?
+    validations:
+      required: false
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Kontroll
+      options:
+        - label: Jag har inte lagt in kunddata, bankdata, fakturor, personuppgifter eller lösenord i ärendet.
+          required: true
