@@ -15,7 +15,8 @@ function fixture() {
     company: read('content/company.json'),
     site: read('content/site.json'),
     admin: read('content/admin.json'),
-    decisions: read('config/rolands-business-decisions.json')
+    decisions: read('config/rolands-business-decisions.json'),
+    access: read('config/access-control.json')
   };
 }
 
@@ -23,26 +24,30 @@ test('innehållsfilerna är giltiga och verksamhetsbesluten matchar företaget',
   const report = validateContent();
   assert.equal(report.ok, true, report.errors.join('\n'));
   assert.equal(report.summary.services, 3);
-  assert.ok(report.summary.adminModules >= 6);
+  assert.ok(report.summary.adminModules >= 7);
+  assert.ok(report.summary.accessRoles >= 8);
+  assert.equal(report.summary.separationWorkflows, 4);
 });
 
 test('innehållskontrollen stoppar dubblerad navigation och felaktigt organisationsnummer', () => {
   const data = fixture();
   data.company.orgNumber = 'fel';
   data.site.navigation.push({...data.site.navigation[0]});
-  const errors = validate(data.company, data.site, data.admin, data.decisions);
+  const errors = validate(data.company, data.site, data.admin, data.decisions, data.access);
   assert.ok(errors.some(error => /orgNumber/.test(error)));
   assert.ok(errors.some(error => /dubblerad navigationslänk/.test(error)));
 });
 
-test('statisk byggnad innehåller ny webbplats, projektadmin, öresdomän, delat innehåll och tidigare demo', () => {
+test('statisk byggnad innehåller webbplats, projektadmin, öresdomän, behörighetsdomän och tidigare demo', () => {
   const target = buildStatic();
   for (const relativePath of [
     'index.html', 'app.js', 'styles.css',
     'admin/index.html', 'admin/app.js', 'admin/money-view.js', 'admin/money.css',
-    'shared/content.js', 'shared/accounting/money.js',
-    'content/site.json', 'content/company.json',
-    'config/rolands-business-decisions.json', 'legacy/index.html', '.nojekyll'
+    'admin/access-view.js', 'admin/access.css',
+    'shared/content.js', 'shared/accounting/money.js', 'shared/access-control/authorization.js',
+    'content/site.json', 'content/company.json', 'content/admin.json',
+    'config/rolands-business-decisions.json', 'config/access-control.json',
+    'legacy/index.html', '.nojekyll'
   ]) assert.equal(fs.existsSync(path.join(target, relativePath)), true, `${relativePath} saknas`);
   assert.equal(fs.existsSync(path.join(target, 'store.json')), false);
 });

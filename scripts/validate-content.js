@@ -2,6 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const AccessControl = require('../packages/access-control/authorization.js');
 
 const root = path.resolve(__dirname, '..');
 
@@ -38,7 +39,7 @@ function duplicates(items) {
   return [...found];
 }
 
-function validate(company, site, admin, decisions) {
+function validate(company, site, admin, decisions, access) {
   const errors = [];
 
   for (const keyPath of [
@@ -82,6 +83,9 @@ function validate(company, site, admin, decisions) {
   if (decisions?.accounting?.moneyPrecision?.storageUnit !== 'ore') errors.push('config: penningprecision ska vara ore.');
   if (decisions?.inventory?.mode !== 'integrated-in-rollands') errors.push('config: lager ska vara integrerat i Rollands.');
 
+  const accessReport = AccessControl.validateConfig(access);
+  for (const error of accessReport.errors) errors.push(`config/access-control.json: ${error}`);
+
   return errors;
 }
 
@@ -90,7 +94,9 @@ function validateContent() {
   const site = readJson('content/site.json');
   const admin = readJson('content/admin.json');
   const decisions = readJson('config/rolands-business-decisions.json');
-  const errors = validate(company, site, admin, decisions);
+  const access = readJson('config/access-control.json');
+  const accessReport = AccessControl.validateConfig(access);
+  const errors = validate(company, site, admin, decisions, access);
   return {
     ok: errors.length === 0,
     errors,
@@ -98,7 +104,10 @@ function validateContent() {
       navigationItems: site.navigation?.length || 0,
       services: site.services?.items?.length || 0,
       adminModules: admin.modules?.length || 0,
-      roadmapSteps: admin.roadmap?.length || 0
+      roadmapSteps: admin.roadmap?.length || 0,
+      accessRoles: accessReport.summary.roles || 0,
+      accessPermissions: accessReport.summary.permissions || 0,
+      separationWorkflows: accessReport.summary.workflows || 0
     }
   };
 }
@@ -110,7 +119,7 @@ if (require.main === module) {
     for (const error of report.errors) console.error(`- ${error}`);
     process.exitCode = 1;
   } else {
-    console.log(`Innehållet är giltigt: ${report.summary.navigationItems} menyval, ${report.summary.services} erbjudanden, ${report.summary.adminModules} moduler.`);
+    console.log(`Innehållet är giltigt: ${report.summary.navigationItems} menyval, ${report.summary.services} erbjudanden, ${report.summary.adminModules} moduler, ${report.summary.accessRoles} roller.`);
   }
 }
 

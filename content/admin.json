@@ -5,8 +5,9 @@
     { "id": "overview", "label": "Översikt", "symbol": "01" },
     { "id": "content", "label": "Webbplatsinnehåll", "symbol": "02" },
     { "id": "money", "label": "Öreskalkylator", "symbol": "03" },
-    { "id": "modules", "label": "Systemmoduler", "symbol": "04" },
-    { "id": "decisions", "label": "Verksamhetsbeslut", "symbol": "05" }
+    { "id": "access", "label": "Roller och behörigheter", "symbol": "04" },
+    { "id": "modules", "label": "Systemmoduler", "symbol": "05" },
+    { "id": "decisions", "label": "Verksamhetsbeslut", "symbol": "06" }
   ],
   "modules": [
     {
@@ -18,25 +19,33 @@
       "href": "../"
     },
     {
+      "id": "identity",
+      "title": "Användare, roller och attest",
+      "description": "Default-deny, minsta möjliga behörighet, MFA-krav och fyrögonprincip är nu definierade i en gemensam regelmotor.",
+      "status": "Regelgrund klar",
+      "tone": "progress",
+      "href": "#/access"
+    },
+    {
       "id": "accounting",
       "title": "Bokföring",
-      "description": "Den nya kärnan har nu exakt öresprecision. Nästa lager blir verifikationer, perioder och spårbara rättelser ovanpå samma penningmodell.",
-      "status": "Öresgrund klar",
+      "description": "Den nya kärnan har exakt öresprecision och en central behörighetskontroll. Nästa lager blir verifikationer, perioder och spårbara rättelser.",
+      "status": "Grundkomponenter klara",
       "tone": "progress",
       "href": "#/money"
     },
     {
       "id": "invoicing",
       "title": "Fakturering och reskontra",
-      "description": "Radberäkning, blandad moms och totalsummor använder nu den nya öresmodellen. Befintliga flöden ligger kvar som referens under migreringen.",
-      "status": "Beräkningsgrund klar",
+      "description": "Radberäkning, blandad moms, totalsummor och attestbehörigheter har gemensamma domänregler. Befintliga flöden ligger kvar som referens.",
+      "status": "Beräknings- och rollgrund klar",
       "tone": "progress",
       "href": "#/money"
     },
     {
       "id": "inventory",
       "title": "Lager och svinn",
-      "description": "Artiklar, inventering, inköpspris, svinn och lagerförändringar byggs som egen modul.",
+      "description": "Artiklar, inventering, inköpspris, svinn och lagerförändringar byggs som egen modul med separat justeringsattest.",
       "status": "Kommande",
       "tone": "planned",
       "href": "#"
@@ -44,7 +53,7 @@
     {
       "id": "payroll",
       "title": "Lön och löneimport",
-      "description": "Lönejournal och avstämning med stöd för extern löneleverantör.",
+      "description": "Lönejournal och avstämning med stöd för extern löneleverantör och särskild lönebehörighet.",
       "status": "Kommande",
       "tone": "planned",
       "href": "#"
@@ -62,15 +71,17 @@
     "GitHub är enda källa för kod, innehåll, dokumentation och tester.",
     "Vanliga texter ändras i content-filer, inte inne i programkoden.",
     "Alla nya penningbelopp lagras som heltal i ören och aldrig som flyttal.",
+    "All åtkomst nekas som standard och ges endast genom namngivna behörigheter.",
+    "Ingen får ensam registrera och attestera samma kritiska underlag.",
     "Skarp ekonomidata lagras aldrig i GitHub eller GitHub Pages.",
     "Varje ändring testas automatiskt innan den publiceras.",
     "Gamla flöden ersätts stegvis och finns kvar som jämförelse under migreringen."
   ],
   "roadmap": [
     { "step": "01", "title": "Grund och innehåll", "status": "Klar" },
-    { "step": "02", "title": "Datamodell i ören", "status": "Aktiv – kärna klar" },
-    { "step": "03", "title": "Användare och roller", "status": "Nästa" },
-    { "step": "04", "title": "Bokföringsmotor", "status": "Planerad" },
+    { "step": "02", "title": "Datamodell i ören", "status": "Kärna klar" },
+    { "step": "03", "title": "Användare och roller", "status": "Aktiv – regelgrund klar" },
+    { "step": "04", "title": "Bokföringsmotor", "status": "Nästa" },
     { "step": "05", "title": "Reskontra och bank", "status": "Planerad" },
     { "step": "06", "title": "Lager, lön och rapporter", "status": "Planerad" }
   ]
