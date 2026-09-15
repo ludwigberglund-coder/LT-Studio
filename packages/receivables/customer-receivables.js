@@ -196,6 +196,9 @@
     if (businessCompensation && options?.customerType !== 'business' && options?.customerType !== 'public-body') {
       throw domainError('Förseningsersättning på 450 kr får inte användas för konsumentkund i detta arbetsflöde.', 'INVALID_LATE_PAYMENT_COMPENSATION', 409);
     }
+    if (businessCompensation && reminderFeeOre) {
+      throw domainError('Förseningsersättning på 450 kr och påminnelseavgift på 60 kr får inte läggas ovanpå varandra i detta arbetsflöde. Välj den ersättning som är rätt för ärendet.', 'COLLECTION_COST_OVERLAP', 409);
+    }
 
     return Object.freeze({
       sentDate,
