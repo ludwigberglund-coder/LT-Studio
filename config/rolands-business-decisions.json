@@ -1,0 +1,59 @@
+{
+  "company": {
+    "legalName": "Rolands Frukt o Grönt Aktiebolag",
+    "orgNumber": "556406-5059",
+    "currency": "SEK"
+  },
+  "accounting": {
+    "fiscalYear": {
+      "type": "calendar-year",
+      "start": "01-01",
+      "end": "12-31",
+      "decision": "approved"
+    },
+    "framework": {
+      "value": "K2",
+      "decision": "approved-target",
+      "productionGate": "Verify against the latest signed annual report before production use."
+    },
+    "vatPeriod": {
+      "value": "monthly",
+      "decision": "approved-target",
+      "productionGate": "Verify the registered VAT reporting period with Skatteverket before filing or production use."
+    },
+    "moneyPrecision": {
+      "storageUnit": "ore",
+      "displayCurrency": "SEK",
+      "decision": "required",
+      "implementationStatus": "migration-required",
+      "note": "The current accounting engine still uses whole kronor in several flows and must be migrated before production."
+    }
+  },
+  "payroll": {
+    "mode": "accounting-integrated-with-external-payroll-support",
+    "decision": "approved",
+    "scope": [
+      "payroll-journal-import",
+      "salary-cost-postings",
+      "employee-tax",
+      "employer-contributions",
+      "vacation-pay-liability",
+      "reconciliation"
+    ]
+  },
+  "inventory": {
+    "mode": "integrated-in-rollands",
+    "decision": "approved",
+    "scope": [
+      "items",
+      "quantities",
+      "purchase-cost",
+      "stocktaking",
+      "waste-and-spoilage",
+      "inventory-adjustments",
+      "inventory-change-postings"
+    ]
+  },
+  "approvedAt": "2026-09-15",
+  "status": "business-decisions-recorded"
+}
