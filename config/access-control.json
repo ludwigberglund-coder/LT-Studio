@@ -10,6 +10,8 @@
       "accountant",
       "approver",
       "controller",
+      "sales",
+      "inventory-manager",
       "payroll-admin"
     ]
   },
@@ -27,6 +29,8 @@
 
     { "id": "customer-invoice.view", "label": "Läsa kundfakturor", "category": "Kundfakturor", "risk": "read" },
     { "id": "customer-invoice.create", "label": "Skapa kundfakturautkast", "category": "Kundfakturor", "risk": "write" },
+    { "id": "customer-invoice.comment", "label": "Skriva intern fakturakommentar", "category": "Kundfakturor", "risk": "write" },
+    { "id": "customer-invoice.remind", "label": "Skapa betalningspåminnelse och dröjsmålsränta", "category": "Kundfakturor", "risk": "write" },
     { "id": "customer-invoice.issue", "label": "Utfärda och bokföra kundfakturor", "category": "Kundfakturor", "risk": "critical" },
     { "id": "customer-invoice.credit", "label": "Utfärda kreditfakturor", "category": "Kundfakturor", "risk": "critical" },
 
@@ -76,6 +80,8 @@
         "accounting.correct",
         "customer-invoice.view",
         "customer-invoice.create",
+        "customer-invoice.comment",
+        "customer-invoice.remind",
         "customer-invoice.issue",
         "customer-invoice.credit",
         "supplier-invoice.view",
@@ -117,6 +123,7 @@
         "period.lock",
         "period.unlock",
         "customer-invoice.view",
+        "customer-invoice.comment",
         "supplier-invoice.view",
         "payment.view",
         "bank.view",
@@ -133,6 +140,8 @@
       "permissions": [
         "customer-invoice.view",
         "customer-invoice.create",
+        "customer-invoice.comment",
+        "customer-invoice.remind",
         "customer-invoice.issue",
         "payment.view",
         "reports.view"

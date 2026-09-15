@@ -12,3 +12,6 @@ store.json.bak
 *.corrupt-*
 server.lock
 backups/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
