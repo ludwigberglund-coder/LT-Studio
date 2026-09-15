@@ -33,6 +33,10 @@ function buildStatic() {
     path.join(root, 'packages', 'accounting', 'money.js'),
     path.join(target, 'shared', 'accounting', 'money.js')
   );
+  copyFile(
+    path.join(root, 'packages', 'access-control', 'authorization.js'),
+    path.join(target, 'shared', 'access-control', 'authorization.js')
+  );
   copyDirectory(path.join(root, 'content'), path.join(target, 'content'));
   copyDirectory(path.join(root, 'config'), path.join(target, 'config'));
   copyDirectory(path.join(root, 'public'), path.join(target, 'legacy'));
@@ -49,9 +53,10 @@ function buildStatic() {
   const required = [
     'index.html', 'app.js', 'styles.css',
     'admin/index.html', 'admin/app.js', 'admin/money-view.js', 'admin/money.css',
-    'shared/content.js', 'shared/accounting/money.js',
+    'admin/access-view.js', 'admin/access.css',
+    'shared/content.js', 'shared/accounting/money.js', 'shared/access-control/authorization.js',
     'content/company.json', 'content/site.json', 'content/admin.json',
-    'config/rolands-business-decisions.json', 'legacy/index.html'
+    'config/rolands-business-decisions.json', 'config/access-control.json', 'legacy/index.html'
   ];
   for (const relativePath of required) {
     if (!fs.existsSync(path.join(target, relativePath))) throw new Error(`Byggfil saknas: ${relativePath}`);
