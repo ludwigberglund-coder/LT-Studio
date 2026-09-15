@@ -10,7 +10,7 @@
     "start": "node server.js",
     "dev": "node server.js",
     "preview:static": "node scripts/serve-static.js",
-    "test": "node --test test/finance.test.js test/receivables-tools.test.js test/store.test.js test/server-security.test.js test/accounting-integrity.test.js test/sie4i.test.js test/accounting-reports.test.js test/foundation.test.js test/money.test.js test/access-control.test.js",
+    "test": "node --test test/finance.test.js test/receivables-tools.test.js test/store.test.js test/server-security.test.js test/accounting-integrity.test.js test/sie4i.test.js test/accounting-reports.test.js test/foundation.test.js test/money.test.js test/access-control.test.js test/journal-domain.test.js",
     "content:check": "node scripts/validate-content.js",
     "build:static": "node scripts/build-static.js",
     "data:check": "node scripts/check-data.js",
