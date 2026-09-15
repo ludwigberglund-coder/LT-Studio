@@ -1,0 +1,25 @@
+{
+  "legalName": "Rolands Frukt o Grönt Aktiebolag",
+  "displayName": "Rollands Saluhall",
+  "orgNumber": "556406-5059",
+  "vatNumber": "SE556406505901",
+  "address": {
+    "street": "Bolshedens Industriväg 22",
+    "postalCode": "427 50",
+    "city": "Billdal",
+    "full": "Bolshedens Industriväg 22, 427 50 Billdal"
+  },
+  "contact": {
+    "phone": "031-91 32 23",
+    "phoneHref": "+4631913223",
+    "email": "frukt@rollands.se"
+  },
+  "business": {
+    "sni": "47210",
+    "description": "Detaljhandel med frukt och grönsaker",
+    "currency": "SEK"
+  },
+  "links": {
+    "maps": "https://www.google.com/maps/search/?api=1&query=Bolshedens+Industriv%C3%A4g+22+Billdal"
+  }
+}

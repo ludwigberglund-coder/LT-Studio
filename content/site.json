@@ -1,0 +1,73 @@
+{
+  "meta": {
+    "title": "Rollands Saluhall | Frukt, grönt och service i Billdal",
+    "description": "Rollands Saluhall i Billdal erbjuder frukt, grönsaker, företagsfrukt och personlig service.",
+    "language": "sv"
+  },
+  "navigation": [
+    { "label": "Hem", "href": "#hem" },
+    { "label": "Erbjudande", "href": "#erbjudande" },
+    { "label": "Om Rollands", "href": "#om" },
+    { "label": "Kontakt", "href": "#kontakt" }
+  ],
+  "hero": {
+    "eyebrow": "Frukt, grönt och omtanke i Billdal",
+    "title": "Bra råvaror. Personlig service. Enklare vardag.",
+    "body": "Hos Rollands möter du ett lokalt sortiment med fokus på frukt, grönt och service för både privatpersoner och företag.",
+    "primaryCta": { "label": "Kontakta oss", "href": "#kontakt" },
+    "secondaryCta": { "label": "Se vårt erbjudande", "href": "#erbjudande" }
+  },
+  "highlights": [
+    { "value": "Billdal", "label": "lokalt läge" },
+    { "value": "Företag", "label": "frukt och leveranser" },
+    { "value": "Butik", "label": "råvaror och vardagsservice" }
+  ],
+  "services": {
+    "eyebrow": "Vårt erbjudande",
+    "title": "För vardag, arbetsplats och tillfälle",
+    "body": "Innehållet här kan enkelt ändras i en enda fil utan att själva designen behöver byggas om.",
+    "items": [
+      {
+        "id": "fruit-veg",
+        "symbol": "01",
+        "title": "Frukt och grönt",
+        "description": "Ett varierat utbud av frukt och grönsaker med fokus på kvalitet, smak och säsong."
+      },
+      {
+        "id": "office-fruit",
+        "symbol": "02",
+        "title": "Företagsfrukt",
+        "description": "Smidiga lösningar för arbetsplatser som vill erbjuda frukt till medarbetare och besökare."
+      },
+      {
+        "id": "service",
+        "symbol": "03",
+        "title": "Personlig service",
+        "description": "Vi hjälper till med beställningar, frågor och upplägg som passar verksamhetens behov."
+      }
+    ]
+  },
+  "story": {
+    "eyebrow": "Om Rollands",
+    "title": "En tydlig plats för både butik och verksamhet",
+    "body": "Den nya webbplatsen byggs innehållsdrivet. Företagsuppgifter och texter ligger separat från kod och design, vilket gör framtida ändringar snabbare och säkrare.",
+    "points": [
+      "Tydlig information för kunder och företag",
+      "Samma visuella grund på mobil och dator",
+      "Automatisk publicering från GitHub efter godkända tester",
+      "Separat ekonomisystem som byggs modul för modul"
+    ]
+  },
+  "contact": {
+    "eyebrow": "Kontakt",
+    "title": "Välkommen att höra av dig",
+    "body": "Kontakta Rollands för frågor om sortiment, företagsfrukt eller beställningar.",
+    "openingHours": [
+      { "days": "Vardagar", "hours": "Kontakta butiken för aktuella öppettider" }
+    ]
+  },
+  "footer": {
+    "tagline": "Frukt, grönt och personlig service i Billdal.",
+    "adminLabel": "Öppna projektadmin"
+  }
+}
