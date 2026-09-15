@@ -7,6 +7,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function createAccessControlDomain() {
   const PERMISSION_PATTERN = /^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$/;
   const IDENTIFIER_PATTERN = /^[a-z][a-z0-9-]*$/;
+  const FIELD_IDENTIFIER_PATTERN = /^[a-z][a-zA-Z0-9]*$/;
 
   function accessError(message, code = 'INVALID_ACCESS_CONFIG', details = undefined) {
     const error = new Error(message);
@@ -107,7 +108,7 @@
       const fieldIds = workflow.fields.map(field => field?.id);
       for (const duplicate of duplicates(fieldIds)) errors.push(`${prefix}.fields innehåller dubbletten ${duplicate}.`);
       for (const [fieldIndex, field] of workflow.fields.entries()) {
-        if (!IDENTIFIER_PATTERN.test(field?.id || '')) errors.push(`${prefix}.fields[${fieldIndex}].id har ogiltigt format.`);
+        if (!FIELD_IDENTIFIER_PATTERN.test(field?.id || '')) errors.push(`${prefix}.fields[${fieldIndex}].id har ogiltigt format.`);
         if (!nonEmptyText(field?.label)) errors.push(`${prefix}.fields[${fieldIndex}].label måste vara text.`);
       }
     }
@@ -284,6 +285,7 @@
   return Object.freeze({
     PERMISSION_PATTERN,
     IDENTIFIER_PATTERN,
+    FIELD_IDENTIFIER_PATTERN,
     validateConfig,
     createModel,
     permissionsForActor,
