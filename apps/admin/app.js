@@ -1,6 +1,7 @@
 import {downloadJson, escapeHtml, loadJson, readLocalJson, safeHref, writeLocalJson} from '../shared/content.js';
 import {handleMoneyClick, handleMoneyInput, moneyView} from './money-view.js';
 import {accessView, configureAccess, handleAccessInput} from './access-view.js';
+import {configureJournal, handleJournalClick, handleJournalInput, handleJournalSubmit, journalView} from './journal-view.js';
 
 const PREVIEW_KEY = 'rollands-site-content-preview-v1';
 const app = document.getElementById('admin-app');
@@ -63,7 +64,7 @@ function overviewView() {
     ['Publicering', 'GitHub Pages', 'Varje godkänd ändring i main bygger om demon automatiskt.'],
     ['Penningmodell', 'Heltal i ören', 'Nya beräkningar använder en gemensam exakt kärna utan flyttalsfel.'],
     ['Behörighet', 'Default deny', 'Roller och kritiska arbetsflöden använder en central regelmotor.'],
-    ['Skarp data', 'Separat drift', 'Kund-, bank- och bokföringsdata ska inte lagras i GitHub Pages.']
+    ['Bokföringskärna', 'Spårbar rättelse', 'Verifikationer balanseras, numreras och rättas utan överskrivning.']
   ].map(([label, value, description]) => `
     <article class="metric-card">
       <span>${escapeHtml(label)}</span>
@@ -94,7 +95,11 @@ function overviewView() {
       </article>
     </section>
     <section class="panel callout">
-      <div><span class="kicker">Exakta ekonomivärden</span><h2>Testa belopp och blandad moms</h2><p>Öreskalkylatorn använder samma fristående penningmodell som kommande fakturering, lager och bokföring ska bygga på.</p></div>
+      <div><span class="kicker">Verifikations- och periodmotor</span><h2>Prova balansering, periodlås och motverifikationer</h2><p>Den nya bokföringskärnan använder både öresmodellen och rollreglerna. Alla ändringar i demon sparas endast i den egna webbläsaren.</p></div>
+      <a class="button primary" href="#/journal">Öppna verifikationsdemon</a>
+    </section>
+    <section class="panel callout">
+      <div><span class="kicker">Exakta ekonomivärden</span><h2>Testa belopp och blandad moms</h2><p>Öreskalkylatorn använder samma fristående penningmodell som fakturering, lager och bokföring bygger på.</p></div>
       <a class="button primary" href="#/money">Öppna öreskalkylatorn</a>
     </section>
     <section class="panel callout">
@@ -231,6 +236,7 @@ function render() {
   if (view === 'content') app.innerHTML = contentView();
   else if (view === 'money') app.innerHTML = layout('money', 'Öreskalkylator', 'Testa den gemensamma penningmodellen med exakta belopp och blandad moms.', moneyView());
   else if (view === 'access') app.innerHTML = layout('access', 'Roller och behörigheter', 'Granska default-deny, minsta möjliga åtkomst och fyrögonprincip för kritiska flöden.', accessView());
+  else if (view === 'journal') app.innerHTML = layout('journal', 'Verifikationer och perioder', 'Prova balanserade poster, löpnummer, periodlås och spårbara motverifikationer.', journalView());
   else if (view === 'modules') app.innerHTML = modulesView();
   else if (view === 'decisions') app.innerHTML = decisionsView();
   else app.innerHTML = overviewView();
@@ -239,6 +245,7 @@ function render() {
 function bindEvents() {
   window.addEventListener('hashchange', render);
   document.addEventListener('input', event => {
+    if (handleJournalInput(event.target, render)) return;
     if (handleAccessInput(event.target, render)) return;
     if (handleMoneyInput(event.target)) return;
     const path = event.target.dataset.contentPath;
@@ -246,14 +253,20 @@ function bindEvents() {
     setValueAtPath(draftSite, path, event.target.value);
   });
   document.addEventListener('submit', event => {
+    if (event.target.matches('[data-journal-form]')) {
+      event.preventDefault();
+      handleJournalSubmit(event.target, render);
+      return;
+    }
     if (event.target.id !== 'content-form') return;
     event.preventDefault();
     writeLocalJson(PREVIEW_KEY, draftSite);
     showMessage('Den lokala förhandsvisningen är sparad. Öppna den med knappen till höger.');
   });
   document.addEventListener('click', async event => {
-    const button = event.target.closest('[data-action]');
+    const button = event.target.closest('[data-action], [data-journal-action]');
     if (!button) return;
+    if (handleJournalClick(button, render)) return;
     if (handleMoneyClick(button, render)) return;
     const action = button.dataset.action;
     try {
@@ -278,6 +291,7 @@ async function boot() {
   try {
     if (!globalThis.RollandsMoney) throw new Error('Öresmodulen kunde inte laddas.');
     if (!globalThis.RollandsAccessControl) throw new Error('Behörighetsmodulen kunde inte laddas.');
+    if (!globalThis.RollandsJournal) throw new Error('Verifikationsmotorn kunde inte laddas.');
     [company, publishedSite, adminContent, decisions, accessConfig] = await Promise.all([
       loadJson('../content/company.json'),
       loadJson('../content/site.json'),
@@ -286,6 +300,7 @@ async function boot() {
       loadJson('../config/access-control.json')
     ]);
     configureAccess(accessConfig);
+    configureJournal(accessConfig);
     draftSite = readLocalJson(PREVIEW_KEY) || structuredClone(publishedSite);
     bindEvents();
     render();

@@ -6,8 +6,9 @@
     { "id": "content", "label": "Webbplatsinnehåll", "symbol": "02" },
     { "id": "money", "label": "Öreskalkylator", "symbol": "03" },
     { "id": "access", "label": "Roller och behörigheter", "symbol": "04" },
-    { "id": "modules", "label": "Systemmoduler", "symbol": "05" },
-    { "id": "decisions", "label": "Verksamhetsbeslut", "symbol": "06" }
+    { "id": "journal", "label": "Verifikationer och perioder", "symbol": "05" },
+    { "id": "modules", "label": "Systemmoduler", "symbol": "06" },
+    { "id": "decisions", "label": "Verksamhetsbeslut", "symbol": "07" }
   ],
   "modules": [
     {
@@ -21,24 +22,24 @@
     {
       "id": "identity",
       "title": "Användare, roller och attest",
-      "description": "Default-deny, minsta möjliga behörighet, MFA-krav och fyrögonprincip är nu definierade i en gemensam regelmotor.",
+      "description": "Default-deny, minsta möjliga behörighet, MFA-krav och fyrögonprincip är definierade i en gemensam regelmotor.",
       "status": "Regelgrund klar",
-      "tone": "progress",
+      "tone": "ready",
       "href": "#/access"
     },
     {
       "id": "accounting",
       "title": "Bokföring",
-      "description": "Den nya kärnan har exakt öresprecision och en central behörighetskontroll. Nästa lager blir verifikationer, perioder och spårbara rättelser.",
-      "status": "Grundkomponenter klara",
-      "tone": "progress",
-      "href": "#/money"
+      "description": "Öresprecision, balanserade verifikationer, löpnummer, periodlås och spårbara motverifikationer finns nu i en fristående kärna.",
+      "status": "Domänkärna klar",
+      "tone": "ready",
+      "href": "#/journal"
     },
     {
       "id": "invoicing",
       "title": "Fakturering och reskontra",
-      "description": "Radberäkning, blandad moms, totalsummor och attestbehörigheter har gemensamma domänregler. Befintliga flöden ligger kvar som referens.",
-      "status": "Beräknings- och rollgrund klar",
+      "description": "Radberäkning, blandad moms, totalsummor och attestbehörigheter har gemensamma domänregler. Nästa steg är nya reskontramodeller ovanpå bokföringskärnan.",
+      "status": "Nästa verksamhetslager",
       "tone": "progress",
       "href": "#/money"
     },
@@ -61,7 +62,7 @@
     {
       "id": "reporting",
       "title": "Rapporter och SIE",
-      "description": "Saldobalans, huvudbok och SIE 4I finns som teknisk grund och byggs vidare.",
+      "description": "Saldobalans, huvudbok och SIE 4I finns som teknisk referens och flyttas senare till de nya domänmodellerna.",
       "status": "Pågående",
       "tone": "progress",
       "href": "../legacy/#/reports"
@@ -73,6 +74,7 @@
     "Alla nya penningbelopp lagras som heltal i ören och aldrig som flyttal.",
     "All åtkomst nekas som standard och ges endast genom namngivna behörigheter.",
     "Ingen får ensam registrera och attestera samma kritiska underlag.",
+    "Bokförda verifikationer skrivs aldrig över utan rättas med nya spårbara poster.",
     "Skarp ekonomidata lagras aldrig i GitHub eller GitHub Pages.",
     "Varje ändring testas automatiskt innan den publiceras.",
     "Gamla flöden ersätts stegvis och finns kvar som jämförelse under migreringen."
@@ -80,9 +82,9 @@
   "roadmap": [
     { "step": "01", "title": "Grund och innehåll", "status": "Klar" },
     { "step": "02", "title": "Datamodell i ören", "status": "Kärna klar" },
-    { "step": "03", "title": "Användare och roller", "status": "Aktiv – regelgrund klar" },
-    { "step": "04", "title": "Bokföringsmotor", "status": "Nästa" },
-    { "step": "05", "title": "Reskontra och bank", "status": "Planerad" },
+    { "step": "03", "title": "Användare och roller", "status": "Regelgrund klar" },
+    { "step": "04", "title": "Bokföringsmotor", "status": "Domänkärna klar" },
+    { "step": "05", "title": "Reskontra och bank", "status": "Nästa" },
     { "step": "06", "title": "Lager, lön och rapporter", "status": "Planerad" }
   ]
 }
