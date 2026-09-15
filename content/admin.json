@@ -1,0 +1,75 @@
+{
+  "productName": "Rollands Plattform",
+  "environment": "Utvecklingsdemo",
+  "navigation": [
+    { "id": "overview", "label": "Översikt", "symbol": "01" },
+    { "id": "content", "label": "Webbplatsinnehåll", "symbol": "02" },
+    { "id": "modules", "label": "Systemmoduler", "symbol": "03" },
+    { "id": "decisions", "label": "Verksamhetsbeslut", "symbol": "04" }
+  ],
+  "modules": [
+    {
+      "id": "website",
+      "title": "Publik webbplats",
+      "description": "Innehållsdriven webbplats som publiceras automatiskt via GitHub Pages.",
+      "status": "Grund klar",
+      "tone": "ready",
+      "href": "../"
+    },
+    {
+      "id": "accounting",
+      "title": "Bokföring",
+      "description": "Ny modulär bokföringsmotor planeras med öresprecision, periodlås och spårbara rättelser.",
+      "status": "Planerad ombyggnad",
+      "tone": "planned",
+      "href": "../legacy/#/ledger"
+    },
+    {
+      "id": "invoicing",
+      "title": "Fakturering och reskontra",
+      "description": "Befintliga flöden används som referens medan nya domänmoduler byggs och testas.",
+      "status": "Referens finns",
+      "tone": "progress",
+      "href": "../legacy/#/invoices"
+    },
+    {
+      "id": "inventory",
+      "title": "Lager och svinn",
+      "description": "Artiklar, inventering, inköpspris, svinn och lagerförändringar byggs som egen modul.",
+      "status": "Kommande",
+      "tone": "planned",
+      "href": "#"
+    },
+    {
+      "id": "payroll",
+      "title": "Lön och löneimport",
+      "description": "Lönejournal och avstämning med stöd för extern löneleverantör.",
+      "status": "Kommande",
+      "tone": "planned",
+      "href": "#"
+    },
+    {
+      "id": "reporting",
+      "title": "Rapporter och SIE",
+      "description": "Saldobalans, huvudbok och SIE 4I finns som teknisk grund och byggs vidare.",
+      "status": "Pågående",
+      "tone": "progress",
+      "href": "../legacy/#/reports"
+    }
+  ],
+  "principles": [
+    "GitHub är enda källa för kod, innehåll, dokumentation och tester.",
+    "Vanliga texter ändras i content-filer, inte inne i programkoden.",
+    "Skarp ekonomidata lagras aldrig i GitHub eller GitHub Pages.",
+    "Varje ändring testas automatiskt innan den publiceras.",
+    "Gamla flöden ersätts stegvis och finns kvar som jämförelse under migreringen."
+  ],
+  "roadmap": [
+    { "step": "01", "title": "Grund och innehåll", "status": "Aktiv" },
+    { "step": "02", "title": "Datamodell i ören", "status": "Nästa" },
+    { "step": "03", "title": "Användare och roller", "status": "Planerad" },
+    { "step": "04", "title": "Bokföringsmotor", "status": "Planerad" },
+    { "step": "05", "title": "Reskontra och bank", "status": "Planerad" },
+    { "step": "06", "title": "Lager, lön och rapporter", "status": "Planerad" }
+  ]
+}
