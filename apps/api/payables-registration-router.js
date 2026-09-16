@@ -6,11 +6,22 @@ const Access=require('../../packages/access-control/authorization.js');
 const Auth=require('./auth.js');
 const Db=require('./database.js');
 const Registration=require('./payables-registration.js');
-const {readJson,securityHeaders}=require('./app.js');
+const {securityHeaders}=require('./app.js');
 
 const DEFAULT_ACCESS=JSON.parse(fs.readFileSync(path.join(__dirname,'..','..','config','access-control.json'),'utf8'));
+const REGISTRATION_BODY_LIMIT=15*1024*1024;
 function routeError(message,code='PAYABLES_REGISTRATION_ROUTE_ERROR',statusCode=400){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
 function send(res,status,body){if(res.writableEnded)return;res.writeHead(status,{...securityHeaders(),'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(body))}
+function readRegistrationJson(req,res){return new Promise((resolve,reject)=>{
+  const type=String(req.headers['content-type']||'').split(';')[0].trim().toLowerCase();
+  if(type!=='application/json'){send(res,415,{error:'Fakturaregistrering måste använda application/json.',code:'UNSUPPORTED_MEDIA_TYPE'});return resolve(null)}
+  const declared=Number(req.headers['content-length']||0);
+  if(Number.isFinite(declared)&&declared>REGISTRATION_BODY_LIMIT){send(res,413,{error:'Fakturaunderlaget är för stort.',code:'BODY_TOO_LARGE'});req.resume();return resolve(null)}
+  const chunks=[];let size=0,tooLarge=false;
+  req.on('data',chunk=>{if(tooLarge)return;size+=chunk.length;if(size>REGISTRATION_BODY_LIMIT){tooLarge=true;chunks.length=0;send(res,413,{error:'Fakturaunderlaget är för stort.',code:'BODY_TOO_LARGE'});req.resume();return}chunks.push(chunk)});
+  req.on('end',()=>{if(tooLarge||res.writableEnded)return resolve(null);try{const value=chunks.length?JSON.parse(Buffer.concat(chunks).toString('utf8')):{};if(!value||typeof value!=='object'||Array.isArray(value))throw routeError('JSON-innehållet måste vara ett objekt.','INVALID_JSON',400);resolve(value)}catch(error){reject(error)}});
+  req.on('error',reject);
+})}
 function createPayablesRegistrationRouter(options){
   const db=options?.db;if(!db)throw new Error('Databas krävs.');
   const accessModel=Access.createModel(options.accessConfig||DEFAULT_ACCESS);
@@ -29,7 +40,7 @@ function createPayablesRegistrationRouter(options){
       }
       if(req.method==='POST'&&url.pathname==='/api/v1/payables/register-invoice'){
         permission(s,'supplier-invoice.register');csrf(req,s);
-        const payload=await readJson(req,res);if(!payload)return true;
+        const payload=await readRegistrationJson(req,res);if(!payload)return true;
         const invoice=Db.transaction(db,()=>{
           const value=Registration.registerInvoice(db,{companyId:s.companyId,registeredBy:s.userId,...payload});
           Db.appendAudit(db,{companyId:s.companyId,userId:s.userId,action:'SUPPLIER_INVOICE_REGISTERED',entityType:'supplier-invoice',entityId:value.id,details:{supplierId:value.supplierId,supplierInvoiceNumber:value.supplierInvoiceNumber,totalOre:value.totalOre,documentSha256:value.documentSha256}});
@@ -42,4 +53,4 @@ function createPayablesRegistrationRouter(options){
   }
   return Object.freeze({handle,accessModel});
 }
-module.exports=Object.freeze({createPayablesRegistrationRouter});
+module.exports=Object.freeze({REGISTRATION_BODY_LIMIT,readRegistrationJson,createPayablesRegistrationRouter});
