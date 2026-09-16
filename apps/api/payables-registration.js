@@ -27,12 +27,14 @@ function validateInput(input){
   return Object.freeze({supplierId,supplierInvoiceNumber,invoiceDate,dueDate,totalOre,vatOre,currency,documentName:text(input.documentName)||'leverantorsfaktura.pdf',documentBytes});
 }
 function listSuppliers(db,companyId){return db.prepare(`SELECT id,company_id AS companyId,supplier_number AS supplierNumber,name,org_number AS orgNumber,email,bankgiro,plusgiro,default_cost_account AS defaultCostAccount FROM suppliers WHERE company_id=? ORDER BY name COLLATE NOCASE,supplier_number`).all(companyId)}
+function existingInvoice(db,companyId,supplierId,supplierInvoiceNumber){return db.prepare(`SELECT id FROM supplier_invoices WHERE company_id=? AND supplier_id=? AND supplier_invoice_number=?`).get(companyId,supplierId,supplierInvoiceNumber)||null}
 function registerInvoice(db,{companyId,registeredBy,...input}){
   const company=text(companyId),actor=text(registeredBy);if(!company||!actor)throw registrationError('Företag och personlig registrerare krävs.','MISSING_CONTEXT',401);
   const value=validateInput(input);
   const supplier=Payables.supplierById(db,company,value.supplierId);if(!supplier)throw registrationError('Leverantören hittades inte.','SUPPLIER_NOT_FOUND',404);
+  if(existingInvoice(db,company,value.supplierId,value.supplierInvoiceNumber))throw registrationError('En faktura med samma fakturanummer finns redan för leverantören.','DUPLICATE_SUPPLIER_INVOICE',409);
   const invoice=Payables.createSupplierInvoice(db,{companyId:company,supplierId:value.supplierId,supplierInvoiceNumber:value.supplierInvoiceNumber,invoiceDate:value.invoiceDate,dueDate:value.dueDate,totalOre:value.totalOre,vatOre:value.vatOre,currency:value.currency,registeredBy:actor});
   Payables.storeDocument(db,{companyId:company,invoiceId:invoice.id,name:value.documentName,mime:'application/pdf',bytes:value.documentBytes});
   return Payables.invoiceById(db,company,invoice.id);
 }
-module.exports=Object.freeze({validDate,decodePdfBase64,validateInput,listSuppliers,registerInvoice});
+module.exports=Object.freeze({validDate,decodePdfBase64,validateInput,listSuppliers,existingInvoice,registerInvoice});
