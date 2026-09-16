@@ -26,7 +26,7 @@ test('innehållsfilerna är giltiga och verksamhetsbesluten matchar företaget',
   assert.equal(report.summary.services, 3);
   assert.ok(report.summary.adminModules >= 7);
   assert.ok(report.summary.accessRoles >= 8);
-  assert.equal(report.summary.separationWorkflows, 4);
+  assert.equal(report.summary.separationWorkflows, 5);
 });
 
 test('innehållskontrollen stoppar dubblerad navigation och felaktigt organisationsnummer', () => {
@@ -45,6 +45,7 @@ test('statisk byggnad innehåller webbplats, projektadmin, företagsportal, dom�
     'admin/index.html', 'admin/app.js', 'admin/money-view.js', 'admin/money.css',
     'admin/access-view.js', 'admin/access.css', 'admin/journal-view.js', 'admin/journal.css',
     'portal/index.html', 'portal/app.js', 'portal/styles.css',
+    'portal/payables.html', 'portal/bank.html', 'portal/automation.html', 'portal/suppliers.html',
     'shared/content.js', 'shared/accounting/money.js', 'shared/accounting/journal.js',
     'shared/access-control/authorization.js', 'shared/receivables/customer-receivables.js',
     'content/site.json', 'content/company.json', 'content/admin.json',
