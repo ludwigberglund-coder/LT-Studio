@@ -8,15 +8,11 @@
       const company=sidebar.querySelector('.company-pill');if(company)company.after(group);else sidebar.prepend(group);
     }
     const economy=[...sidebar.querySelectorAll('.side-group')].find(g=>/Ekonomi/i.test(g.querySelector('span')?.textContent||''));
-    if(economy&&!sidebar.querySelector('a[href*="suppliers.html"]')){
-      const automation=economy.querySelector('a[href*="automation.html"]');const link=document.createElement('a');link.className='side-link';link.href=`./suppliers.html${suffix}`;link.textContent='Leverantörer';if(automation)economy.insertBefore(link,automation);else economy.append(link);
-    }
-    if(economy&&!sidebar.querySelector('a[href*="inventory.html"]')){
-      const automation=economy.querySelector('a[href*="automation.html"]');const link=document.createElement('a');link.className='side-link';link.href=`./inventory.html${suffix}`;link.textContent='Lager';if(automation)economy.insertBefore(link,automation);else economy.append(link);
-    }
-    if(economy&&!sidebar.querySelector('a[href*="reports.html"]')){
-      const automation=economy.querySelector('a[href*="automation.html"]');const link=document.createElement('a');link.className='side-link';link.href=`./reports.html${suffix}`;link.textContent='Rapporter';if(automation)economy.insertBefore(link,automation);else economy.append(link);
-    }
+    const addBeforeAutomation=(href,label)=>{if(!economy||sidebar.querySelector(`a[href*="${href}"]`))return;const automation=economy.querySelector('a[href*="automation.html"]');const link=document.createElement('a');link.className='side-link';link.href=`./${href}${suffix}`;link.textContent=label;if(automation)economy.insertBefore(link,automation);else economy.append(link)};
+    addBeforeAutomation('suppliers.html','Leverantörer');
+    addBeforeAutomation('inventory.html','Lager');
+    addBeforeAutomation('reports.html','Rapporter');
+    addBeforeAutomation('payroll.html','Lön');
     return true;
   }
   if(!enhance()){const observer=new MutationObserver(()=>{if(enhance())observer.disconnect()});observer.observe(document.documentElement,{childList:true,subtree:true})}
