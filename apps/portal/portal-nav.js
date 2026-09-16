@@ -11,6 +11,9 @@
     if(economy&&!sidebar.querySelector('a[href*="suppliers.html"]')){
       const automation=economy.querySelector('a[href*="automation.html"]');const link=document.createElement('a');link.className='side-link';link.href=`./suppliers.html${suffix}`;link.textContent='Leverantörer';if(automation)economy.insertBefore(link,automation);else economy.append(link);
     }
+    if(economy&&!sidebar.querySelector('a[href*="inventory.html"]')){
+      const automation=economy.querySelector('a[href*="automation.html"]');const link=document.createElement('a');link.className='side-link';link.href=`./inventory.html${suffix}`;link.textContent='Lager';if(automation)economy.insertBefore(link,automation);else economy.append(link);
+    }
     return true;
   }
   if(!enhance()){const observer=new MutationObserver(()=>{if(enhance())observer.disconnect()});observer.observe(document.documentElement,{childList:true,subtree:true})}

@@ -47,6 +47,7 @@ function buildStatic() {
     'portal/payables.html', 'portal/payables.js', 'portal/payables.css', 'portal/payables-queue.js',
     'portal/payables-intake.js', 'portal/payables-intake.css',
     'portal/suppliers.html', 'portal/suppliers.js', 'portal/suppliers.css',
+    'portal/inventory.html', 'portal/inventory.js', 'portal/inventory.css',
     'shared/content.js', 'shared/accounting/money.js', 'shared/accounting/journal.js',
     'shared/access-control/authorization.js', 'shared/receivables/customer-receivables.js',
     'content/company.json', 'content/site.json', 'content/admin.json',
