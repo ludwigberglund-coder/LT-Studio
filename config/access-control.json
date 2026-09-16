@@ -34,6 +34,9 @@
     { "id": "customer-invoice.issue", "label": "Utfärda och bokföra kundfakturor", "category": "Kundfakturor", "risk": "critical" },
     { "id": "customer-invoice.credit", "label": "Utfärda kreditfakturor", "category": "Kundfakturor", "risk": "critical" },
 
+    { "id": "supplier.view", "label": "Läsa leverantörsregister", "category": "Leverantörer", "risk": "read" },
+    { "id": "supplier.manage", "label": "Hantera leverantörsuppgifter och standardkontering", "category": "Leverantörer", "risk": "write" },
+    { "id": "supplier.bank-account.approve", "label": "Godkänna ändring av leverantörens betalningsuppgifter", "category": "Leverantörer", "risk": "critical" },
     { "id": "supplier-invoice.view", "label": "Läsa leverantörsfakturor", "category": "Leverantörsfakturor", "risk": "read" },
     { "id": "supplier-invoice.register", "label": "Registrera leverantörsfakturor", "category": "Leverantörsfakturor", "risk": "write" },
     { "id": "supplier-invoice.approve", "label": "Attestera leverantörsfakturor", "category": "Leverantörsfakturor", "risk": "critical" },
@@ -84,6 +87,8 @@
         "customer-invoice.remind",
         "customer-invoice.issue",
         "customer-invoice.credit",
+        "supplier.view",
+        "supplier.manage",
         "supplier-invoice.view",
         "supplier-invoice.register",
         "payment.view",
@@ -99,11 +104,13 @@
     {
       "id": "approver",
       "label": "Attestant",
-      "description": "Oberoende attest av leverantörsfakturor och betalningar samt periodlåsning.",
+      "description": "Oberoende attest av leverantörsfakturor, leverantörers betalningsuppgifter och betalningar samt periodlåsning.",
       "permissions": [
         "audit.view",
         "accounting.view",
         "period.lock",
+        "supplier.view",
+        "supplier.bank-account.approve",
         "supplier-invoice.view",
         "supplier-invoice.approve",
         "payment.view",
@@ -115,7 +122,7 @@
     {
       "id": "controller",
       "label": "Ekonomikontrollant",
-      "description": "Oberoende kontroll, rättelser och styrning av perioder. Upplåsning kräver separat person enligt arbetsflödet.",
+      "description": "Oberoende kontroll, rättelser, leverantörskontroll och styrning av perioder. Upplåsning kräver separat person enligt arbetsflödet.",
       "permissions": [
         "audit.view",
         "accounting.view",
@@ -124,6 +131,8 @@
         "period.unlock",
         "customer-invoice.view",
         "customer-invoice.comment",
+        "supplier.view",
+        "supplier.bank-account.approve",
         "supplier-invoice.view",
         "payment.view",
         "bank.view",
@@ -152,6 +161,8 @@
       "label": "Lageransvarig",
       "description": "Artiklar, inventering, svinn och inköpsrelaterad registrering.",
       "permissions": [
+        "supplier.view",
+        "supplier.manage",
         "supplier-invoice.view",
         "supplier-invoice.register",
         "inventory.view",
@@ -180,6 +191,7 @@
         "audit.view",
         "accounting.view",
         "customer-invoice.view",
+        "supplier.view",
         "supplier-invoice.view",
         "payment.view",
         "bank.view",
@@ -201,6 +213,17 @@
         { "id": "approvedBy", "label": "Attesterad av" }
       ],
       "reason": "Den som registrerar leverantörsfakturan får inte ensam attestera samma faktura."
+    },
+    {
+      "id": "supplier-bank-change",
+      "label": "Leverantör: ändring och godkännande av betalningsuppgifter",
+      "requiredPermission": "supplier.bank-account.approve",
+      "distinctActors": true,
+      "fields": [
+        { "id": "requestedBy", "label": "Ändring begärd av" },
+        { "id": "approvedBy", "label": "Ändring godkänd av" }
+      ],
+      "reason": "Ändring av en leverantörs betalningsuppgifter måste godkännas av en annan behörig person innan de börjar användas."
     },
     {
       "id": "payment-release",
