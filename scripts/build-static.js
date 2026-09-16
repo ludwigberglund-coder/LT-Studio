@@ -48,6 +48,7 @@ function buildStatic() {
     'portal/payables-intake.js', 'portal/payables-intake.css',
     'portal/suppliers.html', 'portal/suppliers.js', 'portal/suppliers.css',
     'portal/inventory.html', 'portal/inventory.js', 'portal/inventory.css',
+    'portal/accounting.html', 'portal/accounting.js', 'portal/accounting.css',
     'portal/reports.html', 'portal/reports.js', 'portal/reports.css',
     'portal/payroll.html', 'portal/payroll.js', 'portal/payroll.css',
     'portal/documents.html', 'portal/documents.js', 'portal/documents.css',
