@@ -11,13 +11,14 @@ function serviceError(message,code='AUTOMATION_REVIEW_ERROR',statusCode=422){con
 function text(v){return String(v??'').trim()}
 function accountExists(number){return ACCOUNTS.some(row=>row.number===text(number))}
 function customerInvoice(db,companyId,invoiceId){return db.prepare(`SELECT i.id,i.invoice_number AS invoiceNumber,i.remaining_ore AS remainingOre,i.total_ore AS totalOre,i.due_date AS dueDate,c.name AS customerName FROM invoices i JOIN customers c ON c.id=i.customer_id AND c.company_id=i.company_id WHERE i.company_id=? AND i.id=?`).get(companyId,invoiceId)||null}
+function matchingCustomerInvoices(db,companyId,amountOre){return db.prepare(`SELECT i.id,i.invoice_number AS invoiceNumber,i.remaining_ore AS remainingOre,i.due_date AS dueDate,c.name AS customerName FROM invoices i JOIN customers c ON c.id=i.customer_id AND c.company_id=i.company_id WHERE i.company_id=? AND i.remaining_ore=? AND i.remaining_ore>0 ORDER BY i.due_date,i.invoice_number`).all(companyId,Number(amountOre||0))}
 function supplierInvoice(db,companyId,invoiceId){try{return db.prepare(`SELECT i.id,i.supplier_invoice_number AS invoiceNumber,i.total_ore AS totalOre,i.vat_ore AS vatOre,s.name AS supplierName FROM supplier_invoices i JOIN suppliers s ON s.id=i.supplier_id AND s.company_id=i.company_id WHERE i.company_id=? AND i.id=?`).get(companyId,invoiceId)||null}catch{return null}}
 function bankPayment(db,companyId,paymentId){try{return db.prepare(`SELECT id,booking_date AS bookingDate,amount_ore AS amountOre,reference,message,payer_name AS payerName FROM bank_payments WHERE company_id=? AND id=?`).get(companyId,paymentId)||null}catch{return null}}
 function enrichProposal(db,proposal){
   const p={...proposal,suggestion:{...(proposal.suggestion||{})}};
   if(p.type==='bank-payment-match'){
     const payment=bankPayment(db,p.companyId,p.suggestion.bankPaymentId||p.sourceId);const invoice=customerInvoice(db,p.companyId,p.suggestion.invoiceId);
-    if(payment){p.suggestion.amountOre=Number(p.suggestion.amountOre||payment.amountOre);p.suggestion.bookingDate=p.suggestion.bookingDate||payment.bookingDate;p.context={...(p.context||{}),payerName:payment.payerName,reference:payment.reference||payment.message}}
+    if(payment){p.suggestion.amountOre=Number(p.suggestion.amountOre||payment.amountOre);p.suggestion.bookingDate=p.suggestion.bookingDate||payment.bookingDate;p.context={...(p.context||{}),payerName:payment.payerName,reference:payment.reference||payment.message,invoiceOptions:matchingCustomerInvoices(db,p.companyId,payment.amountOre)}}
     if(invoice){p.suggestion.invoiceNumber=p.suggestion.invoiceNumber||invoice.invoiceNumber;p.suggestion.customerName=p.suggestion.customerName||invoice.customerName;p.context={...(p.context||{}),invoiceNumber:invoice.invoiceNumber,customerName:invoice.customerName,remainingOre:invoice.remainingOre}}
   }
   if(p.type==='supplier-invoice-coding'){
@@ -38,4 +39,4 @@ function saveReviewEdits(db,{companyId,proposalId,editedBy,input}){
   if(result.changes!==1)throw serviceError('Förslaget kan inte ändras i nuvarande status.','INVALID_PROPOSAL_STATUS',409);
   return{proposal:byIdForReview(db,companyId,proposalId),editedBy,editedAt:updatedAt};
 }
-module.exports=Object.freeze({ACCOUNTS,accountExists,customerInvoice,supplierInvoice,bankPayment,enrichProposal,listForReview,byIdForReview,saveReviewEdits});
+module.exports=Object.freeze({ACCOUNTS,accountExists,customerInvoice,matchingCustomerInvoices,supplierInvoice,bankPayment,enrichProposal,listForReview,byIdForReview,saveReviewEdits});
