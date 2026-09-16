@@ -16,6 +16,7 @@ function line(account,{debitOre=0,creditOre=0,label='',editable=true}={}){return
 function amountOre(proposal){return Number(proposal?.suggestion?.amountOre||proposal?.suggestion?.totalOre||0)}
 function codingLines(proposal){
   const suggestion=proposal?.suggestion||{};
+  if(Array.isArray(suggestion.accountingLines)&&suggestion.accountingLines.length)return suggestion.accountingLines.map(row=>line(row.account,{debitOre:row.debitOre,creditOre:row.creditOre,label:row.text||row.label,editable:true}));
   if(Array.isArray(suggestion.coding)&&suggestion.coding.length)return suggestion.coding.map(row=>line(row.account,{debitOre:row.debitOre,creditOre:row.creditOre,label:row.text||row.label,editable:true}));
   if(Array.isArray(suggestion.lines)&&suggestion.lines.length)return suggestion.lines.map(row=>line(row.account,{debitOre:row.debitOre,creditOre:row.creditOre,label:row.text||row.label,editable:true}));
   if(proposal?.type==='bank-payment-match'){
