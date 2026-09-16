@@ -47,6 +47,7 @@ test('statisk byggnad innehåller webbplats, projektadmin, sammanhängande före
     'portal/dashboard.html', 'portal/dashboard.js', 'portal/dashboard.css', 'portal/portal-nav.js',
     'portal/index.html', 'portal/app.js', 'portal/styles.css',
     'portal/payables.html', 'portal/bank.html', 'portal/automation.html', 'portal/suppliers.html',
+    'portal/accounting.html', 'portal/accounting.js', 'portal/accounting.css',
     'shared/content.js', 'shared/accounting/money.js', 'shared/accounting/journal.js',
     'shared/access-control/authorization.js', 'shared/receivables/customer-receivables.js',
     'content/site.json', 'content/company.json', 'content/admin.json',
