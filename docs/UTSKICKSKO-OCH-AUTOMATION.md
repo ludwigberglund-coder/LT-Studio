@@ -67,8 +67,44 @@ Tanken är att samma struktur senare kan användas för exempelvis:
 - matchning av bankinbetalning mot kundfaktura,
 - konteringsförslag för leverantörsfaktura,
 - konto- och momsförslag,
+- förberedelse av leverantörsutbetalning,
 - avvikelseflaggning,
 - förslag på periodisering eller annan löpande bokföring.
+
+## Hur ett förslag ska visas för användaren
+
+Automationskön är en arbetsyta för människor och får därför inte använda rå JSON eller interna id:n som huvudsaklig förklaring.
+
+Varje förslag ska i stället tydligt visa:
+
+1. **vilken typ av åtgärd det gäller**, till exempel `Inbetalning`, `Utbetalning` eller `Kontering`,
+2. **vad systemet vill göra i klartext**, till exempel att en viss inbetalning ska kopplas till en viss kundfaktura,
+3. **relevanta parter och belopp**, exempelvis kund/leverantör, fakturanummer, belopp och datum,
+4. **föreslagen kontering** som en tabell med konto, kontonamn, debet och kredit,
+5. **varför förslaget uppstod**, inklusive använda underlag och säkerhetsgrad,
+6. **vad som ännu inte har genomförts**.
+
+Exempel på begriplig presentation:
+
+> Omför inbetalning 3 925,00 kr till kundfaktura 310002. Föreslagen kontering: Debet 1930 Företagskonto / bank, Kredit 1510 Kundfordringar.
+
+eller:
+
+> Kontera leverantörsfaktura 8871. Föreslagen kontering: Debet 5460 Förbrukningsmaterial, Debet 2641 Ingående moms, Kredit 2440 Leverantörsskulder.
+
+## Förslag måste vara redigerbara före godkännande
+
+Ett öppet automationsförslag ska kunna korrigeras av en behörig användare när underlaget är otydligt eller förslaget är fel.
+
+- Konton väljs via en rullista som visar både kontonummer och kontonamn.
+- Vid bankmatchning kan mål-faktura ändras till en annan tillåten öppen faktura.
+- Belopp från själva bankhändelsen eller originalunderlaget får inte skrivas om fritt bara för att få förslaget att passa.
+- En ändrad kontering måste fortfarande balansera i debet och kredit.
+- Manuella ändringar sparas i backend och revisionsloggen med personlig användare.
+- När ett förslag har ändrats manuellt går det tillbaka till status `manual-review` och markeras som mänskligt ändrat.
+- Om användaren ändrar ett förslag och därefter trycker Godkänn ska den aktuella ändringen sparas före godkännandet. Skärmen får aldrig visa ett nytt värde medan ett gammalt värde godkänns i backend.
+
+Kontonamnen i `config/accounting-accounts.json` används för presentation och val i granskningsvyn. Företagets slutliga formella kontoplan kan senare ersätta eller utöka denna katalog utan att granskningsflödet byggs om.
 
 ## Säkerhetsprincip för automation
 
