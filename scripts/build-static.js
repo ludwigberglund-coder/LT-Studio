@@ -55,7 +55,7 @@ function buildStatic() {
     'shared/content.js', 'shared/accounting/money.js', 'shared/accounting/journal.js',
     'shared/access-control/authorization.js', 'shared/receivables/customer-receivables.js',
     'content/company.json', 'content/site.json', 'content/admin.json',
-    'config/rolands-business-decisions.json', 'config/access-control.json', 'config/legal-rates.json', 'legacy/index.html'
+    'config/rolands-business-decisions.json', 'config/access-control.json', 'config/legal-rates.json', 'config/accounting-accounts.json', 'legacy/index.html'
   ];
   for (const relativePath of required) if (!fs.existsSync(path.join(target, relativePath))) throw new Error(`Byggfil saknas: ${relativePath}`);
   console.log(`Ny statisk demo byggd: ${target}`);
