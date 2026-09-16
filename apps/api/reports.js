@@ -26,7 +26,10 @@ function generalLedger(db,companyId,{from,to,account=''}){
   return{from,to,account:accountFilter||null,rows:accountFilter?db.prepare(sql).all(companyId,from,to,accountFilter):db.prepare(sql).all(companyId,from,to)};
 }
 function profitLoss(db,companyId,{from,to}){
-  validateRange(from,to);const rows=db.prepare(`SELECT l.account,SUM(l.credit_ore-l.debit_ore) AS amountOre FROM accounting_entry_lines l JOIN accounting_entries e ON e.id=l.entry_id WHERE e.company_id=? AND e.posting_date BETWEEN ? AND ? AND CAST(l.account AS INTEGER) BETWEEN 3000 AND 8999 GROUP BY l.account ORDER BY l.account`).all(companyId,from,to).map(r=>({account:r.account,amountOre:Number(r.amountOre||0)}));return{from,to,rows,resultOre:rows.reduce((s,r)=>s+r.amountOre,0)}
+  validateRange(from,to);
+  const rows=db.prepare(`SELECT l.account,SUM(l.credit_ore-l.debit_ore) AS amountOre FROM accounting_entry_lines l JOIN accounting_entries e ON e.id=l.entry_id WHERE e.company_id=? AND e.posting_date BETWEEN ? AND ? AND CAST(l.account AS INTEGER) BETWEEN 3000 AND 8999 GROUP BY l.account ORDER BY l.account`).all(companyId,from,to).map(r=>({account:r.account,amountOre:Number(r.amountOre||0)}));
+  return{from,to,rows,resultOre:rows.reduce((s,r)=>s+r.amountOre,0)};
+}
 function vatControl(db,companyId,{period}){
   const {from,to}=periodBounds(period);
   const customer=db.prepare(`SELECT COUNT(*) AS count,COALESCE(SUM(vat_ore),0) AS vatOre,COALESCE(SUM(total_ore),0) AS totalOre FROM invoices WHERE company_id=? AND posting_date BETWEEN ? AND ?`).get(companyId,from,to)||{};
