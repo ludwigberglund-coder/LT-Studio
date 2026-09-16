@@ -1,0 +1,103 @@
+'use strict';
+
+const crypto=require('node:crypto');
+const Domain=require('../../packages/payables/supplier-invoices.js');
+
+function err(message,code='PAYABLES_ERROR',statusCode=422){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
+function id(prefix){return `${prefix}_${crypto.randomUUID()}`}
+function nowIso(){return new Date().toISOString()}
+function text(value){return String(value??'').trim()}
+function json(value,fallback){try{return JSON.parse(value)}catch{return fallback}}
+
+function initializePayables(db){
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS suppliers (
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      supplier_number TEXT NOT NULL,
+      name TEXT NOT NULL,
+      org_number TEXT,
+      email TEXT,
+      bankgiro TEXT,
+      plusgiro TEXT,
+      default_cost_account TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(company_id,supplier_number)
+    ) STRICT;
+    CREATE TABLE IF NOT EXISTS supplier_invoices (
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      supplier_id TEXT NOT NULL REFERENCES suppliers(id) ON DELETE RESTRICT,
+      supplier_invoice_number TEXT NOT NULL,
+      invoice_date TEXT NOT NULL,
+      due_date TEXT NOT NULL,
+      total_ore INTEGER NOT NULL CHECK(total_ore>0),
+      vat_ore INTEGER NOT NULL DEFAULT 0 CHECK(vat_ore>=0),
+      currency TEXT NOT NULL DEFAULT 'SEK',
+      status TEXT NOT NULL CHECK(status IN ('registered','coding-review','coded','approved','payment-prepared','paid','rejected')),
+      coding_json TEXT NOT NULL DEFAULT '[]',
+      coding_sha256 TEXT,
+      document_name TEXT,
+      document_mime TEXT,
+      document_sha256 TEXT,
+      document_blob BLOB,
+      registered_by TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+      approved_by TEXT REFERENCES users(id) ON DELETE RESTRICT,
+      approved_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(company_id,supplier_id,supplier_invoice_number)
+    ) STRICT;
+    CREATE TABLE IF NOT EXISTS supplier_payments (
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      supplier_invoice_id TEXT NOT NULL REFERENCES supplier_invoices(id) ON DELETE RESTRICT,
+      payment_date TEXT NOT NULL,
+      amount_ore INTEGER NOT NULL CHECK(amount_ore>0),
+      account TEXT NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('prepared','released','paid','cancelled')),
+      prepared_by TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+      released_by TEXT REFERENCES users(id) ON DELETE RESTRICT,
+      released_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(company_id,supplier_invoice_id)
+    ) STRICT;
+    CREATE INDEX IF NOT EXISTS idx_supplier_invoice_company_status ON supplier_invoices(company_id,status,due_date);
+    CREATE INDEX IF NOT EXISTS idx_supplier_payment_company_date ON supplier_payments(company_id,payment_date,status);
+  `);
+}
+
+function createSupplier(db,input){const now=nowIso(),supplierId=input.id||id('supplier');db.prepare(`INSERT INTO suppliers(id,company_id,supplier_number,name,org_number,email,bankgiro,plusgiro,default_cost_account,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`).run(supplierId,input.companyId,text(input.supplierNumber),text(input.name),text(input.orgNumber)||null,text(input.email)||null,text(input.bankgiro)||null,text(input.plusgiro)||null,text(input.defaultCostAccount)||null,now,now);return supplierById(db,input.companyId,supplierId)}
+function supplierById(db,companyId,supplierId){return db.prepare(`SELECT id,company_id AS companyId,supplier_number AS supplierNumber,name,org_number AS orgNumber,email,bankgiro,plusgiro,default_cost_account AS defaultCostAccount FROM suppliers WHERE company_id=? AND id=?`).get(companyId,supplierId)||null}
+
+function createSupplierInvoice(db,input){
+  const now=nowIso(),invoiceId=input.id||id('sinv');
+  if(!input.companyId||!input.supplierId||!text(input.supplierInvoiceNumber))throw err('Företag, leverantör och fakturanummer krävs.','INVALID_SUPPLIER_INVOICE');
+  if(!Number.isSafeInteger(input.totalOre)||input.totalOre<=0||!Number.isSafeInteger(input.vatOre||0))throw err('Fakturabelopp måste anges i hela ören.','INVALID_SUPPLIER_INVOICE_AMOUNT');
+  db.prepare(`INSERT INTO supplier_invoices(id,company_id,supplier_id,supplier_invoice_number,invoice_date,due_date,total_ore,vat_ore,currency,status,registered_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,'registered',?,?,?)`).run(invoiceId,input.companyId,input.supplierId,text(input.supplierInvoiceNumber),text(input.invoiceDate),text(input.dueDate),input.totalOre,input.vatOre||0,text(input.currency||'SEK').toUpperCase(),input.registeredBy,now,now);
+  return invoiceById(db,input.companyId,invoiceId);
+}
+
+function invoiceById(db,companyId,invoiceId){const row=db.prepare(`SELECT i.id,i.company_id AS companyId,i.supplier_id AS supplierId,i.supplier_invoice_number AS supplierInvoiceNumber,i.invoice_date AS invoiceDate,i.due_date AS dueDate,i.total_ore AS totalOre,i.vat_ore AS vatOre,i.currency,i.status,i.coding_json AS codingJson,i.coding_sha256 AS codingSha256,i.document_name AS documentName,i.document_mime AS documentMime,i.document_sha256 AS documentSha256,i.registered_by AS registeredBy,i.approved_by AS approvedBy,i.approved_at AS approvedAt,i.created_at AS createdAt,i.updated_at AS updatedAt,s.supplier_number AS supplierNumber,s.name AS supplierName,s.bankgiro,s.plusgiro,s.default_cost_account AS defaultCostAccount FROM supplier_invoices i JOIN suppliers s ON s.id=i.supplier_id AND s.company_id=i.company_id WHERE i.company_id=? AND i.id=?`).get(companyId,invoiceId);return row?{...row,coding:json(row.codingJson,[]),hasDocument:Boolean(row.documentSha256)}:null}
+function listInvoices(db,companyId){return db.prepare(`SELECT i.id,i.company_id AS companyId,i.supplier_id AS supplierId,i.supplier_invoice_number AS supplierInvoiceNumber,i.invoice_date AS invoiceDate,i.due_date AS dueDate,i.total_ore AS totalOre,i.vat_ore AS vatOre,i.currency,i.status,i.registered_by AS registeredBy,i.approved_by AS approvedBy,i.approved_at AS approvedAt,s.supplier_number AS supplierNumber,s.name AS supplierName,s.bankgiro,s.plusgiro FROM supplier_invoices i JOIN suppliers s ON s.id=i.supplier_id AND s.company_id=i.company_id WHERE i.company_id=? ORDER BY i.due_date,i.created_at`).all(companyId)}
+
+function storeDocument(db,{companyId,invoiceId,name,mime='application/pdf',bytes}){
+  if(!Buffer.isBuffer(bytes)||!bytes.length)throw err('PDF-dokument saknas.','MISSING_DOCUMENT');
+  if(mime!=='application/pdf')throw err('Endast PDF stöds för leverantörsfakturor i denna version.','UNSUPPORTED_DOCUMENT_TYPE');
+  if(bytes.length>10*1024*1024)throw err('PDF-filen får vara högst 10 MB.','DOCUMENT_TOO_LARGE',413);
+  const sha=crypto.createHash('sha256').update(bytes).digest('hex');
+  const result=db.prepare(`UPDATE supplier_invoices SET document_name=?,document_mime=?,document_sha256=?,document_blob=?,updated_at=? WHERE company_id=? AND id=?`).run(text(name)||'leverantorsfaktura.pdf',mime,sha,bytes,nowIso(),companyId,invoiceId);
+  if(result.changes!==1)throw err('Leverantörsfakturan hittades inte.','INVOICE_NOT_FOUND',404);
+  return {sha256:sha,size:bytes.length};
+}
+function document(db,companyId,invoiceId){const row=db.prepare(`SELECT document_name AS name,document_mime AS mime,document_sha256 AS sha256,document_blob AS bytes FROM supplier_invoices WHERE company_id=? AND id=?`).get(companyId,invoiceId);if(!row||!row.bytes)throw err('PDF-underlaget hittades inte.','DOCUMENT_NOT_FOUND',404);return row}
+
+function saveCoding(db,{companyId,invoiceId,lines}){const invoice=invoiceById(db,companyId,invoiceId);if(!invoice)throw err('Leverantörsfakturan hittades inte.','INVOICE_NOT_FOUND',404);if(!['registered','coding-review','coded'].includes(invoice.status))throw err('Konteringen kan inte ändras efter attest.','CODING_LOCKED',409);const validated=Domain.validateCoding({totalOre:invoice.totalOre,lines});const hash=Domain.codingHash(validated.lines);db.prepare(`UPDATE supplier_invoices SET coding_json=?,coding_sha256=?,status='coded',updated_at=? WHERE company_id=? AND id=?`).run(JSON.stringify(validated.lines),hash,nowIso(),companyId,invoiceId);return invoiceById(db,companyId,invoiceId)}
+function approve(db,{companyId,invoiceId,actorId}){const invoice=invoiceById(db,companyId,invoiceId);const check=Domain.assertApproval(invoice,actorId,invoice?.coding);const now=nowIso();db.prepare(`UPDATE supplier_invoices SET status='approved',coding_sha256=?,approved_by=?,approved_at=?,updated_at=? WHERE company_id=? AND id=?`).run(check.codingHash,actorId,now,now,companyId,invoiceId);return invoiceById(db,companyId,invoiceId)}
+function preparePayment(db,{companyId,invoiceId,paymentDate,amountOre,account='1930',preparedBy}){const invoice=invoiceById(db,companyId,invoiceId);if(!invoice)throw err('Leverantörsfakturan hittades inte.','INVOICE_NOT_FOUND',404);if(invoice.status!=='approved')throw err('Fakturan måste vara attesterad innan betalningen förbereds.','INVOICE_NOT_APPROVED',409);if(amountOre!==invoice.totalOre)throw err('Den första versionen kräver betalning av hela fakturabeloppet.','PARTIAL_PAYMENT_NOT_SUPPORTED');const paymentId=id('spay'),now=nowIso();db.prepare(`INSERT INTO supplier_payments(id,company_id,supplier_invoice_id,payment_date,amount_ore,account,status,prepared_by,created_at,updated_at) VALUES(?,?,?,?,?,?,'prepared',?,?,?)`).run(paymentId,companyId,invoiceId,text(paymentDate),amountOre,text(account),preparedBy,now,now);db.prepare(`UPDATE supplier_invoices SET status='payment-prepared',updated_at=? WHERE company_id=? AND id=?`).run(now,companyId,invoiceId);return paymentById(db,companyId,paymentId)}
+function paymentById(db,companyId,paymentId){return db.prepare(`SELECT p.id,p.company_id AS companyId,p.supplier_invoice_id AS supplierInvoiceId,p.payment_date AS paymentDate,p.amount_ore AS amountOre,p.account,p.status,p.prepared_by AS preparedBy,p.released_by AS releasedBy,p.released_at AS releasedAt,s.name AS supplierName,i.supplier_invoice_number AS supplierInvoiceNumber FROM supplier_payments p JOIN supplier_invoices i ON i.id=p.supplier_invoice_id AND i.company_id=p.company_id JOIN suppliers s ON s.id=i.supplier_id AND s.company_id=i.company_id WHERE p.company_id=? AND p.id=?`).get(companyId,paymentId)||null}
+function listPayments(db,companyId,date=''){const base=`SELECT p.id,p.company_id AS companyId,p.supplier_invoice_id AS supplierInvoiceId,p.payment_date AS paymentDate,p.amount_ore AS amountOre,p.account,p.status,p.prepared_by AS preparedBy,p.released_by AS releasedBy,p.released_at AS releasedAt,s.name AS supplierName,i.supplier_invoice_number AS supplierInvoiceNumber,s.bankgiro,s.plusgiro FROM supplier_payments p JOIN supplier_invoices i ON i.id=p.supplier_invoice_id AND i.company_id=p.company_id JOIN suppliers s ON s.id=i.supplier_id AND s.company_id=i.company_id`;return date?db.prepare(`${base} WHERE p.company_id=? AND p.payment_date=? ORDER BY s.name`).all(companyId,date):db.prepare(`${base} WHERE p.company_id=? ORDER BY p.payment_date,s.name`).all(companyId)}
+
+module.exports=Object.freeze({initializePayables,createSupplier,supplierById,createSupplierInvoice,invoiceById,listInvoices,storeDocument,document,saveCoding,approve,preparePayment,paymentById,listPayments});
