@@ -21,9 +21,9 @@ async function withApi(callback) {
   const password='Ett sakert automationslosenord 2026!';
   const user=Db.createUser(db,{username:'ekonom.test',displayName:'Ekonom Test',passwordHash:Auth.hashPassword(password),mfaSecretEncrypted:Auth.encryptSecret(MFA_SECRET,ENCRYPTION_KEY)});
   Db.addMembership(db,{companyId:company.id,userId:user.id,roles:['accountant']});
-  const proposal=Automation.createProposal({companyId:company.id,type:'booking-account-suggestion',sourceId:'supplier-100',confidence:.96,deterministic:false,reason:'Leverantör och tidigare bokningar pekar på samma kostnadskonto.',evidence:[{kind:'supplier-history',label:'Tidigare konto',value:'4010',sourceId:'supplier-100'}],suggestion:{account:'4010',vatAccount:'2641'},engine:{kind:'rules',name:'coding-suggestion',version:'1'},createdAt:'2026-09-16T04:00:00.000Z'});
+  const proposal=Automation.createProposal({companyId:company.id,type:'booking-account-suggestion',sourceId:'supplier-100',confidence:.96,deterministic:false,reason:'Leverantör och tidigare bokningar pekar på samma kostnadskonto.',evidence:[{kind:'supplier-history',label:'Tidigare konto',value:'4010',sourceId:'supplier-100'}],suggestion:{amountOre:125000,vatOre:25000,debitAccount:'4010',vatAccount:'2641',creditAccount:'2440'},engine:{kind:'rules',name:'coding-suggestion',version:'1'},createdAt:'2026-09-16T04:00:00.000Z'});
   const saved=Queues.saveAutomationProposal(db,proposal,{idempotencyKey:'supplier-100:v1'}).proposal;
-  const otherProposal=Automation.createProposal({companyId:other.id,type:'booking-account-suggestion',sourceId:'other-100',confidence:.97,deterministic:false,reason:'Annan kunds data.',evidence:[{kind:'history',label:'Konto',value:'5010',sourceId:'other-100'}],suggestion:{account:'5010'},engine:{name:'coding-suggestion',version:'1'},createdAt:'2026-09-16T04:01:00.000Z'});
+  const otherProposal=Automation.createProposal({companyId:other.id,type:'booking-account-suggestion',sourceId:'other-100',confidence:.97,deterministic:false,reason:'Annan kunds data.',evidence:[{kind:'history',label:'Konto',value:'5010',sourceId:'other-100'}],suggestion:{amountOre:10000,debitAccount:'5010',creditAccount:'2440'},engine:{name:'coding-suggestion',version:'1'},createdAt:'2026-09-16T04:01:00.000Z'});
   const otherSaved=Queues.saveAutomationProposal(db,otherProposal,{idempotencyKey:'other-100:v1'}).proposal;
   const api=createApiApp({db,secureCookies:false,authEncryptionKey:ENCRYPTION_KEY});
   const review=createAutomationReviewRouter({db});
@@ -41,7 +41,7 @@ async function login(base,password){
   return {response,body,cookie};
 }
 
-test('automationskön kräver personlig inloggning och visar bara det egna företaget',async()=>withApi(async({base,password,saved,otherSaved})=>{
+test('automationskön kräver personlig inloggning och visar begriplig kontering för eget företag',async()=>withApi(async({base,password,saved,otherSaved})=>{
   assert.equal((await fetch(`${base}/api/v1/automation/proposals`)).status,401);
   const signed=await login(base,password);
   assert.equal(signed.response.status,200);
@@ -52,6 +52,27 @@ test('automationskön kräver personlig inloggning och visar bara det egna före
   assert.equal(data.proposals[0].id,saved.id);
   assert.ok(!data.proposals.some(item=>item.id===otherSaved.id));
   assert.equal(data.executionPolicy,'human-approval-required');
+  assert.ok(data.accounts.some(account=>account.number==='5460'&&/Förbrukningsmaterial/.test(account.name)));
+  assert.equal(data.proposals[0].review.actionLabel,'Föreslå bokföring');
+  assert.deepEqual(data.proposals[0].review.accountingLines.map(line=>line.account),['4010','2641','2440']);
+  assert.equal(data.proposals[0].review.accountingLines[0].accountName,'Inköp varor och material');
+}));
+
+test('användaren kan ändra konton men inte skapa en obalanserad kontering',async()=>withApi(async({db,base,password,company,saved})=>{
+  const signed=await login(base,password);
+  const headers={Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken};
+  const invalid=await fetch(`${base}/api/v1/automation/proposals/${saved.id}/suggestion`,{method:'PUT',headers,body:JSON.stringify({accountingLines:[{account:'5460',debitOre:100000,creditOre:0},{account:'2641',debitOre:25000,creditOre:0},{account:'2440',debitOre:0,creditOre:120000}]})});
+  assert.equal(invalid.status,422);
+  assert.equal((await invalid.json()).code,'UNBALANCED_SUGGESTION');
+  const response=await fetch(`${base}/api/v1/automation/proposals/${saved.id}/suggestion`,{method:'PUT',headers,body:JSON.stringify({accountingLines:[{account:'5460',debitOre:100000,creditOre:0,text:'Förbrukningsmaterial'},{account:'2641',debitOre:25000,creditOre:0,text:'Ingående moms'},{account:'2440',debitOre:0,creditOre:125000,text:'Leverantörsskuld'}]})});
+  const data=await response.json();
+  assert.equal(response.status,200);
+  assert.equal(data.executionStatus,'not-executed');
+  assert.equal(data.proposal.status,'manual-review');
+  assert.equal(data.proposal.review.accountingLines[0].account,'5460');
+  assert.equal(data.proposal.review.accountingLines[0].accountName,'Förbrukningsmaterial');
+  assert.match(data.proposal.decisionReason,/ändrats manuellt/i);
+  assert.ok(Db.auditForCompany(db,company.id).some(event=>event.action==='AUTOMATION_PROPOSAL_EDITED'));
 }));
 
 test('godkännande kräver CSRF och bokför aldrig förslaget automatiskt',async()=>withApi(async({db,base,password,company,saved})=>{
@@ -82,7 +103,7 @@ test('avvisning kräver motivering och sparas i revisionsloggen',async()=>withAp
 
 test('känt id från annat företag ger 404 i stället för informationsläckage',async()=>withApi(async({base,password,otherSaved})=>{
   const signed=await login(base,password);
-  const response=await fetch(`${base}/api/v1/automation/proposals/${otherSaved.id}/approve`,{method:'POST',headers:{Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken},body:'{}'});
+  const response=await fetch(`${base}/api/v1/automation/proposals/${otherSaved.id}/suggestion`,{method:'PUT',headers:{Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken},body:JSON.stringify({accountingLines:[{account:'5010',debitOre:10000,creditOre:0},{account:'2440',debitOre:0,creditOre:10000}]})});
   assert.equal(response.status,404);
   assert.equal((await response.json()).code,'PROPOSAL_NOT_FOUND');
 }));
