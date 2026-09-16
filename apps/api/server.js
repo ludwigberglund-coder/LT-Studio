@@ -8,11 +8,13 @@ const {createAutomationReviewRouter} = require('./automation-review-router.js');
 const {createBankRouter} = require('./bank-router.js');
 const {createPayablesRouter} = require('./payables-router.js');
 const {createPaymentReleaseRouter} = require('./payment-release-router.js');
+const {createPaymentConfirmationRouter} = require('./payment-confirmation-router.js');
 const Db = require('./database.js');
 const Queues = require('./queues.js');
 const ReminderOutbox = require('./reminder-outbox.js');
 const Bank = require('./bank-payments.js');
 const Payables = require('./payables.js');
+const PaymentConfirmation = require('./payment-confirmation.js');
 
 function normalizeHostname(value) {
   const raw = String(value || '').trim().toLowerCase().replace(/\.$/, '');
@@ -50,11 +52,13 @@ function createServer(options = {}) {
   ReminderOutbox.initializeReminderOutbox(db);
   Bank.initializeBankPayments(db);
   Payables.initializePayables(db);
+  PaymentConfirmation.initializePaymentConfirmation(db);
   const api = createApiApp({db,secureCookies,authEncryptionKey});
   const automationReview = createAutomationReviewRouter({db});
   const bank = createBankRouter({db});
   const payables = createPayablesRouter({db});
   const paymentRelease = createPaymentReleaseRouter({db});
+  const paymentConfirmation = createPaymentConfirmationRouter({db});
   const server = http.createServer(async (req,res) => {
     if (!allowedHost(req,host,configuredAllowedHosts)) {
       res.writeHead(421,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
@@ -67,11 +71,12 @@ function createServer(options = {}) {
     if (await automationReview.handle(req,res)) return;
     if (await bank.handle(req,res)) return;
     if (await paymentRelease.handle(req,res)) return;
+    if (await paymentConfirmation.handle(req,res)) return;
     if (await payables.handle(req,res)) return;
     api.handle(req,res);
   });
   function close(callback) { server.close(() => { try { db.close(); } catch {} if (callback) callback(); }); }
-  return Object.freeze({server,db,api,automationReview,bank,payables,paymentRelease,host,port,databasePath,close});
+  return Object.freeze({server,db,api,automationReview,bank,payables,paymentRelease,paymentConfirmation,host,port,databasePath,close});
 }
 if (require.main === module) {
   const runtime = createServer();
