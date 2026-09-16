@@ -1,6 +1,7 @@
 const isDemo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
 const automationTarget=`./automation.html${isDemo?'?demo=1':''}`;
 const bankTarget=`./bank.html${isDemo?'?demo=1':''}`;
+const payablesTarget=`./payables.html${isDemo?'?demo=1':''}`;
 
 function addPortalLinks(){
   const groups=[...document.querySelectorAll('.side-group')];
@@ -11,6 +12,16 @@ function addPortalLinks(){
       bankButton.dataset.bankLink='1';
       bankButton.classList.remove('disabled');
       bankButton.addEventListener('click',()=>{location.href=bankTarget});
+    }
+    if(!economy.querySelector('[data-payables-link]')){
+      const button=document.createElement('button');
+      button.type='button';
+      button.className='side-link';
+      button.dataset.payablesLink='1';
+      button.textContent='Leverantörsfakturor';
+      button.addEventListener('click',()=>{location.href=payablesTarget});
+      const accounting=[...economy.querySelectorAll('.side-link')].find(node=>node.textContent.trim()==='Bokföring');
+      if(accounting)economy.insertBefore(button,accounting);else economy.append(button);
     }
     if(!economy.querySelector('[data-automation-link]')){
       const button=document.createElement('button');
