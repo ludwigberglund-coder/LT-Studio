@@ -40,6 +40,7 @@ function buildStatic() {
     'index.html', 'app.js', 'styles.css',
     'admin/index.html', 'admin/app.js', 'admin/money-view.js', 'admin/money.css',
     'admin/access-view.js', 'admin/access.css', 'admin/journal-view.js', 'admin/journal.css',
+    'portal/dashboard.html', 'portal/dashboard.js', 'portal/dashboard.css', 'portal/portal-nav.js',
     'portal/index.html', 'portal/app.js', 'portal/styles.css', 'portal/automation-link.js',
     'portal/automation.html', 'portal/automation.js', 'portal/automation.css',
     'portal/bank.html', 'portal/bank.js', 'portal/bank.css',

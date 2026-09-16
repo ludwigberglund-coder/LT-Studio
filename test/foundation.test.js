@@ -38,12 +38,13 @@ test('innehållskontrollen stoppar dubblerad navigation och felaktigt organisati
   assert.ok(errors.some(error => /dubblerad navigationslänk/.test(error)));
 });
 
-test('statisk byggnad innehåller webbplats, projektadmin, företagsportal, domänkärnor och tidigare demo', () => {
+test('statisk byggnad innehåller webbplats, projektadmin, sammanhängande företagsportal, domänkärnor och tidigare demo', () => {
   const target = buildStatic();
   for (const relativePath of [
     'index.html', 'app.js', 'styles.css',
     'admin/index.html', 'admin/app.js', 'admin/money-view.js', 'admin/money.css',
     'admin/access-view.js', 'admin/access.css', 'admin/journal-view.js', 'admin/journal.css',
+    'portal/dashboard.html', 'portal/dashboard.js', 'portal/dashboard.css', 'portal/portal-nav.js',
     'portal/index.html', 'portal/app.js', 'portal/styles.css',
     'portal/payables.html', 'portal/bank.html', 'portal/automation.html', 'portal/suppliers.html',
     'shared/content.js', 'shared/accounting/money.js', 'shared/accounting/journal.js',
