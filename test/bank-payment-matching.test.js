@@ -9,10 +9,12 @@ const Matcher=require('../packages/automation/bank-payment-matcher.js');
 function invoice(overrides={}){return {id:'inv-1',companyId:'co-1',invoiceNumber:'310100',ocr:'83101001',customerName:'Nordic Office Göteborg AB',remainingOre:125000,...overrides}}
 function payment(overrides={}){return {id:'bank-1',companyId:'co-1',externalId:'ext-1',bookingDate:'2026-09-16',amountOre:125000,reference:'83101001',message:'Faktura 310100',payerName:'Nordic Office Goteborg AB',...overrides}}
 
-test('exakt OCR och restbelopp ger deterministiskt förslag med full säkerhet',()=>{
+test('exakt OCR och restbelopp ger deterministiskt och begripligt förslag med full säkerhet',()=>{
   const analysis=Matcher.analyzeIncomingPayment(payment(),[invoice()]);
   assert.equal(analysis.status,'proposal');
   assert.equal(analysis.targetInvoiceId,'inv-1');
+  assert.equal(analysis.targetInvoiceNumber,'310100');
+  assert.equal(analysis.targetCustomerName,'Nordic Office Göteborg AB');
   assert.equal(analysis.confidence,1);
   assert.equal(analysis.deterministic,true);
   assert.equal(analysis.ambiguous,false);
@@ -20,7 +22,11 @@ test('exakt OCR och restbelopp ger deterministiskt förslag med full säkerhet',
   assert.equal(proposal.type,'bank-payment-match');
   assert.equal(proposal.status,'ready-for-approval');
   assert.equal(proposal.suggestion.invoiceId,'inv-1');
+  assert.equal(proposal.suggestion.invoiceNumber,'310100');
+  assert.equal(proposal.suggestion.customerName,'Nordic Office Göteborg AB');
   assert.equal(proposal.suggestion.amountOre,125000);
+  assert.equal(proposal.suggestion.bankAccount,'1930');
+  assert.equal(proposal.suggestion.receivableAccount,'1510');
 });
 
 test('korrekt fakturanummer och belopp ger också ett starkt förslag',()=>{
