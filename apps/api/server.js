@@ -13,6 +13,7 @@ const {createSupplierMasterdataRouter} = require('./supplier-masterdata-router.j
 const {createInventoryRouter} = require('./inventory-router.js');
 const {createReportsRouter} = require('./reports-router.js');
 const {createPayrollRouter} = require('./payroll-router.js');
+const {createDocumentsRouter} = require('./documents-router.js');
 const Db = require('./database.js');
 const Queues = require('./queues.js');
 const ReminderOutbox = require('./reminder-outbox.js');
@@ -22,6 +23,7 @@ const PaymentConfirmation = require('./payment-confirmation.js');
 const SupplierMasterdata = require('./supplier-masterdata.js');
 const Inventory = require('./inventory.js');
 const Payroll = require('./payroll.js');
+const Documents = require('./documents.js');
 
 function normalizeHostname(value) {
   const raw = String(value || '').trim().toLowerCase().replace(/\.$/, '');
@@ -63,6 +65,7 @@ function createServer(options = {}) {
   PaymentConfirmation.initializePaymentConfirmation(db);
   Inventory.initializeInventory(db);
   Payroll.initializePayroll(db);
+  Documents.initializeDocuments(db);
   const api = createApiApp({db,secureCookies,authEncryptionKey});
   const automationReview = createAutomationReviewRouter({db});
   const bank = createBankRouter({db});
@@ -73,6 +76,7 @@ function createServer(options = {}) {
   const inventory = createInventoryRouter({db});
   const reports = createReportsRouter({db});
   const payroll = createPayrollRouter({db});
+  const documents = createDocumentsRouter({db});
   const server = http.createServer(async (req,res) => {
     if (!allowedHost(req,host,configuredAllowedHosts)) {
       res.writeHead(421,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
@@ -90,11 +94,12 @@ function createServer(options = {}) {
     if (await inventory.handle(req,res)) return;
     if (await reports.handle(req,res)) return;
     if (await payroll.handle(req,res)) return;
+    if (await documents.handle(req,res)) return;
     if (await payables.handle(req,res)) return;
     api.handle(req,res);
   });
   function close(callback) { server.close(() => { try { db.close(); } catch {} if (callback) callback(); }); }
-  return Object.freeze({server,db,api,automationReview,bank,payables,supplierMasterdata,paymentRelease,paymentConfirmation,inventory,reports,payroll,host,port,databasePath,close});
+  return Object.freeze({server,db,api,automationReview,bank,payables,supplierMasterdata,paymentRelease,paymentConfirmation,inventory,reports,payroll,documents,host,port,databasePath,close});
 }
 if (require.main === module) {
   const runtime = createServer();

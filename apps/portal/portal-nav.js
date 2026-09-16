@@ -13,6 +13,7 @@
     addBeforeAutomation('inventory.html','Lager');
     addBeforeAutomation('reports.html','Rapporter');
     addBeforeAutomation('payroll.html','Lön');
+    addBeforeAutomation('documents.html','Dokument');
     return true;
   }
   if(!enhance()){const observer=new MutationObserver(()=>{if(enhance())observer.disconnect()});observer.observe(document.documentElement,{childList:true,subtree:true})}
