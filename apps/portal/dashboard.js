@@ -2,7 +2,7 @@ const app=document.getElementById('dashboard-app');
 const isDemo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 let session=null;
-function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]))}
+function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function ore(v){return new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK',minimumFractionDigits:2}).format(Number(v||0)/100)}
 function today(){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
 async function api(path){const r=await fetch(`/api/v1${path}`,{credentials:'same-origin',headers:{Accept:'application/json',...(csrfToken?{'X-CSRF-Token':csrfToken}:{})}});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||'Begäran misslyckades.');return data}
