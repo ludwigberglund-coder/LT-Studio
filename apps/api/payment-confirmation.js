@@ -10,6 +10,7 @@ function initializePaymentConfirmation(db){
   if(!hasColumn(db,'supplier_payments','confirmation_reference'))db.exec('ALTER TABLE supplier_payments ADD COLUMN confirmation_reference TEXT');
   if(!hasColumn(db,'supplier_payments','accounting_entry_id'))db.exec('ALTER TABLE supplier_payments ADD COLUMN accounting_entry_id TEXT');
   if(!hasColumn(db,'supplier_payments','paid_at'))db.exec('ALTER TABLE supplier_payments ADD COLUMN paid_at TEXT');
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_supplier_payment_confirmation_reference ON supplier_payments(company_id,confirmation_reference) WHERE confirmation_reference IS NOT NULL`);
 }
 function paymentForConfirmation(db,companyId,paymentId){return db.prepare(`SELECT p.id,p.company_id AS companyId,p.supplier_invoice_id AS supplierInvoiceId,p.payment_date AS paymentDate,p.amount_ore AS amountOre,p.account,p.status,p.prepared_by AS preparedBy,p.released_by AS releasedBy,p.released_at AS releasedAt,p.confirmation_reference AS confirmationReference,p.accounting_entry_id AS accountingEntryId,p.paid_at AS paidAt,i.supplier_invoice_number AS supplierInvoiceNumber,i.status AS invoiceStatus,s.name AS supplierName FROM supplier_payments p JOIN supplier_invoices i ON i.id=p.supplier_invoice_id AND i.company_id=p.company_id JOIN suppliers s ON s.id=i.supplier_id AND s.company_id=i.company_id WHERE p.company_id=? AND p.id=?`).get(companyId,paymentId)||null}
 function confirmAndPost(db,{companyId,paymentId,confirmationReference,postingDate,actorId}){
@@ -18,6 +19,8 @@ function confirmAndPost(db,{companyId,paymentId,confirmationReference,postingDat
   if(payment.status!=='released')throw confirmationError('Endast en frisläppt betalning kan bekräftas som genomförd.','INVALID_PAYMENT_STATUS',409);
   const reference=text(confirmationReference);
   if(reference.length<3||reference.length>160)throw confirmationError('En bank- eller betalningsreferens på 3–160 tecken krävs.','CONFIRMATION_REFERENCE_REQUIRED');
+  const used=db.prepare(`SELECT id FROM supplier_payments WHERE company_id=? AND confirmation_reference=? AND id<>?`).get(companyId,reference,payment.id);
+  if(used)throw confirmationError('Bankreferensen är redan kopplad till en annan betalning.','DUPLICATE_CONFIRMATION_REFERENCE',409);
   const date=text(postingDate||payment.paymentDate);
   if(!Accounting.validDate(date))throw confirmationError('Bokföringsdatumet är ogiltigt.','INVALID_POSTING_DATE');
   const result=Accounting.postEntry(db,{
