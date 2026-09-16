@@ -103,6 +103,8 @@ function analyzeIncomingPayment(payment,invoices) {
     deterministic:best.deterministic && !ambiguous,
     ambiguous,
     targetInvoiceId:best.invoice.id,
+    targetInvoiceNumber:text(best.invoice.invoiceNumber),
+    targetCustomerName:text(best.invoice.customerName),
     amountOre:payment.amountOre,
     reason:reasonParts.join(', ') || 'Matchning baserad på betalningsinformationen.',
     evidence:best.evidence,
@@ -110,7 +112,7 @@ function analyzeIncomingPayment(payment,invoices) {
   });
 }
 
-function createMatchProposal(payment,analysis,{createdBy='system',engineVersion='1'}={}) {
+function createMatchProposal(payment,analysis,{createdBy='system',engineVersion='2'}={}) {
   if (!analysis || !['proposal','manual-review'].includes(analysis.status) || !analysis.targetInvoiceId) return null;
   return Automation.createProposal({
     companyId:payment.companyId,
@@ -122,11 +124,16 @@ function createMatchProposal(payment,analysis,{createdBy='system',engineVersion=
     reason:analysis.reason,
     evidence:analysis.evidence,
     suggestion:{
+      action:'match-customer-payment',
       bankPaymentId:payment.id,
       invoiceId:analysis.targetInvoiceId,
+      invoiceNumber:analysis.targetInvoiceNumber,
+      customerName:analysis.targetCustomerName,
       amountOre:payment.amountOre,
       bookingDate:payment.bookingDate,
-      externalId:payment.externalId
+      externalId:payment.externalId,
+      bankAccount:'1930',
+      receivableAccount:'1510'
     },
     engine:{kind:'rules',name:'incoming-payment-matcher',version:engineVersion},
     createdBy
