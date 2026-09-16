@@ -3,9 +3,12 @@
 const fs=require('node:fs');
 const path=require('node:path');
 const Access=require('../../packages/access-control/authorization.js');
+const Automation=require('../../packages/automation/proposals.js');
+const CodingSuggestions=require('../../packages/automation/supplier-coding.js');
 const Auth=require('./auth.js');
 const Db=require('./database.js');
 const Payables=require('./payables.js');
+const Queues=require('./queues.js');
 const Domain=require('../../packages/payables/supplier-invoices.js');
 const {readJson,securityHeaders}=require('./app.js');
 
@@ -13,7 +16,7 @@ const DEFAULT_ACCESS=JSON.parse(fs.readFileSync(path.join(__dirname,'..','..','c
 function routeError(message,code='PAYABLES_ROUTE_ERROR',statusCode=400){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
 function send(res,status,body,headers={}){if(res.writableEnded)return;res.writeHead(status,{...securityHeaders(),'Content-Type':'application/json; charset=utf-8',...headers});res.end(JSON.stringify(body))}
 function createPayablesRouter(options){
-  const db=options?.db;if(!db)throw new Error('Databas krävs.');Payables.initializePayables(db);
+  const db=options?.db;if(!db)throw new Error('Databas krävs.');Payables.initializePayables(db);Queues.initializeQueues(db);
   const accessModel=Access.createModel(options.accessConfig||DEFAULT_ACCESS);
   function session(req){const token=Auth.parseCookies(req.headers.cookie).rollands_session;if(!token)return null;const s=Db.sessionByTokenHash(db,Auth.hashToken(token));if(!s||s.disabled)return null;s.actor={id:s.userId,name:s.displayName,roles:s.roles,disabled:Boolean(s.disabled)};return s}
   function requireSession(req){const s=session(req);if(!s)throw routeError('Personlig inloggning krävs.','AUTH_REQUIRED',401);return s}
@@ -28,6 +31,18 @@ function createPayablesRouter(options){
       if(req.method==='GET'&&url.pathname==='/api/v1/payables/payments'){permission(s,'payment.view');const date=String(url.searchParams.get('date')||'');const payments=Payables.listPayments(db,s.companyId,date);return send(res,200,{summary:date?Domain.paymentSummary(payments,date):null,payments}),true}
       const invoiceMatch=url.pathname.match(/^\/api\/v1\/payables\/invoices\/([^/]+)$/);
       if(invoiceMatch&&req.method==='GET'){permission(s,'supplier-invoice.view');const invoice=Payables.invoiceById(db,s.companyId,invoiceMatch[1]);if(!invoice)throw routeError('Fakturan hittades inte.','INVOICE_NOT_FOUND',404);return send(res,200,{invoice}),true}
+      const suggestionMatch=url.pathname.match(/^\/api\/v1\/payables\/invoices\/([^/]+)\/coding-suggestion$/);
+      if(suggestionMatch&&req.method==='POST'){
+        permission(s,'supplier-invoice.register');
+        const invoice=Payables.invoiceById(db,s.companyId,suggestionMatch[1]);if(!invoice)throw routeError('Fakturan hittades inte.','INVOICE_NOT_FOUND',404);
+        if(!['registered','coding-review','coded'].includes(invoice.status))throw routeError('Konteringsförslag kan inte skapas efter attest.','CODING_LOCKED',409);
+        const supplier=Payables.supplierById(db,s.companyId,invoice.supplierId);
+        const history=Payables.supplierHistory(db,s.companyId,invoice.supplierId,{excludeInvoiceId:invoice.id,limit:20});
+        const suggestion=CodingSuggestions.suggestSupplierCoding(invoice,{supplier,history});
+        const proposal=Automation.createProposal({companyId:s.companyId,type:'supplier-invoice-coding',sourceId:invoice.id,confidence:suggestion.confidence,deterministic:suggestion.deterministic,ambiguous:suggestion.ambiguous,reason:suggestion.reason,evidence:suggestion.evidence,suggestion:{invoiceId:invoice.id,lines:suggestion.coding},engine:{kind:'rules',name:'supplier-coding-history',version:'1'},createdBy:s.userId});
+        const saved=Db.transaction(db,()=>{const stored=Queues.saveAutomationProposal(db,proposal,{idempotencyKey:`supplier-coding:${invoice.id}:${invoice.updatedAt}:v1`});Db.appendAudit(db,{companyId:s.companyId,userId:s.userId,action:'SUPPLIER_CODING_SUGGESTED',entityType:'supplier-invoice',entityId:invoice.id,details:{proposalId:stored.proposal.id,confidence:stored.proposal.confidence,engine:stored.proposal.engine}});return stored.proposal});
+        return send(res,200,{proposal:saved,coding:suggestion.coding,editable:true}),true;
+      }
       const codingMatch=url.pathname.match(/^\/api\/v1\/payables\/invoices\/([^/]+)\/coding$/);
       if(codingMatch&&req.method==='PUT'){permission(s,'supplier-invoice.register');const payload=await readJson(req,res);if(!payload)return true;const invoice=Db.transaction(db,()=>{const value=Payables.saveCoding(db,{companyId:s.companyId,invoiceId:codingMatch[1],lines:payload.lines});Db.appendAudit(db,{companyId:s.companyId,userId:s.userId,action:'SUPPLIER_INVOICE_CODING_UPDATED',entityType:'supplier-invoice',entityId:value.id,details:{codingSha256:value.codingSha256}});return value});return send(res,200,{invoice}),true}
       const approveMatch=url.pathname.match(/^\/api\/v1\/payables\/invoices\/([^/]+)\/approve$/);
