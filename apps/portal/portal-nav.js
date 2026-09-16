@@ -16,6 +16,7 @@
     addBeforeAutomation('payroll.html','Lön');
     addBeforeAutomation('documents.html','Dokument');
     if(!sidebar.querySelector('a[href*="website.html"]')){const group=document.createElement('div');group.className='side-group unified-admin';group.innerHTML=`<span>Administration</span><a class="side-link" href="./website.html${suffix}">Webbplats & innehåll</a>`;const footer=sidebar.querySelector('.sidebar-footer');if(footer)sidebar.insertBefore(group,footer);else sidebar.append(group)}
+    if(isDemo&&!sidebar.querySelector('a[href*="uat.html"]')){const group=document.createElement('div');group.className='side-group unified-uat';group.innerHTML=`<span>Test & granskning</span><a class="side-link" href="./uat.html?demo=1">Testa systemet</a>`;const footer=sidebar.querySelector('.sidebar-footer');if(footer)sidebar.insertBefore(group,footer);else sidebar.append(group)}
     return true;
   }
   if(!enhance()){const observer=new MutationObserver(()=>{if(enhance())observer.disconnect()});observer.observe(document.documentElement,{childList:true,subtree:true})}
