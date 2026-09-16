@@ -6,6 +6,7 @@ const Access = require('../../packages/access-control/authorization.js');
 const Auth = require('./auth.js');
 const Db = require('./database.js');
 const Queues = require('./queues.js');
+const ReviewService = require('./automation-review-service.js');
 const {readJson,securityHeaders} = require('./app.js');
 
 const DEFAULT_ACCESS = JSON.parse(fs.readFileSync(path.join(__dirname,'..','..','config','access-control.json'),'utf8'));
@@ -78,8 +79,21 @@ function createAutomationReviewRouter(options) {
       if (req.method === 'GET' && url.pathname === '/api/v1/automation/proposals') {
         requirePermission(session,'accounting.view');
         const status = String(url.searchParams.get('status') || '').trim();
-        const proposals = Queues.listAutomationProposals(db,session.companyId,{status,limit:300});
-        return send(res,200,{proposals,executionPolicy:'human-approval-required'}), true;
+        const proposals = ReviewService.listForReview(db,session.companyId,{status,limit:300});
+        return send(res,200,{proposals,accounts:ReviewService.ACCOUNTS,executionPolicy:'human-approval-required'}), true;
+      }
+
+      const editMatch = url.pathname.match(/^\/api\/v1\/automation\/proposals\/([^/]+)\/suggestion$/);
+      if (editMatch && req.method === 'PUT') {
+        requirePermission(session,'accounting.post');
+        requireProposal(session,editMatch[1]);
+        const payload = await readJson(req,res); if (!payload) return true;
+        const edited = Db.transaction(db,()=>{
+          const value = ReviewService.saveReviewEdits(db,{companyId:session.companyId,proposalId:editMatch[1],editedBy:session.userId,input:payload});
+          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'AUTOMATION_PROPOSAL_EDITED',entityType:'automation-proposal',entityId:editMatch[1],details:{proposalType:value.proposal.type,sourceId:value.proposal.sourceId,invoiceId:value.proposal.suggestion?.invoiceId||null,accountingLines:value.proposal.review?.accountingLines||[],executionStatus:'not-executed'}});
+          return value;
+        });
+        return send(res,200,{...edited,executionStatus:'not-executed',message:'Förslaget uppdaterades och kräver ny mänsklig granskning innan godkännande.'}), true;
       }
 
       const approveMatch = url.pathname.match(/^\/api\/v1\/automation\/proposals\/([^/]+)\/approve$/);
@@ -88,8 +102,8 @@ function createAutomationReviewRouter(options) {
         const existing = requireProposal(session,approveMatch[1]);
         const approved = Db.transaction(db,()=>{
           const proposal = Queues.approveAutomationProposal(db,{companyId:session.companyId,proposalId:existing.id,userId:session.userId});
-          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'AUTOMATION_PROPOSAL_APPROVED',entityType:'automation-proposal',entityId:proposal.id,details:{proposalType:proposal.type,sourceId:proposal.sourceId,executionStatus:'not-executed'}});
-          return proposal;
+          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'AUTOMATION_PROPOSAL_APPROVED',entityType:'automation-proposal',entityId:proposal.id,details:{proposalType:proposal.type,sourceId:proposal.sourceId,suggestion:proposal.suggestion,executionStatus:'not-executed'}});
+          return ReviewService.byIdForReview(db,session.companyId,proposal.id);
         });
         return send(res,200,{proposal:approved,executionStatus:'not-executed',message:'Förslaget är godkänt för nästa kontrollerade steg men har inte bokförts eller betalats automatiskt.'}), true;
       }
@@ -102,7 +116,7 @@ function createAutomationReviewRouter(options) {
         const rejected = Db.transaction(db,()=>{
           const proposal = Queues.rejectAutomationProposal(db,{companyId:session.companyId,proposalId:existing.id,userId:session.userId,reason:payload.reason});
           Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'AUTOMATION_PROPOSAL_REJECTED',entityType:'automation-proposal',entityId:proposal.id,details:{proposalType:proposal.type,sourceId:proposal.sourceId,reason:proposal.rejectionReason}});
-          return proposal;
+          return ReviewService.byIdForReview(db,session.companyId,proposal.id);
         });
         return send(res,200,{proposal:rejected,executionStatus:'not-executed'}), true;
       }
