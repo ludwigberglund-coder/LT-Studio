@@ -42,7 +42,7 @@ function buildStatic() {
     'admin/access-view.js', 'admin/access.css', 'admin/journal-view.js', 'admin/journal.css',
     'portal/dashboard.html', 'portal/dashboard.js', 'portal/dashboard.css', 'portal/portal-nav.js',
     'portal/index.html', 'portal/app.js', 'portal/styles.css', 'portal/automation-link.js',
-    'portal/demo-scenario.js', 'portal/uat.html', 'portal/uat.js', 'portal/uat.css',
+    'portal/demo-scenario.js', 'portal/demo-workflows.js', 'portal/uat.html', 'portal/uat.js', 'portal/uat.css',
     'portal/automation.html', 'portal/automation.js', 'portal/automation.css',
     'portal/bank.html', 'portal/bank.js', 'portal/bank.css',
     'portal/payables.html', 'portal/payables.js', 'portal/payables.css', 'portal/payables-queue.js',
