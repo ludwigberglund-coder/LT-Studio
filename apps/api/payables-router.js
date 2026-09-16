@@ -1,0 +1,44 @@
+'use strict';
+
+const fs=require('node:fs');
+const path=require('node:path');
+const Access=require('../../packages/access-control/authorization.js');
+const Auth=require('./auth.js');
+const Db=require('./database.js');
+const Payables=require('./payables.js');
+const Domain=require('../../packages/payables/supplier-invoices.js');
+const {readJson,securityHeaders}=require('./app.js');
+
+const DEFAULT_ACCESS=JSON.parse(fs.readFileSync(path.join(__dirname,'..','..','config','access-control.json'),'utf8'));
+function routeError(message,code='PAYABLES_ROUTE_ERROR',statusCode=400){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
+function send(res,status,body,headers={}){if(res.writableEnded)return;res.writeHead(status,{...securityHeaders(),'Content-Type':'application/json; charset=utf-8',...headers});res.end(JSON.stringify(body))}
+function createPayablesRouter(options){
+  const db=options?.db;if(!db)throw new Error('Databas krävs.');Payables.initializePayables(db);
+  const accessModel=Access.createModel(options.accessConfig||DEFAULT_ACCESS);
+  function session(req){const token=Auth.parseCookies(req.headers.cookie).rollands_session;if(!token)return null;const s=Db.sessionByTokenHash(db,Auth.hashToken(token));if(!s||s.disabled)return null;s.actor={id:s.userId,name:s.displayName,roles:s.roles,disabled:Boolean(s.disabled)};return s}
+  function requireSession(req){const s=session(req);if(!s)throw routeError('Personlig inloggning krävs.','AUTH_REQUIRED',401);return s}
+  function csrf(req,s){const supplied=String(req.headers['x-csrf-token']||'');if(!supplied||!Auth.safeEqualText(Auth.hashToken(supplied),s.csrfHash))throw routeError('Säkerhetskontrollen misslyckades.','CSRF_FAILED',403)}
+  function permission(s,id){const d=Access.authorize(accessModel,s.actor,id);if(!d.allowed)throw routeError('Du saknar behörighet för åtgärden.','ACCESS_DENIED',403)}
+  async function handle(req,res){
+    let url;try{url=new URL(req.url,'http://localhost')}catch{return false}
+    if(!url.pathname.startsWith('/api/v1/payables/'))return false;
+    try{
+      const s=requireSession(req);if(req.method!=='GET')csrf(req,s);
+      if(req.method==='GET'&&url.pathname==='/api/v1/payables/invoices'){permission(s,'supplier-invoice.view');return send(res,200,{invoices:Payables.listInvoices(db,s.companyId)}),true}
+      if(req.method==='GET'&&url.pathname==='/api/v1/payables/payments'){permission(s,'payment.view');const date=String(url.searchParams.get('date')||'');const payments=Payables.listPayments(db,s.companyId,date);return send(res,200,{summary:date?Domain.paymentSummary(payments,date):null,payments}),true}
+      const invoiceMatch=url.pathname.match(/^\/api\/v1\/payables\/invoices\/([^/]+)$/);
+      if(invoiceMatch&&req.method==='GET'){permission(s,'supplier-invoice.view');const invoice=Payables.invoiceById(db,s.companyId,invoiceMatch[1]);if(!invoice)throw routeError('Fakturan hittades inte.','INVOICE_NOT_FOUND',404);return send(res,200,{invoice}),true}
+      const codingMatch=url.pathname.match(/^\/api\/v1\/payables\/invoices\/([^/]+)\/coding$/);
+      if(codingMatch&&req.method==='PUT'){permission(s,'supplier-invoice.register');const payload=await readJson(req,res);if(!payload)return true;const invoice=Db.transaction(db,()=>{const value=Payables.saveCoding(db,{companyId:s.companyId,invoiceId:codingMatch[1],lines:payload.lines});Db.appendAudit(db,{companyId:s.companyId,userId:s.userId,action:'SUPPLIER_INVOICE_CODING_UPDATED',entityType:'supplier-invoice',entityId:value.id,details:{codingSha256:value.codingSha256}});return value});return send(res,200,{invoice}),true}
+      const approveMatch=url.pathname.match(/^\/api\/v1\/payables\/invoices\/([^/]+)\/approve$/);
+      if(approveMatch&&req.method==='POST'){permission(s,'supplier-invoice.approve');const invoice=Payables.invoiceById(db,s.companyId,approveMatch[1]);if(!invoice)throw routeError('Fakturan hittades inte.','INVOICE_NOT_FOUND',404);const workflow=Access.evaluateWorkflowAction(accessModel,s.actor,'supplier-invoice-approval',{registeredBy:invoice.registeredBy,approvedBy:s.userId});if(!workflow.allowed)throw routeError(workflow.reason,workflow.code,409);const approved=Db.transaction(db,()=>{const value=Payables.approve(db,{companyId:s.companyId,invoiceId:invoice.id,actorId:s.userId});Db.appendAudit(db,{companyId:s.companyId,userId:s.userId,action:'SUPPLIER_INVOICE_APPROVED',entityType:'supplier-invoice',entityId:value.id,details:{codingSha256:value.codingSha256}});return value});return send(res,200,{invoice:approved}),true}
+      const payMatch=url.pathname.match(/^\/api\/v1\/payables\/invoices\/([^/]+)\/prepare-payment$/);
+      if(payMatch&&req.method==='POST'){permission(s,'payment.prepare');const payload=await readJson(req,res);if(!payload)return true;const invoice=Payables.invoiceById(db,s.companyId,payMatch[1]);if(!invoice)throw routeError('Fakturan hittades inte.','INVOICE_NOT_FOUND',404);const payment=Db.transaction(db,()=>{const value=Payables.preparePayment(db,{companyId:s.companyId,invoiceId:invoice.id,paymentDate:payload.paymentDate,amountOre:invoice.totalOre,account:payload.account||'1930',preparedBy:s.userId});Db.appendAudit(db,{companyId:s.companyId,userId:s.userId,action:'SUPPLIER_PAYMENT_PREPARED',entityType:'supplier-payment',entityId:value.id,details:{invoiceId:invoice.id,amountOre:value.amountOre,paymentDate:value.paymentDate}});return value});return send(res,201,{payment}),true}
+      const pdfMatch=url.pathname.match(/^\/api\/v1\/payables\/invoices\/([^/]+)\/document$/);
+      if(pdfMatch&&req.method==='GET'){permission(s,'supplier-invoice.view');const doc=Payables.document(db,s.companyId,pdfMatch[1]);res.writeHead(200,{...securityHeaders(),'Content-Type':'application/pdf','Content-Disposition':`inline; filename="${String(doc.name||'invoice.pdf').replace(/["\r\n]/g,'')}"`,'Content-Length':doc.bytes.length,'X-Document-SHA256':doc.sha256});res.end(doc.bytes);return true}
+      send(res,404,{error:'Hittades inte.',code:'NOT_FOUND'});return true;
+    }catch(error){const status=Number(error.statusCode||500);if(status>=500)console.error(error);send(res,status,{error:status>=500?'Ett internt serverfel uppstod.':String(error.message||'Begäran misslyckades.'),code:error.code||'INTERNAL_ERROR'});return true}
+  }
+  return Object.freeze({handle,accessModel});
+}
+module.exports=Object.freeze({createPayablesRouter});
