@@ -16,6 +16,7 @@ const {createPayrollRouter} = require('./payroll-router.js');
 const {createDocumentsRouter} = require('./documents-router.js');
 const {createAccountingAdminRouter} = require('./accounting-admin-router.js');
 const {createWebsiteCmsRouter} = require('./website-cms-router.js');
+const {createCustomerSalesRouter,initializeCustomerSales} = require('./customer-sales-router.js');
 const Db = require('./database.js');
 const Queues = require('./queues.js');
 const ReminderOutbox = require('./reminder-outbox.js');
@@ -46,6 +47,22 @@ function allowedHost(req, host, configuredAllowedHosts) {
   if (!['0.0.0.0','::'].includes(bound)) allowed.add(bound);
   return allowed.has(requested);
 }
+function loadBusinessProfile(options={}) {
+  if(options.businessProfile)return options.businessProfile;
+  const company=JSON.parse(fs.readFileSync(path.join(__dirname,'..','..','content','company.json'),'utf8'));
+  return {
+    legalName:company.legalName,
+    name:company.legalName,
+    orgNumber:company.orgNumber,
+    vatNumber:company.vatNumber,
+    registeredOffice:company.registeredOffice,
+    address:[company.address?.street,[company.address?.postalCode,company.address?.city].filter(Boolean).join(' ')].filter(Boolean).join('\n'),
+    paymentAccount:String(process.env.ROLLANDS_PAYMENT_ACCOUNT||'').trim(),
+    phone:company.contact?.phone||'',
+    email:company.contact?.email||'',
+    invoiceContact:String(process.env.ROLLANDS_INVOICE_CONTACT||'').trim()
+  };
+}
 function createServer(options = {}) {
   const host = String(options.host || process.env.ROLLANDS_API_HOST || '127.0.0.1').trim();
   const port = Number(options.port ?? process.env.PORT ?? 4180);
@@ -72,6 +89,7 @@ function createServer(options = {}) {
   Documents.initializeDocuments(db);
   AccountingAdmin.initializeAccountingAdmin(db);
   WebsiteCms.initializeWebsiteCms(db);
+  initializeCustomerSales(db);
   const api = createApiApp({db,secureCookies,authEncryptionKey});
   const automationReview = createAutomationReviewRouter({db});
   const bank = createBankRouter({db});
@@ -85,6 +103,7 @@ function createServer(options = {}) {
   const documents = createDocumentsRouter({db});
   const accounting = createAccountingAdminRouter({db});
   const websiteCms = createWebsiteCmsRouter({db});
+  const customerSales = createCustomerSalesRouter({db,businessProfile:loadBusinessProfile(options)});
   const server = http.createServer(async (req,res) => {
     if (!allowedHost(req,host,configuredAllowedHosts)) {
       res.writeHead(421,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
@@ -105,11 +124,12 @@ function createServer(options = {}) {
     if (await documents.handle(req,res)) return;
     if (await accounting.handle(req,res)) return;
     if (await websiteCms.handle(req,res)) return;
+    if (await customerSales.handle(req,res)) return;
     if (await payables.handle(req,res)) return;
     api.handle(req,res);
   });
   function close(callback) { server.close(() => { try { db.close(); } catch {} if (callback) callback(); }); }
-  return Object.freeze({server,db,api,automationReview,bank,payables,supplierMasterdata,paymentRelease,paymentConfirmation,inventory,reports,payroll,documents,accounting,websiteCms,host,port,databasePath,close});
+  return Object.freeze({server,db,api,automationReview,bank,payables,supplierMasterdata,paymentRelease,paymentConfirmation,inventory,reports,payroll,documents,accounting,websiteCms,customerSales,host,port,databasePath,close});
 }
 if (require.main === module) {
   const runtime = createServer();
@@ -119,4 +139,4 @@ if (require.main === module) {
   });
   for (const signal of ['SIGINT','SIGTERM']) process.once(signal,() => runtime.close(() => process.exit(0)));
 }
-module.exports=Object.freeze({createServer,normalizeHostname,isLoopback,allowedHost});
+module.exports=Object.freeze({createServer,normalizeHostname,isLoopback,allowedHost,loadBusinessProfile});
