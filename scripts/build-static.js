@@ -52,6 +52,7 @@ function buildStatic() {
     'portal/reports.html', 'portal/reports.js', 'portal/reports.css',
     'portal/payroll.html', 'portal/payroll.js', 'portal/payroll.css',
     'portal/documents.html', 'portal/documents.js', 'portal/documents.css',
+    'portal/website.html', 'portal/website.js', 'portal/website.css',
     'shared/content.js', 'shared/accounting/money.js', 'shared/accounting/journal.js',
     'shared/access-control/authorization.js', 'shared/receivables/customer-receivables.js',
     'content/company.json', 'content/site.json', 'content/admin.json',
