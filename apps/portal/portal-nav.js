@@ -11,6 +11,7 @@
     const addBeforeAutomation=(href,label)=>{if(!economy||sidebar.querySelector(`a[href*="${href}"]`))return;const automation=economy.querySelector('a[href*="automation.html"]');const link=document.createElement('a');link.className='side-link';link.href=`./${href}${suffix}`;link.textContent=label;if(automation)economy.insertBefore(link,automation);else economy.append(link)};
     addBeforeAutomation('suppliers.html','Leverantörer');
     addBeforeAutomation('inventory.html','Lager');
+    addBeforeAutomation('accounting.html','Bokföring');
     addBeforeAutomation('reports.html','Rapporter');
     addBeforeAutomation('payroll.html','Lön');
     addBeforeAutomation('documents.html','Dokument');
