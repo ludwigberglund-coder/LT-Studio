@@ -6,10 +6,12 @@ const fs = require('node:fs');
 const {createApiApp} = require('./app.js');
 const {createAutomationReviewRouter} = require('./automation-review-router.js');
 const {createBankRouter} = require('./bank-router.js');
+const {createPayablesRouter} = require('./payables-router.js');
 const Db = require('./database.js');
 const Queues = require('./queues.js');
 const ReminderOutbox = require('./reminder-outbox.js');
 const Bank = require('./bank-payments.js');
+const Payables = require('./payables.js');
 
 function normalizeHostname(value) {
   const raw = String(value || '').trim().toLowerCase().replace(/\.$/, '');
@@ -46,9 +48,11 @@ function createServer(options = {}) {
   Queues.initializeQueues(db);
   ReminderOutbox.initializeReminderOutbox(db);
   Bank.initializeBankPayments(db);
+  Payables.initializePayables(db);
   const api = createApiApp({db,secureCookies,authEncryptionKey});
   const automationReview = createAutomationReviewRouter({db});
   const bank = createBankRouter({db});
+  const payables = createPayablesRouter({db});
   const server = http.createServer(async (req,res) => {
     if (!allowedHost(req,host,configuredAllowedHosts)) {
       res.writeHead(421,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
@@ -60,10 +64,11 @@ function createServer(options = {}) {
     }
     if (await automationReview.handle(req,res)) return;
     if (await bank.handle(req,res)) return;
+    if (await payables.handle(req,res)) return;
     api.handle(req,res);
   });
   function close(callback) { server.close(() => { try { db.close(); } catch {} if (callback) callback(); }); }
-  return Object.freeze({server,db,api,automationReview,bank,host,port,databasePath,close});
+  return Object.freeze({server,db,api,automationReview,bank,payables,host,port,databasePath,close});
 }
 if (require.main === module) {
   const runtime = createServer();
