@@ -1,23 +1,50 @@
 (function(){
+  'use strict';
   const isDemo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
   const suffix=isDemo?'?demo=1':'';
+  const page=(location.pathname.split('/').pop()||'dashboard.html').toLowerCase();
+  const icons={
+    dashboard:'⌂',receivables:'↗',bank:'⇄',supplierLedger:'▤',payables:'▧',suppliers:'♙',accounting:'Σ',reports:'⌁',automation:'✦',inventory:'◇',payroll:'◎',documents:'▱',website:'◫',uat:'✓'
+  };
+  const groups=[
+    {label:'Arbetsyta',items:[['dashboard.html','Översikt','dashboard']]},
+    {label:'Försäljning',items:[['index.html','Kundreskontra','receivables']]},
+    {label:'Ekonomi',items:[
+      ['bank.html','Bank & avstämning','bank'],
+      ['supplier-ledger.html','Leverantörsreskontra','supplierLedger'],
+      ['payables.html','Leverantörsfakturor','payables'],
+      ['suppliers.html','Leverantörer','suppliers'],
+      ['accounting.html','Bokföring','accounting'],
+      ['reports.html','Rapporter','reports'],
+      ['automation.html','Automationskö','automation']
+    ]},
+    {label:'Verksamhet',items:[
+      ['inventory.html','Lager','inventory'],
+      ['payroll.html','Lön','payroll'],
+      ['documents.html','Dokument','documents']
+    ]},
+    {label:'Administration',items:[['website.html','Webbplats & innehåll','website']]},
+    ...(isDemo?[{label:'Test & granskning',items:[['uat.html','Testa hela systemet','uat']]}]:[])
+  ];
+  function navLink([href,label,icon]){
+    const active=page===href;
+    return `<a class="side-link unified-side-link${active?' active':''}" href="./${href}${suffix}" ${active?'aria-current="page"':''}><span class="side-icon" aria-hidden="true">${icons[icon]||'·'}</span><span class="side-label">${label}</span></a>`;
+  }
   function enhance(){
-    const sidebar=document.querySelector('.sidebar');if(!sidebar)return false;
-    if(!sidebar.querySelector('a[href*="dashboard.html"]')){
-      const group=document.createElement('div');group.className='side-group unified-overview';group.innerHTML=`<span>Arbetsyta</span><a class="side-link" href="./dashboard.html${suffix}">Översikt</a>`;
-      const company=sidebar.querySelector('.company-pill');if(company)company.after(group);else sidebar.prepend(group);
-    }
-    const economy=[...sidebar.querySelectorAll('.side-group')].find(g=>/Ekonomi/i.test(g.querySelector('span')?.textContent||''));
-    const addBeforeAutomation=(href,label)=>{if(!economy||sidebar.querySelector(`a[href*="${href}"]`))return;const automation=economy.querySelector('a[href*="automation.html"]');const link=document.createElement('a');link.className='side-link';link.href=`./${href}${suffix}`;link.textContent=label;if(automation)economy.insertBefore(link,automation);else economy.append(link)};
-    addBeforeAutomation('suppliers.html','Leverantörer');
-    addBeforeAutomation('inventory.html','Lager');
-    addBeforeAutomation('accounting.html','Bokföring');
-    addBeforeAutomation('reports.html','Rapporter');
-    addBeforeAutomation('payroll.html','Lön');
-    addBeforeAutomation('documents.html','Dokument');
-    if(!sidebar.querySelector('a[href*="website.html"]')){const group=document.createElement('div');group.className='side-group unified-admin';group.innerHTML=`<span>Administration</span><a class="side-link" href="./website.html${suffix}">Webbplats & innehåll</a>`;const footer=sidebar.querySelector('.sidebar-footer');if(footer)sidebar.insertBefore(group,footer);else sidebar.append(group)}
-    if(isDemo&&!sidebar.querySelector('a[href*="uat.html"]')){const group=document.createElement('div');group.className='side-group unified-uat';group.innerHTML=`<span>Test & granskning</span><a class="side-link" href="./uat.html?demo=1">Testa systemet</a>`;const footer=sidebar.querySelector('.sidebar-footer');if(footer)sidebar.insertBefore(group,footer);else sidebar.append(group)}
+    const sidebar=document.querySelector('.sidebar');
+    if(!sidebar)return false;
+    if(sidebar.dataset.unifiedNav==='v3')return true;
+    const companyText=(sidebar.querySelector('.company-pill')?.innerText||'Rollands Frukt o Grönt AB').split('\n')[0].trim();
+    sidebar.dataset.unifiedNav='v3';
+    sidebar.innerHTML=`
+      <div class="sidebar-brand"><a class="logo unified-logo" href="./dashboard.html${suffix}" aria-label="Till översikten"><strong>Rollands</strong><small>FÖRETAGSPORTAL</small></a><span class="environment-chip">${isDemo?'DEMO':'SKYDDAD'}</span></div>
+      <div class="company-pill unified-company"><span>Aktivt företag</span><strong>${companyText||'Rollands Frukt o Grönt AB'}</strong></div>
+      <nav class="sidebar-navigation" aria-label="Huvudmeny">${groups.map(group=>`<div class="side-group"><span class="side-group-title">${group.label}</span>${group.items.map(navLink).join('')}</div>`).join('')}</nav>
+      <div class="sidebar-footer"><b>Alla verktyg på samma plats.</b><span>${isDemo?'Fiktiva testdata · inga riktiga betalningar eller utskick.':'Personlig session · behörighetsstyrd åtkomst.'}</span></div>`;
     return true;
   }
-  if(!enhance()){const observer=new MutationObserver(()=>{if(enhance())observer.disconnect()});observer.observe(document.documentElement,{childList:true,subtree:true})}
+  let queued=false;
+  const schedule=()=>{if(queued)return;queued=true;queueMicrotask(()=>{queued=false;enhance()})};
+  enhance();
+  new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true});
 })();
