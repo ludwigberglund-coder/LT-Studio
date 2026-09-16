@@ -1,0 +1,14 @@
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const Db=require('../apps/api/database.js');
+const Auth=require('../apps/api/auth.js');
+const Payables=require('../apps/api/payables.js');
+const Release=require('../apps/api/payment-release.js');
+const Domain=require('../packages/payables/supplier-invoices.js');
+
+function seed(){const db=Db.openDatabase(':memory:');Payables.initializePayables(db);const company=Db.createCompany(db,{legalName:'Testbolag AB',displayName:'Testbolag',orgNumber:'559900-1010'});const hash=Auth.hashPassword('Sakert betalningstest 2026!');const preparer=Db.createUser(db,{username:'prep',displayName:'Förberedare',passwordHash:hash});const releaser=Db.createUser(db,{username:'release',displayName:'Frisläppare',passwordHash:hash});const supplier=Payables.createSupplier(db,{companyId:company.id,supplierNumber:'L-1',name:'Leverantören AB',bankgiro:'111-2222',defaultCostAccount:'4010'});const invoice=Payables.createSupplierInvoice(db,{companyId:company.id,supplierId:supplier.id,supplierInvoiceNumber:'F-1',invoiceDate:'2026-09-01',dueDate:'2026-09-16',totalOre:100000,vatOre:20000,registeredBy:preparer.id});const coding=Domain.buildCoding({totalOre:100000,vatOre:20000});Payables.saveCoding(db,{companyId:company.id,invoiceId:invoice.id,lines:coding.lines});Payables.approve(db,{companyId:company.id,invoiceId:invoice.id,actorId:releaser.id});const payment=Payables.preparePayment(db,{companyId:company.id,invoiceId:invoice.id,paymentDate:'2026-09-16',amountOre:100000,preparedBy:preparer.id});return{db,company,preparer,releaser,payment}}
+
+test('samma person får inte frisläppa betalningen som den förberedde',()=>{const {db,company,preparer,payment}=seed();try{assert.throws(()=>Release.releasePayment(db,{companyId:company.id,paymentId:payment.id,releasedBy:preparer.id}),e=>e.code==='SEPARATION_OF_DUTIES_FAILED');}finally{db.close()}});
+test('separat person kan frisläppa men betalningen blir inte markerad som betald',()=>{const {db,company,releaser,payment}=seed();try{const released=Release.releasePayment(db,{companyId:company.id,paymentId:payment.id,releasedBy:releaser.id});assert.equal(released.status,'released');assert.equal(released.releasedBy,releaser.id);assert.ok(released.releasedAt);assert.notEqual(released.status,'paid');}finally{db.close()}});
+test('frisläppt betalning kan inte frisläppas igen',()=>{const {db,company,releaser,payment}=seed();try{Release.releasePayment(db,{companyId:company.id,paymentId:payment.id,releasedBy:releaser.id});assert.throws(()=>Release.releasePayment(db,{companyId:company.id,paymentId:payment.id,releasedBy:'annan'}),e=>e.code==='INVALID_PAYMENT_STATUS');}finally{db.close()}});
