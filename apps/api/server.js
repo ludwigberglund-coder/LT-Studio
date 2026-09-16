@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const {createApiApp} = require('./app.js');
 const Db = require('./database.js');
 const Queues = require('./queues.js');
+const ReminderOutbox = require('./reminder-outbox.js');
 
 function normalizeHostname(value) {
   const raw = String(value || '').trim().toLowerCase().replace(/\.$/, '');
@@ -47,6 +48,7 @@ function createServer(options = {}) {
   if (databasePath !== ':memory:') fs.mkdirSync(path.dirname(path.resolve(databasePath)),{recursive:true,mode:0o700});
   const db = options.db || Db.openDatabase(databasePath);
   Queues.initializeQueues(db);
+  ReminderOutbox.initializeReminderOutbox(db);
   const api = createApiApp({db,secureCookies,authEncryptionKey});
 
   const server = http.createServer((req,res) => {
