@@ -28,11 +28,11 @@ function enrichProposal(db,proposal){
 }
 function listForReview(db,companyId,{status='',limit=300}={}){return Queues.listAutomationProposals(db,companyId,{status,limit}).map(proposal=>enrichProposal(db,proposal))}
 function byIdForReview(db,companyId,proposalId){const proposal=Queues.automationProposalById(db,companyId,proposalId);return proposal?enrichProposal(db,proposal):null}
-function validateAccounts(lines){for(const row of lines||[]){if(!accountExists(row.account))throw serviceError(`Konto ${row.account} finns inte i den valbara kontolistan.`,'ACCOUNT_NOT_ALLOWED')};return lines}
+function validateAccounts(lines,currentLines=[]){for(let index=0;index<(lines||[]).length;index++){const row=lines[index];const current=text(currentLines[index]?.account);if(!accountExists(row.account)&&text(row.account)!==current)throw serviceError(`Konto ${row.account} finns inte i den valbara kontolistan.`,'ACCOUNT_NOT_ALLOWED')};return lines}
 function saveReviewEdits(db,{companyId,proposalId,editedBy,input}){
   const proposal=Queues.automationProposalById(db,companyId,proposalId);if(!proposal)throw serviceError('Automationsförslaget hittades inte.','PROPOSAL_NOT_FOUND',404);
   const enriched=enrichProposal(db,proposal);const normalized=Review.validateEditedSuggestion(enriched,input);
-  if(Array.isArray(normalized.accountingLines))validateAccounts(normalized.accountingLines);
+  if(Array.isArray(normalized.accountingLines))validateAccounts(normalized.accountingLines,enriched.review?.accountingLines||[]);
   if(proposal.type==='bank-payment-match'&&normalized.invoiceId){const target=customerInvoice(db,companyId,normalized.invoiceId);if(!target)throw serviceError('Den valda kundfakturan hittades inte i företaget.','TARGET_INVOICE_NOT_FOUND',404);const payment=bankPayment(db,companyId,normalized.bankPaymentId||proposal.sourceId);if(payment&&Number(target.remainingOre)!==Number(payment.amountOre))throw serviceError('I den här versionen måste den valda fakturans restbelopp exakt motsvara inbetalningen.','TARGET_AMOUNT_MISMATCH',409);normalized.invoiceNumber=target.invoiceNumber;normalized.customerName=target.customerName}
   const updatedAt=new Date().toISOString();
   const result=db.prepare(`UPDATE automation_proposals SET suggestion_json=?,status='manual-review',deterministic=0,ambiguous=1,decision_reason=? WHERE company_id=? AND id=? AND status IN ('manual-review','ready-for-approval')`).run(JSON.stringify(normalized),'Förslaget har ändrats manuellt och kräver därför ny mänsklig granskning före godkännande.',companyId,proposalId);
