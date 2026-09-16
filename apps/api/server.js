@@ -4,6 +4,7 @@ const http = require('node:http');
 const path = require('node:path');
 const fs = require('node:fs');
 const {createApiApp} = require('./app.js');
+const {createAutomationReviewRouter} = require('./automation-review-router.js');
 const Db = require('./database.js');
 const Queues = require('./queues.js');
 const ReminderOutbox = require('./reminder-outbox.js');
@@ -50,8 +51,9 @@ function createServer(options = {}) {
   Queues.initializeQueues(db);
   ReminderOutbox.initializeReminderOutbox(db);
   const api = createApiApp({db,secureCookies,authEncryptionKey});
+  const automationReview = createAutomationReviewRouter({db});
 
-  const server = http.createServer((req,res) => {
+  const server = http.createServer(async (req,res) => {
     if (!allowedHost(req,host,configuredAllowedHosts)) {
       res.writeHead(421,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
       return res.end(JSON.stringify({error:'Värdnamnet är inte tillåtet.',code:'HOST_NOT_ALLOWED'}));
@@ -60,6 +62,7 @@ function createServer(options = {}) {
       res.writeHead(404,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
       return res.end(JSON.stringify({error:'Hittades inte.',code:'NOT_FOUND'}));
     }
+    if (await automationReview.handle(req,res)) return;
     api.handle(req,res);
   });
 
@@ -70,7 +73,7 @@ function createServer(options = {}) {
     });
   }
 
-  return Object.freeze({server,db,api,host,port,databasePath,close});
+  return Object.freeze({server,db,api,automationReview,host,port,databasePath,close});
 }
 
 if (require.main === module) {
