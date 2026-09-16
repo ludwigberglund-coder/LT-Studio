@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS period_unlock_requests(
  decision_reason TEXT
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_unlock_requests_company_status ON period_unlock_requests(company_id,status,requested_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unlock_requests_one_pending ON period_unlock_requests(company_id,period) WHERE status='pending';
 `)}
 function entryById(db,companyId,entryId){const row=db.prepare(`SELECT id,company_id AS companyId,fiscal_year AS fiscalYear,series,sequence,number,posting_date AS postingDate,description,source_type AS sourceType,source_id AS sourceId,created_by AS createdBy,created_at AS createdAt FROM accounting_entries WHERE company_id=? AND id=?`).get(companyId,entryId);if(!row)return null;return{...row,lines:db.prepare(`SELECT line_number AS lineNumber,account,line_text AS text,debit_ore AS debitOre,credit_ore AS creditOre FROM accounting_entry_lines WHERE entry_id=? ORDER BY line_number`).all(row.id)}}
 function periodStatus(db,companyId,period){if(!validPeriod(period))throw accountingAdminError('Perioden måste anges som ÅÅÅÅ-MM.','INVALID_PERIOD');return db.prepare(`SELECT period,status,locked_by AS lockedBy,locked_at AS lockedAt FROM accounting_periods WHERE company_id=? AND period=?`).get(companyId,period)||{period,status:'open',lockedBy:null,lockedAt:null}}
