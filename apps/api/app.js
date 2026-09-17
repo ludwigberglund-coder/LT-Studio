@@ -258,8 +258,10 @@ function createApiApp(options) {
 
       if(req.method==='GET' && url.pathname==='/api/v1/customer-invoices/config') {
         requirePermission(session,'customer-invoice.view');
-        const status=CustomerInvoicing.profileStatus(Db.companyById(db,session.companyId),companyProfile);
-        return send(res,200,{company:status.company,issuanceReady:status.ready,blocker:status.blocker});
+        const resolved=CustomerInvoicing.resolvedProfile(db,session.companyId,companyProfile);
+        const status=CustomerInvoicing.profileStatus(Db.companyById(db,session.companyId),resolved.profile);
+        const blocker=resolved.configured?status.blocker:'Privata fakturainställningar saknas. Bankgiro och skattestatus måste läggas in i den privata databasen före bokföring.';
+        return send(res,200,{company:status.company,issuanceReady:resolved.configured&&status.ready,blocker});
       }
 
       if(req.method==='GET' && url.pathname==='/api/v1/customer-invoices') {
