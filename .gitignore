@@ -15,3 +15,6 @@ backups/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+
+# Generated test evidence is retained in GitHub Actions artifacts
+test-artifacts/

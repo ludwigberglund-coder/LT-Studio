@@ -21,20 +21,16 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
-
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: package-lock.json
-
       - name: Install dependencies
         run: npm ci --ignore-scripts
-
       - name: Validate editable content
         run: npm run content:check
-
       - name: Check JavaScript syntax
         shell: bash
         run: |
@@ -46,16 +42,12 @@ jobs:
             -path './dist' -prune -o \
             -type f \( -name '*.js' -o -name '*.cjs' -o -name '*.mjs' \) \
             -print0)
-
       - name: Run automated tests
         run: npm test
-
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
-
       - name: Build static demo
         run: npm run build:static
-
       - name: Verify generated demo
         shell: bash
         run: |
@@ -74,15 +66,22 @@ jobs:
           test -f dist/.nojekyll
           test ! -e dist/store.json
           test ! -e dist/.env
-
       - name: Install Chromium test runtime
         run: |
-          npm install --no-save --package-lock=false --ignore-scripts playwright@1.55.0
+          npm install --no-save --package-lock=false --ignore-scripts playwright@1.56.0
           npx playwright install --with-deps chromium
-
       - name: Run supplier invoice browser flow
         run: npm run test:browser:payables
-
+      - name: Run complete navigation and invoice browser flow
+        run: node test/menu-invoice-browser.cjs
+      - name: Upload invoice and navigation review artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rollands-invoice-navigation-qa
+          path: test-artifacts/
+          if-no-files-found: warn
+          retention-days: 7
       - name: Create review snapshot
         if: always()
         shell: bash
@@ -93,6 +92,7 @@ jobs:
             --exclude='.git/' \
             --exclude='node_modules/' \
             --exclude='dist/' \
+            --exclude='test-artifacts/' \
             --exclude='store.json' \
             --exclude='store.json.bak' \
             --exclude='*.corrupt-*' \
@@ -101,7 +101,6 @@ jobs:
             --exclude='.env' \
             --exclude='.env.*' \
             ./ "$RUNNER_TEMP/rollands-review/"
-
       - name: Upload review snapshot
         if: always()
         uses: actions/upload-artifact@v7
