@@ -113,7 +113,7 @@ test('skyddat kundregister listar, skapar och isolerar kunder per företag', asy
   const created=await fetch(`${base}/api/v1/customers`,{method:'POST',headers:{Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken},body:JSON.stringify({name:'Ny Kund AB',orgNumber:'559999-0001',email:'faktura@example.se',address:'Testgatan 1, Göteborg'})});
   const data=await created.json();
   assert.equal(created.status,201);
-  assert.equal(data.customer.customerNumber,'K-0101');
+  assert.equal(data.customer.customerNumber,'K-1001');
   assert.equal(data.customer.name,'Ny Kund AB');
   assert.ok(Db.auditForCompany(db,co1.id).some(event=>event.action==='CUSTOMER_CREATED'&&event.entityId===data.customer.id));
 }));
