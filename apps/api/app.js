@@ -7,9 +7,11 @@ const Access = require('../../packages/access-control/authorization.js');
 const Receivables = require('../../packages/receivables/customer-receivables.js');
 const Auth = require('./auth.js');
 const Db = require('./database.js');
+const CustomerInvoicing = require('./customer-invoicing.js');
 
 const DEFAULT_ACCESS = JSON.parse(fs.readFileSync(path.join(__dirname,'..','..','config','access-control.json'),'utf8'));
 const DEFAULT_RATES = JSON.parse(fs.readFileSync(path.join(__dirname,'..','..','config','legal-rates.json'),'utf8'));
+const DEFAULT_COMPANY_PROFILE = JSON.parse(fs.readFileSync(path.join(__dirname,'..','..','content','company.json'),'utf8'));
 const BODY_LIMIT = 256 * 1024;
 
 function apiError(message, code = 'API_ERROR', statusCode = 400) {
@@ -84,6 +86,8 @@ function createApiApp(options) {
   const secureCookies = options.secureCookies !== false;
   const sessionMinutes = Number(options.sessionMinutes || accessConfig.policy?.sessionMaxMinutes || 480);
   const authEncryptionKey = options.authEncryptionKey || '';
+  const companyProfile = options.companyProfile || DEFAULT_COMPANY_PROFILE;
+  CustomerInvoicing.initializeCustomerInvoicing(db);
   const loginAttempts = new Map();
 
   function cleanupAttempts() {
@@ -250,6 +254,32 @@ function createApiApp(options) {
           Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'CUSTOMER_CREATED',entityType:'customer',entityId:customer.id,details:{customerNumber:customer.customerNumber}});
         });
         return send(res,201,{customer});
+      }
+
+      if(req.method==='GET' && url.pathname==='/api/v1/customer-invoices/config') {
+        requirePermission(session,'customer-invoice.view');
+        const status=CustomerInvoicing.profileStatus(Db.companyById(db,session.companyId),companyProfile);
+        return send(res,200,{company:status.company,issuanceReady:status.ready,blocker:status.blocker});
+      }
+
+      if(req.method==='GET' && url.pathname==='/api/v1/customer-invoices') {
+        requirePermission(session,'customer-invoice.view');
+        return send(res,200,{invoices:CustomerInvoicing.listCustomerInvoices(db,session.companyId)});
+      }
+
+      if(req.method==='POST' && url.pathname==='/api/v1/customer-invoices') {
+        requirePermission(session,'customer-invoice.issue');
+        const payload=await readJson(req,res); if(!payload) return;
+        const result=Db.transaction(db,()=>CustomerInvoicing.issueInvoice(db,{companyId:session.companyId,userId:session.userId,payload,profile:companyProfile}));
+        return send(res,result.duplicate?200:201,result);
+      }
+
+      const customerInvoiceMatch=url.pathname.match(/^\/api\/v1\/customer-invoices\/([^/]+)$/);
+      if(customerInvoiceMatch && req.method==='GET') {
+        requirePermission(session,'customer-invoice.view');
+        const result=CustomerInvoicing.invoiceBundle(db,session.companyId,customerInvoiceMatch[1]);
+        if(!result) throw apiError('Fakturan hittades inte i det inloggade företaget.','INVOICE_NOT_FOUND',404);
+        return send(res,200,result);
       }
 
       if(req.method==='GET' && url.pathname==='/api/v1/receivables') {
