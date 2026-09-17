@@ -134,4 +134,4 @@ test('publika demovärden kan inte låsa upp fakturering utan privata inställni
   const body=await response.json();
   assert.equal(response.status,409);
   assert.equal(body.code,'INVOICE_PRIVATE_SETTINGS_MISSING');
-}),{configureInvoiceSettings:false}));
+},{configureInvoiceSettings:false}));
