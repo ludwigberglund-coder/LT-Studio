@@ -6,6 +6,7 @@ const {groups}=require('../apps/portal/portal-nav.js');
 const {example}=require('./fixtures/invoice-example.js');
 const {buildStatic}=require('../scripts/build-static.js');
 const root=buildStatic(),out=path.resolve(__dirname,'..','test-artifacts');fs.mkdirSync(out,{recursive:true});
+fs.copyFileSync(path.join(root,'shared/vendor/pdf-lib.min.js'),path.join(out,'pdf-lib.min.js'));
 const expected=groups.flatMap(g=>g.items).map(i=>i[0]);
 const errors=[],checks=[];
 function mime(file){return ({'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.pdf':'application/pdf'})[path.extname(file)]||'application/octet-stream';}
@@ -17,13 +18,14 @@ const server=http.createServer((req,res)=>{
  fs.readFile(file,(error,data)=>{if(error){res.writeHead(404);res.end('Not found');return;}res.writeHead(200,{'Content-Type':mime(file),'Cache-Control':'no-store'});res.end(data);});
 });
 (async()=>{
- let browser;
+ let browser,page;
  try{
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const base=`http://127.0.0.1:${server.address().port}/Rollands/`;
-  browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1440,height:1000}});const page=await context.newPage();
+  browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1440,height:1000}});page=await context.newPage();
   page.on('pageerror',e=>errors.push({url:page.url(),error:e.message}));page.on('dialog',dialog=>dialog.accept());
   async function menu(){
    await page.locator('.shared-navigation').waitFor({timeout:15000});
+   await page.waitForFunction(()=>document.querySelector('.shared-sidebar')?.dataset.sharedRoute===location.pathname+location.hash);
    const actual=await page.locator('.shared-navigation [data-nav-id]').evaluateAll(nodes=>nodes.map(n=>n.dataset.navId));assert.deepEqual(actual,expected,page.url());
    assert.equal(await page.locator('.shared-navigation').count(),1);
    assert.equal(await page.locator('.shared-sidebar').evaluate(el=>getComputedStyle(el).display!=='none'),true);
@@ -34,9 +36,12 @@ const server=http.createServer((req,res)=>{
   const admin=['overview','content','money','access','journal','modules','decisions'].map(v=>'admin/?demo=1#/'+v);
   const legacy=['overview','res-tools','batches','audit','inbox','assistant','settings'].map(v=>'legacy/?demo=1#/'+v);
   for(const route of [...portal,...admin,...legacy]){
-   const target=new URL(route,base);target.searchParams.set('demo','1');const response=await page.goto(target.href,{waitUntil:'networkidle'});assert.equal(response.status(),200,route);await menu();checks.push({kind:'menu',route});
+   const target=new URL(route,base);target.searchParams.set('demo','1');
+   const response=await page.goto(target.href,{waitUntil:'networkidle'});
+   // Fragment changes correctly return null: no new HTTP request is made.
+   if(response)assert.equal(response.status(),200,route);else assert.equal(page.url(),target.href,route);
+   await menu();checks.push({kind:'menu',route});
   }
-  // All links resolve inside the nested deployment base, not the domain root.
   const links=await page.locator('[data-nav-id]').evaluateAll(nodes=>nodes.map(n=>n.href));
   for(const href of links){assert.ok(href.startsWith(base),href);const r=await context.request.get(href.split('#')[0]);assert.equal(r.status(),200,href);}
   await page.goto(base+'portal/dashboard.html?demo=1',{waitUntil:'networkidle'});
@@ -48,7 +53,6 @@ const server=http.createServer((req,res)=>{
   await menu();
   await page.getByRole('button',{name:'+ Ny kundfaktura',exact:true}).click();await page.locator('#invoice-form').waitFor();await menu();
   await page.getByRole('button',{name:'Till fakturalistan',exact:true}).click();await menu();
-  // Add a user-defined revenue account through its real page before invoicing.
   await page.locator('[data-nav-id="accounts"]').click();await page.locator('#account-form').waitFor();
   await page.locator('#account-form [name=number]').fill('3099');await page.locator('#account-form [name=name]').fill('Egen intäkt för browser-test');await page.getByRole('button',{name:'Spara intäktskonto',exact:true}).click();await menu();
   await page.locator('[data-nav-id="invoices"]').click();await page.getByRole('button',{name:'+ Ny kundfaktura',exact:true}).click();
@@ -66,7 +70,6 @@ const server=http.createServer((req,res)=>{
   await page.getByRole('button',{name:'Granska faktura / PDF',exact:true}).click();await page.getByRole('heading',{name:'Faktura UTKAST',exact:true}).waitFor();await menu();
   assert.equal(await page.evaluate(()=>RollandsDemoScenario.state().customerInvoices.length),before,'preview must not post');
   await page.getByRole('button',{name:'Tillbaka till utkast',exact:true}).click();
-  // Validation must retain entered data and leave state untouched.
   await page.locator('[name="buyer.address"]').fill('');await page.getByRole('button',{name:'Granska faktura / PDF',exact:true}).click();await page.locator('#invoice-alert:not([hidden])').waitFor();
   assert.equal(await page.locator('[data-row="1"] [data-row-field=revenueAccount]').inputValue(),'3099');assert.equal(await page.evaluate(()=>RollandsDemoScenario.state().customerInvoices.length),before);
   await page.locator('[name="buyer.address"]').fill(data.buyer.address);
@@ -80,13 +83,13 @@ const server=http.createServer((req,res)=>{
   await page.screenshot({path:path.join(out,'invoice-preview.png'),fullPage:true});
   await page.reload({waitUntil:'networkidle'});await menu();assert.equal(await page.evaluate(()=>RollandsDemoScenario.state().customerInvoices.at(-1).document.lines[1].revenueAccount),'3099');
   await page.locator('[data-nav-id="accounting"]').click();await menu();assert.ok((await page.locator('body').innerText()).includes(posted.record.invoiceNumber));
-  // Repeated replacement is precisely the failure mode reported by the user.
   await page.evaluate(()=>{document.querySelector('.sidebar').outerHTML='<aside class="sidebar"></aside>';});await menu();
   checks.push({kind:'invoice',invoiceNumber:posted.record.invoiceNumber,selectedAccounts:['3051','3099'],netOre:posted.record.document.netOre,totalOre:posted.record.document.totalOre});
   assert.deepEqual(errors,[],'no uncaught browser errors');
-  fs.copyFileSync(path.join(root,'shared/vendor/pdf-lib.min.js'),path.join(out,'pdf-lib.min.js'));
   fs.writeFileSync(path.join(out,'navigation-invoice-results.json'),JSON.stringify({ok:true,checks,errors},null,2));
   console.log(`Navigation and invoice browser checks passed: ${checks.length} checks, ${expected.length} stable menu links.`);
- }catch(error){fs.writeFileSync(path.join(out,'navigation-invoice-results.json'),JSON.stringify({ok:false,checks,errors,failure:error.stack},null,2));throw error;}
- finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
+ }catch(error){
+  fs.writeFileSync(path.join(out,'navigation-invoice-results.json'),JSON.stringify({ok:false,checks,errors,failure:error.stack},null,2));
+  if(page)await page.screenshot({path:path.join(out,'browser-failure.png'),fullPage:true}).catch(()=>{});throw error;
+ }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});
