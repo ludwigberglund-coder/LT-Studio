@@ -97,3 +97,23 @@ test('fel lösenord avslöjar inte om användaren finns', async () => withApi(as
   assert.equal(body.code,'INVALID_CREDENTIALS');
   assert.equal(body.error,'Användarnamn eller lösenord är fel.');
 }));
+
+test('skyddat kundregister listar, skapar och isolerar kunder per företag', async () => withApi(async ({base,password,db,co1,co2}) => {
+  const signed=await login(base,password);
+  const listed=await fetch(`${base}/api/v1/customers`,{headers:{Cookie:signed.cookie}});
+  const before=await listed.json();
+  assert.equal(listed.status,200);
+  assert.equal(before.customers.length,1);
+  assert.equal(before.customers[0].companyId,co1.id);
+  assert.equal(before.customers.some(customer=>customer.companyId===co2.id),false);
+
+  const missingCsrf=await fetch(`${base}/api/v1/customers`,{method:'POST',headers:{Cookie:signed.cookie,'Content-Type':'application/json'},body:JSON.stringify({name:'Ny Kund AB'})});
+  assert.equal(missingCsrf.status,403);
+
+  const created=await fetch(`${base}/api/v1/customers`,{method:'POST',headers:{Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken},body:JSON.stringify({name:'Ny Kund AB',orgNumber:'559999-0001',email:'faktura@example.se',address:'Testgatan 1, Göteborg'})});
+  const data=await created.json();
+  assert.equal(created.status,201);
+  assert.equal(data.customer.customerNumber,'K-0101');
+  assert.equal(data.customer.name,'Ny Kund AB');
+  assert.ok(Db.auditForCompany(db,co1.id).some(event=>event.action==='CUSTOMER_CREATED'&&event.entityId===data.customer.id));
+}));
