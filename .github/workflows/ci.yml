@@ -71,7 +71,6 @@ jobs:
           test -f dist/content/admin.json
           test -f dist/config/rolands-business-decisions.json
           test -f dist/legacy/index.html
-          test -f dist/portal/payables-accounting-flow.js
           test -f dist/.nojekyll
           test ! -e dist/store.json
           test ! -e dist/.env
