@@ -33,11 +33,11 @@ const repositoryRoot = path.resolve(__dirname,'..','..');
 const portalRoot = path.join(repositoryRoot,'apps','portal');
 const staticMappings = Object.freeze([
   ['/portal/', portalRoot],
-  ['/shared/', path.join(repositoryRoot,'packages','shared','browser')],
   ['/shared/accounting/', path.join(repositoryRoot,'packages','accounting')],
   ['/shared/access-control/', path.join(repositoryRoot,'packages','access-control')],
   ['/shared/receivables/', path.join(repositoryRoot,'packages','receivables')],
-  ['/shared/invoicing/', path.join(repositoryRoot,'packages','invoicing')]
+  ['/shared/invoicing/', path.join(repositoryRoot,'packages','invoicing')],
+  ['/shared/', path.join(repositoryRoot,'packages','shared','browser')]
 ]);
 const staticTypes = Object.freeze({'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'application/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml'});
 
