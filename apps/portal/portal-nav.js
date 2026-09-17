@@ -23,7 +23,25 @@
     ]},
     {id:'help',label:'Test & hjälp',items:[['uat','Testa systemet','portal/uat.html'],['legacy','Tidigare system','legacy/#/overview'],['assistant','Hjälp & chatbot (äldre demo)','legacy/#/assistant']]}
   ];
-  if(typeof module==='object'&&module.exports){module.exports={groups};return;}
+  const demoOnlyIds=new Set(['money','journal','res-tools','batches','inbox','audit','settings','legacy','assistant']);
+  const requiredPermission=Object.freeze({
+    overview:'reports.view',invoices:'customer-invoice.view',receivables:'customer-invoice.view','receivables-details':'customer-invoice.view',
+    payables:'supplier-invoice.view',bank:'bank.view',automation:'payment.view',accounting:'accounting.view',reports:'reports.view',
+    accounts:'accounting.view',payroll:'payroll.view',customers:'customer-invoice.view',suppliers:'supplier.view',inventory:'inventory.view',
+    website:'website.manage',documents:'documents.view',access:'users.manage',decisions:'platform.settings.manage',modules:'platform.settings.manage',
+    project:'platform.settings.manage',content:'website.manage',uat:'audit.view'
+  });
+  function permissionsForRoles(config,roles){
+    const roleSet=new Set(roles||[]), permissions=new Set();
+    for(const role of config?.roles||[]) if(roleSet.has(role.id)) for(const permission of role.permissions||[]) permissions.add(permission);
+    return permissions;
+  }
+  function visibleGroups(config,roles,{demo=false}={}){
+    if(demo)return groups;
+    const permissions=permissionsForRoles(config,roles);
+    return groups.map(group=>({...group,items:group.items.filter(([id])=>!demoOnlyIds.has(id)&&(!requiredPermission[id]||permissions.has(requiredPermission[id])))})).filter(group=>group.items.length);
+  }
+  if(typeof module==='object'&&module.exports){module.exports={groups,requiredPermission,permissionsForRoles,visibleGroups};return;}
   if(root.RollandsNavigation)return;
   const base=new URL('../',document.currentScript.src);
   const demo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
@@ -33,7 +51,18 @@
   function href(path){const u=new URL(path,base);if(demo&&path!=='./')u.searchParams.set('demo','1');return u.href;}
   const normalizePath=path=>path.replace(/\/index\.html$/,'/');
   function active(path){const u=new URL(path,base);return normalizePath(u.pathname)===normalizePath(location.pathname)&&(!u.hash||u.hash===(location.hash||'#/overview'));}
-  function mount(){
+  let accessConfigPromise=null;
+  async function navigationGroups(){
+    if(demo)return groups;
+    try{
+      const [session,config]=await Promise.all([
+        fetch('/api/v1/session',{credentials:'same-origin',cache:'no-store'}).then(r=>r.ok?r.json():null),
+        (accessConfigPromise ||= fetch('/config/access-control.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('access config');return r.json()}))
+      ]);
+      return session?.authenticated?visibleGroups(config,session.user?.roles||[]):[];
+    }catch{return []}
+  }
+  async function mount(){
     const sidebar=document.querySelector('.sidebar');if(!sidebar)return;
     const route=location.pathname+location.hash;
     if(sidebar.dataset.sharedRoute===route&&sidebar.querySelector('.shared-navigation'))return;
@@ -44,7 +73,8 @@
     brand.innerHTML='<strong>Rollands</strong><small>EKONOMI & VERKSAMHET</small>';
     const info=document.createElement('p');info.className='shared-company';info.textContent=demo?'Demoföretag · fiktiv data':'Företagsportal · skyddade åtgärder kräver behörighet';
     const nav=document.createElement('nav');nav.className='shared-navigation';nav.setAttribute('aria-label','Systemets alla verktyg');
-    for(const group of groups){
+    const allowedGroups=await navigationGroups();
+    for(const group of allowedGroups){
       const details=document.createElement('details');details.dataset.navGroup=group.id;
       details.open=group.items.some(item=>active(item[2]))||saved[group.id]!==false;
       const summary=document.createElement('summary');summary.textContent=group.label;details.append(summary);
@@ -64,7 +94,7 @@
     if(!sidebar.dataset.scrollBound){sidebar.addEventListener('scroll',()=>{try{sessionStorage.setItem(key+':scroll',String(sidebar.scrollTop))}catch{}});sidebar.dataset.scrollBound='1';}
   }
   let pending=false;
-  function schedule(){if(pending)return;pending=true;queueMicrotask(()=>{pending=false;mount();});}
+  function schedule(){if(pending)return;pending=true;queueMicrotask(async()=>{pending=false;await mount();});}
   // Renders can replace the entire sidebar. Stay subscribed instead of disconnecting after boot.
   new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true});
   addEventListener('hashchange',schedule);addEventListener('pageshow',schedule);
