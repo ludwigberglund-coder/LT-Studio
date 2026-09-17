@@ -29,7 +29,7 @@
       }
       return result.length?result:[''];
     }
-    function right(value,x,top,size=9,font=regular){text(value,x-width(value,size,font),top,size,font);}
+    function right(value,x,top,size=9,font=regular,maxWidth=null){if(maxWidth)while(size>7.5&&width(value,size,font)>maxWidth)size-=.25;text(value,x-width(value,size,font),top,size,font);}
     function rect(x,top,w,h,color=pale){page.drawRectangle({x,y:top-h,width:w,height:h,color});}
     function rule(top,x=M,w=C){page.drawLine({start:{x,y:top},end:{x:x+w,y:top},color:line,thickness:.6});}
     const money=value=>new Intl.NumberFormat('sv-SE',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(value||0)/100);
@@ -44,7 +44,7 @@
       const sub=internal?'Internt underlag - inte för utskick':seller.name||'';
       wrap(sub,C-160,8,regular).slice(0,2).forEach((s,i)=>text(s,M,H-69-i*10,8,regular,muted));
       right(`Nr ${data.invoiceNumber||'UTKAST'}  |  ${data.currency||'SEK'}`,W-M,H-69,8,bold);
-      y=H-95;
+      y=H-87;
     }
     function ensure(height,internal=false){if(y-height<BOTTOM)newPage(internal);}
     function paragraph(label,value,internal=false){
@@ -59,15 +59,15 @@
       for(let start=0;start<rows.length;start+=columns){
         const group=rows.slice(start,start+columns);
         const wrapped=group.map(([label,value])=>wrap(value||'–',cw,8.5));
-        const height=18+Math.max(...wrapped.map(a=>a.length))*11;
+        const height=14+Math.max(...wrapped.map(a=>a.length))*11;
         ensure(height+7);
-        group.forEach(([label],i)=>{text(label,M+i*(cw+gap),y,7.4,bold,muted);wrapped[i].forEach((s,j)=>text(s,M+i*(cw+gap),y-13-j*11,8.5));});y-=height+5;
+        group.forEach(([label],i)=>{text(label,M+i*(cw+gap),y,7.4,bold,muted);wrapped[i].forEach((s,j)=>text(s,M+i*(cw+gap),y-13-j*11,8.5));});y-=height+4;
       }
     }
-    const columns=[{label:'Artikelnummer',w:45},{label:'Benämning / beskrivning',w:200},{label:'Antal',w:38,right:true},{label:'Enhet',w:31},{label:'À-pris',w:70,right:true},{label:'Moms',w:40,right:true},{label:'Belopp (SEK)',w:C-424,right:true}];
+    const columns=[{label:'Artikelnr.',w:45},{label:'Benämning / beskrivning',w:193},{label:'Antal',w:38,right:true},{label:'Enhet',w:38},{label:'À-pris',w:70,right:true},{label:'Moms',w:40,right:true},{label:'Belopp (SEK)',w:C-424,right:true}];
     function tableHeader(){
-      ensure(48);rect(M,y,C,32,ink);let x=M;
-      columns.forEach(c=>{const labels=wrap(c.label,c.w-12,7.4,bold);labels.forEach((s,i)=>text(s,x+6,y-7-i*9,7.4,bold,white));x+=c.w;});y-=32;
+      ensure(48);rect(M,y,C,30,ink);let x=M;
+      columns.forEach(c=>{const labels=wrap(c.label,c.w-12,7.4,bold);labels.forEach((s,i)=>text(s,x+6,y-7-i*9,7.4,bold,white));x+=c.w;});y-=30;
     }
     function invoiceRows(){
       tableHeader();
@@ -93,14 +93,14 @@
     newPage();
     facts([['Fakturanr.',data.invoiceNumber],['Fakturadatum',data.invoiceDate],['Förfallodatum',data.dueDate]]);
     if(data.demo||data.invoiceNumber==='UTKAST'){
-      ensure(27);rect(M,y,C,20,lime);text(data.invoiceNumber==='UTKAST'?'UTKAST - INTE BOKFÖRD':'DEMO - INTE BETALNINGSUNDERLAG',M+9,y-5,8,bold);y-=28;
+      ensure(27);rect(M,y,C,20,lime);text(data.invoiceNumber==='UTKAST'?'UTKAST - INTE BOKFÖRD':'DEMO - INTE BETALNINGSUNDERLAG',M+9,y-5,8,bold);y-=25;
     }
     if((data.warnings||[]).length)paragraph('Underlaget är ofullständigt',data.warnings.join('\n'));
     const cardWidth=(C-16)/2;
     const partyLines=[seller,buyer].map(p=>[p.name||'–',p.address||'Adress saknas',p.orgNumber?`Org.nr: ${p.orgNumber}`:'',p.vatNumber?`VAT.nr: ${p.vatNumber}`:''].filter(Boolean).flatMap(v=>wrap(v,cardWidth-24,9)));
-    const cardHeight=31+Math.max(...partyLines.map(a=>a.length))*12;
+    const cardHeight=31+Math.max(...partyLines.map(a=>a.length))*11;
     ensure(cardHeight+12);
-    ['Avsändare','Mottagare'].forEach((label,i)=>{const x=M+i*(cardWidth+16);rect(x,y,cardWidth,cardHeight,pale);text(label.toUpperCase(),x+12,y-10,7.5,bold,muted);partyLines[i].forEach((s,j)=>text(s,x+12,y-27-j*12,9,j===0?bold:regular));});y-=cardHeight+12;
+    ['Avsändare','Mottagare'].forEach((label,i)=>{const x=M+i*(cardWidth+16);rect(x,y,cardWidth,cardHeight,pale);text(label.toUpperCase(),x+12,y-10,7.5,bold,muted);partyLines[i].forEach((s,j)=>text(s,x+12,y-26-j*11,9,j===0?bold:regular));});y-=cardHeight+10;
     facts([
       ['Vår referens',data.ourReference],['Er referens',data.yourReference],['Kundnummer',data.customerNumber],
       ['Betalningsvillkor',`${data.paymentTermsDays??30} dagar${data.paymentTermsText?' · '+data.paymentTermsText:''}`],['Dröjsmålsränta',data.interestText],['Ordernummer',data.orderNumber],
@@ -109,21 +109,21 @@
     if(data.deliveryAddress)paragraph('Leveransadress',data.deliveryAddress);
     if(buyer.email||buyer.phone)paragraph('Mottagarens kontaktuppgifter',[buyer.email,buyer.phone].filter(Boolean).join(' · '));
     invoiceRows();
-    const summaryHeight=173;
+    const summaryHeight=167;
     ensure(summaryHeight+12);
     const split=M+C*.51,tw=C*.49;
     text('MOMSUNDERLAG',M,y,8,bold,muted);text('Underlag',M+98,y,7.5,bold,muted);text('Moms',M+176,y,7.5,bold,muted);
     [25,12,6,0].forEach((rate,i)=>{
       const r=(data.vatBreakdown||[]).find(r=>Number(r.rate??r.vatBasisPoints/100)===rate);
       text(rate===0?'Momsfritt':`Moms ${rate} %`,M,y-23-i*20,8.5);
-      right(r?money(r.netOre):(data.vatBreakdown?.length?'0,00':'–'),M+153,y-23-i*20,8.5);
-      right(r?money(r.vatOre):(data.vatBreakdown?.length?'0,00':'–'),M+233,y-23-i*20,8.5);
+      right(r?money(r.netOre):(data.vatBreakdown?.length?'0,00':'–'),M+153,y-23-i*20,8.5,regular,78);
+      right(r?money(r.vatOre):(data.vatBreakdown?.length?'0,00':'–'),M+233,y-23-i*20,8.5,regular,75);
     });
     text('OCR / BETALNINGSREFERENS',M,y-112,7.5,bold,muted);
     wrap(data.ocr||data.invoiceNumber,C*.48-12,9,bold).forEach((s,i)=>text(s,M,y-128-i*11,9,bold));
     const summary=[['Varor / tjänster',data.netOre-(data.freightOre||0)-(data.administrationOre||0)],['Expeditionsavgift',data.administrationOre],['Frakt',data.freightOre],['Belopp före moms',data.netOre],['Total moms',data.vatOre],['Öresutjämning',data.roundingOre]];
-    summary.forEach(([label,value],i)=>{text(label,split+8,y-i*20,8.5);right(money(value),W-M-8,y-i*20,9,i===3?bold:regular);});
-    rect(split,y-125,tw,39,lime);text(data.totalOre<0?'Att återfå (SEK)':'Att betala (SEK)',split+10,y-137,10,bold);right(money(Math.abs(data.totalOre)),W-M-10,y-136,13,bold);
+    summary.forEach(([label,value],i)=>{text(label,split+8,y-i*20,8.5);right(money(value),W-M-8,y-i*20,9,i===3?bold:regular,tw-125);});
+    rect(split,y-125,tw,39,lime);text(data.totalOre<0?'Att återfå (SEK)':'Att betala (SEK)',split+10,y-137,10,bold);right(money(Math.abs(data.totalOre)),W-M-10,y-136,13,bold,tw-135);
     y-=summaryHeight+12;
     paragraph('Meddelande',data.notes);
     paragraph('Momsupplysning',data.taxExemptionReason);
