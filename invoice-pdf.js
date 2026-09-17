@@ -65,7 +65,7 @@ function invoiceDocumentData(invoice,business={}) {
   });
 }
 async function invoicePdf(invoice,business={}) {
-  if(invoice.document)return Buffer.from(await createInvoicePdf(invoice.document));
+  // The API always validates its own invoice model; embedded presentation data cannot bypass it.
   const d=invoiceDocumentData(invoice,business),seller=invoice.seller||business||{};
   const ore=value=>Math.round(Number(value||0)*100);
   const document={
