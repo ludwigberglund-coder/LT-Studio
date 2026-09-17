@@ -1,7 +1,7 @@
 'use strict';
 
-const fs = require('node:fs');
 const path = require('node:path');
+const fs = require('node:fs');
 const Access = require('../packages/access-control/authorization.js');
 const Auth = require('../apps/api/auth.js');
 const Db = require('../apps/api/database.js');
@@ -12,6 +12,15 @@ function requiredEnv(name) {
   return value;
 }
 
+function assertOutsideRepository(root, filename) {
+  const resolved = path.resolve(filename);
+  const relative = path.relative(root,resolved);
+  if (!relative || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
+    throw new Error('ROLLANDS_DATABASE_PATH måste ligga utanför repositoryt i pilot/produktion.');
+  }
+  return resolved;
+}
+
 function main() {
   if (!process.argv.includes('--apply')) {
     console.log('Ingen ändring gjord. Kör med --apply när bootstrap-inställningarna är kontrollerade.');
@@ -20,10 +29,14 @@ function main() {
   }
 
   const root = path.resolve(__dirname,'..');
-  const companyConfig = JSON.parse(fs.readFileSync(path.join(root,'content','company.json'),'utf8'));
   const accessConfig = JSON.parse(fs.readFileSync(path.join(root,'config','access-control.json'),'utf8'));
   const accessModel = Access.createModel(accessConfig);
-  const databasePath = process.env.ROLLANDS_DATABASE_PATH || path.join(root,'data','platform.sqlite');
+  const databasePath = assertOutsideRepository(root,requiredEnv('ROLLANDS_DATABASE_PATH'));
+  const companyConfig = {
+    legalName: requiredEnv('ROLLANDS_BOOTSTRAP_COMPANY_LEGAL_NAME'),
+    displayName: requiredEnv('ROLLANDS_BOOTSTRAP_COMPANY_DISPLAY_NAME'),
+    orgNumber: requiredEnv('ROLLANDS_BOOTSTRAP_COMPANY_ORG_NUMBER')
+  };
   const username = Auth.normalizeUsername(requiredEnv('ROLLANDS_BOOTSTRAP_USERNAME'));
   const displayName = requiredEnv('ROLLANDS_BOOTSTRAP_DISPLAY_NAME');
   const password = requiredEnv('ROLLANDS_BOOTSTRAP_PASSWORD');
@@ -37,7 +50,6 @@ function main() {
     const mfaSecret = requiredEnv('ROLLANDS_BOOTSTRAP_MFA_SECRET');
     const encryptionKey = requiredEnv('ROLLANDS_AUTH_ENCRYPTION_KEY');
     if (encryptionKey.length < 32) throw new Error('ROLLANDS_AUTH_ENCRYPTION_KEY måste vara minst 32 tecken.');
-    // Validate the secret before saving it.
     Auth.totpCode(mfaSecret, Date.now());
     encryptedMfa = Auth.encryptSecret(mfaSecret,encryptionKey);
   }
@@ -48,10 +60,10 @@ function main() {
       const existingCompany = db.prepare('SELECT id FROM companies WHERE org_number=?').get(companyConfig.orgNumber);
       const company = existingCompany
         ? Db.companyById(db,existingCompany.id)
-        : Db.createCompany(db,{legalName:companyConfig.legalName,displayName:companyConfig.displayName,orgNumber:companyConfig.orgNumber});
+        : Db.createCompany(db,companyConfig);
 
       const existingUser = Db.userByUsername(db,username);
-      if (existingUser) throw new Error('Bootstrap-användaren finns redan. Ändra användare genom den framtida användaradministrationen i stället för att skriva över kontot.');
+      if (existingUser) throw new Error('Bootstrap-användaren finns redan. Bootstrap får aldrig skriva över ett befintligt konto.');
 
       const user = Db.createUser(db,{
         username,
@@ -68,7 +80,7 @@ function main() {
     db.close();
   }
   console.log(`Databas: ${databasePath}`);
-  console.log('Lösenord och MFA-hemlighet har inte skrivits till GitHub eller loggen.');
+  console.log('Lösenord, MFA-hemlighet och krypteringsnyckel har inte skrivits till loggen.');
 }
 
 if (require.main === module) {
@@ -76,4 +88,4 @@ if (require.main === module) {
   catch (error) { console.error(error.message); process.exitCode = 1; }
 }
 
-module.exports={main};
+module.exports={main,requiredEnv,assertOutsideRepository};
