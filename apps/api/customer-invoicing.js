@@ -4,11 +4,13 @@ const crypto=require('node:crypto');
 const Db=require('./database.js');
 const Accounting=require('./accounting-store.js');
 const Invoice=require('../../packages/invoicing/invoice.js');
+const InvoiceSettings=require('./company-invoice-settings.js');
 
 function invoiceError(message,code='CUSTOMER_INVOICE_ERROR',statusCode=422){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
 function text(value){return String(value??'').trim()}
 function initializeCustomerInvoicing(db){
   Accounting.initializeAccountingStore(db);
+  InvoiceSettings.initializeInvoiceSettings(db);
   db.exec(`
     CREATE TABLE IF NOT EXISTS customer_invoice_documents(
       invoice_id TEXT PRIMARY KEY REFERENCES invoices(id) ON DELETE RESTRICT,
@@ -87,12 +89,15 @@ function invoiceBundle(db,companyId,invoiceId){
   return{invoice,document:stored?.document||null,documentSha256:stored?.documentSha256||null,entry:Accounting.entryBySource(db,companyId,'customer-invoice',invoiceId)};
 }
 function validateRequestId(value){const id=text(value);if(!/^[A-Za-z0-9_-]{16,100}$/.test(id))throw invoiceError('En giltig idempotensnyckel krävs för fakturautställning.','INVALID_INVOICE_REQUEST_ID',422);return id}
+function resolvedProfile(db,companyId,publicProfile={}){return InvoiceSettings.privateProfile(db,companyId,publicProfile)}
 function issueInvoice(db,{companyId,userId,payload,profile}){
   const requestId=validateRequestId(payload?.requestId);
   const prior=db.prepare('SELECT invoice_id AS invoiceId FROM customer_invoice_issue_requests WHERE company_id=? AND request_id=?').get(companyId,requestId);
   if(prior){const existing=invoiceBundle(db,companyId,prior.invoiceId);if(!existing)throw invoiceError('Tidigare fakturabegäran saknar faktura.','INVOICE_IDEMPOTENCY_CORRUPT',500);return{...existing,duplicate:true}}
   const company=Db.companyById(db,companyId);
-  const readiness=profileStatus(company,profile);
+  const resolved=resolvedProfile(db,companyId,profile);
+  if(!resolved.configured)throw invoiceError('Privata fakturainställningar saknas. Bankgiro och skattestatus måste läggas in i den privata databasen före bokföring.','INVOICE_PRIVATE_SETTINGS_MISSING',409);
+  const readiness=profileStatus(company,resolved.profile);
   if(!readiness.ready)throw invoiceError(readiness.blocker,'INVOICE_PROFILE_NOT_READY',409);
   const customer=customerByNumber(db,companyId,payload?.customerNumber);
   if(!customer)throw invoiceError('Kunden finns inte i det inloggade företagets kundregister.','CUSTOMER_NOT_FOUND',404);
@@ -117,4 +122,4 @@ function issueInvoice(db,{companyId,userId,payload,profile}){
   Db.appendAudit(db,{companyId,userId,action:'CUSTOMER_INVOICE_ISSUED',entityType:'invoice',entityId:invoice.id,details:{invoiceNumber,journalNumber:posted.entry.number,customerNumber:customer.customerNumber,totalOre:document.totalOre,vatOre:document.vatOre,documentSha256}});
   return{...invoiceBundle(db,companyId,invoice.id),duplicate:false};
 }
-module.exports=Object.freeze({initializeCustomerInvoicing,customerByNumber,nextInvoiceNumber,profileStatus,listCustomerInvoices,documentForInvoice,invoiceBundle,issueInvoice,validateRequestId});
+module.exports=Object.freeze({initializeCustomerInvoicing,customerByNumber,nextInvoiceNumber,profileStatus,resolvedProfile,listCustomerInvoices,documentForInvoice,invoiceBundle,issueInvoice,validateRequestId});
