@@ -59,7 +59,7 @@ function net2440(entries){return entries.flatMap(entry=>entry.lines||[]).filter(
     await Promise.all([page.waitForNavigation({waitUntil:'networkidle'}),form.getByRole('button',{name:'Registrera faktura'}).click()]);
     await page.getByText('BKS-771',{exact:true}).first().click();await page.getByRole('button',{name:'Hämta konteringsförslag'}).click();await page.getByRole('button',{name:'Spara kontering'}).click();
 
-    await setSession(approverSession);await page.getByText('BKS-771',{exact:true}).first().click();await Promise.all([page.waitForNavigation({waitUntil:'networkidle'}),page.getByRole('button',{name:'Attestera faktura'}).click()]);
+    await setSession(approverSession);await page.getByText('BKS-771',{exact:true}).first().click();await page.getByRole('button',{name:'Attestera faktura'}).click();await page.getByText(/Attesterad/).first().waitFor({timeout:10000});
     await setSession(accountantSession);await page.getByText('BKS-771',{exact:true}).first().click();await page.getByRole('button',{name:'Bokför leverantörsskuld'}).click();await page.getByRole('button',{name:'Förbered betalning idag'}).click();
 
     await setSession(approverSession);await page.getByRole('button',{name:'Frisläpp'}).click();
