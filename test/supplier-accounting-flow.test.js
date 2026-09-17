@@ -69,6 +69,18 @@ test('auditfel rullar tillbaka verifikation, bokföringsstatus och idempotenspos
   }finally{ctx.db.close()}
 });
 
+test('betalningsauditfel rullar tillbaka betalningsstatus, reskontra, verifikation och idempotenspost',()=>{
+  const ctx=seed({number:'BKS-AUDIT-PAY'});try{
+    SupplierAccounting.postSupplierInvoice(ctx.db,{companyId:ctx.company.id,invoiceId:ctx.invoice.id,actorId:ctx.accountant.id});
+    const payment=Payables.preparePayment(ctx.db,{companyId:ctx.company.id,invoiceId:ctx.invoice.id,paymentDate:'2026-09-17',amountOre:125000,account:'1930',preparedBy:ctx.accountant.id});
+    Release.releasePayment(ctx.db,{companyId:ctx.company.id,paymentId:payment.id,releasedBy:ctx.approver.id});
+    ctx.db.exec(`CREATE TRIGGER fail_supplier_payment_audit BEFORE INSERT ON audit_events WHEN NEW.action='SUPPLIER_PAYMENT_CONFIRMED_AND_POSTED' BEGIN SELECT RAISE(ABORT,'audit fail'); END;`);
+    assert.throws(()=>SupplierAccounting.confirmSupplierPayment(ctx.db,{companyId:ctx.company.id,paymentId:payment.id,confirmationReference:'BANK-AUDIT-FAIL',postingDate:'2026-09-17',actorId:ctx.accountant.id}));
+    assert.equal(Accounting.entryBySource(ctx.db,ctx.company.id,'supplier-payment',payment.id),null);assert.equal(SupplierAccounting.operationBySource(ctx.db,ctx.company.id,'payment-post',payment.id),null);
+    const storedPayment=SupplierAccounting.paymentForConfirmation(ctx.db,ctx.company.id,payment.id),invoice=Payables.invoiceById(ctx.db,ctx.company.id,ctx.invoice.id);assert.equal(storedPayment.status,'released');assert.equal(storedPayment.confirmationReference,null);assert.equal(invoice.status,'payment-prepared');assert.equal(invoice.openAmountOre,125000);assert.equal(SupplierAccounting.accountingStatus(ctx.db,ctx.company.id,ctx.invoice.id),'posted');
+  }finally{ctx.db.close()}
+});
+
 test('låst period, fel företag och ogiltig leverantörskontering stoppas',()=>{
   const locked=seed({number:'BKS-LOCK'});try{
     locked.db.prepare(`INSERT INTO accounting_periods(company_id,period,status) VALUES(?,?,'locked')`).run(locked.company.id,'2026-09');
