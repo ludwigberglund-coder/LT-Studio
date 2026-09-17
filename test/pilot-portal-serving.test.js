@@ -18,7 +18,11 @@ test('pilotservern serverar portal, nödvändig konfiguration och shared-filer m
     const legalRates=await fetch(base+'/config/legal-rates.json');
     assert.equal(legalRates.status,200);
     assert.match(legalRates.headers.get('content-type'),/application\/json/);
-    assert.ok((await legalRates.json()).interest);
+    const rates=await legalRates.json();
+    assert.equal(rates.currency,'SEK');
+    assert.equal(rates.interestActMarginBasisPoints,800);
+    assert.ok(Array.isArray(rates.referenceRates));
+    assert.ok(rates.referenceRates.length>0);
     const shared=await fetch(base+'/shared/accounting/money.js');
     assert.equal(shared.status,200);
     const secret=await fetch(base+'/package.json');
