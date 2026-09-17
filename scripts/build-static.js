@@ -45,7 +45,7 @@ function buildStatic() {
     'portal/demo-scenario.js', 'portal/demo-workflows.js', 'portal/uat.html', 'portal/uat.js', 'portal/uat.css',
     'portal/automation.html', 'portal/automation.js', 'portal/automation.css',
     'portal/bank.html', 'portal/bank.js', 'portal/bank.css',
-    'portal/payables.html', 'portal/payables.js', 'portal/payables.css', 'portal/payables-queue.js',
+    'portal/payables.html', 'portal/payables.js', 'portal/payables.css', 'portal/payables-queue.js', 'portal/payables-accounting-flow.js',
     'portal/payables-intake.js', 'portal/payables-intake.css',
     'portal/suppliers.html', 'portal/suppliers.js', 'portal/suppliers.css',
     'portal/inventory.html', 'portal/inventory.js', 'portal/inventory.css',
