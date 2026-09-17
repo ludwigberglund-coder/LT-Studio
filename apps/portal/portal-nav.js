@@ -1,52 +1,48 @@
 'use strict';
 (function(root){
-  // One registry for every portal, project-admin and legacy workspace.
   const groups=[
-    {id:'workspace',label:'Arbetsyta',items:[['overview','Översikt','portal/dashboard.html'],['uat','Testa systemet','portal/uat.html']]},
+    {id:'workspace',label:'Arbetsyta',items:[['overview','Översikt','portal/dashboard.html']]},
     {id:'economy',label:'Ekonomi',items:[
       ['invoices','Kundfakturor','portal/invoices.html'],['receivables','Kundreskontra','portal/receivables.html'],
       ['receivables-details','Reskontradetaljer & påminnelser','portal/index.html'],
       ['payables','Leverantörsfakturor & reskontra','portal/payables.html'],['bank','Bank & avstämning','portal/bank.html'],
       ['automation','Automationskö','portal/automation.html'],['accounting','Bokföring','portal/accounting.html'],
-      ['reports','Rapporter','portal/reports.html'],['accounts','Kontoplan','portal/accounts.html'],
-      ['money','Öreskalkylator','admin/#/money'],['journal','Verifikationer & periodtest','admin/#/journal']
+      ['reports','Rapporter','portal/reports.html'],['accounts','Kontoplan & intäktskonton','portal/accounts.html'],
+      ['payroll','Lön & lönejournal','portal/payroll.html'],['money','Öreskalkylator','admin/#/money'],
+      ['journal','Verifikationer & periodtest','admin/#/journal'],
+      ['res-tools','Reskontraverktyg (äldre demo)','legacy/#/res-tools'],['batches','Buntar (äldre demo)','legacy/#/batches'],
+      ['inbox','Fakturainkorg (äldre demo)','legacy/#/inbox']
     ]},
     {id:'operations',label:'Register & verksamhet',items:[['customers','Kunder','portal/customers.html'],['suppliers','Leverantörer','portal/suppliers.html'],['inventory','Lager & svinn','portal/inventory.html']]},
-    {id:'personnel',label:'Personal',items:[['payroll','Lön & lönejournal','portal/payroll.html']]},
     {id:'administration',label:'Systemadministration',items:[
       ['website','Webbplats & innehåll','portal/website.html'],['documents','Dokument','portal/documents.html'],
       ['access','Roller & behörigheter','admin/#/access'],['decisions','Verksamhetsbeslut','admin/#/decisions'],
       ['modules','Systemmoduler','admin/#/modules'],['project','Projektöversikt','admin/#/overview'],
-      ['content','Innehållsförhandsvisning','admin/#/content']
+      ['content','Innehållsförhandsvisning','admin/#/content'],
+      ['audit','Revisionslogg (äldre demo)','legacy/#/audit'],['settings','Inställningar (äldre demo)','legacy/#/settings']
     ]},
-    {id:'reference',label:'Äldre referensverktyg',items:[
-      ['legacy','Tidigare system','legacy/#/overview'],['res-tools','Reskontraverktyg','legacy/#/res-tools'],
-      ['batches','Buntar','legacy/#/batches'],['audit','Revisionslogg','legacy/#/audit'],
-      ['inbox','Fakturainkorg','legacy/#/inbox'],['assistant','Hjälp & chatbot','legacy/#/assistant'],['settings','Äldre inställningar','legacy/#/settings']
-    ]}
+    {id:'help',label:'Test & hjälp',items:[['uat','Testa systemet','portal/uat.html'],['legacy','Tidigare system','legacy/#/overview'],['assistant','Hjälp & chatbot (äldre demo)','legacy/#/assistant']]}
   ];
   if(typeof module==='object'&&module.exports){module.exports={groups};return;}
   if(root.RollandsNavigation)return;
-  const script=document.currentScript;
-  const base=new URL('../',script.src);
+  const base=new URL('../',document.currentScript.src);
   const demo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
   const key='rollands-navigation-v2:'+base.pathname;
-  const read=()=>{try{return JSON.parse(localStorage.getItem(key)||'{}')}catch{return {}}};
-  function persist(value){try{localStorage.setItem(key,JSON.stringify(value))}catch{/* Navigation works without storage. */}}
-  function href(path){const u=new URL(path,base);if(demo)u.searchParams.set('demo','1');return u.href;}
-  function active(path){const u=new URL(path,base);return u.pathname===location.pathname&&(!u.hash||u.hash===(location.hash||'#/overview'));}
+  function read(){try{return JSON.parse(localStorage.getItem(key)||'{}')}catch{return {}}}
+  function persist(value){try{localStorage.setItem(key,JSON.stringify(value))}catch{}}
+  function href(path){const u=new URL(path,base);if(demo&&path!=='./')u.searchParams.set('demo','1');return u.href;}
+  const normalizePath=path=>path.replace(/\/index\.html$/,'/');
+  function active(path){const u=new URL(path,base);return normalizePath(u.pathname)===normalizePath(location.pathname)&&(!u.hash||u.hash===(location.hash||'#/overview'));}
   function mount(){
-    const sidebar=document.querySelector('.sidebar');
-    if(!sidebar)return;
+    const sidebar=document.querySelector('.sidebar');if(!sidebar)return;
     const route=location.pathname+location.hash;
     if(sidebar.dataset.sharedRoute===route&&sidebar.querySelector('.shared-navigation'))return;
+    sidebar.classList.add('shared-sidebar');sidebar.parentElement.classList.add('shared-workspace-shell');
+    sidebar.setAttribute('aria-label','Huvudmeny');sidebar.dataset.sharedRoute=route;
     const saved=read();
-    sidebar.classList.add('shared-sidebar');
-    sidebar.setAttribute('aria-label','Huvudmeny');
-    sidebar.dataset.sharedRoute=route;
     const brand=document.createElement('a');brand.className='shared-brand';brand.href=href('portal/dashboard.html');
     brand.innerHTML='<strong>Rollands</strong><small>EKONOMI & VERKSAMHET</small>';
-    const info=document.createElement('p');info.className='shared-company';info.textContent=demo?'Demoföretag · fiktiv data':'Företagsportal · behörighet kontrolleras på servern';
+    const info=document.createElement('p');info.className='shared-company';info.textContent=demo?'Demoföretag · fiktiv data':'Företagsportal · skyddade åtgärder kräver behörighet';
     const nav=document.createElement('nav');nav.className='shared-navigation';nav.setAttribute('aria-label','Systemets alla verktyg');
     for(const group of groups){
       const details=document.createElement('details');details.dataset.navGroup=group.id;
@@ -55,24 +51,22 @@
       const links=document.createElement('div');links.className='shared-links';
       for(const [id,label,path] of group.items){
         const a=document.createElement('a');a.dataset.navId=id;a.textContent=label;a.href=href(path);
-        if(active(path)){a.setAttribute('aria-current','page');a.classList.add('active');}
-        links.append(a);
+        if(active(path)){a.setAttribute('aria-current','page');a.classList.add('active');}links.append(a);
       }
       details.append(links);nav.append(details);
       details.addEventListener('toggle',()=>{const s=read();s[group.id]=details.open;persist(s);});
     }
     const foot=document.createElement('div');foot.className='shared-foot';
     const home=document.createElement('a');home.href=href('./');home.textContent='Visa företagets hemsida';foot.append(home);
-    const note=document.createElement('p');note.textContent='Äldre referensverktyg har separat demodata. Menyn ger inte behörighet till skyddade data.';foot.append(note);
+    const note=document.createElement('p');note.textContent='Äldre referensverktyg har separat demodata. Att se en meny ger inte behörighet till skyddade uppgifter.';foot.append(note);
     sidebar.replaceChildren(brand,info,nav,foot);
-    const scroll=Number(sessionStorage.getItem(key+':scroll')||0);sidebar.scrollTop=scroll;
+    try{sidebar.scrollTop=Number(sessionStorage.getItem(key+':scroll')||0)}catch{}
     if(!sidebar.dataset.scrollBound){sidebar.addEventListener('scroll',()=>{try{sessionStorage.setItem(key+':scroll',String(sidebar.scrollTop))}catch{}});sidebar.dataset.scrollBound='1';}
   }
   let pending=false;
   function schedule(){if(pending)return;pending=true;queueMicrotask(()=>{pending=false;mount();});}
-  // Keep observing: invoice modals, route changes and saves can replace the sidebar.
-  const observer=new MutationObserver(schedule);
-  observer.observe(document.documentElement,{childList:true,subtree:true});
+  // Renders can replace the entire sidebar. Stay subscribed instead of disconnecting after boot.
+  new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true});
   addEventListener('hashchange',schedule);addEventListener('pageshow',schedule);
   root.RollandsNavigation={groups,mount,href};mount();
 })(globalThis);
