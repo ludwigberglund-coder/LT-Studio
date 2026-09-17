@@ -1,18 +1,139 @@
 const app=document.getElementById('invoices-app');
 const Demo=globalThis.RollandsDemoScenario;
 const isDemo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
-let modal=false,message='',previewId=null;
+let modal=false;
+let message='';
+let previewId=null;
+
 function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function ore(v){return new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK',minimumFractionDigits:2}).format(Number(v||0)/100)}
 function url(path){return `${path}${isDemo?(path.includes('?')?'&':'?')+'demo=1':''}`}
 function today(){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
 function plusDays(date,days){const d=new Date(`${date}T12:00:00`);d.setDate(d.getDate()+Number(days));return d.toISOString().slice(0,10)}
-function customers(){const state=Demo.state();if(Array.isArray(state.customers)&&state.customers.length)return state.customers;const seen=new Map();for(const i of state.customerInvoices||[])if(!seen.has(i.customerNumber))seen.set(i.customerNumber,{id:`customer-${i.customerNumber}`,customerNumber:i.customerNumber,name:i.customerName,orgNumber:'',email:'',phone:'',paymentTermsDays:30,reminderFeeAgreed:Boolean(i.reminderFeeAgreed),type:'business'});return [...seen.values()]}
-function sidebar(){return `<aside class="sidebar"><div class="logo"><strong>Rollands</strong><small>FÖRETAGSPORTAL</small></div><div class="company-pill">Rollands Frukt o Grönt AB<br>${isDemo?'Demoföretag':'Skyddad företagsmiljö'}</div><div class="side-group"><span>Arbetsyta</span><a class="side-link" href="${url('./dashboard.html')}">Översikt</a></div><div class="side-group"><span>Försäljning</span><a class="side-link active" href="${url('./invoices.html')}">Kundfakturor</a><a class="side-link" href="${url('./customers.html')}">Kunder</a><a class="side-link" href="${url('./receivables.html')}">Kundreskontra</a></div><div class="side-group"><span>Ekonomi</span><a class="side-link" href="${url('./bank.html')}">Bank & avstämning</a><a class="side-link" href="${url('./automation.html')}">Automationskö</a><a class="side-link" href="${url('./accounting.html')}">Bokföring</a><a class="side-link" href="${url('./reports.html')}">Rapporter</a></div><div class="sidebar-footer">${isDemo?'Fiktiv demodata · inga riktiga utskick.':'Personlig session krävs.'}</div></aside>`}
-function invoicePreview(invoice){if(!invoice)return '';const net=Number(invoice.totalOre)-Number(invoice.vatOre||0);return `<div class="modal-backdrop-sales" data-close><section class="modal-sales" data-stop><header class="modal-head-sales"><div><span class="eyebrow">Faktura ${esc(invoice.invoiceNumber)}</span><h2>${esc(invoice.customerName)}</h2></div><button type="button" data-close>×</button></header><div class="invoice-preview"><p><strong>Rolands Frukt o Grönt Aktiebolag</strong><br>Org.nr 556406-5059</p><p><b>Kund:</b> ${esc(invoice.customerName)} (${esc(invoice.customerNumber)})<br><b>Fakturadatum:</b> ${esc(invoice.invoiceDate)}<br><b>Förfallodatum:</b> ${esc(invoice.dueDate)}<br><b>OCR:</b> ${esc(invoice.ocr)}</p><table class="sales-table"><tbody><tr><td>Varor/tjänster</td><td class="money">${ore(net)}</td></tr><tr><td>Moms</td><td class="money">${ore(invoice.vatOre)}</td></tr><tr><td><strong>Att betala</strong></td><td class="money"><strong>${ore(invoice.totalOre)}</strong></td></tr></tbody></table><p><small>Demo: ingen faktura skickas. Använd webbläsarens utskriftsdialog för att spara visningen som PDF.</small></p></div><div class="sales-actions" style="margin-top:16px"><button class="button" data-print>Skriv ut / spara PDF</button><button class="button ghost" data-close>Stäng</button></div></section></div>`}
-function formHtml(){if(!modal)return '';const list=customers();const selected=new URLSearchParams(location.search).get('customer')||'';return `<div class="modal-backdrop-sales" data-close><section class="modal-sales" data-stop><header class="modal-head-sales"><div><span class="eyebrow">Försäljning</span><h2>Ny kundfaktura</h2></div><button type="button" data-close>×</button></header><form class="sales-form" id="invoice-form"><label class="full">Kund<select name="customerNumber" required><option value="">Välj kund</option>${list.map(c=>`<option value="${esc(c.customerNumber)}" ${c.customerNumber===selected?'selected':''}>${esc(c.customerNumber)} · ${esc(c.name)}</option>`).join('')}</select></label><label class="full">Beskrivning<input name="description" required maxlength="160" value="Varor och leverans"></label><label>Antal<input name="quantity" type="number" step="0.001" min="0.001" value="1" required></label><label>Pris exkl. moms, kr<input name="unitPrice" inputmode="decimal" value="1000,00" required></label><label>Momssats<select name="vatRate"><option value="25">25 %</option><option value="12">12 %</option><option value="6">6 %</option><option value="0">0 %</option></select></label><label>Fakturadatum<input name="invoiceDate" type="date" value="${today()}" required></label><div class="full inline-note">När fakturan skapas läggs den direkt i den gemensamma kundreskontran och en balanserad demoverifikation skapas: Debet 1510 Kundfordringar, kredit försäljning och utgående moms.</div><div class="full sales-actions"><button class="button" type="submit">Skapa och bokför faktura</button><button class="button ghost" type="button" data-close>Avbryt</button></div></form></section></div>`}
-function render(){const state=Demo.state();const invoices=state.customerInvoices||[];const open=invoices.filter(i=>Number(i.remainingOre)>0);const overdue=open.filter(i=>i.dueDate<today());const selected=previewId?invoices.find(i=>i.id===previewId):null;app.innerHTML=`<div class="portal">${sidebar()}<section class="main"><header class="topbar"><div><h1>Kundfakturor</h1><p>Rollands / Försäljning / Fakturering</p></div><div class="user-chip"><b>Demoanvändare</b></div></header><main class="content sales-content">${isDemo?'<div class="demo-banner"><b>Sammanhängande demo.</b> En skapad faktura går direkt vidare till kundreskontra och bokföring.</div>':''}<div class="sales-head"><div><span class="eyebrow">Fakturering</span><h2>Skapa, följ upp och visa kundfakturor</h2><p>Alla belopp sparas i ören i demoscenariot.</p></div><div class="sales-actions"><a class="button ghost" href="${url('./customers.html')}">Kunder</a><a class="button ghost" href="${url('./receivables.html')}">Kundreskontra</a><button class="button" data-new>+ Ny kundfaktura</button></div></div>${message?`<div class="notice">${esc(message)}</div>`:''}<section class="sales-grid"><article class="sales-metric"><span>Fakturor</span><strong>${invoices.length}</strong></article><article class="sales-metric"><span>Öppet saldo</span><strong>${ore(open.reduce((s,i)=>s+Number(i.remainingOre||0),0))}</strong></article><article class="sales-metric"><span>Förfallna</span><strong>${overdue.length}</strong></article><article class="sales-metric"><span>Bokföringsmodell</span><strong>Ören</strong></article></section><section class="sales-panel"><div class="table-scroll"><table class="sales-table"><thead><tr><th>Faktura</th><th>Kund</th><th>Datum</th><th>Förfallo</th><th>Status</th><th>Belopp</th><th>Rest</th><th></th></tr></thead><tbody>${[...invoices].reverse().map(i=>`<tr><td><b>${esc(i.invoiceNumber)}</b><br><small>OCR ${esc(i.ocr)}</small></td><td>${esc(i.customerName)}<br><small>${esc(i.customerNumber)}</small></td><td>${esc(i.invoiceDate)}</td><td>${esc(i.dueDate)}</td><td><span class="status-pill">${esc(i.status)}</span></td><td class="money">${ore(i.totalOre)}</td><td class="money">${ore(i.remainingOre)}</td><td><button class="button ghost small" data-preview="${esc(i.id)}">Visa</button></td></tr>`).join('')}</tbody></table></div></section>${formHtml()}${invoicePreview(selected)}</main></section></div>`}
 function parseKr(value){const normalized=String(value||'').trim().replace(/\s/g,'').replace(',','.');const amount=Number(normalized);if(!Number.isFinite(amount)||amount<0)throw new Error('Pris måste vara ett giltigt positivt belopp.');return Math.round(amount*100)}
-document.addEventListener('click',event=>{if(event.target.closest('[data-new]')){modal=true;previewId=null;render();return}const p=event.target.closest('[data-preview]');if(p){previewId=p.dataset.preview;modal=false;render();return}if(event.target.closest('[data-print]')){window.print();return}if(event.target.closest('[data-close]')&&!event.target.closest('[data-stop]')){modal=false;previewId=null;render()}});
-document.addEventListener('submit',event=>{if(event.target.id!=='invoice-form')return;event.preventDefault();try{const fd=new FormData(event.target);const customer=customers().find(c=>c.customerNumber===fd.get('customerNumber'));if(!customer)throw new Error('Välj en kund.');const quantity=Number(fd.get('quantity'));if(!Number.isFinite(quantity)||quantity<=0)throw new Error('Antal måste vara större än noll.');const unitOre=parseKr(fd.get('unitPrice'));const netOre=Math.round(quantity*unitOre);const vatRate=Number(fd.get('vatRate')||0);const vatOre=Math.round(netOre*vatRate/100);const totalOre=netOre+vatOre;const invoiceDate=String(fd.get('invoiceDate'));const dueDate=plusDays(invoiceDate,customer.paymentTermsDays||30);let created;Demo.patch(state=>{const maxNo=(state.customerInvoices||[]).reduce((n,i)=>Math.max(n,Number(i.invoiceNumber)||0),310000);const invoiceNumber=String(maxNo+1);const journalNo=`F${(state.accountingEntries||[]).filter(e=>String(e.number||'').startsWith('F')).length+1}`;created={id:`cinv-${Date.now()}`,kind:'customer',customerNumber:customer.customerNumber,customerName:customer.name,invoiceNumber,ocr:invoiceNumber,invoiceDate,postingDate:invoiceDate,dueDate,totalOre,remainingOre:totalOre,vatOre,status:'Bokförd',paymentMethod:'Bankgiro',paymentAccount:'BG 123-4567',invoiceAccount:'1510',batchNumber:String(1100+(state.customerInvoices||[]).length),journalNumber:journalNo,customerType:'business',reminderFeeAgreed:Boolean(customer.reminderFeeAgreed),commentCount:0,transactions:[],reminders:[],description:String(fd.get('description')||'Varor och tjänster'),vatRate};state.customerInvoices=[...(state.customerInvoices||[]),created];state.accountingEntries=[...(state.accountingEntries||[]),{id:`entry-${created.id}`,number:journalNo,postingDate:invoiceDate,description:`Kundfaktura ${invoiceNumber} · ${customer.name}`,sourceType:'customer-invoice',sourceId:created.id,lines:[{account:'1510',text:'Kundfordringar',debitOre:totalOre,creditOre:0},{account:'3010',text:'Försäljning',debitOre:0,creditOre:netOre},...(vatOre?[{account:'2611',text:'Utgående moms',debitOre:0,creditOre:vatOre}]:[])]}]});});modal=false;previewId=created.id;message=`Faktura ${created.invoiceNumber} skapades och bokfördes. Den finns nu i kundreskontran och bokföringen.`;render()}catch(error){message=error.message;render()}});
-if(!isDemo){app.innerHTML='<main class="boot"><strong>Kundfakturor</strong><span>Den nya fakturavyn är aktiverad i Demo v1. Produktions-API kopplas i nästa driftsteg.</span><p><a class="button" href="./dashboard.html">Till översikten</a></p></main>'}else render();
+
+function customers(){
+  const state=Demo.state();
+  if(Array.isArray(state.customers)&&state.customers.length)return state.customers;
+  const seen=new Map();
+  for(const invoice of state.customerInvoices||[]){
+    if(seen.has(invoice.customerNumber))continue;
+    seen.set(invoice.customerNumber,{id:`customer-${invoice.customerNumber}`,customerNumber:invoice.customerNumber,name:invoice.customerName,orgNumber:'',email:'',phone:'',paymentTermsDays:30,reminderFeeAgreed:Boolean(invoice.reminderFeeAgreed),type:'business'});
+  }
+  return [...seen.values()];
+}
+
+function sidebar(){return `<aside class="sidebar"><div class="logo"><strong>Rollands</strong><small>FÖRETAGSPORTAL</small></div><div class="company-pill">Rollands Frukt o Grönt AB<br>${isDemo?'Demoföretag':'Skyddad företagsmiljö'}</div><div class="side-group"><span>Arbetsyta</span><a class="side-link" href="${url('./dashboard.html')}">Översikt</a></div><div class="side-group"><span>Försäljning</span><a class="side-link active" href="${url('./invoices.html')}">Kundfakturor</a><a class="side-link" href="${url('./customers.html')}">Kunder</a><a class="side-link" href="${url('./receivables.html')}">Kundreskontra</a></div><div class="side-group"><span>Ekonomi</span><a class="side-link" href="${url('./bank.html')}">Bank & avstämning</a><a class="side-link" href="${url('./automation.html')}">Automationskö</a><a class="side-link" href="${url('./accounting.html')}">Bokföring</a><a class="side-link" href="${url('./reports.html')}">Rapporter</a></div><div class="sidebar-footer">${isDemo?'Fiktiv demodata · inga riktiga utskick.':'Personlig session krävs.'}</div></aside>`}
+
+function invoicePreview(invoice){
+  if(!invoice)return '';
+  const net=Number(invoice.totalOre)-Number(invoice.vatOre||0);
+  return `<div class="modal-backdrop-sales" data-close><section class="modal-sales" data-stop><header class="modal-head-sales"><div><span class="eyebrow">Faktura ${esc(invoice.invoiceNumber)}</span><h2>${esc(invoice.customerName)}</h2></div><button type="button" data-close>×</button></header><div class="invoice-preview"><p><strong>Rolands Frukt o Grönt Aktiebolag</strong><br>Org.nr 556406-5059</p><p><b>Kund:</b> ${esc(invoice.customerName)} (${esc(invoice.customerNumber)})<br><b>Fakturadatum:</b> ${esc(invoice.invoiceDate)}<br><b>Förfallodatum:</b> ${esc(invoice.dueDate)}<br><b>OCR:</b> ${esc(invoice.ocr)}</p><table class="sales-table"><tbody><tr><td>Varor/tjänster</td><td class="money">${ore(net)}</td></tr><tr><td>Moms</td><td class="money">${ore(invoice.vatOre)}</td></tr><tr><td><strong>Att betala</strong></td><td class="money"><strong>${ore(invoice.totalOre)}</strong></td></tr></tbody></table><p><small>Demo: ingen faktura skickas. Använd webbläsarens utskriftsdialog för att spara visningen som PDF.</small></p></div><div class="sales-actions" style="margin-top:16px"><button class="button" data-print>Skriv ut / spara PDF</button><button class="button ghost" data-close>Stäng</button></div></section></div>`;
+}
+
+function formHtml(){
+  if(!modal)return '';
+  const list=customers();
+  const selected=new URLSearchParams(location.search).get('customer')||'';
+  return `<div class="modal-backdrop-sales" data-close><section class="modal-sales" data-stop><header class="modal-head-sales"><div><span class="eyebrow">Försäljning</span><h2>Ny kundfaktura</h2></div><button type="button" data-close>×</button></header><form class="sales-form" id="invoice-form"><label class="full">Kund<select name="customerNumber" required><option value="">Välj kund</option>${list.map(c=>`<option value="${esc(c.customerNumber)}" ${c.customerNumber===selected?'selected':''}>${esc(c.customerNumber)} · ${esc(c.name)}</option>`).join('')}</select></label><label class="full">Beskrivning<input name="description" required maxlength="160" value="Varor och leverans"></label><label>Antal<input name="quantity" type="number" step="0.001" min="0.001" value="1" required></label><label>Pris exkl. moms, kr<input name="unitPrice" inputmode="decimal" value="1000,00" required></label><label>Momssats<select name="vatRate"><option value="25">25 %</option><option value="12">12 %</option><option value="6">6 %</option><option value="0">0 %</option></select></label><label>Fakturadatum<input name="invoiceDate" type="date" value="${today()}" required></label><div class="full inline-note">När fakturan skapas läggs den direkt i den gemensamma kundreskontran och en balanserad demoverifikation skapas: Debet 1510 Kundfordringar, kredit försäljning och utgående moms.</div><div class="full sales-actions"><button class="button" type="submit">Skapa och bokför faktura</button><button class="button ghost" type="button" data-close>Avbryt</button></div></form></section></div>`;
+}
+
+function render(){
+  const state=Demo.state();
+  const invoices=state.customerInvoices||[];
+  const open=invoices.filter(i=>Number(i.remainingOre)>0);
+  const overdue=open.filter(i=>i.dueDate<today());
+  const selected=previewId?invoices.find(i=>i.id===previewId):null;
+  app.innerHTML=`<div class="portal">${sidebar()}<section class="main"><header class="topbar"><div><h1>Kundfakturor</h1><p>Rollands / Försäljning / Fakturering</p></div><div class="user-chip"><b>Demoanvändare</b></div></header><main class="content sales-content">${isDemo?'<div class="demo-banner"><b>Sammanhängande demo.</b> En skapad faktura går direkt vidare till kundreskontra och bokföring.</div>':''}<div class="sales-head"><div><span class="eyebrow">Fakturering</span><h2>Skapa, följ upp och visa kundfakturor</h2><p>Alla belopp sparas i ören i demoscenariot.</p></div><div class="sales-actions"><a class="button ghost" href="${url('./customers.html')}">Kunder</a><a class="button ghost" href="${url('./receivables.html')}">Kundreskontra</a><button class="button" data-new>+ Ny kundfaktura</button></div></div>${message?`<div class="notice">${esc(message)}</div>`:''}<section class="sales-grid"><article class="sales-metric"><span>Fakturor</span><strong>${invoices.length}</strong></article><article class="sales-metric"><span>Öppet saldo</span><strong>${ore(open.reduce((s,i)=>s+Number(i.remainingOre||0),0))}</strong></article><article class="sales-metric"><span>Förfallna</span><strong>${overdue.length}</strong></article><article class="sales-metric"><span>Bokföringsmodell</span><strong>Ören</strong></article></section><section class="sales-panel"><div class="table-scroll"><table class="sales-table"><thead><tr><th>Faktura</th><th>Kund</th><th>Datum</th><th>Förfallo</th><th>Status</th><th>Belopp</th><th>Rest</th><th></th></tr></thead><tbody>${[...invoices].reverse().map(i=>`<tr><td><b>${esc(i.invoiceNumber)}</b><br><small>OCR ${esc(i.ocr)}</small></td><td>${esc(i.customerName)}<br><small>${esc(i.customerNumber)}</small></td><td>${esc(i.invoiceDate)}</td><td>${esc(i.dueDate)}</td><td><span class="status-pill">${esc(i.status)}</span></td><td class="money">${ore(i.totalOre)}</td><td class="money">${ore(i.remainingOre)}</td><td><button class="button ghost small" data-preview="${esc(i.id)}">Visa</button></td></tr>`).join('')}</tbody></table></div></section>${formHtml()}${invoicePreview(selected)}</main></section></div>`;
+}
+
+function createInvoice(form){
+  const fd=new FormData(form);
+  const customer=customers().find(c=>c.customerNumber===fd.get('customerNumber'));
+  if(!customer)throw new Error('Välj en kund.');
+  const quantity=Number(fd.get('quantity'));
+  if(!Number.isFinite(quantity)||quantity<=0)throw new Error('Antal måste vara större än noll.');
+  const unitOre=parseKr(fd.get('unitPrice'));
+  const netOre=Math.round(quantity*unitOre);
+  const vatRate=Number(fd.get('vatRate')||0);
+  const vatOre=Math.round(netOre*vatRate/100);
+  const totalOre=netOre+vatOre;
+  const invoiceDate=String(fd.get('invoiceDate'));
+  const dueDate=plusDays(invoiceDate,customer.paymentTermsDays||30);
+  let created=null;
+
+  Demo.patch(state=>{
+    const maxNo=(state.customerInvoices||[]).reduce((n,i)=>Math.max(n,Number(i.invoiceNumber)||0),310000);
+    const invoiceNumber=String(maxNo+1);
+    const journalNo=`F${(state.accountingEntries||[]).filter(e=>String(e.number||'').startsWith('F')).length+1}`;
+    created={
+      id:`cinv-${Date.now()}`,
+      kind:'customer',
+      customerNumber:customer.customerNumber,
+      customerName:customer.name,
+      invoiceNumber,
+      ocr:invoiceNumber,
+      invoiceDate,
+      postingDate:invoiceDate,
+      dueDate,
+      totalOre,
+      remainingOre:totalOre,
+      vatOre,
+      status:'Bokförd',
+      paymentMethod:'Bankgiro',
+      paymentAccount:'BG 123-4567',
+      invoiceAccount:'1510',
+      batchNumber:String(1100+(state.customerInvoices||[]).length),
+      journalNumber:journalNo,
+      customerType:'business',
+      reminderFeeAgreed:Boolean(customer.reminderFeeAgreed),
+      commentCount:0,
+      transactions:[],
+      reminders:[],
+      description:String(fd.get('description')||'Varor och tjänster'),
+      vatRate
+    };
+    const lines=[
+      {account:'1510',text:'Kundfordringar',debitOre:totalOre,creditOre:0},
+      {account:'3010',text:'Försäljning',debitOre:0,creditOre:netOre}
+    ];
+    if(vatOre)lines.push({account:'2611',text:'Utgående moms',debitOre:0,creditOre:vatOre});
+    state.customerInvoices=[...(state.customerInvoices||[]),created];
+    state.accountingEntries=[...(state.accountingEntries||[]),{
+      id:`entry-${created.id}`,
+      number:journalNo,
+      postingDate:invoiceDate,
+      description:`Kundfaktura ${invoiceNumber} · ${customer.name}`,
+      sourceType:'customer-invoice',
+      sourceId:created.id,
+      lines
+    }];
+  });
+  return created;
+}
+
+document.addEventListener('click',event=>{
+  if(event.target.closest('[data-new]')){modal=true;previewId=null;render();return}
+  const preview=event.target.closest('[data-preview]');
+  if(preview){previewId=preview.dataset.preview;modal=false;render();return}
+  if(event.target.closest('[data-print]')){window.print();return}
+  if(event.target.closest('[data-close]')&&!event.target.closest('[data-stop]')){modal=false;previewId=null;render()}
+});
+
+document.addEventListener('submit',event=>{
+  if(event.target.id!=='invoice-form')return;
+  event.preventDefault();
+  try{
+    const created=createInvoice(event.target);
+    modal=false;
+    previewId=created.id;
+    message=`Faktura ${created.invoiceNumber} skapades och bokfördes. Den finns nu i kundreskontran och bokföringen.`;
+  }catch(error){
+    message=error.message;
+  }
+  render();
+});
+
+if(!isDemo){
+  app.innerHTML='<main class="boot"><strong>Kundfakturor</strong><span>Den nya fakturavyn är aktiverad i Demo v1. Produktions-API kopplas i nästa driftsteg.</span><p><a class="button" href="./dashboard.html">Till översikten</a></p></main>';
+}else render();
