@@ -3,13 +3,8 @@
   const isDemo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
   const Demo=globalThis.RollandsDemoScenario;
   const Workflows=globalThis.RollandsDemoWorkflows;
-  const originalFetch=globalThis.fetch.bind(globalThis);
-  globalThis.fetch=(input,init)=>{
-    if(typeof input==='string'&&/\/api\/v1\/payables\/payments\/[^/]+\/confirm$/.test(input))input=`${input}-post`;
-    return originalFetch(input,init);
-  };
   function selectedId(){return document.querySelector('.queue-row.selected[data-invoice-id]')?.dataset.invoiceId||''}
-  async function api(path,options={}){const csrf=sessionStorage.getItem('rollands-csrf')||'';const headers={Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...(options.method&&options.method!=='GET'&&csrf?{'X-CSRF-Token':csrf}:{})};const response=await originalFetch(`/api/v1${path}`,{credentials:'same-origin',...options,headers,body:options.body?JSON.stringify(options.body):undefined});const data=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(data.error||'Begäran misslyckades.');error.code=data.code;throw error}return data}
+  async function api(path,options={}){const csrf=sessionStorage.getItem('rollands-csrf')||'';const headers={Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...(options.method&&options.method!=='GET'&&csrf?{'X-CSRF-Token':csrf}:{})};const response=await fetch(`/api/v1${path}`,{credentials:'same-origin',...options,headers,body:options.body?JSON.stringify(options.body):undefined});const data=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(data.error||'Begäran misslyckades.');error.code=data.code;throw error}return data}
   function setMessage(message){const main=document.querySelector('.content');if(!main)return;let box=main.querySelector('[data-accounting-flow-message]');if(!box){box=document.createElement('div');box.className='notice';box.dataset.accountingFlowMessage='1';main.prepend(box)}box.textContent=message}
   async function invoiceState(id){if(isDemo){const invoice=Demo?.state().supplierInvoices.find(row=>row.id===id);return invoice||null}return (await api(`/payables/invoices/${encodeURIComponent(id)}`)).invoice}
   async function refreshControls(){
