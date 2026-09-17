@@ -8,14 +8,15 @@
     { "label": "Hem", "href": "#hem" },
     { "label": "Erbjudande", "href": "#erbjudande" },
     { "label": "Om Rollands", "href": "#om" },
-    { "label": "Kontakt", "href": "#kontakt" }
+    { "label": "Kontakt", "href": "#kontakt" },
+    { "label": "Demoportal", "href": "./portal/dashboard.html?demo=1" }
   ],
   "hero": {
     "eyebrow": "Frukt, grönt och omtanke i Billdal",
     "title": "Bra råvaror. Personlig service. Enklare vardag.",
     "body": "Hos Rollands möter du ett lokalt sortiment med fokus på frukt, grönt och service för både privatpersoner och företag.",
     "primaryCta": { "label": "Kontakta oss", "href": "#kontakt" },
-    "secondaryCta": { "label": "Se vårt erbjudande", "href": "#erbjudande" }
+    "secondaryCta": { "label": "Öppna demoportalen", "href": "./portal/dashboard.html?demo=1" }
   },
   "highlights": [
     { "value": "Billdal", "label": "lokalt läge" },
@@ -55,7 +56,7 @@
       "Tydlig information för kunder och företag",
       "Samma visuella grund på mobil och dator",
       "Automatisk publicering från GitHub efter godkända tester",
-      "Separat ekonomisystem som byggs modul för modul"
+      "Separat företagsportal för ekonomi och administration"
     ]
   },
   "contact": {
