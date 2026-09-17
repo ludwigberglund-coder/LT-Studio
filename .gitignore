@@ -4,6 +4,7 @@ data/
 *.log
 .env
 .env.*
+!.env.example
 .DS_Store
 
 # Runtime accounting data must never be committed
@@ -12,9 +13,16 @@ store.json.bak
 *.corrupt-*
 server.lock
 backups/
+uploads/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+*.db
+*.db-shm
+*.db-wal
 
 # Generated test evidence is retained in GitHub Actions artifacts
 test-artifacts/
