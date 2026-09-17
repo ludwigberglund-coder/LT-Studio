@@ -1,69 +1,63 @@
-# Gemensam meny och fullständigt fakturaunderlag
+# Gemensam meny och godkänd kundfaktura
 
 ## Syfte och avgränsning
 
-Denna ändring svarar på två konkreta problem: menyval försvann vid sidbyten/omrendering och mobilvisning; fakturaverktyget saknade fullständiga uppgifter, tydlig PDF-utskrift och valbar intäktskontering.
-
-GitHub är källan för kod, dokumentation och byggd demo. CAMT/BAM-import ingår inte. Ingen riktig faktura, e-post eller bankbetalning skickas. Den moderna fakturautställningen är fortfarande en lokal webbläsardemo, inte en ansluten fleranvändartjänst eller produktionsgodkänd bokföringsprodukt.
+GitHub är källan för kod, dokumentation och byggd demo. CAMT/BAM-import ingår inte i denna ändring. Ingen riktig faktura, e-post eller bankbetalning skickas från den öppna demon.
 
 ## Menyn
 
-`apps/portal/portal-nav.js` innehåller den enda menydefinitionen. Grupperna är **Arbetsyta**, **Ekonomi**, **Register & verksamhet**, **Systemadministration** och **Test & hjälp**. Samma 31 länkar finns i varje byggd arbetsvy; gruppens rubrik fäller ut eller ihop dess länkar. Den aktiva sidan markeras.
+`apps/portal/portal-nav.js` är den gemensamma menydefinitionen. Samma grupperade navigation används i byggda portal-, admin- och legacy-vyer. Synlig meny ger aldrig i sig serverbehörighet.
 
-Alla ekonomiverktyg, inklusive kund- och leverantörsreskontra, bank, automation, bokföring, rapporter, kontoplan och lön, ligger under Ekonomi. Kund-/leverantörsregister och lager ligger under Register & verksamhet. Systemadministration innehåller bland annat webbplatsinnehåll, dokument, behörigheter och verksamhetsbeslut.
+## Godkänt kundfakturaflöde
 
-Byggscriptet installerar menyn och `shared-nav.css` i samtliga HTML-filer under de byggda mapparna `portal/`, `admin/` och `legacy/`. Det gäller även om en äldre sida ersätter sin sidomeny när ett formulär öppnas, sparas eller stängs. Mobilregler får inte gömma inaktiva länkar. Långa menyer är rullningsbara.
+1. Välj **Kundnummer**.
+2. Kontrollera eller komplettera **Företagsnamn - kund**, **Organisationsnummer - Kund**, **Fakturaadress, postnummer och ort - kund** och valfri **Mottagarens E-post - kund**.
+3. **Fakturadatum** och **Bokföringsdatum** fylls automatiskt med dagens datum men kan ändras. Bokföringsdatum visas inte på kundens PDF.
+4. **Betalningsvillkor dagar** är 30 som standard och styr automatiskt **Förfallodatum**. Förfallodatum kan därefter kontrolleras i formuläret.
+5. **Vår referens** och **Er referens** är valfria.
+6. OCR är ett låst systemvärde och blir alltid identiskt med det sexsiffriga fakturanumret när fakturan bokförs.
+7. Lägg till en eller flera fakturarader med **Benämning**, **Antal**, valfri **Enhet**, **À-pris exkl. moms, SEK**, **Momssats** och **Intäktskonto**.
+8. Vald momssats styr vilka intäktskonton som kan väljas. Motorn gör samma kontroll igen före bokföring.
+9. Fakturaavgift/frakt aktiveras med en checkbox. Fakturaavgift är 25 % moms på konto 3690. Frakt är 25 % moms på konto 3520 Fakturerade frakter. Konto 5710 används inte för fraktintäkt eftersom det är ett kostnadskonto.
+10. Öresutjämning beräknas alltid automatiskt och bokförs separat på 3740.
+11. Avsändaruppgifterna ligger i en stängd utfällbar sektion och hämtas centralt från företagsinformationen. De ändras inte i fakturafönstret.
+12. Meddelande på faktura är valfritt och aktiveras med checkbox.
+13. Utkast kan sparas. PDF kan öppnas eller skrivas ut före bokföring. **Skapa och bokför faktura** skapar kundfaktura och balanserad verifikation tillsammans.
 
-Den publika företagssidan är avsiktligt inte en intern arbetsvy. Synlig meny ger aldrig serverbehörighet. Äldre referensverktyg är märkta **äldre demo** eftersom de har separat demodata; en gemensam meny ändrar inte deras datalager.
+## Fält som inte längre finns i nya fakturaflödet
 
-## Fakturaverktyget – arbetsgång
+Följande tas inte längre in manuellt på en ny kundfaktura: mottagarens VAT-nummer och telefon, leverans-/utförandedatum, betalningsvillkorstillägg, ordernummer, redigerbar OCR, redigerbar dröjsmålsränta, leveransvillkor, leveranssätt, avvikande leveransadress, artikelnummer, rabatt, förklaring för 0 % moms, styrelsens säte, Plusgiro, IBAN, SWIFT/BIC, Swish och interna anteckningar.
 
-1. Öppna Ekonomi → Kundfakturor → Ny kundfaktura.
-2. Välj kund och komplettera fakturaadress. Kundregistret kan nu också spara adress och VAT-nummer.
-3. Fyll i datum, referenser, leverans- och betalningsvillkor samt avsändaruppgifter.
-4. Lägg till fakturarader och **välj intäktskonto på varje rad**. Olika rader får ha olika intäktskonton.
-5. Granska fakturan/PDF utan att bokföra. Ett utkast kan sparas och fortsättas senare.
-6. Välj Skapa och bokför faktura. Fakturan och en balanserad verifikation sparas tillsammans i den gemensamma demodatan.
-7. Hämta kund-PDF, öppna dess utskriftsvy eller hämta hela det interna underlaget som PDF.
+Dröjsmålsräntan skrivs i stället automatiskt på kundfakturan som:
 
-Kundfakturan har en sparad ögonblicksbild av parter, rader, priser, referenser och konton. Senare registerändringar skriver inte om dess ursprungsuppgifter. Äldre demofakturor utan kompletta uppgifter får en synlig varning; saknade uppgifter uppfinns inte.
+> Efter förfallodagen debiteras dröjsmålsränta enligt räntelagen med referensränta + 8 %enheter.
 
-## Fälten från den bifogade mallen
+## Intäktskonto och moms
 
-Underlaget bygger på fältindelningen i användarens ensidiga **fakturamall Rollands.pdf**. Originalmallen publiceras inte och dess leverantörslogotyp återanvänds inte.
+`packages/invoicing/invoice.js` använder heltal i ören. Standardkontona är momsmärkta och fakturaverktyget visar bara konton som matchar vald momssats:
 
-| Mallens område | Inmatning och utskrift |
-|---|---|
-| Fakturaidentitet | Fakturanummer, fakturadatum, förfallodatum, kundnummer och ordernummer. Unikt fakturanummer tilldelas vid bokföring. |
-| Avsändare och mottagare | Namn, fullständig adress, organisationsnummer och VAT-nummer. |
-| Referenser och villkor | Vår referens, er referens, betalningsvillkor, dröjsmålsränta i avtalad text, leveransvillkor och leveranssätt. |
-| Rader | Artikelnummer, benämning/beskrivning, antal, enhet, à-pris och radbelopp. |
-| Moms och totalsummor | Underlag och moms per 25/12/6/0 %, expeditionsavgift, frakt, belopp före moms, total moms, öresutjämning och att betala i SEK. |
-| Kontakt och betalning | Telefon, webbplats, e-post, org.nr, VAT.nr, SWIFT/BIC, IBAN, Bankgiro, Plusgiro och Swish. |
+- 25 %: bland annat 3041 och 3051 samt systemkontona 3520 och 3690 när de används för respektive avgift.
+- 12 %: 3042 och 3052.
+- 6 %: 3043 och 3053.
+- 0 %: 3044 och 3054.
 
-Dessutom finns leverans-/utförandedatum, rabatt per rad, styrelsens säte, skattestatus, avvikande leveransadress, momsupplysning, kundmeddelande, bokföringsdatum och interna anteckningar. Uppgifter som inte är tillämpliga får vara tomma; kärnuppgifter och valbart intäktskonto valideras. Minst ett betalningssätt måste anges. Okända betalningsuppgifter fylls inte i automatiskt.
+Egna faktureringskonton måste ligga i klass 3, ha namn och en explicit momssats 25/12/6/0. Konto 3740 är reserverat för öresutjämning. Ett konto med fel momskoppling stoppas både i formuläret och i bokföringsmotorn.
 
-Kontroll av fälten ersätter inte kontroll av faktisk företagsidentitet, avtal, momssats eller rättslig grund. För vanliga fullständiga fakturor finns extern vägledning hos Skatteverket: https://www.skatteverket.se/foretagochorganisationer/moms/saljavarorochtjanster/fakturering.4.58d555751259e4d66168000403.html
+Verifikationen använder 1510 för kundfordran, valt intäktskonto, 2611/2621/2631 för utgående moms och vid behov 3740 för automatisk öresutjämning. Verifikationen måste balansera innan något sparas.
 
-## Intäktskontering och pengar
+## Avsändaruppgifter
 
-`packages/invoicing/invoice.js` använder den befintliga exakta öresmodellen. Kontoplan & intäktskonton låter användaren lägga till ett eget namngivet konto i klass 3 eller 83; 3740 är reserverat för öresutjämning. Bank-, moms- och kostnadskonton kan inte väljas som intäktskonto.
+Företagets juridiska namn, organisationsnummer, adress, VAT-nummer, telefon, e-post, webbplats, skattestatus och Bankgiro hämtas från `content/company.json`. Den öppna demon innehåller inte påhittade skarpa bankuppgifter; demo-bankgiro är tydligt markerat och måste ersättas med verifierad information före pilot/skarp användning.
 
-Frakt och expeditionsavgift har egna konto- och momsval och räknas bara en gång. Verifikationen använder valda intäktskonton, 1510 för kundfordran, 2611/2621/2631 för utgående moms enligt vald momssats och 3740 för eventuell öresutjämning. Kontonamnet bestämmer inte automatiskt vilken momssats som är korrekt för en vara eller tjänst.
+## Kund-PDF
 
-Ogiltiga belopp, saknade kärnuppgifter, låst period, dubbelt internt id och obalans stoppas före sparning. För 0 % moms krävs en förklaring i underlaget.
+Kundens PDF innehåller fakturanummer, fakturadatum, förfallodatum, kundnummer, betalningsvillkor, OCR, valfria referenser, parterna, fakturarader, momsuppdelning, fakturaavgift/frakt när de används, automatisk öresutjämning, slutsumma, dröjsmålsräntetext, valfritt meddelande samt företagets kontakt- och Bankgiroinformation.
 
-## Två PDF-utskrifter
+Bokföringsdatum och interna intäktskonton visas inte på kundens PDF. De kan finnas i separat internt underlag. Långa fakturor pagineras.
 
-**Kundfaktura:** en verklig A4-PDF med samtliga externa fakturauppgifter, tydlig betalningssumma, momsuppdelning, betalningsuppgifter och sidnumrering. Långa fakturor får flera sidor. PDF-filen öppnas separat; menyn och bakomliggande fakturalista skrivs inte ut.
+## Regression och kontrollkedja
 
-**Hela underlaget:** samma kundfaktura plus en intern bilaga med intäktskonton per rad, verifikation, bokföringsdatum, buntnummer, status, restbelopp, interna anteckningar och eventuell betalningshistorik. Interna uppgifter läcker därför inte in i kund-PDF:n.
-
-`packages/invoicing/pdf.js` används även av den äldre API-PDF-adaptern `invoice-pdf.js`. PDF-biblioteket kommer från projektets låsta npm-beroende och byggs med i webbplatsen; ingen extern CDN krävs. Svenska tecken fungerar. Tecken som standardfonten inte stödjer, exempelvis emoji, ger ett tydligt fel före ny fakturabokföring i stället för att tappas bort.
-
-## Regression och granskning
-
-- `npm test` innehåller faktiska beräknings-, validerings-, konterings-, snapshot- och PDF-tester, inte enbart textsökning efter kontonummer.
-- `node test/menu-invoice-browser.cjs` går igenom 31 arbetsvyer, länkar under en nästlad publiceringsadress, fyra skärmbredder, omrendering, expanderade/ihopfällda grupper och ett komplett fakturaflöde med eget konto 3099.
-- Webbläsartestet kontrollerar att en förhandsvisning inte bokför, att fel inte tappar formuläruppgifter, att rätt konto finns i den verkliga demoverifikationen och att PDF-filer kan hämtas.
-- GitHub Actions sparar fiktiva exempel-PDF:er, fler­sidigt test, skärmbilder och resultat i `rollands-invoice-navigation-qa` för visuell kontroll. Genererade filer ska inte föras in som källkod eller verkliga företagsdata.
+- `npm test` testar beräkningar, momskontokoppling, OCR, öresutjämning, bokföringsbalans, periodlås, PDF och att övriga domäner fortfarande fungerar.
+- `test/menu-invoice-browser.cjs` går igenom den gemensamma navigationen och ett verkligt browserflöde: kontoplan → kundfaktura → bokföring → kundreskontra → bokföringsvy → rapporter.
+- Leverantörsfakturans befintliga browserflöde körs också vid varje CI-körning så att kundfakturaändringar inte får slå sönder inköpsflödet.
+- GitHub Actions måste vara grön innan ändringen slås ihop till `main`.

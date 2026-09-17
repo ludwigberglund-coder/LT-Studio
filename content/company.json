@@ -15,6 +15,11 @@
     "phoneHref": "+4631913223",
     "email": "frukt@rollands.se"
   },
+  "website": "https://rollands.se",
+  "invoice": {
+    "bankgiro": "DEMO-EJ-BETALNING",
+    "taxStatus": "Demo – verifiera skattestatus före skarp drift"
+  },
   "business": {
     "sni": "47210",
     "description": "Detaljhandel med frukt och grönsaker",
