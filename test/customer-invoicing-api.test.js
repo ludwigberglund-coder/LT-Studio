@@ -7,6 +7,7 @@ const Auth=require('../apps/api/auth.js');
 const Db=require('../apps/api/database.js');
 const Accounting=require('../apps/api/accounting-store.js');
 const Invoicing=require('../apps/api/customer-invoicing.js');
+const InvoiceSettings=require('../apps/api/company-invoice-settings.js');
 const {createApiApp}=require('../apps/api/app.js');
 
 const MFA='GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
@@ -14,16 +15,17 @@ const KEY='test-only-customer-invoicing-encryption-key-longer-than-thirty-two';
 const PROFILE={
   legalName:'Testbutiken AB',displayName:'Testbutiken',orgNumber:'559100-0001',vatNumber:'SE559100000101',
   address:{full:'Testgatan 1, 411 01 Göteborg'},contact:{phone:'031-00 00 00',email:'faktura@testbutiken.se'},
-  website:'https://example.invalid',invoice:{bankgiro:'BG 123-4567',taxStatus:'Godkänd för F-skatt'}
+  website:'https://example.invalid',invoice:{bankgiro:'DEMO-EJ-BETALNING',taxStatus:'Demo – verifiera'}
 };
 
-async function withApi(callback){
+async function withApi(callback,{configureInvoiceSettings=true}={}){
   const db=Db.openDatabase(':memory:');
   const co1=Db.createCompany(db,{legalName:'Testbutiken AB',displayName:'Testbutiken',orgNumber:'559100-0001'});
   const co2=Db.createCompany(db,{legalName:'Annat Bolag AB',displayName:'Annat',orgNumber:'559100-0002'});
   const password='Sakert fakturatest losenord 2026!';
   const user=Db.createUser(db,{username:'faktura.test',displayName:'Faktura Test',passwordHash:Auth.hashPassword(password),mfaSecretEncrypted:Auth.encryptSecret(MFA,KEY)});
   Db.addMembership(db,{companyId:co1.id,userId:user.id,roles:['sales']});
+  if(configureInvoiceSettings)InvoiceSettings.setInvoiceSettings(db,{companyId:co1.id,bankgiro:'123-4567',taxStatus:'Godkänd för F-skatt',updatedBy:user.id});
   const c1=Db.createCustomer(db,{companyId:co1.id,customerNumber:'K-100',name:'Kund Ett AB',orgNumber:'559200-0001',email:'kund@example.se',address:{full:'Kundgatan 2, Göteborg'},customerType:'business'});
   const c2=Db.createCustomer(db,{companyId:co2.id,customerNumber:'K-200',name:'Kund Två AB',address:{full:'Annan gata 1'},customerType:'business'});
   Db.createInvoice(db,{companyId:co1.id,customerId:c1.id,invoiceNumber:'310100',ocr:'310100',invoiceDate:'2026-08-01',postingDate:'2026-08-01',dueDate:'2026-08-31',totalOre:125000,remainingOre:125000,vatOre:25000,status:'Bokförd'});
@@ -59,7 +61,7 @@ test('kundfakturor listas företagsisolerat och konfiguration visar om utställn
   const profile=await config.json();
   assert.equal(config.status,200);
   assert.equal(profile.issuanceReady,true);
-  assert.equal(profile.company.invoice.bankgiro,'BG 123-4567');
+  assert.equal(profile.company.invoice.bankgiro,'123-4567');
 }));
 
 test('utställning kräver CSRF och skapar atomiskt faktura, underlag, verifikation och audit',async()=>withApi(async({base,password,db,co1})=>{
@@ -118,3 +120,18 @@ test('demo- eller overifierad betalningsprofil spärrar bokföring',()=>{
   assert.equal(status.ready,false);
   assert.match(status.blocker,/Bankgiro/);
 });
+
+
+test('publika demovärden kan inte låsa upp fakturering utan privata inställningar',async()=>withApi(async({base,password})=>{
+  const signed=await login(base,password);
+  const config=await fetch(base+'/api/v1/customer-invoices/config',{headers:{Cookie:signed.cookie}});
+  const profile=await config.json();
+  assert.equal(config.status,200);
+  assert.equal(profile.issuanceReady,false);
+  assert.equal(profile.company.invoice.bankgiro,'');
+  assert.match(profile.blocker,/Privata fakturainställningar saknas/);
+  const response=await fetch(base+'/api/v1/customer-invoices',{method:'POST',headers:{Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken},body:JSON.stringify(invoicePayload('invoice-request-no-private-settings'))});
+  const body=await response.json();
+  assert.equal(response.status,409);
+  assert.equal(body.code,'INVOICE_PRIVATE_SETTINGS_MISSING');
+}),{configureInvoiceSettings:false}));
