@@ -270,6 +270,19 @@ function customerById(db, companyId, customerId) {
   return row ? {...row,address:jsonParse(row.addressJson,{}),reminderFeeAgreed:Boolean(row.reminderFeeAgreed)} : null;
 }
 
+function listCustomers(db,companyId) {
+  return db.prepare(`SELECT id,company_id AS companyId,customer_number AS customerNumber,name,org_number AS orgNumber,email,address_json AS addressJson,
+    customer_type AS customerType,reminder_fee_agreed AS reminderFeeAgreed,created_at AS createdAt,updated_at AS updatedAt
+    FROM customers WHERE company_id=? ORDER BY customer_number,name`).all(companyId)
+    .map(row => ({...row,address:jsonParse(row.addressJson,{}),reminderFeeAgreed:Boolean(row.reminderFeeAgreed)}));
+}
+
+function nextCustomerNumber(db,companyId) {
+  const rows=db.prepare('SELECT customer_number AS customerNumber FROM customers WHERE company_id=?').all(companyId);
+  const highest=rows.reduce((max,row)=>Math.max(max,Number(String(row.customerNumber||'').replace(/\D/g,''))||0),1000);
+  return 'K-'+String(highest+1).padStart(4,'0');
+}
+
 function createInvoice(db, input) {
   const createdAt = nowIso();
   const invoiceId = input.id || id('invoice');
@@ -391,6 +404,8 @@ module.exports = Object.freeze({
   deleteSession,
   createCustomer,
   customerById,
+  listCustomers,
+  nextCustomerNumber,
   createInvoice,
   invoiceById,
   addInvoiceTransaction,
