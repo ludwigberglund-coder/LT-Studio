@@ -15,12 +15,15 @@
   async function refreshControls(){
     const actions=document.querySelector('.coding-actions');const id=selectedId();if(!actions||!id)return;
     let invoice;try{invoice=await invoiceState(id)}catch{return}
-    actions.querySelector('[data-accounting-post]')?.remove();
+    const currentPost=actions.querySelector('[data-accounting-post]');
     const prepare=actions.querySelector('[data-action="prepare-payment"]');
-    if(invoice?.status==='approved'&&!invoice.liabilityPosted&&!invoice.liabilityAccountingEntryId){
+    const needsPost=invoice?.status==='approved'&&!invoice.liabilityPosted&&!invoice.liabilityAccountingEntryId;
+    if(needsPost){
       if(prepare)prepare.hidden=true;
-      const button=document.createElement('button');button.type='button';button.className='button';button.dataset.accountingPost='1';button.textContent='Bokför leverantörsskuld';actions.prepend(button);
-    }else if(prepare)prepare.hidden=false;
+      if(!currentPost){const button=document.createElement('button');button.type='button';button.className='button';button.dataset.accountingPost='1';button.textContent='Bokför leverantörsskuld';actions.prepend(button)}
+    }else{
+      currentPost?.remove();if(prepare)prepare.hidden=false;
+    }
   }
   async function postInvoice(){
     const id=selectedId();if(!id)throw new Error('Välj en faktura först.');
