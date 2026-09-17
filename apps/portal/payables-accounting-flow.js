@@ -29,12 +29,20 @@
   }
   async function approveOnly(){
     const id=selectedId();if(!id)throw new Error('Välj en faktura först.');
-    if(isDemo){const state=Demo.state();const invoice=state.supplierInvoices.find(row=>row.id===id);if(!invoice)throw new Error('Fakturan hittades inte.');Demo.patch(next=>{const target=next.supplierInvoices.find(row=>row.id===id);target.status='approved';target.approvedBy='demo-approver'});location.reload();return}
+    if(isDemo){const invoice=Demo?.state().supplierInvoices.find(row=>row.id===id);if(!invoice)throw new Error('Fakturan hittades inte.');Demo.patch(next=>{const target=next.supplierInvoices.find(row=>row.id===id);target.status='approved';target.approvedBy='demo-approver'});location.reload();return}
     await api(`/payables/invoices/${encodeURIComponent(id)}/approve`,{method:'POST',body:{}});location.reload();
   }
+  function demoPrepare(){const id=selectedId();if(!id)throw new Error('Välj en faktura först.');Workflows.prepareSupplierPayment(id);location.reload()}
+  function demoRelease(paymentId){Workflows.releaseSupplierPayment(paymentId);location.reload()}
+  function demoConfirm(paymentId){Workflows.confirmSupplierPayment(paymentId,`DEMO-${paymentId}`);location.reload()}
   document.addEventListener('click',async event=>{
     const post=event.target.closest('[data-accounting-post]');if(post){event.preventDefault();event.stopImmediatePropagation();post.disabled=true;try{await postInvoice()}catch(error){setMessage(error.message)}finally{post.disabled=false}return}
-    const approve=event.target.closest('[data-action="approve"]');if(approve){event.preventDefault();event.stopImmediatePropagation();approve.disabled=true;try{await approveOnly()}catch(error){setMessage(error.message)}finally{approve.disabled=false}}
+    const approve=event.target.closest('[data-action="approve"]');if(approve){event.preventDefault();event.stopImmediatePropagation();approve.disabled=true;try{await approveOnly()}catch(error){setMessage(error.message)}finally{approve.disabled=false}return}
+    if(isDemo){
+      const prepare=event.target.closest('[data-action="prepare-payment"]');if(prepare){event.preventDefault();event.stopImmediatePropagation();try{demoPrepare()}catch(error){setMessage(error.message)}return}
+      const release=event.target.closest('[data-action="release-payment"]');if(release){event.preventDefault();event.stopImmediatePropagation();try{demoRelease(release.dataset.paymentId)}catch(error){setMessage(error.message)}return}
+      const confirm=event.target.closest('[data-action="confirm-payment"]');if(confirm){event.preventDefault();event.stopImmediatePropagation();try{demoConfirm(confirm.dataset.paymentId)}catch(error){setMessage(error.message)}}
+    }
   },true);
   const observer=new MutationObserver(()=>{refreshControls().catch(()=>{})});
   observer.observe(document.documentElement,{childList:true,subtree:true});
