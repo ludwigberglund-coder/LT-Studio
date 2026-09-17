@@ -68,7 +68,7 @@ jobs:
           test ! -e dist/.env
       - name: Install Chromium test runtime
         run: |
-          npm install --no-save --package-lock=false --ignore-scripts playwright@1.55.0
+          npm install --no-save --package-lock=false --ignore-scripts playwright@1.56.0
           npx playwright install --with-deps chromium
       - name: Run supplier invoice browser flow
         run: npm run test:browser:payables
