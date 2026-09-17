@@ -33,6 +33,7 @@ const repositoryRoot = path.resolve(__dirname,'..','..');
 const portalRoot = path.join(repositoryRoot,'apps','portal');
 const staticMappings = Object.freeze([
   ['/portal/', portalRoot],
+  ['/config/', path.join(repositoryRoot,'config')],
   ['/shared/accounting/', path.join(repositoryRoot,'packages','accounting')],
   ['/shared/access-control/', path.join(repositoryRoot,'packages','access-control')],
   ['/shared/receivables/', path.join(repositoryRoot,'packages','receivables')],
