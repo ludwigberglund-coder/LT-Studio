@@ -24,3 +24,10 @@ test('privat utställning skickar idempotensnyckel och inte redigerbar köpare e
   assert.doesNotMatch(payloadSection,/buyer:/);
   assert.doesNotMatch(payloadSection,/seller:/);
 });
+
+
+test('kundfakturasidan laddar den gemensamma rollstyrda sidomenyn',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','apps','portal','invoices.html'),'utf8');
+  assert.match(html,/<script src="\.\/portal-nav\.js"><\/script>/);
+  assert.ok(html.indexOf('./portal-nav.js')<html.indexOf('./invoices.js'),'navigationen ska laddas före fakturagränssnittet');
+});
