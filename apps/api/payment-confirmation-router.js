@@ -26,12 +26,8 @@ function createPaymentConfirmationRouter(options){
       if(req.method!=='POST'){send(res,405,{error:'Metoden stöds inte.',code:'METHOD_NOT_ALLOWED'});return true}
       const s=requireSession(req);csrf(req,s);permission(s,'bank.reconcile');permission(s,'accounting.post');
       const payload=await readJson(req,res);if(!payload)return true;
-      const result=Db.transaction(db,()=>{
-        const value=Confirmation.confirmAndPost(db,{companyId:s.companyId,paymentId:match[1],confirmationReference:payload.confirmationReference,postingDate:payload.postingDate,actorId:s.userId});
-        Db.appendAudit(db,{companyId:s.companyId,userId:s.userId,action:'SUPPLIER_PAYMENT_CONFIRMED_AND_POSTED',entityType:'supplier-payment',entityId:value.payment.id,details:{invoiceId:value.payment.supplierInvoiceId,amountOre:value.payment.amountOre,confirmationReference:value.payment.confirmationReference,accountingEntryId:value.entry.id,accountingNumber:value.entry.number}});
-        return value;
-      });
-      send(res,200,{...result,message:`Betalningen är bekräftad och bokförd som ${result.entry.number}.`});return true;
+      const result=Confirmation.confirmAndPost(db,{companyId:s.companyId,paymentId:match[1],confirmationReference:payload.confirmationReference,postingDate:payload.postingDate,actorId:s.userId});
+      send(res,200,{...result,message:result.duplicate?`Betalningen var redan bokförd som ${result.entry.number}.`:`Betalningen är bekräftad och bokförd som ${result.entry.number}.`});return true;
     }catch(error){const status=Number(error.statusCode||500);if(status>=500)console.error(error);send(res,status,{error:status>=500?'Ett internt serverfel uppstod.':String(error.message||'Begäran misslyckades.'),code:error.code||'INTERNAL_ERROR'});return true}
   }
   return Object.freeze({handle,accessModel:model});

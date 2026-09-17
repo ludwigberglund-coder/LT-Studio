@@ -17,7 +17,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -71,9 +71,18 @@ jobs:
           test -f dist/content/admin.json
           test -f dist/config/rolands-business-decisions.json
           test -f dist/legacy/index.html
+          test -f dist/portal/payables-accounting-flow.js
           test -f dist/.nojekyll
           test ! -e dist/store.json
           test ! -e dist/.env
+
+      - name: Install Chromium test runtime
+        run: |
+          npm install --no-save --package-lock=false --ignore-scripts playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Run supplier invoice browser flow
+        run: npm run test:browser:payables
 
       - name: Create review snapshot
         if: always()
