@@ -223,6 +223,35 @@ function createApiApp(options) {
         return send(res,200,{authenticated:false},{'Set-Cookie':Auth.clearSessionCookie({secure:secureCookies})});
       }
 
+      if(req.method==='GET' && url.pathname==='/api/v1/customers') {
+        requirePermission(session,'customer-invoice.view');
+        return send(res,200,{customers:Db.listCustomers(db,session.companyId)});
+      }
+
+      if(req.method==='POST' && url.pathname==='/api/v1/customers') {
+        requirePermission(session,'customer-invoice.create');
+        const payload=await readJson(req,res); if(!payload) return;
+        const name=String(payload.name||'').trim();
+        if(!name || name.length>160) throw apiError('Kundnamn måste anges och vara högst 160 tecken.','INVALID_CUSTOMER_NAME',422);
+        const email=String(payload.email||'').trim();
+        if(email.length>254 || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) throw apiError('E-postadressen har ogiltigt format.','INVALID_CUSTOMER_EMAIL',422);
+        const orgNumber=String(payload.orgNumber||'').trim();
+        if(orgNumber.length>40) throw apiError('Organisationsnumret är för långt.','INVALID_CUSTOMER_ORG_NUMBER',422);
+        const address=String(payload.address||'').trim();
+        if(address.length>500) throw apiError('Fakturaadressen är för lång.','INVALID_CUSTOMER_ADDRESS',422);
+        let customer;
+        Db.transaction(db,()=>{
+          customer=Db.createCustomer(db,{
+            companyId:session.companyId,
+            customerNumber:Db.nextCustomerNumber(db,session.companyId),
+            name,orgNumber:orgNumber||null,email:email||null,address:{full:address},
+            customerType:'business',reminderFeeAgreed:payload.reminderFeeAgreed===true
+          });
+          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'CUSTOMER_CREATED',entityType:'customer',entityId:customer.id,details:{customerNumber:customer.customerNumber}});
+        });
+        return send(res,201,{customer});
+      }
+
       if(req.method==='GET' && url.pathname==='/api/v1/receivables') {
         requirePermission(session,'customer-invoice.view');
         const invoices=Db.listReceivables(db,session.companyId);
