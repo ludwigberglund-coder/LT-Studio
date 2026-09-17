@@ -77,6 +77,9 @@
         const values=[r.articleNumber||'–',(r.description||'–')+discount,quantity(r.quantityMilli),r.unit||'–',money(r.unitPriceOre),r.vatRate==null?'–':`${r.vatRate} %`,money(r.netOre)];
         const cells=values.map((v,i)=>wrap(v,columns[i].w-12,8.3));
         const count=Math.max(...cells.map(c=>c.length));let offset=0;
+        // Keep ordinary rows together; split only rows taller than a full page.
+        const rowHeight=14+count*11;
+        if(rowHeight<=H-87-30-BOTTOM && y-rowHeight<BOTTOM){newPage();tableHeader();}
         while(offset<count){
           if(y-30<BOTTOM){newPage();tableHeader();}
           const fitting=Math.max(1,Math.floor((y-BOTTOM-14)/11));
@@ -97,7 +100,7 @@
     }
     if((data.warnings||[]).length)paragraph('Underlaget är ofullständigt',data.warnings.join('\n'));
     const cardWidth=(C-16)/2;
-    const partyLines=[seller,buyer].map(p=>[p.name||'–',p.address||'Adress saknas',p.orgNumber?`Org.nr: ${p.orgNumber}`:'',p.vatNumber?`VAT.nr: ${p.vatNumber}`:''].filter(Boolean).flatMap(v=>wrap(v,cardWidth-24,9)));
+    const partyLines=[seller,buyer].map(p=>[...wrap(p.name||'–',cardWidth-24,9,bold),...[p.address||'Adress saknas',p.orgNumber?`Org.nr: ${p.orgNumber}`:'',p.vatNumber?`VAT.nr: ${p.vatNumber}`:''].filter(Boolean).flatMap(v=>wrap(v,cardWidth-24,9))]);
     const cardHeight=31+Math.max(...partyLines.map(a=>a.length))*11;
     ensure(cardHeight+12);
     ['Avsändare','Mottagare'].forEach((label,i)=>{const x=M+i*(cardWidth+16);rect(x,y,cardWidth,cardHeight,pale);text(label.toUpperCase(),x+12,y-10,7.5,bold,muted);partyLines[i].forEach((s,j)=>text(s,x+12,y-26-j*11,9,j===0?bold:regular));});y-=cardHeight+10;
