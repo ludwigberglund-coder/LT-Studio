@@ -285,6 +285,14 @@ function createApiApp(options) {
         return send(res,200,result);
       }
 
+      const customerCreditMatch=url.pathname.match(/^\/api\/v1\/customer-invoices\/([^/]+)\/credit$/);
+      if(customerCreditMatch && req.method==='POST') {
+        requirePermission(session,'customer-invoice.credit');
+        const payload=await readJson(req,res); if(!payload) return;
+        const result=Db.transaction(db,()=>CustomerInvoicing.creditInvoice(db,{companyId:session.companyId,userId:session.userId,invoiceId:customerCreditMatch[1],payload}));
+        return send(res,result.duplicate?200:201,result);
+      }
+
       if(req.method==='GET' && url.pathname==='/api/v1/receivables') {
         requirePermission(session,'customer-invoice.view');
         const invoices=Db.listReceivables(db,session.companyId);
