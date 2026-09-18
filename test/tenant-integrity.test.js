@@ -1,0 +1,100 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const Db = require('../apps/api/database.js');
+const Guards = require('../apps/api/tenant-integrity.js');
+const Payables = require('../apps/api/payables.js');
+const Documents = require('../apps/api/documents.js');
+const {createServer} = require('../apps/api/server.js');
+const Auth = require('../apps/api/auth.js');
+function fixture() {
+  const db = Db.openDatabase(':memory:');
+  const a = Db.createCompany(db, {legalName:'Tenant A test', orgNumber:'TEST-TENANT-A'});
+  const b = Db.createCompany(db, {legalName:'Tenant B test', orgNumber:'TEST-TENANT-B'});
+  const user = Db.createUser(db, {username:'isolation-test', displayName:'Isolation Test', passwordHash:'not-a-login-hash'});
+  const customerA = Db.createCustomer(db, {companyId:a.id, customerNumber:'A-1', name:'Customer A'});
+  const customerB = Db.createCustomer(db, {companyId:b.id, customerNumber:'B-1', name:'Customer B'});
+  const fields = {invoiceNumber:'1', invoiceDate:'2026-09-18', dueDate:'2026-10-18', totalOre:125000, vatOre:25000};
+  const invoiceA = Db.createInvoice(db, {...fields, companyId:a.id, customerId:customerA.id});
+  const invoiceB = Db.createInvoice(db, {...fields, companyId:b.id, customerId:customerB.id});
+  return {db,a,b,user,customerA,customerB,invoiceA,invoiceB,fields};
+}
+function rawCopy(db, table, original, patch) {
+  const row = {...db.prepare(`SELECT * FROM ${table} WHERE id=?`).get(original), ...patch};
+  const names = Object.keys(row);
+  return db.prepare(`INSERT INTO ${table}(${names.join(',')}) VALUES(${names.map(() => '?').join(',')})`).run(...Object.values(row));
+}
+function dropGuards(db) {
+  for (const row of db.prepare("SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'tenant_%'").all()) db.exec(`DROP TRIGGER "${row.name}"`);
+}
+test('cross-company invoice creation is rejected by the database, not hidden by a join', () => {
+  const f=fixture();try {
+    assert.throws(() => Db.createInvoice(f.db, {...f.fields, invoiceNumber:'2', companyId:f.a.id, customerId:f.customerB.id}), /TENANT_RELATION_MISMATCH/);
+    assert.throws(() => rawCopy(f.db, 'invoices', f.invoiceB.id, {id:'forged-raw', company_id:f.a.id}), /TENANT_RELATION_MISMATCH/);
+    assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM invoices').get().n,2);
+    assert.equal(Guards.inspectTenantRelations(f.db).ok,true);
+  } finally {f.db.close();}
+});
+test('transaction reassignment and parent company moves are rejected', () => {
+  const f=fixture();try {
+    assert.throws(() => Db.addInvoiceTransaction(f.db,{companyId:f.a.id,invoiceId:f.invoiceB.id,transactionType:'payment',amountOre:-125000}), /TENANT_RELATION_MISMATCH/);
+    const tx=Db.addInvoiceTransaction(f.db,{companyId:f.a.id,invoiceId:f.invoiceA.id,transactionType:'payment',amountOre:-1000});
+    assert.throws(() => f.db.prepare('UPDATE invoice_transactions SET invoice_id=? WHERE id=?').run(f.invoiceB.id,tx.id), /TENANT_RELATION_MISMATCH/);
+    assert.throws(() => f.db.prepare('UPDATE customers SET company_id=? WHERE id=?').run(f.a.id,f.customerB.id), /TENANT_OBJECT_IDENTITY_IMMUTABLE/);
+    assert.throws(() => f.db.prepare('UPDATE invoices SET company_id=? WHERE id=?').run(f.a.id,f.invoiceB.id), /TENANT_/);
+    assert.equal(Db.transactionById(f.db,f.a.id,tx.id).invoiceId,f.invoiceA.id);
+  } finally {f.db.close();}
+});
+test('existing invalid data stops guard installation without deleting or reassigning history', () => {
+  const f=fixture();try {
+    dropGuards(f.db);
+    rawCopy(f.db,'invoices',f.invoiceB.id,{id:'historical-invalid',invoice_number:'2',company_id:f.a.id});
+    assert.equal(Guards.inspectTenantRelations(f.db).ok,false);
+    assert.throws(() => Guards.installTenantGuards(f.db), e=>e.code==='TENANT_INTEGRITY_ERROR');
+    assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM invoices').get().n,3);
+    assert.equal(f.db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='trigger' AND name LIKE 'tenant_%'").get().n,0);
+  } finally {f.db.close();}
+});
+test('complete API startup guards supplier and document relationships as well', () => {
+  const f=fixture();try {
+    createServer({db:f.db,port:4180,secureCookies:false});
+    const supplier=Payables.createSupplier(f.db,{companyId:f.b.id,supplierNumber:'B-S',name:'Supplier B'});
+    const inv=Payables.createSupplierInvoice(f.db,{companyId:f.b.id,supplierId:supplier.id,supplierInvoiceNumber:'B-1',invoiceDate:'2026-09-18',dueDate:'2026-10-18',totalOre:125000,vatOre:25000,registeredBy:f.user.id});
+    assert.throws(() => rawCopy(f.db,'supplier_invoices',inv.id,{id:'forged-supplier',company_id:f.a.id}),/TENANT_RELATION_MISMATCH/);
+    const doc=Documents.createPending(f.db,{companyId:f.b.id,uploadedBy:f.user.id,title:'Test PDF',fileName:'test.pdf'});
+    assert.throws(() => f.db.prepare("INSERT INTO document_links(document_id,company_id,entity_type,entity_id,created_at) VALUES(?,?,'invoice',?,'2026-09-18')").run(doc.id,f.a.id,f.invoiceA.id),/TENANT_RELATION_MISMATCH/);
+    const report=Guards.installTenantGuards(f.db);
+    assert.equal(report.ok,true);
+    assert.ok(report.checkedRelations>=10,JSON.stringify(report));
+  } finally {f.db.close();}
+});
+test('repeated initialization is safe and does not prohibit multi-company memberships', () => {
+  const f=fixture();try {
+    Db.addMembership(f.db,{companyId:f.a.id,userId:f.user.id,roles:['auditor']});
+    Db.addMembership(f.db,{companyId:f.b.id,userId:f.user.id,roles:['auditor']});
+    const one=Guards.installTenantGuards(f.db),two=Guards.installTenantGuards(f.db);
+    assert.deepEqual(two,one);
+    assert.equal(Db.membershipsForUser(f.db,f.user.id).length,2);
+  } finally {f.db.close();}
+});
+test('real HTTP API refuses anonymous requests and other-company invoice IDs', async () => {
+  const f=fixture();const runtime=createServer({db:f.db,port:4180,secureCookies:false});
+  await new Promise(resolve=>runtime.server.listen(0,'127.0.0.1',resolve));
+  const base=`http://127.0.0.1:${runtime.server.address().port}/api/v1`;
+  try {
+    const routes=['/receivables','/customers','/customer-invoices','/payables/invoices','/suppliers','/bank/payments','/documents','/accounting/entries','/payroll/runs','/inventory/items','/automation/proposals','/website/cms','/reports/trial-balance?from=2026-09-01&to=2026-09-30','/audit'];
+    for (const route of routes) assert.equal((await fetch(base+route)).status,401,route);
+    Db.addMembership(f.db,{companyId:f.a.id,userId:f.user.id,roles:['accountant']});
+    const token=Auth.randomToken(),csrf=Auth.randomToken();
+    Db.createSession(f.db,{tokenHash:Auth.hashToken(token),csrfHash:Auth.hashToken(csrf),companyId:f.a.id,userId:f.user.id,expiresAt:new Date(Date.now()+60000).toISOString()});
+    const headers={Cookie:`rollands_session=${token}`};
+    const listed=await fetch(base+'/receivables',{headers});
+    assert.equal(listed.status,200);
+    assert.deepEqual((await listed.json()).invoices.map(row=>row.id),[f.invoiceA.id]);
+    const foreign=await fetch(base+`/invoices/${f.invoiceB.id}/comments`,{headers});
+    assert.equal(foreign.status,404);
+    const forbidden=await fetch(base+'/website/cms',{headers});
+    assert.equal(forbidden.status,403);
+    assert.equal((await fetch(base+`/invoices/${f.invoiceA.id}/comments`,{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({text:'Missing CSRF test'})})).status,403);
+  } finally {await new Promise(resolve=>runtime.close(resolve));}
+});

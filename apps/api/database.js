@@ -18,8 +18,14 @@ function openDatabase(filename = ':memory:') {
   }
   const db = new DatabaseSync(filename, {timeout:5000});
   db.exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA busy_timeout = 5000;');
-  initializeSchema(db);
-  return db;
+  try {
+    initializeSchema(db);
+    require('./tenant-integrity.js').installTenantGuards(db);
+    return db;
+  } catch (error) {
+    db.close();
+    throw error;
+  }
 }
 
 function initializeSchema(db) {
