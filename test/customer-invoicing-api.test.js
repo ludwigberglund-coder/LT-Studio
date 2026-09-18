@@ -46,7 +46,7 @@ async function login(base,password){
 function invoicePayload(requestId='invoice-request-0001'){return{
   requestId,customerNumber:'K-100',invoiceDate:'2026-09-18',postingDate:'2026-09-18',dueDate:'2026-10-18',paymentTermsDays:30,
   ourReference:'UAT',yourReference:'Test',notes:'Fiktiv testfaktura',
-  lines:[{description:'Testleverans',quantity:'1',unit:'st',unitPrice:'1000,00',vatRate:'25',revenueAccount:'3051'}]
+  lines:[{description:'Testleverans',quantity:'1',unit:'st',unitPrice:'1000,00',vatTreatment:'se-standard-25',vatRate:'25',revenueAccount:'3051'}]
 };}
 
 test('kundfakturor listas företagsisolerat och konfiguration visar om utställning är redo',async()=>withApi(async({base,password,co1,co2})=>{

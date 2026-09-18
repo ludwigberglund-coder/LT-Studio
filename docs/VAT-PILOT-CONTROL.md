@@ -47,3 +47,19 @@ Rapporten är fortsatt markerad som inte deklarationsklar. Följande behöver ve
 6. Avstämning av eventuella ingående balanser och konto 2650 när momsperioden avslutas.
 
 Pilotprincipen är fail closed: ett okänt momsfall ska granskas manuellt och får inte automatiskt klassificeras som om det vore ett vanligt svenskt 25/12/6-procentsfall.
+
+
+## Kundfakturans momsbehandling
+
+I det privata kundfakturaflödet väljer användaren nu vilken typ av försäljning raden avser. Systemet härleder momssatsen från den verifierade regeln och fakturadatumet i stället för att låta användaren skriva eller välja en fristående momssats.
+
+För den nu verifierade pilotavgränsningen finns:
+- `se-food`: livsmedel, 12 procent till och med 2026-03-31 och 6 procent från 2026-04-01.
+- `se-restaurant-12`: restaurang-/cateringtjänst, 12 procent.
+- `se-standard-25`: övrig vara/tjänst inom normal 25-procentsmoms.
+
+Backend kräver klassificeringen när en verklig kundfaktura utfärdas. Om den angivna momssatsen motsäger klassificeringen, eller intäktskontot inte passar den härledda momssatsen, stoppas bokföringen.
+
+Reglerna i programmet är medvetet verifierade till och med 2026-12-31. Fakturor efter det datumet blockeras tills regelverket har kontrollerats på nytt. Det är striktare än att gissa att en tillfällig eller ändrad regel fortfarande gäller.
+
+Detta täcker inte momsfri omsättning, EU-handel, export, import, omvänd betalningsskyldighet eller andra specialfall. Sådana fall ska fortfarande hanteras utanför det automatiska pilotflödet tills de uttryckligen stöds och testas.

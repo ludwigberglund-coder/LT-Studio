@@ -33,7 +33,7 @@ async function fixture(){
   }
   const input={customerNumber:'K-1001',seller:{name:'Testgrossisten AB',address:'Leveransgatan 1, Teststad',orgNumber:'559900-1003',vatNumber:'SE559900100301',bankgiro:'123-4567',taxStatus:'Testunderlag',email:'seller@example.invalid'},
     buyer:{name:a.legalName,address:'Testgatan 1, Teststad'},invoiceDate:'2026-09-18',postingDate:'2026-09-19',dueDate:'2026-10-18',paymentTermsDays:30,
-    lines:[{description:'Emballage - testunderlag',quantity:'1',unit:'st',unitPrice:'1000,00',vatRate:'25',revenueAccount:'3051'}],notes:'ENDAST AUTOMATISERAT TEST'};
+    lines:[{description:'Emballage - testunderlag',quantity:'1',unit:'st',unitPrice:'1000,00',vatTreatment:'se-standard-25',vatRate:'25',revenueAccount:'3051'}],notes:'ENDAST AUTOMATISERAT TEST'};
   const pdf=Buffer.from(await createInvoicePdf(Invoice.prepare(input,{invoiceNumber:'TEST-1001'})));
   function supplierInvoice(co,actor){
     const supplier=Payables.createSupplier(db,{companyId:co.id,supplierNumber:'L-1001',name:'Testgrossisten AB',bankgiro:'123-4567',defaultCostAccount:'5460'});
