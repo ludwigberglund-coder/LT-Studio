@@ -13,7 +13,8 @@ const Cms=require('../apps/api/website-cms.js');
   const checks=[],errors=[];
   try{
     // Use the real headed PDF viewer in CI (under Xvfb), not headless-shell.
-    browser=await chromium.launch({headless:false,chromiumSandbox:true});
+    browser=await chromium.launch({channel:'chrome',headless:false,chromiumSandbox:true});
+    console.log('Private workflow browser: Chrome '+browser.version()+' with sandbox enabled');
     context=await browser.newContext({viewport:{width:1440,height:1000}});
     await context.addInitScript(()=>{
       window.__cspFailures=[];
