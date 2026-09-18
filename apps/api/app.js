@@ -150,8 +150,30 @@ function createApiApp(options) {
   function requireInvoice(session,invoiceId) {
     const invoice=Db.invoiceById(db,session.companyId,invoiceId);
     if(!invoice) throw apiError('Fakturan hittades inte i det inloggade företaget.','INVOICE_NOT_FOUND',404);
+    invoice.transactions=Db.transactionsForInvoice(db,session.companyId,invoice.id);
     invoice.reminders=Db.remindersForInvoice(db,session.companyId,invoice.id);
     return invoice;
+  }
+
+  function requireInterestBasis(session,invoice) {
+    const stored=CustomerInvoicing.documentForInvoice(db,session.companyId,invoice.id);
+    if(!stored?.document) throw apiError('Automatisk dröjsmålsränta är spärrad eftersom det utfärdade fakturaunderlaget inte kan verifieras.','INTEREST_BASIS_NOT_VERIFIED',409);
+    const document=stored.document;
+    if(String(document.invoiceNumber||'')!==String(invoice.invoiceNumber||'') || document.dueDate!==invoice.dueDate || Number(document.totalOre)!==Number(invoice.totalOre)) {
+      throw apiError('Fakturans arkiverade underlag stämmer inte med reskontran. Automatisk dröjsmålsränta är spärrad.','INTEREST_BASIS_MISMATCH',409);
+    }
+    return Object.freeze({type:'issued-invoice-fixed-due-date',invoiceNumber:invoice.invoiceNumber,dueDate:invoice.dueDate,documentSha256:stored.documentSha256});
+  }
+
+  function reminderRequestId(value) {
+    const requestId=String(value||'').trim();
+    if(!/^[A-Za-z0-9_-]{16,100}$/.test(requestId)) throw apiError('En giltig idempotensnyckel krävs för påminnelsen.','INVALID_REMINDER_REQUEST_ID',422);
+    return requestId;
+  }
+
+  function reminderPayloadHash(invoiceId,payload) {
+    const normalized={invoiceId:String(invoiceId),reminderDate:String(payload.reminderDate||payload.sentDate||''),includeReminderFee:payload.includeReminderFee===true,includeInterest:payload.includeInterest!==false,includeBusinessLatePaymentCompensation:payload.includeBusinessLatePaymentCompensation===true,kind:payload.kind==='escalation'?'escalation':'payment-reminder',note:String(payload.note||'').trim().slice(0,1000)};
+    return crypto.createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
   }
 
   function loginResponse(req,res,payload) {
@@ -318,15 +340,17 @@ function createApiApp(options) {
         requirePermission(session,'customer-invoice.remind');
         const invoice=requireInvoice(session,reminderPreviewMatch[1]);
         const payload=await readJson(req,res); if(!payload) return;
+        const interestBasis=payload.includeInterest===false?null:requireInterestBasis(session,invoice);
         const preview=Receivables.reminderPreview(invoice,{
-          sentDate:payload.sentDate,
+          reminderDate:payload.reminderDate||payload.sentDate,
           includeReminderFee:payload.includeReminderFee===true,
           reminderFeeAgreed:invoice.reminderFeeAgreed,
           includeInterest:payload.includeInterest!==false,
           includeBusinessLatePaymentCompensation:payload.includeBusinessLatePaymentCompensation===true,
-          customerType:invoice.customerType
+          customerType:invoice.customerType,
+          interestBasis
         },legalRates);
-        return send(res,200,{preview});
+        return send(res,200,{preview,interestBasis});
       }
 
       const remindersMatch=url.pathname.match(/^\/api\/v1\/invoices\/([^/]+)\/reminders$/);
@@ -339,27 +363,50 @@ function createApiApp(options) {
         requirePermission(session,'customer-invoice.remind');
         const invoice=requireInvoice(session,remindersMatch[1]);
         const payload=await readJson(req,res); if(!payload) return;
-        const reminder=Receivables.createReminderRecord({
-          invoice,
-          companyId:session.companyId,
-          actor:session.actor,
-          options:{
-            sentDate:payload.sentDate,
-            includeReminderFee:payload.includeReminderFee===true,
-            reminderFeeAgreed:invoice.reminderFeeAgreed,
-            includeInterest:payload.includeInterest!==false,
-            includeBusinessLatePaymentCompensation:payload.includeBusinessLatePaymentCompensation===true,
-            customerType:invoice.customerType,
-            kind:payload.kind,
-            note:payload.note
-          },
-          config:legalRates
-        });
-        Db.transaction(db,()=>{
+        const requestId=reminderRequestId(payload.requestId);
+        const payloadHash=reminderPayloadHash(invoice.id,payload);
+        const interestBasis=payload.includeInterest===false?null:requireInterestBasis(session,invoice);
+        const createOrReuse=()=>Db.transaction(db,()=>{
+          const prior=Db.reminderRequestById(db,session.companyId,requestId);
+          if(prior){
+            if(prior.invoiceId!==invoice.id || prior.payloadHash!==payloadHash) throw apiError('Idempotensnyckeln har redan använts för ett annat påminnelseunderlag.','REMINDER_REQUEST_CONFLICT',409);
+            const existing=Db.reminderById(db,session.companyId,prior.reminderId);
+            if(!existing) throw apiError('Tidigare påminnelsebegäran saknar historik.','REMINDER_IDEMPOTENCY_CORRUPT',500);
+            return{reminder:existing,duplicate:true};
+          }
+          const reminder=Receivables.createReminderRecord({
+            invoice,
+            companyId:session.companyId,
+            actor:session.actor,
+            options:{
+              reminderDate:payload.reminderDate||payload.sentDate,
+              includeReminderFee:payload.includeReminderFee===true,
+              reminderFeeAgreed:invoice.reminderFeeAgreed,
+              includeInterest:payload.includeInterest!==false,
+              includeBusinessLatePaymentCompensation:payload.includeBusinessLatePaymentCompensation===true,
+              customerType:invoice.customerType,
+              kind:payload.kind,
+              note:payload.note,
+              interestBasis
+            },
+            config:legalRates
+          });
           Db.addReminder(db,reminder);
-          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'PAYMENT_REMINDER_CREATED',entityType:'invoice',entityId:invoice.id,details:{reminderId:reminder.id,totalDueOre:reminder.totalDueOre,deliveryStatus:'awaiting-mail-integration'}});
+          Db.addReminderRequest(db,{companyId:session.companyId,requestId,invoiceId:invoice.id,reminderId:reminder.id,payloadHash});
+          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'PAYMENT_REMINDER_CREATED',entityType:'invoice',entityId:invoice.id,details:{reminderId:reminder.id,totalDueOre:reminder.totalDueOre,deliveryStatus:'not-delivered',interestBasis}});
+          return{reminder,duplicate:false};
         });
-        return send(res,201,{reminder,deliveryStatus:'awaiting-mail-integration'});
+        let result;
+        try{result=createOrReuse();}
+        catch(error){
+          const prior=Db.reminderRequestById(db,session.companyId,requestId);
+          if(!prior)throw error;
+          if(prior.invoiceId!==invoice.id || prior.payloadHash!==payloadHash)throw apiError('Idempotensnyckeln har redan använts för ett annat påminnelseunderlag.','REMINDER_REQUEST_CONFLICT',409);
+          const existing=Db.reminderById(db,session.companyId,prior.reminderId);
+          if(!existing)throw error;
+          result={reminder:existing,duplicate:true};
+        }
+        return send(res,result.duplicate?200:201,{...result,deliveryStatus:'not-delivered'});
       }
 
       return send(res,404,{error:'Hittades inte.',code:'NOT_FOUND'});
