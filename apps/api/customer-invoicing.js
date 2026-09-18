@@ -192,8 +192,9 @@ function creditUnpaidInvoice(db,{companyId,userId,invoiceId,payload}){
   if(!stored)throw invoiceError('Fakturans arkiverade originalunderlag saknas. Krediteringen stoppades.','INVOICE_DOCUMENT_REQUIRED',409);
   const originalEntry=Accounting.entryBySource(db,companyId,'customer-invoice',invoiceId);
   if(!originalEntry)throw invoiceError('Fakturans ursprungsverifikation saknas. Krediteringen stoppades.','INVOICE_ACCOUNTING_ENTRY_REQUIRED',409);
-  const receivableLine=originalEntry.lines.find(line=>line.account==='1510');
-  if(!receivableLine||receivableLine.debitOre-originalEntry.lines.filter(line=>line.account==='1510').reduce((sum,line)=>sum+line.creditOre,0)!==original.totalOre){
+  const receivableLines=originalEntry.lines.filter(line=>line.account==='1510');
+  const bookedReceivableOre=receivableLines.reduce((sum,line)=>sum+Number(line.debitOre||0)-Number(line.creditOre||0),0);
+  if(!receivableLines.length||bookedReceivableOre!==original.totalOre){
     throw invoiceError('Fakturans kundfordringspost kan inte verifieras. Krediteringen stoppades.','INVOICE_ACCOUNTING_MISMATCH',409);
   }
   const invoiceNumber=nextInvoiceNumber(db,companyId);
