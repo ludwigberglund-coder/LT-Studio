@@ -1,163 +1,88 @@
-# Rollands – komplett småföretagsplattform med Rolands som första referenskund
+# Rolands / LT Studio – småföretagsplattform
 
-GitHub är projektets enda källa för kod, redigerbart innehåll, dokumentation, tester och releasehistorik. Den publika demon byggs automatiskt från `main` och publiceras med GitHub Pages.
+Vi bygger en återanvändbar plattform för småbutiker, saluhallar och mindre restauranger. Rolands Frukt o Grönt Aktiebolag, 556406-5059, är första referensföretaget. Företagets innehåll och inställningar ska vara separerade från gemensamma verksamhetsregler.
 
-## Produktens syfte
+**Aktuell fas: Production Readiness Phase 1. Inga nya stora moduler prioriteras. Plattformen är ännu inte godkänd för pilot med verkliga ekonomiska data.**
 
-Vi bygger inte endast en enskild hemsida eller ett isolerat ekonomiprogram för Rolands. Målet är en återanvändbar plattform för saluhallar, småbutiker, mindre restauranger, caféer och närliggande småföretag.
+Börja här:
 
-Rolands Frukt o Grönt Aktiebolag är kund nummer ett och vår första kompletta referensimplementation. Den färdiga kedjan ska vara:
+- [Audit: konkreta risker, källor och rättelser](docs/PRODUCTION-READINESS-AUDIT-2026-09-18.md)
+- [ROLANDS PILOT READINESS CHECKLIST](docs/ROLANDS-PILOT-READINESS-CHECKLIST.md)
+- [Backup och verifierad återställning](docs/BACKUP-RESTORE-PILOT.md)
+- [Pilotens deployment-instruktion](docs/ROLANDS-PILOT-DEPLOYMENT.md)
+- [Produktvision](docs/PRODUCT-VISION.md)
 
-`publik hemsida → säker login → privat företagsportal → ekonomi, lager, dokument, webbplats och övriga moduler`
+## GitHub är vår gemensamma källa
 
-Rolands-specifika texter, färger, inställningar och data ska ligga i företagets konfiguration och egen datamiljö. Gemensamma regler för exempelvis pengar, behörigheter, bokföring och säkerhet ska kunna återanvändas av nästa företag utan en ny kodbas.
+GitHub innehåller kod, tester, offentlig konfiguration, dokumentation och ändringshistorik. Produktionsdatabasen och skyddad dokumentlagring är källan för verksamhetsdata. Kunduppgifter, löner, bankuppgifter, originalfakturor, databasfiler och riktiga hemligheter får inte läggas i det publika repot eller GitHub Pages.
 
-Läs först:
+Alla ändringar görs i en arbetsgren. Granska skillnaden, kör relevanta tester och full CI, skapa tydlig commit/PR och slå ihop först när kontrollerna passerat. Kontrollera sedan huvudgrenens kontroller för rätt commit. En lyckad demo-publicering är inte i sig ett produktionsgodkännande.
 
-- [Produktvision och principer](docs/PRODUCT-VISION.md)
-- [Enkel förklaring av hela nuläget, upplägget och planen](docs/SYSTEM-OVERVIEW.md)
-- [Kort projektbrief](docs/PROJECT-BRIEF.md)
-- [Målarkitektur](docs/ARCHITECTURE-REBUILD.md)
-
-## Aktuella demos
-
-- **Publik hemsida:** <https://ludwigberglund-coder.github.io/Rollands/>
-- **Projektadmin:** <https://ludwigberglund-coder.github.io/Rollands/admin/>
-- **Öreskalkylator:** <https://ludwigberglund-coder.github.io/Rollands/admin/#/money>
-- **Roller och behörigheter:** <https://ludwigberglund-coder.github.io/Rollands/admin/#/access>
-- **Verifikationer och perioder:** <https://ludwigberglund-coder.github.io/Rollands/admin/#/journal>
-- **Tidigare systemdemo:** <https://ludwigberglund-coder.github.io/Rollands/legacy/#/overview>
-
-> GitHub Pages är en demo- och granskningsmiljö. Skarp bokföringsdata, kunddata, bankdata, fakturor, personuppgifter och hemligheter får aldrig lagras där eller i det publika repot.
-
-## Enklare ändringar
-
-Vanliga ändringar görs i tydliga innehålls- och konfigurationsfiler i stället för inne i programkoden:
-
-| Ändring | Fil |
-|---|---|
-| Företagsnamn, adress, telefon och e-post | `content/company.json` |
-| Webbplatsens rubriker, texter och erbjudanden | `content/site.json` |
-| Adminmeny, moduler och utvecklingsplan | `content/admin.json` |
-| Räkenskapsår, K2, moms, lön och lager | `config/rolands-business-decisions.json` |
-| Roller, behörigheter, MFA-krav och attestseparation | `config/access-control.json` |
-
-Se [den enkla redigeringsguiden](docs/EDITING.md). Projektadmin innehåller dessutom ett formulär för vanliga webbplatstexter, lokal förhandsvisning och export av en färdig `site.json`.
-
-## Exakt penningmodell
-
-Alla nya ekonomifunktioner använder `packages/accounting/money.js` som gemensam kärna:
-
-- belopp lagras som heltal i ören,
-- kvantiteter stöder upp till tre decimaler,
-- moms beräknas per rad och grupperas per momssats,
-- svenska decimaler med komma eller punkt accepteras,
-- osäker precision och för stora värden stoppas i stället för att gissas.
-
-Projektadmin har en interaktiv öreskalkylator som använder samma modul som fakturering, lager och bokföring ska bygga på. Se [penningmodellens dokumentation](docs/MONEY-DOMAIN.md).
-
-## Roller och behörighetsgränser
-
-Alla nya skyddade funktioner använder `packages/access-control/authorization.js`. Regelverket bygger på:
-
-- default deny – allt nekas tills en uttrycklig behörighet finns,
-- personliga konton i produktion,
-- minsta möjliga åtkomst per roll,
-- MFA för känsliga roller,
-- separata roller för systemadministration och ekonomiska beslut,
-- fyrögonprincip för leverantörsattest, betalningar, periodupplåsning och lagerjustering.
-
-Projektadmin visar en rollmatris och kan simulera både vanliga behörighetsbeslut och separationsregler. Det är en regel- och granskningsdemo, inte en verklig inloggning. Se [behörighetsdokumentationen](docs/ACCESS-CONTROL.md).
-
-## Verifikations- och periodmotor
-
-`packages/accounting/journal.js` är den nya bokföringskärnan. Den:
-
-- kräver balanserade verifikationer i ören,
-- ger obrutna löpnummer per serie och år,
-- stoppar ogiltiga konton, datum och behörigheter,
-- blockerar bokföring i låsta perioder,
-- kräver separat beställare vid periodupplåsning,
-- rättar bokförda poster med motverifikation och valfri ersättningspost,
-- bevarar originalposten och behandlingshistoriken,
-- kontrollerar dubbletter, totalsummor, nummerserier och rättelsekopplingar.
-
-Projektadmin innehåller en interaktiv demo där roller, bokföring, periodlås och motverifikationer kan provas lokalt i webbläsaren. Se [verifikationsdomänens dokumentation](docs/JOURNAL-DOMAIN.md).
-
-## Projektstruktur
+## Så är det uppbyggt idag
 
 ```text
-apps/
-  website/               publik webbplats
-  admin/                 projektadmin och domändemos
-
-packages/
-  accounting/            penning-, verifikations- och periodregler
-  access-control/        roller, behörigheter och attestseparation
-  shared/browser/        delade små webbläsarverktyg
-
-content/                  redigerbara texter och företagsuppgifter
-config/                   verksamhetsbeslut och behörighetskonfiguration
-public/                   tidigare system som migreringsreferens
-docs/                     produktvision, förklaringar, beslut och planer
-scripts/                  validering, bygge och lokal förhandsvisning
-test/                     automatiska tester
+apps/website/            publik hemsida
+apps/portal/             företagsportal med API- och separat demoläge
+apps/api/                Node.js-backend, sessioner, roller och SQLite
+apps/admin/              äldre projektadmin och domändemos
+packages/                delade ekonomi-, behörighets- och faktureringsregler
+content/                 offentliga texter och företagsuppgifter
+config/                  offentliga mallar och regler, aldrig secrets
+scripts/                 bygge, kontroll, bootstrap och driftverktyg
+test/                    kod-, API- och webbläsartester
+docs/                    beslut, guider och granskningsbevis
+public/ och server.js    äldre referensimplementation, inte pilotbackend
 ```
 
-Den tidigare versionen ligger kvar under `/legacy/` medan nya delar byggs från grunden. Varje ny modul kan därför jämföras med befintliga affärsflöden innan den gamla tas bort.
+Den aktuella backenddatabasen är SQLite med främmande nycklar, WAL och FULL-synkronisering. Den är inte PostgreSQL. Personlig inloggning, MFA, rollkontroller och företagsfiltrering finns. Journalpostning är atomisk och deklarerade företagsrelationer kontrolleras på databasnivå. Fullständig oföränderlighet, momsavstämning, driftisolering och flera andra pilotspärrar återstår enligt checklistan.
 
-## Automatisk publicering
+Den persistenta bokföringen i `apps/api/accounting-store.js` och domändemon i `packages/accounting/journal.js` är olika implementationer. Kontrollera vilken som faktiskt används när en funktion granskas.
 
-När en ändring slås ihop till `main` sker följande:
+## Utveckling och test
 
-1. Innehålls-, verksamhets- och behörighetsfiler valideras.
-2. JavaScript syntaxkontrolleras.
-3. Bokförings-, säkerhets-, penning-, behörighets-, verifikations- och grundtester körs.
-4. Produktionsberoenden granskas.
-5. En statisk demo byggs.
-6. GitHub Pages publiceras automatiskt.
+Krav: Node.js 24 och npm. Använd endast testuppgifter i utveckling.
 
-En felaktig innehållsfil, okänd behörighet, obalanserad verifikation, bruten separationsregel eller ett testfel stoppar publiceringen.
-
-## Starta lokalt
-
-Krav: Node.js 24 LTS eller senare.
-
-```powershell
+```sh
 npm ci
-npm run preview:static
-```
-
-Öppna sedan `http://127.0.0.1:4174`.
-
-Den äldre lokala API-servern kan fortfarande startas med:
-
-```powershell
-npm start
-```
-
-## Viktiga kommandon
-
-```powershell
 npm run content:check
 npm test
 npm run build:static
 npm run preview:static
-npm run data:check
-npm run data:backup
-npm run export:sie4i
 ```
 
-## Långsiktig riktning
+Den statiska förhandsvisningen är avsedd för demo. Befintliga webbläsartester körs även i GitHub Actions. De täcker inte automatiskt alla roller, alla knappar eller den riktiga HTTPS-/API-miljön.
 
-Öreskärnan, behörighetsmotorn och verifikations-/periodmotorn är separata, testade byggblock. Nästa stora plattformssteg är:
+Backend startas med:
 
-1. företagsneutral modell och en andra testkund,
-2. riktig backend, PostgreSQL, personlig login, MFA och företagsisolering,
-3. ny kund- och leverantörsreskontra,
-4. bankavstämning,
-5. lager och svinn,
-6. rapportering, moms, SIE, lön, dokument och webbplats-CMS,
-7. säkerhets-, drift- och redovisningsgranskning inför skarp Rolands-miljö.
+```sh
+npm start
+```
 
-GitHub ska fortsätta vara sanningskälla för programmet och dokumentationen. Produktionsdatabasen och den skyddade dokumentlagringen ska vara sanningskälla för varje företags privata affärsdata.
+`npm start` och `npm run api` startar `apps/api/server.js`. `npm run dev` och `npm run legacy:start` startar den äldre referensservern och ska inte användas för pilotdrift. `npm run data:backup` gäller det äldre JSON-lagret; använd `pilot:backup` för SQLite.
+
+För personlig testinloggning behöver en separat testdatabas, företagsmedlemskap och MFA konfigureras via `scripts/bootstrap-platform.js`. Se `.env.example` och deployment-guiden. Lägg inte riktiga värden i GitHub. Privata bankgiro-/fakturainställningar läggs i databasen via `npm run platform:set-invoice-settings`, inte i offentliga innehållsfiler.
+
+## Driftkontroller – inte ett automatiskt pilotgodkännande
+
+```sh
+npm run pilot:preflight
+npm run pilot:check
+npm run pilot:backup
+npm run pilot:restore:verify
+```
+
+Miljövariabler och säkra sökvägar beskrivs i `.env.example` och [backup-guiden](docs/BACKUP-RESTORE-PILOT.md). Förkontrollen är ännu inte en bindande del av serverstarten. Den får därför inte betraktas som ett skydd som alltid körs. Återställningskommandot skapar bara en separat testkopia och ersätter aldrig produktionsdatabasen.
+
+Vid `TENANT_INTEGRITY_ERROR` ska uppstarten stoppas och historiken bevaras för utredning. Radera inte poster eller stäng av kontrollerna för att få servern att starta.
+
+## Offentlig demo och redigering
+
+[Publik webbplats](https://ludwigberglund-coder.github.io/Rollands/) och [företagsportalens demo](https://ludwigberglund-coder.github.io/Rollands/portal/dashboard.html?demo=1) använder fiktiva uppgifter. Demoändringar kan ligga enbart i den egna webbläsaren och är inte delad, säker företagsdata.
+
+Offentliga texter finns i `content/site.json` och `content/company.json`. Se [redigeringsguiden](docs/EDITING.md). Företagets juridiska/ekonomiska inställningar ska inte ändras via ett offentligt CMS.
+
+## Fördjupning
+
+[Behörigheter](docs/ACCESS-CONTROL.md), [penningmodell](docs/MONEY-DOMAIN.md), [verifikationsdomän](docs/JOURNAL-DOMAIN.md), [produktvision](docs/PRODUCT-VISION.md), [målarkitektur](docs/ARCHITECTURE-REBUILD.md) och [arbetsregel vid väntande beslut](docs/WORKFLOW.md).
+
+Äldre systemöversikter beskriver tidigare etapper. Vid motstridiga statusuppgifter gäller den senaste källkoden och daterade audit-/testbevis. En planerad funktion ska inte beskrivas som driftsatt eller verifierad innan bevis finns.
