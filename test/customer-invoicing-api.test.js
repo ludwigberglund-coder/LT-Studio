@@ -172,6 +172,13 @@ test('obetald kundfaktura kan helkrediteras atomiskt med omvänd moms och kundfo
   assert.equal(retryBody.duplicate,true);
   assert.equal(retryBody.invoice.id,credited.invoice.id);
   assert.equal(Accounting.listEntries(db,co1.id).filter(row=>row.sourceType==='customer-credit-note').length,1);
+  const otherIssuedResponse=await fetch(base+'/api/v1/customer-invoices',{method:'POST',headers,body:JSON.stringify(invoicePayload('invoice-request-credit-source-02'))});
+  const otherIssued=await otherIssuedResponse.json();
+  assert.equal(otherIssuedResponse.status,201);
+  const conflict=await fetch(base+`/api/v1/customer-invoices/${otherIssued.invoice.id}/credit`,{method:'POST',headers,body:JSON.stringify(creditPayload)});
+  const conflictBody=await conflict.json();
+  assert.equal(conflict.status,409);
+  assert.equal(conflictBody.code,'CREDIT_IDEMPOTENCY_CONFLICT');
 }));
 
 test('helkreditering stoppar delbetald faktura och lämnar originalet oförändrat',async()=>withApi(async({base,password,db,co1})=>{
