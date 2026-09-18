@@ -57,6 +57,27 @@ test('momsavstämningen flaggar när en fakturas sparade moms och dess bokförda
   assert.match(r.warning,/får inte behandlas som deklarationsklar/i);
 }finally{db.close()}});
 
+test('huvudboken särredovisar 25, 12 och 6 procent på rätt utgående momskonton',()=>{const {db,company,user}=seed();try{
+  Accounting.postEntry(db,{companyId:company.id,postingDate:'2026-09-15',description:'12 procent moms',sourceType:'manual',sourceId:'vat-12',createdBy:user.id,series:'M',lines:[{account:'1510',debitOre:112000,creditOre:0},{account:'3042',debitOre:0,creditOre:100000},{account:'2621',debitOre:0,creditOre:12000}]});
+  Accounting.postEntry(db,{companyId:company.id,postingDate:'2026-09-16',description:'6 procent moms',sourceType:'manual',sourceId:'vat-6',createdBy:user.id,series:'M',lines:[{account:'1510',debitOre:106000,creditOre:0},{account:'3043',debitOre:0,creditOre:100000},{account:'2631',debitOre:0,creditOre:6000}]});
+  const r=Reports.vatControl(db,company.id,{period:'2026-09'});
+  assert.equal(r.outputVatByRate['25'],25000);
+  assert.equal(r.outputVatByRate['12'],12000);
+  assert.equal(r.outputVatByRate['6'],6000);
+  assert.equal(r.outputVatOre,43000);
+}finally{db.close()}});
+
+test('leverantörsfakturans sparade moms måste stämma med konto 2641 i källverifikationen',()=>{const {db,company}=seed();try{
+  db.prepare("UPDATE supplier_invoices SET vat_ore=12000 WHERE company_id=? AND supplier_invoice_number='S-1'").run(company.id);
+  const r=Reports.vatControl(db,company.id,{period:'2026-09'});
+  const mismatch=r.sourceReconciliation.mismatches.find(row=>row.kind==='supplier-invoice');
+  assert.ok(mismatch);
+  assert.equal(mismatch.expectedVatOre,12000);
+  assert.equal(mismatch.bookedVatOre,12500);
+  assert.equal(mismatch.differenceOre,500);
+  assert.equal(r.integrityOk,false);
+}finally{db.close()}});
+
 test('okända aktiva 26-konton flaggas i stället för att klassificeras som svensk moms automatiskt',()=>{const {db,company,user}=seed();try{
   Accounting.postEntry(db,{companyId:company.id,postingDate:'2026-09-20',description:'Ej klassificerad moms',sourceType:'manual',sourceId:'vat-unknown',createdBy:user.id,series:'M',lines:[{account:'2614',debitOre:0,creditOre:1000},{account:'3740',debitOre:1000,creditOre:0}]});
   const r=Reports.vatControl(db,company.id,{period:'2026-09'});
