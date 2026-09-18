@@ -392,7 +392,7 @@ function addReminder(db, reminder) {
 }
 
 function remindersForInvoice(db, companyId, invoiceId) {
-  return db.prepare(`SELECT id,kind,sent_at AS sentAt,principal_ore AS principalOre,reminder_fee_ore AS reminderFeeOre,interest_ore AS interestOre,
+  return db.prepare(`SELECT id,kind,substr(sent_at,1,10) AS reminderDate,principal_ore AS principalOre,reminder_fee_ore AS reminderFeeOre,interest_ore AS interestOre,
     business_compensation_ore AS businessLatePaymentCompensationOre,total_due_ore AS totalDueOre,annual_rate_basis_points AS annualRateBasisPoints,
     interest_segments_json AS interestSegmentsJson,note,created_at AS createdAt,user_id AS createdBy
     FROM invoice_reminders WHERE company_id=? AND invoice_id=? ORDER BY sent_at,id`).all(companyId,invoiceId)
