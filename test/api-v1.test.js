@@ -56,6 +56,32 @@ test('login skapar serverlagrad session och kundreskontran kräver session och M
   assert.ok(data.columns.some(column=>column.label==='Senaste påm'));
 }));
 
+test('samma MFA-kod kan inte användas för två inloggningar', async () => withApi(async ({base,password}) => {
+  const code=Auth.totpCode(TEST_MFA_SECRET);
+  const payload={username:'sara.test',password,totp:code};
+  const first=await fetch(`${base}/api/v1/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  assert.equal(first.status,200);
+  const replay=await fetch(`${base}/api/v1/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const body=await replay.json();
+  assert.equal(replay.status,409);
+  assert.equal(body.code,'MFA_CODE_REPLAYED');
+}));
+
+test('absolut sessionstid kan inte förlängas av fortsatt aktivitet', async () => withApi(async ({base,password,db}) => {
+  const signed=await login(base,password);
+  assert.equal(signed.response.status,200);
+  const rawToken=decodeURIComponent(signed.cookie.slice(signed.cookie.indexOf('=')+1));
+  const tokenHash=Auth.hashToken(rawToken);
+  const before=db.prepare('SELECT expires_at AS expiresAt,absolute_expires_at AS absoluteExpiresAt FROM sessions WHERE token_hash=?').get(tokenHash);
+  assert.ok(before.absoluteExpiresAt>before.expiresAt);
+
+  db.prepare("UPDATE sessions SET expires_at='2099-01-01T00:00:00.000Z',absolute_expires_at='2000-01-01T00:00:00.000Z' WHERE token_hash=?").run(tokenHash);
+  const session=await fetch(`${base}/api/v1/session`,{headers:{Cookie:signed.cookie}});
+  const body=await session.json();
+  assert.equal(session.status,200);
+  assert.equal(body.authenticated,false);
+}));
+
 test('mutation utan CSRF stoppas och kommentar blir synlig efter godkänd mutation', async () => withApi(async ({base,password,inv1}) => {
   const signed=await login(base,password);
   const missing=await fetch(`${base}/api/v1/invoices/${inv1.id}/comments`,{method:'POST',headers:{Cookie:signed.cookie,'Content-Type':'application/json'},body:JSON.stringify({text:'Ring kunden'})});

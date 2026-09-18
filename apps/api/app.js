@@ -84,7 +84,11 @@ function createApiApp(options) {
   const legalRates = options.legalRates || DEFAULT_RATES;
   const accessModel = Access.createModel(accessConfig);
   const secureCookies = options.secureCookies !== false;
-  const sessionMinutes = Number(options.sessionMinutes || accessConfig.policy?.sessionMaxMinutes || 480);
+  const sessionIdleMinutes = Number(options.sessionIdleMinutes || accessConfig.policy?.sessionIdleMinutes || 60);
+  const sessionMaxMinutes = Number(options.sessionMaxMinutes || options.sessionMinutes || accessConfig.policy?.sessionMaxMinutes || 480);
+  if (!Number.isSafeInteger(sessionIdleMinutes) || sessionIdleMinutes < 5 || !Number.isSafeInteger(sessionMaxMinutes) || sessionMaxMinutes < sessionIdleMinutes) {
+    throw new Error('Sessionstiderna måste vara heltal och absolut maxgräns måste vara minst lika lång som inaktivitetsgränsen.');
+  }
   const authEncryptionKey = options.authEncryptionKey || '';
   const companyProfile = options.companyProfile || DEFAULT_COMPANY_PROFILE;
   CustomerInvoicing.initializeCustomerInvoicing(db);
@@ -115,8 +119,8 @@ function createApiApp(options) {
     return Boolean(value && value.count>=5 && value.resetAt>Date.now());
   }
 
-  function sessionDurationIso() {
-    return new Date(Date.now()+sessionMinutes*60*1000).toISOString();
+  function sessionExpiryIso(minutes, fromMs = Date.now()) {
+    return new Date(fromMs + minutes * 60 * 1000).toISOString();
   }
 
   function currentSession(req) {
@@ -173,28 +177,37 @@ function createApiApp(options) {
     if(!selected) return send(res,403,{error:'Användaren saknar åtkomst till valt företag.',code:'COMPANY_ACCESS_DENIED'});
 
     const mfaRequired=selected.roles.some(role=>accessConfig.policy.mfaRequiredRoles.includes(role));
+    let mfaCounter=null;
     if(mfaRequired) {
       if(!user.mfaSecretEncrypted) return send(res,403,{error:'Den här rollen kräver MFA men kontot är inte färdigregistrerat.',code:'MFA_ENROLLMENT_REQUIRED'});
       if(!authEncryptionKey) return send(res,503,{error:'MFA kan inte verifieras eftersom serverns krypteringsnyckel saknas.',code:'MFA_SERVER_NOT_CONFIGURED'});
       let secret;
       try { secret=Auth.decryptSecret(user.mfaSecretEncrypted,authEncryptionKey); }
       catch { return send(res,503,{error:'MFA-konfigurationen kan inte läsas.',code:'MFA_SERVER_ERROR'}); }
-      if(!Auth.verifyTotp(secret,payload.totp)) {
+      mfaCounter=Auth.totpMatchCounter(secret,payload.totp);
+      if(mfaCounter===null) {
         noteLoginFailure(req,username);
         return send(res,401,{error:'MFA-koden är felaktig eller har gått ut.',code:'INVALID_MFA'});
       }
     }
 
-    loginAttempts.delete(loginKey(req,username));
+    const now=Date.now();
     const sessionToken=Auth.randomToken(32), csrfToken=Auth.randomToken(24);
-    Db.createSession(db,{tokenHash:Auth.hashToken(sessionToken),csrfHash:Auth.hashToken(csrfToken),userId:user.id,companyId:selected.companyId,expiresAt:sessionDurationIso()});
-    Db.appendAudit(db,{companyId:selected.companyId,userId:user.id,action:'SESSION_LOGIN',entityType:'session',details:{username:user.username,mfaRequired}});
+    Db.transaction(db,()=>{
+      if(mfaRequired) Db.consumeMfaStep(db,{userId:user.id,totpCounter:mfaCounter});
+      Db.createSession(db,{
+        tokenHash:Auth.hashToken(sessionToken),csrfHash:Auth.hashToken(csrfToken),userId:user.id,companyId:selected.companyId,
+        expiresAt:sessionExpiryIso(sessionIdleMinutes,now),absoluteExpiresAt:sessionExpiryIso(sessionMaxMinutes,now)
+      });
+      Db.appendAudit(db,{companyId:selected.companyId,userId:user.id,action:'SESSION_LOGIN',entityType:'session',details:{username:user.username,mfaRequired,sessionIdleMinutes,sessionMaxMinutes}});
+    });
+    loginAttempts.delete(loginKey(req,username));
     return send(res,200,{
       authenticated:true,
       csrfToken,
       user:{id:user.id,username:user.username,displayName:user.displayName,roles:selected.roles},
       company:{id:selected.companyId,name:selected.displayName}
-    },{'Set-Cookie':Auth.sessionCookie(sessionToken,{secure:secureCookies,maxAgeSeconds:sessionMinutes*60})});
+    },{'Set-Cookie':Auth.sessionCookie(sessionToken,{secure:secureCookies,maxAgeSeconds:sessionMaxMinutes*60})});
   }
 
   async function handle(req,res) {
@@ -214,13 +227,13 @@ function createApiApp(options) {
       if(req.method==='GET' && url.pathname==='/api/v1/session') {
         const session=currentSession(req);
         if(!session) return send(res,200,{authenticated:false});
-        Db.touchSession(db,session.tokenHash,sessionDurationIso());
+        Db.touchSession(db,session.tokenHash,sessionExpiryIso(sessionIdleMinutes));
         return send(res,200,{authenticated:true,user:{id:session.userId,username:session.username,displayName:session.displayName,roles:session.roles},companyId:session.companyId});
       }
 
       const session=requireSession(req);
       if(req.method!=='GET') requireCsrf(req,session);
-      Db.touchSession(db,session.tokenHash,sessionDurationIso());
+      Db.touchSession(db,session.tokenHash,sessionExpiryIso(sessionIdleMinutes));
 
       if(req.method==='POST' && url.pathname==='/api/v1/auth/logout') {
         Db.deleteSession(db,session.tokenHash);

@@ -4,6 +4,7 @@
     "defaultDecision": "deny",
     "unknownRole": "deny",
     "requirePersonalAccounts": true,
+    "sessionIdleMinutes": 60,
     "sessionMaxMinutes": 480,
     "mfaRequiredRoles": ["system-admin","accountant","approver","controller","sales","inventory-manager","payroll-admin"]
   },

@@ -2,6 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const {DatabaseSync} = require('node:sqlite');
 const Db = require('../apps/api/database.js');
 const Auth = require('../apps/api/auth.js');
 const Receivables = require('../packages/receivables/customer-receivables.js');
@@ -75,5 +76,40 @@ test('databastransaktion rullar tillbaka alla delsteg vid fel', () => {
       throw new Error('stop');
     }));
     assert.equal(Db.auditForCompany(db,co1.id).filter(event=>event.action==='TEST_STEP').length,0);
+  } finally { db.close(); }
+});
+
+
+test('äldre sessionschema migreras utan att förlänga befintlig session', () => {
+  const db=new DatabaseSync(':memory:');
+  try {
+    db.exec(`CREATE TABLE sessions(
+      token_hash TEXT PRIMARY KEY,
+      csrf_hash TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      company_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL
+    ) STRICT;`);
+    db.prepare('INSERT INTO sessions(token_hash,csrf_hash,user_id,company_id,created_at,expires_at,last_seen_at) VALUES(?,?,?,?,?,?,?)')
+      .run('old-token','csrf','u1','c1','2026-09-18T10:00:00.000Z','2026-09-18T11:00:00.000Z','2026-09-18T10:30:00.000Z');
+    Db.initializeSchema(db);
+    const columns=db.prepare('PRAGMA table_info(sessions)').all().map(row=>row.name);
+    assert.ok(columns.includes('absolute_expires_at'));
+    const row=db.prepare('SELECT expires_at AS expiresAt,absolute_expires_at AS absoluteExpiresAt FROM sessions WHERE token_hash=?').get('old-token');
+    assert.equal(row.absoluteExpiresAt,row.expiresAt);
+  } finally { db.close(); }
+});
+
+test('session touch begränsas av absolut sluttid och MFA-steg förbrukas en gång', () => {
+  const {db,co1,user}=seed();
+  try {
+    Db.createSession(db,{tokenHash:'session-test',csrfHash:'csrf',userId:user.id,companyId:co1.id,expiresAt:'2099-01-01T01:00:00.000Z',absoluteExpiresAt:'2099-01-01T08:00:00.000Z'});
+    Db.touchSession(db,'session-test','2099-01-02T00:00:00.000Z');
+    const session=db.prepare('SELECT expires_at AS expiresAt,absolute_expires_at AS absoluteExpiresAt FROM sessions WHERE token_hash=?').get('session-test');
+    assert.equal(session.expiresAt,'2099-01-01T08:00:00.000Z');
+    Db.consumeMfaStep(db,{userId:user.id,totpCounter:12345});
+    assert.throws(()=>Db.consumeMfaStep(db,{userId:user.id,totpCounter:12345}),error=>error.code==='MFA_CODE_REPLAYED');
   } finally { db.close(); }
 });
