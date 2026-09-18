@@ -64,8 +64,8 @@ test('påminnelser sparar ränteunderlaget och kan granskas i efterhand', () => 
     assert.equal(saved.reminderDate,'2026-09-15');
     assert.equal(saved.deliveryStatus,'not-sent');
     assert.equal(saved.deliveredAt,null);
-    assert.equal(saved.rateConfigVersion,'1');
-    assert.equal(saved.rateVerifiedAt,'2026-09-15');
+    assert.equal(saved.rateConfigVersion,'2');
+    assert.equal(saved.rateVerifiedAt,'2026-09-18');
   } finally { db.close(); }
 });
 
