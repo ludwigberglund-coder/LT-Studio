@@ -120,7 +120,7 @@ function issueInvoice(db,{companyId,userId,payload,profile}){
       seller:readiness.seller,
       invoiceDate:payload?.invoiceDate,postingDate:payload?.postingDate,dueDate:payload?.dueDate,paymentTermsDays:payload?.paymentTermsDays,
       currency:'SEK',ourReference:payload?.ourReference,yourReference:payload?.yourReference,notes:payload?.notes,lines:payload?.lines
-    },{invoiceNumber,accounts:[]});
+    },{invoiceNumber,accounts:[],requireVatTreatment:true});
   }catch(error){throw invoiceError(error.message,'INVALID_CUSTOMER_INVOICE',422)}
   document.demo=false;
   const invoice=Db.createInvoice(db,{companyId,customerId:customer.id,invoiceNumber,ocr:invoiceNumber,invoiceDate:document.invoiceDate,postingDate:document.postingDate,dueDate:document.dueDate,totalOre:document.totalOre,remainingOre:document.totalOre,vatOre:document.vatOre,status:'Bokförd',paymentMethod:'Bankgiro',paymentAccount:readiness.seller.bankgiro,invoiceAccount:'1510'});
