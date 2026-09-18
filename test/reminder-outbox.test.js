@@ -26,7 +26,7 @@ function reminder({company,user,invoice,id='reminder-1'}) {
     invoiceId:invoice.id,
     createdBy:user.id,
     kind:'payment-reminder',
-    sentAt:'2026-09-15T12:00:00.000Z',
+    reminderDate:'2026-09-15',
     principalOre:125000,
     reminderFeeOre:0,
     interestOre:4100,
