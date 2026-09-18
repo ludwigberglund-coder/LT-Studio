@@ -178,13 +178,13 @@ function initializeSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_reminders_invoice ON invoice_reminders(company_id,invoice_id,sent_at);
     CREATE INDEX IF NOT EXISTS idx_audit_company_created ON audit_events(company_id,created_at);
     CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
-    CREATE INDEX IF NOT EXISTS idx_sessions_absolute_expiry ON sessions(absolute_expires_at);
     CREATE INDEX IF NOT EXISTS idx_mfa_used_steps_used_at ON mfa_used_steps(used_at);
   `);
   if (!hasColumn(db,'sessions','absolute_expires_at')) {
     db.exec("ALTER TABLE sessions ADD COLUMN absolute_expires_at TEXT NOT NULL DEFAULT ''");
     db.exec("UPDATE sessions SET absolute_expires_at=expires_at WHERE absolute_expires_at=''");
   }
+  db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_absolute_expiry ON sessions(absolute_expires_at)');
   if (!hasColumn(db,'invoice_reminders','reminder_date')) db.exec('ALTER TABLE invoice_reminders ADD COLUMN reminder_date TEXT');
   if (!hasColumn(db,'invoice_reminders','rate_config_version')) db.exec("ALTER TABLE invoice_reminders ADD COLUMN rate_config_version TEXT NOT NULL DEFAULT ''");
   if (!hasColumn(db,'invoice_reminders','rate_verified_at')) db.exec("ALTER TABLE invoice_reminders ADD COLUMN rate_verified_at TEXT NOT NULL DEFAULT ''");
@@ -290,7 +290,7 @@ function touchSession(db, tokenHash, requestedExpiresAt) {
 function consumeMfaStep(db,{userId,totpCounter}) {
   if (!userId || !Number.isSafeInteger(totpCounter) || totpCounter < 0) throw databaseError('Ogiltig MFA-tidslucka.','INVALID_MFA_COUNTER',500);
   const now=nowIso();
-  db.prepare("DELETE FROM mfa_used_steps WHERE used_at < datetime('now','-2 days')").run();
+  db.prepare("DELETE FROM mfa_used_steps WHERE used_at < strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 days')").run();
   try {
     db.prepare('INSERT INTO mfa_used_steps(user_id,totp_counter,used_at) VALUES(?,?,?)').run(userId,totpCounter,now);
   } catch (error) {
