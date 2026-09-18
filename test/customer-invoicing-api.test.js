@@ -135,3 +135,109 @@ test('publika demovärden kan inte låsa upp fakturering utan privata inställni
   assert.equal(response.status,409);
   assert.equal(body.code,'INVOICE_PRIVATE_SETTINGS_MISSING');
 },{configureInvoiceSettings:false}));
+
+
+async function issueForCredit(base,signed,payload){
+  const response=await fetch(base+'/api/v1/customer-invoices',{method:'POST',headers:{Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken},body:JSON.stringify(payload)});
+  const body=await response.json();
+  assert.equal(response.status,201,JSON.stringify(body));
+  return body;
+}
+async function creditRequest(base,signed,invoiceId,payload){
+  const response=await fetch(base+`/api/v1/customer-invoices/${encodeURIComponent(invoiceId)}/credit`,{method:'POST',headers:{Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken},body:JSON.stringify(payload)});
+  return{response,body:await response.json()};
+}
+
+test('hel kreditfaktura reverserar reskontra, huvudbok och moms atomiskt med hänvisning till originalet',async()=>withApi(async({base,password,db,co1,user})=>{
+  Db.addMembership(db,{companyId:co1.id,userId:user.id,roles:['accountant']});
+  const signed=await login(base,password);
+  const issued=await issueForCredit(base,signed,invoicePayload('invoice-credit-source-0001'));
+  const {response,body}=await creditRequest(base,signed,issued.invoice.id,{requestId:'credit-request-source-0001',creditDate:'2026-09-19',postingDate:'2026-09-19',reason:'Hela leveransen returnerad'});
+  assert.equal(response.status,201,JSON.stringify(body));
+  assert.equal(body.original.remainingOre,0);
+  assert.equal(body.original.status,'Krediterad');
+  assert.equal(body.creditInvoice.totalOre,-125000);
+  assert.equal(body.creditInvoice.vatOre,-25000);
+  assert.equal(body.creditInvoice.remainingOre,0);
+  assert.equal(body.document.documentType,'KREDITFAKTURA');
+  assert.equal(body.document.originalInvoiceNumber,issued.invoice.invoiceNumber);
+  assert.equal(body.document.creditReason,'Hela leveransen returnerad');
+  assert.equal(body.entry.lines.find(row=>row.account==='1510').creditOre,125000);
+  assert.equal(body.entry.lines.find(row=>row.account==='3051').debitOre,100000);
+  assert.equal(body.entry.lines.find(row=>row.account==='2611').debitOre,25000);
+  assert.equal(body.entry.lines.reduce((sum,row)=>sum+row.debitOre-row.creditOre,0),0);
+  const tx=db.prepare("SELECT transaction_type AS type,amount_ore AS amountOre,journal_number AS journalNumber FROM invoice_transactions WHERE company_id=? AND invoice_id=? AND transaction_type='credit'").get(co1.id,issued.invoice.id);
+  assert.equal(tx.amountOre,-125000);
+  assert.equal(tx.journalNumber,body.entry.number);
+  assert.ok(Db.auditForCompany(db,co1.id).some(event=>event.action==='CUSTOMER_INVOICE_CREDITED'&&event.entityId===issued.invoice.id));
+}));
+
+test('kredit efter momssatsändring reverserar originalets bokförda momskonto och räknar inte om historiken',async()=>withApi(async({base,password,db,co1,user})=>{
+  Db.addMembership(db,{companyId:co1.id,userId:user.id,roles:['accountant']});
+  const signed=await login(base,password);
+  const payload={...invoicePayload('invoice-credit-vat-change-0001'),invoiceDate:'2026-03-31',postingDate:'2026-03-31',dueDate:'2026-04-30',
+    lines:[{description:'Livsmedel före skattesänkning',quantity:'1',unit:'st',unitPrice:'1000,00',vatTreatment:'se-food',vatRate:'12',revenueAccount:'3052'}]};
+  const issued=await issueForCredit(base,signed,payload);
+  assert.equal(issued.invoice.vatOre,12000);
+  const {response,body}=await creditRequest(base,signed,issued.invoice.id,{requestId:'credit-request-vat-change-0001',creditDate:'2026-04-02',postingDate:'2026-04-02',reason:'Retur efter momssatsändring'});
+  assert.equal(response.status,201,JSON.stringify(body));
+  assert.equal(body.creditInvoice.vatOre,-12000);
+  assert.equal(body.entry.lines.find(row=>row.account==='2621').debitOre,12000);
+  assert.equal(body.entry.lines.some(row=>row.account==='2631'),false);
+  assert.equal(body.document.lines[0].vatRate,12);
+  assert.equal(body.document.lines[0].vatTreatment,'se-food');
+}));
+
+test('kreditering är idempotent och samma request-id kan inte flyttas till en annan faktura',async()=>withApi(async({base,password,db,co1,user})=>{
+  Db.addMembership(db,{companyId:co1.id,userId:user.id,roles:['accountant']});
+  const signed=await login(base,password);
+  const one=await issueForCredit(base,signed,invoicePayload('invoice-credit-idem-0001'));
+  const payload={requestId:'credit-request-idem-0001',creditDate:'2026-09-19',postingDate:'2026-09-19',reason:'Full kreditering test'};
+  const first=await creditRequest(base,signed,one.invoice.id,payload);
+  const second=await creditRequest(base,signed,one.invoice.id,payload);
+  assert.equal(first.response.status,201);assert.equal(second.response.status,200);
+  assert.equal(second.body.duplicate,true);
+  assert.equal(second.body.creditInvoice.id,first.body.creditInvoice.id);
+  assert.equal(Accounting.listEntries(db,co1.id).filter(row=>row.sourceType==='customer-credit').length,1);
+  const two=await issueForCredit(base,signed,invoicePayload('invoice-credit-idem-0002'));
+  const conflict=await creditRequest(base,signed,two.invoice.id,payload);
+  assert.equal(conflict.response.status,409);
+  assert.equal(conflict.body.code,'IDEMPOTENCY_CONFLICT');
+}));
+
+test('delbetald faktura och annan företags faktura kan inte krediteras via automatflödet',async()=>withApi(async({base,password,db,co1,co2,user})=>{
+  Db.addMembership(db,{companyId:co1.id,userId:user.id,roles:['accountant']});
+  const signed=await login(base,password);
+  const issued=await issueForCredit(base,signed,invoicePayload('invoice-credit-paid-0001'));
+  Db.addInvoiceTransaction(db,{companyId:co1.id,invoiceId:issued.invoice.id,transactionType:'payment',paymentDate:'2026-09-19',postingDate:'2026-09-19',amountOre:-25000,approved:true,account:'1930',bankReference:'PARTIAL-CREDIT-TEST'});
+  db.prepare("UPDATE invoices SET remaining_ore=total_ore-25000,status='Delbetald' WHERE company_id=? AND id=?").run(co1.id,issued.invoice.id);
+  const partial=await creditRequest(base,signed,issued.invoice.id,{requestId:'credit-request-paid-0001',creditDate:'2026-09-20',postingDate:'2026-09-20',reason:'Försök på delbetald'});
+  assert.equal(partial.response.status,409);
+  assert.equal(partial.body.code,'CREDIT_REQUIRES_UNPAID_INVOICE');
+  const otherId=db.prepare("SELECT id FROM invoices WHERE company_id=? AND invoice_number='410200'").get(co2.id).id;
+  const other=await creditRequest(base,signed,otherId,{requestId:'credit-request-other-0001',creditDate:'2026-09-20',postingDate:'2026-09-20',reason:'Otillåten företagsåtkomst'});
+  assert.equal(other.response.status,404);
+  assert.equal(other.body.code,'INVOICE_NOT_FOUND');
+}));
+
+test('låst kreditperiod rullar tillbaka hela krediteringen',async()=>withApi(async({base,password,db,co1,user})=>{
+  Db.addMembership(db,{companyId:co1.id,userId:user.id,roles:['accountant']});
+  const signed=await login(base,password);
+  const issued=await issueForCredit(base,signed,invoicePayload('invoice-credit-locked-0001'));
+  db.prepare("INSERT INTO accounting_periods(company_id,period,status,locked_by,locked_at) VALUES(?,?,'locked',NULL,?)").run(co1.id,'2026-10',new Date().toISOString());
+  const before=Invoicing.listCustomerInvoices(db,co1.id).length;
+  const {response,body}=await creditRequest(base,signed,issued.invoice.id,{requestId:'credit-request-locked-0001',creditDate:'2026-10-02',postingDate:'2026-10-02',reason:'Kredit i låst period'});
+  assert.equal(response.status,409);
+  assert.equal(body.code,'PERIOD_LOCKED');
+  assert.equal(Invoicing.listCustomerInvoices(db,co1.id).length,before);
+  assert.equal(Db.invoiceById(db,co1.id,issued.invoice.id).remainingOre,issued.invoice.totalOre);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM customer_invoice_credits WHERE company_id=?').get(co1.id).count,0);
+}));
+
+test('försäljningsrollen kan inte kreditera även om endpointen anropas manuellt',async()=>withApi(async({base,password})=>{
+  const signed=await login(base,password);
+  const response=await fetch(base+'/api/v1/customer-invoices/not-owned/credit',{method:'POST',headers:{Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken},body:JSON.stringify({requestId:'credit-role-denied-0001',creditDate:'2026-09-19',postingDate:'2026-09-19',reason:'Behörighetstest'})});
+  const body=await response.json();
+  assert.equal(response.status,403);
+  assert.equal(body.code,'ACCESS_DENIED');
+}));
