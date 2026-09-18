@@ -39,14 +39,24 @@ function operationBySource(db,companyId,operationType,sourceId){return db.prepar
 function saveOperation(db,{companyId,operationType,sourceId,accountingEntryId}){db.prepare(`INSERT INTO supplier_accounting_operations(company_id,operation_type,source_id,accounting_entry_id,created_at) VALUES(?,?,?,?,?)`).run(companyId,operationType,sourceId,accountingEntryId,nowIso());return operationBySource(db,companyId,operationType,sourceId)}
 function accountingStatus(db,companyId,invoiceId){return db.prepare(`SELECT accounting_status AS accountingStatus FROM supplier_invoices WHERE company_id=? AND id=?`).get(companyId,invoiceId)?.accountingStatus||null}
 
+function supplierVatEvidence(invoice){
+  if(!invoice.vatOre)return[];
+  return [{
+    evidenceType:'input-domestic',vatCode:'INPUT_DOMESTIC',vatRateBasisPoints:null,
+    taxableBaseOre:invoice.totalOre-invoice.vatOre,vatOre:invoice.vatOre,vatAccount:'2641',
+    declarationBaseBox:null,declarationVatBox:'48'
+  }];
+}
+
 function assertSupplierInvoiceCoding(invoice){
   const validated=Domain.validateCoding({totalOre:invoice.totalOre,lines:invoice.coding});
   const hash=Domain.codingHash(validated.lines);
   if(!invoice.codingSha256||hash!==invoice.codingSha256)throw flowError('Den sparade konteringen stämmer inte längre med den attesterade konteringen.','CODING_CHANGED_AFTER_APPROVAL',409);
   const liabilityNet=validated.lines.filter(line=>line.account==='2440').reduce((sum,line)=>sum+line.creditOre-line.debitOre,0);
   if(liabilityNet!==invoice.totalOre)throw flowError('Konteringen måste kreditera konto 2440 med hela fakturabeloppet.','INVALID_SUPPLIER_LIABILITY_CODING');
-  const vatNet=validated.lines.filter(line=>line.account==='2641').reduce((sum,line)=>sum+line.debitOre-line.creditOre,0);
-  if(vatNet!==invoice.vatOre)throw flowError('Konteringen måste bokföra fakturans ingående moms på konto 2641.','INVALID_INPUT_VAT_CODING');
+  const vatLines=validated.lines.filter(line=>line.account==='2641');
+  const vatNet=vatLines.reduce((sum,line)=>sum+line.debitOre-line.creditOre,0),vatMovement=vatLines.reduce((sum,line)=>sum+line.debitOre+line.creditOre,0);
+  if(vatNet!==invoice.vatOre||vatMovement!==invoice.vatOre)throw flowError('Konteringen måste bokföra exakt fakturans ingående moms som debet på konto 2641.','INVALID_INPUT_VAT_CODING');
   const costNet=validated.lines.filter(line=>!['2440','2641'].includes(line.account)).reduce((sum,line)=>sum+line.debitOre-line.creditOre,0);
   if(costNet!==invoice.totalOre-invoice.vatOre)throw flowError('Kostnadskonteringens nettobelopp stämmer inte med fakturans belopp exklusive moms.','INVALID_COST_CODING');
   return validated;
@@ -74,7 +84,8 @@ function postSupplierInvoice(db,{companyId,invoiceId,actorId}){
       sourceId:invoice.id,
       createdBy:actorId,
       series:'B',
-      lines:validated.lines
+      lines:validated.lines,
+      vatEvidence:supplierVatEvidence(invoice)
     });
     if(posted.duplicate)throw flowError('Journalen innehåller redan fakturaverifikationen utan motsvarande idempotenspost.','SUPPLIER_ACCOUNTING_INTEGRITY_ERROR',500);
     const postedAt=nowIso();
@@ -136,4 +147,4 @@ function confirmSupplierPayment(db,{companyId,paymentId,confirmationReference,po
   });
 }
 
-module.exports=Object.freeze({initializeSupplierAccounting,operationBySource,accountingStatus,assertSupplierInvoiceCoding,postSupplierInvoice,paymentForConfirmation,confirmSupplierPayment});
+module.exports=Object.freeze({initializeSupplierAccounting,operationBySource,accountingStatus,supplierVatEvidence,assertSupplierInvoiceCoding,postSupplierInvoice,paymentForConfirmation,confirmSupplierPayment});
