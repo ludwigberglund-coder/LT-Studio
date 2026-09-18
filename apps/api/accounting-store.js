@@ -50,8 +50,96 @@ function initializeAccountingStore(db){db.exec(`
   ) STRICT;
   CREATE INDEX IF NOT EXISTS idx_accounting_entries_company_date ON accounting_entries(company_id,posting_date,series,sequence);
 `)}
-function validateLines(lines){if(!Array.isArray(lines)||lines.length<2)throw accountingError('Verifikationen måste innehålla minst två rader.','INVALID_ENTRY');let debit=0,credit=0;const normalized=lines.map((line,index)=>{const account=text(line?.account);const debitOre=Number(line?.debitOre||0),creditOre=Number(line?.creditOre||0);if(!/^\d{4}$/.test(account))throw accountingError(`Rad ${index+1} har ogiltigt konto.`,'INVALID_ACCOUNT');if(!Number.isSafeInteger(debitOre)||!Number.isSafeInteger(creditOre)||debitOre<0||creditOre<0||(debitOre===0&&creditOre===0)||(debitOre>0&&creditOre>0))throw accountingError(`Rad ${index+1} har ogiltigt belopp.`,'INVALID_ENTRY_AMOUNT');debit+=debitOre;credit+=creditOre;return{account,text:text(line?.text).slice(0,240),debitOre,creditOre}});if(debit!==credit||debit<=0)throw accountingError('Verifikationen måste balansera i debet och kredit.','UNBALANCED_ENTRY');return{lines:normalized,debitOre:debit,creditOre:credit}}
+function validateLines(lines) {
+  if (!Array.isArray(lines) || lines.length < 2 || lines.length > 1000) {
+    throw accountingError('Verifikationen m\u00e5ste inneh\u00e5lla 2\u20131 000 rader.', 'INVALID_ENTRY');
+  }
+  let debit = 0n, credit = 0n;
+  const normalized = lines.map((line, index) => {
+    const account = text(line?.account);
+    const debitOre = line?.debitOre ?? 0, creditOre = line?.creditOre ?? 0;
+    if (!/^\d{4}$/.test(account)) throw accountingError(`Rad ${index + 1} har ogiltigt konto.`, 'INVALID_ACCOUNT');
+    if (!Number.isSafeInteger(debitOre) || !Number.isSafeInteger(creditOre) || debitOre < 0 || creditOre < 0 ||
+        (debitOre === 0 && creditOre === 0) || (debitOre > 0 && creditOre > 0)) {
+      throw accountingError(`Rad ${index + 1} har ogiltigt belopp.`, 'INVALID_ENTRY_AMOUNT');
+    }
+    debit += BigInt(debitOre);
+    credit += BigInt(creditOre);
+    return {account, text: text(line?.text).slice(0, 240), debitOre, creditOre};
+  });
+  if (debit > BigInt(Number.MAX_SAFE_INTEGER) || credit > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw accountingError('Verifikationens totalbelopp \u00e4r f\u00f6r stort f\u00f6r s\u00e4ker \u00f6resber\u00e4kning.', 'ENTRY_TOTAL_TOO_LARGE');
+  }
+  if (debit !== credit || debit <= 0n) throw accountingError('Verifikationen m\u00e5ste balansera i debet och kredit.', 'UNBALANCED_ENTRY');
+  return {lines: normalized, debitOre: Number(debit), creditOre: Number(credit)};
+}
+
+// A nested savepoint never commits a caller's transaction. On a failed write,
+// both the sequence and every line are rolled back, even without an outer transaction.
+function atomicPosting(db, callback) {
+  const savepoint = `accounting_post_${crypto.randomBytes(12).toString('hex')}`;
+  db.exec(`SAVEPOINT ${savepoint}`);
+  try {
+    const result = callback();
+    db.exec(`RELEASE SAVEPOINT ${savepoint}`);
+    return result;
+  } catch (error) {
+    // Some I/O errors make SQLite roll back the whole transaction itself.
+    // Preserve the original error if the savepoint no longer exists.
+    try { db.exec(`ROLLBACK TO SAVEPOINT ${savepoint}`); } catch {}
+    try { db.exec(`RELEASE SAVEPOINT ${savepoint}`); } catch {}
+    throw error;
+  }
+}
+
+function verifyRetry(existing, requested, validated) {
+  let stored;
+  try { stored = validateLines(existing.lines); }
+  catch { throw accountingError('Den befintliga verifikationen \u00e4r ofullst\u00e4ndig eller obalanserad. Granskning kr\u00e4vs.', 'STORED_ENTRY_INTEGRITY_ERROR', 409); }
+  if (existing.number !== `${existing.series}${existing.sequence}` || existing.fiscalYear !== existing.postingDate.slice(0, 4)) {
+    throw accountingError('Den befintliga verifikationens nummer eller r\u00e4kenskaps\u00e5r \u00e4r inkonsekvent.', 'STORED_ENTRY_INTEGRITY_ERROR', 409);
+  }
+  if (existing.postingDate !== requested.postingDate || existing.series !== requested.series ||
+      existing.description !== requested.description || JSON.stringify(stored.lines) !== JSON.stringify(validated.lines)) {
+    throw accountingError('K\u00e4llan \u00e4r redan bokf\u00f6rd med andra uppgifter. Ingen ny bokf\u00f6ring gjordes. Kontrollera originalet och anv\u00e4nd r\u00e4ttelsefl\u00f6det.', 'IDEMPOTENCY_CONFLICT', 409);
+  }
+}
+
 function entryBySource(db,companyId,sourceType,sourceId){const row=db.prepare(`SELECT id,company_id AS companyId,fiscal_year AS fiscalYear,series,sequence,number,posting_date AS postingDate,description,source_type AS sourceType,source_id AS sourceId,created_by AS createdBy,created_at AS createdAt FROM accounting_entries WHERE company_id=? AND source_type=? AND source_id=?`).get(companyId,sourceType,sourceId);if(!row)return null;return{...row,lines:db.prepare(`SELECT line_number AS lineNumber,account,line_text AS text,debit_ore AS debitOre,credit_ore AS creditOre FROM accounting_entry_lines WHERE entry_id=? ORDER BY line_number`).all(row.id)}}
-function postEntry(db,input){const companyId=text(input?.companyId),postingDate=text(input?.postingDate),description=text(input?.description),sourceType=text(input?.sourceType),sourceId=text(input?.sourceId),createdBy=text(input?.createdBy),series=text(input?.series||'A').toUpperCase();if(!companyId||!createdBy||!sourceType||!sourceId)throw accountingError('Företag, användare och källreferens krävs.','INVALID_ENTRY');if(!validDate(postingDate))throw accountingError('Bokföringsdatumet är ogiltigt.','INVALID_POSTING_DATE');if(description.length<3||description.length>240)throw accountingError('Verifikationstexten måste vara 3–240 tecken.','INVALID_DESCRIPTION');if(!/^[A-Z][A-Z0-9]{0,3}$/.test(series))throw accountingError('Verifikationsserien är ogiltig.','INVALID_SERIES');const existing=entryBySource(db,companyId,sourceType,sourceId);if(existing)return{entry:existing,duplicate:true};const period=postingDate.slice(0,7);const periodRow=db.prepare(`SELECT status FROM accounting_periods WHERE company_id=? AND period=?`).get(companyId,period);if(periodRow?.status==='locked')throw accountingError(`Bokföringsperioden ${period} är låst.`,'PERIOD_LOCKED',409);const validated=validateLines(input.lines);const year=postingDate.slice(0,4);const sequenceRow=db.prepare(`SELECT last_number AS lastNumber FROM accounting_sequences WHERE company_id=? AND series=? AND fiscal_year=?`).get(companyId,series,year);const sequence=Number(sequenceRow?.lastNumber||0)+1;if(sequenceRow)db.prepare(`UPDATE accounting_sequences SET last_number=? WHERE company_id=? AND series=? AND fiscal_year=?`).run(sequence,companyId,series,year);else db.prepare(`INSERT INTO accounting_sequences(company_id,series,fiscal_year,last_number) VALUES(?,?,?,?)`).run(companyId,series,year,sequence);const entryId=id('entry'),number=`${series}${sequence}`,createdAt=new Date().toISOString();db.prepare(`INSERT INTO accounting_entries(id,company_id,fiscal_year,series,sequence,number,posting_date,description,source_type,source_id,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`).run(entryId,companyId,year,series,sequence,number,postingDate,description,sourceType,sourceId,createdBy,createdAt);const stmt=db.prepare(`INSERT INTO accounting_entry_lines(entry_id,line_number,account,line_text,debit_ore,credit_ore) VALUES(?,?,?,?,?,?)`);validated.lines.forEach((line,index)=>stmt.run(entryId,index+1,line.account,line.text,line.debitOre,line.creditOre));return{entry:entryBySource(db,companyId,sourceType,sourceId),duplicate:false}}
+function postEntry(db, input) {
+  const companyId = text(input?.companyId), postingDate = text(input?.postingDate), description = text(input?.description);
+  const sourceType = text(input?.sourceType), sourceId = text(input?.sourceId), createdBy = text(input?.createdBy);
+  const series = text(input?.series || 'A').toUpperCase();
+  if (!companyId || !createdBy || !sourceType || !sourceId) throw accountingError('F\u00f6retag, anv\u00e4ndare och k\u00e4llreferens kr\u00e4vs.', 'INVALID_ENTRY');
+  if (!validDate(postingDate)) throw accountingError('Bokf\u00f6ringsdatumet \u00e4r ogiltigt.', 'INVALID_POSTING_DATE');
+  if (description.length < 3 || description.length > 240) throw accountingError('Verifikationstexten m\u00e5ste vara 3\u2013240 tecken.', 'INVALID_DESCRIPTION');
+  if (!/^[A-Z][A-Z0-9]{0,3}$/.test(series)) throw accountingError('Verifikationsserien \u00e4r ogiltig.', 'INVALID_SERIES');
+  const validated = validateLines(input.lines);
+  return atomicPosting(db, () => {
+    const existing = entryBySource(db, companyId, sourceType, sourceId);
+    if (existing) {
+      verifyRetry(existing, {postingDate, description, series}, validated);
+      return {entry: existing, duplicate: true};
+    }
+    const period = postingDate.slice(0, 7);
+    const periodRow = db.prepare('SELECT status FROM accounting_periods WHERE company_id=? AND period=?').get(companyId, period);
+    if (periodRow?.status === 'locked') throw accountingError(`Bokf\u00f6ringsperioden ${period} \u00e4r l\u00e5st.`, 'PERIOD_LOCKED', 409);
+    const year = postingDate.slice(0, 4);
+    const sequenceRow = db.prepare('SELECT last_number AS lastNumber FROM accounting_sequences WHERE company_id=? AND series=? AND fiscal_year=?').get(companyId, series, year);
+    const lastNumber = sequenceRow?.lastNumber ?? 0;
+    if (!Number.isSafeInteger(lastNumber) || lastNumber < 0 || lastNumber >= Number.MAX_SAFE_INTEGER) {
+      throw accountingError('Verifikationsserien kan inte r\u00e4knas upp s\u00e4kert.', 'INVALID_SEQUENCE', 409);
+    }
+    const sequence = lastNumber + 1;
+    if (sequenceRow) db.prepare('UPDATE accounting_sequences SET last_number=? WHERE company_id=? AND series=? AND fiscal_year=?').run(sequence, companyId, series, year);
+    else db.prepare('INSERT INTO accounting_sequences(company_id,series,fiscal_year,last_number) VALUES(?,?,?,?)').run(companyId, series, year, sequence);
+    const entryId = id('entry'), number = `${series}${sequence}`, createdAt = new Date().toISOString();
+    db.prepare(`INSERT INTO accounting_entries(id,company_id,fiscal_year,series,sequence,number,posting_date,description,source_type,source_id,created_by,created_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`).run(entryId, companyId, year, series, sequence, number, postingDate, description, sourceType, sourceId, createdBy, createdAt);
+    const statement = db.prepare('INSERT INTO accounting_entry_lines(entry_id,line_number,account,line_text,debit_ore,credit_ore) VALUES(?,?,?,?,?,?)');
+    validated.lines.forEach((line, index) => statement.run(entryId, index + 1, line.account, line.text, line.debitOre, line.creditOre));
+    return {entry: entryBySource(db, companyId, sourceType, sourceId), duplicate: false};
+  });
+}
 function listEntries(db,companyId,{limit=200}={}){const safe=Math.max(1,Math.min(1000,Number(limit)||200));return db.prepare(`SELECT id,fiscal_year AS fiscalYear,series,sequence,number,posting_date AS postingDate,description,source_type AS sourceType,source_id AS sourceId,created_by AS createdBy,created_at AS createdAt FROM accounting_entries WHERE company_id=? ORDER BY posting_date DESC,series DESC,sequence DESC LIMIT ?`).all(companyId,safe)}
 module.exports=Object.freeze({initializeAccountingStore,validateLines,entryBySource,postEntry,listEntries,validDate});
