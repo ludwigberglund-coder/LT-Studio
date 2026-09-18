@@ -24,8 +24,13 @@ async function api(path,options={}){
   let response;
   try{response=await fetch(`/api/v1${path}`,{credentials:'same-origin',cache:'no-store',signal:AbortSignal.timeout(15000),...options,headers,body:options.body?JSON.stringify(options.body):undefined});}
   catch{throw new Error('Servern kunde inte n\u00e5s. Dina \u00e4ndringar finns kvar. Kontrollera anslutningen och h\u00e4mta serverns senaste utkast innan du f\u00f6rs\u00f6ker igen.');}
-  const data=await response.json().catch(()=>({}));
+  let data;
+  try{data=await response.json();}
+  catch{throw new Error('Serverns svar kunde inte bekr\u00e4ftas. Dina \u00e4ndringar finns kvar. Kontrollera senaste sparade utkast innan n\u00e4sta f\u00f6rs\u00f6k.');}
   if(!response.ok){const e=new Error(data.error||'Beg\u00e4ran misslyckades.');e.code=data.code;throw e;}
+  if(path.startsWith('/website/cms')&&(!data?.state?.draft?.site?.hero||!data.state.draft.company?.contact||!data.state.published?.site||!Array.isArray(data.revisions))){
+    throw new Error('Servern gav ett ofullst\u00e4ndigt svar. Dina \u00e4ndringar finns kvar. Kontrollera senaste sparade utkast innan n\u00e4sta f\u00f6rs\u00f6k.');
+  }
   return data;
 }
 async function loadJson(path){const r=await fetch(path,{cache:'no-store'});if(!r.ok)throw new Error(`Kunde inte läsa ${path}`);return r.json()}
@@ -56,6 +61,13 @@ async function previewDraft(){
 async function publish(){if(isDemo){demoSave();const stamp=new Date().toISOString(),version=Number(cms.published.version||0)+1;snapshots[version]={site:clone(cms.draft.site),company:clone(cms.draft.company)};cms.published={site:clone(cms.draft.site),company:clone(cms.draft.company),version,publishedBy:'demo-user',publishedAt:stamp};revisions.unshift({id:`demo-${version}`,version,publishedBy:'demo-user',publishedAt:stamp});saveDemoState();message=`Demoversion ${version} publicerades lokalt. Ingen GitHub-fil eller verklig webbplats ändrades.`;render();return}await saveDraft();const data=await api('/website/cms/publish',{method:'POST',body:{expectedRevision:cms.draft.revision,expectedPublishedVersion:cms.published.version}});cms=data.state;revisions=data.revisions||[];message=data.message;errorMessage='';render()}
 async function restore(version){if(isDemo){const snapshot=snapshots[version];if(!snapshot)throw new Error('Den valda demoversionen saknar sparat innehåll.');cms.draft={...cms.draft,site:clone(snapshot.site),company:clone(snapshot.company),updatedAt:new Date().toISOString(),updatedBy:'demo-user'};saveDemoState();message=`Version ${version} återställdes som utkast. Den publicerade demoversionen ändrades inte.`;errorMessage='';render();return}const data=await api(`/website/cms/revisions/${encodeURIComponent(version)}/restore`,{method:'POST',body:{expectedRevision:cms.draft.revision}});cms=data.state;message=data.message;errorMessage='';render()}
 async function boot(){try{if(isDemo){session={user:{displayName:'Demoanvändare'}};const saved=JSON.parse(localStorage.getItem(DEMO_KEY)||'null');if(saved?.cms){cms=saved.cms;revisions=saved.revisions||[];snapshots=saved.snapshots||{}}else{const [site,company]=await Promise.all([loadJson('../content/site.json'),loadJson('../content/company.json')]);const stamp=new Date().toISOString();cms={draft:{site:clone(site),company:clone(company),updatedAt:stamp,updatedBy:'demo-user'},published:{site:clone(site),company:clone(company),version:0,publishedBy:null,publishedAt:null}};revisions=[];snapshots={}}render();return}const state=await api('/session');if(!state.authenticated){location.href='./index.html';return}session=state;const data=await api('/website/cms');cms=data.state;revisions=data.revisions||[];render()}catch(error){app.innerHTML=`<main class="boot"><strong>Kunde inte ladda webbplats-CMS</strong><span>${esc(error.message)}</span></main>`}}
+async function reloadDraft(){
+  if(isDemo){await boot();dirty=false;return;}
+  // Apply only a complete successful response. runUI keeps the old form on failure.
+  const data=await api('/website/cms');
+  cms=data.state;revisions=data.revisions;dirty=false;
+  message='Senaste sparade utkastet h\u00e4mtades.';errorMessage='';
+}
 async function runUI(action){
   if(busy)return;
   busy=true;
@@ -73,7 +85,7 @@ document.addEventListener('click',event=>{
   const action=event.target.closest('[data-action]')?.dataset.action;
   if(action==='preview')void runUI(previewDraft);
   if(action==='publish')void runUI(publish);
-  if(action==='reload'&&(!dirty||confirm('H\u00e4mta serverns senaste utkast? Dina osparade \u00e4ndringar i den h\u00e4r fliken ers\u00e4tts.'))){dirty=false;message='Senaste sparade utkastet h\u00e4mtades.';errorMessage='';void boot();}
+  if(action==='reload'&&(!dirty||confirm('H\u00e4mta serverns senaste utkast? Dina osparade \u00e4ndringar i den h\u00e4r fliken ers\u00e4tts.'))){void runUI(reloadDraft);}
   const version=event.target.closest('[data-restore]')?.dataset.restore;
   if(version&&(!dirty||confirm('Ers\u00e4tta osparade \u00e4ndringar med valt historiskt utkast?')))void runUI(async()=>{await restore(Number(version));dirty=false;});
 });

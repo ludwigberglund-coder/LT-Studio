@@ -63,3 +63,35 @@ test('draft revision schema migration is repeatable and preserves existing conte
   assert.equal(migrated.draft.revision,1);assert.deepEqual(migrated.draft.site,before.draft.site);assert.deepEqual(migrated.published,before.published);
   Cms.initializeWebsiteCms(f.db);assert.equal(Cms.state(f.db,f.a.id).draft.revision,1);
 }));
+
+test('private PDF response supports international file names without unsafe response headers',()=>run(async f=>{
+  const Payables=require('../apps/api/payables.js');
+  const name='faktura-\u6e2c\u8a66-\u00e5\u00e4\u00f6.pdf';
+  Payables.storeDocument(f.db,{companyId:f.a.id,invoiceId:f.payable.id,name,bytes:f.pdf});
+  const response=await fetch(f.base+'/api/v1/payables/invoices/'+f.payable.id+'/document',{headers:await f.login()});
+  assert.equal(response.status,200);
+  const disposition=response.headers.get('content-disposition');
+  assert.match(disposition,/^inline; filename="invoice\.pdf"; filename\*=UTF-8''/);
+  assert.equal(decodeURIComponent(disposition.split("UTF-8''")[1]),name);
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()),f.pdf);
+}));
+
+test('changed supplier PDF bytes cannot be served or approved using an old fingerprint',()=>run(async f=>{
+  const Payables=require('../apps/api/payables.js');
+  Payables.saveCoding(f.db,{companyId:f.a.id,invoiceId:f.payable.id,lines:[
+    {account:'5460',text:'Test',debitOre:100000,creditOre:0},
+    {account:'2641',text:'VAT',debitOre:25000,creditOre:0},
+    {account:'2440',text:'Payable',debitOre:0,creditOre:125000}
+  ]});
+  // Test-only corruption: keep the old digest while changing the PDF bytes.
+  f.db.prepare('UPDATE supplier_invoices SET document_blob=? WHERE id=?').run(Buffer.concat([f.pdf,Buffer.from('\n% changed')]),f.payable.id);
+  const response=await fetch(f.base+'/api/v1/payables/invoices/'+f.payable.id+'/document',{headers:await f.login()});
+  assert.equal(response.status,409);
+  const body=await response.json();assert.equal(body.code,'DOCUMENT_INTEGRITY_ERROR');
+  assert.doesNotMatch(JSON.stringify(body),/%PDF|document_blob|SELECT|\.js:/);
+  Db.addMembership(f.db,{companyId:f.a.id,userId:f.auditor.id,roles:['approver']});
+  const approval=await json(f.base,'/api/v1/payables/invoices/'+f.payable.id+'/approve',await f.login(f.auditor.username),'POST',{});
+  assert.equal(approval.res.status,409);assert.equal(approval.data.code,'DOCUMENT_INTEGRITY_ERROR');
+  assert.equal(Payables.invoiceById(f.db,f.a.id,f.payable.id).status,'coded');
+  assert.equal(Db.auditForCompany(f.db,f.a.id).filter(x=>x.action==='SUPPLIER_INVOICE_APPROVED').length,0);
+}));

@@ -13,15 +13,12 @@ const Cms=require('../apps/api/website-cms.js');
   const checks=[],errors=[];
   try{
     // Use the real headed PDF viewer in CI (under Xvfb), not headless-shell.
-    browser=await chromium.launch({headless:false,...(process.env.ROLLANDS_CHROMIUM_PATH?{executablePath:process.env.ROLLANDS_CHROMIUM_PATH}:{}),args:['--no-sandbox']});
+    browser=await chromium.launch({headless:false,chromiumSandbox:true});
     context=await browser.newContext({viewport:{width:1440,height:1000}});
     await context.addInitScript(()=>{
       window.__cspFailures=[];
       document.addEventListener('securitypolicyviolation',e=>window.__cspFailures.push(e.violatedDirective));
-      // Observe exactly the Blob produced by the real button; do not replace its bytes or URL.
-      window.__pdfOutputs=[];
-      const original=URL.createObjectURL.bind(URL);
-      URL.createObjectURL=blob=>{const url=original(blob);if(blob.type==='application/pdf')window.__pdfOutputs.push({url,blob});return url;};
+
     });
     context.on('page',p=>{p.on('pageerror',e=>errors.push(e.message));p.on('dialog',d=>d.accept());});
     page=await context.newPage();
@@ -56,6 +53,19 @@ const Cms=require('../apps/api/website-cms.js');
     assert.match(await page.locator('.cms-message.error').innerText(),/finns kvar/);
     await page.screenshot({path:path.join(out,'private-cms-network-error.png')});
     await page.unroute('**/api/v1/website/cms/draft');checks.push('Network failure retains unsaved form and displays readable error');
+    // Reload must not discard the form until a replacement has actually arrived.
+    await page.route('**/api/v1/website/cms',route=>route.abort('internetdisconnected'));
+    await page.getByRole('button',{name:'H\u00e4mta senaste sparade',exact:true}).click();
+    await page.locator('.cms-message.error').waitFor();
+    assert.equal(await page.locator('#hero-title').inputValue(),'Arbete som inte f\u00e5r f\u00f6rsvinna');
+    assert.match(await page.locator('#cms-dirty').innerText(),/Osparade/);
+    await page.unroute('**/api/v1/website/cms');checks.push('Failed reload keeps unsaved form and dirty state');
+    // A broken upstream response must not destroy state or report a successful save.
+    await page.route('**/api/v1/website/cms/draft',route=>route.fulfill({status:200,contentType:'application/json',body:'{}'}));
+    await page.getByRole('button',{name:'Spara utkast',exact:true}).click();
+    await page.waitForFunction(()=>document.querySelector('.cms-message.error')?.textContent.includes('ofullst'));
+    assert.equal(await page.locator('#hero-title').inputValue(),'Arbete som inte f\u00e5r f\u00f6rsvinna');
+    await page.unroute('**/api/v1/website/cms/draft');checks.push('Incomplete success response does not erase input or claim it saved');
     // Simulate a different tab saving while the first form is still open.
     const current=Cms.state(f.db,f.a.id);
     const headers=await f.login();
@@ -77,7 +87,10 @@ const Cms=require('../apps/api/website-cms.js');
     await page.locator('iframe.pdf-frame').waitFor();
     await pdfResponse;
     await page.locator('iframe.pdf-frame').scrollIntoViewIfNeeded();
-    const src=await page.locator('iframe.pdf-frame').getAttribute('src');assert.ok(src.endsWith(f.payable.id+'/document'));
+    const src=await page.locator('iframe.pdf-frame').getAttribute('src');
+    const documentUrl=new URL(src,f.base);
+    assert.ok(documentUrl.pathname.endsWith(f.payable.id+'/document'));
+    assert.equal(documentUrl.hash,'#page=1&view=FitH&navpanes=0');
     const original=await context.request.get(f.base+src);assert.equal(original.status(),200);assert.deepEqual(await original.body(),f.pdf);
     assert.deepEqual(await page.evaluate(()=>window.__cspFailures),[]);
     fs.writeFileSync(path.join(out,'private-supplier-original.pdf'),await original.body());
@@ -86,10 +99,11 @@ const Cms=require('../apps/api/website-cms.js');
     await page.goto(f.base+'/portal/invoices.html');
     await page.locator(`[data-preview="${f.issued.invoice.id}"]`).click();
     const [pdfTab]=await Promise.all([page.waitForEvent('popup'),page.getByRole('button',{name:'\u00d6ppna faktura PDF',exact:true}).click()]);
-    await page.waitForFunction(()=>window.__pdfOutputs.length===1);
-    const blobUrl=await page.evaluate(()=>window.__pdfOutputs[0].url);
-    await pdfTab.waitForURL(url=>url.href===blobUrl,{waitUntil:'commit'});
-    const bytes=await page.evaluate(async()=>Array.from(new Uint8Array(await window.__pdfOutputs[0].blob.arrayBuffer())));
+    await pdfTab.waitForURL(url=>url.protocol==='blob:',{waitUntil:'commit'});
+    const blobUrl=pdfTab.url();
+    assert.ok(blobUrl.startsWith('blob:'+f.base+'/'));
+    // Read the actual same-origin output after the button opens it. No API or URL overrides.
+    const bytes=await page.evaluate(async url=>{const response=await fetch(url);if(!response.ok)throw new Error('PDF output was not readable');return Array.from(new Uint8Array(await response.arrayBuffer()));},blobUrl);
     await pdfTab.waitForTimeout(800);
     await pdfTab.screenshot({path:path.join(out,'private-customer-pdf-view.png')});
     const pdf=await PDFDocument.load(Uint8Array.from(bytes));assert.ok(pdf.getPageCount()>=1);
