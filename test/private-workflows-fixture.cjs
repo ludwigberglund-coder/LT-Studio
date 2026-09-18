@@ -46,15 +46,18 @@ async function fixture(){
   const issued=Db.transaction(db,()=>Invoicing.issueInvoice(db,{companyId:a.id,userId:admin.id,payload:{...input,requestId:'private-pdf-browser-test-001'},profile:{legalName:a.legalName,orgNumber:a.orgNumber,vatNumber:'SE559900100101',address:{full:'Testgatan 1, Teststad'},contact:{email:'info@example.invalid'},invoice:{}}}));
   await new Promise(resolve=>runtime.server.listen(0,'127.0.0.1',resolve));
   const base=`http://127.0.0.1:${runtime.server.address().port}`;
+  const loginCache=new Map();
   async function login(username=admin.username){
+    if(loginCache.has(username))return loginCache.get(username);
     const target=Db.userByUsername(db,username);
     if(!target)throw new Error('Test user missing');
-    const now=Date.now(),current=Math.floor(now/1000/30);
-    const offset=[1,0,-1].find(value=>!db.prepare('SELECT 1 FROM mfa_used_steps WHERE user_id=? AND totp_counter=?').get(target.id,current+value));
-    if(offset===undefined)throw new Error('No unused MFA test window remains');
-    const response=await fetch(base+'/api/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password:PASSWORD,totp:Auth.totpCode(MFA,now+offset*30000)})});
+    const now=Date.now();
+    const response=await fetch(base+'/api/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password:PASSWORD,totp:Auth.totpCode(MFA,now+30000)})});
     if(response.status!==200)throw new Error(`Test login failed (${response.status})`);
-    const data=await response.json();return{Cookie:response.headers.get('set-cookie').split(';')[0],'X-CSRF-Token':data.csrfToken,'Content-Type':'application/json'};
+    const data=await response.json();
+    const headers={Cookie:response.headers.get('set-cookie').split(';')[0],'X-CSRF-Token':data.csrfToken,'Content-Type':'application/json'};
+    loginCache.set(username,headers);
+    return headers;
   }
   return{runtime,db,a,b,admin,auditor,other,pdf,payable,otherPayable,issued,customer,base,login,MFA,PASSWORD,close:()=>new Promise(resolve=>runtime.close(resolve))};
 }
