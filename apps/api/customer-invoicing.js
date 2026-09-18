@@ -28,10 +28,27 @@ function initializeCustomerInvoicing(db){
       created_at TEXT NOT NULL,
       PRIMARY KEY(company_id,request_id)
     ) STRICT;
+    CREATE TABLE IF NOT EXISTS customer_invoice_credits(
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      request_id TEXT NOT NULL,
+      original_invoice_id TEXT NOT NULL REFERENCES invoices(id) ON DELETE RESTRICT,
+      credit_invoice_id TEXT NOT NULL REFERENCES invoices(id) ON DELETE RESTRICT,
+      reason TEXT NOT NULL,
+      created_by TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY(company_id,request_id),
+      UNIQUE(company_id,original_invoice_id),
+      UNIQUE(company_id,credit_invoice_id)
+    ) STRICT;
     CREATE INDEX IF NOT EXISTS idx_customer_invoice_documents_company ON customer_invoice_documents(company_id,created_at);
+    CREATE TRIGGER IF NOT EXISTS tenant_customer_invoice_credits_insert BEFORE INSERT ON customer_invoice_credits
+      WHEN NOT EXISTS(SELECT 1 FROM invoices WHERE id=NEW.original_invoice_id AND company_id=NEW.company_id)
+        OR NOT EXISTS(SELECT 1 FROM invoices WHERE id=NEW.credit_invoice_id AND company_id=NEW.company_id)
+      BEGIN SELECT RAISE(ABORT,'TENANT_RELATION_VIOLATION'); END;
   `);
   protectAppendOnly(db,'customer_invoice_documents');
   protectAppendOnly(db,'customer_invoice_issue_requests');
+  protectAppendOnly(db,'customer_invoice_credits');
   // Settlement status may change; the issued invoice's financial identity may not.
   const fields=['customer_id','invoice_number','ocr','invoice_date','posting_date','due_date','total_ore','vat_ore','invoice_account','payment_account','payment_method','created_at'];
   db.exec(`CREATE TRIGGER IF NOT EXISTS history_issued_invoice_core BEFORE UPDATE ON invoices
@@ -96,7 +113,8 @@ function invoiceBundle(db,companyId,invoiceId){
   const invoice=Db.invoiceById(db,companyId,invoiceId);
   if(!invoice)return null;
   const stored=documentForInvoice(db,companyId,invoiceId);
-  return{invoice,document:stored?.document||null,documentSha256:stored?.documentSha256||null,entry:Accounting.entryBySource(db,companyId,'customer-invoice',invoiceId)};
+  const entry=Accounting.entryBySource(db,companyId,'customer-invoice',invoiceId)||Accounting.entryBySource(db,companyId,'customer-credit-note',invoiceId);
+  return{invoice,document:stored?.document||null,documentSha256:stored?.documentSha256||null,entry};
 }
 function validateRequestId(value){const id=text(value);if(!/^[A-Za-z0-9_-]{16,100}$/.test(id))throw invoiceError('En giltig idempotensnyckel krävs för fakturautställning.','INVALID_INVOICE_REQUEST_ID',422);return id}
 function resolvedProfile(db,companyId,publicProfile={}){return InvoiceSettings.privateProfile(db,companyId,publicProfile)}
@@ -132,4 +150,74 @@ function issueInvoice(db,{companyId,userId,payload,profile}){
   Db.appendAudit(db,{companyId,userId,action:'CUSTOMER_INVOICE_ISSUED',entityType:'invoice',entityId:invoice.id,details:{invoiceNumber,journalNumber:posted.entry.number,customerNumber:customer.customerNumber,totalOre:document.totalOre,vatOre:document.vatOre,documentSha256}});
   return{...invoiceBundle(db,companyId,invoice.id),duplicate:false};
 }
-module.exports=Object.freeze({initializeCustomerInvoicing,customerByNumber,nextInvoiceNumber,profileStatus,resolvedProfile,listCustomerInvoices,documentForInvoice,invoiceBundle,issueInvoice,validateRequestId});
+
+function assertCreditDate(value){
+  const date=text(value);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date))throw invoiceError('Kreditdatum måste anges som ÅÅÅÅ-MM-DD.','INVALID_CREDIT_DATE',422);
+  const parsed=new Date(date+'T00:00:00Z');
+  if(Number.isNaN(parsed.valueOf())||parsed.toISOString().slice(0,10)!==date)throw invoiceError('Kreditdatum är inte ett giltigt kalenderdatum.','INVALID_CREDIT_DATE',422);
+  return date;
+}
+function creditDocumentFrom(original,invoiceNumber,creditDate,reason){
+  const document=structuredClone(original);
+  const negate=value=>Number.isSafeInteger(Number(value))?-Number(value):value;
+  document.schemaVersion=Math.max(Number(document.schemaVersion||0),3);
+  document.documentType='KREDITFAKTURA';
+  document.invoiceNumber=invoiceNumber;
+  document.ocr=invoiceNumber;
+  document.invoiceDate=creditDate;
+  document.postingDate=creditDate;
+  document.dueDate=creditDate;
+  document.paymentTermsDays=0;
+  document.creditOfInvoiceNumber=String(original.invoiceNumber||'');
+  document.creditReason=reason;
+  document.lines=(document.lines||[]).map(row=>({...row,unitPriceOre:negate(row.unitPriceOre),netOre:negate(row.netOre),vatOre:negate(row.vatOre),grossOre:negate(row.grossOre)}));
+  for(const key of ['netOre','vatOre','totalOre','roundingOre','freightOre','administrationOre'])document[key]=negate(document[key]);
+  document.vatBreakdown=(document.vatBreakdown||[]).map(row=>({...row,netOre:negate(row.netOre),vatOre:negate(row.vatOre)}));
+  document.notes=[text(original.notes),`Krediterar faktura ${original.invoiceNumber}. ${reason}`].filter(Boolean).join('\n');
+  document.demo=false;
+  return document;
+}
+function creditUnpaidInvoice(db,{companyId,userId,invoiceId,payload}){
+  const requestId=validateRequestId(payload?.requestId);
+  const prior=db.prepare('SELECT original_invoice_id AS originalInvoiceId,credit_invoice_id AS creditInvoiceId FROM customer_invoice_credits WHERE company_id=? AND request_id=?').get(companyId,requestId);
+  if(prior){
+    if(prior.originalInvoiceId!==invoiceId)throw invoiceError('Idempotensnyckeln är redan använd för en annan faktura.','CREDIT_IDEMPOTENCY_CONFLICT',409);
+    const existing=invoiceBundle(db,companyId,prior.creditInvoiceId);
+    if(!existing)throw invoiceError('Tidigare krediteringsbegäran saknar kreditfaktura.','CREDIT_IDEMPOTENCY_CORRUPT',500);
+    return{...existing,duplicate:true};
+  }
+  const original=Db.invoiceById(db,companyId,invoiceId);
+  if(!original)throw invoiceError('Fakturan hittades inte i det inloggade företaget.','INVOICE_NOT_FOUND',404);
+  if(original.totalOre<=0)throw invoiceError('En kreditfaktura kan inte krediteras med detta flöde.','CREDIT_SOURCE_INVALID',409);
+  const existingCredit=db.prepare('SELECT credit_invoice_id AS creditInvoiceId FROM customer_invoice_credits WHERE company_id=? AND original_invoice_id=?').get(companyId,invoiceId);
+  if(existingCredit)throw invoiceError('Fakturan är redan krediterad.','INVOICE_ALREADY_CREDITED',409);
+  const transactions=Db.transactionsForInvoice(db,companyId,invoiceId).filter(row=>row.approved!==false);
+  if(original.remainingOre!==original.totalOre||transactions.length)throw invoiceError('Endast en helt obetald faktura utan registrerade transaktioner kan helkrediteras i denna pilotversion.','CREDIT_REQUIRES_UNPAID_INVOICE',409);
+  const reason=text(payload?.reason);
+  if(reason.length<5||reason.length>500)throw invoiceError('Ange en tydlig orsak på 5–500 tecken.','CREDIT_REASON_REQUIRED',422);
+  const creditDate=assertCreditDate(payload?.creditDate);
+  const stored=documentForInvoice(db,companyId,invoiceId);
+  if(!stored)throw invoiceError('Fakturans arkiverade originalunderlag saknas. Krediteringen stoppades.','INVOICE_DOCUMENT_REQUIRED',409);
+  const originalEntry=Accounting.entryBySource(db,companyId,'customer-invoice',invoiceId);
+  if(!originalEntry)throw invoiceError('Fakturans ursprungsverifikation saknas. Krediteringen stoppades.','INVOICE_ACCOUNTING_ENTRY_REQUIRED',409);
+  const receivableLines=originalEntry.lines.filter(line=>line.account==='1510');
+  const bookedReceivableOre=receivableLines.reduce((sum,line)=>sum+Number(line.debitOre||0)-Number(line.creditOre||0),0);
+  if(!receivableLines.length||bookedReceivableOre!==original.totalOre){
+    throw invoiceError('Fakturans kundfordringspost kan inte verifieras. Krediteringen stoppades.','INVOICE_ACCOUNTING_MISMATCH',409);
+  }
+  const invoiceNumber=nextInvoiceNumber(db,companyId);
+  const document=creditDocumentFrom(stored.document,invoiceNumber,creditDate,reason);
+  const creditInvoice=Db.createInvoice(db,{companyId,customerId:original.customerId,invoiceNumber,ocr:invoiceNumber,invoiceDate:creditDate,postingDate:creditDate,dueDate:creditDate,totalOre:-original.totalOre,remainingOre:0,vatOre:-original.vatOre,status:'Kreditfaktura',paymentMethod:original.paymentMethod,paymentAccount:original.paymentAccount,invoiceAccount:'1510'});
+  const posted=Accounting.postEntry(db,{companyId,postingDate:creditDate,description:`Kreditfaktura ${invoiceNumber} av ${original.invoiceNumber}`.slice(0,240),sourceType:'customer-credit-note',sourceId:creditInvoice.id,createdBy:userId,series:'F',lines:originalEntry.lines.map(line=>({account:line.account,text:`Kreditering av ${original.invoiceNumber}: ${line.text||originalEntry.description}`,debitOre:line.creditOre,creditOre:line.debitOre}))});
+  const createdAt=new Date().toISOString();
+  db.prepare('UPDATE invoices SET remaining_ore=0,status=?,updated_at=? WHERE company_id=? AND id=?').run('Krediterad',createdAt,companyId,original.id);
+  db.prepare('UPDATE invoices SET journal_number=?,updated_at=? WHERE company_id=? AND id=?').run(posted.entry.number,createdAt,companyId,creditInvoice.id);
+  const documentJson=JSON.stringify(document),documentSha256=crypto.createHash('sha256').update(documentJson).digest('hex');
+  db.prepare('INSERT INTO customer_invoice_documents(invoice_id,company_id,document_json,document_sha256,created_at) VALUES(?,?,?,?,?)').run(creditInvoice.id,companyId,documentJson,documentSha256,createdAt);
+  db.prepare('INSERT INTO customer_invoice_credits(company_id,request_id,original_invoice_id,credit_invoice_id,reason,created_by,created_at) VALUES(?,?,?,?,?,?,?)').run(companyId,requestId,original.id,creditInvoice.id,reason,userId,createdAt);
+  Db.appendAudit(db,{companyId,userId,action:'CUSTOMER_INVOICE_CREDITED',entityType:'invoice',entityId:original.id,details:{originalInvoiceNumber:original.invoiceNumber,creditInvoiceId:creditInvoice.id,creditInvoiceNumber:invoiceNumber,journalNumber:posted.entry.number,reason,documentSha256}});
+  return{...invoiceBundle(db,companyId,creditInvoice.id),duplicate:false,original:Db.invoiceById(db,companyId,original.id)};
+}
+
+module.exports=Object.freeze({initializeCustomerInvoicing,customerByNumber,nextInvoiceNumber,profileStatus,resolvedProfile,listCustomerInvoices,documentForInvoice,invoiceBundle,issueInvoice,creditUnpaidInvoice,creditDocumentFrom,validateRequestId});

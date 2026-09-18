@@ -7,6 +7,7 @@ const Auth=require('../apps/api/auth.js');
 const Db=require('../apps/api/database.js');
 const Accounting=require('../apps/api/accounting-store.js');
 const Invoicing=require('../apps/api/customer-invoicing.js');
+const Reports=require('../apps/api/reports.js');
 const InvoiceSettings=require('../apps/api/company-invoice-settings.js');
 const {createApiApp}=require('../apps/api/app.js');
 
@@ -24,7 +25,7 @@ async function withApi(callback,{configureInvoiceSettings=true}={}){
   const co2=Db.createCompany(db,{legalName:'Annat Bolag AB',displayName:'Annat',orgNumber:'559100-0002'});
   const password='Sakert fakturatest losenord 2026!';
   const user=Db.createUser(db,{username:'faktura.test',displayName:'Faktura Test',passwordHash:Auth.hashPassword(password),mfaSecretEncrypted:Auth.encryptSecret(MFA,KEY)});
-  Db.addMembership(db,{companyId:co1.id,userId:user.id,roles:['sales']});
+  Db.addMembership(db,{companyId:co1.id,userId:user.id,roles:['accountant']});
   if(configureInvoiceSettings)InvoiceSettings.setInvoiceSettings(db,{companyId:co1.id,bankgiro:'123-4567',taxStatus:'Godkänd för F-skatt',updatedBy:user.id});
   const c1=Db.createCustomer(db,{companyId:co1.id,customerNumber:'K-100',name:'Kund Ett AB',orgNumber:'559200-0001',email:'kund@example.se',address:{full:'Kundgatan 2, Göteborg'},customerType:'business'});
   const c2=Db.createCustomer(db,{companyId:co2.id,customerNumber:'K-200',name:'Kund Två AB',address:{full:'Annan gata 1'},customerType:'business'});
@@ -135,3 +136,65 @@ test('publika demovärden kan inte låsa upp fakturering utan privata inställni
   assert.equal(response.status,409);
   assert.equal(body.code,'INVOICE_PRIVATE_SETTINGS_MISSING');
 },{configureInvoiceSettings:false}));
+
+
+test('obetald kundfaktura kan helkrediteras atomiskt med omvänd moms och kundfordran',async()=>withApi(async({base,password,db,co1})=>{
+  const signed=await login(base,password),headers={Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken};
+  const issuedResponse=await fetch(base+'/api/v1/customer-invoices',{method:'POST',headers,body:JSON.stringify(invoicePayload('invoice-request-credit-source-01'))});
+  const issued=await issuedResponse.json();
+  assert.equal(issuedResponse.status,201);
+  const creditPayload={requestId:'credit-request-unpaid-0001',creditDate:'2026-09-18',reason:'Felaktig fakturering, hela fakturan ska krediteras.'};
+  const response=await fetch(base+`/api/v1/customer-invoices/${issued.invoice.id}/credit`,{method:'POST',headers,body:JSON.stringify(creditPayload)});
+  const credited=await response.json();
+  assert.equal(response.status,201);
+  assert.equal(credited.document.documentType,'KREDITFAKTURA');
+  assert.equal(credited.document.creditOfInvoiceNumber,issued.invoice.invoiceNumber);
+  assert.equal(credited.invoice.totalOre,-125000);
+  assert.equal(credited.invoice.vatOre,-25000);
+  assert.equal(credited.invoice.remainingOre,0);
+  assert.equal(credited.invoice.status,'Kreditfaktura');
+  assert.equal(credited.original.remainingOre,0);
+  assert.equal(credited.original.status,'Krediterad');
+  const entry=Accounting.entryBySource(db,co1.id,'customer-credit-note',credited.invoice.id);
+  assert.ok(entry);
+  assert.equal(entry.lines.filter(row=>row.account==='1510').reduce((sum,row)=>sum+row.creditOre-row.debitOre,0),125000);
+  assert.equal(entry.lines.filter(row=>row.account==='3051').reduce((sum,row)=>sum+row.debitOre-row.creditOre,0),100000);
+  assert.equal(entry.lines.filter(row=>row.account==='2611').reduce((sum,row)=>sum+row.debitOre-row.creditOre,0),25000);
+  const original=Invoicing.invoiceBundle(db,co1.id,issued.invoice.id);
+  assert.equal(original.invoice.remainingOre,0);
+  const vatChecks=Reports.customerVatSourceChecks(db,co1.id,{from:'2026-09-01',to:'2026-09-30'});
+  assert.equal(vatChecks.length,2);
+  assert.ok(vatChecks.every(row=>row.differenceOre===0));
+  assert.ok(Db.auditForCompany(db,co1.id).some(event=>event.action==='CUSTOMER_INVOICE_CREDITED'&&event.entityId===issued.invoice.id));
+  const retry=await fetch(base+`/api/v1/customer-invoices/${issued.invoice.id}/credit`,{method:'POST',headers,body:JSON.stringify(creditPayload)});
+  const retryBody=await retry.json();
+  assert.equal(retry.status,200);
+  assert.equal(retryBody.duplicate,true);
+  assert.equal(retryBody.invoice.id,credited.invoice.id);
+  assert.equal(Accounting.listEntries(db,co1.id).filter(row=>row.sourceType==='customer-credit-note').length,1);
+  const otherIssuedResponse=await fetch(base+'/api/v1/customer-invoices',{method:'POST',headers,body:JSON.stringify(invoicePayload('invoice-request-credit-source-02'))});
+  const otherIssued=await otherIssuedResponse.json();
+  assert.equal(otherIssuedResponse.status,201);
+  const conflict=await fetch(base+`/api/v1/customer-invoices/${otherIssued.invoice.id}/credit`,{method:'POST',headers,body:JSON.stringify(creditPayload)});
+  const conflictBody=await conflict.json();
+  assert.equal(conflict.status,409);
+  assert.equal(conflictBody.code,'CREDIT_IDEMPOTENCY_CONFLICT');
+}));
+
+test('helkreditering stoppar delbetald faktura och lämnar originalet oförändrat',async()=>withApi(async({base,password,db,co1})=>{
+  const signed=await login(base,password),headers={Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken};
+  const issuedResponse=await fetch(base+'/api/v1/customer-invoices',{method:'POST',headers,body:JSON.stringify(invoicePayload('invoice-request-credit-partial-01'))});
+  const issued=await issuedResponse.json();
+  assert.equal(issuedResponse.status,201);
+  Db.transaction(db,()=>{
+    Db.addInvoiceTransaction(db,{companyId:co1.id,invoiceId:issued.invoice.id,transactionType:'payment',paymentMethod:'Bankgiro',paymentDate:'2026-09-18',postingDate:'2026-09-18',amountOre:-25000,approved:true,account:'1930',bankReference:'partial-credit-test-01'});
+    db.prepare('UPDATE invoices SET remaining_ore=?,status=?,updated_at=? WHERE company_id=? AND id=?').run(100000,'Delbetald',new Date().toISOString(),co1.id,issued.invoice.id);
+  });
+  const response=await fetch(base+`/api/v1/customer-invoices/${issued.invoice.id}/credit`,{method:'POST',headers,body:JSON.stringify({requestId:'credit-request-partial-0001',creditDate:'2026-09-18',reason:'Försök att kreditera delbetald faktura.'})});
+  const body=await response.json();
+  assert.equal(response.status,409);
+  assert.equal(body.code,'CREDIT_REQUIRES_UNPAID_INVOICE');
+  const original=Invoicing.invoiceBundle(db,co1.id,issued.invoice.id);
+  assert.equal(original.invoice.remainingOre,100000);
+  assert.equal(Accounting.listEntries(db,co1.id).filter(row=>row.sourceType==='customer-credit-note').length,0);
+}));
