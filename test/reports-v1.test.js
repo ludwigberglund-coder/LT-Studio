@@ -48,7 +48,6 @@ test('obokförda fakturaregisterbelopp får inte styra momsbeloppet i rapporten'
 }finally{db.close()}});
 
 test('momsavstämningen flaggar när en fakturas sparade moms och dess bokförda moms skiljer sig',()=>{const {db,company}=seed();try{
-  db.exec('DROP TRIGGER history_invoices_update');
   db.prepare("UPDATE invoices SET vat_ore=24000 WHERE company_id=? AND invoice_number='1001'").run(company.id);
   const r=Reports.vatControl(db,company.id,{period:'2026-09'});
   assert.equal(r.integrityOk,false);
