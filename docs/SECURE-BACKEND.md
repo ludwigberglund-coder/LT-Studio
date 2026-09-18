@@ -32,13 +32,15 @@ Lösenord lagras inte som vanlig text. Servern använder `scrypt` med separat sl
 
 Roller som kan utföra kritiska åtgärder kräver flerfaktorsautentisering. TOTP-hemligheten krypteras med AES-256-GCM innan den lagras.
 
-Krypteringsnyckeln kommer från servermiljön och ska aldrig läggas i GitHub.
+Krypteringsnyckeln kommer från servermiljön och ska aldrig läggas i GitHub. Ett godkänt TOTP-tidssteg förbrukas i databasen och kan därför inte återanvändas för en andra inloggning.
 
 ### Serverlagrade sessioner
 
 Efter inloggning får webbläsaren en slumpmässig sessionsnyckel i en `HttpOnly`-cookie.
 
 Databasen lagrar endast hashvärdet av sessionsnyckeln. Cookien använder `SameSite=Strict` och i skarp drift `Secure`.
+
+Pilotpolicyn har två tidsgränser: 60 minuters inaktivitet och högst 8 timmar från inloggningen. Aktivitet kan förlänga inaktivitetsgränsen men aldrig den absoluta sluttiden. En äldre databas migreras fail-closed genom att befintlig sessions sluttid också blir dess absoluta sluttid.
 
 ### CSRF-skydd
 
