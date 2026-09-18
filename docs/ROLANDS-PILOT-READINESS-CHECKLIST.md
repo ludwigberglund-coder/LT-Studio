@@ -22,14 +22,14 @@ Senast granskad: 2026-09-18. Företag: Rolands Frukt o Grönt Aktiebolag, 556406
 | Aktuella momssatser, tidpunkt och klassificering | ❌ Inte klar | Livsmedel 6 %, restaurangtjänst 12 %, kredit över skatteändring och övriga fall måste verifieras. |
 | Fakturadatum, förfallodatum, separat bokföringsdatum | 🟡 Delvis klar | Fält finns åtskilda. PR 66 låser ursprungliga datum när kundfakturans underlag arkiverats. PDF, leveransdatum och riktiga backendflöden ska verifieras tillsammans. |
 | Återanvändning av kunddata och inget artikelnummerkrav | 🟡 Delvis klar | Backend hämtar köpare från kundregister; betalningsvillkor/referenser och hela UAT behöver kompletteras. |
-| PDF-visning i pilotens attest/fakturering | ❌ Inte klar | Reproducerade asset/CSP-problem skiljer sig från det statiska demot. |
+| PDF-visning i pilotens attest/fakturering | 🟡 Delvis klar | Privat vendor-resurs, iframe och objektbehörighet rättade. HTTP-/browserbevis finns i PRIVATE-RUNTIME-AND-PREVIEW.md; full visuell UAT och exakt PDF-arkivering återstår. |
 | Kundfordringar, leverantörsskulder, ingående balanser | ❌ Inte klar | Normalflöden finns men full avstämning, import och källanknutna rättelser saknar pilotbevis. |
 | Lokalt tekniskt backup-/restore-verktyg | 🟡 Delvis klar | PR 64 har utökad verifiering och verkliga CLI-prov. PR 66 verifierar även befintliga journalförseglingar. Det är inte ett helt återställningsprov av driftmiljön. |
 | Krypterad extern backup, retention och larm | ❌ Inte klar | Inget verifierat leverantörs-/konfigurationsbevis. |
 | Arkivering av original och långsiktig läsbarhet | ❌ Inte klar | Arkivplan, exakt utfärdat underlag, export/återläsning och avtal återstår. |
 | Health/readiness, driftlogg och fungerande larm | ❌ Inte klar | Teknisk grund finns men disk-/DB-/timeout- och larmscenarier saknas. |
 | Secrets-hantering och historikskanning | 🟡 Delvis klar | Platshållare i exempelkonfiguration; snapshot-skanning utan tydliga tokenfynd. Full Git-historik och faktisk drift måste kontrolleras. |
-| Miljöspärr och separation demo/pilot/produktion | ❌ Inte klar | Förkontroll finns men är inte bindande startspärr; demo kan väljas på pilotserver. |
+| Miljöspärr och separation demo/pilot/produktion | 🟡 Delvis klar | PR 67: bindande startkontroll, privata lagringssökvägar, servernekat demo-query och inga demo-/legacyhjälpfiler. Granskning av befintliga data och verklig drift återstår. |
 | Betalningsöversikt dag/vecka/månad/kvartal | 🟡 Delvis klar | Delvyer finns; en konsekvent filtrerad privat översikt ska sluttestas. |
 | Filtrerad Excel-kompatibel export | ❌ Inte klar | Fullständighet, samma filter som vyn och formelinjektionsskydd återstår att verifiera. |
 | Arbetslista och begriplig återkoppling | 🟡 Delvis klar | Flera vyer finns; godkänd får inte kallas bokförd, fel får inte döljas som nollvärden. |
@@ -37,6 +37,10 @@ Senast granskad: 2026-09-18. Företag: Rolands Frukt o Grönt Aktiebolag, 556406
 | Rolands nio UAT-scenarier mot pilotserver | ❌ Inte klar | Befintliga demo- och kodtester ersätter inte ett signerat pilot-UAT. |
 | K2/K3, momsperiod och bolagsspecifika inställningar | ❌ Inte klar | Målinställningar finns; faktisk årsredovisning och registrerad redovisningsperiod ska styrkas. |
 | Driftansvarig, dataskydd, support och pilotstopp | ❌ Inte klar | Ansvar, avtal, återgång och incidentrutin ska beslutas innan riktiga data används. |
+
+## Webbplatsutkast och privat förhandsvisning
+
+Den privata CMS-vägen har versionskontroll och atomisk audit-loggning. Sparande ändrar inte publicerat innehåll; förhandsvisningen använder serverdata efter behörighetskontroll. Publicering i CMS är inte anslutning till extern webbdrift. Se [kontroller och begränsningar](PRIVATE-RUNTIME-AND-PREVIEW.md).
 
 ## Godkännande av nästa steg
 

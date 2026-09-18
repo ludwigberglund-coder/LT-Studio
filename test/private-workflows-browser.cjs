@@ -8,15 +8,23 @@ const {fixture}=require('./private-workflows-fixture.cjs');
 const Auth=require('../apps/api/auth.js');
 const Cms=require('../apps/api/website-cms.js');
 (async()=>{
-  const f=await fixture();let browser;
+  const f=await fixture();let browser,context,page;
   const out=path.resolve(__dirname,'..','test-artifacts');fs.mkdirSync(out,{recursive:true});
   const checks=[],errors=[];
   try{
-    browser=await chromium.launch({headless:true,...(process.env.ROLLANDS_CHROMIUM_PATH?{executablePath:process.env.ROLLANDS_CHROMIUM_PATH}:{}),args:['--no-sandbox']});
-    const context=await browser.newContext({viewport:{width:1440,height:1000}});
-    await context.addInitScript(()=>{window.__cspFailures=[];document.addEventListener('securitypolicyviolation',e=>window.__cspFailures.push(e.violatedDirective));});
+    // Use the real headed PDF viewer in CI (under Xvfb), not headless-shell.
+    browser=await chromium.launch({headless:false,...(process.env.ROLLANDS_CHROMIUM_PATH?{executablePath:process.env.ROLLANDS_CHROMIUM_PATH}:{}),args:['--no-sandbox']});
+    context=await browser.newContext({viewport:{width:1440,height:1000}});
+    await context.addInitScript(()=>{
+      window.__cspFailures=[];
+      document.addEventListener('securitypolicyviolation',e=>window.__cspFailures.push(e.violatedDirective));
+      // Observe exactly the Blob produced by the real button; do not replace its bytes or URL.
+      window.__pdfOutputs=[];
+      const original=URL.createObjectURL.bind(URL);
+      URL.createObjectURL=blob=>{const url=original(blob);if(blob.type==='application/pdf')window.__pdfOutputs.push({url,blob});return url;};
+    });
     context.on('page',p=>{p.on('pageerror',e=>errors.push(e.message));p.on('dialog',d=>d.accept());});
-    const page=await context.newPage();
+    page=await context.newPage();
     await page.goto(f.base+'/portal/index.html');
     await page.locator('#login-form [name=username]').fill(f.admin.username);
     await page.locator('#login-form [name=password]').fill(f.PASSWORD);
@@ -73,18 +81,27 @@ const Cms=require('../apps/api/website-cms.js');
     const original=await context.request.get(f.base+src);assert.equal(original.status(),200);assert.deepEqual(await original.body(),f.pdf);
     assert.deepEqual(await page.evaluate(()=>window.__cspFailures),[]);
     fs.writeFileSync(path.join(out,'private-supplier-original.pdf'),await original.body());
+    await page.waitForTimeout(800); // Let the native viewer paint before visual review.
     await page.screenshot({path:path.join(out,'private-supplier-pdf-view.png'),fullPage:false});checks.push('Original supplier PDF served byte-exact through private iframe with CSP active');
     await page.goto(f.base+'/portal/invoices.html');
     await page.locator(`[data-preview="${f.issued.invoice.id}"]`).click();
     const [pdfTab]=await Promise.all([page.waitForEvent('popup'),page.getByRole('button',{name:'\u00d6ppna faktura PDF',exact:true}).click()]);
-    await pdfTab.waitForURL('blob:**');
-    const blobUrl=pdfTab.url();
-    const bytes=await page.evaluate(async url=>Array.from(new Uint8Array(await (await fetch(url)).arrayBuffer())),blobUrl);
+    await page.waitForFunction(()=>window.__pdfOutputs.length===1);
+    const blobUrl=await page.evaluate(()=>window.__pdfOutputs[0].url);
+    await pdfTab.waitForURL(url=>url.href===blobUrl,{waitUntil:'commit'});
+    const bytes=await page.evaluate(async()=>Array.from(new Uint8Array(await window.__pdfOutputs[0].blob.arrayBuffer())));
+    await pdfTab.waitForTimeout(800);
+    await pdfTab.screenshot({path:path.join(out,'private-customer-pdf-view.png')});
     const pdf=await PDFDocument.load(Uint8Array.from(bytes));assert.ok(pdf.getPageCount()>=1);
     fs.writeFileSync(path.join(out,'private-customer-output.pdf'),Buffer.from(bytes));await pdfTab.close();
     assert.deepEqual(await page.evaluate(()=>window.__cspFailures),[]);checks.push('Customer PDF button uses real API invoice and local pinned PDF library');
     assert.deepEqual(errors,[]);
     fs.writeFileSync(path.join(out,'private-workflow-results.json'),JSON.stringify({checks,passed:checks.length,pageErrors:errors},null,2));
     console.log(`Private API browser checks passed: ${checks.length}.`);
+  }catch(error){
+    const diagnostic={checks,errors,message:error.message,pages:context?.pages().map(p=>({url:p.url(),frames:p.frames().map(f=>f.url())}))};
+    fs.writeFileSync(path.join(out,'private-workflow-failure.json'),JSON.stringify(diagnostic,null,2));
+    if(page&&!page.isClosed())await page.screenshot({path:path.join(out,'private-workflow-failure.png')}).catch(()=>{});
+    throw error;
   }finally{if(browser)await browser.close();await f.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

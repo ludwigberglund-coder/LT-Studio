@@ -75,7 +75,7 @@ jobs:
       - name: Run complete navigation and invoice browser flow
         run: node test/menu-invoice-browser.cjs
       - name: Run private API PDF and CMS browser flows
-        run: node test/private-workflows-browser.cjs
+        run: xvfb-run -a node test/private-workflows-browser.cjs
       - name: Upload invoice and navigation review artifacts
         if: always()
         uses: actions/upload-artifact@v7
