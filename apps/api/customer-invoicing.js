@@ -32,7 +32,6 @@ function initializeCustomerInvoicing(db){
   `);
   protectAppendOnly(db,'customer_invoice_documents');
   protectAppendOnly(db,'customer_invoice_issue_requests');
-  // Settlement status may change; the issued invoice's financial identity may not.
   const fields=['customer_id','invoice_number','ocr','invoice_date','posting_date','due_date','total_ore','vat_ore','invoice_account','payment_account','payment_method','created_at'];
   db.exec(`CREATE TRIGGER IF NOT EXISTS history_issued_invoice_core BEFORE UPDATE ON invoices
     WHEN EXISTS(SELECT 1 FROM customer_invoice_documents WHERE invoice_id=OLD.id)
@@ -123,8 +122,9 @@ function issueInvoice(db,{companyId,userId,payload,profile}){
     },{invoiceNumber,accounts:[]});
   }catch(error){throw invoiceError(error.message,'INVALID_CUSTOMER_INVOICE',422)}
   document.demo=false;
+  const vatEvidence=Invoice.vatEvidence(document);
   const invoice=Db.createInvoice(db,{companyId,customerId:customer.id,invoiceNumber,ocr:invoiceNumber,invoiceDate:document.invoiceDate,postingDate:document.postingDate,dueDate:document.dueDate,totalOre:document.totalOre,remainingOre:document.totalOre,vatOre:document.vatOre,status:'Bokförd',paymentMethod:'Bankgiro',paymentAccount:readiness.seller.bankgiro,invoiceAccount:'1510'});
-  const posted=Accounting.postEntry(db,{companyId,postingDate:document.postingDate,description:`Kundfaktura ${invoiceNumber} · ${customer.name}`.slice(0,240),sourceType:'customer-invoice',sourceId:invoice.id,createdBy:userId,series:'F',lines:Invoice.journalLines(document)});
+  const posted=Accounting.postEntry(db,{companyId,postingDate:document.postingDate,description:`Kundfaktura ${invoiceNumber} · ${customer.name}`.slice(0,240),sourceType:'customer-invoice',sourceId:invoice.id,createdBy:userId,series:'F',lines:Invoice.journalLines(document),vatEvidence});
   db.prepare('UPDATE invoices SET journal_number=?,updated_at=? WHERE company_id=? AND id=?').run(posted.entry.number,new Date().toISOString(),companyId,invoice.id);
   const documentJson=JSON.stringify(document),documentSha256=crypto.createHash('sha256').update(documentJson).digest('hex'),createdAt=new Date().toISOString();
   db.prepare('INSERT INTO customer_invoice_documents(invoice_id,company_id,document_json,document_sha256,created_at) VALUES(?,?,?,?,?)').run(invoice.id,companyId,documentJson,documentSha256,createdAt);
