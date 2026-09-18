@@ -17,6 +17,13 @@
     {number:'3690',name:'Övriga sidointäkter',vatRates:[25],system:true}
   ];
   const VAT_ACCOUNTS={25:'2611',12:'2621',6:'2631'};
+  const VAT_TREATMENTS=Object.freeze({
+    'se-standard-25':Object.freeze({label:'Övrig vara/tjänst · 25 %',periods:Object.freeze([{from:'2025-01-01',to:'2026-12-31',rate:25}])}),
+    'se-food':Object.freeze({label:'Livsmedel',periods:Object.freeze([{from:'2025-01-01',to:'2026-03-31',rate:12},{from:'2026-04-01',to:'2026-12-31',rate:6}])}),
+    'se-restaurant-12':Object.freeze({label:'Restaurang-/cateringtjänst · 12 %',periods:Object.freeze([{from:'2025-01-01',to:'2026-12-31',rate:12}])})
+  });
+  const VAT_RULES_VERIFIED_AT='2026-09-18';
+  const VAT_RULES_VERIFIED_THROUGH='2026-12-31';
   const INTEREST_TEXT='Efter förfallodagen debiteras dröjsmålsränta enligt räntelagen med referensränta + 8 %enheter.';
   const clone=value=>JSON.parse(JSON.stringify(value));
   function text(value,label,max=500,required=false){
@@ -32,6 +39,15 @@
     const parsed=new Date(`${result}T12:00:00Z`);
     if(!/^\d{4}-\d{2}-\d{2}$/.test(result)||!Number.isFinite(parsed.getTime())||parsed.toISOString().slice(0,10)!==result)throw new Error(`${label} är inte ett giltigt datum.`);
     return result;
+  }
+  function vatTreatmentRate(treatment,invoiceDate){
+    const id=text(treatment,'Momsbehandling',40,true),rule=VAT_TREATMENTS[id];
+    if(!rule)throw new Error('Välj en verifierad typ av försäljning för momsen.');
+    const day=date(invoiceDate,'Fakturadatum');
+    if(day>VAT_RULES_VERIFIED_THROUGH)throw new Error(`Momsreglerna är endast verifierade till och med ${VAT_RULES_VERIFIED_THROUGH}. Uppdatera regelverket innan fakturan bokförs.`);
+    const period=rule.periods.find(row=>row.from<=day&&day<=row.to);
+    if(!period)throw new Error(`Momsregeln för ${rule.label} är inte verifierad för ${day}.`);
+    return period.rate;
   }
   function normalizeVatRates(row){
     const raw=Array.isArray(row.vatRates)?row.vatRates:(row.vatRate!==undefined?[row.vatRate]:[]);
@@ -77,12 +93,21 @@
       if(!lookup.has(revenueAccount))throw new Error(`${label}: välj ett intäktskonto från kontoplanen.`);
       const quantityMilli=Money.parseQuantityMilli(row.quantity,{label:`${label}: antal`});
       const unitPriceOre=Money.parseOre(row.unitPrice,{label:`${label}: à-pris`,allowNegative:false});
-      const vatBasisPoints=Money.parseVatBasisPoints(row.vatRate,{label:`${label}: moms`}),vatRate=vatBasisPoints/100;
-      if(![0,6,12,25].includes(vatRate))throw new Error(`${label}: välj 0, 6, 12 eller 25 % moms.`);
+      const vatTreatment=text(row.vatTreatment,`${label}: typ av försäljning`,40,false);
+      let vatRate;
+      if(vatTreatment){
+        vatRate=vatTreatmentRate(vatTreatment,invoiceDate);
+        if(row.vatRate!==undefined&&String(row.vatRate).trim()!==''&&Number(row.vatRate)!==vatRate)throw new Error(`${label}: momssatsen stämmer inte med vald typ av försäljning och fakturadatum.`);
+      }else{
+        if(options.requireVatTreatment===true)throw new Error(`${label}: välj typ av försäljning så att momssatsen kan verifieras.`);
+        vatRate=Number(row.vatRate);
+      }
+      if(![0,6,12,25].includes(vatRate))throw new Error(`${label}: välj en giltig momssats.`);
+      const vatBasisPoints=Money.parseVatBasisPoints(vatRate,{label:`${label}: moms`});
       if(!lookup.get(revenueAccount).vatRates.includes(vatRate))throw new Error(`${label}: konto ${revenueAccount} får inte användas med ${vatRate} % moms.`);
       const netOre=Money.calculateLine({quantityMilli,unitPriceOre,vatBasisPoints:0}).netOre;
       const vatOre=Money.calculateVatOre(netOre,vatBasisPoints);
-      return {articleNumber:'',description:text(row.description,`${label}: benämning`,1200,true),unit:text(row.unit,`${label}: enhet`,30),quantityMilli,unitPriceOre,discountBasisPoints:0,vatRate,vatBasisPoints,netOre,vatOre,grossOre:Money.sumOre([netOre,vatOre]),revenueAccount,revenueAccountName:lookup.get(revenueAccount).name,kind:['freight','administration'].includes(row.kind)?row.kind:'item'};
+      return {articleNumber:'',description:text(row.description,`${label}: benämning`,1200,true),unit:text(row.unit,`${label}: enhet`,30),quantityMilli,unitPriceOre,discountBasisPoints:0,vatTreatment:vatTreatment||null,vatRate,vatBasisPoints,netOre,vatOre,grossOre:Money.sumOre([netOre,vatOre]),revenueAccount,revenueAccountName:lookup.get(revenueAccount).name,kind:['freight','administration'].includes(row.kind)?row.kind:'item'};
     });
     const netOre=Money.sumOre(lines.map(r=>r.netOre)),vatOre=Money.sumOre(lines.map(r=>r.vatOre)),grossOre=Money.sumOre([netOre,vatOre]);
     const totalOre=Money.roundDivide(grossOre,100)*100; // Öresutjämning sker alltid automatiskt.
@@ -120,5 +145,5 @@
     const vat=Number(record.vatOre||0),total=Number(record.totalOre||0),net=total-vat;
     return {schemaVersion:2,documentType:'FAKTURA',demo:true,invoiceNumber:record.invoiceNumber,ocr:record.invoiceNumber,customerNumber:record.customerNumber,invoiceDate:record.invoiceDate,dueDate:record.dueDate,postingDate:record.postingDate,seller:{name:company.legalName||'Rollands',address:company.address?.full||'',orgNumber:company.orgNumber||'',vatNumber:company.vatNumber||'',phone:company.contact?.phone||'',email:company.contact?.email||'',website:company.website||'',bankgiro:company.invoice?.bankgiro||'',taxStatus:company.invoice?.taxStatus||''},buyer:{name:record.customerName,address:''},currency:'SEK',paymentTermsDays:30,lines:[{description:record.description||'Äldre demopost – detaljerat radunderlag saknas',articleNumber:'',quantityMilli:1000,unit:'',unitPriceOre:net,netOre:net,vatOre:vat,vatRate:record.vatRate??null,discountBasisPoints:0}],netOre:net,vatOre:vat,totalOre:total,roundingOre:0,freightOre:0,administrationOre:0,vatBreakdown:[],interestText:INTEREST_TEXT,warnings:['Äldre demofaktura: fullständiga adress-, betalnings- och radunderlag saknas. Inte för utskick.']};
   }
-  return Object.freeze({DEFAULT_ACCOUNTS,VAT_ACCOUNTS,INTEREST_TEXT,revenueAccounts,accountsForVat,prepare,journalLines,postDemoInvoice,documentFor});
+  return Object.freeze({DEFAULT_ACCOUNTS,VAT_ACCOUNTS,VAT_TREATMENTS,VAT_RULES_VERIFIED_AT,VAT_RULES_VERIFIED_THROUGH,INTEREST_TEXT,vatTreatmentRate,revenueAccounts,accountsForVat,prepare,journalLines,postDemoInvoice,documentFor});
 });
