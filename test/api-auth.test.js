@@ -25,7 +25,9 @@ test('TOTP följer standardalgoritmen och accepterar endast tidsnära kod', () =
   const secret='GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
   const at=59_000;
   assert.equal(Auth.totpCode(secret,at),'287082');
+  assert.equal(Auth.totpMatchCounter(secret,'287082',{now:at,window:0}),1);
   assert.equal(Auth.verifyTotp(secret,'287082',{now:at,window:0}),true);
+  assert.equal(Auth.totpMatchCounter(secret,'287082',{now:at+120_000,window:0}),null);
   assert.equal(Auth.verifyTotp(secret,'287082',{now:at+120_000,window:0}),false);
 });
 
