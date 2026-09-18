@@ -70,31 +70,39 @@
     return value.toISOString().slice(0,10);
   }
 
+  function halfYearEndExclusive(validFrom) {
+    assertIsoDate(validFrom, 'Referensräntans startdatum');
+    if (validFrom.endsWith('-01-01')) return `${validFrom.slice(0,4)}-07-01`;
+    if (validFrom.endsWith('-07-01')) return `${Number(validFrom.slice(0,4)) + 1}-01-01`;
+    throw domainError('En referensränta måste börja den 1 januari eller den 1 juli.', 'INVALID_RATE_CONFIG', 500);
+  }
+
   function rateTable(config) {
     const rows = Array.isArray(config?.referenceRates) ? config.referenceRates : [];
-    const normalized = rows.map(row => ({
-      validFrom: assertIsoDate(row.validFrom, 'Referensräntans startdatum'),
-      basisPoints: Number(row.basisPoints)
-    })).sort((a,b) => a.validFrom.localeCompare(b.validFrom));
+    const normalized = rows.map(row => {
+      const validFrom = assertIsoDate(row.validFrom, 'Referensräntans startdatum');
+      return {
+        validFrom,
+        validToExclusive: halfYearEndExclusive(validFrom),
+        basisPoints: Number(row.basisPoints)
+      };
+    }).sort((a,b) => a.validFrom.localeCompare(b.validFrom));
     if (!normalized.length || normalized.some(row => !Number.isInteger(row.basisPoints))) throw domainError('Referensräntorna är inte korrekt konfigurerade.', 'INVALID_RATE_CONFIG', 500);
+    for (let index = 1; index < normalized.length; index += 1) {
+      if (normalized[index - 1].validFrom === normalized[index].validFrom) throw domainError('Referensräntorna innehåller dubbla halvår.', 'INVALID_RATE_CONFIG', 500);
+    }
     return normalized;
   }
 
   function referenceRateFor(date, config) {
     assertIsoDate(date);
-    const rows = rateTable(config);
-    let selected = null;
-    for (const row of rows) {
-      if (row.validFrom <= date) selected = row;
-      else break;
-    }
-    if (!selected) throw domainError(`Referensränta saknas för ${date}.`, 'MISSING_REFERENCE_RATE', 409);
-    return selected;
+    const row = rateTable(config).find(item => item.validFrom <= date && date < item.validToExclusive);
+    if (!row) throw domainError(`Verifierad referensränta saknas för ${date}.`, 'MISSING_REFERENCE_RATE', 409);
+    return row;
   }
 
   function nextRateBoundary(date, config) {
-    const rows = rateTable(config);
-    return rows.find(row => row.validFrom > date)?.validFrom || null;
+    return referenceRateFor(date, config).validToExclusive;
   }
 
   function roundDividePositive(numerator, denominator) {
@@ -142,6 +150,83 @@
     return {interestOre, days:totalDays, segments};
   }
 
+  function transactionDate(transaction) {
+    const value = transaction?.paymentDate || transaction?.date || transaction?.postingDate || '';
+    return assertIsoDate(value, 'Betalningsdatum');
+  }
+
+  function interestBalanceHistory(invoice, toDate) {
+    assertIsoDate(toDate, 'Räntedatum');
+    const dueDate = assertIsoDate(invoice?.dueDate, 'Förfallodatum');
+    const totalOre = assertOre(invoice?.totalOre, 'Fakturabelopp');
+    if (totalOre <= 0) throw domainError('Dröjsmålsränta kräver ett positivt ursprungligt fakturabelopp.', 'INVALID_INTEREST_INPUT');
+    if (!Array.isArray(invoice?.transactions)) throw domainError('Betalningshistorik saknas. Ränta får inte beräknas på enbart dagens restbelopp.', 'INCOMPLETE_BALANCE_HISTORY', 409);
+
+    const events = [];
+    for (const transaction of invoice.transactions) {
+      if (transaction?.approved === false) continue;
+      const amountOre = assertOre(transaction?.amountOre, 'Transaktionsbelopp');
+      if (amountOre === 0) continue;
+      const type = String(transaction?.transactionType || transaction?.type || '').trim().toLowerCase();
+      if (type !== 'payment' || amountOre > 0) {
+        if (amountOre < 0) throw domainError('Ränteberäkningen innehåller en kredit eller annan saldoförändring som ännu inte stöds säkert.', 'UNSUPPORTED_BALANCE_HISTORY', 409);
+        continue;
+      }
+      events.push({date:transactionDate(transaction), reductionOre:Math.abs(amountOre), transactionId:String(transaction.id || '')});
+    }
+    events.sort((a,b) => a.date.localeCompare(b.date) || a.transactionId.localeCompare(b.transactionId));
+
+    let principalOre = totalOre;
+    for (const event of events) {
+      if (event.date > toDate) continue;
+      principalOre -= event.reductionOre;
+      if (principalOre < 0) throw domainError('Betalningshistoriken ger ett negativt fakturasaldo och måste granskas manuellt.', 'INVALID_BALANCE_HISTORY', 409);
+    }
+    const storedRemainingOre = assertOre(invoice?.remainingOre, 'Restbelopp');
+    const hasLaterPayment = events.some(event => event.date > toDate);
+    if (!hasLaterPayment && storedRemainingOre !== principalOre) {
+      throw domainError('Fakturans restbelopp stämmer inte med den sparade betalningshistoriken. Ränta blockeras tills reskontran är avstämd.', 'BALANCE_HISTORY_MISMATCH', 409);
+    }
+    return Object.freeze({dueDate,totalOre,balanceOre:principalOre,events:Object.freeze(events)});
+  }
+
+  function statutoryInterestForInvoice(invoice, toDate, config) {
+    const history = interestBalanceHistory(invoice, toDate);
+    if (toDate <= history.dueDate || history.totalOre === 0) return {interestOre:0,days:0,segments:[],principalOre:history.balanceOre};
+
+    let principalOre = history.totalOre;
+    const eventsByDate = new Map();
+    for (const event of history.events) {
+      if (event.date > toDate) continue;
+      eventsByDate.set(event.date,(eventsByDate.get(event.date)||0)+event.reductionOre);
+    }
+    for (const [date,reductionOre] of [...eventsByDate.entries()].filter(([date]) => date <= history.dueDate)) {
+      principalOre -= reductionOre;
+      if (principalOre < 0) throw domainError('Betalningshistoriken ger ett negativt saldo före förfallodagen.', 'INVALID_BALANCE_HISTORY', 409);
+    }
+
+    let cursor = history.dueDate;
+    let interestOre = 0;
+    let days = 0;
+    const segments = [];
+    const paymentDates = [...eventsByDate.keys()].filter(date => date > history.dueDate && date <= toDate).sort();
+    const boundaries = [...new Set([...paymentDates,toDate])].sort();
+    for (const boundary of boundaries) {
+      if (boundary > cursor && principalOre > 0) {
+        const part = statutoryInterest(principalOre,cursor,boundary,config);
+        interestOre += part.interestOre;
+        days += part.days;
+        for (const segment of part.segments) segments.push(Object.freeze({...segment,principalOre}));
+      }
+      if (eventsByDate.has(boundary)) {
+        principalOre -= eventsByDate.get(boundary);
+        if (principalOre < 0) throw domainError('Betalningshistoriken ger ett negativt fakturasaldo.', 'INVALID_BALANCE_HISTORY', 409);
+      }
+      cursor = boundary;
+    }
+    return Object.freeze({interestOre,days,segments:Object.freeze(segments),principalOre:history.balanceOre});
+  }
+
   function createInvoiceComment({invoiceId, companyId, actor, text, now = new Date().toISOString()}) {
     if (!nonEmpty(invoiceId) || !nonEmpty(companyId)) throw domainError('Faktura och företag måste vara angivna.', 'MISSING_REFERENCE');
     if (!actor || !nonEmpty(actor.id) || !nonEmpty(actor.name)) throw domainError('Kommentarer kräver en personlig användaridentitet.', 'MISSING_IDENTITY', 401);
@@ -169,15 +254,15 @@
   }
 
   function latestReminderDate(invoice) {
-    const dates = (invoice?.reminders || []).map(item => String(item.sentAt || item.createdAt || '').slice(0,10)).filter(value => /^\d{4}-\d{2}-\d{2}$/.test(value));
+    const dates = (invoice?.reminders || []).map(item => String(item.reminderDate || item.sentAt || item.createdAt || '').slice(0,10)).filter(value => /^\d{4}-\d{2}-\d{2}$/.test(value));
     return dates.sort().at(-1) || '';
   }
 
   function reminderPreview(invoice, options, config) {
     const sentDate = assertIsoDate(options?.sentDate, 'Påminnelsedatum');
     const dueDate = assertIsoDate(invoice?.dueDate, 'Förfallodatum');
-    const remainingOre = assertOre(invoice?.remainingOre, 'Restbelopp');
-    if (remainingOre <= 0) throw domainError('Fakturan har inget positivt restbelopp att påminna om.', 'NOT_OUTSTANDING', 409);
+    const storedRemainingOre = assertOre(invoice?.remainingOre, 'Restbelopp');
+    if (storedRemainingOre <= 0) throw domainError('Fakturan har inget positivt restbelopp att påminna om.', 'NOT_OUTSTANDING', 409);
     if (sentDate <= dueDate) throw domainError('En betalningspåminnelse får skapas först efter förfallodagen i detta arbetsflöde.', 'NOT_OVERDUE');
 
     const feeRequested = options?.includeReminderFee === true;
@@ -187,8 +272,10 @@
     }
     const reminderFeeOre = feeRequested ? assertOre(Number(config?.reminderFeeOre), 'Påminnelseavgift') : 0;
     const interest = options?.includeInterest === false
-      ? {interestOre:0, days:0, segments:[]}
-      : statutoryInterest(remainingOre, dueDate, sentDate, config);
+      ? {interestOre:0,days:0,segments:[],principalOre:storedRemainingOre}
+      : statutoryInterestForInvoice(invoice,sentDate,config);
+    const remainingOre = interest.principalOre;
+    if (remainingOre <= 0) throw domainError('Fakturan var redan slutbetald på påminnelsedatumet.', 'NOT_OUTSTANDING', 409);
 
     const businessCompensation = options?.includeBusinessLatePaymentCompensation === true
       ? assertOre(Number(config?.businessLatePaymentCompensationOre), 'Förseningsersättning')
@@ -221,7 +308,12 @@
       companyId: String(companyId || '').trim(),
       invoiceId: String(invoice.id || '').trim(),
       createdAt: new Date(now).toISOString(),
+      reminderDate: preview.sentDate,
       sentAt: `${preview.sentDate}T12:00:00.000Z`,
+      deliveryStatus: 'not-sent',
+      deliveredAt: null,
+      rateConfigVersion: String(config?.version ?? ''),
+      rateVerifiedAt: String(config?.verifiedAt || ''),
       createdBy: actor.id.trim(),
       createdByName: actor.name.trim(),
       kind: options?.kind === 'escalation' ? 'escalation' : 'payment-reminder',
@@ -288,6 +380,8 @@
     rateTable,
     referenceRateFor,
     statutoryInterest,
+    interestBalanceHistory,
+    statutoryInterestForInvoice,
     createInvoiceComment,
     latestReminderDate,
     reminderPreview,

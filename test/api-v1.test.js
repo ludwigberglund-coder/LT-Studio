@@ -83,7 +83,7 @@ test('påminnelseavgift utan avtal stoppas men lagstadgad ränta kan registreras
   const created=await fetch(`${base}/api/v1/invoices/${inv1.id}/reminders`,{method:'POST',headers,body:JSON.stringify({sentDate:'2026-09-15',includeReminderFee:false,includeInterest:true,note:'Första påminnelsen'})});
   const data=await created.json();
   assert.equal(created.status,201);
-  assert.equal(data.deliveryStatus,'awaiting-mail-integration');
+  assert.equal(data.deliveryStatus,'not-sent');
   assert.equal(data.reminder.reminderFeeOre,0);
   assert.ok(data.reminder.interestOre>0);
   assert.equal(Db.remindersForInvoice(db,co1.id,inv1.id).length,1);
