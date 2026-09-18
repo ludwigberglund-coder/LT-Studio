@@ -30,17 +30,7 @@ const AccountingAdmin = require('./accounting-admin.js');
 const WebsiteCms = require('./website-cms.js');
 
 const repositoryRoot = path.resolve(__dirname,'..','..');
-const portalRoot = path.join(repositoryRoot,'apps','portal');
-const staticMappings = Object.freeze([
-  ['/portal/', portalRoot],
-  ['/config/', path.join(repositoryRoot,'config')],
-  ['/shared/accounting/', path.join(repositoryRoot,'packages','accounting')],
-  ['/shared/access-control/', path.join(repositoryRoot,'packages','access-control')],
-  ['/shared/receivables/', path.join(repositoryRoot,'packages','receivables')],
-  ['/shared/invoicing/', path.join(repositoryRoot,'packages','invoicing')],
-  ['/shared/', path.join(repositoryRoot,'packages','shared','browser')]
-]);
-const staticTypes = Object.freeze({'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'application/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml'});
+const {validateRuntime,demoRequest,resolveStaticRequest,serveStatic} = require('./private-runtime.js');
 
 function normalizeHostname(value) {
   const raw = String(value || '').trim().toLowerCase().replace(/\.$/, '');
@@ -59,38 +49,6 @@ function allowedHost(req, host, configuredAllowedHosts) {
   if (!['0.0.0.0','::'].includes(bound)) allowed.add(bound);
   return allowed.has(requested);
 }
-function staticHeaders(contentType) {
-  return {'Content-Type':contentType,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Referrer-Policy':'same-origin','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"};
-}
-function resolveStaticRequest(requestUrl) {
-  let pathname;
-  try { pathname = decodeURIComponent(new URL(requestUrl,'http://local').pathname); } catch { return null; }
-  if (pathname === '/') return {redirect:'/portal/index.html'};
-  for (const [prefix,root] of staticMappings) {
-    if (!pathname.startsWith(prefix)) continue;
-    const relative = pathname.slice(prefix.length);
-    if (!relative || relative.includes('\0')) return null;
-    const candidate = path.resolve(root,relative);
-    const rootPrefix = `${path.resolve(root)}${path.sep}`;
-    if (!candidate.startsWith(rootPrefix)) return null;
-    let real;
-    try { real=fs.realpathSync(candidate); } catch { return null; }
-    if (!real.startsWith(rootPrefix) || !fs.statSync(real).isFile()) return null;
-    return {file:real};
-  }
-  return null;
-}
-function serveStatic(req,res) {
-  if (!['GET','HEAD'].includes(req.method || 'GET')) return false;
-  const target=resolveStaticRequest(req.url || '/');
-  if (!target) return false;
-  if (target.redirect) { res.writeHead(302,{Location:target.redirect,'Cache-Control':'no-store'});res.end();return true; }
-  const contentType=staticTypes[path.extname(target.file).toLowerCase()] || 'application/octet-stream';
-  res.writeHead(200,staticHeaders(contentType));
-  if (req.method === 'HEAD') { res.end(); return true; }
-  fs.createReadStream(target.file).pipe(res);
-  return true;
-}
 function createServer(options = {}) {
   const host = String(options.host || process.env.ROLLANDS_API_HOST || '127.0.0.1').trim();
   const port = Number(options.port ?? process.env.PORT ?? 4180);
@@ -104,6 +62,7 @@ function createServer(options = {}) {
     if (String(authEncryptionKey).length < 32) throw new Error('ROLLANDS_AUTH_ENCRYPTION_KEY måste vara minst 32 tecken innan API:t exponeras utanför den lokala datorn.');
     if (['0.0.0.0','::'].includes(normalizeHostname(host)) && !configuredAllowedHosts.length) throw new Error('ROLLANDS_ALLOWED_HOSTS måste anges när API:t lyssnar på en jokeradress.');
   }
+  validateRuntime(process.env,{host,databasePath,secureCookies,authEncryptionKey,allowedHosts:configuredAllowedHosts,db:options.db});
   if (databasePath !== ':memory:') fs.mkdirSync(path.dirname(path.resolve(databasePath)),{recursive:true,mode:0o700});
   const db = options.db || Db.openDatabase(databasePath);
   Queues.initializeQueues(db); ReminderOutbox.initializeReminderOutbox(db); Bank.initializeBankPayments(db); Payables.initializePayables(db); SupplierMasterdata.initializeSupplierMasterdata(db); PaymentConfirmation.initializePaymentConfirmation(db); Inventory.initializeInventory(db); Payroll.initializePayroll(db); Documents.initializeDocuments(db); AccountingAdmin.initializeAccountingAdmin(db); WebsiteCms.initializeWebsiteCms(db);
@@ -113,6 +72,7 @@ function createServer(options = {}) {
   require('./tenant-integrity.js').installTenantGuards(db);
   const server = http.createServer(async (req,res) => {
     if (!allowedHost(req,host,configuredAllowedHosts)) { res.writeHead(421,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}); return res.end(JSON.stringify({error:'Värdnamnet är inte tillåtet.',code:'HOST_NOT_ALLOWED'})); }
+    if (demoRequest(req.url || '/')) { res.writeHead(400,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}); return res.end(JSON.stringify({error:'Demoläge är inte tillåtet på den privata servern. Använd den separata demon.',code:'DEMO_DISABLED'})); }
     if (!String(req.url || '').startsWith('/api/v1/')) {
       if (serveStatic(req,res)) return;
       res.writeHead(404,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}); return res.end(JSON.stringify({error:'Hittades inte.',code:'NOT_FOUND'}));
