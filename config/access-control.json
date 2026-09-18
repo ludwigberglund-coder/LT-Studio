@@ -4,471 +4,111 @@
     "defaultDecision": "deny",
     "unknownRole": "deny",
     "requirePersonalAccounts": true,
+    "sessionIdleMinutes": 60,
     "sessionMaxMinutes": 480,
-    "mfaRequiredRoles": [
-      "system-admin",
-      "accountant",
-      "approver",
-      "controller",
-      "sales",
-      "inventory-manager",
-      "payroll-admin"
-    ],
-    "sessionIdleMinutes": 60
+    "mfaRequiredRoles": ["system-admin","accountant","approver","controller","sales","inventory-manager","payroll-admin"]
   },
   "permissions": [
-    {
-      "id": "platform.settings.manage",
-      "label": "Hantera systeminställningar",
-      "category": "Administration",
-      "risk": "critical"
-    },
-    {
-      "id": "users.manage",
-      "label": "Hantera användare och roller",
-      "category": "Administration",
-      "risk": "critical"
-    },
-    {
-      "id": "website.manage",
-      "label": "Hantera webbplatsens innehåll",
-      "category": "Administration",
-      "risk": "write"
-    },
-    {
-      "id": "audit.view",
-      "label": "Läsa revisions- och händelseloggar",
-      "category": "Kontroll",
-      "risk": "read"
-    },
-    {
-      "id": "documents.view",
-      "label": "Läsa företagets dokumentarkiv",
-      "category": "Dokument",
-      "risk": "read"
-    },
-    {
-      "id": "documents.upload",
-      "label": "Lägga till originalunderlag i dokumentarkivet",
-      "category": "Dokument",
-      "risk": "write"
-    },
-    {
-      "id": "accounting.view",
-      "label": "Läsa bokföring och verifikationer",
-      "category": "Bokföring",
-      "risk": "read"
-    },
-    {
-      "id": "accounting.post",
-      "label": "Skapa och bokföra verifikationer",
-      "category": "Bokföring",
-      "risk": "write"
-    },
-    {
-      "id": "accounting.correct",
-      "label": "Skapa rättelse- och motverifikationer",
-      "category": "Bokföring",
-      "risk": "critical"
-    },
-    {
-      "id": "period.lock",
-      "label": "Låsa bokföringsperiod",
-      "category": "Bokföring",
-      "risk": "critical"
-    },
-    {
-      "id": "period.unlock",
-      "label": "Låsa upp bokföringsperiod",
-      "category": "Bokföring",
-      "risk": "critical"
-    },
-    {
-      "id": "customer-invoice.view",
-      "label": "Läsa kundfakturor",
-      "category": "Kundfakturor",
-      "risk": "read"
-    },
-    {
-      "id": "customer-invoice.create",
-      "label": "Skapa kundfakturautkast",
-      "category": "Kundfakturor",
-      "risk": "write"
-    },
-    {
-      "id": "customer-invoice.comment",
-      "label": "Skriva intern fakturakommentar",
-      "category": "Kundfakturor",
-      "risk": "write"
-    },
-    {
-      "id": "customer-invoice.remind",
-      "label": "Skapa betalningspåminnelse och dröjsmålsränta",
-      "category": "Kundfakturor",
-      "risk": "write"
-    },
-    {
-      "id": "customer-invoice.issue",
-      "label": "Utfärda och bokföra kundfakturor",
-      "category": "Kundfakturor",
-      "risk": "critical"
-    },
-    {
-      "id": "customer-invoice.credit",
-      "label": "Utfärda kreditfakturor",
-      "category": "Kundfakturor",
-      "risk": "critical"
-    },
-    {
-      "id": "supplier.view",
-      "label": "Läsa leverantörsregister",
-      "category": "Leverantörer",
-      "risk": "read"
-    },
-    {
-      "id": "supplier.manage",
-      "label": "Hantera leverantörsuppgifter och standardkontering",
-      "category": "Leverantörer",
-      "risk": "write"
-    },
-    {
-      "id": "supplier.bank-account.approve",
-      "label": "Godkänna ändring av leverantörens betalningsuppgifter",
-      "category": "Leverantörer",
-      "risk": "critical"
-    },
-    {
-      "id": "supplier-invoice.view",
-      "label": "Läsa leverantörsfakturor",
-      "category": "Leverantörsfakturor",
-      "risk": "read"
-    },
-    {
-      "id": "supplier-invoice.register",
-      "label": "Registrera leverantörsfakturor",
-      "category": "Leverantörsfakturor",
-      "risk": "write"
-    },
-    {
-      "id": "supplier-invoice.approve",
-      "label": "Attestera leverantörsfakturor",
-      "category": "Leverantörsfakturor",
-      "risk": "critical"
-    },
-    {
-      "id": "payment.view",
-      "label": "Läsa betalningar",
-      "category": "Betalningar",
-      "risk": "read"
-    },
-    {
-      "id": "payment.prepare",
-      "label": "Förbereda betalningar",
-      "category": "Betalningar",
-      "risk": "write"
-    },
-    {
-      "id": "payment.release",
-      "label": "Godkänna och frisläppa betalningar",
-      "category": "Betalningar",
-      "risk": "critical"
-    },
-    {
-      "id": "bank.view",
-      "label": "Läsa bankhändelser",
-      "category": "Bank",
-      "risk": "read"
-    },
-    {
-      "id": "bank.import",
-      "label": "Importera bankfiler",
-      "category": "Bank",
-      "risk": "write"
-    },
-    {
-      "id": "bank.reconcile",
-      "label": "Bokföra och stämma av bankhändelser",
-      "category": "Bank",
-      "risk": "critical"
-    },
-    {
-      "id": "inventory.view",
-      "label": "Läsa lager och inventering",
-      "category": "Lager",
-      "risk": "read"
-    },
-    {
-      "id": "inventory.manage",
-      "label": "Hantera artiklar och lagersaldon",
-      "category": "Lager",
-      "risk": "write"
-    },
-    {
-      "id": "inventory.adjust",
-      "label": "Godkänna svinn och lagerjusteringar",
-      "category": "Lager",
-      "risk": "critical"
-    },
-    {
-      "id": "payroll.view",
-      "label": "Läsa löneunderlag och lönejournal",
-      "category": "Lön",
-      "risk": "read"
-    },
-    {
-      "id": "payroll.import",
-      "label": "Importera och bokföra lönejournal",
-      "category": "Lön",
-      "risk": "critical"
-    },
-    {
-      "id": "reports.view",
-      "label": "Läsa ekonomirapporter",
-      "category": "Rapporter",
-      "risk": "read"
-    },
-    {
-      "id": "reports.export",
-      "label": "Exportera rapporter och SIE",
-      "category": "Rapporter",
-      "risk": "write"
-    }
+    { "id": "platform.settings.manage", "label": "Hantera systeminställningar", "category": "Administration", "risk": "critical" },
+    { "id": "users.manage", "label": "Hantera användare och roller", "category": "Administration", "risk": "critical" },
+    { "id": "website.manage", "label": "Hantera webbplatsens innehåll", "category": "Administration", "risk": "write" },
+    { "id": "audit.view", "label": "Läsa revisions- och händelseloggar", "category": "Kontroll", "risk": "read" },
+    { "id": "documents.view", "label": "Läsa företagets dokumentarkiv", "category": "Dokument", "risk": "read" },
+    { "id": "documents.upload", "label": "Lägga till originalunderlag i dokumentarkivet", "category": "Dokument", "risk": "write" },
+
+    { "id": "accounting.view", "label": "Läsa bokföring och verifikationer", "category": "Bokföring", "risk": "read" },
+    { "id": "accounting.post", "label": "Skapa och bokföra verifikationer", "category": "Bokföring", "risk": "write" },
+    { "id": "accounting.correct", "label": "Skapa rättelse- och motverifikationer", "category": "Bokföring", "risk": "critical" },
+    { "id": "period.lock", "label": "Låsa bokföringsperiod", "category": "Bokföring", "risk": "critical" },
+    { "id": "period.unlock", "label": "Låsa upp bokföringsperiod", "category": "Bokföring", "risk": "critical" },
+
+    { "id": "customer-invoice.view", "label": "Läsa kundfakturor", "category": "Kundfakturor", "risk": "read" },
+    { "id": "customer-invoice.create", "label": "Skapa kundfakturautkast", "category": "Kundfakturor", "risk": "write" },
+    { "id": "customer-invoice.comment", "label": "Skriva intern fakturakommentar", "category": "Kundfakturor", "risk": "write" },
+    { "id": "customer-invoice.remind", "label": "Skapa betalningspåminnelse och dröjsmålsränta", "category": "Kundfakturor", "risk": "write" },
+    { "id": "customer-invoice.issue", "label": "Utfärda och bokföra kundfakturor", "category": "Kundfakturor", "risk": "critical" },
+    { "id": "customer-invoice.credit", "label": "Utfärda kreditfakturor", "category": "Kundfakturor", "risk": "critical" },
+
+    { "id": "supplier.view", "label": "Läsa leverantörsregister", "category": "Leverantörer", "risk": "read" },
+    { "id": "supplier.manage", "label": "Hantera leverantörsuppgifter och standardkontering", "category": "Leverantörer", "risk": "write" },
+    { "id": "supplier.bank-account.approve", "label": "Godkänna ändring av leverantörens betalningsuppgifter", "category": "Leverantörer", "risk": "critical" },
+    { "id": "supplier-invoice.view", "label": "Läsa leverantörsfakturor", "category": "Leverantörsfakturor", "risk": "read" },
+    { "id": "supplier-invoice.register", "label": "Registrera leverantörsfakturor", "category": "Leverantörsfakturor", "risk": "write" },
+    { "id": "supplier-invoice.approve", "label": "Attestera leverantörsfakturor", "category": "Leverantörsfakturor", "risk": "critical" },
+
+    { "id": "payment.view", "label": "Läsa betalningar", "category": "Betalningar", "risk": "read" },
+    { "id": "payment.prepare", "label": "Förbereda betalningar", "category": "Betalningar", "risk": "write" },
+    { "id": "payment.release", "label": "Godkänna och frisläppa betalningar", "category": "Betalningar", "risk": "critical" },
+
+    { "id": "bank.view", "label": "Läsa bankhändelser", "category": "Bank", "risk": "read" },
+    { "id": "bank.import", "label": "Importera bankfiler", "category": "Bank", "risk": "write" },
+    { "id": "bank.reconcile", "label": "Bokföra och stämma av bankhändelser", "category": "Bank", "risk": "critical" },
+
+    { "id": "inventory.view", "label": "Läsa lager och inventering", "category": "Lager", "risk": "read" },
+    { "id": "inventory.manage", "label": "Hantera artiklar och lagersaldon", "category": "Lager", "risk": "write" },
+    { "id": "inventory.adjust", "label": "Godkänna svinn och lagerjusteringar", "category": "Lager", "risk": "critical" },
+
+    { "id": "payroll.view", "label": "Läsa löneunderlag och lönejournal", "category": "Lön", "risk": "read" },
+    { "id": "payroll.import", "label": "Importera och bokföra lönejournal", "category": "Lön", "risk": "critical" },
+
+    { "id": "reports.view", "label": "Läsa ekonomirapporter", "category": "Rapporter", "risk": "read" },
+    { "id": "reports.export", "label": "Exportera rapporter och SIE", "category": "Rapporter", "risk": "write" }
   ],
   "roles": [
     {
       "id": "system-admin",
       "label": "Systemadministratör",
       "description": "Teknisk administration och användarhantering. Rollen ska inte användas för daglig bokföring eller attest.",
-      "permissions": [
-        "platform.settings.manage",
-        "users.manage",
-        "website.manage",
-        "audit.view",
-        "reports.view"
-      ]
+      "permissions": ["platform.settings.manage","users.manage","website.manage","audit.view","reports.view"]
     },
     {
       "id": "accountant",
       "label": "Ekonom",
       "description": "Löpande bokföring, fakturaregistrering, bankavstämning och rapportering utan rätt att ensam frisläppa betalningar.",
-      "permissions": [
-        "audit.view",
-        "documents.view",
-        "documents.upload",
-        "accounting.view",
-        "accounting.post",
-        "accounting.correct",
-        "customer-invoice.view",
-        "customer-invoice.create",
-        "customer-invoice.comment",
-        "customer-invoice.remind",
-        "customer-invoice.issue",
-        "customer-invoice.credit",
-        "supplier.view",
-        "supplier.manage",
-        "supplier-invoice.view",
-        "supplier-invoice.register",
-        "payment.view",
-        "payment.prepare",
-        "bank.view",
-        "bank.import",
-        "bank.reconcile",
-        "inventory.view",
-        "reports.view",
-        "reports.export"
-      ]
+      "permissions": ["audit.view","documents.view","documents.upload","accounting.view","accounting.post","accounting.correct","customer-invoice.view","customer-invoice.create","customer-invoice.comment","customer-invoice.remind","customer-invoice.issue","customer-invoice.credit","supplier.view","supplier.manage","supplier-invoice.view","supplier-invoice.register","payment.view","payment.prepare","bank.view","bank.import","bank.reconcile","inventory.view","reports.view","reports.export"]
     },
     {
       "id": "approver",
       "label": "Attestant",
       "description": "Oberoende attest av leverantörsfakturor, leverantörers betalningsuppgifter och betalningar samt periodlåsning.",
-      "permissions": [
-        "audit.view",
-        "documents.view",
-        "accounting.view",
-        "period.lock",
-        "supplier.view",
-        "supplier.bank-account.approve",
-        "supplier-invoice.view",
-        "supplier-invoice.approve",
-        "payment.view",
-        "payment.release",
-        "bank.view",
-        "reports.view"
-      ]
+      "permissions": ["audit.view","documents.view","accounting.view","period.lock","supplier.view","supplier.bank-account.approve","supplier-invoice.view","supplier-invoice.approve","payment.view","payment.release","bank.view","reports.view"]
     },
     {
       "id": "controller",
       "label": "Ekonomikontrollant",
       "description": "Oberoende kontroll, rättelser, leverantörskontroll och styrning av perioder. Upplåsning kräver separat person enligt arbetsflödet.",
-      "permissions": [
-        "audit.view",
-        "documents.view",
-        "accounting.view",
-        "accounting.correct",
-        "period.lock",
-        "period.unlock",
-        "customer-invoice.view",
-        "customer-invoice.comment",
-        "supplier.view",
-        "supplier.bank-account.approve",
-        "supplier-invoice.view",
-        "payment.view",
-        "bank.view",
-        "inventory.view",
-        "payroll.view",
-        "reports.view",
-        "reports.export"
-      ]
+      "permissions": ["audit.view","documents.view","accounting.view","accounting.correct","period.lock","period.unlock","customer-invoice.view","customer-invoice.comment","supplier.view","supplier.bank-account.approve","supplier-invoice.view","payment.view","bank.view","inventory.view","payroll.view","reports.view","reports.export"]
     },
     {
       "id": "sales",
       "label": "Försäljning och kassa",
       "description": "Kundfakturor och kunddialog utan åtkomst till leverantörsattest, löner eller periodupplåsning.",
-      "permissions": [
-        "customer-invoice.view",
-        "customer-invoice.create",
-        "customer-invoice.comment",
-        "customer-invoice.remind",
-        "customer-invoice.issue",
-        "payment.view",
-        "reports.view"
-      ]
+      "permissions": ["customer-invoice.view","customer-invoice.create","customer-invoice.comment","customer-invoice.remind","customer-invoice.issue","payment.view","reports.view"]
     },
     {
       "id": "inventory-manager",
       "label": "Lageransvarig",
       "description": "Artiklar, inventering, svinn och inköpsrelaterad registrering.",
-      "permissions": [
-        "documents.view",
-        "documents.upload",
-        "supplier.view",
-        "supplier.manage",
-        "supplier-invoice.view",
-        "supplier-invoice.register",
-        "inventory.view",
-        "inventory.manage",
-        "inventory.adjust",
-        "reports.view"
-      ]
+      "permissions": ["documents.view","documents.upload","supplier.view","supplier.manage","supplier-invoice.view","supplier-invoice.register","inventory.view","inventory.manage","inventory.adjust","reports.view"]
     },
     {
       "id": "payroll-admin",
       "label": "Löneansvarig",
       "description": "Löneunderlag och lönejournal med avgränsad åtkomst till övrig ekonomi.",
-      "permissions": [
-        "audit.view",
-        "accounting.view",
-        "payroll.view",
-        "payroll.import",
-        "reports.view"
-      ]
+      "permissions": ["audit.view","accounting.view","payroll.view","payroll.import","reports.view"]
     },
     {
       "id": "auditor",
       "label": "Revisor / läsbehörig granskare",
       "description": "Skrivskyddad insyn i ekonomin och full åtkomst till revisionsunderlag.",
-      "permissions": [
-        "audit.view",
-        "documents.view",
-        "accounting.view",
-        "customer-invoice.view",
-        "supplier.view",
-        "supplier-invoice.view",
-        "payment.view",
-        "bank.view",
-        "inventory.view",
-        "payroll.view",
-        "reports.view",
-        "reports.export"
-      ]
+      "permissions": ["audit.view","documents.view","accounting.view","customer-invoice.view","supplier.view","supplier-invoice.view","payment.view","bank.view","inventory.view","payroll.view","reports.view","reports.export"]
     }
   ],
   "workflows": [
-    {
-      "id": "supplier-invoice-approval",
-      "label": "Leverantörsfaktura: registrering och attest",
-      "requiredPermission": "supplier-invoice.approve",
-      "distinctActors": true,
-      "fields": [
-        {
-          "id": "registeredBy",
-          "label": "Registrerad av"
-        },
-        {
-          "id": "approvedBy",
-          "label": "Attesterad av"
-        }
-      ],
-      "reason": "Den som registrerar leverantörsfakturan får inte ensam attestera samma faktura."
-    },
-    {
-      "id": "supplier-bank-change",
-      "label": "Leverantör: ändring och godkännande av betalningsuppgifter",
-      "requiredPermission": "supplier.bank-account.approve",
-      "distinctActors": true,
-      "fields": [
-        {
-          "id": "requestedBy",
-          "label": "Ändring begärd av"
-        },
-        {
-          "id": "approvedBy",
-          "label": "Ändring godkänd av"
-        }
-      ],
-      "reason": "Ändring av en leverantörs betalningsuppgifter måste godkännas av en annan behörig person innan de börjar användas."
-    },
-    {
-      "id": "payment-release",
-      "label": "Betalning: förberedelse och frisläppning",
-      "requiredPermission": "payment.release",
-      "distinctActors": true,
-      "fields": [
-        {
-          "id": "preparedBy",
-          "label": "Förberedd av"
-        },
-        {
-          "id": "releasedBy",
-          "label": "Frisläppt av"
-        }
-      ],
-      "reason": "Den som förbereder en betalning får inte ensam frisläppa samma betalning."
-    },
-    {
-      "id": "period-unlock",
-      "label": "Bokföringsperiod: begäran och upplåsning",
-      "requiredPermission": "period.unlock",
-      "distinctActors": true,
-      "fields": [
-        {
-          "id": "requestedBy",
-          "label": "Begärd av"
-        },
-        {
-          "id": "unlockedBy",
-          "label": "Upplåst av"
-        }
-      ],
-      "reason": "Upplåsning av en stängd period kräver en separat kontrollperson och ska alltid loggas."
-    },
-    {
-      "id": "inventory-adjustment",
-      "label": "Lager: inventering och justeringsgodkännande",
-      "requiredPermission": "inventory.adjust",
-      "distinctActors": true,
-      "fields": [
-        {
-          "id": "countedBy",
-          "label": "Inventerad av"
-        },
-        {
-          "id": "approvedBy",
-          "label": "Justering godkänd av"
-        }
-      ],
-      "reason": "Större svinn och lagerjusteringar ska granskas av någon annan än den som inventerade."
-    }
+    {"id":"supplier-invoice-approval","label":"Leverantörsfaktura: registrering och attest","requiredPermission":"supplier-invoice.approve","distinctActors":true,"fields":[{"id":"registeredBy","label":"Registrerad av"},{"id":"approvedBy","label":"Attesterad av"}],"reason":"Den som registrerar leverantörsfakturan får inte ensam attestera samma faktura."},
+    {"id":"supplier-bank-change","label":"Leverantör: ändring och godkännande av betalningsuppgifter","requiredPermission":"supplier.bank-account.approve","distinctActors":true,"fields":[{"id":"requestedBy","label":"Ändring begärd av"},{"id":"approvedBy","label":"Ändring godkänd av"}],"reason":"Ändring av en leverantörs betalningsuppgifter måste godkännas av en annan behörig person innan de börjar användas."},
+    {"id":"payment-release","label":"Betalning: förberedelse och frisläppning","requiredPermission":"payment.release","distinctActors":true,"fields":[{"id":"preparedBy","label":"Förberedd av"},{"id":"releasedBy","label":"Frisläppt av"}],"reason":"Den som förbereder en betalning får inte ensam frisläppa samma betalning."},
+    {"id":"period-unlock","label":"Bokföringsperiod: begäran och upplåsning","requiredPermission":"period.unlock","distinctActors":true,"fields":[{"id":"requestedBy","label":"Begärd av"},{"id":"unlockedBy","label":"Upplåst av"}],"reason":"Upplåsning av en stängd period kräver en separat kontrollperson och ska alltid loggas."},
+    {"id":"inventory-adjustment","label":"Lager: inventering och justeringsgodkännande","requiredPermission":"inventory.adjust","distinctActors":true,"fields":[{"id":"countedBy","label":"Inventerad av"},{"id":"approvedBy","label":"Justering godkänd av"}],"reason":"Större svinn och lagerjusteringar ska granskas av någon annan än den som inventerade."}
   ]
 }
