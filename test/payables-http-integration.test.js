@@ -44,7 +44,14 @@ test('riktiga HTTP-rutter genomför leverantörsfakturans bokföringsflöde utan
     const lines=[{account:'4010',debitOre:100000,creditOre:0,text:'Servicekostnad',vatCode:'INPUT_VAT'},{account:'2641',debitOre:25000,creditOre:0,text:'Ingående moms',vatCode:'INPUT_VAT'},{account:'2440',debitOre:0,creditOre:125000,text:'Leverantörsskuld',vatCode:''}];
     result=await request(base,`/api/v1/payables/invoices/${invoice.id}/coding`,accountantSession,{method:'PUT',body:{lines}});assert.equal(result.response.status,200);const reviewed=result.data.invoice;
     result=await request(base,`/api/v1/payables/invoices/${invoice.id}/approve`,approverSession,{method:'POST',body:{}});assert.equal(result.response.status,428);assert.equal(result.data.code,'APPROVAL_PRECONDITION_REQUIRED');
-    result=await request(base,`/api/v1/payables/invoices/${invoice.id}/approve`,approverSession,{method:'POST',body:{expectedCodingSha256:reviewed.codingSha256,expectedDocumentSha256:reviewed.documentSha256}});assert.equal(result.response.status,200);
+    const approvalBody={expectedCodingSha256:reviewed.codingSha256,expectedDocumentSha256:reviewed.documentSha256};
+    const approvals=await Promise.all([
+      request(base,`/api/v1/payables/invoices/${invoice.id}/approve`,approverSession,{method:'POST',body:approvalBody}),
+      request(base,`/api/v1/payables/invoices/${invoice.id}/approve`,approverSession,{method:'POST',body:approvalBody})
+    ]);
+    assert.deepEqual(approvals.map(item=>item.response.status),[200,200]);
+    assert.deepEqual(approvals.map(item=>Boolean(item.data.duplicate)).sort(),[false,true]);
+    assert.equal(Db.auditForCompany(db,company.id).filter(event=>event.action==='SUPPLIER_INVOICE_APPROVED'&&event.entityId===invoice.id).length,1);
 
     result=await request(base,`/api/v1/payables/invoices/${invoice.id}/post`,approverSession,{method:'POST',body:{}});assert.equal(result.response.status,403);assert.equal(result.data.code,'ACCESS_DENIED');
     result=await request(base,`/api/v1/payables/invoices/${invoice.id}/post`,accountantSession,{method:'POST',body:{}});assert.equal(result.response.status,200);const invoiceEntry=result.data.entry;assert.deepEqual(invoiceEntry.lines.map(line=>[line.account,line.debitOre,line.creditOre]),[['4010',100000,0],['2641',25000,0],['2440',0,125000]]);
