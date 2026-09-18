@@ -74,27 +74,30 @@
     const rows = Array.isArray(config?.referenceRates) ? config.referenceRates : [];
     const normalized = rows.map(row => ({
       validFrom: assertIsoDate(row.validFrom, 'Referensräntans startdatum'),
+      validTo: assertIsoDate(row.validTo, 'Referensräntans slutdatum'),
       basisPoints: Number(row.basisPoints)
     })).sort((a,b) => a.validFrom.localeCompare(b.validFrom));
-    if (!normalized.length || normalized.some(row => !Number.isInteger(row.basisPoints))) throw domainError('Referensräntorna är inte korrekt konfigurerade.', 'INVALID_RATE_CONFIG', 500);
+    if (!normalized.length || normalized.some(row => !Number.isInteger(row.basisPoints) || row.validTo < row.validFrom)) {
+      throw domainError('Referensräntorna är inte korrekt konfigurerade.', 'INVALID_RATE_CONFIG', 500);
+    }
+    for (let index = 1; index < normalized.length; index += 1) {
+      if (normalized[index].validFrom <= normalized[index - 1].validTo) {
+        throw domainError('Referensränteperioderna får inte överlappa varandra.', 'INVALID_RATE_CONFIG', 500);
+      }
+    }
     return normalized;
   }
 
   function referenceRateFor(date, config) {
     assertIsoDate(date);
-    const rows = rateTable(config);
-    let selected = null;
-    for (const row of rows) {
-      if (row.validFrom <= date) selected = row;
-      else break;
-    }
-    if (!selected) throw domainError(`Referensränta saknas för ${date}.`, 'MISSING_REFERENCE_RATE', 409);
+    const selected = rateTable(config).find(row => row.validFrom <= date && date <= row.validTo) || null;
+    if (!selected) throw domainError(`Verifierad referensränta saknas för ${date}.`, 'MISSING_REFERENCE_RATE', 409);
     return selected;
   }
 
   function nextRateBoundary(date, config) {
-    const rows = rateTable(config);
-    return rows.find(row => row.validFrom > date)?.validFrom || null;
+    const rate = referenceRateFor(date, config);
+    return addDays(rate.validTo, 1);
   }
 
   function roundDividePositive(numerator, denominator) {
@@ -133,13 +136,87 @@
         from: cursor,
         to: end,
         days,
+        principalOre,
         referenceRateBasisPoints: rate.basisPoints,
+        referenceRateValidFrom: rate.validFrom,
+        referenceRateValidTo: rate.validTo,
         annualRateBasisPoints: annualBasisPoints,
+        rateConfigVersion: Number(config?.version || 0),
+        rateConfigVerifiedAt: String(config?.verifiedAt || ''),
         interestOre: segmentInterest
       }));
       cursor = end;
     }
     return {interestOre, days:totalDays, segments};
+  }
+
+  function principalEvents(invoice) {
+    const totalOre = assertOre(invoice?.totalOre, 'Fakturabelopp');
+    const remainingOre = assertOre(invoice?.remainingOre, 'Restbelopp');
+    if (totalOre < 0) throw domainError('Fakturabeloppet får inte vara negativt i ränteflödet.', 'INVALID_BALANCE_HISTORY', 409);
+    const supported = new Set(['payment','credit']);
+    const events = [];
+    for (const transaction of Array.isArray(invoice?.transactions) ? invoice.transactions : []) {
+      if (transaction?.approved === false) continue;
+      const type = String(transaction?.transactionType || transaction?.type || '').trim();
+      if (!supported.has(type)) throw domainError(`Transaktionstypen ${type || 'saknas'} kan inte användas för automatisk ränteberäkning.`, 'UNSUPPORTED_BALANCE_HISTORY', 409);
+      const amountOre = assertOre(transaction?.amountOre, 'Transaktionsbelopp');
+      if (amountOre >= 0) throw domainError('Betalningar och krediter måste minska kundfordran i räntehistoriken.', 'INVALID_BALANCE_HISTORY', 409);
+      const effectiveDate = type === 'payment'
+        ? assertIsoDate(transaction?.paymentDate, 'Betalningsdatum')
+        : assertIsoDate(transaction?.postingDate || transaction?.paymentDate, 'Kreditdatum');
+      if (invoice?.invoiceDate && effectiveDate < assertIsoDate(invoice.invoiceDate, 'Fakturadatum')) {
+        throw domainError('En saldoändring ligger före fakturadatum och måste granskas manuellt.', 'INVALID_BALANCE_HISTORY', 409);
+      }
+      events.push(Object.freeze({id:String(transaction?.id || ''),type,effectiveDate,amountOre}));
+    }
+    events.sort((a,b) => a.effectiveDate.localeCompare(b.effectiveDate) || a.id.localeCompare(b.id));
+    let reconciled = totalOre;
+    for (const event of events) {
+      reconciled += event.amountOre;
+      if (reconciled < 0) throw domainError('Saldohistoriken innehåller en överbetalning som kräver manuell räntebedömning.', 'UNSUPPORTED_BALANCE_HISTORY', 409);
+    }
+    if (reconciled !== remainingOre) {
+      throw domainError('Fakturans transaktionshistorik stämmer inte med aktuellt restbelopp. Automatisk ränta är spärrad.', 'BALANCE_HISTORY_MISMATCH', 409);
+    }
+    return Object.freeze({totalOre,remainingOre,events:Object.freeze(events)});
+  }
+
+  function balanceHistoryBetween(invoice, fromDate, toDate) {
+    assertIsoDate(fromDate, 'Räntestart');
+    assertIsoDate(toDate, 'Räntedatum');
+    const history = principalEvents(invoice);
+    let principal = history.totalOre;
+    for (const event of history.events) if (event.effectiveDate <= fromDate) principal += event.amountOre;
+    if (principal < 0) throw domainError('Saldohistoriken kan inte användas för automatisk ränta.', 'INVALID_BALANCE_HISTORY', 409);
+    const events = history.events.filter(event => event.effectiveDate > fromDate && event.effectiveDate <= toDate);
+    let endingPrincipal = principal;
+    for (const event of events) endingPrincipal += event.amountOre;
+    return Object.freeze({openingPrincipalOre:principal,endingPrincipalOre:endingPrincipal,events});
+  }
+
+  function statutoryInterestFromHistory(invoice, fromDate, toDate, config) {
+    const history = balanceHistoryBetween(invoice, fromDate, toDate);
+    if (toDate <= fromDate) return {interestOre:0,days:0,segments:[],principalOre:history.endingPrincipalOre};
+    let cursor = fromDate;
+    let principal = history.openingPrincipalOre;
+    let interestOre = 0;
+    let totalDays = 0;
+    const segments = [];
+    for (const event of [...history.events,{effectiveDate:toDate,amountOre:0,type:'boundary',id:'boundary'}]) {
+      if (event.effectiveDate > cursor && principal > 0) {
+        const calculation = statutoryInterest(principal,cursor,event.effectiveDate,config);
+        interestOre += calculation.interestOre;
+        totalDays += calculation.days;
+        segments.push(...calculation.segments);
+      }
+      if (event.type !== 'boundary') {
+        principal += event.amountOre;
+        if (principal < 0) throw domainError('Saldohistoriken kan inte användas för automatisk ränta.', 'UNSUPPORTED_BALANCE_HISTORY', 409);
+      }
+      cursor = event.effectiveDate;
+    }
+    return Object.freeze({interestOre,days:totalDays,segments:Object.freeze(segments),principalOre:history.endingPrincipalOre});
   }
 
   function createInvoiceComment({invoiceId, companyId, actor, text, now = new Date().toISOString()}) {
@@ -169,16 +246,18 @@
   }
 
   function latestReminderDate(invoice) {
-    const dates = (invoice?.reminders || []).map(item => String(item.sentAt || item.createdAt || '').slice(0,10)).filter(value => /^\d{4}-\d{2}-\d{2}$/.test(value));
+    const dates = (invoice?.reminders || []).map(item => String(item.reminderDate || item.sentAt || item.createdAt || '').slice(0,10)).filter(value => /^\d{4}-\d{2}-\d{2}$/.test(value));
     return dates.sort().at(-1) || '';
   }
 
   function reminderPreview(invoice, options, config) {
-    const sentDate = assertIsoDate(options?.sentDate, 'Påminnelsedatum');
+    const reminderDate = assertIsoDate(options?.reminderDate || options?.sentDate, 'Påminnelsedatum');
     const dueDate = assertIsoDate(invoice?.dueDate, 'Förfallodatum');
     const remainingOre = assertOre(invoice?.remainingOre, 'Restbelopp');
     if (remainingOre <= 0) throw domainError('Fakturan har inget positivt restbelopp att påminna om.', 'NOT_OUTSTANDING', 409);
-    if (sentDate <= dueDate) throw domainError('En betalningspåminnelse får skapas först efter förfallodagen i detta arbetsflöde.', 'NOT_OVERDUE');
+    if (reminderDate <= dueDate) throw domainError('En betalningspåminnelse får skapas först efter förfallodagen i detta arbetsflöde.', 'NOT_OVERDUE');
+    const balance = balanceHistoryBetween(invoice,dueDate,reminderDate);
+    if (balance.endingPrincipalOre <= 0) throw domainError('Fakturan hade inget positivt restbelopp på påminnelsedatumet.', 'NOT_OUTSTANDING', 409);
 
     const feeRequested = options?.includeReminderFee === true;
     const feeAgreed = options?.reminderFeeAgreed === true;
@@ -187,8 +266,8 @@
     }
     const reminderFeeOre = feeRequested ? assertOre(Number(config?.reminderFeeOre), 'Påminnelseavgift') : 0;
     const interest = options?.includeInterest === false
-      ? {interestOre:0, days:0, segments:[]}
-      : statutoryInterest(remainingOre, dueDate, sentDate, config);
+      ? {interestOre:0, days:0, segments:[], principalOre:balance.endingPrincipalOre}
+      : statutoryInterestFromHistory(invoice, dueDate, reminderDate, config);
 
     const businessCompensation = options?.includeBusinessLatePaymentCompensation === true
       ? assertOre(Number(config?.businessLatePaymentCompensationOre), 'Förseningsersättning')
@@ -201,15 +280,15 @@
     }
 
     return Object.freeze({
-      sentDate,
+      reminderDate,
       originalDueDate: dueDate,
-      principalOre: remainingOre,
+      principalOre: balance.endingPrincipalOre,
       reminderFeeOre,
       interestOre: interest.interestOre,
       businessLatePaymentCompensationOre: businessCompensation,
-      totalDueOre: remainingOre + reminderFeeOre + interest.interestOre + businessCompensation,
+      totalDueOre: balance.endingPrincipalOre + reminderFeeOre + interest.interestOre + businessCompensation,
       interest,
-      statutoryRateOnSentDateBasisPoints: referenceRateFor(sentDate, config).basisPoints + Number(config.interestActMarginBasisPoints)
+      statutoryRateOnReminderDateBasisPoints: options?.includeInterest === false ? null : referenceRateFor(reminderDate, config).basisPoints + Number(config.interestActMarginBasisPoints)
     });
   }
 
@@ -221,7 +300,7 @@
       companyId: String(companyId || '').trim(),
       invoiceId: String(invoice.id || '').trim(),
       createdAt: new Date(now).toISOString(),
-      sentAt: `${preview.sentDate}T12:00:00.000Z`,
+      reminderDate: preview.reminderDate,
       createdBy: actor.id.trim(),
       createdByName: actor.name.trim(),
       kind: options?.kind === 'escalation' ? 'escalation' : 'payment-reminder',
@@ -230,8 +309,8 @@
       interestOre: preview.interestOre,
       businessLatePaymentCompensationOre: preview.businessLatePaymentCompensationOre,
       totalDueOre: preview.totalDueOre,
-      annualRateBasisPoints: preview.statutoryRateOnSentDateBasisPoints,
-      interestSegments: preview.interest.segments,
+      annualRateBasisPoints: preview.statutoryRateOnReminderDateBasisPoints || 0,
+      interestSegments: preview.interest.segments.map(segment => Object.freeze({...segment,interestBasis:options?.interestBasis || null})),
       note: String(options?.note || '').trim().slice(0,1000)
     });
   }
@@ -288,6 +367,9 @@
     rateTable,
     referenceRateFor,
     statutoryInterest,
+    principalEvents,
+    balanceHistoryBetween,
+    statutoryInterestFromHistory,
     createInvoiceComment,
     latestReminderDate,
     reminderPreview,
