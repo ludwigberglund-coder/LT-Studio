@@ -182,6 +182,11 @@
       principalOre -= event.reductionOre;
       if (principalOre < 0) throw domainError('Betalningshistoriken ger ett negativt fakturasaldo och måste granskas manuellt.', 'INVALID_BALANCE_HISTORY', 409);
     }
+    const storedRemainingOre = assertOre(invoice?.remainingOre, 'Restbelopp');
+    const hasLaterPayment = events.some(event => event.date > toDate);
+    if (!hasLaterPayment && storedRemainingOre !== principalOre) {
+      throw domainError('Fakturans restbelopp stämmer inte med den sparade betalningshistoriken. Ränta blockeras tills reskontran är avstämd.', 'BALANCE_HISTORY_MISMATCH', 409);
+    }
     return Object.freeze({dueDate,totalOre,balanceOre:principalOre,events:Object.freeze(events)});
   }
 
