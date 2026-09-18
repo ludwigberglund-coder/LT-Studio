@@ -2,6 +2,7 @@
 
 const crypto=require('node:crypto');
 const Protection=require('./journal-protection.js');
+const VatEvidence=require('./vat-evidence.js');
 
 function accountingError(message,code='ACCOUNTING_STORE_ERROR',statusCode=422){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
 function id(prefix){return `${prefix}_${crypto.randomUUID()}`}
@@ -50,7 +51,7 @@ function initializeAccountingStore(db){db.exec(`
     CHECK((debit_ore>0 AND credit_ore=0) OR (credit_ore>0 AND debit_ore=0))
   ) STRICT;
   CREATE INDEX IF NOT EXISTS idx_accounting_entries_company_date ON accounting_entries(company_id,posting_date,series,sequence);
-`);Protection.initialize(db,validateLines)}
+`);VatEvidence.initialize(db);Protection.initialize(db,validateLines)}
 function validateLines(lines) {
   if (!Array.isArray(lines) || lines.length < 2 || lines.length > 1000) {
     throw accountingError('Verifikationen m\u00e5ste inneh\u00e5lla 2\u20131 000 rader.', 'INVALID_ENTRY');
@@ -75,8 +76,6 @@ function validateLines(lines) {
   return {lines: normalized, debitOre: Number(debit), creditOre: Number(credit)};
 }
 
-// A nested savepoint never commits a caller's transaction. On a failed write,
-// both the sequence and every line are rolled back, even without an outer transaction.
 function atomicPosting(db, callback) {
   const savepoint = `accounting_post_${crypto.randomBytes(12).toString('hex')}`;
   db.exec(`SAVEPOINT ${savepoint}`);
@@ -85,8 +84,6 @@ function atomicPosting(db, callback) {
     db.exec(`RELEASE SAVEPOINT ${savepoint}`);
     return result;
   } catch (error) {
-    // Some I/O errors make SQLite roll back the whole transaction itself.
-    // Preserve the original error if the savepoint no longer exists.
     try { db.exec(`ROLLBACK TO SAVEPOINT ${savepoint}`); } catch {}
     try { db.exec(`RELEASE SAVEPOINT ${savepoint}`); } catch {}
     throw error;
@@ -127,6 +124,7 @@ function postEntry(db, input) {
     const existing = entryBySource(db, companyId, sourceType, sourceId);
     if (existing) {
       verifyRetry(existing, {postingDate, description, series}, validated);
+      VatEvidence.assertRetry(db,companyId,existing,input.vatEvidence);
       return {entry: existing, duplicate: true};
     }
     const period = postingDate.slice(0, 7);
@@ -147,7 +145,9 @@ function postEntry(db, input) {
     const statement = db.prepare('INSERT INTO accounting_entry_lines(entry_id,line_number,account,line_text,debit_ore,credit_ore) VALUES(?,?,?,?,?,?)');
     validated.lines.forEach((line, index) => statement.run(entryId, index + 1, line.account, line.text, line.debitOre, line.creditOre));
     Protection.sealEntry(db, entryId, validateLines);
-    return {entry: entryBySource(db, companyId, sourceType, sourceId), duplicate: false};
+    const entry=entryBySource(db, companyId, sourceType, sourceId);
+    if(Array.isArray(input.vatEvidence))VatEvidence.saveForEntry(db,{companyId,entry,evidence:input.vatEvidence});
+    return {entry, duplicate: false};
   });
 }
 function listEntries(db,companyId,{limit=200}={}){const safe=Math.max(1,Math.min(1000,Number(limit)||200));return db.prepare(`SELECT id,fiscal_year AS fiscalYear,series,sequence,number,posting_date AS postingDate,description,source_type AS sourceType,source_id AS sourceId,created_by AS createdBy,created_at AS createdAt FROM accounting_entries WHERE company_id=? ORDER BY posting_date DESC,series DESC,sequence DESC LIMIT ?`).all(companyId,safe)}
