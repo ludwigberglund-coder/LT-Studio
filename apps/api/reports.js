@@ -62,20 +62,18 @@ function customerVatSourceChecks(db,companyId,{from,to}){
 }
 
 function supplierVatSourceChecks(db,companyId,{from,to}){
-  try{
-    return db.prepare(`SELECT i.id,i.supplier_invoice_number AS invoiceNumber,i.vat_ore AS expectedVatOre,e.id AS entryId,e.number AS journalNumber,
-      COALESCE(SUM(CASE WHEN l.account='2641' THEN l.debit_ore-l.credit_ore ELSE 0 END),0) AS bookedVatOre
-      FROM supplier_invoices i
-      JOIN accounting_entries e ON e.company_id=i.company_id AND e.source_type='supplier-invoice' AND e.source_id=i.id
-      JOIN accounting_entry_lines l ON l.entry_id=e.id
-      WHERE i.company_id=? AND e.posting_date BETWEEN ? AND ?
-      GROUP BY i.id,i.supplier_invoice_number,i.vat_ore,e.id,e.number
-      ORDER BY i.supplier_invoice_number`).all(companyId,from,to).map(row=>({
-        invoiceId:row.id,invoiceNumber:row.invoiceNumber,entryId:row.entryId,journalNumber:row.journalNumber,
-        expectedVatOre:Number(row.expectedVatOre||0),bookedVatOre:Number(row.bookedVatOre||0),
-        differenceOre:Number(row.bookedVatOre||0)-Number(row.expectedVatOre||0)
-      }));
-  }catch{return[]}
+  return db.prepare(`SELECT i.id,i.supplier_invoice_number AS invoiceNumber,i.vat_ore AS expectedVatOre,e.id AS entryId,e.number AS journalNumber,
+    COALESCE(SUM(CASE WHEN l.account='2641' THEN l.debit_ore-l.credit_ore ELSE 0 END),0) AS bookedVatOre
+    FROM supplier_invoices i
+    JOIN accounting_entries e ON e.company_id=i.company_id AND e.source_type='supplier-invoice' AND e.source_id=i.id
+    JOIN accounting_entry_lines l ON l.entry_id=e.id
+    WHERE i.company_id=? AND e.posting_date BETWEEN ? AND ?
+    GROUP BY i.id,i.supplier_invoice_number,i.vat_ore,e.id,e.number
+    ORDER BY i.supplier_invoice_number`).all(companyId,from,to).map(row=>({
+      invoiceId:row.id,invoiceNumber:row.invoiceNumber,entryId:row.entryId,journalNumber:row.journalNumber,
+      expectedVatOre:Number(row.expectedVatOre||0),bookedVatOre:Number(row.bookedVatOre||0),
+      differenceOre:Number(row.bookedVatOre||0)-Number(row.expectedVatOre||0)
+    }));
 }
 
 function vatControl(db,companyId,{period}){
@@ -97,8 +95,7 @@ function vatControl(db,companyId,{period}){
     ...supplierChecks.filter(row=>row.differenceOre!==0).map(row=>({kind:'supplier-invoice',...row}))
   ];
   const customer=db.prepare(`SELECT COUNT(*) AS count,COALESCE(SUM(vat_ore),0) AS vatOre,COALESCE(SUM(total_ore),0) AS totalOre FROM invoices WHERE company_id=? AND posting_date BETWEEN ? AND ?`).get(companyId,from,to)||{};
-  let supplier={count:0,vatOre:0,totalOre:0};
-  try{supplier=db.prepare(`SELECT COUNT(*) AS count,COALESCE(SUM(vat_ore),0) AS vatOre,COALESCE(SUM(total_ore),0) AS totalOre FROM supplier_invoices WHERE company_id=? AND invoice_date BETWEEN ? AND ? AND status<>'rejected'`).get(companyId,from,to)||supplier}catch{}
+  const supplier=db.prepare(`SELECT COUNT(*) AS count,COALESCE(SUM(vat_ore),0) AS vatOre,COALESCE(SUM(total_ore),0) AS totalOre FROM supplier_invoices WHERE company_id=? AND invoice_date BETWEEN ? AND ? AND status<>'rejected'`).get(companyId,from,to)||{count:0,vatOre:0,totalOre:0};
   const integrityOk=sourceMismatches.length===0&&unsupportedVatAccounts.length===0;
   const warning=integrityOk
     ? 'Momsbeloppen är avstämda mot bokförda momskonton för de källanknutna fakturorna. Underlaget är fortfarande inte en färdig momsdeklaration: full momskodning, redovisningsmetod och övriga svenska momsfall måste vara verifierade.'
