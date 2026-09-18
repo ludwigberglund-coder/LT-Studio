@@ -16,7 +16,7 @@ function seed(){
   return{db,company,company2,maker,controller};
 }
 function post(db,company,user,sourceId='original',date='2026-09-16'){
-  return Accounting.postEntry(db,{companyId:company.id,postingDate:date,description:'Inköp test',sourceType:'test',sourceId,createdBy:user.id,series:'A',lines:[{account:'5460',text:'Förbrukning',debitOre:12500,creditOre:0},{account:'1930',text:'Bank',debitOre:0,creditOre:12500}]}).entry;
+  return Accounting.postEntry(db,{companyId:company.id,postingDate:date,description:'Inköp test',sourceType:'manual',sourceId,createdBy:user.id,series:'A',lines:[{account:'5460',text:'Förbrukning',debitOre:12500,creditOre:0},{account:'1930',text:'Bank',debitOre:0,creditOre:12500}]}).entry;
 }
 
 test('period kan låsas och bokföring stoppas',()=>{
