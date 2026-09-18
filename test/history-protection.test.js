@@ -9,6 +9,7 @@ const {DatabaseSync} = require('node:sqlite');
 const Db = require('../apps/api/database.js');
 const Accounting = require('../apps/api/accounting-store.js');
 const Invoicing = require('../apps/api/customer-invoicing.js');
+const Receivables = require('../packages/receivables/customer-receivables.js');
 function seed(filename = ':memory:') {
   const db = Db.openDatabase(filename);
   Accounting.initializeAccountingStore(db);
@@ -168,4 +169,26 @@ test('restore verification detects a balanced journal with mismatched seal',()=>
   }finally{db.close();}
   try{assert.throws(()=>require('../scripts/pilot-restore-verify.js').verifyDatabase(filename),e=>e.code==='STORED_ENTRY_INTEGRITY_ERROR');}
   finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+
+test('kundreskontrans godkända betalningshistorik och påminnelseunderlag är append-only',()=>{
+  const {db,company,user}=seed();
+  try{
+    const customer=Db.createCustomer(db,{companyId:company.id,customerNumber:'K-HIST',name:'Historikkund AB'});
+    const invoice=Db.createInvoice(db,{companyId:company.id,customerId:customer.id,invoiceNumber:'319900',invoiceDate:'2026-08-01',postingDate:'2026-08-01',dueDate:'2026-09-01',totalOre:100000,remainingOre:50000,vatOre:20000,status:'Delbetald'});
+    const tx=Db.addInvoiceTransaction(db,{companyId:company.id,invoiceId:invoice.id,transactionType:'payment',paymentDate:'2026-09-10',postingDate:'2026-09-10',amountOre:-50000,approved:true,bankReference:'TEST-HISTORY-PAYMENT'});
+    assert.throws(()=>db.prepare('UPDATE invoice_transactions SET amount_ore=-1 WHERE id=?').run(tx.id),/IMMUTABLE/);
+    assert.throws(()=>db.prepare('DELETE FROM invoice_transactions WHERE id=?').run(tx.id),/IMMUTABLE/);
+    const reminder=Receivables.createReminderRecord({
+      invoice:{...Db.invoiceById(db,company.id,invoice.id),transactions:Db.transactionsForInvoice(db,company.id,invoice.id)},
+      companyId:company.id,
+      actor:{id:user.id,name:'History test'},
+      options:{reminderDate:'2026-09-18',includeInterest:false},
+      config:require('../config/legal-rates.json')
+    });
+    Db.addReminder(db,reminder);
+    assert.throws(()=>db.prepare('UPDATE invoice_reminders SET principal_ore=1 WHERE id=?').run(reminder.id),/IMMUTABLE/);
+    assert.throws(()=>db.prepare('DELETE FROM invoice_reminders WHERE id=?').run(reminder.id),/IMMUTABLE/);
+  }finally{db.close();}
 });
