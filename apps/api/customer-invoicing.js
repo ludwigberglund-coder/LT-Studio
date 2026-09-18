@@ -41,6 +41,10 @@ function initializeCustomerInvoicing(db){
       UNIQUE(company_id,credit_invoice_id)
     ) STRICT;
     CREATE INDEX IF NOT EXISTS idx_customer_invoice_documents_company ON customer_invoice_documents(company_id,created_at);
+    CREATE TRIGGER IF NOT EXISTS tenant_customer_invoice_credits_insert BEFORE INSERT ON customer_invoice_credits
+      WHEN NOT EXISTS(SELECT 1 FROM invoices WHERE id=NEW.original_invoice_id AND company_id=NEW.company_id)
+        OR NOT EXISTS(SELECT 1 FROM invoices WHERE id=NEW.credit_invoice_id AND company_id=NEW.company_id)
+      BEGIN SELECT RAISE(ABORT,'TENANT_RELATION_VIOLATION'); END;
   `);
   protectAppendOnly(db,'customer_invoice_documents');
   protectAppendOnly(db,'customer_invoice_issue_requests');
