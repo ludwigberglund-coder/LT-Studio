@@ -7,6 +7,7 @@ const Auth=require('../apps/api/auth.js');
 const Payables=require('../apps/api/payables.js');
 const Release=require('../apps/api/payment-release.js');
 const Accounting=require('../apps/api/accounting-store.js');
+const Vat=require('../apps/api/vat-evidence.js');
 const SupplierAccounting=require('../apps/api/supplier-accounting.js');
 const Domain=require('../packages/payables/supplier-invoices.js');
 
@@ -34,6 +35,7 @@ test('leverantörsfaktura 1 250 kr bokförs exakt en gång som 4010 + 2641 mot 2
     const first=SupplierAccounting.postSupplierInvoice(ctx.db,{companyId:ctx.company.id,invoiceId:ctx.invoice.id,actorId:ctx.accountant.id});
     assert.equal(first.duplicate,false);
     assert.deepEqual(first.entry.lines.map(line=>[line.account,line.debitOre,line.creditOre]),[['4010',100000,0],['2641',25000,0],['2440',0,125000]]);
+    const vatEvidence=Vat.forEntry(ctx.db,ctx.company.id,first.entry.id);assert.equal(vatEvidence.length,1);assert.equal(vatEvidence[0].declarationVatBox,'48');assert.equal(vatEvidence[0].vatOre,25000);
     assert.equal(first.invoice.openAmountOre,125000);assert.equal(first.invoice.accountingStatus,'posted');
     const retry=SupplierAccounting.postSupplierInvoice(ctx.db,{companyId:ctx.company.id,invoiceId:ctx.invoice.id,actorId:ctx.accountant.id});
     assert.equal(retry.duplicate,true);assert.equal(retry.entry.id,first.entry.id);
