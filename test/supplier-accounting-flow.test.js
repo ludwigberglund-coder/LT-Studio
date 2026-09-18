@@ -23,11 +23,13 @@ function seed({number='BKS-771',coding}={}){
   Payables.storeDocument(db,{companyId:company.id,invoiceId:invoice.id,name:'BKS-771.pdf',bytes:Buffer.from('%PDF-1.4\n% supplier accounting test\n')});
   const lines=coding||Domain.buildCoding({totalOre:125000,vatOre:25000,costAccount:'4010'}).lines;
   Payables.saveCoding(db,{companyId:company.id,invoiceId:invoice.id,lines});
-  Payables.approve(db,{companyId:company.id,invoiceId:invoice.id,actorId:approver.id});
+  approveCurrent(db,company.id,invoice.id,approver.id);
   return{db,company,otherCompany,registrar,approver,accountant,supplier,invoice};
 }
 
 function accountNet(entries,account){return entries.flatMap(entry=>entry.lines||[]).filter(line=>line.account===account).reduce((sum,line)=>sum+line.debitOre-line.creditOre,0)}
+function approveCurrent(db,companyId,invoiceId,actorId){const current=Payables.invoiceById(db,companyId,invoiceId);return Payables.approve(db,{companyId,invoiceId,actorId,expectedCodingSha256:current.codingSha256,expectedDocumentSha256:current.documentSha256})}
+
 
 test('leverantörsfaktura 1 250 kr bokförs exakt en gång som 4010 + 2641 mot 2440',()=>{
   const ctx=seed();try{

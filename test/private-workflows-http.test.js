@@ -90,7 +90,8 @@ test('changed supplier PDF bytes cannot be served or approved using an old finge
   const body=await response.json();assert.equal(body.code,'DOCUMENT_INTEGRITY_ERROR');
   assert.doesNotMatch(JSON.stringify(body),/%PDF|document_blob|SELECT|\.js:/);
   Db.addMembership(f.db,{companyId:f.a.id,userId:f.auditor.id,roles:['approver']});
-  const approval=await json(f.base,'/api/v1/payables/invoices/'+f.payable.id+'/approve',await f.login(f.auditor.username),'POST',{});
+  const reviewed=Payables.invoiceById(f.db,f.a.id,f.payable.id);
+  const approval=await json(f.base,'/api/v1/payables/invoices/'+f.payable.id+'/approve',await f.login(f.auditor.username),'POST',{expectedCodingSha256:reviewed.codingSha256,expectedDocumentSha256:reviewed.documentSha256});
   assert.equal(approval.res.status,409);assert.equal(approval.data.code,'DOCUMENT_INTEGRITY_ERROR');
   assert.equal(Payables.invoiceById(f.db,f.a.id,f.payable.id).status,'coded');
   assert.equal(Db.auditForCompany(f.db,f.a.id).filter(x=>x.action==='SUPPLIER_INVOICE_APPROVED').length,0);
