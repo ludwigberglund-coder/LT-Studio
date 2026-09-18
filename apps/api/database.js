@@ -141,8 +141,6 @@ function initializeSchema(db) {
       kind TEXT NOT NULL CHECK(kind IN ('payment-reminder','escalation')),
       sent_at TEXT NOT NULL,
       reminder_date TEXT,
-      delivery_status TEXT NOT NULL DEFAULT 'not-sent',
-      delivered_at TEXT,
       rate_config_version TEXT NOT NULL DEFAULT '',
       rate_verified_at TEXT NOT NULL DEFAULT '',
       principal_ore INTEGER NOT NULL,
@@ -174,8 +172,6 @@ function initializeSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
   `);
   if (!hasColumn(db,'invoice_reminders','reminder_date')) db.exec('ALTER TABLE invoice_reminders ADD COLUMN reminder_date TEXT');
-  if (!hasColumn(db,'invoice_reminders','delivery_status')) db.exec("ALTER TABLE invoice_reminders ADD COLUMN delivery_status TEXT NOT NULL DEFAULT 'not-sent'");
-  if (!hasColumn(db,'invoice_reminders','delivered_at')) db.exec('ALTER TABLE invoice_reminders ADD COLUMN delivered_at TEXT');
   if (!hasColumn(db,'invoice_reminders','rate_config_version')) db.exec("ALTER TABLE invoice_reminders ADD COLUMN rate_config_version TEXT NOT NULL DEFAULT ''");
   if (!hasColumn(db,'invoice_reminders','rate_verified_at')) db.exec("ALTER TABLE invoice_reminders ADD COLUMN rate_verified_at TEXT NOT NULL DEFAULT ''");
   db.exec("UPDATE invoice_reminders SET reminder_date=substr(sent_at,1,10) WHERE reminder_date IS NULL OR reminder_date=''");
@@ -361,7 +357,7 @@ function listReceivables(db,companyId) {
   const transactionStmt = db.prepare(`SELECT id,transaction_type AS transactionType,payment_method AS paymentMethod,payment_date AS paymentDate,posting_date AS postingDate,
     batch_number AS batchNumber,journal_number AS journalNumber,amount_ore AS amountOre,approved,account,bank_reference AS bankReference,created_at AS createdAt
     FROM invoice_transactions WHERE company_id=? AND invoice_id=? ORDER BY created_at`);
-  const reminderStmt = db.prepare(`SELECT id,kind,sent_at AS sentAt,reminder_date AS reminderDate,delivery_status AS deliveryStatus,delivered_at AS deliveredAt,
+  const reminderStmt = db.prepare(`SELECT id,kind,reminder_date AS reminderDate,
     rate_config_version AS rateConfigVersion,rate_verified_at AS rateVerifiedAt,principal_ore AS principalOre,reminder_fee_ore AS reminderFeeOre,interest_ore AS interestOre,
     business_compensation_ore AS businessCompensationOre,total_due_ore AS totalDueOre,annual_rate_basis_points AS annualRateBasisPoints,note,created_at AS createdAt
     FROM invoice_reminders WHERE company_id=? AND invoice_id=? ORDER BY sent_at`);
@@ -387,18 +383,17 @@ function commentsForInvoice(db, companyId, invoiceId) {
 }
 
 function addReminder(db, reminder) {
-  db.prepare(`INSERT INTO invoice_reminders(id,company_id,invoice_id,user_id,kind,sent_at,reminder_date,delivery_status,delivered_at,rate_config_version,rate_verified_at,principal_ore,reminder_fee_ore,interest_ore,business_compensation_ore,total_due_ore,annual_rate_basis_points,interest_segments_json,note,created_at)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+  db.prepare(`INSERT INTO invoice_reminders(id,company_id,invoice_id,user_id,kind,sent_at,reminder_date,rate_config_version,rate_verified_at,principal_ore,reminder_fee_ore,interest_ore,business_compensation_ore,total_due_ore,annual_rate_basis_points,interest_segments_json,note,created_at)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
       reminder.id,reminder.companyId,reminder.invoiceId,reminder.createdBy,reminder.kind,reminder.sentAt,
-      reminder.reminderDate || String(reminder.sentAt || '').slice(0,10),reminder.deliveryStatus || 'not-sent',reminder.deliveredAt || null,
-      reminder.rateConfigVersion || '',reminder.rateVerifiedAt || '',reminder.principalOre,reminder.reminderFeeOre,reminder.interestOre,
+      reminder.reminderDate || String(reminder.sentAt || '').slice(0,10),reminder.rateConfigVersion || '',reminder.rateVerifiedAt || '',reminder.principalOre,reminder.reminderFeeOre,reminder.interestOre,
       reminder.businessLatePaymentCompensationOre,reminder.totalDueOre,reminder.annualRateBasisPoints,JSON.stringify(reminder.interestSegments),reminder.note,reminder.createdAt
     );
   return reminder;
 }
 
 function remindersForInvoice(db, companyId, invoiceId) {
-  return db.prepare(`SELECT id,kind,sent_at AS sentAt,reminder_date AS reminderDate,delivery_status AS deliveryStatus,delivered_at AS deliveredAt,
+  return db.prepare(`SELECT id,kind,reminder_date AS reminderDate,
     rate_config_version AS rateConfigVersion,rate_verified_at AS rateVerifiedAt,principal_ore AS principalOre,reminder_fee_ore AS reminderFeeOre,interest_ore AS interestOre,
     business_compensation_ore AS businessLatePaymentCompensationOre,total_due_ore AS totalDueOre,annual_rate_basis_points AS annualRateBasisPoints,
     interest_segments_json AS interestSegmentsJson,note,created_at AS createdAt,user_id AS createdBy
