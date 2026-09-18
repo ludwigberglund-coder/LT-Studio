@@ -260,7 +260,7 @@ function membershipsForUser(db, userId) {
     .map(row => ({...row, roles:jsonParse(row.rolesJson,[])}));
 }
 
-function createSession(db, {tokenHash,csrfHash,userId,companyId,expiresAt,absoluteExpiresAt}) {
+function createSession(db, {tokenHash,csrfHash,userId,companyId,expiresAt,absoluteExpiresAt = expiresAt}) {
   const now = nowIso();
   if (!absoluteExpiresAt || absoluteExpiresAt < expiresAt) throw databaseError('Sessionens absoluta sluttid måste vara minst lika sen som inaktivitetsgränsen.','INVALID_SESSION_EXPIRY',500);
   db.prepare('DELETE FROM sessions WHERE expires_at<=? OR absolute_expires_at<=?').run(now,now);
