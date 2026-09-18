@@ -31,6 +31,7 @@ function createReportsRouter(options){
       if(url.pathname==='/api/v1/reports/profit-loss')return send(res,200,Reports.profitLoss(db,s.companyId,{from,to})),true;
       if(url.pathname==='/api/v1/reports/vat-control')return send(res,200,Reports.vatControl(db,s.companyId,{period})),true;
       if(url.pathname==='/api/v1/reports/receivables-control')return send(res,200,Reports.receivablesControl(db,s.companyId)),true;
+      if(url.pathname==='/api/v1/reports/payables-control')return send(res,200,Reports.payablesControl(db,s.companyId)),true;
       send(res,404,{error:'Hittades inte.',code:'NOT_FOUND'});return true;
     }catch(error){const status=Number(error.statusCode||500);if(status>=500)console.error(error);send(res,status,{error:status>=500?'Ett internt serverfel uppstod.':String(error.message||'Begäran misslyckades.'),code:error.code||'INTERNAL_ERROR'});return true}
   }

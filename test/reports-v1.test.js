@@ -17,7 +17,8 @@ function seed(){
   const supplierInvoice=Payables.createSupplierInvoice(db,{companyId:company.id,supplierId:supplier.id,supplierInvoiceNumber:'S-1',invoiceDate:'2026-09-08',dueDate:'2026-10-08',totalOre:62500,vatOre:12500,registeredBy:user.id});
   Accounting.postEntry(db,{companyId:company.id,postingDate:'2026-08-31',description:'Ingående bank',sourceType:'seed',sourceId:'open',createdBy:user.id,series:'A',lines:[{account:'1930',debitOre:100000,creditOre:0},{account:'2091',debitOre:0,creditOre:100000}]});
   Accounting.postEntry(db,{companyId:company.id,postingDate:'2026-09-05',description:'Kundfaktura 1001',sourceType:'customer-invoice',sourceId:customerInvoice.id,createdBy:user.id,series:'A',lines:[{account:'1510',debitOre:125000,creditOre:0},{account:'3010',debitOre:0,creditOre:100000},{account:'2611',debitOre:0,creditOre:25000}]});
-  Accounting.postEntry(db,{companyId:company.id,postingDate:'2026-09-08',description:'Leverantörsfaktura S-1',sourceType:'supplier-invoice',sourceId:supplierInvoice.id,createdBy:user.id,series:'A',lines:[{account:'4010',debitOre:50000,creditOre:0},{account:'2641',debitOre:12500,creditOre:0},{account:'2440',debitOre:0,creditOre:62500}]});
+  const supplierPosting=Accounting.postEntry(db,{companyId:company.id,postingDate:'2026-09-08',description:'Leverantörsfaktura S-1',sourceType:'supplier-invoice',sourceId:supplierInvoice.id,createdBy:user.id,series:'A',lines:[{account:'4010',debitOre:50000,creditOre:0},{account:'2641',debitOre:12500,creditOre:0},{account:'2440',debitOre:0,creditOre:62500}]});
+  db.prepare('UPDATE supplier_invoices SET liability_accounting_entry_id=?,open_amount_ore=? WHERE company_id=? AND id=?').run(supplierPosting.entry.id,62500,company.id,supplierInvoice.id);
   return{db,company,user};
 }
 
@@ -119,6 +120,47 @@ test('kundreskontrakontrollen blir grön när betalningen även är bokförd mot
   assert.equal(r.subledgerOpenOre,25000);
   assert.equal(r.ledger1510Ore,25000);
   assert.equal(r.differenceOre,0);
+}finally{db.close()}});
+
+test('leverantörsreskontran stämmer mot konto 2440 för bokförda fakturor',()=>{const {db,company}=seed();try{
+  const r=Reports.payablesControl(db,company.id);
+  assert.equal(r.integrityOk,true);
+  assert.equal(r.subledgerOpenOre,62500);
+  assert.equal(r.ledger2440Ore,62500);
+  assert.equal(r.differenceOre,0);
+  assert.equal(r.sourceMismatches.length,0);
+}finally{db.close()}});
+
+test('leverantörskontrollen flaggar minskat öppet saldo utan motsvarande 2440-bokföring',()=>{const {db,company}=seed();try{
+  db.prepare("UPDATE supplier_invoices SET open_amount_ore=0,status='paid' WHERE company_id=? AND supplier_invoice_number='S-1'").run(company.id);
+  const r=Reports.payablesControl(db,company.id);
+  assert.equal(r.integrityOk,false);
+  assert.equal(r.subledgerOpenOre,0);
+  assert.equal(r.ledger2440Ore,62500);
+  assert.equal(r.differenceOre,62500);
+  assert.match(r.warning,/måste utredas/i);
+}finally{db.close()}});
+
+test('leverantörskontrollen blir grön när betalningen även bokförts mot 2440',()=>{const {db,company,user}=seed();try{
+  const invoice=db.prepare("SELECT id FROM supplier_invoices WHERE company_id=? AND supplier_invoice_number='S-1'").get(company.id);
+  db.prepare("UPDATE supplier_invoices SET open_amount_ore=0,status='paid' WHERE company_id=? AND id=?").run(company.id,invoice.id);
+  Accounting.postEntry(db,{companyId:company.id,postingDate:'2026-09-20',description:'Betalning leverantörsfaktura S-1',sourceType:'supplier-payment',sourceId:'SPAY-S-1',createdBy:user.id,series:'A',lines:[{account:'2440',debitOre:62500,creditOre:0},{account:'1930',debitOre:0,creditOre:62500}]});
+  const r=Reports.payablesControl(db,company.id);
+  assert.equal(r.integrityOk,true);
+  assert.equal(r.subledgerOpenOre,0);
+  assert.equal(r.ledger2440Ore,0);
+  assert.equal(r.differenceOre,0);
+}finally{db.close()}});
+
+test('ej bokförda leverantörsfakturor redovisas separat från 2440-avstämningen',()=>{const {db,company,user}=seed();try{
+  const supplier=Payables.listSuppliers(db,company.id)[0];
+  Payables.createSupplierInvoice(db,{companyId:company.id,supplierId:supplier.id,supplierInvoiceNumber:'S-2',invoiceDate:'2026-09-15',dueDate:'2026-10-15',totalOre:10000,vatOre:2000,registeredBy:user.id});
+  const r=Reports.payablesControl(db,company.id);
+  assert.equal(r.integrityOk,true);
+  assert.equal(r.unpostedInvoices.length,1);
+  assert.equal(r.unpostedInvoices[0].invoiceNumber,'S-2');
+  assert.equal(r.subledgerOpenOre,62500);
+  assert.equal(r.ledger2440Ore,62500);
 }finally{db.close()}});
 
 test('felaktiga perioder och konton stoppas',()=>{const {db,company}=seed();try{assert.throws(()=>Reports.vatControl(db,company.id,{period:'2026-13'}),e=>e.code==='INVALID_PERIOD');assert.throws(()=>Reports.generalLedger(db,company.id,{from:'2026-09-01',to:'2026-09-30',account:'26A1'}),e=>e.code==='INVALID_ACCOUNT');assert.throws(()=>Reports.trialBalance(db,company.id,{from:'2026-10-01',to:'2026-09-01'}),e=>e.code==='INVALID_REPORT_RANGE');}finally{db.close()}});
