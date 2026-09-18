@@ -50,7 +50,7 @@ function customerVatSourceChecks(db,companyId,{from,to}){
   return db.prepare(`SELECT i.id,i.invoice_number AS invoiceNumber,i.vat_ore AS expectedVatOre,e.id AS entryId,e.number AS journalNumber,
     COALESCE(SUM(CASE WHEN l.account IN ('2611','2621','2631') THEN l.credit_ore-l.debit_ore ELSE 0 END),0) AS bookedVatOre
     FROM invoices i
-    JOIN accounting_entries e ON e.company_id=i.company_id AND e.source_type='customer-invoice' AND e.source_id=i.id
+    JOIN accounting_entries e ON e.company_id=i.company_id AND e.source_type IN ('customer-invoice','customer-credit-note') AND e.source_id=i.id
     JOIN accounting_entry_lines l ON l.entry_id=e.id
     WHERE i.company_id=? AND e.posting_date BETWEEN ? AND ?
     GROUP BY i.id,i.invoice_number,i.vat_ore,e.id,e.number
@@ -134,7 +134,7 @@ function receivablesControl(db,companyId){
     e.id AS entryId,e.number AS journalNumber,
     COALESCE(SUM(CASE WHEN l.account='1510' THEN l.debit_ore-l.credit_ore ELSE 0 END),0) AS bookedReceivableOre
     FROM invoices i
-    LEFT JOIN accounting_entries e ON e.company_id=i.company_id AND e.source_type='customer-invoice' AND e.source_id=i.id
+    LEFT JOIN accounting_entries e ON e.company_id=i.company_id AND e.source_type IN ('customer-invoice','customer-credit-note') AND e.source_id=i.id
     LEFT JOIN accounting_entry_lines l ON l.entry_id=e.id
     WHERE i.company_id=?
     GROUP BY i.id,i.invoice_number,i.total_ore,e.id,e.number
