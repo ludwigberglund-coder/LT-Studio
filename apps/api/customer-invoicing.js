@@ -53,6 +53,7 @@ function initializeCustomerInvoicing(db){
   protectAppendOnly(db,'customer_invoice_issue_requests');
   protectAppendOnly(db,'customer_invoice_credits');
   protectAppendOnly(db,'customer_invoice_credit_requests');
+  require('./tenant-integrity.js').installTenantGuards(db);
   // Settlement status may change; the issued invoice's financial identity may not.
   const fields=['customer_id','invoice_number','ocr','invoice_date','posting_date','due_date','total_ore','vat_ore','invoice_account','payment_account','payment_method','created_at'];
   db.exec(`CREATE TRIGGER IF NOT EXISTS history_issued_invoice_core BEFORE UPDATE ON invoices
@@ -117,7 +118,8 @@ function invoiceBundle(db,companyId,invoiceId){
   const invoice=Db.invoiceById(db,companyId,invoiceId);
   if(!invoice)return null;
   const stored=documentForInvoice(db,companyId,invoiceId);
-  return{invoice,document:stored?.document||null,documentSha256:stored?.documentSha256||null,entry:Accounting.entryBySource(db,companyId,'customer-invoice',invoiceId)};
+  const entry=Accounting.entryBySource(db,companyId,'customer-invoice',invoiceId)||Accounting.entryBySource(db,companyId,'customer-credit',invoiceId);
+  return{invoice,document:stored?.document||null,documentSha256:stored?.documentSha256||null,entry};
 }
 function validateRequestId(value){const id=text(value);if(!/^[A-Za-z0-9_-]{16,100}$/.test(id))throw invoiceError('En giltig idempotensnyckel krävs för fakturautställning.','INVALID_INVOICE_REQUEST_ID',422);return id}
 function resolvedProfile(db,companyId,publicProfile={}){return InvoiceSettings.privateProfile(db,companyId,publicProfile)}
