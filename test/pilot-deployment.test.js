@@ -70,3 +70,68 @@ test('npm start pekar på det skyddade SQLite-API:t',()=>{
   const pkg=require('../package.json');
   assert.equal(pkg.scripts.start,'node apps/api/server.js');
 });
+
+function restoreCase(mutator, expectedFailure) {
+  const {DatabaseSync}=require('node:sqlite');
+  const Accounting=require('../apps/api/accounting-store.js');
+  const Documents=require('../apps/api/documents.js');
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-restore-safety-'));
+  const source=path.join(dir,'source.sqlite'),backupDir=path.join(dir,'backups'),target=path.join(dir,'restore','verified.sqlite');
+  const db=Db.openDatabase(source);
+  Accounting.initializeAccountingStore(db);Documents.initializeDocuments(db);
+  const co=Db.createCompany(db,{legalName:'Restore test',orgNumber:'RESTORE-TEST'});
+  const user=Db.createUser(db,{username:'restore-test',displayName:'Restore tester',passwordHash:'not-a-login-password'});
+  const entry=Accounting.postEntry(db,{companyId:co.id,createdBy:user.id,postingDate:'2026-09-18',description:'Test sale with VAT',sourceType:'restore-test',sourceId:'1',lines:[{account:'1510',debitOre:106000},{account:'3053',creditOre:100000},{account:'2631',creditOre:6000}]}).entry;
+  // Known binary fixture tests byte-for-byte restoration, not PDF rendering.
+  const bytes=Buffer.from('%PDF-1.4\n% Restore byte fixture\n%%EOF\n');
+  const doc=Documents.createPending(db,{companyId:co.id,uploadedBy:user.id,title:'Restore fixture',fileName:'test.pdf'});
+  Documents.storeContent(db,{companyId:co.id,documentId:doc.id,bytes});
+  Db.appendAudit(db,{companyId:co.id,userId:user.id,action:'RESTORE_TEST_FIXTURE',entityType:'entry',entityId:entry.id});
+  if(mutator?.database)mutator.database(db,entry);
+  db.close();
+  try{
+    const backup=spawnSync(process.execPath,['scripts/pilot-backup.js'],{cwd:root,encoding:'utf8',env:{...process.env,ROLLANDS_DATABASE_PATH:source,ROLLANDS_BACKUP_PATH:backupDir}});
+    assert.equal(backup.status,0,backup.stderr);
+    const file=path.join(backupDir,fs.readdirSync(backupDir).find(name=>name.endsWith('.sqlite')));
+    if(mutator?.backup)mutator.backup(file);
+    const restore=spawnSync(process.execPath,['scripts/pilot-restore-verify.js'],{cwd:root,encoding:'utf8',env:{...process.env,ROLLANDS_DATABASE_PATH:source,ROLLANDS_RESTORE_SOURCE:file,ROLLANDS_RESTORE_TARGET:target}});
+    if(expectedFailure){
+      assert.notEqual(restore.status,0);
+      assert.match(restore.stderr,expectedFailure);
+      assert.equal(fs.existsSync(target),false,'A failed check must not create a usable restore target');
+    }else{
+      assert.equal(restore.status,0,restore.stderr);
+      const result=JSON.parse(restore.stdout.split('\n')[0]);
+      assert.equal(result.journalEntries,1);
+      assert.equal(result.foreignKeys,true);
+      const restored=new DatabaseSync(target,{readOnly:true});
+      try{
+        assert.equal(restored.prepare('SELECT COUNT(*) AS n FROM accounting_entry_lines').get().n,3);
+        assert.equal(restored.prepare('SELECT COUNT(*) AS n FROM audit_events').get().n,1);
+        assert.deepEqual(Buffer.from(restored.prepare('SELECT content_blob FROM documents WHERE id=?').get(doc.id).content_blob),bytes);
+      }finally{restored.close()}
+      assert.equal(fs.readFileSync(target).equals(fs.readFileSync(file)),true);
+    }
+    assert.ok(fs.existsSync(source),'Source is never removed');
+  }finally{fs.rmSync(dir,{recursive:true,force:true})}
+}
+test('actual backup and restore commands preserve VAT lines, audit and original bytes',()=>restoreCase());
+test('restore refuses a backup without checksum',()=>restoreCase({backup:file=>fs.rmSync(`${file}.sha256`)},/RESTORE_CHECKSUM_REQUIRED/));
+test('restore refuses a changed backup checksum',()=>restoreCase({backup:file=>fs.writeFileSync(`${file}.sha256`,'0'.repeat(64))},/RESTORE_CHECKSUM_FAILED/));
+test('restore refuses orphan data even when SQLite integrity_check is ok',()=>restoreCase({database:db=>{
+  db.exec("CREATE TABLE orphan_probe(id TEXT PRIMARY KEY,company_id TEXT REFERENCES companies(id)); PRAGMA foreign_keys=OFF; INSERT INTO orphan_probe VALUES('x','missing-company'); PRAGMA foreign_keys=ON;");
+}},/RESTORE_FOREIGN_KEY_FAILED/));
+test('restore refuses a half-written journal with a valid file checksum',()=>restoreCase({database:(db,entry)=>{
+  db.prepare('DELETE FROM accounting_entry_lines WHERE entry_id=? AND account=?').run(entry.id,'2631');
+}},/RESTORE_JOURNAL_FAILED/));
+test('restore refuses a mismatched journal sequence counter',()=>restoreCase({database:db=>{
+  db.exec('UPDATE accounting_sequences SET last_number=last_number+1');
+}},/RESTORE_SEQUENCE_FAILED/));
+test('restore refuses cross-company data that passes ordinary foreign key checks',()=>restoreCase({database:db=>{
+  const other=Db.createCompany(db,{legalName:'Other restore company',orgNumber:'OTHER-RESTORE'});
+  const first=db.prepare('SELECT id FROM companies WHERE id<>?').get(other.id);
+  const customer=Db.createCustomer(db,{companyId:other.id,customerNumber:'B-1',name:'Other customer'});
+  // This unguarded test-only table emulates data from a pre-guard release.
+  db.exec('CREATE TABLE cross_company_probe(id TEXT PRIMARY KEY,company_id TEXT REFERENCES companies(id),customer_id TEXT REFERENCES customers(id))');
+  db.prepare('INSERT INTO cross_company_probe VALUES(?,?,?)').run('test-cross',first.id,customer.id);
+}},/RESTORE_TENANT_FAILED/));
