@@ -290,6 +290,14 @@ function createApiApp(options) {
         return send(res,result.duplicate?200:201,result);
       }
 
+      const customerInvoiceCreditMatch=url.pathname.match(/^\/api\/v1\/customer-invoices\/([^/]+)\/credit$/);
+      if(customerInvoiceCreditMatch && req.method==='POST') {
+        requirePermission(session,'customer-invoice.credit');
+        const payload=await readJson(req,res); if(!payload) return;
+        const result=Db.transaction(db,()=>CustomerInvoicing.creditUnpaidInvoice(db,{companyId:session.companyId,userId:session.userId,invoiceId:customerInvoiceCreditMatch[1],payload}));
+        return send(res,result.duplicate?200:201,result);
+      }
+
       const customerInvoiceMatch=url.pathname.match(/^\/api\/v1\/customer-invoices\/([^/]+)$/);
       if(customerInvoiceMatch && req.method==='GET') {
         requirePermission(session,'customer-invoice.view');
