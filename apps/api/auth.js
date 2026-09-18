@@ -106,13 +106,18 @@ function totpCode(secretBase32, atMs = Date.now(), stepSeconds = 30, digits = 6)
   return String(number).padStart(digits,'0');
 }
 
-function verifyTotp(secretBase32, suppliedCode, {now = Date.now(), window = 1} = {}) {
+function totpMatchCounter(secretBase32, suppliedCode, {now = Date.now(), window = 1} = {}) {
   const code = String(suppliedCode || '').trim();
-  if (!/^\d{6}$/.test(code)) return false;
+  if (!/^\d{6}$/.test(code)) return null;
+  const currentCounter = Math.floor(now / 1000 / 30);
   for (let offset = -window; offset <= window; offset += 1) {
-    if (safeEqualText(totpCode(secretBase32, now + offset * 30000), code)) return true;
+    if (safeEqualText(totpCode(secretBase32, now + offset * 30000), code)) return currentCounter + offset;
   }
-  return false;
+  return null;
+}
+
+function verifyTotp(secretBase32, suppliedCode, options = {}) {
+  return totpMatchCounter(secretBase32, suppliedCode, options) !== null;
 }
 
 function encryptionKey(raw) {
@@ -149,6 +154,7 @@ module.exports = Object.freeze({
   sessionCookie,
   clearSessionCookie,
   totpCode,
+  totpMatchCounter,
   verifyTotp,
   encryptSecret,
   decryptSecret
