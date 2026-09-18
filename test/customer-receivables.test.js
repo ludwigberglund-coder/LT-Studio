@@ -90,6 +90,13 @@ test('ofullständig eller komplex saldohistorik blockeras hellre än att ränta 
   },{sentDate:'2026-09-18'},legalRates),error=>error.code==='UNSUPPORTED_BALANCE_HISTORY');
 });
 
+test('restbelopp måste stämma med betalningshistoriken innan ränta får beräknas', () => {
+  assert.throws(()=>Receivables.reminderPreview({
+    id:'inv-1',dueDate:'2026-09-01',totalOre:100_000,remainingOre:40_000,
+    transactions:[{id:'p1',transactionType:'payment',paymentDate:'2026-09-02',amountOre:-50_000,approved:true}]
+  },{sentDate:'2026-09-18'},legalRates),error=>error.code==='BALANCE_HISTORY_MISMATCH');
+});
+
 test('påminnelsepost sparar beräkningsdag, leveransstatus och verifierad räntekonfiguration', () => {
   const record=Receivables.createReminderRecord({
     invoice:{id:'inv-1',dueDate:'2026-09-01',totalOre:100_000,remainingOre:100_000,transactions:[]},
