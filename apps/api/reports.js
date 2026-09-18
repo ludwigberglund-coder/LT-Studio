@@ -121,6 +121,51 @@ function vatControl(db,companyId,{period}){
     warning
   };
 }
+function receivablesControl(db,companyId){
+  const subledger=db.prepare(`SELECT COUNT(*) AS invoiceCount,
+    COALESCE(SUM(remaining_ore),0) AS openOre,
+    COALESCE(SUM(total_ore),0) AS originalOre
+    FROM invoices WHERE company_id=?`).get(companyId)||{};
+  const ledger=db.prepare(`SELECT COALESCE(SUM(l.debit_ore-l.credit_ore),0) AS balanceOre
+    FROM accounting_entry_lines l
+    JOIN accounting_entries e ON e.id=l.entry_id
+    WHERE e.company_id=? AND l.account='1510'`).get(companyId)||{};
+  const sourceChecks=db.prepare(`SELECT i.id AS invoiceId,i.invoice_number AS invoiceNumber,i.total_ore AS expectedReceivableOre,
+    e.id AS entryId,e.number AS journalNumber,
+    COALESCE(SUM(CASE WHEN l.account='1510' THEN l.debit_ore-l.credit_ore ELSE 0 END),0) AS bookedReceivableOre
+    FROM invoices i
+    LEFT JOIN accounting_entries e ON e.company_id=i.company_id AND e.source_type='customer-invoice' AND e.source_id=i.id
+    LEFT JOIN accounting_entry_lines l ON l.entry_id=e.id
+    WHERE i.company_id=?
+    GROUP BY i.id,i.invoice_number,i.total_ore,e.id,e.number
+    ORDER BY i.invoice_number`).all(companyId).map(row=>({
+      invoiceId:row.invoiceId,invoiceNumber:row.invoiceNumber,entryId:row.entryId||null,journalNumber:row.journalNumber||null,
+      expectedReceivableOre:Number(row.expectedReceivableOre||0),bookedReceivableOre:Number(row.bookedReceivableOre||0),
+      differenceOre:Number(row.bookedReceivableOre||0)-Number(row.expectedReceivableOre||0)
+    }));
+  const missingSourceEntries=sourceChecks.filter(row=>!row.entryId);
+  const sourceMismatches=sourceChecks.filter(row=>row.entryId&&row.differenceOre!==0);
+  const subledgerOpenOre=Number(subledger.openOre||0);
+  const ledger1510Ore=Number(ledger.balanceOre||0);
+  const differenceOre=ledger1510Ore-subledgerOpenOre;
+  const integrityOk=differenceOre===0&&missingSourceEntries.length===0&&sourceMismatches.length===0;
+  return{
+    basis:'current-subledger-vs-ledger',
+    account:'1510',
+    integrityOk,
+    invoiceCount:Number(subledger.invoiceCount||0),
+    subledgerOpenOre,
+    ledger1510Ore,
+    differenceOre,
+    sourceChecks,
+    missingSourceEntries,
+    sourceMismatches,
+    warning:integrityOk
+      ? 'Kundreskontrans aktuella restbelopp stämmer med konto 1510 och varje kundfaktura har en källanknuten ursprungsverifikation.'
+      : 'Kundreskontra och konto 1510 stämmer inte fullt ut. Differensen måste utredas innan kundfordringarna kan betraktas som avstämda för pilot.'
+  };
+}
+
 function reportSummary(db,companyId,{from,to,period}){const trial=trialBalance(db,companyId,{from,to}),pl=profitLoss(db,companyId,{from,to}),vat=vatControl(db,companyId,{period});return{from,to,trialTotals:trial.totals,profitLoss:pl.resultOre,vat}}
 
-module.exports=Object.freeze({validDate,validPeriod,periodBounds,trialBalance,generalLedger,profitLoss,vatLedgerRows,customerVatSourceChecks,supplierVatSourceChecks,vatControl,reportSummary,OUTPUT_VAT_ACCOUNTS});
+module.exports=Object.freeze({validDate,validPeriod,periodBounds,trialBalance,generalLedger,profitLoss,vatLedgerRows,customerVatSourceChecks,supplierVatSourceChecks,vatControl,receivablesControl,reportSummary,OUTPUT_VAT_ACCOUNTS});
