@@ -6,10 +6,20 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const PLACEHOLDER=/REPLACE_WITH|example\.invalid|changeme|default|placeholder/i;
 
+function resolvedStoragePath(filename){
+  const absolute=path.resolve(filename);
+  let parent=absolute;
+  const tail=[];
+  while(!fs.existsSync(parent)){
+    const next=path.dirname(parent);
+    if(next===parent)break;
+    tail.unshift(path.basename(parent));parent=next;
+  }
+  return path.join(fs.realpathSync(parent),...tail);
+}
 function outsideRepository(filename){
-  const resolved=path.resolve(filename);
-  const relative=path.relative(root,resolved);
-  return Boolean(relative && (relative.startsWith('..') || path.isAbsolute(relative)));
+  const relative=path.relative(fs.realpathSync(root),resolvedStoragePath(filename));
+  return Boolean(relative && (relative==='..' || relative.startsWith('..'+path.sep) || path.isAbsolute(relative)));
 }
 
 function writableDirectory(target){
@@ -29,7 +39,7 @@ function validateConfig(env=process.env){
   const mode=requireValue('ROLLANDS_ENV');
   if(mode&&!['pilot','production'].includes(mode))fail.push('ROLLANDS_ENV måste vara pilot eller production.');
   if(String(env.NODE_ENV||'')!=='production')fail.push('NODE_ENV måste vara production.');
-  if(String(env.ROLLANDS_DEMO_DATA||'0')==='1')fail.push('ROLLANDS_DEMO_DATA får inte vara 1 i pilot/produktion.');
+  if(String(env.ROLLANDS_DEMO_DATA||'0')!=='0')fail.push('ROLLANDS_DEMO_DATA måste vara 0 i pilot/produktion.');
 
   const databasePath=requireValue('ROLLANDS_DATABASE_PATH');
   const backupPath=requireValue('ROLLANDS_BACKUP_PATH');
