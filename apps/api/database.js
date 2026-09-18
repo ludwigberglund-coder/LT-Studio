@@ -294,7 +294,10 @@ function consumeMfaStep(db,{userId,totpCounter}) {
   try {
     db.prepare('INSERT INTO mfa_used_steps(user_id,totp_counter,used_at) VALUES(?,?,?)').run(userId,totpCounter,now);
   } catch (error) {
-    if (String(error.code||'').includes('CONSTRAINT')) throw databaseError('MFA-koden har redan använts. Vänta på nästa kod och försök igen.','MFA_CODE_REPLAYED',409);
+    const detail=`${error.code||''} ${error.message||''} ${error.errstr||''}`;
+    if (/CONSTRAINT|UNIQUE constraint failed|constraint failed/i.test(detail)) {
+      throw databaseError('MFA-koden har redan använts. Vänta på nästa kod och försök igen.','MFA_CODE_REPLAYED',409);
+    }
     throw error;
   }
   return {userId,totpCounter,usedAt:now};
