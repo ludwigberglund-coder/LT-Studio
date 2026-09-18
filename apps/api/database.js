@@ -63,7 +63,15 @@ function initializeSchema(db) {
       company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
       created_at TEXT NOT NULL,
       expires_at TEXT NOT NULL,
+      absolute_expires_at TEXT NOT NULL,
       last_seen_at TEXT NOT NULL
+    ) STRICT;
+
+    CREATE TABLE IF NOT EXISTS mfa_used_steps (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      totp_counter INTEGER NOT NULL,
+      used_at TEXT NOT NULL,
+      PRIMARY KEY(user_id,totp_counter)
     ) STRICT;
 
     CREATE TABLE IF NOT EXISTS customers (
@@ -170,7 +178,13 @@ function initializeSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_reminders_invoice ON invoice_reminders(company_id,invoice_id,sent_at);
     CREATE INDEX IF NOT EXISTS idx_audit_company_created ON audit_events(company_id,created_at);
     CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_sessions_absolute_expiry ON sessions(absolute_expires_at);
+    CREATE INDEX IF NOT EXISTS idx_mfa_used_steps_used_at ON mfa_used_steps(used_at);
   `);
+  if (!hasColumn(db,'sessions','absolute_expires_at')) {
+    db.exec("ALTER TABLE sessions ADD COLUMN absolute_expires_at TEXT NOT NULL DEFAULT ''");
+    db.exec("UPDATE sessions SET absolute_expires_at=expires_at WHERE absolute_expires_at=''");
+  }
   if (!hasColumn(db,'invoice_reminders','reminder_date')) db.exec('ALTER TABLE invoice_reminders ADD COLUMN reminder_date TEXT');
   if (!hasColumn(db,'invoice_reminders','rate_config_version')) db.exec("ALTER TABLE invoice_reminders ADD COLUMN rate_config_version TEXT NOT NULL DEFAULT ''");
   if (!hasColumn(db,'invoice_reminders','rate_verified_at')) db.exec("ALTER TABLE invoice_reminders ADD COLUMN rate_verified_at TEXT NOT NULL DEFAULT ''");
@@ -246,25 +260,44 @@ function membershipsForUser(db, userId) {
     .map(row => ({...row, roles:jsonParse(row.rolesJson,[])}));
 }
 
-function createSession(db, {tokenHash,csrfHash,userId,companyId,expiresAt}) {
+function createSession(db, {tokenHash,csrfHash,userId,companyId,expiresAt,absoluteExpiresAt}) {
   const now = nowIso();
-  db.prepare('DELETE FROM sessions WHERE expires_at<=?').run(now);
-  db.prepare('INSERT INTO sessions(token_hash,csrf_hash,user_id,company_id,created_at,expires_at,last_seen_at) VALUES(?,?,?,?,?,?,?)')
-    .run(tokenHash,csrfHash,userId,companyId,now,expiresAt,now);
+  if (!absoluteExpiresAt || absoluteExpiresAt < expiresAt) throw databaseError('Sessionens absoluta sluttid måste vara minst lika sen som inaktivitetsgränsen.','INVALID_SESSION_EXPIRY',500);
+  db.prepare('DELETE FROM sessions WHERE expires_at<=? OR absolute_expires_at<=?').run(now,now);
+  db.prepare('INSERT INTO sessions(token_hash,csrf_hash,user_id,company_id,created_at,expires_at,absolute_expires_at,last_seen_at) VALUES(?,?,?,?,?,?,?,?)')
+    .run(tokenHash,csrfHash,userId,companyId,now,expiresAt,absoluteExpiresAt,now);
 }
 
 function sessionByTokenHash(db, tokenHash) {
   const now = nowIso();
-  const row = db.prepare(`SELECT s.token_hash AS tokenHash,s.csrf_hash AS csrfHash,s.user_id AS userId,s.company_id AS companyId,s.expires_at AS expiresAt,
+  const row = db.prepare(`SELECT s.token_hash AS tokenHash,s.csrf_hash AS csrfHash,s.user_id AS userId,s.company_id AS companyId,
+      s.expires_at AS expiresAt,s.absolute_expires_at AS absoluteExpiresAt,s.created_at AS createdAt,s.last_seen_at AS lastSeenAt,
       u.username,u.display_name AS displayName,u.disabled,m.roles_json AS rolesJson
     FROM sessions s JOIN users u ON u.id=s.user_id JOIN memberships m ON m.user_id=s.user_id AND m.company_id=s.company_id
-    WHERE s.token_hash=? AND s.expires_at>?`).get(tokenHash,now);
+    WHERE s.token_hash=? AND s.expires_at>? AND s.absolute_expires_at>?`).get(tokenHash,now,now);
   if (!row) return null;
   return {...row, roles:jsonParse(row.rolesJson,[])};
 }
 
-function touchSession(db, tokenHash, expiresAt) {
-  db.prepare('UPDATE sessions SET last_seen_at=?,expires_at=? WHERE token_hash=?').run(nowIso(),expiresAt,tokenHash);
+function touchSession(db, tokenHash, requestedExpiresAt) {
+  const now=nowIso();
+  db.prepare(`UPDATE sessions
+    SET last_seen_at=?,
+        expires_at=CASE WHEN absolute_expires_at<? THEN absolute_expires_at ELSE ? END
+    WHERE token_hash=? AND absolute_expires_at>?`).run(now,requestedExpiresAt,requestedExpiresAt,tokenHash,now);
+}
+
+function consumeMfaStep(db,{userId,totpCounter}) {
+  if (!userId || !Number.isSafeInteger(totpCounter) || totpCounter < 0) throw databaseError('Ogiltig MFA-tidslucka.','INVALID_MFA_COUNTER',500);
+  const now=nowIso();
+  db.prepare("DELETE FROM mfa_used_steps WHERE used_at < datetime('now','-2 days')").run();
+  try {
+    db.prepare('INSERT INTO mfa_used_steps(user_id,totp_counter,used_at) VALUES(?,?,?)').run(userId,totpCounter,now);
+  } catch (error) {
+    if (String(error.code||'').includes('CONSTRAINT')) throw databaseError('MFA-koden har redan använts. Vänta på nästa kod och försök igen.','MFA_CODE_REPLAYED',409);
+    throw error;
+  }
+  return {userId,totpCounter,usedAt:now};
 }
 
 function deleteSession(db, tokenHash) {
@@ -430,6 +463,7 @@ module.exports = Object.freeze({
   createSession,
   sessionByTokenHash,
   touchSession,
+  consumeMfaStep,
   deleteSession,
   createCustomer,
   customerById,
