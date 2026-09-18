@@ -180,8 +180,13 @@ function creditDocumentFrom(original,invoiceNumber,creditDate,reason){
 }
 function creditUnpaidInvoice(db,{companyId,userId,invoiceId,payload}){
   const requestId=validateRequestId(payload?.requestId);
-  const prior=db.prepare('SELECT credit_invoice_id AS creditInvoiceId FROM customer_invoice_credits WHERE company_id=? AND request_id=?').get(companyId,requestId);
-  if(prior){const existing=invoiceBundle(db,companyId,prior.creditInvoiceId);if(!existing)throw invoiceError('Tidigare krediteringsbegäran saknar kreditfaktura.','CREDIT_IDEMPOTENCY_CORRUPT',500);return{...existing,duplicate:true}}
+  const prior=db.prepare('SELECT original_invoice_id AS originalInvoiceId,credit_invoice_id AS creditInvoiceId FROM customer_invoice_credits WHERE company_id=? AND request_id=?').get(companyId,requestId);
+  if(prior){
+    if(prior.originalInvoiceId!==invoiceId)throw invoiceError('Idempotensnyckeln är redan använd för en annan faktura.','CREDIT_IDEMPOTENCY_CONFLICT',409);
+    const existing=invoiceBundle(db,companyId,prior.creditInvoiceId);
+    if(!existing)throw invoiceError('Tidigare krediteringsbegäran saknar kreditfaktura.','CREDIT_IDEMPOTENCY_CORRUPT',500);
+    return{...existing,duplicate:true};
+  }
   const original=Db.invoiceById(db,companyId,invoiceId);
   if(!original)throw invoiceError('Fakturan hittades inte i det inloggade företaget.','INVOICE_NOT_FOUND',404);
   if(original.totalOre<=0)throw invoiceError('En kreditfaktura kan inte krediteras med detta flöde.','CREDIT_SOURCE_INVALID',409);
