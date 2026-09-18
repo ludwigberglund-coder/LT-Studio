@@ -150,6 +150,7 @@ function createApiApp(options) {
   function requireInvoice(session,invoiceId) {
     const invoice=Db.invoiceById(db,session.companyId,invoiceId);
     if(!invoice) throw apiError('Fakturan hittades inte i det inloggade företaget.','INVOICE_NOT_FOUND',404);
+    invoice.transactions=Db.transactionsForInvoice(db,session.companyId,invoice.id);
     invoice.reminders=Db.remindersForInvoice(db,session.companyId,invoice.id);
     return invoice;
   }
@@ -357,9 +358,9 @@ function createApiApp(options) {
         });
         Db.transaction(db,()=>{
           Db.addReminder(db,reminder);
-          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'PAYMENT_REMINDER_CREATED',entityType:'invoice',entityId:invoice.id,details:{reminderId:reminder.id,totalDueOre:reminder.totalDueOre,deliveryStatus:'awaiting-mail-integration'}});
+          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'PAYMENT_REMINDER_CREATED',entityType:'invoice',entityId:invoice.id,details:{reminderId:reminder.id,totalDueOre:reminder.totalDueOre,deliveryStatus:'not-sent'}});
         });
-        return send(res,201,{reminder,deliveryStatus:'awaiting-mail-integration'});
+        return send(res,201,{reminder,deliveryStatus:'not-sent'});
       }
 
       return send(res,404,{error:'Hittades inte.',code:'NOT_FOUND'});
