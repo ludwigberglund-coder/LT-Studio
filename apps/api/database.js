@@ -151,6 +151,17 @@ function initializeSchema(db) {
       created_at TEXT NOT NULL
     ) STRICT;
 
+    CREATE TABLE IF NOT EXISTS invoice_reminder_requests (
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      request_id TEXT NOT NULL,
+      invoice_id TEXT NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+      reminder_id TEXT NOT NULL REFERENCES invoice_reminders(id) ON DELETE RESTRICT,
+      payload_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY(company_id,request_id),
+      UNIQUE(company_id,reminder_id)
+    ) STRICT;
+
     CREATE TABLE IF NOT EXISTS audit_events (
       id TEXT PRIMARY KEY,
       company_id TEXT REFERENCES companies(id) ON DELETE CASCADE,
@@ -168,7 +179,11 @@ function initializeSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_audit_company_created ON audit_events(company_id,created_at);
     CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
   `);
-  require('./history-guards.js').protectAppendOnly(db, 'audit_events');
+  const {protectAppendOnly}=require('./history-guards.js');
+  protectAppendOnly(db, 'audit_events');
+  protectAppendOnly(db, 'invoice_transactions');
+  protectAppendOnly(db, 'invoice_reminders');
+  protectAppendOnly(db, 'invoice_reminder_requests');
 }
 
 function nowIso() { return new Date().toISOString(); }
@@ -329,23 +344,28 @@ function transactionById(db,companyId,transactionId) {
   return row ? {...row,approved:Boolean(row.approved)} : null;
 }
 
+function transactionsForInvoice(db,companyId,invoiceId) {
+  return db.prepare(`SELECT id,company_id AS companyId,invoice_id AS invoiceId,transaction_type AS transactionType,payment_method AS paymentMethod,
+    payment_date AS paymentDate,posting_date AS postingDate,batch_number AS batchNumber,journal_number AS journalNumber,amount_ore AS amountOre,
+    approved,account,bank_reference AS bankReference,created_at AS createdAt FROM invoice_transactions
+    WHERE company_id=? AND invoice_id=? ORDER BY coalesce(payment_date,posting_date,created_at),created_at,id`).all(companyId,invoiceId)
+    .map(row => ({...row,approved:Boolean(row.approved)}));
+}
+
 function listReceivables(db,companyId) {
   const invoices = db.prepare(`SELECT i.id,i.company_id AS companyId,i.customer_id AS customerId,i.invoice_number AS invoiceNumber,i.ocr,i.invoice_date AS invoiceDate,
     i.posting_date AS postingDate,i.due_date AS dueDate,i.total_ore AS totalOre,i.remaining_ore AS remainingOre,i.vat_ore AS vatOre,i.status,
     i.payment_method AS paymentMethod,i.payment_account AS paymentAccount,i.invoice_account AS invoiceAccount,i.batch_number AS batchNumber,i.journal_number AS journalNumber,
     c.customer_number AS customerNumber,c.name AS customerName,c.customer_type AS customerType,c.reminder_fee_agreed AS reminderFeeAgreed
     FROM invoices i JOIN customers c ON c.id=i.customer_id AND c.company_id=i.company_id WHERE i.company_id=? ORDER BY c.name,i.invoice_date DESC,i.invoice_number DESC`).all(companyId);
-  const transactionStmt = db.prepare(`SELECT id,transaction_type AS transactionType,payment_method AS paymentMethod,payment_date AS paymentDate,posting_date AS postingDate,
-    batch_number AS batchNumber,journal_number AS journalNumber,amount_ore AS amountOre,approved,account,bank_reference AS bankReference,created_at AS createdAt
-    FROM invoice_transactions WHERE company_id=? AND invoice_id=? ORDER BY created_at`);
-  const reminderStmt = db.prepare(`SELECT id,kind,sent_at AS sentAt,principal_ore AS principalOre,reminder_fee_ore AS reminderFeeOre,interest_ore AS interestOre,
+  const reminderStmt = db.prepare(`SELECT id,kind,substr(sent_at,1,10) AS reminderDate,principal_ore AS principalOre,reminder_fee_ore AS reminderFeeOre,interest_ore AS interestOre,
     business_compensation_ore AS businessCompensationOre,total_due_ore AS totalDueOre,annual_rate_basis_points AS annualRateBasisPoints,note,created_at AS createdAt
     FROM invoice_reminders WHERE company_id=? AND invoice_id=? ORDER BY sent_at`);
   const commentCountStmt = db.prepare('SELECT count(*) AS count FROM invoice_comments WHERE company_id=? AND invoice_id=?');
   return invoices.map(invoice => ({
     ...invoice,
     reminderFeeAgreed:Boolean(invoice.reminderFeeAgreed),
-    transactions:transactionStmt.all(companyId,invoice.id).map(row => ({...row,approved:Boolean(row.approved)})),
+    transactions:transactionsForInvoice(db,companyId,invoice.id),
     reminders:reminderStmt.all(companyId,invoice.id),
     commentCount:Number(commentCountStmt.get(companyId,invoice.id).count || 0)
   }));
@@ -365,7 +385,7 @@ function commentsForInvoice(db, companyId, invoiceId) {
 function addReminder(db, reminder) {
   db.prepare(`INSERT INTO invoice_reminders(id,company_id,invoice_id,user_id,kind,sent_at,principal_ore,reminder_fee_ore,interest_ore,business_compensation_ore,total_due_ore,annual_rate_basis_points,interest_segments_json,note,created_at)
     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
-      reminder.id,reminder.companyId,reminder.invoiceId,reminder.createdBy,reminder.kind,reminder.sentAt,reminder.principalOre,reminder.reminderFeeOre,reminder.interestOre,
+      reminder.id,reminder.companyId,reminder.invoiceId,reminder.createdBy,reminder.kind,`${reminder.reminderDate}T12:00:00.000Z`,reminder.principalOre,reminder.reminderFeeOre,reminder.interestOre,
       reminder.businessLatePaymentCompensationOre,reminder.totalDueOre,reminder.annualRateBasisPoints,JSON.stringify(reminder.interestSegments),reminder.note,reminder.createdAt
     );
   return reminder;
@@ -377,6 +397,25 @@ function remindersForInvoice(db, companyId, invoiceId) {
     interest_segments_json AS interestSegmentsJson,note,created_at AS createdAt,user_id AS createdBy
     FROM invoice_reminders WHERE company_id=? AND invoice_id=? ORDER BY sent_at,id`).all(companyId,invoiceId)
     .map(row => ({...row,interestSegments:jsonParse(row.interestSegmentsJson,[])}));
+}
+
+function reminderById(db,companyId,reminderId) {
+  const row=db.prepare(`SELECT id,kind,substr(sent_at,1,10) AS reminderDate,principal_ore AS principalOre,reminder_fee_ore AS reminderFeeOre,interest_ore AS interestOre,
+    business_compensation_ore AS businessLatePaymentCompensationOre,total_due_ore AS totalDueOre,annual_rate_basis_points AS annualRateBasisPoints,
+    interest_segments_json AS interestSegmentsJson,note,created_at AS createdAt,user_id AS createdBy
+    FROM invoice_reminders WHERE company_id=? AND id=?`).get(companyId,reminderId);
+  return row ? {...row,interestSegments:jsonParse(row.interestSegmentsJson,[])} : null;
+}
+
+function reminderRequestById(db,companyId,requestId) {
+  return db.prepare(`SELECT company_id AS companyId,request_id AS requestId,invoice_id AS invoiceId,reminder_id AS reminderId,payload_hash AS payloadHash,created_at AS createdAt
+    FROM invoice_reminder_requests WHERE company_id=? AND request_id=?`).get(companyId,requestId)||null;
+}
+
+function addReminderRequest(db,{companyId,requestId,invoiceId,reminderId,payloadHash}) {
+  db.prepare(`INSERT INTO invoice_reminder_requests(company_id,request_id,invoice_id,reminder_id,payload_hash,created_at) VALUES(?,?,?,?,?,?)`)
+    .run(companyId,requestId,invoiceId,reminderId,payloadHash,nowIso());
+  return reminderRequestById(db,companyId,requestId);
 }
 
 function appendAudit(db,{companyId=null,userId=null,action,entityType,entityId=null,details={}}) {
@@ -417,11 +456,15 @@ module.exports = Object.freeze({
   invoiceById,
   addInvoiceTransaction,
   transactionById,
+  transactionsForInvoice,
   listReceivables,
   addComment,
   commentsForInvoice,
   addReminder,
   remindersForInvoice,
+  reminderById,
+  reminderRequestById,
+  addReminderRequest,
   appendAudit,
   auditForCompany,
   databaseError
