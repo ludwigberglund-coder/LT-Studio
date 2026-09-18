@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
+const crypto = require('node:crypto');
 const Auth = require('../apps/api/auth.js');
 const Db = require('../apps/api/database.js');
 const {createApiApp} = require('../apps/api/app.js');
@@ -22,11 +23,14 @@ async function withApi(callback) {
   const inv1=Db.createInvoice(db,{companyId:co1.id,customerId:c1.id,invoiceNumber:'310100',ocr:'310100',invoiceDate:'2026-08-01',postingDate:'2026-08-01',dueDate:'2026-08-31',totalOre:125000,remainingOre:125000,vatOre:25000,status:'Bokförd',paymentAccount:'BG 123-4567'});
   const inv2=Db.createInvoice(db,{companyId:co2.id,customerId:c2.id,invoiceNumber:'410200',ocr:'410200',invoiceDate:'2026-08-01',postingDate:'2026-08-01',dueDate:'2026-08-31',totalOre:200000,remainingOre:200000,vatOre:40000,status:'Bokförd'});
   const api=createApiApp({db,secureCookies:false,authEncryptionKey:TEST_ENCRYPTION_KEY});
+  const issuedDocument=JSON.stringify({invoiceNumber:inv1.invoiceNumber,dueDate:inv1.dueDate,totalOre:inv1.totalOre});
+  db.prepare('INSERT INTO customer_invoice_documents(invoice_id,company_id,document_json,document_sha256,created_at) VALUES(?,?,?,?,?)')
+    .run(inv1.id,co1.id,issuedDocument,crypto.createHash('sha256').update(issuedDocument).digest('hex'),'2026-08-01T12:00:00.000Z');
   const server=http.createServer((req,res)=>api.handle(req,res));
   await new Promise((resolve,reject)=>server.listen(0,'127.0.0.1',error=>error?reject(error):resolve()));
   const address=server.address();
   const base=`http://127.0.0.1:${address.port}`;
-  try { await callback({db,base,co1,co2,user,password,inv1,inv2}); }
+  try { await callback({db,base,co1,co2,user,password,c1,c2,inv1,inv2}); }
   finally { await new Promise(resolve=>server.close(resolve)); db.close(); }
 }
 
@@ -75,19 +79,31 @@ test('företagsisolering gör ett annat företags faktura osynlig även med kän
   assert.equal(response.status,404);
 }));
 
-test('påminnelseavgift utan avtal stoppas men lagstadgad ränta kan registreras spårbart', async () => withApi(async ({base,password,inv1,db,co1}) => {
+test('påminnelseavgift utan avtal stoppas men lagstadgad ränta kan registreras spårbart och idempotent', async () => withApi(async ({base,password,inv1,db,co1}) => {
   const signed=await login(base,password);
   const headers={Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken};
-  const blocked=await fetch(`${base}/api/v1/invoices/${inv1.id}/reminders`,{method:'POST',headers,body:JSON.stringify({sentDate:'2026-09-15',includeReminderFee:true,includeInterest:true})});
+  const blocked=await fetch(`${base}/api/v1/invoices/${inv1.id}/reminders`,{method:'POST',headers,body:JSON.stringify({requestId:'REMINDER-BLOCK-0001',reminderDate:'2026-09-15',includeReminderFee:true,includeInterest:true})});
   assert.equal(blocked.status,409);
-  const created=await fetch(`${base}/api/v1/invoices/${inv1.id}/reminders`,{method:'POST',headers,body:JSON.stringify({sentDate:'2026-09-15',includeReminderFee:false,includeInterest:true,note:'Första påminnelsen'})});
+  const body={requestId:'REMINDER-CREATE-0001',reminderDate:'2026-09-15',includeReminderFee:false,includeInterest:true,note:'Första påminnelsen'};
+  const created=await fetch(`${base}/api/v1/invoices/${inv1.id}/reminders`,{method:'POST',headers,body:JSON.stringify(body)});
   const data=await created.json();
   assert.equal(created.status,201);
-  assert.equal(data.deliveryStatus,'awaiting-mail-integration');
+  assert.equal(data.deliveryStatus,'not-delivered');
   assert.equal(data.reminder.reminderFeeOre,0);
   assert.ok(data.reminder.interestOre>0);
+  assert.equal(data.reminder.reminderDate,'2026-09-15');
   assert.equal(Db.remindersForInvoice(db,co1.id,inv1.id).length,1);
   assert.ok(Db.auditForCompany(db,co1.id).some(event=>event.action==='PAYMENT_REMINDER_CREATED'));
+
+  const retry=await fetch(`${base}/api/v1/invoices/${inv1.id}/reminders`,{method:'POST',headers,body:JSON.stringify(body)});
+  assert.equal(retry.status,200);
+  assert.equal((await retry.json()).duplicate,true);
+  assert.equal(Db.remindersForInvoice(db,co1.id,inv1.id).length,1);
+
+  const conflict=await fetch(`${base}/api/v1/invoices/${inv1.id}/reminders`,{method:'POST',headers,body:JSON.stringify({...body,reminderDate:'2026-09-16',note:'Ändrat underlag'})});
+  assert.equal(conflict.status,409);
+  assert.equal((await conflict.json()).code,'REMINDER_REQUEST_CONFLICT');
+  assert.equal(Db.remindersForInvoice(db,co1.id,inv1.id).length,1);
 }));
 
 test('fel lösenord avslöjar inte om användaren finns', async () => withApi(async ({base}) => {
@@ -116,4 +132,15 @@ test('skyddat kundregister listar, skapar och isolerar kunder per företag', asy
   assert.equal(data.customer.customerNumber,'K-1001');
   assert.equal(data.customer.name,'Ny Kund AB');
   assert.ok(Db.auditForCompany(db,co1.id).some(event=>event.action==='CUSTOMER_CREATED'&&event.entityId===data.customer.id));
+}));
+
+
+test('automatisk ränta kräver verifierat utfärdat fakturaunderlag', async () => withApi(async ({base,password,db,co1,c1}) => {
+  const raw=Db.createInvoice(db,{companyId:co1.id,customerId:c1.id,invoiceNumber:'310199',ocr:'310199',invoiceDate:'2026-08-01',postingDate:'2026-08-01',dueDate:'2026-08-31',totalOre:100000,remainingOre:100000,vatOre:20000,status:'Bokförd'});
+  const signed=await login(base,password);
+  const headers={Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken};
+  const response=await fetch(`${base}/api/v1/invoices/${raw.id}/reminders/preview`,{method:'POST',headers,body:JSON.stringify({reminderDate:'2026-09-15',includeInterest:true})});
+  const body=await response.json();
+  assert.equal(response.status,409);
+  assert.equal(body.code,'INTEREST_BASIS_NOT_VERIFIED');
 }));
