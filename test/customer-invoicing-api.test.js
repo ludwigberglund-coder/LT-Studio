@@ -7,6 +7,7 @@ const Auth=require('../apps/api/auth.js');
 const Db=require('../apps/api/database.js');
 const Accounting=require('../apps/api/accounting-store.js');
 const Invoicing=require('../apps/api/customer-invoicing.js');
+const Reports=require('../apps/api/reports.js');
 const InvoiceSettings=require('../apps/api/company-invoice-settings.js');
 const {createApiApp}=require('../apps/api/app.js');
 
@@ -161,6 +162,9 @@ test('obetald kundfaktura kan helkrediteras atomiskt med omvänd moms och kundfo
   assert.equal(entry.lines.filter(row=>row.account==='2611').reduce((sum,row)=>sum+row.debitOre-row.creditOre,0),25000);
   const original=Invoicing.invoiceBundle(db,co1.id,issued.invoice.id);
   assert.equal(original.invoice.remainingOre,0);
+  const vatChecks=Reports.customerVatSourceChecks(db,co1.id,{from:'2026-09-01',to:'2026-09-30'});
+  assert.equal(vatChecks.length,2);
+  assert.ok(vatChecks.every(row=>row.differenceOre===0));
   assert.ok(Db.auditForCompany(db,co1.id).some(event=>event.action==='CUSTOMER_INVOICE_CREDITED'&&event.entityId===issued.invoice.id));
   const retry=await fetch(base+`/api/v1/customer-invoices/${issued.invoice.id}/credit`,{method:'POST',headers,body:JSON.stringify(creditPayload)});
   const retryBody=await retry.json();
