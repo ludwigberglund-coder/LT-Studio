@@ -99,14 +99,19 @@ const Cms=require('../apps/api/website-cms.js');
     await page.screenshot({path:path.join(out,'private-supplier-pdf-view.png'),fullPage:false});checks.push('Original supplier PDF served byte-exact through private iframe with CSP active');
     await page.goto(f.base+'/portal/invoices.html');
     await page.locator(`[data-preview="${f.issued.invoice.id}"]`).click();
-    const [pdfTab]=await Promise.all([page.waitForEvent('popup'),page.getByRole('button',{name:'\u00d6ppna faktura PDF',exact:true}).click()]);
+    const [pdfTab,outputResponse]=await Promise.all([
+      page.waitForEvent('popup'),
+      context.waitForEvent('response',{predicate:response=>response.url().startsWith('blob:'+f.base+'/'),timeout:15000}),
+      page.getByRole('button',{name:'\u00d6ppna faktura PDF',exact:true}).click()
+    ]);
     await pdfTab.waitForURL(url=>url.protocol==='blob:',{waitUntil:'commit'});
     const blobUrl=pdfTab.url();
     assert.ok(blobUrl.startsWith('blob:'+f.base+'/'));
-    // Read the actual same-origin output after the button opens it. No API or URL overrides.
-    const bytes=await page.evaluate(async url=>{const response=await fetch(url);if(!response.ok)throw new Error('PDF output was not readable');return Array.from(new Uint8Array(await response.arrayBuffer()));},blobUrl);
     await pdfTab.waitForTimeout(800);
     await pdfTab.screenshot({path:path.join(out,'private-customer-pdf-view.png')});
+    // Observe the browser's real navigation response, not an extra fetch forbidden by CSP.
+    assert.equal(outputResponse.url(),blobUrl);assert.equal(outputResponse.status(),200);
+    const bytes=await outputResponse.body();
     const pdf=await PDFDocument.load(Uint8Array.from(bytes));assert.ok(pdf.getPageCount()>=1);
     fs.writeFileSync(path.join(out,'private-customer-output.pdf'),Buffer.from(bytes));await pdfTab.close();
     assert.deepEqual(await page.evaluate(()=>window.__cspFailures),[]);checks.push('Customer PDF button uses real API invoice and local pinned PDF library');
