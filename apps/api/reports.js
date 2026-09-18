@@ -166,6 +166,61 @@ function receivablesControl(db,companyId){
   };
 }
 
+function payablesControl(db,companyId){
+  const ledger=db.prepare(`SELECT COALESCE(SUM(l.credit_ore-l.debit_ore),0) AS balanceOre
+    FROM accounting_entry_lines l
+    JOIN accounting_entries e ON e.id=l.entry_id
+    WHERE e.company_id=? AND l.account='2440'`).get(companyId)||{};
+  const subledger=db.prepare(`SELECT COUNT(*) AS invoiceCount,
+    COALESCE(SUM(open_amount_ore),0) AS openOre
+    FROM supplier_invoices
+    WHERE company_id=? AND liability_accounting_entry_id IS NOT NULL AND status<>'rejected'`).get(companyId)||{};
+  const sourceChecks=db.prepare(`SELECT i.id AS invoiceId,i.supplier_invoice_number AS invoiceNumber,i.total_ore AS expectedLiabilityOre,
+    i.open_amount_ore AS openAmountOre,i.liability_accounting_entry_id AS linkedEntryId,
+    e.id AS sourceEntryId,e.number AS journalNumber,
+    COALESCE(SUM(CASE WHEN l.account='2440' THEN l.credit_ore-l.debit_ore ELSE 0 END),0) AS bookedLiabilityOre
+    FROM supplier_invoices i
+    LEFT JOIN accounting_entries e ON e.company_id=i.company_id AND e.source_type='supplier-invoice' AND e.source_id=i.id
+    LEFT JOIN accounting_entry_lines l ON l.entry_id=e.id
+    WHERE i.company_id=? AND i.liability_accounting_entry_id IS NOT NULL AND i.status<>'rejected'
+    GROUP BY i.id,i.supplier_invoice_number,i.total_ore,i.open_amount_ore,i.liability_accounting_entry_id,e.id,e.number
+    ORDER BY i.supplier_invoice_number`).all(companyId).map(row=>({
+      invoiceId:row.invoiceId,invoiceNumber:row.invoiceNumber,
+      expectedLiabilityOre:Number(row.expectedLiabilityOre||0),openAmountOre:Number(row.openAmountOre||0),
+      linkedEntryId:row.linkedEntryId||null,sourceEntryId:row.sourceEntryId||null,journalNumber:row.journalNumber||null,
+      bookedLiabilityOre:Number(row.bookedLiabilityOre||0),
+      differenceOre:Number(row.bookedLiabilityOre||0)-Number(row.expectedLiabilityOre||0),
+      linkMatches:Boolean(row.linkedEntryId&&row.sourceEntryId&&row.linkedEntryId===row.sourceEntryId)
+    }));
+  const sourceMismatches=sourceChecks.filter(row=>!row.linkMatches||row.differenceOre!==0);
+  const unpostedInvoices=db.prepare(`SELECT id AS invoiceId,supplier_invoice_number AS invoiceNumber,status,total_ore AS totalOre,open_amount_ore AS openAmountOre
+    FROM supplier_invoices
+    WHERE company_id=? AND liability_accounting_entry_id IS NULL AND status<>'rejected'
+    ORDER BY due_date,supplier_invoice_number`).all(companyId).map(row=>({
+      invoiceId:row.invoiceId,invoiceNumber:row.invoiceNumber,status:row.status,
+      totalOre:Number(row.totalOre||0),openAmountOre:Number(row.openAmountOre||0)
+    }));
+  const subledgerOpenOre=Number(subledger.openOre||0);
+  const ledger2440Ore=Number(ledger.balanceOre||0);
+  const differenceOre=ledger2440Ore-subledgerOpenOre;
+  const integrityOk=differenceOre===0&&sourceMismatches.length===0;
+  return{
+    basis:'posted-payables-subledger-vs-ledger',
+    account:'2440',
+    integrityOk,
+    postedInvoiceCount:Number(subledger.invoiceCount||0),
+    subledgerOpenOre,
+    ledger2440Ore,
+    differenceOre,
+    sourceChecks,
+    sourceMismatches,
+    unpostedInvoices,
+    warning:integrityOk
+      ? 'Bokförda öppna leverantörsskulder stämmer med konto 2440. Ej bokförda leverantörsfakturor redovisas separat och ingår inte i avstämningen.'
+      : 'Bokförda leverantörsskulder och konto 2440 stämmer inte fullt ut. Differensen måste utredas innan leverantörsreskontran kan betraktas som avstämd för pilot.'
+  };
+}
+
 function reportSummary(db,companyId,{from,to,period}){const trial=trialBalance(db,companyId,{from,to}),pl=profitLoss(db,companyId,{from,to}),vat=vatControl(db,companyId,{period});return{from,to,trialTotals:trial.totals,profitLoss:pl.resultOre,vat}}
 
-module.exports=Object.freeze({validDate,validPeriod,periodBounds,trialBalance,generalLedger,profitLoss,vatLedgerRows,customerVatSourceChecks,supplierVatSourceChecks,vatControl,receivablesControl,reportSummary,OUTPUT_VAT_ACCOUNTS});
+module.exports=Object.freeze({validDate,validPeriod,periodBounds,trialBalance,generalLedger,profitLoss,vatLedgerRows,customerVatSourceChecks,supplierVatSourceChecks,vatControl,receivablesControl,payablesControl,reportSummary,OUTPUT_VAT_ACCOUNTS});
