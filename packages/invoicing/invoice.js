@@ -92,6 +92,17 @@
     const result={schemaVersion:3,documentType:'FAKTURA',demo:options.demo!==false,invoiceNumber,ocr:invoiceNumber,seller,buyer,customerNumber:text(input.customerNumber,'Kundnummer',50,true),invoiceDate,dueDate,postingDate,paymentTermsDays,currency:'SEK',lines,netOre,vatOre,totalOre,roundingOre:totalOre-grossOre,freightOre:Money.sumOre(lines.filter(r=>r.kind==='freight').map(r=>r.netOre)),administrationOre:Money.sumOre(lines.filter(r=>r.kind==='administration').map(r=>r.netOre)),vatBreakdown:[25,12,6,0].map(rate=>({rate,netOre:Money.sumOre(lines.filter(r=>r.vatRate===rate).map(r=>r.netOre)),vatOre:Money.sumOre(lines.filter(r=>r.vatRate===rate).map(r=>r.vatOre))})),interestText:INTEREST_TEXT,ourReference:text(input.ourReference,'Vår referens',600),yourReference:text(input.yourReference,'Er referens',600),notes:text(input.notes,'Meddelande på faktura',3000),warnings:[]};
     return result;
   }
+  function vatEvidence(document){
+    const rows=[];
+    for(const item of document.vatBreakdown||[]){
+      if(!item.netOre&&!item.vatOre)continue;
+      if(item.rate===0)throw new Error('Momsfri försäljning kräver en särskild momskod och rättslig grund. Den kan inte bokföras automatiskt i pilotflödet ännu.');
+      const basisPoints=Number(item.rate)*100,account=VAT_ACCOUNTS[item.rate];
+      if(!account||![6,12,25].includes(Number(item.rate)))throw new Error('Momssatsen saknar verifierad bokföringsregel.');
+      rows.push({evidenceType:'output-domestic',vatCode:`OUTPUT_DOMESTIC_${item.rate}`,vatRateBasisPoints:basisPoints,taxableBaseOre:item.netOre,vatOre:item.vatOre,vatAccount:account,declarationBaseBox:'05',declarationVatBox:item.rate===25?'10':item.rate===12?'11':'12'});
+    }
+    return rows;
+  }
   function journalLines(document){
     const d=document,result=[{account:'1510',text:'Kundfordringar',debitOre:d.totalOre,creditOre:0}],sales=new Map();
     for(const row of d.lines){const old=sales.get(row.revenueAccount)||{account:row.revenueAccount,text:row.revenueAccountName,debitOre:0,creditOre:0};old.creditOre=Money.sumOre([old.creditOre,row.netOre]);sales.set(row.revenueAccount,old);}
@@ -120,5 +131,5 @@
     const vat=Number(record.vatOre||0),total=Number(record.totalOre||0),net=total-vat;
     return {schemaVersion:2,documentType:'FAKTURA',demo:true,invoiceNumber:record.invoiceNumber,ocr:record.invoiceNumber,customerNumber:record.customerNumber,invoiceDate:record.invoiceDate,dueDate:record.dueDate,postingDate:record.postingDate,seller:{name:company.legalName||'Rollands',address:company.address?.full||'',orgNumber:company.orgNumber||'',vatNumber:company.vatNumber||'',phone:company.contact?.phone||'',email:company.contact?.email||'',website:company.website||'',bankgiro:company.invoice?.bankgiro||'',taxStatus:company.invoice?.taxStatus||''},buyer:{name:record.customerName,address:''},currency:'SEK',paymentTermsDays:30,lines:[{description:record.description||'Äldre demopost – detaljerat radunderlag saknas',articleNumber:'',quantityMilli:1000,unit:'',unitPriceOre:net,netOre:net,vatOre:vat,vatRate:record.vatRate??null,discountBasisPoints:0}],netOre:net,vatOre:vat,totalOre:total,roundingOre:0,freightOre:0,administrationOre:0,vatBreakdown:[],interestText:INTEREST_TEXT,warnings:['Äldre demofaktura: fullständiga adress-, betalnings- och radunderlag saknas. Inte för utskick.']};
   }
-  return Object.freeze({DEFAULT_ACCOUNTS,VAT_ACCOUNTS,INTEREST_TEXT,revenueAccounts,accountsForVat,prepare,journalLines,postDemoInvoice,documentFor});
+  return Object.freeze({DEFAULT_ACCOUNTS,VAT_ACCOUNTS,INTEREST_TEXT,revenueAccounts,accountsForVat,prepare,vatEvidence,journalLines,postDemoInvoice,documentFor});
 });
