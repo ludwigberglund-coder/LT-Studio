@@ -112,7 +112,9 @@ test('påminnelseavgift utan avtal stoppas men lagstadgad ränta kan registreras
   assert.equal(data.deliveryStatus,'not-sent');
   assert.equal(data.reminder.reminderFeeOre,0);
   assert.ok(data.reminder.interestOre>0);
-  assert.equal(Db.remindersForInvoice(db,co1.id,inv1.id).length,1);
+  const savedReminder=Db.remindersForInvoice(db,co1.id,inv1.id)[0];
+  assert.equal(savedReminder.deliveryStatus,'not-sent');
+  assert.equal(savedReminder.deliveredAt,null);
   assert.ok(Db.auditForCompany(db,co1.id).some(event=>event.action==='PAYMENT_REMINDER_CREATED'));
 }));
 
