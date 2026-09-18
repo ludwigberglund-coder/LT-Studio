@@ -87,4 +87,38 @@ test('okända aktiva 26-konton flaggas i stället för att klassificeras som sve
   assert.equal(r.outputVatOre,25000);
 }finally{db.close()}});
 
+test('kundreskontran stämmer mot konto 1510 i normalfallet',()=>{const {db,company}=seed();try{
+  const r=Reports.receivablesControl(db,company.id);
+  assert.equal(r.integrityOk,true);
+  assert.equal(r.subledgerOpenOre,125000);
+  assert.equal(r.ledger1510Ore,125000);
+  assert.equal(r.differenceOre,0);
+  assert.equal(r.missingSourceEntries.length,0);
+  assert.equal(r.sourceMismatches.length,0);
+}finally{db.close()}});
+
+test('kundreskontrakontrollen flaggar betalning som minskat restbelopp utan motsvarande 1510-bokföring',()=>{const {db,company}=seed();try{
+  const invoice=db.prepare("SELECT id FROM invoices WHERE company_id=? AND invoice_number='1001'").get(company.id);
+  db.prepare('UPDATE invoices SET remaining_ore=? WHERE company_id=? AND id=?').run(25000,company.id,invoice.id);
+  Db.addInvoiceTransaction(db,{companyId:company.id,invoiceId:invoice.id,transactionType:'payment',paymentDate:'2026-09-20',postingDate:'2026-09-20',amountOre:-100000,account:'1930',bankReference:'PAY-1001'});
+  const r=Reports.receivablesControl(db,company.id);
+  assert.equal(r.integrityOk,false);
+  assert.equal(r.subledgerOpenOre,25000);
+  assert.equal(r.ledger1510Ore,125000);
+  assert.equal(r.differenceOre,100000);
+  assert.match(r.warning,/måste utredas/i);
+}finally{db.close()}});
+
+test('kundreskontrakontrollen blir grön när betalningen även är bokförd mot 1510',()=>{const {db,company,user}=seed();try{
+  const invoice=db.prepare("SELECT id FROM invoices WHERE company_id=? AND invoice_number='1001'").get(company.id);
+  db.prepare('UPDATE invoices SET remaining_ore=? WHERE company_id=? AND id=?').run(25000,company.id,invoice.id);
+  Db.addInvoiceTransaction(db,{companyId:company.id,invoiceId:invoice.id,transactionType:'payment',paymentDate:'2026-09-20',postingDate:'2026-09-20',amountOre:-100000,account:'1930',bankReference:'PAY-1001'});
+  Accounting.postEntry(db,{companyId:company.id,postingDate:'2026-09-20',description:'Kundinbetalning 1001',sourceType:'customer-payment',sourceId:'PAY-1001',createdBy:user.id,series:'A',lines:[{account:'1930',debitOre:100000,creditOre:0},{account:'1510',debitOre:0,creditOre:100000}]});
+  const r=Reports.receivablesControl(db,company.id);
+  assert.equal(r.integrityOk,true);
+  assert.equal(r.subledgerOpenOre,25000);
+  assert.equal(r.ledger1510Ore,25000);
+  assert.equal(r.differenceOre,0);
+}finally{db.close()}});
+
 test('felaktiga perioder och konton stoppas',()=>{const {db,company}=seed();try{assert.throws(()=>Reports.vatControl(db,company.id,{period:'2026-13'}),e=>e.code==='INVALID_PERIOD');assert.throws(()=>Reports.generalLedger(db,company.id,{from:'2026-09-01',to:'2026-09-30',account:'26A1'}),e=>e.code==='INVALID_ACCOUNT');assert.throws(()=>Reports.trialBalance(db,company.id,{from:'2026-10-01',to:'2026-09-01'}),e=>e.code==='INVALID_REPORT_RANGE');}finally{db.close()}});
