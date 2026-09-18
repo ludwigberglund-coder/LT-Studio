@@ -1,5 +1,7 @@
 'use strict';
 
+const VatEvidence=require('./vat-evidence.js');
+
 function reportError(message,code='REPORT_ERROR',statusCode=422){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
 function text(v){return String(v??'').trim()}
 function validDate(v){if(!/^\d{4}-\d{2}-\d{2}$/.test(text(v)))return false;const [y,m,d]=text(v).split('-').map(Number);const dt=new Date(Date.UTC(y,m-1,d));return dt.getUTCFullYear()===y&&dt.getUTCMonth()===m-1&&dt.getUTCDate()===d}
@@ -32,12 +34,17 @@ function profitLoss(db,companyId,{from,to}){
 }
 function vatControl(db,companyId,{period}){
   const {from,to}=periodBounds(period);
-  const customer=db.prepare(`SELECT COUNT(*) AS count,COALESCE(SUM(vat_ore),0) AS vatOre,COALESCE(SUM(total_ore),0) AS totalOre FROM invoices WHERE company_id=? AND posting_date BETWEEN ? AND ?`).get(companyId,from,to)||{};
-  let supplier={count:0,vatOre:0,totalOre:0};
-  try{supplier=db.prepare(`SELECT COUNT(*) AS count,COALESCE(SUM(vat_ore),0) AS vatOre,COALESCE(SUM(total_ore),0) AS totalOre FROM supplier_invoices WHERE company_id=? AND invoice_date BETWEEN ? AND ? AND status<>'rejected'`).get(companyId,from,to)||supplier}catch{}
-  const outputVatOre=Number(customer.vatOre||0),inputVatOre=Number(supplier.vatOre||0);
-  return{period,from,to,outputVatOre,inputVatOre,netVatOre:outputVatOre-inputVatOre,customerInvoiceCount:Number(customer.count||0),supplierInvoiceCount:Number(supplier.count||0),customerGrossOre:Number(customer.totalOre||0),supplierGrossOre:Number(supplier.totalOre||0),basis:'operational-invoice-control',declarationReady:false,warning:'Detta är ett avstämningsunderlag från fakturaregistren. Full momsdeklaration kräver momskoder och kontroll mot bokförda verifikationer.'};
+  const control=VatEvidence.periodControl(db,companyId,from,to);
+  const customer=db.prepare(`SELECT COUNT(*) AS count,COALESCE(SUM(i.total_ore),0) AS totalOre FROM accounting_entries e JOIN invoices i ON i.company_id=e.company_id AND i.id=e.source_id WHERE e.company_id=? AND e.source_type='customer-invoice' AND e.posting_date BETWEEN ? AND ?`).get(companyId,from,to)||{};
+  let supplier={count:0,totalOre:0};
+  try{supplier=db.prepare(`SELECT COUNT(*) AS count,COALESCE(SUM(i.total_ore),0) AS totalOre FROM accounting_entries e JOIN supplier_invoices i ON i.company_id=e.company_id AND i.id=e.source_id WHERE e.company_id=? AND e.source_type='supplier-invoice' AND e.posting_date BETWEEN ? AND ?`).get(companyId,from,to)||supplier}catch{}
+  const outputVatOre=Number(control.boxes['10']||0)+Number(control.boxes['11']||0)+Number(control.boxes['12']||0),inputVatOre=Number(control.boxes['48']||0);
+  const warning=control.ledgerReconciled
+    ? 'Bokförda momskonton är avstämda mot spårbara momsbevis för stödda svenska fakturaflöden. Underlaget är ännu inte en full momsdeklaration eftersom övriga momsfall och deklarationsrutor måste verifieras separat.'
+    : 'Momsavstämningen innehåller bokförda belopp på 2611/2621/2631/2641 som saknar matchande momsbevis. Perioden får inte användas som deklarationsunderlag innan avvikelsen är utredd.';
+  return{period,from,to,outputVatOre,inputVatOre,netVatOre:outputVatOre-inputVatOre,customerInvoiceCount:Number(customer.count||0),supplierInvoiceCount:Number(supplier.count||0),customerGrossOre:Number(customer.totalOre||0),supplierGrossOre:Number(supplier.totalOre||0),basis:'ledger-vat-evidence',ledgerReconciled:control.ledgerReconciled,declarationBoxes:control.boxes,vatAccountDifferences:control.differences,evidenceCount:control.rows.length,declarationReady:false,warning};
 }
+
 function reportSummary(db,companyId,{from,to,period}){const trial=trialBalance(db,companyId,{from,to}),pl=profitLoss(db,companyId,{from,to}),vat=vatControl(db,companyId,{period});return{from,to,trialTotals:trial.totals,profitLoss:pl.resultOre,vat}}
 
 module.exports=Object.freeze({validDate,validPeriod,periodBounds,trialBalance,generalLedger,profitLoss,vatControl,reportSummary});
