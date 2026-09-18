@@ -98,8 +98,8 @@ test('påminnelsepost sparar beräkningsdag, leveransstatus och verifierad ränt
   assert.equal(record.reminderDate,'2026-09-18');
   assert.equal(record.deliveryStatus,'not-sent');
   assert.equal(record.deliveredAt,null);
-  assert.equal(record.rateConfigVersion,'1');
-  assert.equal(record.rateVerifiedAt,'2026-09-15');
+  assert.equal(record.rateConfigVersion,'2');
+  assert.equal(record.rateVerifiedAt,'2026-09-18');
 });
 
 test('fakturakommentar kräver personlig identitet och bevarar författare och tid', () => {
