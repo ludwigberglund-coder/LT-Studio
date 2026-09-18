@@ -17,7 +17,7 @@ function openDatabase(filename = ':memory:') {
     fs.mkdirSync(path.dirname(path.resolve(filename)), {recursive:true, mode:0o700});
   }
   const db = new DatabaseSync(filename, {timeout:5000});
-  db.exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA busy_timeout = 5000;');
+  db.exec('PRAGMA foreign_keys = ON; PRAGMA recursive_triggers = ON; PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA busy_timeout = 5000;');
   try {
     initializeSchema(db);
     require('./tenant-integrity.js').installTenantGuards(db);
@@ -168,6 +168,7 @@ function initializeSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_audit_company_created ON audit_events(company_id,created_at);
     CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
   `);
+  require('./history-guards.js').protectAppendOnly(db, 'audit_events');
 }
 
 function nowIso() { return new Date().toISOString(); }

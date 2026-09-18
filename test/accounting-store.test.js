@@ -123,6 +123,7 @@ test('incomplete previously stored journal is not reported as a successful retry
   try {
     const first = Accounting.postEntry(db, input(company, user)).entry;
     // Simulates a pre-existing damaged file; this is not an application action.
+    db.exec('DROP TRIGGER history_accounting_entry_lines_delete'); // Offline corruption fixture only.
     db.prepare('DELETE FROM accounting_entry_lines WHERE entry_id=? AND line_number=2').run(first.id);
     assert.throws(() => Accounting.postEntry(db, input(company, user)), error => error.code === 'STORED_ENTRY_INTEGRITY_ERROR');
     assert.deepEqual(counts(db), {entries:1, lines:1, sequence:1});

@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto=require('node:crypto');
+const Protection=require('./journal-protection.js');
 
 function accountingError(message,code='ACCOUNTING_STORE_ERROR',statusCode=422){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
 function id(prefix){return `${prefix}_${crypto.randomUUID()}`}
@@ -49,7 +50,7 @@ function initializeAccountingStore(db){db.exec(`
     CHECK((debit_ore>0 AND credit_ore=0) OR (credit_ore>0 AND debit_ore=0))
   ) STRICT;
   CREATE INDEX IF NOT EXISTS idx_accounting_entries_company_date ON accounting_entries(company_id,posting_date,series,sequence);
-`)}
+`);Protection.initialize(db,validateLines)}
 function validateLines(lines) {
   if (!Array.isArray(lines) || lines.length < 2 || lines.length > 1000) {
     throw accountingError('Verifikationen m\u00e5ste inneh\u00e5lla 2\u20131 000 rader.', 'INVALID_ENTRY');
@@ -105,7 +106,14 @@ function verifyRetry(existing, requested, validated) {
   }
 }
 
-function entryBySource(db,companyId,sourceType,sourceId){const row=db.prepare(`SELECT id,company_id AS companyId,fiscal_year AS fiscalYear,series,sequence,number,posting_date AS postingDate,description,source_type AS sourceType,source_id AS sourceId,created_by AS createdBy,created_at AS createdAt FROM accounting_entries WHERE company_id=? AND source_type=? AND source_id=?`).get(companyId,sourceType,sourceId);if(!row)return null;return{...row,lines:db.prepare(`SELECT line_number AS lineNumber,account,line_text AS text,debit_ore AS debitOre,credit_ore AS creditOre FROM accounting_entry_lines WHERE entry_id=? ORDER BY line_number`).all(row.id)}}
+function entryById(db, companyId, entryId) {
+  const owned = db.prepare('SELECT id FROM accounting_entries WHERE company_id=? AND id=?').get(companyId, entryId);
+  return owned ? Protection.verifyEntry(db, Protection.readEntry(db, owned.id), validateLines) : null;
+}
+function entryBySource(db, companyId, sourceType, sourceId) {
+  const row = db.prepare('SELECT id FROM accounting_entries WHERE company_id=? AND source_type=? AND source_id=?').get(companyId, sourceType, sourceId);
+  return row ? entryById(db, companyId, row.id) : null;
+}
 function postEntry(db, input) {
   const companyId = text(input?.companyId), postingDate = text(input?.postingDate), description = text(input?.description);
   const sourceType = text(input?.sourceType), sourceId = text(input?.sourceId), createdBy = text(input?.createdBy);
@@ -138,8 +146,9 @@ function postEntry(db, input) {
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`).run(entryId, companyId, year, series, sequence, number, postingDate, description, sourceType, sourceId, createdBy, createdAt);
     const statement = db.prepare('INSERT INTO accounting_entry_lines(entry_id,line_number,account,line_text,debit_ore,credit_ore) VALUES(?,?,?,?,?,?)');
     validated.lines.forEach((line, index) => statement.run(entryId, index + 1, line.account, line.text, line.debitOre, line.creditOre));
+    Protection.sealEntry(db, entryId, validateLines);
     return {entry: entryBySource(db, companyId, sourceType, sourceId), duplicate: false};
   });
 }
 function listEntries(db,companyId,{limit=200}={}){const safe=Math.max(1,Math.min(1000,Number(limit)||200));return db.prepare(`SELECT id,fiscal_year AS fiscalYear,series,sequence,number,posting_date AS postingDate,description,source_type AS sourceType,source_id AS sourceId,created_by AS createdBy,created_at AS createdAt FROM accounting_entries WHERE company_id=? ORDER BY posting_date DESC,series DESC,sequence DESC LIMIT ?`).all(companyId,safe)}
-module.exports=Object.freeze({initializeAccountingStore,validateLines,entryBySource,postEntry,listEntries,validDate});
+module.exports=Object.freeze({initializeAccountingStore,validateLines,entryById,entryBySource,postEntry,listEntries,validDate});

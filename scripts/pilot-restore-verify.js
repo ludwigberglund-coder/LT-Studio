@@ -28,6 +28,10 @@ function verifyDatabase(filename){
       for(const entry of db.prepare('SELECT id,number,series,sequence,fiscal_year,posting_date FROM accounting_entries').iterate()){
         try{validateLines(lines.all(entry.id));}catch{throw new Error('RESTORE_JOURNAL_FAILED: incomplete or unbalanced journal entry.');}
         if(entry.number!==`${entry.series}${entry.sequence}`||entry.fiscal_year!==entry.posting_date.slice(0,4))throw new Error('RESTORE_JOURNAL_IDENTITY_FAILED');
+        if(present.has('accounting_entry_seals')) {
+          const protection=require('../apps/api/journal-protection.js');
+          protection.verifyEntry(db,protection.readEntry(db,entry.id),validateLines);
+        }
         journalEntries++;
       }
       const groups=db.prepare('SELECT company_id,series,fiscal_year,COUNT(*) AS n,MIN(sequence) AS first,MAX(sequence) AS last FROM accounting_entries GROUP BY company_id,series,fiscal_year').all();

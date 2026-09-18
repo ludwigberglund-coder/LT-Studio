@@ -5,6 +5,7 @@ const Db=require('./database.js');
 const Accounting=require('./accounting-store.js');
 const Invoice=require('../../packages/invoicing/invoice.js');
 const InvoiceSettings=require('./company-invoice-settings.js');
+const {protectAppendOnly}=require('./history-guards.js');
 
 function invoiceError(message,code='CUSTOMER_INVOICE_ERROR',statusCode=422){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
 function text(value){return String(value??'').trim()}
@@ -29,6 +30,14 @@ function initializeCustomerInvoicing(db){
     ) STRICT;
     CREATE INDEX IF NOT EXISTS idx_customer_invoice_documents_company ON customer_invoice_documents(company_id,created_at);
   `);
+  protectAppendOnly(db,'customer_invoice_documents');
+  protectAppendOnly(db,'customer_invoice_issue_requests');
+  // Settlement status may change; the issued invoice's financial identity may not.
+  const fields=['customer_id','invoice_number','ocr','invoice_date','posting_date','due_date','total_ore','vat_ore','invoice_account','payment_account','payment_method','created_at'];
+  db.exec(`CREATE TRIGGER IF NOT EXISTS history_issued_invoice_core BEFORE UPDATE ON invoices
+    WHEN EXISTS(SELECT 1 FROM customer_invoice_documents WHERE invoice_id=OLD.id)
+      AND (${fields.map(field=>`NEW.${field} IS NOT OLD.${field}`).join(' OR ')})
+    BEGIN SELECT RAISE(ABORT,'ISSUED_INVOICE_IMMUTABLE'); END;`);
 }
 function customerByNumber(db,companyId,customerNumber){return Db.listCustomers(db,companyId).find(row=>row.customerNumber===text(customerNumber))||null}
 function nextInvoiceNumber(db,companyId){
@@ -79,6 +88,7 @@ function listCustomerInvoices(db,companyId){
 function documentForInvoice(db,companyId,invoiceId){
   const row=db.prepare('SELECT document_json AS documentJson,document_sha256 AS documentSha256,created_at AS createdAt FROM customer_invoice_documents WHERE company_id=? AND invoice_id=?').get(companyId,invoiceId);
   if(!row)return null;
+  if(crypto.createHash('sha256').update(row.documentJson).digest('hex')!==row.documentSha256)throw invoiceError('Det sparade fakturaunderlagets digitala fingeravtryck st\u00e4mmer inte. Visningen har stoppats.','INVOICE_DOCUMENT_INTEGRITY_ERROR',409);
   let document;try{document=JSON.parse(row.documentJson)}catch{throw invoiceError('Det sparade fakturaunderlaget kan inte läsas.','INVOICE_DOCUMENT_CORRUPT',500)}
   return{document,documentSha256:row.documentSha256,createdAt:row.createdAt};
 }

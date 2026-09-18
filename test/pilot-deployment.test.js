@@ -122,7 +122,8 @@ test('restore refuses orphan data even when SQLite integrity_check is ok',()=>re
   db.exec("CREATE TABLE orphan_probe(id TEXT PRIMARY KEY,company_id TEXT REFERENCES companies(id)); PRAGMA foreign_keys=OFF; INSERT INTO orphan_probe VALUES('x','missing-company'); PRAGMA foreign_keys=ON;");
 }},/RESTORE_FOREIGN_KEY_FAILED/));
 test('restore refuses a half-written journal with a valid file checksum',()=>restoreCase({database:(db,entry)=>{
-  db.prepare('DELETE FROM accounting_entry_lines WHERE entry_id=? AND account=?').run(entry.id,'2631');
+  db.exec('DROP TRIGGER history_accounting_entry_lines_delete'); // Offline corruption fixture only.
+    db.prepare('DELETE FROM accounting_entry_lines WHERE entry_id=? AND account=?').run(entry.id,'2631');
 }},/RESTORE_JOURNAL_FAILED/));
 test('restore refuses a mismatched journal sequence counter',()=>restoreCase({database:db=>{
   db.exec('UPDATE accounting_sequences SET last_number=last_number+1');
