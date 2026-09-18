@@ -7,6 +7,7 @@ const Auth=require('../apps/api/auth.js');
 const Db=require('../apps/api/database.js');
 const Accounting=require('../apps/api/accounting-store.js');
 const Invoicing=require('../apps/api/customer-invoicing.js');
+const Vat=require('../apps/api/vat-evidence.js');
 const InvoiceSettings=require('../apps/api/company-invoice-settings.js');
 const {createApiApp}=require('../apps/api/app.js');
 
@@ -87,6 +88,9 @@ test('utställning kräver CSRF och skapar atomiskt faktura, underlag, verifikat
   assert.equal(entry.lines.find(row=>row.account==='1510').debitOre,125000);
   assert.equal(entry.lines.find(row=>row.account==='3051').creditOre,100000);
   assert.equal(entry.lines.find(row=>row.account==='2611').creditOre,25000);
+  const vatEvidence=Vat.forEntry(db,co1.id,entry.id);
+  assert.equal(vatEvidence.length,1);
+  assert.deepEqual({box:vatEvidence[0].declarationVatBox,base:vatEvidence[0].taxableBaseOre,vat:vatEvidence[0].vatOre,account:vatEvidence[0].vatAccount},{box:'10',base:100000,vat:25000,account:'2611'});
   assert.ok(Db.auditForCompany(db,co1.id).some(event=>event.action==='CUSTOMER_INVOICE_ISSUED'&&event.entityId===data.invoice.id));
 }));
 
