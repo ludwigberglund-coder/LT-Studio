@@ -6,6 +6,7 @@ const crypto=require('node:crypto');
 const {DatabaseSync}=require('node:sqlite');
 const {inspectTenantRelations}=require('../apps/api/tenant-integrity.js');
 const {validateLines}=require('../apps/api/accounting-store.js');
+const VatEvidence=require('../apps/api/vat-evidence.js');
 
 function required(name){const value=String(process.env[name]||'').trim();if(!value)throw new Error(`${name} must be supplied.`);return value}
 function sha256(filename){return crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex')}
@@ -25,12 +26,20 @@ function verifyDatabase(filename){
     let journalEntries=0;
     if(present.has('accounting_entries')){
       const lines=db.prepare('SELECT account,line_text AS text,debit_ore AS debitOre,credit_ore AS creditOre FROM accounting_entry_lines WHERE entry_id=? ORDER BY line_number');
+      const vatEvidence=present.has('accounting_vat_evidence')?db.prepare(`SELECT evidence_type AS evidenceType,vat_code AS vatCode,vat_rate_basis_points AS vatRateBasisPoints,taxable_base_ore AS taxableBaseOre,vat_ore AS vatOre,vat_account AS vatAccount,declaration_base_box AS declarationBaseBox,declaration_vat_box AS declarationVatBox FROM accounting_vat_evidence WHERE entry_id=? ORDER BY declaration_vat_box,vat_code`):null;
       for(const entry of db.prepare('SELECT id,number,series,sequence,fiscal_year,posting_date FROM accounting_entries').iterate()){
         try{validateLines(lines.all(entry.id));}catch{throw new Error('RESTORE_JOURNAL_FAILED: incomplete or unbalanced journal entry.');}
         if(entry.number!==`${entry.series}${entry.sequence}`||entry.fiscal_year!==entry.posting_date.slice(0,4))throw new Error('RESTORE_JOURNAL_IDENTITY_FAILED');
         if(present.has('accounting_entry_seals')) {
           const protection=require('../apps/api/journal-protection.js');
           protection.verifyEntry(db,protection.readEntry(db,entry.id),validateLines);
+        }
+        if(vatEvidence){
+          const evidence=vatEvidence.all(entry.id);
+          if(evidence.length){
+            const protectedEntry=require('../apps/api/journal-protection.js').readEntry(db,entry.id);
+            try{VatEvidence.validateAgainstEntry(protectedEntry,evidence);}catch{throw new Error('RESTORE_VAT_EVIDENCE_FAILED: VAT evidence does not match the journal entry.');}
+          }
         }
         journalEntries++;
       }
