@@ -6,6 +6,7 @@ const path=require('node:path');
 const Invoice=require('../packages/invoicing/invoice.js');
 
 const source=fs.readFileSync(path.join(__dirname,'..','apps','portal','invoices.js'),'utf8');
+const customersSource=fs.readFileSync(path.join(__dirname,'..','apps','portal','customers.js'),'utf8');
 
 test('privat kundfakturaportal använder API och bevarar separat GitHub Pages-demo',()=>{
   assert.match(source,/if\(!isDemo\)return privateCustomers/);
@@ -77,4 +78,28 @@ test('privat utkast sparas via API i stället för endast i webbläsarsessionen'
   assert.match(source,/Utkastet är sparat i företagets privata databas/);
   assert.doesNotMatch(source,/sessionStorage\.setItem\(LEGACY_PRIVATE_DRAFT_KEY/);
   assert.match(source,/readLegacyPrivateDraft/);
+});
+
+
+test('kunduppgifter på fakturan är låsta till kundregistret',()=>{
+  assert.match(source,/buyerFromCustomer\(number\)/);
+  assert.match(source,/value\.buyer=buyerFromCustomer\(value\.customerNumber\)/);
+  assert.match(source,/syncDraftBuyer\(\)/);
+  assert.match(source,/readonlyField\('Företagsnamn - kund',draft\.buyer\.name\)/);
+  assert.match(source,/readonlyField\('Organisationsnummer - kund',draft\.buyer\.orgNumber\)/);
+  assert.match(source,/readonlyField\('Fakturaadress, postnummer och ort - kund',draft\.buyer\.address,true,true\)/);
+  assert.match(source,/readonlyField\('Mottagarens e-post - kund',draft\.buyer\.email\)/);
+  assert.match(source,/customers\.html\?customer=/);
+  assert.doesNotMatch(source,/field\('Företagsnamn - kund','buyer\.name'/);
+  assert.doesNotMatch(source,/field\('Fakturaadress, postnummer och ort - kund','buyer\.address'/);
+  assert.match(source,/refreshPrivateCustomers\(\)/);
+});
+
+test('kundregistret kan öppna och uppdatera befintlig kund',()=>{
+  assert.match(customersSource,/data-edit-customer=/);
+  assert.match(customersSource,/method:updating\?'PUT':'POST'/);
+  assert.match(customersSource,/requestedCustomer\(\)/);
+  assert.match(customersSource,/new URLSearchParams\(location\.search\)\.get\('customer'\)/);
+  assert.match(customersSource,/updating\?'uppdaterad':'sparad'/);
+  assert.match(customersSource,/i den privata databasen/);
 });

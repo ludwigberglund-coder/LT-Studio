@@ -40,6 +40,18 @@ function send(res,status,body,extraHeaders={}) {
   res.end(JSON.stringify(body));
 }
 
+function validatedCustomerInput(payload={}) {
+  const name=String(payload.name||'').trim();
+  if(!name || name.length>160) throw apiError('Kundnamn måste anges och vara högst 160 tecken.','INVALID_CUSTOMER_NAME',422);
+  const email=String(payload.email||'').trim();
+  if(email.length>254 || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) throw apiError('E-postadressen har ogiltigt format.','INVALID_CUSTOMER_EMAIL',422);
+  const orgNumber=String(payload.orgNumber||'').trim();
+  if(orgNumber.length>40) throw apiError('Organisationsnumret är för långt.','INVALID_CUSTOMER_ORG_NUMBER',422);
+  const address=String(payload.address||'').trim();
+  if(address.length>500) throw apiError('Fakturaadressen är för lång.','INVALID_CUSTOMER_ADDRESS',422);
+  return{name,email:email||null,orgNumber:orgNumber||null,address:{full:address},reminderFeeAgreed:payload.reminderFeeAgreed===true};
+}
+
 function readJson(req,res) {
   return new Promise((resolve,reject) => {
     const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
@@ -249,25 +261,39 @@ function createApiApp(options) {
       if(req.method==='POST' && url.pathname==='/api/v1/customers') {
         requirePermission(session,'customer-invoice.create');
         const payload=await readJson(req,res); if(!payload) return;
-        const name=String(payload.name||'').trim();
-        if(!name || name.length>160) throw apiError('Kundnamn måste anges och vara högst 160 tecken.','INVALID_CUSTOMER_NAME',422);
-        const email=String(payload.email||'').trim();
-        if(email.length>254 || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) throw apiError('E-postadressen har ogiltigt format.','INVALID_CUSTOMER_EMAIL',422);
-        const orgNumber=String(payload.orgNumber||'').trim();
-        if(orgNumber.length>40) throw apiError('Organisationsnumret är för långt.','INVALID_CUSTOMER_ORG_NUMBER',422);
-        const address=String(payload.address||'').trim();
-        if(address.length>500) throw apiError('Fakturaadressen är för lång.','INVALID_CUSTOMER_ADDRESS',422);
+        const input=validatedCustomerInput(payload);
         let customer;
         Db.transaction(db,()=>{
           customer=Db.createCustomer(db,{
             companyId:session.companyId,
             customerNumber:Db.nextCustomerNumber(db,session.companyId),
-            name,orgNumber:orgNumber||null,email:email||null,address:{full:address},
-            customerType:'business',reminderFeeAgreed:payload.reminderFeeAgreed===true
+            ...input,customerType:'business'
           });
           Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'CUSTOMER_CREATED',entityType:'customer',entityId:customer.id,details:{customerNumber:customer.customerNumber}});
         });
         return send(res,201,{customer});
+      }
+
+      const customerMatch=url.pathname.match(/^\/api\/v1\/customers\/([^/]+)$/);
+      if(customerMatch && req.method==='PUT') {
+        requirePermission(session,'customer-invoice.create');
+        const payload=await readJson(req,res); if(!payload) return;
+        const input=validatedCustomerInput(payload),customerId=customerMatch[1];
+        let customer;
+        Db.transaction(db,()=>{
+          const before=Db.customerById(db,session.companyId,customerId);
+          if(!before) throw apiError('Kunden hittades inte i det inloggade företaget.','CUSTOMER_NOT_FOUND',404);
+          customer=Db.updateCustomer(db,{companyId:session.companyId,id:customerId,...input});
+          const changedFields=[
+            before.name!==customer.name?'name':null,
+            (before.orgNumber||'')!==(customer.orgNumber||'')?'orgNumber':null,
+            (before.email||'')!==(customer.email||'')?'email':null,
+            String(before.address?.full||'')!==String(customer.address?.full||'')?'address':null,
+            before.reminderFeeAgreed!==customer.reminderFeeAgreed?'reminderFeeAgreed':null
+          ].filter(Boolean);
+          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'CUSTOMER_UPDATED',entityType:'customer',entityId:customer.id,details:{customerNumber:customer.customerNumber,changedFields}});
+        });
+        return send(res,200,{customer});
       }
 
       if(req.method==='GET' && url.pathname==='/api/v1/customer-invoices/config') {

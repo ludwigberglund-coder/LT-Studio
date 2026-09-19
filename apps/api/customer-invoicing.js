@@ -134,17 +134,36 @@ function parseDraftRow(row){
   if(!draft||typeof draft!=='object'||Array.isArray(draft))throw invoiceError('Det sparade fakturautkastet har ogiltigt format.','INVOICE_DRAFT_CORRUPT',500);
   return{draft,requestId:row.requestId,createdAt:row.createdAt,updatedAt:row.updatedAt};
 }
+function canonicalDraftBuyer(customer){
+  return customer?{name:customer.name||'',address:customer.address?.full||'',orgNumber:customer.orgNumber||'',email:customer.email||''}:{name:'',address:'',orgNumber:'',email:''};
+}
+function canonicalizeDraftCustomer(db,companyId,draft,{requireExisting=false}={}){
+  const value=structuredClone(draft),number=text(value.customerNumber);
+  if(!number){value.customerNumber='';value.buyer=canonicalDraftBuyer(null);return value}
+  const customer=customerByNumber(db,companyId,number);
+  if(!customer){
+    if(requireExisting)throw invoiceError('Kunden finns inte i det inloggade företagets kundregister.','CUSTOMER_NOT_FOUND',404);
+    value.buyer=canonicalDraftBuyer(null);
+    return value;
+  }
+  value.customerNumber=customer.customerNumber;
+  value.buyer=canonicalDraftBuyer(customer);
+  return value;
+}
 function getCustomerInvoiceDraft(db,companyId,userId){
   const row=db.prepare('SELECT draft_json AS draftJson,request_id AS requestId,created_at AS createdAt,updated_at AS updatedAt FROM customer_invoice_drafts WHERE company_id=? AND user_id=?').get(companyId,userId);
-  return parseDraftRow(row);
+  const record=parseDraftRow(row);
+  if(record)record.draft=canonicalizeDraftCustomer(db,companyId,record.draft);
+  return record;
 }
 function saveCustomerInvoiceDraft(db,{companyId,userId,payload}){
   const draft=payload?.draft;
   if(!draft||typeof draft!=='object'||Array.isArray(draft))throw invoiceError('Fakturautkastet måste vara ett objekt.','INVALID_INVOICE_DRAFT',422);
   const requestId=validateRequestId(payload?.requestId);
-  const draftJson=JSON.stringify(draft);
-  if(Buffer.byteLength(draftJson,'utf8')>128*1024)throw invoiceError('Fakturautkastet är för stort för att sparas.','INVOICE_DRAFT_TOO_LARGE',413);
-  const now=new Date().toISOString();
+  const rawJson=JSON.stringify(draft);
+  if(Buffer.byteLength(rawJson,'utf8')>128*1024)throw invoiceError('Fakturautkastet är för stort för att sparas.','INVOICE_DRAFT_TOO_LARGE',413);
+  const normalizedDraft=canonicalizeDraftCustomer(db,companyId,draft,{requireExisting:Boolean(text(draft.customerNumber))});
+  const draftJson=JSON.stringify(normalizedDraft),now=new Date().toISOString();
   db.prepare(`INSERT INTO customer_invoice_drafts(company_id,user_id,draft_json,request_id,created_at,updated_at)
     VALUES(?,?,?,?,?,?)
     ON CONFLICT(company_id,user_id) DO UPDATE SET draft_json=excluded.draft_json,request_id=excluded.request_id,updated_at=excluded.updated_at`)
