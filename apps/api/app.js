@@ -278,12 +278,20 @@ function createApiApp(options) {
       if(customerMatch && req.method==='PUT') {
         requirePermission(session,'customer-invoice.create');
         const payload=await readJson(req,res); if(!payload) return;
-        const input=validatedCustomerInput(payload);
+        const input=validatedCustomerInput(payload),customerId=customerMatch[1];
         let customer;
         Db.transaction(db,()=>{
-          customer=Db.updateCustomer(db,{companyId:session.companyId,id:customerMatch[1],...input});
-          if(!customer) throw apiError('Kunden hittades inte i det inloggade företaget.','CUSTOMER_NOT_FOUND',404);
-          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'CUSTOMER_UPDATED',entityType:'customer',entityId:customer.id,details:{customerNumber:customer.customerNumber}});
+          const before=Db.customerById(db,session.companyId,customerId);
+          if(!before) throw apiError('Kunden hittades inte i det inloggade företaget.','CUSTOMER_NOT_FOUND',404);
+          customer=Db.updateCustomer(db,{companyId:session.companyId,id:customerId,...input});
+          const changedFields=[
+            before.name!==customer.name?'name':null,
+            (before.orgNumber||'')!==(customer.orgNumber||'')?'orgNumber':null,
+            (before.email||'')!==(customer.email||'')?'email':null,
+            String(before.address?.full||'')!==String(customer.address?.full||'')?'address':null,
+            before.reminderFeeAgreed!==customer.reminderFeeAgreed?'reminderFeeAgreed':null
+          ].filter(Boolean);
+          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'CUSTOMER_UPDATED',entityType:'customer',entityId:customer.id,details:{customerNumber:customer.customerNumber,changedFields}});
         });
         return send(res,200,{customer});
       }
