@@ -103,3 +103,24 @@ test('kundregistret kan öppna och uppdatera befintlig kund',()=>{
   assert.match(customersSource,/updating\?'uppdaterad':'sparad'/);
   assert.match(customersSource,/i den privata databasen/);
 });
+
+
+test('ändra kund från faktura stannar i samma webbläsarsession och bevarar utkastet',()=>{
+  assert.match(source,/data-action="edit-customer-register"/);
+  assert.doesNotMatch(source,/customers\.html\?customer=[\s\S]{0,200}target="_blank"/);
+  const start=source.indexOf("if(action==='edit-customer-register')");
+  const end=source.indexOf("if(action==='save-draft')",start);
+  const flow=source.slice(start,end);
+  assert.match(flow,/readForm\(\)/);
+  assert.match(flow,/api\('\/customer-invoices\/draft',\{method:'PUT'/);
+  assert.match(flow,/dirty=false/);
+  assert.match(flow,/location\.href=url\('\.\/customers\.html\?customer='/);
+  assert.match(flow,/return=invoice/);
+  assert.match(source,/get\('resume'\)==='1'/);
+  assert.match(source,/if\(resume\)\{draft=freshDraft\(\);view='edit';\}/);
+
+  assert.match(customersSource,/function returnToInvoice\(\)/);
+  assert.match(customersSource,/function resumeInvoice\(\)/);
+  assert.match(customersSource,/invoices\.html\?resume=1/);
+  assert.match(customersSource,/if\(updating&&returnToInvoice\(\)\)\{resumeInvoice\(\);return;\}/);
+});
