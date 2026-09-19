@@ -38,8 +38,8 @@ async function withApi(callback,{configureInvoiceSettings=true}={}){
   try{await callback({db,base,co1,co2,c1,user,password});}
   finally{await new Promise(resolve=>server.close(resolve));db.close();}
 }
-async function login(base,password){
-  const response=await fetch(base+'/api/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'faktura.test',password,totp:Auth.totpCode(MFA)})});
+async function login(base,password,{username='faktura.test',atMs=Date.now()}={}){
+  const response=await fetch(base+'/api/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,totp:Auth.totpCode(MFA,atMs)})});
   const body=await response.json(),cookie=String(response.headers.get('set-cookie')||'').split(';')[0];
   assert.equal(response.status,200);
   return{body,cookie};
@@ -65,8 +65,45 @@ test('kundfakturor listas företagsisolerat och konfiguration visar om utställn
   assert.equal(profile.company.invoice.bankgiro,'123-4567');
 }));
 
-test('utställning kräver CSRF och skapar atomiskt faktura, underlag, verifikation och audit',async()=>withApi(async({base,password,db,co1})=>{
+test('personligt kundfakturautkast sparas i privata databasen och finns kvar efter utloggning',async()=>withApi(async({base,password,db,co1,user})=>{
+  const signed=await login(base,password);
+  const requestId='draft-request-000001';
+  const draft={customerNumber:'K-100',invoiceDate:'2026-09-18',postingDate:'2026-09-18',dueDate:'2026-10-18',paymentTermsDays:30,lines:[{description:'Sparad fruktlåda',quantity:'1',unit:'st',unitPrice:'100,00',vatTreatment:'se-food',vatRate:'6',revenueAccount:'3053'}]};
+  const saved=await fetch(base+'/api/v1/customer-invoices/draft',{method:'PUT',headers:{Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken},body:JSON.stringify({draft,requestId})});
+  const savedBody=await saved.json();
+  assert.equal(saved.status,200);
+  assert.equal(savedBody.savedDraft.requestId,requestId);
+  assert.equal(savedBody.savedDraft.draft.lines[0].description,'Sparad fruktlåda');
+  assert.equal(Invoicing.getCustomerInvoiceDraft(db,co1.id,user.id).requestId,requestId);
+
+  const other=Db.createUser(db,{username:'faktura.annan',displayName:'Annan användare',passwordHash:Auth.hashPassword('Annat testlösenord 2026!'),mfaSecretEncrypted:Auth.encryptSecret(MFA,KEY)});
+  Db.addMembership(db,{companyId:co1.id,userId:other.id,roles:['sales']});
+  assert.equal(Invoicing.getCustomerInvoiceDraft(db,co1.id,other.id),null);
+
+  const logout=await fetch(base+'/api/v1/auth/logout',{method:'POST',headers:{Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken},body:'{}'});
+  assert.equal(logout.status,200);
+
+  const signedAgain=await login(base,password,{atMs:Date.now()+30000});
+  const loaded=await fetch(base+'/api/v1/customer-invoices/draft',{headers:{Cookie:signedAgain.cookie}});
+  const loadedBody=await loaded.json();
+  assert.equal(loaded.status,200);
+  assert.equal(loadedBody.savedDraft.requestId,requestId);
+  assert.equal(loadedBody.savedDraft.draft.customerNumber,'K-100');
+
+  const deleted=await fetch(base+'/api/v1/customer-invoices/draft',{method:'DELETE',headers:{Cookie:signedAgain.cookie,'X-CSRF-Token':signedAgain.body.csrfToken}});
+  assert.equal(deleted.status,200);
+  assert.equal((await deleted.json()).deleted,true);
+  assert.equal(Invoicing.getCustomerInvoiceDraft(db,co1.id,user.id),null);
+  const actions=Db.auditForCompany(db,co1.id).map(event=>event.action);
+  assert.ok(actions.includes('CUSTOMER_INVOICE_DRAFT_SAVED'));
+  assert.ok(actions.includes('CUSTOMER_INVOICE_DRAFT_DELETED'));
+}));
+
+test('utställning kräver CSRF och skapar atomiskt faktura, underlag, verifikation och audit',async()=>withApi(async({base,password,db,co1,user})=>{
   const signed=await login(base,password),payload=invoicePayload();
+  const draftSaved=await fetch(base+'/api/v1/customer-invoices/draft',{method:'PUT',headers:{Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken},body:JSON.stringify({draft:{customerNumber:payload.customerNumber,lines:payload.lines},requestId:payload.requestId})});
+  assert.equal(draftSaved.status,200);
+  assert.ok(Invoicing.getCustomerInvoiceDraft(db,co1.id,user.id));
   const blocked=await fetch(base+'/api/v1/customer-invoices',{method:'POST',headers:{Cookie:signed.cookie,'Content-Type':'application/json'},body:JSON.stringify(payload)});
   assert.equal(blocked.status,403);
   const created=await fetch(base+'/api/v1/customer-invoices',{method:'POST',headers:{Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken},body:JSON.stringify(payload)});
@@ -83,6 +120,7 @@ test('utställning kräver CSRF och skapar atomiskt faktura, underlag, verifikat
   assert.equal(data.document.seller.name,'Testbutiken AB');
   assert.equal(data.document.totalOre,125000);
   assert.match(data.documentSha256,/^[a-f0-9]{64}$/);
+  assert.equal(Invoicing.getCustomerInvoiceDraft(db,co1.id,user.id),null);
   const entry=Accounting.entryBySource(db,co1.id,'customer-invoice',data.invoice.id);
   assert.equal(entry.number,'F1');
   assert.equal(entry.lines.find(row=>row.account==='1510').debitOre,125000);

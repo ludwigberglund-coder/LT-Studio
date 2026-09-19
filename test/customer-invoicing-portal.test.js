@@ -68,3 +68,13 @@ test('portalen släpper bara bankgirokravet för PDF-utkast, inte för skapa och
   assert.match(submitSource,/if\(!issueReady\)throw new Error/);
   assert.doesNotMatch(submitSource,/requireSellerBankgiro:false/);
 });
+
+
+test('privat utkast sparas via API i stället för endast i webbläsarsessionen',()=>{
+  assert.match(source,/api\('\/customer-invoices\/draft'\)/);
+  assert.match(source,/api\('\/customer-invoices\/draft',\{method:'PUT'/);
+  assert.match(source,/privateDraftRecord/);
+  assert.match(source,/Utkastet är sparat i företagets privata databas/);
+  assert.doesNotMatch(source,/sessionStorage\.setItem\(LEGACY_PRIVATE_DRAFT_KEY/);
+  assert.match(source,/readLegacyPrivateDraft/);
+});
