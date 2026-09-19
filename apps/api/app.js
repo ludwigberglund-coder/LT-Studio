@@ -278,6 +278,32 @@ function createApiApp(options) {
         return send(res,200,{company:status.company,issuanceReady:resolved.configured&&status.ready,blocker});
       }
 
+      if(req.method==='GET' && url.pathname==='/api/v1/customer-invoices/draft') {
+        requirePermission(session,'customer-invoice.create');
+        return send(res,200,{savedDraft:CustomerInvoicing.getCustomerInvoiceDraft(db,session.companyId,session.userId)});
+      }
+
+      if(req.method==='PUT' && url.pathname==='/api/v1/customer-invoices/draft') {
+        requirePermission(session,'customer-invoice.create');
+        const payload=await readJson(req,res); if(!payload) return;
+        const savedDraft=Db.transaction(db,()=>{
+          const value=CustomerInvoicing.saveCustomerInvoiceDraft(db,{companyId:session.companyId,userId:session.userId,payload});
+          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'CUSTOMER_INVOICE_DRAFT_SAVED',entityType:'customer-invoice-draft',entityId:session.userId,details:{requestId:value.requestId,customerNumber:String(value.draft?.customerNumber||'')}});
+          return value;
+        });
+        return send(res,200,{savedDraft});
+      }
+
+      if(req.method==='DELETE' && url.pathname==='/api/v1/customer-invoices/draft') {
+        requirePermission(session,'customer-invoice.create');
+        const deleted=Db.transaction(db,()=>{
+          const value=CustomerInvoicing.clearCustomerInvoiceDraft(db,{companyId:session.companyId,userId:session.userId});
+          if(value)Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'CUSTOMER_INVOICE_DRAFT_DELETED',entityType:'customer-invoice-draft',entityId:session.userId,details:{}});
+          return value;
+        });
+        return send(res,200,{deleted});
+      }
+
       if(req.method==='GET' && url.pathname==='/api/v1/customer-invoices') {
         requirePermission(session,'customer-invoice.view');
         return send(res,200,{invoices:CustomerInvoicing.listCustomerInvoices(db,session.companyId)});
