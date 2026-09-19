@@ -68,20 +68,20 @@
     return [...accounts.values()].sort((a,b)=>a.number.localeCompare(b.number));
   }
   function accountsForVat(accounts,vatRate){return accounts.filter(a=>a.vatRates.includes(Number(vatRate)));}
-  function party(value,label,isSeller){
+  function party(value,label,isSeller,{requireBankgiro=true}={}){
     const p=value||{};
     const result={name:text(p.name,`${label}: namn`,160,true),address:text(p.address,`${label}: adress med postnummer och ort`,500,true)};
     for(const field of ['orgNumber','vatNumber','phone','email','website','bankgiro','taxStatus']){
       const required=isSeller&&['orgNumber','vatNumber'].includes(field);
       result[field]=text(p[field],`${label}: ${field}`,field==='website'?300:120,required);
     }
-    if(isSeller&&!result.bankgiro)throw new Error('Bankgiro måste vara angivet i företagsinformationen innan en faktura kan bokföras.');
+    if(isSeller&&requireBankgiro&&!result.bankgiro)throw new Error('Bankgiro måste vara angivet i företagsinformationen innan en faktura kan bokföras.');
     return result;
   }
   function prepare(input,options={}){
     if(!input||typeof input!=='object')throw new Error('Fakturaunderlag saknas.');
     const accounts=revenueAccounts(options.accounts||[]),lookup=new Map(accounts.map(a=>[a.number,a]));
-    const seller=party(input.seller,'Avsändare',true),buyer=party(input.buyer,'Mottagare',false);
+    const seller=party(input.seller,'Avsändare',true,{requireBankgiro:options.requireSellerBankgiro!==false}),buyer=party(input.buyer,'Mottagare',false);
     const invoiceDate=date(input.invoiceDate,'Fakturadatum'),dueDate=date(input.dueDate,'Förfallodatum'),postingDate=date(input.postingDate||invoiceDate,'Bokföringsdatum');
     if(dueDate<invoiceDate)throw new Error('Förfallodatum får inte ligga före fakturadatum.');
     const paymentTermsDays=Number(input.paymentTermsDays??30);
