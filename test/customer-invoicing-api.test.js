@@ -65,6 +65,47 @@ test('kundfakturor listas företagsisolerat och konfiguration visar om utställn
   assert.equal(profile.company.invoice.bankgiro,'123-4567');
 }));
 
+test('kundregisteruppdatering styr fakturautkast och är företagsisolerad',async()=>withApi(async({base,password,db,co1,c1,co2})=>{
+  const signed=await login(base,password),headers={Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken};
+  const draftResponse=await fetch(base+'/api/v1/customer-invoices/draft',{method:'PUT',headers,body:JSON.stringify({
+    requestId:'draft-canonical-0001',
+    draft:{customerNumber:'K-100',buyer:{name:'Manipulerat namn',address:'Fel adress',orgNumber:'X',email:'fel@example.invalid'},lines:[]}
+  })});
+  const draftBody=await draftResponse.json();
+  assert.equal(draftResponse.status,200);
+  assert.equal(draftBody.savedDraft.draft.buyer.name,'Kund Ett AB');
+  assert.equal(draftBody.savedDraft.draft.buyer.address,'Kundgatan 2, Göteborg');
+  assert.equal(draftBody.savedDraft.draft.buyer.orgNumber,'559200-0001');
+  assert.equal(draftBody.savedDraft.draft.buyer.email,'kund@example.se');
+
+  const updated=await fetch(base+'/api/v1/customers/'+encodeURIComponent(c1.id),{method:'PUT',headers,body:JSON.stringify({
+    name:'Kund Ett Uppdaterad AB',orgNumber:'559200-0001',email:'ny@example.se',address:'Nya Kundgatan 9, Göteborg',reminderFeeAgreed:true
+  })});
+  const updatedBody=await updated.json();
+  assert.equal(updated.status,200);
+  assert.equal(updatedBody.customer.customerNumber,'K-100');
+  assert.equal(updatedBody.customer.name,'Kund Ett Uppdaterad AB');
+  assert.equal(updatedBody.customer.address.full,'Nya Kundgatan 9, Göteborg');
+  assert.equal(updatedBody.customer.reminderFeeAgreed,true);
+
+  const loaded=await fetch(base+'/api/v1/customer-invoices/draft',{headers:{Cookie:signed.cookie}});
+  const loadedBody=await loaded.json();
+  assert.equal(loaded.status,200);
+  assert.equal(loadedBody.savedDraft.draft.buyer.name,'Kund Ett Uppdaterad AB');
+  assert.equal(loadedBody.savedDraft.draft.buyer.address,'Nya Kundgatan 9, Göteborg');
+  assert.equal(loadedBody.savedDraft.draft.buyer.email,'ny@example.se');
+
+  const otherCustomer=Db.listCustomers(db,co2.id)[0];
+  const crossTenant=await fetch(base+'/api/v1/customers/'+encodeURIComponent(otherCustomer.id),{method:'PUT',headers,body:JSON.stringify({
+    name:'Får inte ändras',orgNumber:'',email:'',address:'',reminderFeeAgreed:false
+  })});
+  const crossBody=await crossTenant.json();
+  assert.equal(crossTenant.status,404);
+  assert.equal(crossBody.code,'CUSTOMER_NOT_FOUND');
+  assert.equal(Db.customerById(db,co2.id,otherCustomer.id).name,'Kund Två AB');
+  assert.ok(Db.auditForCompany(db,co1.id).some(event=>event.action==='CUSTOMER_UPDATED'&&event.entityId===c1.id));
+}));
+
 test('personligt kundfakturautkast sparas i privata databasen och finns kvar efter utloggning',async()=>withApi(async({base,password,db,co1,user})=>{
   const signed=await login(base,password);
   const requestId='draft-request-000001';
