@@ -34,3 +34,14 @@ test('arbetsöversikten använder samma sidomenybredd och mobilgräns som övrig
   assert.match(css,/@media\(max-width:720px\)\{/);
   assert.doesNotMatch(css,/@media\(max-width:760px\)/);
 });
+
+
+test('gemensamma portalen upptäcker serveruppdatering utan hård omladdning',()=>{
+  const js=fs.readFileSync(path.join(portal,'portal-nav.js'),'utf8');
+  assert.match(js,/fetch\('\/_runtime-version'/);
+  assert.match(js,/cache:'no-store'/);
+  assert.match(js,/previous&&previous!==runtimeId\)\{location\.reload\(\)/);
+  assert.match(js,/addEventListener\('focus',ensureFreshRuntime\)/);
+  assert.match(js,/visibilitychange/);
+  assert.match(js,/setInterval\(ensureFreshRuntime,30000\)/);
+});
