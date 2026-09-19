@@ -103,7 +103,9 @@ test('kundregisteruppdatering styr fakturautkast och är företagsisolerad',asyn
   assert.equal(crossTenant.status,404);
   assert.equal(crossBody.code,'CUSTOMER_NOT_FOUND');
   assert.equal(Db.customerById(db,co2.id,otherCustomer.id).name,'Kund Två AB');
-  assert.ok(Db.auditForCompany(db,co1.id).some(event=>event.action==='CUSTOMER_UPDATED'&&event.entityId===c1.id));
+  const customerAudit=Db.auditForCompany(db,co1.id).find(event=>event.action==='CUSTOMER_UPDATED'&&event.entityId===c1.id);
+  assert.ok(customerAudit);
+  assert.deepEqual(customerAudit.details.changedFields.sort(),['address','email','name','reminderFeeAgreed']);
 }));
 
 test('personligt kundfakturautkast sparas i privata databasen och finns kvar efter utloggning',async()=>withApi(async({base,password,db,co1,user})=>{
