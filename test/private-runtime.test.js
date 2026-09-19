@@ -79,3 +79,32 @@ test('private navigation contains only usable portal links and uses the real rec
   assert.ok(Nav.visibleGroups(access,[],{}).length===0);
   assert.ok(Nav.visibleGroups(access,[],{demo:true}).flatMap(group=>group.items).some(row=>row[0]==='uat'));
 }));
+
+
+test('runtime-version är no-store och ändras när servern startas om',async()=>{
+  const first=createServer({databasePath:':memory:',secureCookies:false});
+  await new Promise(resolve=>first.server.listen(0,'127.0.0.1',resolve));
+  const firstBase=`http://127.0.0.1:${first.server.address().port}`;
+  let firstId;
+  try{
+    const response=await fetch(firstBase+'/_runtime-version');
+    assert.equal(response.status,200);
+    assert.equal(response.headers.get('cache-control'),'no-store');
+    firstId=(await response.json()).runtimeId;
+    assert.equal(firstId,first.runtimeId);
+  }finally{await new Promise(resolve=>first.close(resolve));}
+
+  const second=createServer({databasePath:':memory:',secureCookies:false});
+  await new Promise(resolve=>second.server.listen(0,'127.0.0.1',resolve));
+  const secondBase=`http://127.0.0.1:${second.server.address().port}`;
+  try{
+    const response=await fetch(secondBase+'/_runtime-version');
+    const secondId=(await response.json()).runtimeId;
+    assert.notEqual(secondId,firstId);
+    const head=await fetch(secondBase+'/_runtime-version',{method:'HEAD'});
+    assert.equal(head.status,200);
+    assert.equal(await head.text(),'');
+    const post=await fetch(secondBase+'/_runtime-version',{method:'POST'});
+    assert.equal(post.status,405);
+  }finally{await new Promise(resolve=>second.close(resolve));}
+});
