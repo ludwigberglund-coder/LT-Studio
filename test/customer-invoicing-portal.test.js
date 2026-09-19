@@ -100,5 +100,6 @@ test('kundregistret kan öppna och uppdatera befintlig kund',()=>{
   assert.match(customersSource,/method:updating\?'PUT':'POST'/);
   assert.match(customersSource,/requestedCustomer\(\)/);
   assert.match(customersSource,/new URLSearchParams\(location\.search\)\.get\('customer'\)/);
-  assert.match(customersSource,/uppdaterad i den privata databasen/);
+  assert.match(customersSource,/updating\?'uppdaterad':'sparad'/);
+  assert.match(customersSource,/i den privata databasen/);
 });
