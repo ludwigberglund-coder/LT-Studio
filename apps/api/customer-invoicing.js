@@ -28,6 +28,15 @@ function initializeCustomerInvoicing(db){
       created_at TEXT NOT NULL,
       PRIMARY KEY(company_id,request_id)
     ) STRICT;
+    CREATE TABLE IF NOT EXISTS customer_invoice_drafts(
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      draft_json TEXT NOT NULL,
+      request_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY(company_id,user_id)
+    ) STRICT;
     CREATE TABLE IF NOT EXISTS customer_invoice_credits(
       company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
       request_id TEXT NOT NULL,
@@ -41,6 +50,7 @@ function initializeCustomerInvoicing(db){
       UNIQUE(company_id,credit_invoice_id)
     ) STRICT;
     CREATE INDEX IF NOT EXISTS idx_customer_invoice_documents_company ON customer_invoice_documents(company_id,created_at);
+    CREATE INDEX IF NOT EXISTS idx_customer_invoice_drafts_updated ON customer_invoice_drafts(company_id,updated_at);
     CREATE TRIGGER IF NOT EXISTS tenant_customer_invoice_credits_insert BEFORE INSERT ON customer_invoice_credits
       WHEN NOT EXISTS(SELECT 1 FROM invoices WHERE id=NEW.original_invoice_id AND company_id=NEW.company_id)
         OR NOT EXISTS(SELECT 1 FROM invoices WHERE id=NEW.credit_invoice_id AND company_id=NEW.company_id)
@@ -117,11 +127,41 @@ function invoiceBundle(db,companyId,invoiceId){
   return{invoice,document:stored?.document||null,documentSha256:stored?.documentSha256||null,entry};
 }
 function validateRequestId(value){const id=text(value);if(!/^[A-Za-z0-9_-]{16,100}$/.test(id))throw invoiceError('En giltig idempotensnyckel krävs för fakturautställning.','INVALID_INVOICE_REQUEST_ID',422);return id}
+function parseDraftRow(row){
+  if(!row)return null;
+  let draft;
+  try{draft=JSON.parse(row.draftJson)}catch{throw invoiceError('Det sparade fakturautkastet kan inte läsas.','INVOICE_DRAFT_CORRUPT',500)}
+  if(!draft||typeof draft!=='object'||Array.isArray(draft))throw invoiceError('Det sparade fakturautkastet har ogiltigt format.','INVOICE_DRAFT_CORRUPT',500);
+  return{draft,requestId:row.requestId,createdAt:row.createdAt,updatedAt:row.updatedAt};
+}
+function getCustomerInvoiceDraft(db,companyId,userId){
+  const row=db.prepare('SELECT draft_json AS draftJson,request_id AS requestId,created_at AS createdAt,updated_at AS updatedAt FROM customer_invoice_drafts WHERE company_id=? AND user_id=?').get(companyId,userId);
+  return parseDraftRow(row);
+}
+function saveCustomerInvoiceDraft(db,{companyId,userId,payload}){
+  const draft=payload?.draft;
+  if(!draft||typeof draft!=='object'||Array.isArray(draft))throw invoiceError('Fakturautkastet måste vara ett objekt.','INVALID_INVOICE_DRAFT',422);
+  const requestId=validateRequestId(payload?.requestId);
+  const draftJson=JSON.stringify(draft);
+  if(Buffer.byteLength(draftJson,'utf8')>128*1024)throw invoiceError('Fakturautkastet är för stort för att sparas.','INVOICE_DRAFT_TOO_LARGE',413);
+  const now=new Date().toISOString();
+  db.prepare(`INSERT INTO customer_invoice_drafts(company_id,user_id,draft_json,request_id,created_at,updated_at)
+    VALUES(?,?,?,?,?,?)
+    ON CONFLICT(company_id,user_id) DO UPDATE SET draft_json=excluded.draft_json,request_id=excluded.request_id,updated_at=excluded.updated_at`)
+    .run(companyId,userId,draftJson,requestId,now,now);
+  return getCustomerInvoiceDraft(db,companyId,userId);
+}
+function clearCustomerInvoiceDraft(db,{companyId,userId,requestId=null}){
+  const result=requestId
+    ? db.prepare('DELETE FROM customer_invoice_drafts WHERE company_id=? AND user_id=? AND request_id=?').run(companyId,userId,requestId)
+    : db.prepare('DELETE FROM customer_invoice_drafts WHERE company_id=? AND user_id=?').run(companyId,userId);
+  return Number(result.changes||0)>0;
+}
 function resolvedProfile(db,companyId,publicProfile={}){return InvoiceSettings.privateProfile(db,companyId,publicProfile)}
 function issueInvoice(db,{companyId,userId,payload,profile}){
   const requestId=validateRequestId(payload?.requestId);
   const prior=db.prepare('SELECT invoice_id AS invoiceId FROM customer_invoice_issue_requests WHERE company_id=? AND request_id=?').get(companyId,requestId);
-  if(prior){const existing=invoiceBundle(db,companyId,prior.invoiceId);if(!existing)throw invoiceError('Tidigare fakturabegäran saknar faktura.','INVOICE_IDEMPOTENCY_CORRUPT',500);return{...existing,duplicate:true}}
+  if(prior){const existing=invoiceBundle(db,companyId,prior.invoiceId);if(!existing)throw invoiceError('Tidigare fakturabegäran saknar faktura.','INVOICE_IDEMPOTENCY_CORRUPT',500);clearCustomerInvoiceDraft(db,{companyId,userId,requestId});return{...existing,duplicate:true}}
   const company=Db.companyById(db,companyId);
   const resolved=resolvedProfile(db,companyId,profile);
   if(!resolved.configured)throw invoiceError('Privata fakturainställningar saknas. Bankgiro och skattestatus måste läggas in i den privata databasen före bokföring.','INVOICE_PRIVATE_SETTINGS_MISSING',409);
@@ -147,7 +187,8 @@ function issueInvoice(db,{companyId,userId,payload,profile}){
   const documentJson=JSON.stringify(document),documentSha256=crypto.createHash('sha256').update(documentJson).digest('hex'),createdAt=new Date().toISOString();
   db.prepare('INSERT INTO customer_invoice_documents(invoice_id,company_id,document_json,document_sha256,created_at) VALUES(?,?,?,?,?)').run(invoice.id,companyId,documentJson,documentSha256,createdAt);
   db.prepare('INSERT INTO customer_invoice_issue_requests(company_id,request_id,invoice_id,created_at) VALUES(?,?,?,?)').run(companyId,requestId,invoice.id,createdAt);
-  Db.appendAudit(db,{companyId,userId,action:'CUSTOMER_INVOICE_ISSUED',entityType:'invoice',entityId:invoice.id,details:{invoiceNumber,journalNumber:posted.entry.number,customerNumber:customer.customerNumber,totalOre:document.totalOre,vatOre:document.vatOre,documentSha256}});
+  const draftCleared=clearCustomerInvoiceDraft(db,{companyId,userId,requestId});
+  Db.appendAudit(db,{companyId,userId,action:'CUSTOMER_INVOICE_ISSUED',entityType:'invoice',entityId:invoice.id,details:{invoiceNumber,journalNumber:posted.entry.number,customerNumber:customer.customerNumber,totalOre:document.totalOre,vatOre:document.vatOre,documentSha256,draftCleared}});
   return{...invoiceBundle(db,companyId,invoice.id),duplicate:false};
 }
 
@@ -220,4 +261,4 @@ function creditUnpaidInvoice(db,{companyId,userId,invoiceId,payload}){
   return{...invoiceBundle(db,companyId,creditInvoice.id),duplicate:false,original:Db.invoiceById(db,companyId,original.id)};
 }
 
-module.exports=Object.freeze({initializeCustomerInvoicing,customerByNumber,nextInvoiceNumber,profileStatus,resolvedProfile,listCustomerInvoices,documentForInvoice,invoiceBundle,issueInvoice,creditUnpaidInvoice,creditDocumentFrom,validateRequestId});
+module.exports=Object.freeze({initializeCustomerInvoicing,customerByNumber,nextInvoiceNumber,profileStatus,resolvedProfile,listCustomerInvoices,documentForInvoice,invoiceBundle,getCustomerInvoiceDraft,saveCustomerInvoiceDraft,clearCustomerInvoiceDraft,issueInvoice,creditUnpaidInvoice,creditDocumentFrom,validateRequestId});
