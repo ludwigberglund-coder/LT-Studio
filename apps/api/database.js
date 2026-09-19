@@ -329,6 +329,18 @@ function customerById(db, companyId, customerId) {
   return row ? {...row,address:jsonParse(row.addressJson,{}),reminderFeeAgreed:Boolean(row.reminderFeeAgreed)} : null;
 }
 
+function updateCustomer(db,input) {
+  const existing=customerById(db,input.companyId,input.id);
+  if(!existing)return null;
+  const updatedAt=nowIso();
+  db.prepare(`UPDATE customers SET name=?,org_number=?,email=?,address_json=?,reminder_fee_agreed=?,updated_at=?
+    WHERE company_id=? AND id=?`).run(
+      String(input.name||'').trim(),input.orgNumber||null,input.email||null,JSON.stringify(input.address||{}),
+      input.reminderFeeAgreed?1:0,updatedAt,input.companyId,input.id
+    );
+  return customerById(db,input.companyId,input.id);
+}
+
 function listCustomers(db,companyId) {
   return db.prepare(`SELECT id,company_id AS companyId,customer_number AS customerNumber,name,org_number AS orgNumber,email,address_json AS addressJson,
     customer_type AS customerType,reminder_fee_agreed AS reminderFeeAgreed,created_at AS createdAt,updated_at AS updatedAt
@@ -475,6 +487,7 @@ module.exports = Object.freeze({
   deleteSession,
   createCustomer,
   customerById,
+  updateCustomer,
   listCustomers,
   nextCustomerNumber,
   createInvoice,
