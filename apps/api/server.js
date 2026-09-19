@@ -1,6 +1,7 @@
 'use strict';
 
 const http = require('node:http');
+const crypto = require('node:crypto');
 const path = require('node:path');
 const fs = require('node:fs');
 const {createApiApp} = require('./app.js');
@@ -56,6 +57,7 @@ function createServer(options = {}) {
   const secureCookies = options.secureCookies ?? (process.env.ROLLANDS_API_SECURE_COOKIE !== '0');
   const authEncryptionKey = options.authEncryptionKey ?? process.env.ROLLANDS_AUTH_ENCRYPTION_KEY ?? '';
   const configuredAllowedHosts = options.allowedHosts || String(process.env.ROLLANDS_ALLOWED_HOSTS || '').split(',').map(value=>value.trim()).filter(Boolean);
+  const runtimeId = crypto.randomUUID();
   if (!Number.isSafeInteger(port) || port < 1 || port > 65535) throw new Error('PORT måste vara ett heltal mellan 1 och 65535.');
   if (!isLoopback(host)) {
     if (!secureCookies) throw new Error('Säkra cookies måste vara aktiverade när API:t exponeras utanför den lokala datorn.');
@@ -73,6 +75,12 @@ function createServer(options = {}) {
   const server = http.createServer(async (req,res) => {
     if (!allowedHost(req,host,configuredAllowedHosts)) { res.writeHead(421,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}); return res.end(JSON.stringify({error:'Värdnamnet är inte tillåtet.',code:'HOST_NOT_ALLOWED'})); }
     if (demoRequest(req.url || '/')) { res.writeHead(400,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}); return res.end(JSON.stringify({error:'Demoläge är inte tillåtet på den privata servern. Använd den separata demon.',code:'DEMO_DISABLED'})); }
+    if (String(req.url || '').split('?')[0] === '/_runtime-version') {
+      if (!['GET','HEAD'].includes(req.method || 'GET')) { res.writeHead(405,{'Allow':'GET, HEAD','Cache-Control':'no-store'}); return res.end(); }
+      const body=Buffer.from(JSON.stringify({runtimeId}));
+      res.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Content-Length':body.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
+      return res.end(req.method==='HEAD'?undefined:body);
+    }
     if (String(req.url || '').startsWith('/website-preview/') && await websiteCms.handle(req,res)) return;
     if (!String(req.url || '').startsWith('/api/v1/')) {
       if (serveStatic(req,res)) return;
@@ -81,7 +89,7 @@ function createServer(options = {}) {
     if (await automationReview.handle(req,res)) return; if (await bank.handle(req,res)) return; if (await supplierMasterdata.handle(req,res)) return; if (await paymentRelease.handle(req,res)) return; if (await paymentConfirmation.handle(req,res)) return; if (await inventory.handle(req,res)) return; if (await reports.handle(req,res)) return; if (await payroll.handle(req,res)) return; if (await documents.handle(req,res)) return; if (await accounting.handle(req,res)) return; if (await websiteCms.handle(req,res)) return; if (await payables.handle(req,res)) return; api.handle(req,res);
   });
   function close(callback) { server.close(() => { try { db.close(); } catch {} if (callback) callback(); }); }
-  return Object.freeze({server,db,api,automationReview,bank,payables,supplierMasterdata,paymentRelease,paymentConfirmation,inventory,reports,payroll,documents,accounting,websiteCms,host,port,databasePath,close});
+  return Object.freeze({server,db,api,automationReview,bank,payables,supplierMasterdata,paymentRelease,paymentConfirmation,inventory,reports,payroll,documents,accounting,websiteCms,host,port,databasePath,runtimeId,close});
 }
 if (require.main === module) {
   const runtime = createServer();
