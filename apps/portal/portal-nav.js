@@ -46,6 +46,24 @@
   const base=new URL('../',document.currentScript.src);
   const demo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
   const key='rollands-navigation-v2:'+base.pathname;
+  const runtimeKey='rollands-runtime-id:'+base.pathname;
+  let runtimeCheckInFlight=false;
+  async function ensureFreshRuntime(){
+    if(demo||runtimeCheckInFlight)return false;
+    runtimeCheckInFlight=true;
+    try{
+      const response=await fetch('/_runtime-version',{credentials:'same-origin',cache:'no-store'});
+      if(!response.ok)return false;
+      const data=await response.json();
+      const runtimeId=String(data.runtimeId||'');
+      if(!runtimeId)return false;
+      const previous=sessionStorage.getItem(runtimeKey);
+      sessionStorage.setItem(runtimeKey,runtimeId);
+      if(previous&&previous!==runtimeId){location.reload();return true;}
+    }catch{}
+    finally{runtimeCheckInFlight=false;}
+    return false;
+  }
   function read(){try{return JSON.parse(localStorage.getItem(key)||'{}')}catch{return {}}}
   function persist(value){try{localStorage.setItem(key,JSON.stringify(value))}catch{}}
   function href(path){const u=new URL(path,base);if(demo&&path!=='./')u.searchParams.set('demo','1');return u.href;}
@@ -97,6 +115,10 @@
   function schedule(){if(pending)return;pending=true;queueMicrotask(async()=>{pending=false;await mount();});}
   // Renders can replace the entire sidebar. Stay subscribed instead of disconnecting after boot.
   new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true});
-  addEventListener('hashchange',schedule);addEventListener('pageshow',schedule);
-  root.RollandsNavigation={groups,mount,href};mount();
+  addEventListener('hashchange',schedule);
+  addEventListener('pageshow',()=>{schedule();ensureFreshRuntime();});
+  addEventListener('focus',ensureFreshRuntime);
+  addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')ensureFreshRuntime();});
+  setInterval(ensureFreshRuntime,30000);
+  root.RollandsNavigation={groups,mount,href};ensureFreshRuntime();mount();
 })(globalThis);
