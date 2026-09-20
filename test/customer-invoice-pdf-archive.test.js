@@ -48,6 +48,16 @@ test('utfärdad kundfaktura arkiverar och återger exakt PDF företagsisolerat',
   assert.match(body.pdfArchive.pdfSha256,/^[a-f0-9]{64}$/);
   const archived=Invoicing.pdfArchiveForInvoice(db,co1.id,body.invoice.id);
   assert.equal(archived.bytes.subarray(0,5).toString('ascii'),'%PDF-');
+  const metadata=Invoicing.pdfArchivePrivateObjectMetadata(db,co1.id,body.invoice.id);
+  assert.equal(metadata.companyId,co1.id);
+  assert.equal(metadata.kind,'customer-invoice-pdf');
+  assert.equal(metadata.objectId,body.invoice.id);
+  assert.equal(metadata.objectKey,`private/${co1.id}/customer-invoices/${body.invoice.id}`);
+  assert.equal(metadata.mimeType,'application/pdf');
+  assert.equal(metadata.sizeBytes,archived.sizeBytes);
+  assert.equal(metadata.sha256,archived.pdfSha256);
+  assert.equal(metadata.createdAt,archived.createdAt);
+  assert.equal(Invoicing.pdfArchivePrivateObjectMetadata(db,co2.id,body.invoice.id),null);
   const store=PdfArchiveStore.createSqliteCustomerInvoicePdfArchiveStore(db);
   assert.equal(store.exists({companyId:co1.id,invoiceId:body.invoice.id}),true);
   assert.equal(store.exists({companyId:co2.id,invoiceId:body.invoice.id}),false);
