@@ -36,7 +36,7 @@ test('leverantörsfakturans detaljvy visar både fakturadatum och förfallodatum
 
 test('leverantörsfakturasidan versionsmärker huvudskriptet för att undvika gammal cache',()=>{
   const html=fs.readFileSync(htmlPath,'utf8');
-  assert.match(html,/src="\.\/payables\.js\?v=20260920-2"/);
+  assert.match(html,/src="\.\/payables\.js\?v=20260920-3"/);
 });
 
 test('leverantörsfakturalistan visar fakturadatum och förfallodatum sida vid sida',()=>{
