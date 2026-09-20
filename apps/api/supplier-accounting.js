@@ -95,11 +95,12 @@ function confirmSupplierPayment(db,{companyId,paymentId,confirmationReference,po
     let payment=paymentForConfirmation(db,companyId,paymentId);
     if(!payment)throw flowError('Betalningen hittades inte.','PAYMENT_NOT_FOUND',404);
     const reference=text(confirmationReference);
+    const date=text(postingDate||payment.paymentDate);
     const existingOperation=operationBySource(db,companyId,'payment-post',payment.id);
     if(existingOperation){
-      if(reference&&payment.confirmationReference&&reference!==payment.confirmationReference)throw flowError('Betalningen är redan bokförd med en annan bankreferens.','IDEMPOTENCY_CONFLICT',409);
       const entry=Accounting.entryBySource(db,companyId,'supplier-payment',payment.id);
       if(!entry||entry.id!==existingOperation.accountingEntryId)throw flowError('Idempotensposten och betalningsjournalen är inte synkroniserade.','SUPPLIER_ACCOUNTING_INTEGRITY_ERROR',500);
+      if(reference!==payment.confirmationReference||date!==entry.postingDate)throw flowError('Betalningen är redan bokförd med en annan bankreferens eller ett annat bokföringsdatum. Ingen ändring gjordes.','IDEMPOTENCY_CONFLICT',409);
       return{payment,entry,duplicate:true};
     }
     if(payment.status!=='released')throw flowError('Endast en frisläppt betalning kan bekräftas som genomförd.','INVALID_PAYMENT_STATUS',409);
@@ -108,7 +109,6 @@ function confirmSupplierPayment(db,{companyId,paymentId,confirmationReference,po
     if(reference.length<3||reference.length>160)throw flowError('En bank- eller betalningsreferens på 3–160 tecken krävs.','CONFIRMATION_REFERENCE_REQUIRED');
     const used=db.prepare(`SELECT id FROM supplier_payments WHERE company_id=? AND confirmation_reference=? AND id<>?`).get(companyId,reference,payment.id);
     if(used)throw flowError('Bankreferensen är redan kopplad till en annan betalning.','DUPLICATE_CONFIRMATION_REFERENCE',409);
-    const date=text(postingDate||payment.paymentDate);
     if(!Accounting.validDate(date))throw flowError('Bokföringsdatumet är ogiltigt.','INVALID_POSTING_DATE');
     const posted=Accounting.postEntry(db,{
       companyId,
