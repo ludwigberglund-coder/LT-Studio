@@ -19,7 +19,7 @@ async function withApi(callback){
   const co2=Db.createCompany(db,{legalName:'Annat Bolag AB',displayName:'Annat',orgNumber:'559100-0002'});
   const password='Sakert pdfarkiv testlosenord 2026!';
   const user=Db.createUser(db,{username:'pdf.test',displayName:'PDF Test',passwordHash:Auth.hashPassword(password),mfaSecretEncrypted:Auth.encryptSecret(MFA,KEY)});
-  Db.addMembership(db,{companyId:co1.id,userId:user.id,roles:['accountant']});
+  Db.addMembership(db,{companyId:co1.id,userId:user.id});
   InvoiceSettings.setInvoiceSettings(db,{companyId:co1.id,bankgiro:'123-4567',taxStatus:'Godkänd för F-skatt',updatedBy:user.id});
   Db.createCustomer(db,{companyId:co1.id,customerNumber:'K-100',name:'Kund Ett AB',orgNumber:'559200-0001',email:'kund@example.se',address:{full:'Kundgatan 2, Göteborg'},customerType:'business'});
   Db.createCustomer(db,{companyId:co2.id,customerNumber:'K-200',name:'Kund Två AB',address:{full:'Annan gata 1'},customerType:'business'});

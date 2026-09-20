@@ -70,8 +70,8 @@ test('complete API startup guards supplier and document relationships as well', 
 });
 test('repeated initialization is safe and does not prohibit multi-company memberships', () => {
   const f=fixture();try {
-    Db.addMembership(f.db,{companyId:f.a.id,userId:f.user.id,roles:['auditor']});
-    Db.addMembership(f.db,{companyId:f.b.id,userId:f.user.id,roles:['auditor']});
+    Db.addMembership(f.db,{companyId:f.a.id,userId:f.user.id});
+    Db.addMembership(f.db,{companyId:f.b.id,userId:f.user.id});
     const one=Guards.installTenantGuards(f.db),two=Guards.installTenantGuards(f.db);
     assert.deepEqual(two,one);
     assert.equal(Db.membershipsForUser(f.db,f.user.id).length,2);
@@ -84,7 +84,7 @@ test('real HTTP API refuses anonymous requests and other-company invoice IDs', a
   try {
     const routes=['/receivables','/customers','/customer-invoices','/payables/invoices','/suppliers','/bank/payments','/documents','/accounting/entries','/payroll/runs','/inventory/items','/automation/proposals','/website/cms','/reports/trial-balance?from=2026-09-01&to=2026-09-30','/audit'];
     for (const route of routes) assert.equal((await fetch(base+route)).status,401,route);
-    Db.addMembership(f.db,{companyId:f.a.id,userId:f.user.id,roles:['accountant']});
+    Db.addMembership(f.db,{companyId:f.a.id,userId:f.user.id});
     const token=Auth.randomToken(),csrf=Auth.randomToken();
     Db.createSession(f.db,{tokenHash:Auth.hashToken(token),csrfHash:Auth.hashToken(csrf),companyId:f.a.id,userId:f.user.id,expiresAt:new Date(Date.now()+60000).toISOString()});
     const headers={Cookie:`rollands_session=${token}`};
@@ -94,7 +94,7 @@ test('real HTTP API refuses anonymous requests and other-company invoice IDs', a
     const foreign=await fetch(base+`/invoices/${f.invoiceB.id}/comments`,{headers});
     assert.equal(foreign.status,404);
     const forbidden=await fetch(base+'/website/cms',{headers});
-    assert.equal(forbidden.status,403);
+    assert.equal(forbidden.status,200);
     assert.equal((await fetch(base+`/invoices/${f.invoiceA.id}/comments`,{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({text:'Missing CSRF test'})})).status,403);
   } finally {await new Promise(resolve=>runtime.close(resolve));}
 });

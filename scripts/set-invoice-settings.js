@@ -18,11 +18,11 @@ function updateInvoiceSettings(db,{orgNumber,username,bankgiro,taxStatus,accessC
   if(!companyRow)throw new Error('Företaget finns inte i databasen.');
   const company=Db.companyById(db,companyRow.id);
   const user=Db.userByUsername(db,Auth.normalizeUsername(username));
-  if(!user)throw new Error('Administratörskontot finns inte.');
+  if(!user)throw new Error('Användarkontot finns inte.');
   const membership=Db.membership(db,company.id,user.id);
-  if(!membership)throw new Error('Administratörskontot saknar åtkomst till företaget.');
+  if(!membership)throw new Error('Användarkontot saknar åtkomst till företaget.');
   const model=Access.createModel(accessConfig);
-  const decision=Access.authorize(model,{id:user.id,name:user.displayName,roles:membership.roles,disabled:Boolean(user.disabled)},'platform.settings.manage');
+  const decision=Access.authorize(model,{id:user.id,name:user.displayName,companyId:company.id,authenticated:true,membershipActive:true,disabled:Boolean(user.disabled)},'platform.settings.manage');
   if(!decision.allowed)throw new Error('Kontot saknar behörighet att ändra företagets fakturainställningar.');
   let settings;
   Db.transaction(db,()=>{

@@ -1,6 +1,6 @@
 # ROLANDS PILOT READINESS CHECKLIST
 
-Senast granskad: 2026-09-18. Företag: Rolands Frukt o Grönt Aktiebolag, 556406-5059.
+Senast granskad: 2026-09-20. Företag: Rolands Frukt o Grönt Aktiebolag, 556406-5059.
 
 **Samlat beslut: ❌ Inte klar för pilot med verkliga verksamhets- eller bokföringsdata.** Detta är en nulägeschecklista, inte ett slutintyg. Se [audit och bevis](PRODUCTION-READINESS-AUDIT-2026-09-18.md) och [uppföljning om historik och rättelser, PR 66](HISTORY-PROTECTION.md).
 
@@ -13,8 +13,8 @@ Senast granskad: 2026-09-18. Företag: Rolands Frukt o Grönt Aktiebolag, 556406
 | Identiska/ändrade återförsök på journalnivå | ✅ Klar | PR 62; identiskt återanvänder, ändrat innehåll nekas. |
 | Dubbelklick/idempotens i alla affärsflöden | 🟡 Delvis klar | PR 91 jämför innehållet bakom kundfakturans/kreditens request-ID och stoppar ändrade återförsök; nummerreservationen gör PDF-fel säkert återupptagbara. Övriga mutationer måste fortfarande verifieras systematiskt. |
 | Deklarerade företagsrelationer i SQLite | ✅ Klar | PR 63; kontroll vid start och spärrar för INSERT/UPDATE. Befintlig ogiltig historik stoppar start utan att tas bort. |
-| Fullständig företagsisolering och IDOR | 🟡 Delvis klar | Vanlig företagsfiltrering, 14 routefamiljers anonyma anrop och flera objektprov; hela roll-/metodmatrisen och polymorfa länkar återstår. |
-| Inloggning, sessionscookie, MFA och CSRF | 🟡 Delvis klar | PR 73: 60 min idle-timeout, 8 h absolut sluttid och engångsförbrukning av TOTP-steg är testade; aktuella roller läses server-side vid varje session. Kontorecovery, processöverskridande brute-force-skydd, nyckelrotation och driftprov återstår. |
+| Fullständig företagsisolering och IDOR | 🟡 Delvis klar | Vanlig företagsfiltrering, 14 routefamiljers anonyma anrop och flera objektprov; hela identitets-/företags-/metodmatrisen och polymorfa länkar återstår. |
+| Inloggning, sessionscookie, MFA och CSRF | 🟡 Delvis klar | PR 73: 60 min idle-timeout, 8 h absolut sluttid och engångsförbrukning av TOTP-steg är testade; aktuellt företagsmedlemskap kontrolleras på servern vid varje anrop. Kontorecovery, processöverskridande brute-force-skydd, nyckelrotation och driftprov återstår. |
 | Oföränderliga bokföringsposter och audit-logg | 🟡 Delvis klar | PR 66: databasspärrar, journalförsegling och kontroller vid start/läsning/restore; auditlogg kan inte skrivas om genom vanlig databasoperation. Oberoende revisionsankare, full arkivtäckning och verklig driftverifiering återstår. |
 | Rättelse med bibehållen originalhistorik | 🟡 Delvis klar | PR 66: atomisk manuell rättelse med moms, originalkoppling och audit. Osäkra fristående rättelser av automatiska poster och 151x/244x nekas. Komplett rättelse som uppdaterar reskontra och betalningsstatus tillsammans återstår. |
 | Moms i faktura och leverantörsbokföring | 🟡 Delvis klar | Beräkning/konton och normal inhemsk kontering finns. Komplett regel- och scenarioverifiering återstår. |
@@ -52,3 +52,7 @@ Detta arbete ansluter inte e-post eller bank och slår inte på självständig A
 ## Verifierad uppföljning 2026-09-20 – betalningsåterförsök
 
 Bas: `3c69c0266b1e3be0b052c708826561e732876c66`. Ett regressionstest reproducerade att leverantörsbetalningens redan bokförda resultat återlämnades även när återförsöket ändrade bokföringsdatum eller utelämnade bankreferensen. Backend jämför nu både normaliserad referens och effektivt bokföringsdatum med den sparade betalningen/verifikationen och svarar 409 vid avvikelse. Tio identiska försök skapar bara en betalningsverifikation och en audit-händelse. De 11 berörda betalnings-/leverantörsbokföringstesterna passerar på Node 24.19.0. Detta stänger endast denna lucka i P12; den fullständiga mutationsmatrisen och drift-UAT återstår. **NO-GO kvarstår.**
+
+## Ny användarmodell 2026-09-20
+
+Rollfält och rolltilldelning har ersatts med personligt företagsmedlemskap. MFA krävs för alla. De automatiska medlemskaps- och migrationsproven finns i `company-membership-http.test.js`, `membership-migration.test.js` och `access-control.test.js`. Se [migration, kontroller och begränsningar](ACCESS-CONTROL.md). Full CI måste passera före merge. Den fullständiga IDOR-matrisen och faktisk pilot-UAT är fortsatt delvis/inte klara; inga sådana rader markeras gröna av detta arbete.

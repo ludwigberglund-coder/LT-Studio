@@ -25,7 +25,7 @@ test('innehållsfilerna är giltiga och verksamhetsbesluten matchar företaget',
   assert.equal(report.ok, true, report.errors.join('\n'));
   assert.equal(report.summary.services, 3);
   assert.ok(report.summary.adminModules >= 7);
-  assert.ok(report.summary.accessRoles >= 8);
+  assert.ok(report.summary.accessPermissions >= 28);
   assert.equal(report.summary.separationWorkflows, 5);
 });
 

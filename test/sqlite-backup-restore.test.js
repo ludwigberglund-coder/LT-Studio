@@ -20,7 +20,7 @@ test('SQLite-backup kan integritetskontrolleras och återställas med ekonomi oc
     Accounting.initializeAccountingStore(source);
     const company=Db.createCompany(source,{legalName:'Pilot Backup AB',displayName:'Pilot Backup',orgNumber:'559999-1001'});
     const user=Db.createUser(source,{username:'backup-test',displayName:'Backup Test',passwordHash:'test-only-hash'});
-    Db.addMembership(source,{companyId:company.id,userId:user.id,roles:['accountant']});
+    Db.addMembership(source,{companyId:company.id,userId:user.id});
     const customer=Db.createCustomer(source,{companyId:company.id,customerNumber:'K-RESTORE',name:'Restore Kund AB'});
     const invoice=Db.createInvoice(source,{companyId:company.id,customerId:customer.id,invoiceNumber:'R-1001',invoiceDate:'2026-09-17',postingDate:'2026-09-17',dueDate:'2026-10-17',totalOre:125000,remainingOre:125000,vatOre:25000,status:'Bokförd'});
     const posted=Accounting.postEntry(source,{companyId:company.id,postingDate:'2026-09-17',description:'Backup restore kontroll',sourceType:'backup-test',sourceId:invoice.id,createdBy:user.id,lines:[{account:'1510',debitOre:125000,creditOre:0,text:'Kundfordran'},{account:'3001',debitOre:0,creditOre:100000,text:'Försäljning'},{account:'2611',debitOre:0,creditOre:25000,text:'Utgående moms'}]});

@@ -16,7 +16,7 @@
     {id:'operations',label:'Register & verksamhet',items:[['customers','Kunder','portal/customers.html'],['suppliers','Leverantörer','portal/suppliers.html'],['inventory','Lager & svinn','portal/inventory.html']]},
     {id:'administration',label:'Systemadministration',items:[
       ['website','Webbplats & innehåll','portal/website.html'],['documents','Dokument','portal/documents.html'],
-      ['access','Roller & behörigheter','admin/#/access'],['decisions','Verksamhetsbeslut','admin/#/decisions'],
+      ['access','Inloggning & företag','admin/#/access'],['decisions','Verksamhetsbeslut','admin/#/decisions'],
       ['modules','Systemmoduler','admin/#/modules'],['project','Projektöversikt','admin/#/overview'],
       ['content','Innehållsförhandsvisning','admin/#/content'],
       ['audit','Revisionslogg (äldre demo)','legacy/#/audit'],['settings','Inställningar (äldre demo)','legacy/#/settings']
@@ -24,24 +24,12 @@
     {id:'help',label:'Test & hjälp',items:[['uat','Testa systemet','portal/uat.html'],['legacy','Tidigare system','legacy/#/overview'],['assistant','Hjälp & chatbot (äldre demo)','legacy/#/assistant']]}
   ];
   const demoOnlyIds=new Set(['money','journal','res-tools','batches','inbox','audit','settings','legacy','assistant','access','decisions','modules','project','content','uat','receivables-details']);
-  const requiredPermission=Object.freeze({
-    overview:'reports.view',invoices:'customer-invoice.view',receivables:'customer-invoice.view','receivables-details':'customer-invoice.view',
-    payables:'supplier-invoice.view',bank:'bank.view',automation:'payment.view',accounting:'accounting.view',reports:'reports.view',
-    accounts:'accounting.view',payroll:'payroll.view',customers:'customer-invoice.view',suppliers:'supplier.view',inventory:'inventory.view',
-    website:'website.manage',documents:'documents.view',access:'users.manage',decisions:'platform.settings.manage',modules:'platform.settings.manage',
-    project:'platform.settings.manage',content:'website.manage',uat:'audit.view'
-  });
-  function permissionsForRoles(config,roles){
-    const roleSet=new Set(roles||[]), permissions=new Set();
-    for(const role of config?.roles||[]) if(roleSet.has(role.id)) for(const permission of role.permissions||[]) permissions.add(permission);
-    return permissions;
-  }
-  function visibleGroups(config,roles,{demo=false}={}){
+  function visibleGroups({authenticated=false,demo=false}={}){
     if(demo)return groups;
-    const permissions=permissionsForRoles(config,roles);
-    return groups.map(group=>({...group,items:group.items.filter(([id])=>!demoOnlyIds.has(id)&&(!requiredPermission[id]||permissions.has(requiredPermission[id]))).map(item=>item[0]==='receivables'?[item[0],item[1],'portal/index.html']:item)})).filter(group=>group.items.length);
+    if(!authenticated)return [];
+    return groups.map(group=>({...group,items:group.items.filter(([id])=>!demoOnlyIds.has(id)).map(item=>item[0]==='receivables'?[item[0],item[1],'portal/index.html']:item)})).filter(group=>group.items.length);
   }
-  if(typeof module==='object'&&module.exports){module.exports={groups,requiredPermission,permissionsForRoles,visibleGroups};return;}
+  if(typeof module==='object'&&module.exports){module.exports={groups,visibleGroups};return;}
   if(root.RollandsNavigation)return;
   const base=new URL('../',document.currentScript.src);
   const demo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
@@ -69,15 +57,12 @@
   function href(path){const u=new URL(path,base);if(demo&&path!=='./')u.searchParams.set('demo','1');return u.href;}
   const normalizePath=path=>path.replace(/\/index\.html$/,'/');
   function active(path){const u=new URL(path,base);return normalizePath(u.pathname)===normalizePath(location.pathname)&&(!u.hash||u.hash===(location.hash||'#/overview'));}
-  let accessConfigPromise=null;
   async function navigationGroups(){
     if(demo)return groups;
     try{
-      const [session,config]=await Promise.all([
-        fetch('/api/v1/session',{credentials:'same-origin',cache:'no-store'}).then(r=>r.ok?r.json():null),
-        (accessConfigPromise ||= fetch('/config/access-control.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('access config');return r.json()}))
-      ]);
-      return session?.authenticated?visibleGroups(config,session.user?.roles||[]):[];
+      const response=await fetch('/api/v1/session',{credentials:'same-origin',cache:'no-store'});
+      const session=response.ok?await response.json():null;
+      return visibleGroups({authenticated:session?.authenticated===true});
     }catch{return []}
   }
   async function mount(){
@@ -106,7 +91,7 @@
     }
     const foot=document.createElement('div');foot.className='shared-foot';
     const home=document.createElement('a');home.href=href(demo?'./':'portal/dashboard.html');home.textContent=demo?'Visa företagets hemsida':'Till arbetsöversikten';foot.append(home);
-    const note=document.createElement('p');note.textContent=demo?'Äldre referensverktyg har separat demodata.':'Endast befintliga verktyg för din roll visas. Servern kontrollerar varje skyddad åtgärd.';foot.append(note);
+    const note=document.createElement('p');note.textContent=demo?'Äldre referensverktyg har separat demodata.':'Alla medlemmar i företaget har samma verktyg. Servern kontrollerar varje skyddad åtgärd.';foot.append(note);
     sidebar.replaceChildren(brand,info,nav,foot);
     try{sidebar.scrollTop=Number(sessionStorage.getItem(key+':scroll')||0)}catch{}
     if(!sidebar.dataset.scrollBound){sidebar.addEventListener('scroll',()=>{try{sessionStorage.setItem(key+':scroll',String(sidebar.scrollTop))}catch{}});sidebar.dataset.scrollBound='1';}

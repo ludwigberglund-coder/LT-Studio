@@ -17,7 +17,7 @@ Plattformen ska på sikt kunna samla:
 - publik företagshemsida,
 - webbplatsinnehåll och erbjudanden,
 - personlig inloggning,
-- roller och behörigheter,
+- företagsmedlemskap och objektbehörighet,
 - företagsöversikt och arbetsuppgifter,
 - kunder och leverantörer,
 - försäljning, kundfakturor och betalningar,
@@ -53,7 +53,7 @@ Vi ska bygga en komplett kedja för Rolands:
 2. Besökaren kan endast se publikt innehåll.
 3. En behörig medarbetare går till inloggningen.
 4. Efter säker inloggning öppnas företagets privata portal.
-5. Användaren ser endast de funktioner som den egna rollen tillåter.
+5. Alla inloggade medlemmar ser samma funktioner inom sitt företag.
 6. Företagets ekonomi, lager, dokument, webbplats och övriga moduler hanteras i samma portal.
 
 Rolands ska ge oss verkliga arbetsflöden, riktiga krav och ett tydligt exempelresultat. Men följande får **inte** byggas direkt in i den gemensamma kärnan:
@@ -92,7 +92,7 @@ En dold webbadress är inte säkerhet. Det privata systemet måste därför anv�
 
 - personliga användarkonton,
 - säkra lösenord eller extern identitetsleverantör,
-- flerfaktorsautentisering för känsliga roller,
+- flerfaktorsautentisering för alla personliga användare,
 - servervaliderade sessioner,
 - central behörighetskontroll,
 - automatisk utloggning och säker sessionshantering,
@@ -104,16 +104,7 @@ Frontend får aldrig själv avgöra om en skyddad åtgärd är tillåten. Backen
 
 Efter inloggning öppnas företagets privata portal. Portalen ska innehålla ett gemensamt skal med navigation, sökning, meddelanden, uppgifter och dashboard.
 
-Användaren ska endast se och kunna använda det som den egna rollen tillåter. Exempel på roller är:
-
-- företagsägare,
-- systemadministratör,
-- ekonom,
-- attestant,
-- försäljning och kassa,
-- lageransvarig,
-- löneansvarig,
-- redovisningskonsult eller revisor.
+Alla personliga, autentiserade användare inom samma företag har samma behörighet. Ingen användare får åtkomst till andra företags data utan medlemskap där.
 
 Portalen ska också innehålla webbplatsadministration så att företaget kan ändra exempelvis öppettider, erbjudanden och texter utan att redigera programkod.
 
@@ -122,7 +113,7 @@ Portalen ska också innehålla webbplatsadministration så att företaget kan ä
 Den gemensamma kärnan innehåller regler som ska fungera likadant för alla företag:
 
 - penningbelopp och moms,
-- användare, roller och behörigheter,
+- personliga användare och företagsmedlemskap,
 - bokföring och perioder,
 - fakturor och reskontra,
 - bankmatchning,
@@ -146,7 +137,7 @@ Varje företag ska få en egen **företagsmiljö**. En företagsmiljö innehåll
 - momskonfiguration,
 - kontoplan och nummerserier,
 - aktiverade moduler,
-- användare och roller,
+- personliga användare och företagsmedlemskap,
 - integrationsinställningar,
 - företagets egna affärsdata och dokument.
 
@@ -156,7 +147,7 @@ När nästa kund tillkommer ska vi i första hand:
 2. välja design och innehåll,
 3. aktivera rätt moduler,
 4. konfigurera ekonomi och integrationer,
-5. lägga till användare och roller.
+5. lägga till personliga användare och företagsmedlemskap.
 
 Vi ska inte kopiera hela systemet och skapa en ny separat kodbas för varje kund.
 
@@ -252,7 +243,7 @@ Rolands-implementationen är inte färdig som plattform förrän vi kan skapa en
 - byta varumärke och webbdesign,
 - ändra företagsuppgifter,
 - välja andra moduler,
-- skapa separata användare och roller,
+- skapa separata personliga användare och företagsmedlemskap,
 - använda en egen databas-/företagsmiljö,
 - behålla samma ekonomiska kärna och säkerhetsregler.
 

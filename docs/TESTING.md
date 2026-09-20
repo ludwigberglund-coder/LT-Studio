@@ -51,7 +51,7 @@ Kommandot ska avslutas med status 0 innan uppgradering eller driftstart. Varning
 2. Kontrollera varje verifikation mot förväntad debet/kredit och moms.
 3. Återställ en säkerhetskopia i en separat miljö och jämför kontrollsummor och saldon.
 4. Importera bankens exakta CAMT/BAM-varianter, inklusive dubbletter, valuta, återföringar och samlingsposter.
-5. Kontrollera periodlås, behörighetsseparation och attest med flera verkliga roller.
+5. Kontrollera periodlås, behörighetsseparation och attest med flera personliga användare.
 6. Prova export/import mot mottagande redovisnings- och revisionssystem.
 7. Låt redovisningskonsult/revisor godkänna kontoplan, momsflöden, bokslut och arkiveringsrutiner.
 8. Genomför extern säkerhetsgranskning av den verkliga driftsmiljön.

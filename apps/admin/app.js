@@ -95,7 +95,7 @@ function overviewView() {
       </article>
     </section>
     <section class="panel callout">
-      <div><span class="kicker">Verifikations- och periodmotor</span><h2>Prova balansering, periodlås och motverifikationer</h2><p>Den nya bokföringskärnan använder både öresmodellen och rollreglerna. Alla ändringar i demon sparas endast i den egna webbläsaren.</p></div>
+      <div><span class="kicker">Verifikations- och periodmotor</span><h2>Prova balansering, periodlås och motverifikationer</h2><p>Den nya bokföringskärnan använder både öresmodellen och reglerna för personlig identitet. Alla ändringar i demon sparas endast i den egna webbläsaren.</p></div>
       <a class="button primary" href="#/journal">Öppna verifikationsdemon</a>
     </section>
     <section class="panel callout">
@@ -103,8 +103,8 @@ function overviewView() {
       <a class="button primary" href="#/money">Öppna öreskalkylatorn</a>
     </section>
     <section class="panel callout">
-      <div><span class="kicker">Minsta möjliga åtkomst</span><h2>Granska roller och fyrögonprincip</h2><p>Behörighetsmatrisen visar vem som får göra vad och vilka kritiska arbetsflöden som alltid kräver två personer.</p></div>
-      <a class="button primary" href="#/access">Öppna behörighetsmatrisen</a>
+      <div><span class="kicker">Företagsisolering</span><h2>Granska inloggning och företagsåtkomst</h2><p>Alla företagsmedlemmar har samma funktioner. Separata kontroller kräver två olika personer i vissa arbetsflöden.</p></div>
+      <a class="button primary" href="#/access">Visa åtkomstmodellen</a>
     </section>
     <section class="panel callout">
       <div><span class="kicker">Befintlig referens</span><h2>Den tidigare demon finns kvar under migreringen</h2><p>Vi ersätter inte fungerande flöden blint. Varje ny modul jämförs mot referensen innan den gamla tas bort.</p></div>
@@ -235,7 +235,7 @@ function render() {
   const view = currentView();
   if (view === 'content') app.innerHTML = contentView();
   else if (view === 'money') app.innerHTML = layout('money', 'Öreskalkylator', 'Testa den gemensamma penningmodellen med exakta belopp och blandad moms.', moneyView());
-  else if (view === 'access') app.innerHTML = layout('access', 'Roller och behörigheter', 'Granska default-deny, minsta möjliga åtkomst och fyrögonprincip för kritiska flöden.', accessView());
+  else if (view === 'access') app.innerHTML = layout('access', 'Inloggning och företagsmedlemskap', 'Granska personlig inloggning, MFA, företagsisolering och personliga kontrollsteg.', accessView());
   else if (view === 'journal') app.innerHTML = layout('journal', 'Verifikationer och perioder', 'Prova balanserade poster, löpnummer, periodlås och spårbara motverifikationer.', journalView());
   else if (view === 'modules') app.innerHTML = modulesView();
   else if (view === 'decisions') app.innerHTML = decisionsView();

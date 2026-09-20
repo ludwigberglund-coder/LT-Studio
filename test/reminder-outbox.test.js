@@ -13,7 +13,7 @@ function setup(email) {
   ReminderOutbox.initializeReminderOutbox(db);
   const company = Db.createCompany(db,{legalName:'Testbolaget AB',displayName:'Testbolaget',orgNumber:'559300-0001'});
   const user = Db.createUser(db,{username:'reminder.test',displayName:'Reminder Test',passwordHash:Auth.hashPassword('Ett mycket sakert testlosenord 2026!')});
-  Db.addMembership(db,{companyId:company.id,userId:user.id,roles:['accountant']});
+  Db.addMembership(db,{companyId:company.id,userId:user.id});
   const customer = Db.createCustomer(db,{companyId:company.id,customerNumber:'K-100',name:'Kundbolaget AB',email,customerType:'business'});
   const invoice = Db.createInvoice(db,{companyId:company.id,customerId:customer.id,invoiceNumber:'310100',ocr:'310100',invoiceDate:'2026-08-01',postingDate:'2026-08-01',dueDate:'2026-08-31',totalOre:125000,remainingOre:125000,vatOre:25000,status:'Bokförd'});
   return {db,company,user,invoice};

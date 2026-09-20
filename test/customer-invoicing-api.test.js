@@ -25,7 +25,7 @@ async function withApi(callback,{configureInvoiceSettings=true}={}){
   const co2=Db.createCompany(db,{legalName:'Annat Bolag AB',displayName:'Annat',orgNumber:'559100-0002'});
   const password='Sakert fakturatest losenord 2026!';
   const user=Db.createUser(db,{username:'faktura.test',displayName:'Faktura Test',passwordHash:Auth.hashPassword(password),mfaSecretEncrypted:Auth.encryptSecret(MFA,KEY)});
-  Db.addMembership(db,{companyId:co1.id,userId:user.id,roles:['accountant']});
+  Db.addMembership(db,{companyId:co1.id,userId:user.id});
   if(configureInvoiceSettings)InvoiceSettings.setInvoiceSettings(db,{companyId:co1.id,bankgiro:'123-4567',taxStatus:'Godkänd för F-skatt',updatedBy:user.id});
   const c1=Db.createCustomer(db,{companyId:co1.id,customerNumber:'K-100',name:'Kund Ett AB',orgNumber:'559200-0001',email:'kund@example.se',address:{full:'Kundgatan 2, Göteborg'},customerType:'business'});
   const c2=Db.createCustomer(db,{companyId:co2.id,customerNumber:'K-200',name:'Kund Två AB',address:{full:'Annan gata 1'},customerType:'business'});
@@ -120,7 +120,7 @@ test('personligt kundfakturautkast sparas i privata databasen och finns kvar eft
   assert.equal(Invoicing.getCustomerInvoiceDraft(db,co1.id,user.id).requestId,requestId);
 
   const other=Db.createUser(db,{username:'faktura.annan',displayName:'Annan användare',passwordHash:Auth.hashPassword('Annat testlösenord 2026!'),mfaSecretEncrypted:Auth.encryptSecret(MFA,KEY)});
-  Db.addMembership(db,{companyId:co1.id,userId:other.id,roles:['sales']});
+  Db.addMembership(db,{companyId:co1.id,userId:other.id});
   assert.equal(Invoicing.getCustomerInvoiceDraft(db,co1.id,other.id),null);
 
   const logout=await fetch(base+'/api/v1/auth/logout',{method:'POST',headers:{Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken},body:'{}'});

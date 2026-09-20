@@ -14,7 +14,7 @@ function seed() {
   const co1 = Db.createCompany(db,{legalName:'Bolag Ett AB',displayName:'Bolag Ett',orgNumber:'559200-0001'});
   const co2 = Db.createCompany(db,{legalName:'Bolag Två AB',displayName:'Bolag Två',orgNumber:'559200-0002'});
   const user = Db.createUser(db,{username:'queue.test',displayName:'Queue Test',passwordHash:Auth.hashPassword('Ett mycket sakert kolosenord 2026!')});
-  Db.addMembership(db,{companyId:co1.id,userId:user.id,roles:['accountant']});
+  Db.addMembership(db,{companyId:co1.id,userId:user.id});
   return {db,co1,co2,user};
 }
 

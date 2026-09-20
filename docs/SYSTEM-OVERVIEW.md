@@ -127,49 +127,11 @@ En fungerande demo finns här:
 
 <https://ludwigberglund-coder.github.io/Rollands/admin/#/money>
 
-## 4. Roller och behörigheter
+## 4. Personlig autentisering och företagsmedlemskap
 
-En central behörighetsmotor finns i:
+Alla autentiserade medlemmar inom samma företag har samma behörighet. MFA krävs för alla. API:t kontrollerar aktuell session, aktivt medlemskap och objektets företag. Individuell användaridentitet bevaras i audit.
 
-`packages/access-control/authorization.js`
-
-Grundregeln är **default deny**. Det betyder:
-
-> En användare får inte göra något skyddat om systemet inte uttryckligen har gett användarens roll rätt behörighet.
-
-Rollmodellen omfattar bland annat:
-
-- systemadministratör,
-- ekonom,
-- attestant,
-- ekonomikontrollant,
-- försäljning och kassa,
-- lageransvarig,
-- löneansvarig,
-- revisor eller läsbehörig granskare.
-
-Behörigheterna är samlade i:
-
-`config/access-control.json`
-
-Det gör dem enklare att förstå och ändra på ett kontrollerat sätt.
-
-### Fyrögonprincip
-
-För känsliga uppgifter räcker det inte alltid att ha rätt roll. Systemet kan också kräva två olika personer.
-
-Exempel:
-
-- en person registrerar en leverantörsfaktura,
-- en annan person godkänner den,
-- en person förbereder en betalning,
-- en annan person släpper betalningen.
-
-Det minskar risken för misstag och missbruk.
-
-Behörighetsdemon finns här:
-
-<https://ludwigberglund-coder.github.io/Rollands/admin/#/access>
+Befintliga kontroller för två olika personer vid vissa åtgärder gäller lika för alla. Se [åtkomstmodell och migration](ACCESS-CONTROL.md).
 
 ## 5. Ny verifikations- och periodmotor
 
@@ -234,7 +196,7 @@ Kontrollerna omfattar bland annat:
 - JavaScript-syntax,
 - säkerhetsregler,
 - ekonomiska beräkningar,
-- roller och behörigheter,
+- företagsmedlemskap och objektbehörighet,
 - verifikationer och perioder,
 - dataintegritet,
 - SIE-export,
@@ -258,7 +220,7 @@ apps/
 
 packages/
   accounting/            pengar, moms, verifikationer och perioder
-  access-control/        roller, behörigheter och attestseparation
+  access-control/        företagsmedlemskap och attestseparation
   shared/                gemensamma små verktyg
 
 content/                  redigerbara webb- och företagstexter
@@ -276,7 +238,7 @@ Om allt ligger i en enda stor fil blir varje ändring riskfylld och svår att f�
 Med tydliga delar kan vi exempelvis:
 
 - ändra webbdesign utan att röra bokföringsregler,
-- ändra roller utan att skriva om varje sida,
+- hantera företagsmedlemskap utan att skriva om varje sida,
 - återanvända samma penningmodell i fakturor, lager och bank,
 - testa varje regel separat,
 - byta databas eller frontend utan att kasta hela systemet.
@@ -303,7 +265,7 @@ En medarbetare eller konsult ska:
 2. identifiera sig säkert,
 3. vid behov använda flerfaktorsautentisering,
 4. komma in i rätt företagsmiljö,
-5. se funktioner som matchar den egna rollen,
+5. se företagets gemensamma funktioner,
 6. få alla känsliga åtgärder kontrollerade av backend.
 
 ## Flera företag
@@ -312,7 +274,7 @@ Varje företag ska ha:
 
 - ett eget företags-id,
 - egen design och domän,
-- egna användare och roller,
+- egna personliga användare och företagsmedlemskap,
 - egna inställningar,
 - egna dokument,
 - egen ekonomidata,
@@ -326,7 +288,7 @@ Ett företag får aldrig kunna läsa eller påverka ett annat företags data.
 
 ## 1. Riktig login
 
-Vi har reglerna för roller och behörigheter, men inte en färdig produktionsinloggning.
+Personlig inloggning och MFA finns i API-servern. Driftverifiering och full pilot-UAT återstår.
 
 Det återstår att bygga:
 
@@ -496,7 +458,7 @@ Arbete:
 - bygga API,
 - införa PostgreSQL,
 - bygga personlig login och sessioner,
-- koppla rollerna till riktiga användare,
+- verifiera personliga användares företagsmedlemskap,
 - införa företagsisolering,
 - skapa utvecklings-, test- och produktionsmiljö.
 
@@ -610,7 +572,7 @@ Att börja med ören som heltal gör fakturor, lager, moms, bank och bokföring 
 
 ## 6. Behörighet är mer än en adminroll
 
-Ett komplett system behöver olika arbetsroller och ibland två olika personer. En enda allsmäktig administratör är enkelt att bygga men svagt ur säkerhets- och kontrollsynpunkt.
+Alla företagets medlemmar har samma funktioner. Vissa kontrollsteg kräver två olika personer. Personlig audit och isolering mellan företag är obligatoriska.
 
 ## 7. Bokföring får inte behandlas som vanliga redigerbara poster
 

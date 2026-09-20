@@ -17,9 +17,9 @@ async function fixture(){
   const a=Db.createCompany(db,{legalName:'Privat testbutik A AB',displayName:'Testbutik A',orgNumber:'559900-1001'});
   const b=Db.createCompany(db,{legalName:'Privat testbutik B AB',displayName:'Testbutik B',orgNumber:'559900-1002'});
   const passwordHash=Auth.hashPassword(PASSWORD);
-  function user(username,company,roles){
+  function user(username,company){
     const u=Db.createUser(db,{username,displayName:username,passwordHash,mfaSecretEncrypted:Auth.encryptSecret(MFA,KEY)});
-    Db.addMembership(db,{companyId:company.id,userId:u.id,roles});return u;
+    Db.addMembership(db,{companyId:company.id,userId:u.id});return u;
   }
   const admin=user('private.admin',a,['system-admin','accountant']);
   const other=user('private.other',b,['system-admin','accountant']);

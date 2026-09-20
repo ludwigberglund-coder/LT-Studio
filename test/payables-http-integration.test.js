@@ -7,8 +7,8 @@ const Auth=require('../apps/api/auth.js');
 const Accounting=require('../apps/api/accounting-store.js');
 const {createServer}=require('../apps/api/server.js');
 
-function makeSession(db,companyId,userId,roles){
-  Db.addMembership(db,{companyId,userId,roles});
+function makeSession(db,companyId,userId){
+  Db.addMembership(db,{companyId,userId});
   const token=Auth.randomToken(32),csrf=Auth.randomToken(24);
   Db.createSession(db,{tokenHash:Auth.hashToken(token),csrfHash:Auth.hashToken(csrf),userId,companyId,expiresAt:new Date(Date.now()+60*60*1000).toISOString()});
   return{cookie:`rollands_session=${token}`,csrf};
@@ -46,7 +46,7 @@ test('riktiga HTTP-rutter genomför leverantörsfakturans bokföringsflöde utan
     result=await request(base,`/api/v1/payables/invoices/${invoice.id}/approve`,approverSession,{method:'POST',body:{}});assert.equal(result.response.status,428);assert.equal(result.data.code,'APPROVAL_PRECONDITION_REQUIRED');
     result=await request(base,`/api/v1/payables/invoices/${invoice.id}/approve`,approverSession,{method:'POST',body:{expectedCodingSha256:reviewed.codingSha256,expectedDocumentSha256:reviewed.documentSha256}});assert.equal(result.response.status,200);
 
-    result=await request(base,`/api/v1/payables/invoices/${invoice.id}/post`,approverSession,{method:'POST',body:{}});assert.equal(result.response.status,403);assert.equal(result.data.code,'ACCESS_DENIED');
+    result=await request(base,`/api/v1/payables/invoices/${invoice.id}/post`,approverSession,{method:'POST',body:{}});assert.equal(result.response.status,200);assert.equal(result.data.duplicate,false);
     result=await request(base,`/api/v1/payables/invoices/${invoice.id}/post`,accountantSession,{method:'POST',body:{}});assert.equal(result.response.status,200);const invoiceEntry=result.data.entry;assert.deepEqual(invoiceEntry.lines.map(line=>[line.account,line.debitOre,line.creditOre]),[['4010',100000,0],['2641',25000,0],['2440',0,125000]]);
     result=await request(base,`/api/v1/payables/invoices/${invoice.id}/post`,accountantSession,{method:'POST',body:{}});assert.equal(result.response.status,200);assert.equal(result.data.duplicate,true);assert.equal(result.data.entry.id,invoiceEntry.id);
 

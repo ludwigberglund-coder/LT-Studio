@@ -13,7 +13,7 @@ function seed() {
   const co1=Db.createCompany(db,{legalName:'Bolag Ett AB',displayName:'Bolag Ett',orgNumber:'559000-0001'});
   const co2=Db.createCompany(db,{legalName:'Bolag Två AB',displayName:'Bolag Två',orgNumber:'559000-0002'});
   const user=Db.createUser(db,{username:'anna.test',displayName:'Anna Test',passwordHash:Auth.hashPassword('Ett starkt testlosenord 2026!')});
-  Db.addMembership(db,{companyId:co1.id,userId:user.id,roles:['sales']});
+  Db.addMembership(db,{companyId:co1.id,userId:user.id});
   const customer1=Db.createCustomer(db,{companyId:co1.id,customerNumber:'K-1',name:'Kund Ett AB',customerType:'business',reminderFeeAgreed:true});
   const customer2=Db.createCustomer(db,{companyId:co2.id,customerNumber:'K-2',name:'Kund Två AB',customerType:'business',reminderFeeAgreed:false});
   const inv1=Db.createInvoice(db,{companyId:co1.id,customerId:customer1.id,invoiceNumber:'310001',ocr:'310001',invoiceDate:'2026-08-01',postingDate:'2026-08-01',dueDate:'2026-08-31',totalOre:100000,remainingOre:100000,vatOre:20000,status:'Bokförd'});
