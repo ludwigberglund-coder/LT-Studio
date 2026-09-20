@@ -1,6 +1,9 @@
 'use strict';
 
 const crypto = require('node:crypto');
+// These tables are intentionally not scoped by company_id.
+// companies is the tenant registry; users/auth attempt state exists above a single company.
+const ROOT_SCOPE_TABLES = Object.freeze(['companies','users','mfa_used_steps','login_attempts']);
 // Identifiers come only from SQLite's schema, never from HTTP input.
 const quote = value => `"${String(value).replaceAll('"', '""')}"`;
 function failure(message) {
@@ -11,15 +14,15 @@ function failure(message) {
 function schema(db) {
   const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all().map(row => row.name);
   const columns = new Map(tables.map(table => [table, db.prepare(`PRAGMA table_info(${quote(table)})`).all()]));
+  const foreignKeys = new Map(tables.map(table => [table, db.prepare(`PRAGMA foreign_key_list(${quote(table)})`).all()]));
   const tenants = tables.filter(table => columns.get(table).some(column => column.name === 'company_id'));
   const relations = [];
   for (const table of tenants) {
-    const foreignKeys = db.prepare(`PRAGMA foreign_key_list(${quote(table)})`).all();
-    for (const fk of foreignKeys) {
+    for (const fk of foreignKeys.get(table)) {
       if (!columns.get(fk.table)?.some(column => column.name === 'company_id')) continue;
       // Existing schema uses single-column IDs. Do not silently accept a future
       // composite relationship unless its tenant component is explicit.
-      const group = foreignKeys.filter(row => row.id === fk.id);
+      const group = foreignKeys.get(table).filter(row => row.id === fk.id);
       if (group.length > 1) {
         if (!group.some(row => row.from === 'company_id' && row.to === 'company_id')) {
           throw failure(`Tenant component missing from composite relationship in ${table}.`);
@@ -32,7 +35,38 @@ function schema(db) {
       relations.push({table, column:fk.from, targetTable:fk.table, targetColumn});
     }
   }
-  return {tenants, columns, relations};
+  return {tables, tenants, columns, foreignKeys, relations};
+}
+function inspectTenantCoverage(db) {
+  const structure = schema(db);
+  const roots = new Set(ROOT_SCOPE_TABLES.filter(table => structure.tables.includes(table)));
+  const direct = new Set(structure.tenants);
+  const inherited = new Map();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const table of structure.tables) {
+      if (roots.has(table) || direct.has(table) || inherited.has(table)) continue;
+      const tableColumns = new Map(structure.columns.get(table).map(column => [column.name,column]));
+      const via = structure.foreignKeys.get(table)
+        .filter(fk => {
+          const column = tableColumns.get(fk.from);
+          return Boolean(column && (column.notnull || column.pk) && (direct.has(fk.table) || inherited.has(fk.table)));
+        })
+        .map(fk => ({column:fk.from,targetTable:fk.table,targetColumn:fk.to || null}));
+      if (!via.length) continue;
+      inherited.set(table,{table,via});
+      changed = true;
+    }
+  }
+  const unscopedTables = structure.tables.filter(table => !roots.has(table) && !direct.has(table) && !inherited.has(table));
+  return {
+    ok:unscopedTables.length===0,
+    rootTables:[...roots].sort(),
+    directTenantTables:[...direct].sort(),
+    inheritedTenantTables:[...inherited.values()].sort((a,b)=>a.table.localeCompare(b.table)),
+    unscopedTables:unscopedTables.sort()
+  };
 }
 function mismatchQuery({table, column, targetTable, targetColumn}) {
   return `SELECT COUNT(*) AS count FROM ${quote(table)} child WHERE child.${quote(column)} IS NOT NULL
@@ -47,6 +81,10 @@ function installTenantGuards(db) {
   const savepoint = `tenant_guards_${crypto.randomBytes(8).toString('hex')}`;
   db.exec(`SAVEPOINT ${savepoint}`);
   try {
+    const coverage = inspectTenantCoverage(db);
+    if (!coverage.ok) {
+      throw failure(`Tenant scope is undefined for: ${coverage.unscopedTables.join(', ')}. Add company_id, a NOT NULL foreign key to a tenant-owned parent, or explicitly classify a truly global platform table.`);
+    }
     const report = inspectTenantRelations(db);
     if (!report.ok) {
       // Preserve every historical row for investigation; never repair by deletion.
@@ -74,11 +112,11 @@ function installTenantGuards(db) {
         BEGIN SELECT RAISE(ABORT, 'TENANT_OBJECT_IDENTITY_IMMUTABLE'); END`);
     }
     db.exec(`RELEASE SAVEPOINT ${savepoint}`);
-    return report;
+    return {...report,coverage};
   } catch (error) {
     try { db.exec(`ROLLBACK TO SAVEPOINT ${savepoint}`); } catch {}
     try { db.exec(`RELEASE SAVEPOINT ${savepoint}`); } catch {}
     throw error;
   }
 }
-module.exports = Object.freeze({inspectTenantRelations, installTenantGuards});
+module.exports = Object.freeze({ROOT_SCOPE_TABLES,inspectTenantCoverage,inspectTenantRelations,installTenantGuards});
