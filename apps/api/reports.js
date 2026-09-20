@@ -47,30 +47,36 @@ function vatLedgerRows(db,companyId,{from,to}){
 }
 
 function customerVatSourceChecks(db,companyId,{from,to}){
-  return db.prepare(`SELECT i.id,i.invoice_number AS invoiceNumber,i.vat_ore AS expectedVatOre,e.id AS entryId,e.number AS journalNumber,
+  return db.prepare(`SELECT i.id,i.invoice_number AS invoiceNumber,i.posting_date AS expectedPostingDate,i.vat_ore AS expectedVatOre,
+    e.id AS entryId,e.number AS journalNumber,e.posting_date AS entryPostingDate,
     COALESCE(SUM(CASE WHEN l.account IN ('2611','2621','2631') THEN l.credit_ore-l.debit_ore ELSE 0 END),0) AS bookedVatOre
     FROM invoices i
-    JOIN accounting_entries e ON e.company_id=i.company_id AND e.source_type IN ('customer-invoice','customer-credit-note') AND e.source_id=i.id
-    JOIN accounting_entry_lines l ON l.entry_id=e.id
-    WHERE i.company_id=? AND e.posting_date BETWEEN ? AND ?
-    GROUP BY i.id,i.invoice_number,i.vat_ore,e.id,e.number
+    LEFT JOIN accounting_entries e ON e.company_id=i.company_id AND e.source_type IN ('customer-invoice','customer-credit-note') AND e.source_id=i.id
+    LEFT JOIN accounting_entry_lines l ON l.entry_id=e.id
+    WHERE i.company_id=? AND i.posting_date BETWEEN ? AND ?
+    GROUP BY i.id,i.invoice_number,i.posting_date,i.vat_ore,e.id,e.number,e.posting_date
     ORDER BY i.invoice_number`).all(companyId,from,to).map(row=>({
-      invoiceId:row.id,invoiceNumber:row.invoiceNumber,entryId:row.entryId,journalNumber:row.journalNumber,
+      invoiceId:row.id,invoiceNumber:row.invoiceNumber,entryId:row.entryId||null,journalNumber:row.journalNumber||null,
+      expectedPostingDate:row.expectedPostingDate,entryPostingDate:row.entryPostingDate||null,missingEntry:!row.entryId,
+      postingDateMismatch:Boolean(row.entryId&&row.entryPostingDate!==row.expectedPostingDate),
       expectedVatOre:Number(row.expectedVatOre||0),bookedVatOre:Number(row.bookedVatOre||0),
       differenceOre:Number(row.bookedVatOre||0)-Number(row.expectedVatOre||0)
     }));
 }
 
 function supplierVatSourceChecks(db,companyId,{from,to}){
-  return db.prepare(`SELECT i.id,i.supplier_invoice_number AS invoiceNumber,i.vat_ore AS expectedVatOre,e.id AS entryId,e.number AS journalNumber,
+  return db.prepare(`SELECT i.id,i.supplier_invoice_number AS invoiceNumber,i.invoice_date AS expectedPostingDate,i.vat_ore AS expectedVatOre,
+    e.id AS entryId,e.number AS journalNumber,e.posting_date AS entryPostingDate,
     COALESCE(SUM(CASE WHEN l.account='2641' THEN l.debit_ore-l.credit_ore ELSE 0 END),0) AS bookedVatOre
     FROM supplier_invoices i
-    JOIN accounting_entries e ON e.company_id=i.company_id AND e.source_type='supplier-invoice' AND e.source_id=i.id
-    JOIN accounting_entry_lines l ON l.entry_id=e.id
-    WHERE i.company_id=? AND e.posting_date BETWEEN ? AND ?
-    GROUP BY i.id,i.supplier_invoice_number,i.vat_ore,e.id,e.number
+    LEFT JOIN accounting_entries e ON e.company_id=i.company_id AND e.source_type='supplier-invoice' AND e.source_id=i.id
+    LEFT JOIN accounting_entry_lines l ON l.entry_id=e.id
+    WHERE i.company_id=? AND i.invoice_date BETWEEN ? AND ? AND (i.liability_accounting_entry_id IS NOT NULL OR i.status IN ('payment-prepared','paid'))
+    GROUP BY i.id,i.supplier_invoice_number,i.invoice_date,i.vat_ore,e.id,e.number,e.posting_date
     ORDER BY i.supplier_invoice_number`).all(companyId,from,to).map(row=>({
-      invoiceId:row.id,invoiceNumber:row.invoiceNumber,entryId:row.entryId,journalNumber:row.journalNumber,
+      invoiceId:row.id,invoiceNumber:row.invoiceNumber,entryId:row.entryId||null,journalNumber:row.journalNumber||null,
+      expectedPostingDate:row.expectedPostingDate,entryPostingDate:row.entryPostingDate||null,missingEntry:!row.entryId,
+      postingDateMismatch:Boolean(row.entryId&&row.entryPostingDate!==row.expectedPostingDate),
       expectedVatOre:Number(row.expectedVatOre||0),bookedVatOre:Number(row.bookedVatOre||0),
       differenceOre:Number(row.bookedVatOre||0)-Number(row.expectedVatOre||0)
     }));
@@ -91,8 +97,8 @@ function vatControl(db,companyId,{period}){
   const customerChecks=customerVatSourceChecks(db,companyId,{from,to});
   const supplierChecks=supplierVatSourceChecks(db,companyId,{from,to});
   const sourceMismatches=[
-    ...customerChecks.filter(row=>row.differenceOre!==0).map(row=>({kind:'customer-invoice',...row})),
-    ...supplierChecks.filter(row=>row.differenceOre!==0).map(row=>({kind:'supplier-invoice',...row}))
+    ...customerChecks.filter(row=>row.missingEntry||row.postingDateMismatch||row.differenceOre!==0).map(row=>({kind:'customer-invoice',...row})),
+    ...supplierChecks.filter(row=>row.missingEntry||row.postingDateMismatch||row.differenceOre!==0).map(row=>({kind:'supplier-invoice',...row}))
   ];
   const customer=db.prepare(`SELECT COUNT(*) AS count,COALESCE(SUM(vat_ore),0) AS vatOre,COALESCE(SUM(total_ore),0) AS totalOre FROM invoices WHERE company_id=? AND posting_date BETWEEN ? AND ?`).get(companyId,from,to)||{};
   const supplier=db.prepare(`SELECT COUNT(*) AS count,COALESCE(SUM(vat_ore),0) AS vatOre,COALESCE(SUM(total_ore),0) AS totalOre FROM supplier_invoices WHERE company_id=? AND invoice_date BETWEEN ? AND ? AND status<>'rejected'`).get(companyId,from,to)||{count:0,vatOre:0,totalOre:0};
