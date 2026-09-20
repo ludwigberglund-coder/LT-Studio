@@ -6,7 +6,7 @@ Alla personliga, autentiserade användare i samma företag har samma behörighet
 
 Varje skyddat API-anrop kräver en giltig serverlagrad session. Databasen kopplar sessionen till en aktiv användare och ett fortfarande existerande medlemskap i det valda företaget. Saknat medlemskap, avstängt konto eller utgången session nekar åtkomst direkt. Ett objekt hämtas eller ändras med sessionens företags-ID, aldrig ett företags-ID som klienten skickar in.
 
-MFA krävs för alla inloggningar. Lösenordsskydd, TOTP-engångsförbrukning, idle-/absolut sessionstid, CSRF och inloggningens försöksspärr kvarstår. Audit identifierar den person som faktiskt utförde åtgärden. Frontendnavigation är aldrig en säkerhetsgräns.
+MFA krävs för alla inloggningar. Lösenordsskydd, TOTP-engångsförbrukning, idle-/absolut sessionstid, CSRF och inloggningens försöksspärr kvarstår. Felräknaren lagras i SQLite som en SHA-256-nyckel av nätverksadress + normaliserat användarnamn, så spärren överlever serveromstart utan att spara dessa värden i klartext. Audit identifierar den person som faktiskt utförde åtgärden. Frontendnavigation är aldrig en säkerhetsgräns.
 
 `config/access-control.json` innehåller kända åtgärder och gemensamma kontrollregler. Åtgärdslistan tilldelas inte individuellt: samtliga företagsmedlemmar får använda alla definierade åtgärder. Den används för att neka okända operationer och beskriva arbetsflöden.
 
