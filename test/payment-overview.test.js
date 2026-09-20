@@ -45,6 +45,26 @@ test('betalningsöversikt summerar in och ut utan data från andra företag',()=
   }finally{db.close()}
 });
 
+test('betalningsöversikt filtrerar på sökning och konto samt sorterar deterministiskt',()=>{
+  const {db,company}=seed();try{
+    const byQuery=Overview.paymentOverview(db,company.id,{mode:'month',date:'2026-09-09',query:'leverantör a'});
+    assert.equal(byQuery.rows.length,1);
+    assert.equal(byQuery.rows[0].direction,'out');
+    assert.equal(byQuery.summary.outgoingOre,12500);
+
+    const byAccount=Overview.paymentOverview(db,company.id,{mode:'month',date:'2026-09-09',account:'1930'});
+    assert.equal(byAccount.rows.length,1);
+    assert.equal(byAccount.rows[0].paymentAccount,'1930');
+
+    const sorted=Overview.paymentOverview(db,company.id,{mode:'month',date:'2026-09-09',sort:'amount',order:'desc'});
+    assert.equal(sorted.rows[0].amountOre,30000);
+    assert.equal(sorted.rows.at(-1).amountOre,12500);
+
+    assert.throws(()=>Overview.paymentOverview(db,company.id,{mode:'month',date:'2026-09-09',account:'19'}),e=>e.code==='INVALID_PAYMENT_ACCOUNT');
+    assert.throws(()=>Overview.paymentOverview(db,company.id,{mode:'month',date:'2026-09-09',sort:'unknown'}),e=>e.code==='INVALID_PAYMENT_SORT');
+  }finally{db.close()}
+});
+
 test('HTTP betalningsöversikt kräver personlig session',async()=>{
   const runtime=createServer({databasePath:':memory:',db:Db.openDatabase(':memory:'),secureCookies:false});
   const company=Db.createCompany(runtime.db,{legalName:'HTTP Betal AB',displayName:'HTTP Betal',orgNumber:'559980-2002'});
