@@ -8,6 +8,7 @@ const Payroll=require('../apps/api/payroll.js');
 
 async function run(fn){const f=await fixture();try{await fn(f)}finally{await f.close()}}
 
+// Cross-company posting must fail without changing payroll or accounting state.
 test('lönekörning från annat företag kan inte bokföras via HTTP',()=>run(async f=>{
   const payroll=Payroll.importRun(f.db,{
     companyId:f.a.id,
