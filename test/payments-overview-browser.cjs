@@ -53,6 +53,15 @@ async function close(server){if(server?.listening)await new Promise(r=>server.cl
     assert.equal(await page.getByText('Kund Alpha',{exact:true}).count(),0);
     assert.match(await page.locator('.report-summary').innerText(),/125,00|125\.00/);
     assert.equal(await page.locator('tbody tr').count(),1);
-    console.log('Betalningsöversikt browserfilter: OK');
+    const [download]=await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('link',{name:'Exportera CSV'}).click()
+    ]);
+    assert.equal(download.suggestedFilename(),'betalningsoversikt.csv');
+    const csv=fs.readFileSync(await download.path(),'utf8');
+    assert.match(csv,/Leverantör Beta/);
+    assert.equal(csv.includes('Kund Alpha'),false);
+    assert.match(csv,/-12500/);
+    console.log('Betalningsöversikt browserfilter och export: OK');
   }finally{if(browser)await browser.close();if(portal)await close(portal);await close(runtime.server);try{db.close()}catch{}}
 })().catch(e=>{console.error(e);process.exitCode=1});
