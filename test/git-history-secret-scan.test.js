@@ -1,0 +1,26 @@
+'use strict';
+
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const {findingsInText}=require('../scripts/scan-git-history-secrets.js');
+
+test('history secret scanner detects high-confidence provider tokens and private keys without exposing values',()=>{
+  const sample=[
+    'const githubToken = "'+'gh'+'p_'+'abcdefghijklmnopqrstuvwxyz1234567890'+'";',
+    'AWS_ACCESS_KEY_ID='+'AK'+'IA'+'ABCDEFGHIJKLMNOP',
+    '-----BEGIN '+'PRIVATE KEY-----'
+  ].join('\n');
+  const findings=findingsInText(sample);
+  assert.deepEqual(findings.map(row=>row.rule),['github-token','aws-access-key','private-key']);
+  assert.deepEqual(findings.map(row=>row.line),[1,2,3]);
+});
+
+test('history secret scanner ignores explicit placeholders and test-only fixtures',()=>{
+  const sample=[
+    'ROLLANDS_AUTH_ENCRYPTION_KEY=REPLACE_WITH_AT_LEAST_32_RANDOM_CHARACTERS',
+    'token=ghp_placeholderplaceholderplaceholder',
+    "passwordHash:'test-only'",
+    'host=example.invalid'
+  ].join('\n');
+  assert.deepEqual(findingsInText(sample),[]);
+});
