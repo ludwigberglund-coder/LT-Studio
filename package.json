@@ -31,7 +31,8 @@
     "security:history-scan": "node scripts/scan-git-history-secrets.js",
     "pilot:backup:retention": "node scripts/pilot-backup-retention.js",
     "pilot:restore:drill": "node scripts/pilot-restore-drill.js",
-    "platform:rotate-auth-key": "node scripts/rotate-auth-encryption-key.js"
+    "platform:rotate-auth-key": "node scripts/rotate-auth-encryption-key.js",
+    "platform:recover-account": "node scripts/recover-account.js"
   },
   "engines": {
     "node": ">=24"

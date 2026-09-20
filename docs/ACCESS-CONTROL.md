@@ -24,6 +24,14 @@ Befintliga krav på olika personer vid leverantörsattest, ändrade betalningsup
 
 Återgång till gammal kod kräver en separat verifierad backup och plan för data som skapats efter uppgraderingen. Återställ aldrig en gammal databas ovanpå nya ekonomiska händelser utan avstämning. Gamla auditposter kan beskriva tidigare rolltilldelningar; historiken skrivs inte om.
 
+## Kontorecovery
+
+Kontorecovery är ett offline-driftsflöde och ska endast användas när en personlig användare inte kan återfå åtkomst genom normal inloggning. Kör `npm run platform:recover-account -- --apply` med privata environment-värden för mål-användare, nytt lösenord, ny MFA-hemlighet, aktuell autentiseringsnyckel, recoveryärende och två godkännare.
+
+Båda godkännarna måste vara två olika aktiva personliga användare, får inte vara kontoinnehavaren och måste vara medlemmar i samtliga företag som det återställda kontot tillhör. Recovery byter lösenord och MFA i samma databastransaktion, återkallar alla sessioner, rensar använda MFA-steg och skriver en audit-händelse i varje berört företag med recoveryreferens och båda godkännarnas identitet. Lösenord, MFA-hemlighet och krypteringsnyckel skrivs inte i audit eller terminalutskrift.
+
+Den persistenta inloggningsspärren rensas medvetet inte av recovery. Om kontot är spärrat efter felaktiga försök kan återinloggning därför kräva att 15-minutersfönstret löper ut. Detta undviker att recovery används för att kringgå brute-force-skyddet.
+
 ## Testbevis
 
 - `membership-migration.test.js`: bevarade konton, medlemskap och audit, sessionsåterkallelse, upprepad uppstart och rollback vid injicerat migrationsfel.
