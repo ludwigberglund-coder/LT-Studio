@@ -65,7 +65,13 @@ function net2440(entries){return entries.flatMap(entry=>entry.lines||[]).filter(
     const rejectedApproval=Payables.invoiceById(db,company.id,db.prepare("SELECT id FROM supplier_invoices WHERE company_id=? AND supplier_invoice_number='BKS-771'").get(company.id).id);assert.equal(rejectedApproval.status,'coded');assert.equal(rejectedApproval.coding[0].account,'4010');
     await page.reload({waitUntil:'networkidle'});await page.getByText('BKS-771',{exact:true}).first().click();assert.equal(await page.locator('[data-line="0"][data-field="account"]').inputValue(),'4010');
     await page.getByRole('button',{name:'Attestera faktura'}).click();await page.getByRole('button',{name:'Bokför leverantörsskuld'}).waitFor({timeout:10000});
-    await setSession(accountantSession);await page.getByText('BKS-771',{exact:true}).first().click();await page.getByRole('button',{name:'Bokför leverantörsskuld'}).click();await page.getByRole('button',{name:'Förbered betalning idag'}).click();
+    await setSession(accountantSession);await page.getByText('BKS-771',{exact:true}).first().click();await page.getByRole('button',{name:'Bokför leverantörsskuld'}).click();
+    db.prepare('UPDATE suppliers SET bankgiro=NULL WHERE company_id=? AND id=?').run(company.id,supplier.id);
+    await page.getByRole('button',{name:'Förbered betalning idag'}).click();
+    const blockedPayment=page.getByRole('alert');await blockedPayment.getByText('Betalning stoppad',{exact:true}).waitFor({timeout:10000});await blockedPayment.getByText('Leverantören saknar godkända betalningsuppgifter.',{exact:true}).waitFor({timeout:10000});assert.equal(await blockedPayment.evaluate(node=>node.classList.contains('payment-alert')),true);
+    const blockedInvoice=Payables.invoiceById(db,company.id,db.prepare("SELECT id FROM supplier_invoices WHERE company_id=? AND supplier_invoice_number='BKS-771'").get(company.id).id);assert.equal(blockedInvoice.status,'approved');assert.equal(db.prepare('SELECT count(*) AS n FROM supplier_payments WHERE company_id=? AND supplier_invoice_id=?').get(company.id,blockedInvoice.id).n,0);
+    db.prepare('UPDATE suppliers SET bankgiro=? WHERE company_id=? AND id=?').run('333-4411',company.id,supplier.id);
+    await page.getByRole('button',{name:'Förbered betalning idag'}).click();
 
     await setSession(approverSession);await page.getByRole('button',{name:'Frisläpp'}).click();
     await setSession(accountantSession);page.once('dialog',dialog=>dialog.accept('BANK-BKS-771-BROWSER'));await page.getByRole('button',{name:'Bekräfta & bokför'}).click();await page.getByText(/Betalningen är bokförd som/).waitFor({timeout:10000});
