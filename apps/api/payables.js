@@ -2,6 +2,7 @@
 
 const crypto=require('node:crypto');
 const Domain=require('../../packages/payables/supplier-invoices.js');
+const SupplierDocumentStore=require('./supplier-invoice-document-store.js');
 
 function err(message,code='PAYABLES_ERROR',statusCode=422,details){const e=new Error(message);e.code=code;e.statusCode=statusCode;if(details)e.details=details;return e}
 function id(prefix){return `${prefix}_${crypto.randomUUID()}`}
@@ -69,13 +70,44 @@ function duplicateInvoice(db,companyId,supplierId,number){const normalized=norma
 function duplicateDocument(db,companyId,sha,excludeInvoiceId=''){const row=excludeInvoiceId?db.prepare(`SELECT id,supplier_id AS supplierId,supplier_invoice_number AS supplierInvoiceNumber FROM supplier_invoices WHERE company_id=? AND document_sha256=? AND id<>?`).get(companyId,sha,excludeInvoiceId):db.prepare(`SELECT id,supplier_id AS supplierId,supplier_invoice_number AS supplierInvoiceNumber FROM supplier_invoices WHERE company_id=? AND document_sha256=?`).get(companyId,sha);return row||null}
 function createSupplierInvoice(db,input){const companyId=text(input.companyId),supplierId=text(input.supplierId),number=text(input.supplierInvoiceNumber),invoiceDate=text(input.invoiceDate),dueDate=text(input.dueDate),currency=text(input.currency||'SEK').toUpperCase();if(!companyId||!supplierId||number.length<1||number.length>100||!normalizeInvoiceNumber(number))throw err('Företag, leverantör och fakturanummer krävs.','INVALID_SUPPLIER_INVOICE');if(!supplierById(db,companyId,supplierId))throw err('Leverantören hittades inte i företaget.','SUPPLIER_NOT_FOUND',404);if(!validDate(invoiceDate)||!validDate(dueDate)||dueDate<invoiceDate)throw err('Fakturadatum eller förfallodatum är ogiltigt.','INVALID_SUPPLIER_INVOICE_DATE');if(!Number.isSafeInteger(input.totalOre)||input.totalOre<=0||!Number.isSafeInteger(input.vatOre||0)||input.vatOre<0||input.vatOre>input.totalOre)throw err('Fakturabelopp och moms måste anges som giltiga heltal i ören.','INVALID_SUPPLIER_INVOICE_AMOUNT');if(currency!=='SEK')throw err('Den första versionen av leverantörsfakturor stöder endast SEK.','UNSUPPORTED_CURRENCY');const duplicate=duplicateInvoice(db,companyId,supplierId,number);if(duplicate)throw err(`Leverantörsfakturan verkar redan vara registrerad som ${duplicate.supplierInvoiceNumber}.`,'DUPLICATE_SUPPLIER_INVOICE',409,{existingInvoiceId:duplicate.id});const now=nowIso(),invoiceId=input.id||id('sinv');db.prepare(`INSERT INTO supplier_invoices(id,company_id,supplier_id,supplier_invoice_number,invoice_date,due_date,total_ore,vat_ore,currency,status,open_amount_ore,registered_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,'registered',?,?,?,?)`).run(invoiceId,companyId,supplierId,number,invoiceDate,dueDate,input.totalOre,input.vatOre||0,currency,input.totalOre,input.registeredBy,now,now);return invoiceById(db,companyId,invoiceId)}
 function supplierHistory(db,companyId,supplierId,{excludeInvoiceId='',limit=20}={}){const safe=Math.max(1,Math.min(100,Number(limit)||20));const rows=excludeInvoiceId?db.prepare(`SELECT id,status,coding_json AS codingJson,total_ore AS totalOre,vat_ore AS vatOre,approved_at AS approvedAt FROM supplier_invoices WHERE company_id=? AND supplier_id=? AND id<>? AND status IN ('approved','payment-prepared','paid') ORDER BY approved_at DESC LIMIT ?`).all(companyId,supplierId,excludeInvoiceId,safe):db.prepare(`SELECT id,status,coding_json AS codingJson,total_ore AS totalOre,vat_ore AS vatOre,approved_at AS approvedAt FROM supplier_invoices WHERE company_id=? AND supplier_id=? AND status IN ('approved','payment-prepared','paid') ORDER BY approved_at DESC LIMIT ?`).all(companyId,supplierId,safe);return rows.map(row=>({...row,coding:json(row.codingJson,[])}))}
-function storeDocument(db,{companyId,invoiceId,name,mime='application/pdf',bytes}){const invoice=invoiceById(db,companyId,invoiceId);if(!invoice)throw err('Leverantörsfakturan hittades inte.','INVOICE_NOT_FOUND',404);if(!['registered','coding-review','coded'].includes(invoice.status))throw err('PDF-underlaget kan inte bytas efter attest.','DOCUMENT_LOCKED',409);if(!Buffer.isBuffer(bytes)||!bytes.length)throw err('PDF-dokument saknas.','MISSING_DOCUMENT');if(mime!=='application/pdf')throw err('Endast PDF stöds för leverantörsfakturor i denna version.','UNSUPPORTED_DOCUMENT_TYPE');if(bytes.length>10*1024*1024)throw err('PDF-filen får vara högst 10 MB.','DOCUMENT_TOO_LARGE',413);if(bytes.length<5||bytes.subarray(0,5).toString('ascii')!=='%PDF-')throw err('Filen ser inte ut att vara en giltig PDF.','INVALID_PDF');const sha=crypto.createHash('sha256').update(bytes).digest('hex');const duplicate=duplicateDocument(db,companyId,sha,invoiceId);if(duplicate)throw err(`Samma PDF-underlag används redan på faktura ${duplicate.supplierInvoiceNumber}.`,'DUPLICATE_SUPPLIER_DOCUMENT',409,{existingInvoiceId:duplicate.id});db.prepare(`UPDATE supplier_invoices SET document_name=?,document_mime=?,document_sha256=?,document_blob=?,updated_at=? WHERE company_id=? AND id=?`).run(text(name)||'leverantorsfaktura.pdf',mime,sha,bytes,nowIso(),companyId,invoiceId);return {sha256:sha,size:bytes.length}}
-function document(db,companyId,invoiceId){const row=db.prepare(`SELECT document_name AS name,document_mime AS mime,document_sha256 AS sha256,document_blob AS bytes FROM supplier_invoices WHERE company_id=? AND id=?`).get(companyId,invoiceId);if(!row||!row.bytes)throw err('PDF-underlaget hittades inte.','DOCUMENT_NOT_FOUND',404);
+function storeDocument(db,{companyId,invoiceId,name,mime='application/pdf',bytes}){
+  const invoice=invoiceById(db,companyId,invoiceId);
+  if(!invoice)throw err('Leverantörsfakturan hittades inte.','INVOICE_NOT_FOUND',404);
+  if(!['registered','coding-review','coded'].includes(invoice.status))throw err('PDF-underlaget kan inte bytas efter attest.','DOCUMENT_LOCKED',409);
+  if(!Buffer.isBuffer(bytes)||!bytes.length)throw err('PDF-dokument saknas.','MISSING_DOCUMENT');
+  if(mime!=='application/pdf')throw err('Endast PDF stöds för leverantörsfakturor i denna version.','UNSUPPORTED_DOCUMENT_TYPE');
+  if(bytes.length>10*1024*1024)throw err('PDF-filen får vara högst 10 MB.','DOCUMENT_TOO_LARGE',413);
+  if(bytes.length<5||bytes.subarray(0,5).toString('ascii')!=='%PDF-')throw err('Filen ser inte ut att vara en giltig PDF.','INVALID_PDF');
+  const sha=crypto.createHash('sha256').update(bytes).digest('hex');
+  const duplicate=duplicateDocument(db,companyId,sha,invoiceId);
+  if(duplicate)throw err(`Samma PDF-underlag används redan på faktura ${duplicate.supplierInvoiceNumber}.`,'DUPLICATE_SUPPLIER_DOCUMENT',409,{existingInvoiceId:duplicate.id});
+  const store=SupplierDocumentStore.createSqliteSupplierInvoiceDocumentStore(db),updatedAt=nowIso();
+  const savepoint=`supplier_pdf_${crypto.randomBytes(8).toString('hex')}`;
+  db.exec(`SAVEPOINT ${savepoint}`);
+  try{
+    if(!store.put({companyId,invoiceId,bytes}))throw err('PDF-underlaget kunde inte lagras.','DOCUMENT_STORE_FAILED',409);
+    const result=db.prepare(`UPDATE supplier_invoices
+      SET document_name=?,document_mime=?,document_sha256=?,updated_at=?
+      WHERE company_id=? AND id=? AND status IN ('registered','coding-review','coded')`).run(text(name)||'leverantorsfaktura.pdf',mime,sha,updatedAt,companyId,invoiceId);
+    if(result.changes!==1)throw err('PDF-underlagets metadata kunde inte färdigställas.','DOCUMENT_STORE_FAILED',409);
+    db.exec(`RELEASE SAVEPOINT ${savepoint}`);
+  }catch(error){
+    try{db.exec(`ROLLBACK TO SAVEPOINT ${savepoint}`)}catch{}
+    try{db.exec(`RELEASE SAVEPOINT ${savepoint}`)}catch{}
+    throw error;
+  }
+  return {sha256:sha,size:bytes.length};
+}
+function document(db,companyId,invoiceId){
+  const row=db.prepare(`SELECT document_name AS name,document_mime AS mime,document_sha256 AS sha256 FROM supplier_invoices WHERE company_id=? AND id=?`).get(companyId,invoiceId);
+  if(row)row.bytes=SupplierDocumentStore.createSqliteSupplierInvoiceDocumentStore(db).get({companyId,invoiceId});
+  if(!row||!row.bytes)throw err('PDF-underlaget hittades inte.','DOCUMENT_NOT_FOUND',404);
   const actual=crypto.createHash('sha256').update(row.bytes).digest('hex');
   if(row.mime!=='application/pdf'||actual!==row.sha256){
     throw err('PDF-underlaget stämmer inte med sitt sparade digitala fingeravtryck. Dokumentet måste granskas innan det kan visas eller attesteras.','DOCUMENT_INTEGRITY_ERROR',409);
   }
-  return row}
+  return row;
+}
 function saveCoding(db,{companyId,invoiceId,lines}){const invoice=invoiceById(db,companyId,invoiceId);if(!invoice)throw err('Leverantörsfakturan hittades inte.','INVOICE_NOT_FOUND',404);if(!['registered','coding-review','coded'].includes(invoice.status))throw err('Konteringen kan inte ändras efter attest.','CODING_LOCKED',409);const validated=Domain.validateCoding({totalOre:invoice.totalOre,lines});const hash=Domain.codingHash(validated.lines);db.prepare(`UPDATE supplier_invoices SET coding_json=?,coding_sha256=?,status='coded',updated_at=? WHERE company_id=? AND id=?`).run(JSON.stringify(validated.lines),hash,nowIso(),companyId,invoiceId);return invoiceById(db,companyId,invoiceId)}
 function approve(db,{companyId,invoiceId,actorId,expectedCodingSha256,expectedDocumentSha256}){const invoice=invoiceById(db,companyId,invoiceId);if(!invoice)throw err('Leverantörsfakturan hittades inte.','INVOICE_NOT_FOUND',404);if(!invoice.hasDocument)throw err('PDF-underlag krävs innan fakturan kan attesteras.','DOCUMENT_REQUIRED_FOR_APPROVAL',409);const expectedCoding=text(expectedCodingSha256),expectedDocument=text(expectedDocumentSha256);if(!/^[a-f0-9]{64}$/.test(expectedCoding)||!/^[a-f0-9]{64}$/.test(expectedDocument))throw err('Attest kräver versionsuppgifter för både kontering och PDF-underlag. Ladda om fakturan och granska igen.','APPROVAL_PRECONDITION_REQUIRED',428);if(invoice.codingSha256!==expectedCoding)throw err('Konteringen har ändrats sedan den granskades. Ladda om fakturan och granska den nya konteringen innan attest.','APPROVAL_STALE_CODING',409,{expectedCodingSha256:expectedCoding,currentCodingSha256:invoice.codingSha256});if(invoice.documentSha256!==expectedDocument)throw err('PDF-underlaget har ändrats sedan det granskades. Ladda om fakturan och granska det nya underlaget innan attest.','APPROVAL_STALE_DOCUMENT',409,{expectedDocumentSha256:expectedDocument,currentDocumentSha256:invoice.documentSha256});document(db,companyId,invoiceId);const check=Domain.assertApproval(invoice,actorId,invoice.coding);const now=nowIso();db.prepare(`UPDATE supplier_invoices SET status='approved',coding_sha256=?,approved_by=?,approved_at=?,updated_at=? WHERE company_id=? AND id=?`).run(check.codingHash,actorId,now,now,companyId,invoiceId);return invoiceById(db,companyId,invoiceId)}
 function paymentByInvoice(db,companyId,invoiceId){return db.prepare(`SELECT id FROM supplier_payments WHERE company_id=? AND supplier_invoice_id=?`).get(companyId,invoiceId)||null}
