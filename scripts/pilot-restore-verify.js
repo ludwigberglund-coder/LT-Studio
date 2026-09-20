@@ -11,6 +11,11 @@ const BackupCrypto=require('./backup-crypto.js');
 
 function required(name){const value=String(process.env[name]||'').trim();if(!value)throw new Error(`${name} must be supplied.`);return value}
 function sha256(filename){return crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex')}
+function sameExistingFile(left,right){
+  if(!left||!right||!fs.existsSync(left)||!fs.existsSync(right))return false;
+  const a=fs.statSync(left),b=fs.statSync(right);
+  return a.dev===b.dev&&a.ino===b.ino;
+}
 function verifyDatabase(filename){
   // Never run application migrations against a backup being verified.
   const db=new DatabaseSync(filename,{readOnly:true});
@@ -63,6 +68,7 @@ function main(){
   const target=path.resolve(required('ROLLANDS_RESTORE_TARGET'));
   const production=process.env.ROLLANDS_DATABASE_PATH?path.resolve(process.env.ROLLANDS_DATABASE_PATH):'';
   if(!fs.existsSync(source))throw new Error('Backup file does not exist.');
+  if(production&&sameExistingFile(source,production))throw new Error('RESTORE_SOURCE_IS_PRODUCTION: restore source must not be the live production database or an alias to it.');
   if(fs.existsSync(target))throw new Error('Restore target exists. No existing file will be overwritten.');
   if(production&&target===production)throw new Error('Restore target must not be the production database.');
   const checksumFile=`${source}.sha256`;
@@ -92,4 +98,4 @@ function main(){
   console.log('Separate test copy verified. Production was not replaced. Offsite storage, all business rules and live recovery still need verification.');
 }
 if(require.main===module){try{main()}catch(error){console.error(error.message);process.exitCode=1}}
-module.exports={main,sha256,verifyDatabase};
+module.exports={main,sha256,sameExistingFile,verifyDatabase};
