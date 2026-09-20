@@ -28,7 +28,7 @@ Senast granskad: 2026-09-18. Företag: Rolands Frukt o Grönt Aktiebolag, 556406
 | Lokalt tekniskt backup-/restore-verktyg | 🟡 Delvis klar | PR 64 har utökad verifiering och verkliga CLI-prov. PR 66 verifierar även befintliga journalförseglingar. Det är inte ett helt återställningsprov av driftmiljön. |
 | Krypterad extern backup, retention och larm | ❌ Inte klar | Inget verifierat leverantörs-/konfigurationsbevis. |
 | Arkivering av original och långsiktig läsbarhet | 🟡 Delvis klar | PR 91 arkiverar exakt utfärdad kund-/kredit-PDF oföränderligt i den privata databasen, med SHA-256 och verifierad återläsning. Extern långtidslagring, retention, arkivexport/återläsning över hela bevarandetiden och driftavtal återstår. |
-| Health/readiness, driftlogg och fungerande larm | ❌ Inte klar | Teknisk grund finns men disk-/DB-/timeout- och larmscenarier saknas. |
+| Health/readiness, driftlogg och fungerande larm | 🟡 Delvis klar | Readiness-kontroll provar databasens integrity/foreign keys, en återrullad skrivning, privat fillagring och ledigt diskutrymme; `/health` är separat liveness. Faktiskt uptime-larm, loggtransport, timeout-/disk-full-prov i driftmiljön och incidentmottagare återstår. |
 | Secrets-hantering och historikskanning | 🟡 Delvis klar | Platshållare i exempelkonfiguration; snapshot-skanning utan tydliga tokenfynd. Full Git-historik och faktisk drift måste kontrolleras. |
 | Miljöspärr och separation demo/pilot/produktion | 🟡 Delvis klar | PR 67: bindande startkontroll, privata lagringssökvägar, servernekat demo-query och inga demo-/legacyhjälpfiler. Granskning av befintliga data och verklig drift återstår. |
 | Betalningsöversikt dag/vecka/månad/kvartal | 🟡 Delvis klar | Delvyer finns; en konsekvent filtrerad privat översikt ska sluttestas. |
