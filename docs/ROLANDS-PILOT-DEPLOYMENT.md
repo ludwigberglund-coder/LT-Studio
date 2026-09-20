@@ -401,3 +401,8 @@ Retention använder `backupRetentionDays` från den godkända privata operations
 ## Isolerad restore-övning
 
 Sätt `ROLLANDS_RESTORE_DRILL_PATH` och `ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH` till privata sökvägar utanför repositoryt. Kör `npm run pilot:restore:drill`. Kommandot väljer senaste krypterade backup, verifierar dess checksumma, dekrypterar en unik testkopia, kör SQLite-, foreign-key-, tenant-, journal- och dokumentintegritetskontroller, raderar testkopian och skriver därefter ett `0600`-skyddat JSON-evidensbevis. Produktionsdatabasen ersätts eller öppnas aldrig av drill-kommandot. Misslyckad restore ska inte uppdatera ett tidigare lyckat evidensbevis.
+
+
+### Readiness efter restore drill
+
+I pilot/produktion kräver `/api/v1/readiness` ett giltigt `ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH`. Evidens äldre än 30 dagar, saknat evidens eller ett bevis som inte visar lyckad SQLite/foreign-key-kontroll och borttagen testkopia gör readiness röd (`503`). Detta stoppar inte serverprocessen från att starta för felsökning, men den ska inte betraktas som redo för trafik förrän en ny lyckad restore-övning har körts.
