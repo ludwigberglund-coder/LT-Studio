@@ -2,6 +2,7 @@
 
 const crypto=require('node:crypto');
 const ContentStore=require('./document-content-store.js');
+const PrivateObject=require('./private-object-contract.js');
 
 function documentError(message,code='DOCUMENT_ERROR',statusCode=422){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
 function id(prefix){return `${prefix}_${crypto.randomUUID()}`}
@@ -80,6 +81,20 @@ function content(db,companyId,documentId){
   if(row)row.bytes=ContentStore.createSqliteDocumentContentStore(db).get({companyId,documentId});
   return verifyContent(row);
 }
+function privateObjectMetadata(db,companyId,documentId){
+  const row=db.prepare(`SELECT id,company_id AS companyId,mime_type AS mimeType,sha256,size_bytes AS sizeBytes,status,completed_at AS completedAt
+    FROM documents WHERE company_id=? AND id=?`).get(companyId,documentId);
+  if(!row||row.status!=='ready')return null;
+  return PrivateObject.createPrivateObjectMetadata({
+    companyId:row.companyId,
+    kind:PrivateObject.PRIVATE_OBJECT_KINDS.DOCUMENT,
+    objectId:row.id,
+    mimeType:row.mimeType,
+    sizeBytes:row.sizeBytes,
+    sha256:row.sha256,
+    createdAt:row.completedAt
+  });
+}
 function listDocuments(db,companyId,{category='',entityType='',entityId='',limit=200}={}){const safe=Math.max(1,Math.min(1000,Number(limit)||200));if(entityType&&entityId){return db.prepare(`SELECT d.id FROM documents d JOIN document_links l ON l.document_id=d.id AND l.company_id=d.company_id WHERE d.company_id=? AND l.entity_type=? AND l.entity_id=? AND d.status='ready' ORDER BY d.created_at DESC LIMIT ?`).all(companyId,text(entityType).toLowerCase(),text(entityId),safe).map(r=>documentById(db,companyId,r.id))}if(category){return db.prepare(`SELECT id FROM documents WHERE company_id=? AND category=? AND status='ready' ORDER BY created_at DESC LIMIT ?`).all(companyId,text(category).toLowerCase(),safe).map(r=>documentById(db,companyId,r.id))}return db.prepare(`SELECT id FROM documents WHERE company_id=? AND status='ready' ORDER BY created_at DESC LIMIT ?`).all(companyId,safe).map(r=>documentById(db,companyId,r.id))}
 
-module.exports=Object.freeze({ALLOWED_MIME,MAX_BYTES,initializeDocuments,createPending,storeContent,linkDocument,linksForDocument,documentById,content,listDocuments,magicMatches,verifyContent});
+module.exports=Object.freeze({ALLOWED_MIME,MAX_BYTES,initializeDocuments,createPending,storeContent,linkDocument,linksForDocument,documentById,content,privateObjectMetadata,listDocuments,magicMatches,verifyContent});
