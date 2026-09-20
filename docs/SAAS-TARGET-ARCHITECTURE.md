@@ -242,6 +242,8 @@ Alla företagsbundna tabeller ska ha en tekniskt säker relation till rätt för
 
 Utöver applikationsfiltrering bör databasen få starka constraints och, där det passar, Row Level Security eller motsvarande extra skydd.
 
+Den stegvisa övergången från nuvarande SQLite är dokumenterad i [POSTGRESQL-MIGRATION-PLAN.md](POSTGRESQL-MIGRATION-PLAN.md). Planen är beslutad som riktning, men PostgreSQL är ännu inte infört i drift.
+
 ## Dokumentlagring
 
 Fakturabilagor, kvitton och andra filer ska inte ligga i GitHub eller direkt i publik webb.
@@ -281,7 +283,7 @@ Vi ska inte bygga nya stora moduler nu. Följande bör göras i ordning inom den
 2. Säkerställ att alla nuvarande privata objekt verkligen är företagsbundna.
 3. Lägg till en andra helt fiktiv testkund i automatiska isoleringstester.
 4. Kartlägg kvarvarande Rolands-specifik kod som bör flyttas till konfiguration.
-5. Bestäm och dokumentera framtida PostgreSQL-migrering från nuvarande SQLite.
+5. ✅ PostgreSQL-migreringen är dokumenterad i [POSTGRESQL-MIGRATION-PLAN.md](POSTGRESQL-MIGRATION-PLAN.md); själva motorbytet är ännu inte påbörjat.
 6. Behåll personlig inloggning, MFA och servervaliderade sessioner.
 7. Behåll publik webb och privat portal som separata säkerhetsgränser.
 8. Lägg produktionsdrift bakom staging och verifierad releaseprocess.
