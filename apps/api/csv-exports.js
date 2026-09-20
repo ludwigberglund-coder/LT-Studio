@@ -70,9 +70,20 @@ function vatBasis(db,companyId,{from,to}){
     GROUP BY i.id,i.invoice_date,i.supplier_invoice_number,i.vat_ore`).all(companyId,from,to);
   return [...customer,...supplier].map(row=>({...row,differenceOre:Number(row.bookedVatOre||0)-Number(row.expectedVatOre||0)})).sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.reference).localeCompare(String(b.reference)));
 }
+function payments(db,companyId,{from,to}){
+  const incoming=incomingPayments(db,companyId,{from,to}).map(row=>({date:row.paymentDate,direction:'in',reference:row.invoiceNumber,counterparty:row.customerName,amountOre:row.amountOre,account:row.account,status:'registered'}));
+  const outgoing=outgoingPayments(db,companyId,{from,to}).map(row=>({date:row.paymentDate,direction:'out',reference:row.supplierInvoiceNumber,counterparty:row.supplierName,amountOre:row.amountOre,account:row.account,status:row.status}));
+  return [...incoming,...outgoing].sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.direction).localeCompare(String(b.direction))||String(a.reference).localeCompare(String(b.reference)));
+}
 const DEFINITIONS=Object.freeze({
+  'receivables':{filename:'kundreskontra',rows:customerInvoices,columns:[
+    ['Fakturadatum','invoiceDate'],['Förfallodatum','dueDate'],['Fakturanummer','invoiceNumber'],['Kundnummer','customerNumber'],['Kund','customerName'],['Belopp öre','totalOre'],['Moms öre','vatOre'],['Utestående öre','remainingOre'],['Status','status'],['OCR','ocr']
+  ]},
   'customer-invoices':{filename:'kundfakturor',rows:customerInvoices,columns:[
     ['Fakturadatum','invoiceDate'],['Förfallodatum','dueDate'],['Fakturanummer','invoiceNumber'],['Kundnummer','customerNumber'],['Kund','customerName'],['Belopp öre','totalOre'],['Moms öre','vatOre'],['Utestående öre','remainingOre'],['Status','status'],['OCR','ocr']
+  ]},
+  'payables':{filename:'leverantorsreskontra',rows:supplierInvoices,columns:[
+    ['Fakturadatum','invoiceDate'],['Förfallodatum','dueDate'],['Leverantörsfaktura','supplierInvoiceNumber'],['Leverantörsnummer','supplierNumber'],['Leverantör','supplierName'],['Belopp öre','totalOre'],['Moms öre','vatOre'],['Utestående öre','openAmountOre'],['Status','status'],['Valuta','currency']
   ]},
   'supplier-invoices':{filename:'leverantorsfakturor',rows:supplierInvoices,columns:[
     ['Fakturadatum','invoiceDate'],['Förfallodatum','dueDate'],['Leverantörsfaktura','supplierInvoiceNumber'],['Leverantörsnummer','supplierNumber'],['Leverantör','supplierName'],['Belopp öre','totalOre'],['Moms öre','vatOre'],['Utestående öre','openAmountOre'],['Status','status'],['Valuta','currency']
@@ -82,6 +93,9 @@ const DEFINITIONS=Object.freeze({
   ]},
   'outgoing-payments':{filename:'utbetalningar',rows:outgoingPayments,columns:[
     ['Betalningsdatum','paymentDate'],['Leverantörsfaktura','supplierInvoiceNumber'],['Leverantörsnummer','supplierNumber'],['Leverantör','supplierName'],['Belopp öre','amountOre'],['Konto','account'],['Status','status'],['Bankgiro','bankgiro'],['Plusgiro','plusgiro'],['Frisläppt','releasedAt']
+  ]},
+  'payments':{filename:'betalningar',rows:payments,columns:[
+    ['Datum','date'],['Riktning','direction'],['Referens','reference'],['Motpart','counterparty'],['Belopp öre','amountOre'],['Konto','account'],['Status','status']
   ]},
   'entries':{filename:'verifikationer',rows:entries,columns:[
     ['Nummer','number'],['Bokföringsdatum','postingDate'],['Beskrivning','description'],['Källtyp','sourceType'],['Käll-ID','sourceId'],['Skapad av','createdBy'],['Skapad','createdAt']
