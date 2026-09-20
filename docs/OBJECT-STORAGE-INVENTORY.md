@@ -184,16 +184,34 @@ Exempel:
 
 Därför ska framtida migration vara verifierbar och återkörbar, och gammalt innehåll får inte tas bort förrän det nya objektet har verifierats.
 
+## Genomfört efter inventeringen
+
+De tre identifierade BLOB-flödena har nu varsin liten intern SQLite-baserad lagringsgräns:
+
+- `apps/api/document-content-store.js` för dokumentarkivet,
+- `apps/api/supplier-invoice-document-store.js` för leverantörsfakturans PDF-original,
+- `apps/api/customer-invoice-pdf-archive-store.js` för kundfakturans arkiverade PDF.
+
+Varje steg gjordes separat och verifierades med full CI innan merge.
+
+Det betyder **inte** att objektlagring är införd. Binärt innehåll ligger fortfarande i SQLite och befintliga tabeller är oförändrade.
+
+Syftet med gränserna är att minska nästa förändringsyta: domänreglerna behöver inte längre känna till exakt hur BLOB-kolumnen läses eller skrivs.
+
 ## Nästa lilla steg
 
-Nästa etapp ska inte flytta några filer.
+Nästa etapp ska fortfarande inte flytta några filer.
 
-Nästa lämpliga steg är att definiera ett litet internt lagringskontrakt för:
+Nästa lämpliga steg är att definiera ett gemensamt provider-neutralt lagringskontrakt ovanför de tre nuvarande SQLite-adaptrarna. Kontraktet ska minst beskriva:
 
 - `put`,
 - `get`,
 - `exists`,
-- integritetskontroll,
-- objektmetadata.
+- företagsscope,
+- oföränderlighet,
+- SHA-256 och storlek,
+- fel när metadata och binärt innehåll inte stämmer.
 
-SQLite-BLOB ska fortsatt vara den enda aktiva implementationen tills kontraktet är testat och alla nuvarande flöden fortfarande är gröna.
+Först därefter bör en extern objektlagringsadapter byggas i staging.
+
+SQLite-BLOB ska fortsatt vara den enda aktiva implementationen tills det gemensamma kontraktet och befintliga flöden är verifierade.
