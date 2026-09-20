@@ -63,7 +63,7 @@ function overviewView() {
   const cards = [
     ['Publicering', 'GitHub Pages', 'Varje godkänd ändring i main bygger om demon automatiskt.'],
     ['Penningmodell', 'Heltal i ören', 'Nya beräkningar använder en gemensam exakt kärna utan flyttalsfel.'],
-    ['Behörighet', 'Default deny', 'Roller och kritiska arbetsflöden använder en central regelmotor.'],
+    ['Behörighet', 'Default deny', 'Personlig identitet, företagsmedlemskap och kritiska arbetsflöden använder en central regelmotor.'],
     ['Bokföringskärna', 'Spårbar rättelse', 'Verifikationer balanseras, numreras och rättas utan överskrivning.']
   ].map(([label, value, description]) => `
     <article class="metric-card">

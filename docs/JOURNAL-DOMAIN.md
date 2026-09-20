@@ -75,7 +75,7 @@ const result = Journal.postEntry(ledger, {
 });
 ```
 
-Användaren måste ha `accounting.post`. Modulen kontrollerar behörigheten före numrering och bokföring.
+Användaren måste vara autentiserad och ha ett aktivt företagsmedlemskap. Modulen kontrollerar detta före numrering och bokföring.
 
 ## Rättelser
 
@@ -103,11 +103,11 @@ const corrected = Journal.correctEntry(ledger, {
 });
 ```
 
-Användaren måste ha `accounting.correct`. Samma ursprungspost kan inte rättas två gånger genom samma rättelseflöde.
+Användaren måste vara autentiserad och ha ett aktivt företagsmedlemskap. Samma ursprungspost kan inte rättas två gånger genom samma rättelseflöde.
 
 ## Periodlås
 
-`lockPeriod` kräver `period.lock`. Efter låsning stoppas nya verifikationer med bokföringsdag i perioden.
+`lockPeriod` kräver en autentiserad användare med aktivt företagsmedlemskap. Efter låsning stoppas nya verifikationer med bokföringsdag i perioden.
 
 ```js
 const locked = Journal.lockPeriod(ledger, '2026-09', {
@@ -120,7 +120,7 @@ const locked = Journal.lockPeriod(ledger, '2026-09', {
 
 Upplåsning kräver:
 
-- `period.unlock`,
+- en autentiserad användare med aktivt företagsmedlemskap,
 - en motiverad orsak,
 - en annan person som begär upplåsningen,
 - godkänd separationsregel `period-unlock`.
