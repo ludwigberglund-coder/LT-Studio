@@ -138,3 +138,46 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
     assert.equal(Accounting.listEntries(f.db,f.b.id).length,1);
   } finally {await new Promise(resolve=>runtime.close(resolve));}
 });
+
+
+test('full private runtime has an explicit tenant scope for every database table', () => {
+  const runtime=createServer({databasePath:':memory:',secureCookies:false});
+  try {
+    const report=Guards.inspectTenantCoverage(runtime.db);
+    assert.equal(report.ok,true,JSON.stringify(report));
+    assert.deepEqual(report.rootTables,['companies','login_attempts','mfa_used_steps','users']);
+    assert.ok(report.directTenantTables.includes('invoices'));
+    assert.ok(report.directTenantTables.includes('supplier_invoices'));
+    assert.ok(report.directTenantTables.includes('website_cms_state'));
+    assert.ok(report.inheritedTenantTables.some(row=>row.table==='accounting_entry_lines'&&row.via.some(v=>v.targetTable==='accounting_entries')));
+    assert.ok(report.inheritedTenantTables.some(row=>row.table==='accounting_entry_seals'&&row.via.some(v=>v.targetTable==='accounting_entries')));
+    assert.deepEqual(report.unscopedTables,[]);
+  } finally {runtime.close(()=>{});}
+});
+
+test('startup guard rejects a new private table whose tenant scope is undefined', () => {
+  const db=Db.openDatabase(':memory:');
+  try {
+    db.exec(`CREATE TABLE unsafe_private_notes(id TEXT PRIMARY KEY,note TEXT NOT NULL) STRICT;`);
+    const report=Guards.inspectTenantCoverage(db);
+    assert.equal(report.ok,false);
+    assert.deepEqual(report.unscopedTables,['unsafe_private_notes']);
+    assert.throws(()=>Guards.installTenantGuards(db),error=>error?.code==='TENANT_INTEGRITY_ERROR'&&/unsafe_private_notes/.test(error.message));
+  } finally {db.close();}
+});
+
+test('tenant scope can be inherited through a mandatory parent relationship', () => {
+  const db=Db.openDatabase(':memory:');
+  try {
+    db.exec(`CREATE TABLE invoice_private_metadata(
+      invoice_id TEXT PRIMARY KEY REFERENCES invoices(id) ON DELETE CASCADE,
+      payload_json TEXT NOT NULL
+    ) STRICT;`);
+    const report=Guards.inspectTenantCoverage(db);
+    assert.equal(report.ok,true,JSON.stringify(report));
+    const inherited=report.inheritedTenantTables.find(row=>row.table==='invoice_private_metadata');
+    assert.ok(inherited);
+    assert.ok(inherited.via.some(v=>v.column==='invoice_id'&&v.targetTable==='invoices'));
+    assert.doesNotThrow(()=>Guards.installTenantGuards(db));
+  } finally {db.close();}
+});
