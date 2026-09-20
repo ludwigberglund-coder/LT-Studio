@@ -7,6 +7,7 @@ const Invoice=require('../../packages/invoicing/invoice.js');
 const InvoiceSettings=require('./company-invoice-settings.js');
 const Pdf=require('../../packages/invoicing/pdf.js');
 const PdfArchiveStore=require('./customer-invoice-pdf-archive-store.js');
+const PrivateObject=require('./private-object-contract.js');
 const {protectAppendOnly}=require('./history-guards.js');
 
 function invoiceError(message,code='CUSTOMER_INVOICE_ERROR',statusCode=422){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
@@ -195,6 +196,20 @@ function pdfArchiveForInvoice(db,companyId,invoiceId){
   if(bytes.length!==row.sizeBytes||bytes.subarray(0,5).toString('ascii')!=='%PDF-'||crypto.createHash('sha256').update(bytes).digest('hex')!==row.pdfSha256)throw invoiceError('Den arkiverade PDF-fakturans digitala fingeravtryck stämmer inte. Åtkomsten har stoppats.','INVOICE_PDF_ARCHIVE_INTEGRITY_ERROR',409);
   return{...row,bytes};
 }
+function pdfArchivePrivateObjectMetadata(db,companyId,invoiceId){
+  const metadata=pdfArchiveMetadata(db,companyId,invoiceId);
+  if(!metadata)return null;
+  const archive=pdfArchiveForInvoice(db,companyId,invoiceId);
+  return PrivateObject.createPrivateObjectMetadata({
+    companyId,
+    kind:PrivateObject.PRIVATE_OBJECT_KINDS.CUSTOMER_INVOICE_PDF,
+    objectId:invoiceId,
+    mimeType:archive.mimeType,
+    sizeBytes:archive.sizeBytes,
+    sha256:archive.pdfSha256,
+    createdAt:archive.createdAt
+  });
+}
 function storePdfArchive(db,{companyId,invoiceId,invoiceNumber,documentType='FAKTURA',pdfBytes}){
   const bytes=Buffer.from(pdfBytes||[]);
   if(!bytes.length||bytes.subarray(0,5).toString('ascii')!=='%PDF-')throw invoiceError('PDF-arkivet innehåller inte en giltig PDF-fil.','INVOICE_PDF_ARCHIVE_INVALID',500);
@@ -365,4 +380,4 @@ function finalizeCreditIssuance(db,{companyId,userId,prepared,pdfBytes}){
   return{...invoiceBundle(db,companyId,creditInvoice.id),duplicate:false,original:Db.invoiceById(db,companyId,original.id)};
 }
 
-module.exports=Object.freeze({initializeCustomerInvoicing,customerByNumber,nextInvoiceNumber,profileStatus,resolvedProfile,listCustomerInvoices,documentForInvoice,pdfArchiveMetadata,pdfArchiveForInvoice,invoiceBundle,getCustomerInvoiceDraft,saveCustomerInvoiceDraft,clearCustomerInvoiceDraft,prepareInvoiceIssuance,finalizeInvoiceIssuance,prepareCreditIssuance,finalizeCreditIssuance,renderInvoicePdf,creditDocumentFrom,validateRequestId,reservationByRequest});
+module.exports=Object.freeze({initializeCustomerInvoicing,customerByNumber,nextInvoiceNumber,profileStatus,resolvedProfile,listCustomerInvoices,documentForInvoice,pdfArchiveMetadata,pdfArchiveForInvoice,pdfArchivePrivateObjectMetadata,invoiceBundle,getCustomerInvoiceDraft,saveCustomerInvoiceDraft,clearCustomerInvoiceDraft,prepareInvoiceIssuance,finalizeInvoiceIssuance,prepareCreditIssuance,finalizeCreditIssuance,renderInvoicePdf,creditDocumentFrom,validateRequestId,reservationByRequest});
