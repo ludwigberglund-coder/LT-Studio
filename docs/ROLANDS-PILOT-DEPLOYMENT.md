@@ -391,3 +391,8 @@ När servern är installerad ska `pilot:preflight`, health check, verklig backup
 ## Krypterad backup för offsite
 
 Sätt en separat `ROLLANDS_BACKUP_ENCRYPTION_KEY` i secret manager. `scripts/pilot-backup.js` skapar då en autentiserat krypterad `.sqlite.enc` och `.sha256`. Kopiera endast dessa två filer till offsite-lagring. `scripts/pilot-restore-verify.js` kan ta `.enc` direkt och vägrar skapa restore-target vid fel nyckel, manipulerad ciphertext eller misslyckad databasverifiering.
+
+
+## Backupretention
+
+Retention använder `backupRetentionDays` från den godkända privata operationsfilen. Kör först `npm run pilot:backup:retention` utan flagga och granska JSON-planen. Inga filer raderas i dry-run. Kör först därefter `npm run pilot:backup:retention -- --apply` om planen är korrekt. Verktyget hanterar bara filer som matchar Rollands backupnamn, raderar hela backupfamiljen tillsammans och bevarar alltid den nyaste familjen även om alla filer är äldre än retentionstiden. Extern lagringsleverantör måste ha en motsvarande eller striktare retention som verifieras separat.
