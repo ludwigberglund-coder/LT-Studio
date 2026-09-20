@@ -6,8 +6,9 @@ const Accounting=require('./accounting-store.js');
 const Invoice=require('../../packages/invoicing/invoice.js');
 const InvoiceSettings=require('./company-invoice-settings.js');
 const Pdf=require('../../packages/invoicing/pdf.js');
-const PdfArchiveStore=require('./customer-invoice-pdf-archive-store.js');
 const PrivateObject=require('./private-object-contract.js');
+const StoreContract=require('./private-object-store-contract.js');
+const CustomerInvoiceProvider=require('./sqlite-customer-invoice-private-object-provider.js');
 const {protectAppendOnly}=require('./history-guards.js');
 
 function invoiceError(message,code='CUSTOMER_INVOICE_ERROR',statusCode=422){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
@@ -203,9 +204,16 @@ function pdfArchivePrivateObjectMetadata(db,companyId,invoiceId){
   });
 }
 function pdfArchiveForInvoice(db,companyId,invoiceId){
-  const row=PdfArchiveStore.createSqliteCustomerInvoicePdfArchiveStore(db).get({companyId,invoiceId});
+  const row=pdfArchiveMetadata(db,companyId,invoiceId);
   if(!row)throw invoiceError('Den exakt arkiverade PDF-fakturan saknas.','INVOICE_PDF_ARCHIVE_NOT_FOUND',404);
-  const bytes=Buffer.from(row.bytes||[]);
+  const store=StoreContract.createContractedPrivateObjectStore(
+    CustomerInvoiceProvider.createSqliteCustomerInvoicePrivateObjectProvider(db)
+  );
+  const bytes=Buffer.from(store.get({
+    companyId,
+    kind:PrivateObject.PRIVATE_OBJECT_KINDS.CUSTOMER_INVOICE_PDF,
+    objectId:invoiceId
+  })||[]);
   if(bytes.length!==row.sizeBytes||bytes.subarray(0,5).toString('ascii')!=='%PDF-'||crypto.createHash('sha256').update(bytes).digest('hex')!==row.pdfSha256)throw invoiceError('Den arkiverade PDF-fakturans digitala fingeravtryck stämmer inte. Åtkomsten har stoppats.','INVOICE_PDF_ARCHIVE_INTEGRITY_ERROR',409);
   return{...row,bytes};
 }
@@ -214,12 +222,23 @@ function storePdfArchive(db,{companyId,invoiceId,invoiceNumber,documentType='FAK
   if(!bytes.length||bytes.subarray(0,5).toString('ascii')!=='%PDF-')throw invoiceError('PDF-arkivet innehåller inte en giltig PDF-fil.','INVOICE_PDF_ARCHIVE_INVALID',500);
   if(bytes.length>15*1024*1024)throw invoiceError('Den utfärdade PDF-fakturan är för stor för arkivet.','INVOICE_PDF_ARCHIVE_TOO_LARGE',500);
   const pdfSha256=crypto.createHash('sha256').update(bytes).digest('hex'),createdAt=new Date().toISOString();
-  const prefix=documentType==='KREDITFAKTURA'?'Kreditfaktura':'Faktura',fileName=`${prefix}-${String(invoiceNumber).replace(/[^0-9A-Za-z_-]/g,'_')}.pdf`;
-  const stored=PdfArchiveStore.createSqliteCustomerInvoicePdfArchiveStore(db).put({
-    invoiceId,companyId,fileName,mimeType:'application/pdf',bytes,pdfSha256,sizeBytes:bytes.length,createdAt
+  const prefix=documentType==='KREDITFAKTURA'?'Kreditfaktura':'Faktura',expectedFileName=`${prefix}-${String(invoiceNumber).replace(/[^0-9A-Za-z_-]/g,'_')}.pdf`;
+  const metadata=PrivateObject.createPrivateObjectMetadata({
+    companyId,
+    kind:PrivateObject.PRIVATE_OBJECT_KINDS.CUSTOMER_INVOICE_PDF,
+    objectId:invoiceId,
+    mimeType:'application/pdf',
+    sizeBytes:bytes.length,
+    sha256:pdfSha256,
+    createdAt
   });
-  if(!stored)throw invoiceError('PDF-arkivet kunde inte lagras.','INVOICE_PDF_ARCHIVE_STORE_FAILED',500);
-  return pdfArchiveMetadata(db,companyId,invoiceId);
+  const store=StoreContract.createContractedPrivateObjectStore(
+    CustomerInvoiceProvider.createSqliteCustomerInvoicePrivateObjectProvider(db)
+  );
+  if(!store.put({metadata,bytes}))throw invoiceError('PDF-arkivet kunde inte lagras.','INVOICE_PDF_ARCHIVE_STORE_FAILED',500);
+  const archived=pdfArchiveMetadata(db,companyId,invoiceId);
+  if(!archived||archived.fileName!==expectedFileName)throw invoiceError('PDF-arkivets metadata stämmer inte med fakturaunderlaget.','INVOICE_PDF_ARCHIVE_STORE_FAILED',500);
+  return archived;
 }
 async function renderInvoicePdf(document){try{return Buffer.from(await Pdf.createInvoicePdf(document))}catch(error){throw invoiceError(`PDF-fakturan kunde inte skapas: ${error.message}`,'INVOICE_PDF_GENERATION_FAILED',500)}}
 function parseDraftRow(row){
