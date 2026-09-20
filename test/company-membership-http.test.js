@@ -68,9 +68,27 @@ test('företagsgränsen gäller läsning, PDF och mutation trots autentisering o
   });
   assert.equal(foreignCommentCreate.status,404);
 
+  const foreignReminders=await fetch(f.base+'/api/v1/invoices/'+f.issued.invoice.id+'/reminders',{headers:otherHeaders});
+  assert.equal(foreignReminders.status,404);
+
+  const foreignReminderPreview=await fetch(f.base+'/api/v1/invoices/'+f.issued.invoice.id+'/reminders/preview',{
+    method:'POST',
+    headers:otherHeaders,
+    body:JSON.stringify({sentDate:'2026-09-20'})
+  });
+  assert.equal(foreignReminderPreview.status,404);
+
+  const foreignReminderCreate=await fetch(f.base+'/api/v1/invoices/'+f.issued.invoice.id+'/reminders',{
+    method:'POST',
+    headers:otherHeaders,
+    body:JSON.stringify({sentDate:'2026-09-20',kind:'reminder',note:'Ska aldrig sparas'})
+  });
+  assert.equal(foreignReminderCreate.status,404);
+
   assert.equal(Db.auditForCompany(f.db,f.b.id).filter(e=>e.action.startsWith('SUPPLIER_')).length,0);
   assert.equal(Db.auditForCompany(f.db,f.b.id).filter(e=>e.action.startsWith('CUSTOMER_INVOICE_')).length,0);
   assert.equal(Db.auditForCompany(f.db,f.b.id).filter(e=>e.action==='INVOICE_COMMENT_ADDED').length,0);
+  assert.equal(Db.auditForCompany(f.db,f.b.id).filter(e=>e.action==='PAYMENT_REMINDER_CREATED').length,0);
 }));
 test('MFA krävs även för nya medlemmar utan tidigare roller',()=>run(async f=>{
   const user=Db.createUser(f.db,{username:'no.mfa',displayName:'No MFA test',passwordHash:Auth.hashPassword(f.PASSWORD)});
