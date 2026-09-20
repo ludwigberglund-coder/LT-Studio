@@ -17,6 +17,7 @@
     "preview:static": "node scripts/serve-static.js",
     "test": "node --test test/*.test.js",
     "test:browser:payables": "node test/payables-browser.test.cjs",
+    "test:browser:payments": "node test/payments-overview-browser.cjs",
     "content:check": "node scripts/validate-content.js",
     "build:static": "node scripts/build-static.js",
     "data:check": "node scripts/check-data.js",
