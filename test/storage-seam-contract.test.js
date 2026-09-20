@@ -40,8 +40,13 @@ test('binärt dokumentinnehåll går endast genom godkända lagringsgränser i r
     for(const hit of hits){
       assert.match(
         hit.line,
-        new RegExp(`^\\s*${allowedColumn}\\s+BLOB(?:\\s|,|$)`,'i'),
-        `${name}:${hit.index} får bara deklarera ${allowedColumn} i schema. Runtime-läsning/skrivning ska ligga i lagringsadaptern.`
+        new RegExp(`\\b${allowedColumn}\\s+BLOB\\b`,'i'),
+        `${name}:${hit.index} får bara deklarera ${allowedColumn} som BLOB-kolumn i schema.`
+      );
+      assert.doesNotMatch(
+        hit.line,
+        /\\b(?:SELECT|UPDATE|INSERT|DELETE)\\b/i,
+        `${name}:${hit.index} får inte läsa eller skriva ${allowedColumn} direkt i runtime-SQL; använd lagringsadaptern.`
       );
     }
   }
