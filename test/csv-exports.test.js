@@ -22,6 +22,7 @@ test('CSV export filtrerar period och neutraliserar Excel-formler',()=>{
     const result=Csv.buildExport(db,company.id,{dataset:'customer-invoices',from:'2026-07-01',to:'2026-09-30'});
     const csv=decode(result.bytes);
     assert.equal(result.count,1);
+    assert.equal(result.totalOre,125000);
     assert.match(csv,/1001/);
     assert.doesNotMatch(csv,/1002/);
     assert.match(csv,/'=HYPERLINK/);
@@ -71,8 +72,14 @@ test('HTTP-export kräver personlig session och returnerar endast valt företags
     assert.equal(response.status,200);
     assert.match(response.headers.get('content-type'),/text\/csv/);
     assert.equal(response.headers.get('x-export-row-count'),'1');
+    assert.equal(response.headers.get('x-export-total-ore'),'125000');
     const csv=await response.text();
     assert.match(csv,/A-SEP/);
     assert.doesNotMatch(csv,/A-OCT|B-SEP|B Kund/);
   }finally{await new Promise(resolve=>runtime.close(resolve))}
+});
+
+
+test('kravlistans ekonomiexporter finns som separata dataset',()=>{
+  for(const key of ['receivables','payables','customer-invoices','supplier-invoices','incoming-payments','outgoing-payments','payments','entries','account-transactions','vat-basis'])assert.ok(Csv.DEFINITIONS[key],key);
 });
