@@ -21,7 +21,7 @@ function writeBackup(dir,name='rollands-test.sqlite',ageMs=0,corruptChecksum=fal
 
 test('readiness kräver läsbar och skrivbar databas',()=>{
   const db=Db.openDatabase(':memory:');
-  try{const report=readinessReport({db,databasePath:':memory:',minFreeBytes:1});assert.equal(report.ok,true);assert.deepEqual(report.checks,{databaseRead:true,databaseWrite:true,diskSpace:true,backup:true,restoreDrill:true});}
+  try{const report=readinessReport({db,databasePath:':memory:',minFreeBytes:1});assert.equal(report.ok,true);assert.deepEqual(report.checks,{databaseRead:true,databaseWrite:true,diskSpace:true,backup:true,restoreDrill:true,monitoring:true});}
   finally{db.close()}
 });
 
