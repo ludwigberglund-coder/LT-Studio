@@ -7,6 +7,7 @@ const {DatabaseSync}=require('node:sqlite');
 const {inspectTenantRelations}=require('../apps/api/tenant-integrity.js');
 const {validateLines}=require('../apps/api/accounting-store.js');
 const {magicMatches}=require('../apps/api/documents.js');
+const {decryptFile,isEncryptedBackup,validatePassphrase}=require('./backup-crypto.js');
 
 function required(name){const value=String(process.env[name]||'').trim();if(!value)throw new Error(`${name} must be supplied.`);return value}
 function sha256(filename){return crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex')}
@@ -57,7 +58,7 @@ function verifyDatabase(filename){
     return {sqliteIntegrity:true,foreignKeys:true,tenantRelations:tenants.checkedRelations,journalEntries,archivedDocuments};
   }finally{db.close()}
 }
-function main(){
+async function main(){
   const source=path.resolve(required('ROLLANDS_RESTORE_SOURCE'));
   const target=path.resolve(required('ROLLANDS_RESTORE_TARGET'));
   const production=process.env.ROLLANDS_DATABASE_PATH?path.resolve(process.env.ROLLANDS_DATABASE_PATH):'';
@@ -68,8 +69,30 @@ function main(){
   if(!fs.existsSync(checksumFile))throw new Error('RESTORE_CHECKSUM_REQUIRED: backup checksum file is missing.');
   const expected=fs.readFileSync(checksumFile,'utf8').trim().split(/\s+/)[0];
   if(!/^[a-f0-9]{64}$/i.test(expected)||expected.toLowerCase()!==sha256(source))throw new Error('RESTORE_CHECKSUM_FAILED: backup checksum does not match.');
-  verifyDatabase(source);
+
   fs.mkdirSync(path.dirname(target),{recursive:true,mode:0o700});
+  const encrypted=isEncryptedBackup(source);
+  if(encrypted){
+    const encryptionKey=validatePassphrase(required('ROLLANDS_BACKUP_ENCRYPTION_KEY'));
+    const temporary=path.join(path.dirname(target),`.rollands-restore-${crypto.randomUUID()}.sqlite`);
+    try{
+      await decryptFile(source,temporary,encryptionKey);
+      verifyDatabase(temporary);
+      fs.chmodSync(temporary,0o600);
+      fs.renameSync(temporary,target);
+      const verified=verifyDatabase(target);
+      console.log(JSON.stringify({verified:true,target,encryptedSource:true,sourceSha256:expected.toLowerCase(),restoredSha256:sha256(target),...verified}));
+      console.log('Encrypted backup authenticated, decrypted and verified as a separate test copy. Production was not replaced. Offsite retention, monitoring and live recovery still need verification.');
+      return;
+    }catch(error){
+      fs.rmSync(temporary,{force:true});
+      fs.rmSync(target,{force:true});
+      if(error.code==='BACKUP_DECRYPTION_FAILED'||error.code==='BACKUP_ENCRYPTION_KEY_INVALID')throw new Error(`RESTORE_DECRYPT_FAILED: ${error.message}`);
+      throw error;
+    }
+  }
+
+  verifyDatabase(source);
   fs.copyFileSync(source,target,fs.constants.COPYFILE_EXCL);
   let verified;
   try{
@@ -77,8 +100,8 @@ function main(){
     if(sha256(target)!==expected.toLowerCase())throw new Error('RESTORE_COPY_FAILED: source changed during copy.');
     verified=verifyDatabase(target);
   }catch(error){fs.rmSync(target,{force:true});throw error}
-  console.log(JSON.stringify({verified:true,target,sha256:expected.toLowerCase(),...verified}));
+  console.log(JSON.stringify({verified:true,target,encryptedSource:false,sha256:expected.toLowerCase(),...verified}));
   console.log('Separate test copy verified. Production was not replaced. Offsite storage, all business rules and live recovery still need verification.');
 }
-if(require.main===module){try{main()}catch(error){console.error(error.message);process.exitCode=1}}
+if(require.main===module){main().catch(error=>{console.error(error.message);process.exitCode=1})}
 module.exports={main,sha256,verifyDatabase};
