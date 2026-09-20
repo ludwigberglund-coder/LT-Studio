@@ -46,8 +46,10 @@ async function close(server){if(server?.listening)await new Promise(r=>server.cl
     await page.locator('[data-field="account"]').fill('1930');
     await page.locator('[data-field="sort"]').selectOption('amount');
     await page.locator('[data-field="order"]').selectOption('desc');
+    const responsePromise=page.waitForResponse(response=>response.url().includes('/api/v1/reports/payments-overview')&&response.url().includes('query=Leverant%C3%B6r%20Beta')&&response.url().includes('account=1930')&&response.status()===200);
     await page.getByRole('button',{name:'Uppdatera'}).click();
-    await page.getByText('Leverantör Beta',{exact:true}).waitFor();
+    await responsePromise;
+    await page.locator('tbody tr').filter({hasText:'Leverantör Beta'}).waitFor();
     assert.equal(await page.getByText('Kund Alpha',{exact:true}).count(),0);
     assert.match(await page.locator('.report-summary').innerText(),/125,00|125\.00/);
     assert.equal(await page.locator('tbody tr').count(),1);
