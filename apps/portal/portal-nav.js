@@ -57,13 +57,13 @@
   function href(path){const u=new URL(path,base);if(demo&&path!=='./')u.searchParams.set('demo','1');return u.href;}
   const normalizePath=path=>path.replace(/\/index\.html$/,'/');
   function active(path){const u=new URL(path,base);return normalizePath(u.pathname)===normalizePath(location.pathname)&&(!u.hash||u.hash===(location.hash||'#/overview'));}
-  async function navigationGroups(){
-    if(demo)return groups;
+  async function navigationContext(){
+    if(demo)return{groups,session:null};
     try{
       const response=await fetch('/api/v1/session',{credentials:'same-origin',cache:'no-store'});
       const session=response.ok?await response.json():null;
-      return visibleGroups({authenticated:session?.authenticated===true});
-    }catch{return []}
+      return{groups:visibleGroups({authenticated:session?.authenticated===true}),session};
+    }catch{return{groups:[],session:null}}
   }
   async function mount(){
     const sidebar=document.querySelector('.sidebar');if(!sidebar)return;
@@ -73,10 +73,12 @@
     sidebar.setAttribute('aria-label','Huvudmeny');sidebar.dataset.sharedRoute=route;
     const saved=read();
     const brand=document.createElement('a');brand.className='shared-brand';brand.href=href('portal/dashboard.html');
-    brand.innerHTML='<strong>Rollands</strong><small>EKONOMI & VERKSAMHET</small>';
-    const info=document.createElement('p');info.className='shared-company';info.textContent=demo?'Demoföretag · fiktiv data':'Företagsportal · skyddade åtgärder kräver behörighet';
+    const companyName=demo?'Rollands':String(context.session?.company?.name||'Företaget');
+    const brandName=document.createElement('strong');brandName.textContent=companyName;
+    const brandPlatform=document.createElement('small');brandPlatform.textContent='LT STUDIO';brand.append(brandName,brandPlatform);
+    const info=document.createElement('p');info.className='shared-company';info.textContent=demo?'Demoföretag · fiktiv data':companyName+' · skyddad företagsportal';
     const nav=document.createElement('nav');nav.className='shared-navigation';nav.setAttribute('aria-label','Systemets alla verktyg');
-    const allowedGroups=await navigationGroups();
+    const context=await navigationContext();const allowedGroups=context.groups;
     for(const group of allowedGroups){
       const details=document.createElement('details');details.dataset.navGroup=group.id;
       details.open=group.items.some(item=>active(item[2]))||saved[group.id]!==false;
