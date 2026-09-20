@@ -33,7 +33,7 @@ Senast granskad: 2026-09-20. Företag: Rolands Frukt o Grönt Aktiebolag, 556406
 | Miljöspärr och separation demo/pilot/produktion | 🟡 Delvis klar | PR 67: bindande startkontroll, privata lagringssökvägar, servernekat demo-query och inga demo-/legacyhjälpfiler. Granskning av befintliga data och verklig drift återstår. |
 | Betalningsöversikt dag/vecka/månad/kvartal | 🟡 Delvis klar | Delvyer finns; en konsekvent filtrerad privat översikt ska sluttestas. |
 | Filtrerad Excel-kompatibel export | ❌ Inte klar | Fullständighet, samma filter som vyn och formelinjektionsskydd återstår att verifiera. |
-| Arbetslista och begriplig återkoppling | 🟡 Delvis klar | Flera vyer finns; godkänd får inte kallas bokförd, fel får inte döljas som nollvärden. |
+| Arbetslista och begriplig återkoppling | 🟡 Delvis klar | PR 99 gör huvudöversikten till en faktisk arbetslista byggd från kundreskontra, leverantörsfakturor, bank, automation, leverantörsändringar, lager och periodupplåsningar. API-fel visas som ofullständig arbetslista i stället för falska nollvärden. Modulkatalogen ligger kvar sekundärt. Full UAT av direktlänkar och statusmeddelanden återstår. |
 | Obligatoriska releasekontroller och rollback | 🟡 Delvis klar | CI finns; branch/ruleset, produktionsflöde och databasrollback behöver driftsbevis. |
 | Rolands nio UAT-scenarier mot pilotserver | ❌ Inte klar | Befintliga demo- och kodtester ersätter inte ett signerat pilot-UAT. |
 | K2/K3, momsperiod och bolagsspecifika inställningar | ❌ Inte klar | Målinställningar finns; faktisk årsredovisning och registrerad redovisningsperiod ska styrkas. |
@@ -56,3 +56,8 @@ Bas: `3c69c0266b1e3be0b052c708826561e732876c66`. Ett regressionstest reproducera
 ## Ny användarmodell 2026-09-20
 
 Rollfält och rolltilldelning har ersatts med personligt företagsmedlemskap. MFA krävs för alla. De automatiska medlemskaps- och migrationsproven finns i `company-membership-http.test.js`, `membership-migration.test.js` och `access-control.test.js`. Se [migration, kontroller och begränsningar](ACCESS-CONTROL.md). Full CI måste passera före merge. Den fullständiga IDOR-matrisen och faktisk pilot-UAT är fortsatt delvis/inte klara; inga sådana rader markeras gröna av detta arbete.
+
+
+## Verifierad uppföljning 2026-09-20 – arbetslista
+
+PR 99 rättar först ett konkret dashboardfel där den privata översikten anropade den icke-existerande `/receivables/invoices` i stället för `/receivables`, samtidigt som felet tidigare doldes av tom `catch`. Dashboarden läser nu faktiska privata köer för kundreskontra, leverantörsfakturor, bankmatchning, automationsgranskning, leverantörsändringar, lagerjusteringar och periodupplåsningar. Förfallna kundfakturor och belopp beräknas från verklig reskontradata. Om någon kö inte kan läsas visas en tydlig varning och nollvärdet får inte tolkas som att arbetet är klart. Konkreta uppgifter visas före den sekundära modulkatalogen. **NO-GO kvarstår tills UAT och övriga blockerare är stängda.**
