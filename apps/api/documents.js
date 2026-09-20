@@ -1,8 +1,9 @@
 'use strict';
 
 const crypto=require('node:crypto');
-const ContentStore=require('./document-content-store.js');
 const PrivateObject=require('./private-object-contract.js');
+const StoreContract=require('./private-object-store-contract.js');
+const DocumentProvider=require('./sqlite-document-private-object-provider.js');
 
 function documentError(message,code='DOCUMENT_ERROR',statusCode=422){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
 function id(prefix){return `${prefix}_${crypto.randomUUID()}`}
@@ -57,11 +58,23 @@ function storeContent(db,{companyId,documentId,bytes}){
   const sha256=crypto.createHash('sha256').update(bytes).digest('hex');
   const duplicate=db.prepare(`SELECT id,title FROM documents WHERE company_id=? AND sha256=? AND id<>?`).get(companyId,sha256,documentId);
   if(duplicate)throw documentError(`Samma originalfil finns redan i dokumentarkivet (${duplicate.title}).`,'DUPLICATE_DOCUMENT',409);
-  const completedAt=nowIso(),store=ContentStore.createSqliteDocumentContentStore(db);
+  const completedAt=nowIso();
+  const metadata=PrivateObject.createPrivateObjectMetadata({
+    companyId,
+    kind:PrivateObject.PRIVATE_OBJECT_KINDS.DOCUMENT,
+    objectId:documentId,
+    mimeType:doc.mimeType,
+    sizeBytes:bytes.length,
+    sha256,
+    createdAt:completedAt
+  });
+  const store=StoreContract.createContractedPrivateObjectStore(
+    DocumentProvider.createSqliteDocumentPrivateObjectProvider(db)
+  );
   const savepoint=`document_content_${crypto.randomBytes(8).toString('hex')}`;
   db.exec(`SAVEPOINT ${savepoint}`);
   try{
-    if(!store.put({companyId,documentId,bytes}))throw documentError('Dokumentinnehållet kunde inte lagras.','DOCUMENT_STORE_FAILED',409);
+    if(!store.put({metadata,bytes}))throw documentError('Dokumentinnehållet kunde inte lagras.','DOCUMENT_STORE_FAILED',409);
     const result=db.prepare(`UPDATE documents SET sha256=?,size_bytes=?,status='ready',completed_at=? WHERE company_id=? AND id=? AND status='pending'`).run(sha256,bytes.length,completedAt,companyId,documentId);
     if(result.changes!==1)throw documentError('Dokumentets metadata kunde inte färdigställas.','DOCUMENT_STORE_FAILED',409);
     db.exec(`RELEASE SAVEPOINT ${savepoint}`);
@@ -78,7 +91,12 @@ function documentById(db,companyId,documentId){const row=db.prepare(`SELECT id,c
 function verifyContent(row){if(!row||row.status!=='ready'||!row.bytes)throw documentError('Dokumentinnehållet hittades inte.','DOCUMENT_CONTENT_NOT_FOUND',404);const bytes=Buffer.from(row.bytes);const expected=text(row.sha256).toLowerCase();const actual=crypto.createHash('sha256').update(bytes).digest('hex');if(!/^[a-f0-9]{64}$/.test(expected)||!Number.isSafeInteger(Number(row.sizeBytes))||Number(row.sizeBytes)!==bytes.length||expected!==actual||!magicMatches(row.mimeType,bytes))throw documentError('Dokumentets integritetskontroll misslyckades.','DOCUMENT_INTEGRITY_ERROR',409);return{...row,bytes}}
 function content(db,companyId,documentId){
   const row=db.prepare(`SELECT file_name AS fileName,mime_type AS mimeType,sha256,size_bytes AS sizeBytes,status FROM documents WHERE company_id=? AND id=?`).get(companyId,documentId);
-  if(row)row.bytes=ContentStore.createSqliteDocumentContentStore(db).get({companyId,documentId});
+  if(row){
+    const store=StoreContract.createContractedPrivateObjectStore(
+      DocumentProvider.createSqliteDocumentPrivateObjectProvider(db)
+    );
+    row.bytes=store.get({companyId,kind:PrivateObject.PRIVATE_OBJECT_KINDS.DOCUMENT,objectId:documentId});
+  }
   return verifyContent(row);
 }
 function privateObjectMetadata(db,companyId,documentId){
