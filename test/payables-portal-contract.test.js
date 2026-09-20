@@ -38,3 +38,10 @@ test('leverantörsfakturasidan versionsmärker huvudskriptet för att undvika ga
   const html=fs.readFileSync(htmlPath,'utf8');
   assert.match(html,/src="\.\/payables\.js\?v=20260920-2"/);
 });
+
+test('leverantörsfakturalistan visar fakturadatum och förfallodatum sida vid sida',()=>{
+  const source=fs.readFileSync(payablesPath,'utf8');
+  assert.match(source,/<th>Fakturadatum<\/th><th>Förfallodatum<\/th>/);
+  assert.match(source,/\$\{esc\(invoice\.invoiceDate\)\}<\/td><td>\$\{esc\(invoice\.dueDate\)\}/);
+  assert.match(source,/colspan="6" class="empty">Inga fakturor matchar filtret\./);
+});
