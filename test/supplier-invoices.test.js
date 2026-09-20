@@ -6,6 +6,7 @@ const Domain=require('../packages/payables/supplier-invoices.js');
 const Db=require('../apps/api/database.js');
 const Auth=require('../apps/api/auth.js');
 const Payables=require('../apps/api/payables.js');
+const SupplierDocumentStore=require('../apps/api/supplier-invoice-document-store.js');
 const SupplierAccounting=require('../apps/api/supplier-accounting.js');
 
 function seed(){const db=Db.openDatabase(':memory:');Payables.initializePayables(db);SupplierAccounting.initializeSupplierAccounting(db);const company=Db.createCompany(db,{legalName:'Testbolag AB',displayName:'Testbolag',orgNumber:'559900-0001'});const passwordHash=Auth.hashPassword('Sakert testlosenord 2026!');const registrar=Db.createUser(db,{username:'registrar',displayName:'Registrerare',passwordHash});const approver=Db.createUser(db,{username:'approver',displayName:'Attestant',passwordHash});const accountant=Db.createUser(db,{username:'accountant',displayName:'Ekonom',passwordHash});const supplier=Payables.createSupplier(db,{companyId:company.id,supplierNumber:'L-100',name:'Grön Grossist AB',bankgiro:'555-1234',defaultCostAccount:'4010'});const invoice=Payables.createSupplierInvoice(db,{companyId:company.id,supplierId:supplier.id,supplierInvoiceNumber:'GG-4401',invoiceDate:'2026-09-10',dueDate:'2026-10-10',totalOre:125000,vatOre:25000,registeredBy:registrar.id});return{db,company,registrar,approver,accountant,supplier,invoice}}
@@ -27,3 +28,19 @@ test('ogiltig fil, datum, dubblett och felaktigt standardkonto stoppas vid regis
 test('fakturanummer jämförs normaliserat för samma leverantör',()=>{const {db,company,registrar,supplier}=seed();try{assert.equal(Payables.normalizeInvoiceNumber(' gg 44-01 '),'GG4401');assert.throws(()=>Payables.createSupplierInvoice(db,{companyId:company.id,supplierId:supplier.id,supplierInvoiceNumber:'gg 44 01',invoiceDate:'2026-09-11',dueDate:'2026-10-11',totalOre:125000,vatOre:25000,registeredBy:registrar.id}),e=>e.code==='DUPLICATE_SUPPLIER_INVOICE'&&Boolean(e.details?.existingInvoiceId));}finally{db.close()}});
 test('samma PDF kan inte kopplas till två fakturor i samma företag',()=>{const {db,company,registrar,supplier,invoice}=seed();try{const bytes=pdf('unik faktura');Payables.storeDocument(db,{companyId:company.id,invoiceId:invoice.id,name:'ett.pdf',bytes});const second=Payables.createSupplierInvoice(db,{companyId:company.id,supplierId:supplier.id,supplierInvoiceNumber:'GG-4402',invoiceDate:'2026-09-11',dueDate:'2026-10-11',totalOre:125000,vatOre:25000,registeredBy:registrar.id});assert.throws(()=>Payables.storeDocument(db,{companyId:company.id,invoiceId:second.id,name:'två.pdf',bytes}),e=>e.code==='DUPLICATE_SUPPLIER_DOCUMENT'&&e.statusCode===409&&Boolean(e.details?.existingInvoiceId));Payables.storeDocument(db,{companyId:company.id,invoiceId:second.id,name:'två.pdf',bytes:pdf('annan faktura')});assert.equal(Payables.invoiceById(db,company.id,second.id).hasDocument,true);}finally{db.close()}});
 test('dagens utbetalningar summeras per status',()=>{const payments=[{paymentDate:'2026-09-16',amountOre:10000,status:'prepared'},{paymentDate:'2026-09-16',amountOre:20000,status:'released'},{paymentDate:'2026-09-16',amountOre:30000,status:'paid'},{paymentDate:'2026-09-17',amountOre:90000,status:'prepared'}];const summary=Domain.paymentSummary(payments,'2026-09-16');assert.equal(summary.count,3);assert.equal(summary.totalOre,60000);assert.equal(summary.byStatus.prepared,10000);assert.equal(summary.byStatus.released,20000);assert.equal(summary.byStatus.paid,30000);});
+
+
+test('intern leverantörs-PDF-lagring är företagsskopad och låst efter attest',()=>{const {db,company,approver,invoice}=seed();try{
+  const other=Db.createCompany(db,{legalName:'Andra Leverantörsbolaget AB',displayName:'Andra',orgNumber:'559901-2002'});
+  const store=SupplierDocumentStore.createSqliteSupplierInvoiceDocumentStore(db),bytes=pdf('storage-seam');
+  assert.equal(store.put({companyId:other.id,invoiceId:invoice.id,bytes}),false);
+  assert.equal(store.exists({companyId:other.id,invoiceId:invoice.id}),false);
+  assert.equal(store.get({companyId:other.id,invoiceId:invoice.id}),null);
+  Payables.storeDocument(db,{companyId:company.id,invoiceId:invoice.id,name:'storage.pdf',bytes});
+  assert.equal(store.exists({companyId:company.id,invoiceId:invoice.id}),true);
+  assert.deepEqual(store.get({companyId:company.id,invoiceId:invoice.id}),bytes);
+  Payables.saveCoding(db,{companyId:company.id,invoiceId:invoice.id,lines:Domain.buildCoding({totalOre:125000,vatOre:25000}).lines});
+  approveCurrent(db,company.id,invoice.id,approver.id);
+  assert.equal(store.put({companyId:company.id,invoiceId:invoice.id,bytes:pdf('replacement')}),false);
+  assert.deepEqual(Payables.document(db,company.id,invoice.id).bytes,bytes);
+}finally{db.close()}});
