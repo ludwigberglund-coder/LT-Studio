@@ -2,8 +2,9 @@
 
 const crypto=require('node:crypto');
 const Domain=require('../../packages/payables/supplier-invoices.js');
-const SupplierDocumentStore=require('./supplier-invoice-document-store.js');
 const PrivateObject=require('./private-object-contract.js');
+const StoreContract=require('./private-object-store-contract.js');
+const SupplierProvider=require('./sqlite-supplier-invoice-private-object-provider.js');
 
 function err(message,code='PAYABLES_ERROR',statusCode=422,details){const e=new Error(message);e.code=code;e.statusCode=statusCode;if(details)e.details=details;return e}
 function id(prefix){return `${prefix}_${crypto.randomUUID()}`}
@@ -82,11 +83,23 @@ function storeDocument(db,{companyId,invoiceId,name,mime='application/pdf',bytes
   const sha=crypto.createHash('sha256').update(bytes).digest('hex');
   const duplicate=duplicateDocument(db,companyId,sha,invoiceId);
   if(duplicate)throw err(`Samma PDF-underlag används redan på faktura ${duplicate.supplierInvoiceNumber}.`,'DUPLICATE_SUPPLIER_DOCUMENT',409,{existingInvoiceId:duplicate.id});
-  const store=SupplierDocumentStore.createSqliteSupplierInvoiceDocumentStore(db),updatedAt=nowIso();
+  const updatedAt=nowIso();
+  const metadata=PrivateObject.createPrivateObjectMetadata({
+    companyId,
+    kind:PrivateObject.PRIVATE_OBJECT_KINDS.SUPPLIER_INVOICE,
+    objectId:invoiceId,
+    mimeType:mime,
+    sizeBytes:bytes.length,
+    sha256:sha,
+    createdAt:invoice.createdAt
+  });
+  const store=StoreContract.createContractedPrivateObjectStore(
+    SupplierProvider.createSqliteSupplierInvoicePrivateObjectProvider(db)
+  );
   const savepoint=`supplier_pdf_${crypto.randomBytes(8).toString('hex')}`;
   db.exec(`SAVEPOINT ${savepoint}`);
   try{
-    if(!store.put({companyId,invoiceId,bytes}))throw err('PDF-underlaget kunde inte lagras.','DOCUMENT_STORE_FAILED',409);
+    if(!store.put({metadata,bytes}))throw err('PDF-underlaget kunde inte lagras.','DOCUMENT_STORE_FAILED',409);
     const result=db.prepare(`UPDATE supplier_invoices
       SET document_name=?,document_mime=?,document_sha256=?,updated_at=?
       WHERE company_id=? AND id=? AND status IN ('registered','coding-review','coded')`).run(text(name)||'leverantorsfaktura.pdf',mime,sha,updatedAt,companyId,invoiceId);
@@ -101,7 +114,12 @@ function storeDocument(db,{companyId,invoiceId,name,mime='application/pdf',bytes
 }
 function document(db,companyId,invoiceId){
   const row=db.prepare(`SELECT document_name AS name,document_mime AS mime,document_sha256 AS sha256 FROM supplier_invoices WHERE company_id=? AND id=?`).get(companyId,invoiceId);
-  if(row)row.bytes=SupplierDocumentStore.createSqliteSupplierInvoiceDocumentStore(db).get({companyId,invoiceId});
+  if(row){
+    const store=StoreContract.createContractedPrivateObjectStore(
+      SupplierProvider.createSqliteSupplierInvoicePrivateObjectProvider(db)
+    );
+    row.bytes=store.get({companyId,kind:PrivateObject.PRIVATE_OBJECT_KINDS.SUPPLIER_INVOICE,objectId:invoiceId});
+  }
   if(!row||!row.bytes)throw err('PDF-underlaget hittades inte.','DOCUMENT_NOT_FOUND',404);
   const actual=crypto.createHash('sha256').update(row.bytes).digest('hex');
   if(row.mime!=='application/pdf'||actual!==row.sha256){
