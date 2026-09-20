@@ -411,3 +411,10 @@ I pilot/produktion kräver `/api/v1/readiness` ett giltigt `ROLLANDS_RESTORE_DRI
 ## Extern monitorering och larmbevis
 
 I pilot/produktion kräver `/api/v1/readiness` ett privat JSON-bevis i `ROLLANDS_MONITORING_EVIDENCE_PATH`. Beviset ska komma från den verkliga externa monitoreringen och ange `provider`, en publik `https://.../api/v1/readiness`-endpoint, `alertRoute`, `checkedAt`, `alertTestedAt`, `readinessProbeSucceeded: true` och `alertDeliverySucceeded: true`. Localhost/loopback räknas inte som externt bevis. Både senaste lyckade readiness-probe och senaste verifierade larmleverans måste vara högst sju dagar gamla. GitHub innehåller inte något förifyllt grönt bevis; filen ska skapas privat först efter ett verkligt monitor-/larmtest.
+
+
+## Rotation av MFA-krypteringens master-nyckel
+
+`ROLLANDS_AUTH_ENCRYPTION_KEY` kan roteras kontrollerat med `npm run platform:rotate-auth-key -- --apply`. Sätt den nuvarande nyckeln i `ROLLANDS_AUTH_ENCRYPTION_KEY` och den nya i `ROLLANDS_NEW_AUTH_ENCRYPTION_KEY`. Verktyget dekrypterar först samtliga befintliga MFA-hemligheter med den gamla nyckeln innan någon databasändring görs. Om en enda post inte kan dekrypteras avbryts allt. Vid lyckad rotation omkrypteras samtliga berörda MFA-hemligheter atomiskt, deras sessioner återkallas, använda TOTP-steg rensas och audit skrivs per företagsmedlemskap. Nyckelvärden skrivs inte till loggen.
+
+Ta och verifiera backup före rotation. Äldre backupkopior som skapades före rotationen innehåller MFA-hemligheter krypterade med den gamla nyckeln. Den gamla nyckeln måste därför förvaras säkert så länge sådana backuper kan behöva återställas, eller hanteras enligt en dokumenterad backup-/nyckelrotationspolicy. Byt secret manager till den nya nyckeln först efter lyckad databasrotation och genomför därefter en kontrollerad personlig MFA-inloggning.
