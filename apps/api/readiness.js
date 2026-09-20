@@ -7,6 +7,7 @@ const crypto=require('node:crypto');
 const DEFAULT_MIN_FREE_BYTES=256*1024*1024;
 const DEFAULT_BACKUP_MAX_AGE_MS=26*60*60*1000;
 const DEFAULT_RESTORE_DRILL_MAX_AGE_MS=30*24*60*60*1000;
+const DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS=7*24*60*60*1000;
 
 function sha256File(filename){return crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex')}
 function latestBackup(backupPath){
@@ -46,7 +47,24 @@ function restoreDrillEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_RESTORE_
     return{ok:ageMs<=maxAgeMs,ageMs};
   }catch{return{ok:false,ageMs:null}}
 }
-function readinessReport({db,databasePath=':memory:',backupPath='',restoreEvidencePath='',now=Date.now(),minFreeBytes=DEFAULT_MIN_FREE_BYTES,backupMaxAgeMs=DEFAULT_BACKUP_MAX_AGE_MS,restoreDrillMaxAgeMs=DEFAULT_RESTORE_DRILL_MAX_AGE_MS,requireBackup=false,requireRestoreEvidence=false}){
+function monitoringEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS}={}){
+  try{
+    if(!filename||!fs.existsSync(filename)||!fs.statSync(filename).isFile())return{ok:false,ageMs:null,alertAgeMs:null};
+    const value=JSON.parse(fs.readFileSync(filename,'utf8'));
+    if(value.schemaVersion!==1||value.readinessProbeSucceeded!==true||value.alertDeliverySucceeded!==true)return{ok:false,ageMs:null,alertAgeMs:null};
+    const provider=String(value.provider||'').trim(),endpoint=String(value.endpoint||'').trim(),alertRoute=String(value.alertRoute||'').trim();
+    if(provider.length<2||alertRoute.length<3)return{ok:false,ageMs:null,alertAgeMs:null};
+    let parsed;try{parsed=new URL(endpoint)}catch{return{ok:false,ageMs:null,alertAgeMs:null}}
+    if(parsed.protocol!=='https:'||parsed.hostname==='localhost'||parsed.hostname==='127.0.0.1'||parsed.hostname==='::1')return{ok:false,ageMs:null,alertAgeMs:null};
+    if(!parsed.pathname.endsWith('/api/v1/readiness'))return{ok:false,ageMs:null,alertAgeMs:null};
+    const checkedAt=Date.parse(String(value.checkedAt||'')),alertTestedAt=Date.parse(String(value.alertTestedAt||''));
+    if(!Number.isFinite(checkedAt)||!Number.isFinite(alertTestedAt)||checkedAt>now+5*60*1000||alertTestedAt>now+5*60*1000)return{ok:false,ageMs:null,alertAgeMs:null};
+    const ageMs=Math.max(0,now-checkedAt),alertAgeMs=Math.max(0,now-alertTestedAt);
+    return{ok:ageMs<=maxAgeMs&&alertAgeMs<=maxAgeMs,ageMs,alertAgeMs};
+  }catch{return{ok:false,ageMs:null,alertAgeMs:null}}
+}
+
+function readinessReport({db,databasePath=':memory:',backupPath='',restoreEvidencePath='',monitoringEvidencePath='',now=Date.now(),minFreeBytes=DEFAULT_MIN_FREE_BYTES,backupMaxAgeMs=DEFAULT_BACKUP_MAX_AGE_MS,restoreDrillMaxAgeMs=DEFAULT_RESTORE_DRILL_MAX_AGE_MS,monitoringEvidenceMaxAgeMs=DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,requireBackup=false,requireRestoreEvidence=false,requireMonitoringEvidence=false}){
   const databaseRead=databaseReadOk(db);
   const databaseWrite=databaseWriteOk(db);
   let freeBytes=0,diskSpace=true;
@@ -62,6 +80,11 @@ function readinessReport({db,databasePath=':memory:',backupPath='',restoreEviden
     const evidence=restoreDrillEvidence(restoreEvidencePath,{now,maxAgeMs:restoreDrillMaxAgeMs});
     restoreDrill=evidence.ok;restoreDrillAgeMs=evidence.ageMs;
   }
-  return Object.freeze({ok:databaseRead&&databaseWrite&&diskSpace&&backup&&restoreDrill,checks:{databaseRead,databaseWrite,diskSpace,backup,restoreDrill},freeBytes:Number.isFinite(freeBytes)?freeBytes:null,backupAgeMs,restoreDrillAgeMs});
+  let monitoring=true,monitoringAgeMs=null,alertAgeMs=null;
+  if(requireMonitoringEvidence){
+    const evidence=monitoringEvidence(monitoringEvidencePath,{now,maxAgeMs:monitoringEvidenceMaxAgeMs});
+    monitoring=evidence.ok;monitoringAgeMs=evidence.ageMs;alertAgeMs=evidence.alertAgeMs;
+  }
+  return Object.freeze({ok:databaseRead&&databaseWrite&&diskSpace&&backup&&restoreDrill&&monitoring,checks:{databaseRead,databaseWrite,diskSpace,backup,restoreDrill,monitoring},freeBytes:Number.isFinite(freeBytes)?freeBytes:null,backupAgeMs,restoreDrillAgeMs,monitoringAgeMs,alertAgeMs});
 }
-module.exports=Object.freeze({DEFAULT_MIN_FREE_BYTES,DEFAULT_BACKUP_MAX_AGE_MS,DEFAULT_RESTORE_DRILL_MAX_AGE_MS,latestBackup,verifyBackup,diskFreeBytes,databaseReadOk,databaseWriteOk,restoreDrillEvidence,readinessReport});
+module.exports=Object.freeze({DEFAULT_MIN_FREE_BYTES,DEFAULT_BACKUP_MAX_AGE_MS,DEFAULT_RESTORE_DRILL_MAX_AGE_MS,DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,latestBackup,verifyBackup,diskFreeBytes,databaseReadOk,databaseWriteOk,restoreDrillEvidence,monitoringEvidence,readinessReport});

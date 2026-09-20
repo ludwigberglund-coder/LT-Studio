@@ -406,3 +406,8 @@ Sätt `ROLLANDS_RESTORE_DRILL_PATH` och `ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH` t
 ### Readiness efter restore drill
 
 I pilot/produktion kräver `/api/v1/readiness` ett giltigt `ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH`. Evidens äldre än 30 dagar, saknat evidens eller ett bevis som inte visar lyckad SQLite/foreign-key-kontroll och borttagen testkopia gör readiness röd (`503`). Detta stoppar inte serverprocessen från att starta för felsökning, men den ska inte betraktas som redo för trafik förrän en ny lyckad restore-övning har körts.
+
+
+## Extern monitorering och larmbevis
+
+I pilot/produktion kräver `/api/v1/readiness` ett privat JSON-bevis i `ROLLANDS_MONITORING_EVIDENCE_PATH`. Beviset ska komma från den verkliga externa monitoreringen och ange `provider`, en publik `https://.../api/v1/readiness`-endpoint, `alertRoute`, `checkedAt`, `alertTestedAt`, `readinessProbeSucceeded: true` och `alertDeliverySucceeded: true`. Localhost/loopback räknas inte som externt bevis. Både senaste lyckade readiness-probe och senaste verifierade larmleverans måste vara högst sju dagar gamla. GitHub innehåller inte något förifyllt grönt bevis; filen ska skapas privat först efter ett verkligt monitor-/larmtest.
