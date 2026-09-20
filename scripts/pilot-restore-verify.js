@@ -7,6 +7,7 @@ const {DatabaseSync}=require('node:sqlite');
 const {inspectTenantRelations}=require('../apps/api/tenant-integrity.js');
 const {validateLines}=require('../apps/api/accounting-store.js');
 const {magicMatches}=require('../apps/api/documents.js');
+const BackupCrypto=require('./backup-crypto.js');
 
 function required(name){const value=String(process.env[name]||'').trim();if(!value)throw new Error(`${name} must be supplied.`);return value}
 function sha256(filename){return crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex')}
@@ -68,16 +69,26 @@ function main(){
   if(!fs.existsSync(checksumFile))throw new Error('RESTORE_CHECKSUM_REQUIRED: backup checksum file is missing.');
   const expected=fs.readFileSync(checksumFile,'utf8').trim().split(/\s+/)[0];
   if(!/^[a-f0-9]{64}$/i.test(expected)||expected.toLowerCase()!==sha256(source))throw new Error('RESTORE_CHECKSUM_FAILED: backup checksum does not match.');
-  verifyDatabase(source);
   fs.mkdirSync(path.dirname(target),{recursive:true,mode:0o700});
-  fs.copyFileSync(source,target,fs.constants.COPYFILE_EXCL);
+  const encrypted=source.endsWith('.enc');
+  const working=encrypted?`${target}.decrypting-${crypto.randomUUID()}`:source;
   let verified;
   try{
-    fs.chmodSync(target,0o600);
-    if(sha256(target)!==expected.toLowerCase())throw new Error('RESTORE_COPY_FAILED: source changed during copy.');
-    verified=verifyDatabase(target);
-  }catch(error){fs.rmSync(target,{force:true});throw error}
-  console.log(JSON.stringify({verified:true,target,sha256:expected.toLowerCase(),...verified}));
+    if(encrypted){
+      const key=required('ROLLANDS_BACKUP_ENCRYPTION_KEY');
+      BackupCrypto.decryptFile(source,working,key);
+      fs.chmodSync(working,0o600);
+      verified=verifyDatabase(working);
+      fs.renameSync(working,target);
+    }else{
+      verifyDatabase(source);
+      fs.copyFileSync(source,target,fs.constants.COPYFILE_EXCL);
+      fs.chmodSync(target,0o600);
+      if(sha256(target)!==expected.toLowerCase())throw new Error('RESTORE_COPY_FAILED: source changed during copy.');
+      verified=verifyDatabase(target);
+    }
+  }catch(error){fs.rmSync(working,{force:true});fs.rmSync(target,{force:true});throw error}
+  console.log(JSON.stringify({verified:true,target,sourceEncrypted:encrypted,sha256:sha256(target),...verified}));
   console.log('Separate test copy verified. Production was not replaced. Offsite storage, all business rules and live recovery still need verification.');
 }
 if(require.main===module){try{main()}catch(error){console.error(error.message);process.exitCode=1}}
