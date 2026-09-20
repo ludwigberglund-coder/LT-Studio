@@ -7,6 +7,7 @@ const Invoice=require('../../packages/invoicing/invoice.js');
 const InvoiceSettings=require('./company-invoice-settings.js');
 const Pdf=require('../../packages/invoicing/pdf.js');
 const PdfArchiveStore=require('./customer-invoice-pdf-archive-store.js');
+const PrivateObject=require('./private-object-contract.js');
 const {protectAppendOnly}=require('./history-guards.js');
 
 function invoiceError(message,code='CUSTOMER_INVOICE_ERROR',statusCode=422){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
@@ -188,6 +189,19 @@ function reserveInvoiceNumber(db,{companyId,requestId,purpose,payloadSha256,sour
 }
 function markReservationIssued(db,{companyId,requestId,invoiceId}){const now=new Date().toISOString(),result=db.prepare(`UPDATE customer_invoice_number_reservations SET issued_invoice_id=?,status='issued',updated_at=? WHERE company_id=? AND request_id=? AND status='reserved'`).run(invoiceId,now,companyId,requestId);if(Number(result.changes||0)!==1)throw invoiceError('Fakturanumrets reservation kunde inte slutföras.','INVOICE_RESERVATION_STATE_ERROR',409)}
 function pdfArchiveMetadata(db,companyId,invoiceId){return db.prepare(`SELECT file_name AS fileName,mime_type AS mimeType,pdf_sha256 AS pdfSha256,size_bytes AS sizeBytes,created_at AS createdAt FROM customer_invoice_pdf_archives WHERE company_id=? AND invoice_id=?`).get(companyId,invoiceId)||null}
+function pdfArchivePrivateObjectMetadata(db,companyId,invoiceId){
+  const row=pdfArchiveMetadata(db,companyId,invoiceId);
+  if(!row)return null;
+  return PrivateObject.createPrivateObjectMetadata({
+    companyId,
+    kind:PrivateObject.PRIVATE_OBJECT_KINDS.CUSTOMER_INVOICE_PDF,
+    objectId:invoiceId,
+    mimeType:row.mimeType,
+    sizeBytes:row.sizeBytes,
+    sha256:row.pdfSha256,
+    createdAt:row.createdAt
+  });
+}
 function pdfArchiveForInvoice(db,companyId,invoiceId){
   const row=PdfArchiveStore.createSqliteCustomerInvoicePdfArchiveStore(db).get({companyId,invoiceId});
   if(!row)throw invoiceError('Den exakt arkiverade PDF-fakturan saknas.','INVOICE_PDF_ARCHIVE_NOT_FOUND',404);
@@ -365,4 +379,4 @@ function finalizeCreditIssuance(db,{companyId,userId,prepared,pdfBytes}){
   return{...invoiceBundle(db,companyId,creditInvoice.id),duplicate:false,original:Db.invoiceById(db,companyId,original.id)};
 }
 
-module.exports=Object.freeze({initializeCustomerInvoicing,customerByNumber,nextInvoiceNumber,profileStatus,resolvedProfile,listCustomerInvoices,documentForInvoice,pdfArchiveMetadata,pdfArchiveForInvoice,invoiceBundle,getCustomerInvoiceDraft,saveCustomerInvoiceDraft,clearCustomerInvoiceDraft,prepareInvoiceIssuance,finalizeInvoiceIssuance,prepareCreditIssuance,finalizeCreditIssuance,renderInvoicePdf,creditDocumentFrom,validateRequestId,reservationByRequest});
+module.exports=Object.freeze({initializeCustomerInvoicing,customerByNumber,nextInvoiceNumber,profileStatus,resolvedProfile,listCustomerInvoices,documentForInvoice,pdfArchiveMetadata,pdfArchivePrivateObjectMetadata,pdfArchiveForInvoice,invoiceBundle,getCustomerInvoiceDraft,saveCustomerInvoiceDraft,clearCustomerInvoiceDraft,prepareInvoiceIssuance,finalizeInvoiceIssuance,prepareCreditIssuance,finalizeCreditIssuance,renderInvoicePdf,creditDocumentFrom,validateRequestId,reservationByRequest});
