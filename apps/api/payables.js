@@ -3,6 +3,7 @@
 const crypto=require('node:crypto');
 const Domain=require('../../packages/payables/supplier-invoices.js');
 const SupplierDocumentStore=require('./supplier-invoice-document-store.js');
+const PrivateObject=require('./private-object-contract.js');
 
 function err(message,code='PAYABLES_ERROR',statusCode=422,details){const e=new Error(message);e.code=code;e.statusCode=statusCode;if(details)e.details=details;return e}
 function id(prefix){return `${prefix}_${crypto.randomUUID()}`}
@@ -108,6 +109,20 @@ function document(db,companyId,invoiceId){
   }
   return row;
 }
+function privateObjectMetadata(db,companyId,invoiceId){
+  const invoice=invoiceById(db,companyId,invoiceId);
+  if(!invoice?.hasDocument)return null;
+  const stored=document(db,companyId,invoiceId);
+  return PrivateObject.createPrivateObjectMetadata({
+    companyId,
+    kind:PrivateObject.PRIVATE_OBJECT_KINDS.SUPPLIER_INVOICE,
+    objectId:invoiceId,
+    mimeType:stored.mime,
+    sizeBytes:stored.bytes.length,
+    sha256:stored.sha256,
+    createdAt:invoice.createdAt
+  });
+}
 function saveCoding(db,{companyId,invoiceId,lines}){const invoice=invoiceById(db,companyId,invoiceId);if(!invoice)throw err('Leverantörsfakturan hittades inte.','INVOICE_NOT_FOUND',404);if(!['registered','coding-review','coded'].includes(invoice.status))throw err('Konteringen kan inte ändras efter attest.','CODING_LOCKED',409);const validated=Domain.validateCoding({totalOre:invoice.totalOre,lines});const hash=Domain.codingHash(validated.lines);db.prepare(`UPDATE supplier_invoices SET coding_json=?,coding_sha256=?,status='coded',updated_at=? WHERE company_id=? AND id=?`).run(JSON.stringify(validated.lines),hash,nowIso(),companyId,invoiceId);return invoiceById(db,companyId,invoiceId)}
 function approve(db,{companyId,invoiceId,actorId,expectedCodingSha256,expectedDocumentSha256}){const invoice=invoiceById(db,companyId,invoiceId);if(!invoice)throw err('Leverantörsfakturan hittades inte.','INVOICE_NOT_FOUND',404);if(!invoice.hasDocument)throw err('PDF-underlag krävs innan fakturan kan attesteras.','DOCUMENT_REQUIRED_FOR_APPROVAL',409);const expectedCoding=text(expectedCodingSha256),expectedDocument=text(expectedDocumentSha256);if(!/^[a-f0-9]{64}$/.test(expectedCoding)||!/^[a-f0-9]{64}$/.test(expectedDocument))throw err('Attest kräver versionsuppgifter för både kontering och PDF-underlag. Ladda om fakturan och granska igen.','APPROVAL_PRECONDITION_REQUIRED',428);if(invoice.codingSha256!==expectedCoding)throw err('Konteringen har ändrats sedan den granskades. Ladda om fakturan och granska den nya konteringen innan attest.','APPROVAL_STALE_CODING',409,{expectedCodingSha256:expectedCoding,currentCodingSha256:invoice.codingSha256});if(invoice.documentSha256!==expectedDocument)throw err('PDF-underlaget har ändrats sedan det granskades. Ladda om fakturan och granska det nya underlaget innan attest.','APPROVAL_STALE_DOCUMENT',409,{expectedDocumentSha256:expectedDocument,currentDocumentSha256:invoice.documentSha256});document(db,companyId,invoiceId);const check=Domain.assertApproval(invoice,actorId,invoice.coding);const now=nowIso();db.prepare(`UPDATE supplier_invoices SET status='approved',coding_sha256=?,approved_by=?,approved_at=?,updated_at=? WHERE company_id=? AND id=?`).run(check.codingHash,actorId,now,now,companyId,invoiceId);return invoiceById(db,companyId,invoiceId)}
 function paymentByInvoice(db,companyId,invoiceId){return db.prepare(`SELECT id FROM supplier_payments WHERE company_id=? AND supplier_invoice_id=?`).get(companyId,invoiceId)||null}
@@ -115,4 +130,4 @@ function preparePayment(db,{companyId,invoiceId,paymentDate,amountOre,account='1
 function paymentById(db,companyId,paymentId){return db.prepare(`SELECT p.id,p.company_id AS companyId,p.supplier_invoice_id AS supplierInvoiceId,p.payment_date AS paymentDate,p.amount_ore AS amountOre,p.account,p.status,p.prepared_by AS preparedBy,p.released_by AS releasedBy,p.released_at AS releasedAt,COALESCE(p.recipient_name,s.name) AS supplierName,p.recipient_bankgiro AS bankgiro,p.recipient_plusgiro AS plusgiro,i.supplier_invoice_number AS supplierInvoiceNumber FROM supplier_payments p JOIN supplier_invoices i ON i.id=p.supplier_invoice_id AND i.company_id=p.company_id JOIN suppliers s ON s.id=i.supplier_id AND s.company_id=i.company_id WHERE p.company_id=? AND p.id=?`).get(companyId,paymentId)||null}
 function listPayments(db,companyId,date=''){const base=`SELECT p.id,p.company_id AS companyId,p.supplier_invoice_id AS supplierInvoiceId,p.payment_date AS paymentDate,p.amount_ore AS amountOre,p.account,p.status,p.prepared_by AS preparedBy,p.released_by AS releasedBy,p.released_at AS releasedAt,s.supplier_number AS supplierNumber,COALESCE(p.recipient_name,s.name) AS supplierName,i.supplier_invoice_number AS supplierInvoiceNumber,p.recipient_bankgiro AS bankgiro,p.recipient_plusgiro AS plusgiro FROM supplier_payments p JOIN supplier_invoices i ON i.id=p.supplier_invoice_id AND i.company_id=p.company_id JOIN suppliers s ON s.id=i.supplier_id AND s.company_id=i.company_id`;return date?db.prepare(`${base} WHERE p.company_id=? AND p.payment_date=? ORDER BY supplierName`).all(companyId,date):db.prepare(`${base} WHERE p.company_id=? ORDER BY p.payment_date,supplierName`).all(companyId)}
 
-module.exports=Object.freeze({initializePayables,listSuppliers,createSupplier,supplierById,supplierByNumber,createSupplierInvoice,invoiceById,listInvoices,supplierHistory,storeDocument,document,saveCoding,approve,preparePayment,paymentById,listPayments,validDate,normalizeInvoiceNumber,duplicateInvoice,duplicateDocument});
+module.exports=Object.freeze({initializePayables,listSuppliers,createSupplier,supplierById,supplierByNumber,createSupplierInvoice,invoiceById,listInvoices,supplierHistory,storeDocument,document,privateObjectMetadata,saveCoding,approve,preparePayment,paymentById,listPayments,validDate,normalizeInvoiceNumber,duplicateInvoice,duplicateDocument});
