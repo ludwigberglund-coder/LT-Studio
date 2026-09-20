@@ -61,3 +61,12 @@ test('alla tre privata filflöden har en explicit SQLite-lagringsadapter',()=>{
     assert.match(source,/companyId/,name+' måste ta emot companyId för företagsisolering');
   }
 });
+
+
+test('dokumentarkivets runtime använder det gemensamma provider-kontraktet',()=>{
+  const source=fs.readFileSync(path.join(API_DIR,'documents.js'),'utf8');
+  assert.match(source,/require\('\.\/private-object-store-contract\.js'\)/);
+  assert.match(source,/require\('\.\/sqlite-document-private-object-provider\.js'\)/);
+  assert.doesNotMatch(source,/require\('\.\/document-content-store\.js'\)/);
+  assert.match(source,/createContractedPrivateObjectStore/);
+});
