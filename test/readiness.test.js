@@ -21,7 +21,7 @@ function writeBackup(dir,name='rollands-test.sqlite',ageMs=0,corruptChecksum=fal
 
 test('readiness kräver läsbar och skrivbar databas',()=>{
   const db=Db.openDatabase(':memory:');
-  try{const report=readinessReport({db,databasePath:':memory:',minFreeBytes:1});assert.equal(report.ok,true);assert.deepEqual(report.checks,{databaseRead:true,databaseWrite:true,diskSpace:true,backup:true});}
+  try{const report=readinessReport({db,databasePath:':memory:',minFreeBytes:1});assert.equal(report.ok,true);assert.deepEqual(report.checks,{databaseRead:true,databaseWrite:true,diskSpace:true,backup:true,restoreDrill:true});}
   finally{db.close()}
 });
 
@@ -57,4 +57,50 @@ test('HTTP readiness svarar utan autentisering men lämnar inte ut lagringssökv
     assert.equal(body.ok,true);assert.equal(body.service,'rollands-api-v1');
     assert.equal(JSON.stringify(body).includes('/tmp/'),false);
   }finally{await new Promise(resolve=>runtime.close(resolve))}
+});
+
+
+test('restore drill evidence måste vara giltigt och färskt',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-readiness-drill-'));
+  const evidencePath=path.join(dir,'restore-evidence.json');
+  const now=Date.UTC(2026,8,20,12,0,0);
+  try{
+    const valid={
+      schemaVersion:1,verifiedAt:new Date(now-2*24*60*60*1000).toISOString(),
+      sourceEncryptedSha256:'a'.repeat(64),sqliteIntegrity:true,foreignKeys:true,
+      productionDatabaseTouched:false,restoreCopyRemoved:true
+    };
+    fs.writeFileSync(evidencePath,JSON.stringify(valid));
+    let evidence=require('../apps/api/readiness.js').restoreDrillEvidence(evidencePath,{now,maxAgeMs:30*24*60*60*1000});
+    assert.equal(evidence.ok,true);
+    assert.equal(evidence.ageMs,2*24*60*60*1000);
+
+    fs.writeFileSync(evidencePath,JSON.stringify({...valid,verifiedAt:new Date(now-31*24*60*60*1000).toISOString()}));
+    evidence=require('../apps/api/readiness.js').restoreDrillEvidence(evidencePath,{now,maxAgeMs:30*24*60*60*1000});
+    assert.equal(evidence.ok,false);
+
+    fs.writeFileSync(evidencePath,JSON.stringify({...valid,verifiedAt:new Date(now+10*60*1000).toISOString()}));
+    assert.equal(require('../apps/api/readiness.js').restoreDrillEvidence(evidencePath,{now}).ok,false);
+
+    fs.writeFileSync(evidencePath,JSON.stringify({...valid,productionDatabaseTouched:true}));
+    assert.equal(require('../apps/api/readiness.js').restoreDrillEvidence(evidencePath,{now}).ok,false);
+  }finally{fs.rmSync(dir,{recursive:true,force:true})}
+});
+
+test('readiness blir röd när restore-bevis saknas eller är för gammalt',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-readiness-drill-report-'));
+  const db=Db.openDatabase(':memory:'),evidencePath=path.join(dir,'restore-evidence.json');
+  const now=Date.UTC(2026,8,20,12,0,0);
+  try{
+    let report=readinessReport({db,databasePath:':memory:',requireRestoreEvidence:true,restoreEvidencePath:evidencePath,now});
+    assert.equal(report.ok,false);assert.equal(report.checks.restoreDrill,false);
+
+    fs.writeFileSync(evidencePath,JSON.stringify({
+      schemaVersion:1,verifiedAt:new Date(now-24*60*60*1000).toISOString(),
+      sourceEncryptedSha256:'b'.repeat(64),sqliteIntegrity:true,foreignKeys:true,
+      productionDatabaseTouched:false,restoreCopyRemoved:true
+    }));
+    report=readinessReport({db,databasePath:':memory:',requireRestoreEvidence:true,restoreEvidencePath:evidencePath,now});
+    assert.equal(report.ok,true);assert.equal(report.checks.restoreDrill,true);assert.equal(report.restoreDrillAgeMs,24*60*60*1000);
+  }finally{db.close();fs.rmSync(dir,{recursive:true,force:true})}
 });
