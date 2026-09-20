@@ -10,6 +10,23 @@ Ingen fil flyttas i denna etapp. Ingen databasstruktur ändras. Ingen ny lagring
 
 Målet är att dokumentera exakt vad som måste bevaras innan vi senare kan flytta binärt innehåll från SQLite till skyddad objektlagring.
 
+
+## Aktuell status efter inventeringen
+
+Förberedelsen har nu gått ett steg längre utan att någon data har flyttats.
+
+Alla tre privata filflöden har varsin SQLite-baserad intern lagringsadapter:
+
+- `apps/api/document-content-store.js`,
+- `apps/api/supplier-invoice-document-store.js`,
+- `apps/api/customer-invoice-pdf-archive-store.js`.
+
+Adaptrarna kapslar binär läsning/skrivning bakom `put`, `get` och `exists` och kräver företagskontext.
+
+`test/storage-seam-contract.test.js` fungerar som arkitekturspärr i CI. Runtime-koden får inte börja läsa eller skriva `content_blob`, `document_blob` eller `pdf_blob` direkt utanför de godkända lagringsadaptrarna.
+
+**Viktigt:** innehållet ligger fortfarande i SQLite. Detta är endast en teknisk gräns som gör ett framtida byte mindre riskfyllt.
+
 ## Filer som idag ligger direkt i SQLite
 
 ### 1. Dokumentarkivet
@@ -186,14 +203,18 @@ Därför ska framtida migration vara verifierbar och återkörbar, och gammalt i
 
 ## Nästa lilla steg
 
-Nästa etapp ska inte flytta några filer.
+Nästa etapp ska fortfarande inte flytta några filer.
 
-Nästa lämpliga steg är att definiera ett litet internt lagringskontrakt för:
+De tre lagringsgränserna och CI-spärren finns nu. Nästa lämpliga steg är att definiera en **provider-neutral objektidentitet och metadataform** som kan användas av en framtida extern adapter utan att ändra affärsreglerna.
 
-- `put`,
-- `get`,
-- `exists`,
-- integritetskontroll,
-- objektmetadata.
+Den etappen bör endast bestämma exempelvis:
 
-SQLite-BLOB ska fortsatt vara den enda aktiva implementationen tills kontraktet är testat och alla nuvarande flöden fortfarande är gröna.
+- servergenererad objektnyckel,
+- `company_id`,
+- objekt-/dokument-id,
+- MIME-typ,
+- storlek,
+- SHA-256,
+- lagringsstatus.
+
+SQLite-BLOB ska fortsatt vara den enda aktiva implementationen tills detta kontrakt är testat. Ingen extern lagring ska kopplas in i samma ändring.
