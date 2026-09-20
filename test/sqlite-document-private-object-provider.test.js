@@ -52,5 +52,6 @@ test('dokumentarkivets SQLite-brygga följer gemensamt provider-kontrakt',()=>{
     const wrongKind={companyId:company.id,kind:PrivateObject.PRIVATE_OBJECT_KINDS.SUPPLIER_INVOICE,objectId:metadata.objectId};
     assert.equal(store.exists(wrongKind),false);
     assert.equal(store.get(wrongKind),null);
+    assert.equal(store.put({metadata:{...metadata,kind:PrivateObject.PRIVATE_OBJECT_KINDS.SUPPLIER_INVOICE},bytes}),false);
   }finally{db.close();}
 });
