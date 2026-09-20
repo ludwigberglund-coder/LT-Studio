@@ -338,7 +338,15 @@ function createApiApp(options) {
       if(req.method==='POST' && url.pathname==='/api/v1/customer-invoices') {
         requirePermission(session,'customer-invoice.issue');
         const payload=await readJson(req,res); if(!payload) return;
-        const result=Db.transaction(db,()=>CustomerInvoicing.issueInvoice(db,{companyId:session.companyId,userId:session.userId,payload,profile:companyProfile}));
+        const prepared=Db.transaction(db,()=>CustomerInvoicing.prepareInvoiceIssuance(db,{companyId:session.companyId,userId:session.userId,payload,profile:companyProfile}));
+        if(prepared.duplicate)return send(res,200,prepared.result);
+        let pdfBytes;
+        try{pdfBytes=await CustomerInvoicing.renderInvoicePdf(prepared.document)}
+        catch(error){
+          Db.transaction(db,()=>Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'CUSTOMER_INVOICE_PDF_GENERATION_FAILED',entityType:'invoice-number-reservation',entityId:prepared.requestId,details:{invoiceNumber:prepared.invoiceNumber,code:error.code||'INVOICE_PDF_GENERATION_FAILED'}}));
+          throw error;
+        }
+        const result=Db.transaction(db,()=>CustomerInvoicing.finalizeInvoiceIssuance(db,{companyId:session.companyId,userId:session.userId,prepared,pdfBytes}));
         return send(res,result.duplicate?200:201,result);
       }
 
@@ -346,8 +354,24 @@ function createApiApp(options) {
       if(customerInvoiceCreditMatch && req.method==='POST') {
         requirePermission(session,'customer-invoice.credit');
         const payload=await readJson(req,res); if(!payload) return;
-        const result=Db.transaction(db,()=>CustomerInvoicing.creditUnpaidInvoice(db,{companyId:session.companyId,userId:session.userId,invoiceId:customerInvoiceCreditMatch[1],payload}));
+        const prepared=Db.transaction(db,()=>CustomerInvoicing.prepareCreditIssuance(db,{companyId:session.companyId,userId:session.userId,invoiceId:customerInvoiceCreditMatch[1],payload}));
+        if(prepared.duplicate)return send(res,200,prepared.result);
+        let pdfBytes;
+        try{pdfBytes=await CustomerInvoicing.renderInvoicePdf(prepared.document)}
+        catch(error){
+          Db.transaction(db,()=>Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'CUSTOMER_CREDIT_PDF_GENERATION_FAILED',entityType:'invoice-number-reservation',entityId:prepared.requestId,details:{invoiceNumber:prepared.invoiceNumber,sourceInvoiceId:prepared.invoiceId,code:error.code||'INVOICE_PDF_GENERATION_FAILED'}}));
+          throw error;
+        }
+        const result=Db.transaction(db,()=>CustomerInvoicing.finalizeCreditIssuance(db,{companyId:session.companyId,userId:session.userId,prepared,pdfBytes}));
         return send(res,result.duplicate?200:201,result);
+      }
+
+      const customerInvoicePdfMatch=url.pathname.match(/^\/api\/v1\/customer-invoices\/([^/]+)\/pdf$/);
+      if(customerInvoicePdfMatch && req.method==='GET') {
+        requirePermission(session,'customer-invoice.view');
+        const archive=CustomerInvoicing.pdfArchiveForInvoice(db,session.companyId,customerInvoicePdfMatch[1]);
+        res.writeHead(200,{...securityHeaders(),'Content-Type':'application/pdf','Content-Disposition':`inline; filename="${archive.fileName}"`,'Content-Length':archive.sizeBytes,'X-Document-SHA256':archive.pdfSha256,'X-Frame-Options':'SAMEORIGIN','Content-Security-Policy':"default-src 'none'; frame-ancestors 'self'; base-uri 'none'"});
+        res.end(archive.bytes);return;
       }
 
       const customerInvoiceMatch=url.pathname.match(/^\/api\/v1\/customer-invoices\/([^/]+)$/);
