@@ -367,7 +367,7 @@ Kodrollback ska förhandsverifieras innan någon checkout ändras.
 
 `pilot:rollback:verify` ändrar varken kod eller databas. Det stoppar samma-commit, sidogren/non-ancestor, fel nuvarande release och lokalt modifierade spårade filer.
 
-Databasrollback är en separat och mer riskfylld åtgärd. Återställ **inte** automatiskt en äldre databas bara för att kodrollback sker; ny pilotdata kan då gå förlorad. Använd backuprestore endast vid databasincident och efter separat verifiering enligt avsnitt 12.
+Databasrollback är en separat och mer riskfylld åtgärd. Återställ **inte** automatiskt en äldre databas bara för att kodrollback sker; ny pilotdata kan då gå förlorad. Använd backuprestore endast vid databasincident och efter separat verifiering enligt avsnitt 12. Restoreverktyget vägrar också använda den levande produktionsdatabasen som backupkälla, inklusive symlink- eller hardlink-alias.
 
 ## 18. Vad som aldrig får lagras i GitHub
 
