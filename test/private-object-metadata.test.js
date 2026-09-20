@@ -23,7 +23,7 @@ test('provider-neutral metadata skapar serverstyrd objektnyckel',()=>{
   assert.equal(metadata.sizeBytes,payload.length);
   assert.equal(metadata.sha256,crypto.createHash('sha256').update(payload).digest('hex'));
   assert.equal(metadata.status,'ready');
-  assert.equal(Metadata.assertBytesMatch(metadata,payload),metadata);
+  assert.deepEqual(Metadata.assertBytesMatch(metadata,payload),metadata);
 });
 
 test('objektnyckeln kan inte styras med slash eller traversal i id-fält',()=>{
