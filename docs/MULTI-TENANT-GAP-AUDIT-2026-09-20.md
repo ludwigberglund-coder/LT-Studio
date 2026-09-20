@@ -107,6 +107,14 @@ Flera privata portalsidor hade Rolands som laddningsnamn, sidomenynamn eller bre
 
 **Rättat:** privata portalskal använder LT Studio som plattformsnamn och aktivt företagsnamn från session/CMS. Reservlänken till `rollands.se` är borttagen. Den uttryckliga Rolands-demon får fortsatt visa Rolands eftersom den representerar referenskunden.
 
+### 6. Kund nummer två verifieras nu över fler kärnmoduler
+
+Det tidigare tvåkundstestet täckte främst identitet, fakturaprofil och CMS, medan andra isoleringstester täckte ekonomi och dokument var för sig.
+
+**Utökat:** `test/saas-second-tenant.test.js` skapar nu data för kund B i bank, lager, lön och automationskö och läser samma API:er med både kund A:s och kund B:s autentiserade sessioner. Testet verifierar också CMS-identiteten för båda företagen och direkta objektuppslag med fel `company_id`.
+
+Detta gör definitionen av “kund nummer två” betydligt närmare ett sammanhängande blockerande CI-test i stället för en samling isolerade modultester.
+
 ## Rolands-specifikt som ska vara kvar
 
 Följande är inte i sig fel eftersom Rolands är referenskund och har en egen publik demo:
