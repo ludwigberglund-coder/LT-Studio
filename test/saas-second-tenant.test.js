@@ -52,7 +52,7 @@ test('ny kund får neutral CMS-startpunkt utan Rolands innehåll',()=>run(async 
 
 test('privata portalskal har ingen hårdkodad Rolands-identitet för kund nummer två',()=>{
   const portal=path.join(__dirname,'..','apps','portal');
-  const files=fs.readdirSync(portal).filter(name=>/\.(?:html|js)$/.test(name));
+  const files=fs.readdirSync(portal).filter(name=>/\.(?:html|js)$/.test(name)&&name!=='receivables.js'); // receivables.js är en uttrycklig Rolands-demo; privat drift använder app.js.
   const forbidden=[
     /<strong>Rollands<\/strong>/,
     /Rollands \/ (?:Ekonomi|Försäljning|Administration)/,
