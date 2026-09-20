@@ -13,6 +13,7 @@ Börja här:
 - [Produktvision](docs/PRODUCT-VISION.md)
 - [SaaS-målarkitektur för flera kunder](docs/SAAS-TARGET-ARCHITECTURE.md)
 - [Flerföretagsaudit och luckor för kund nummer två](docs/MULTI-TENANT-GAP-AUDIT-2026-09-20.md)
+- [PostgreSQL-migreringsplan](docs/POSTGRESQL-MIGRATION-PLAN.md)
 
 ## GitHub är vår gemensamma källa
 
