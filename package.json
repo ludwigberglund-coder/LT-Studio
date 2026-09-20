@@ -27,7 +27,8 @@
     "pilot:preflight": "node scripts/pilot-preflight.js",
     "pilot:backup": "node scripts/pilot-backup.js",
     "pilot:restore:verify": "node scripts/pilot-restore-verify.js",
-    "platform:rotate-mfa": "node scripts/rotate-mfa.js"
+    "platform:rotate-mfa": "node scripts/rotate-mfa.js",
+    "security:history-scan": "node scripts/scan-git-history-secrets.js"
   },
   "engines": {
     "node": ">=24"
