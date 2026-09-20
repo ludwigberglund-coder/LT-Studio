@@ -93,11 +93,14 @@ ROLLANDS_ALLOWED_HOSTS=<pilotens riktiga hostname>
 ROLLANDS_API_SECURE_COOKIE=1
 ROLLANDS_DATABASE_PATH=/srv/rollands-data/platform.sqlite
 ROLLANDS_BACKUP_PATH=/srv/rollands-backups
+ROLLANDS_PILOT_OPERATIONS_PATH=/etc/rollands/pilot-operations.json
 ROLLANDS_AUTH_ENCRYPTION_KEY=<stark slumpmässig hemlighet>
 ROLLANDS_DEMO_DATA=0
 ```
 
 Lägg secrets i hostingplattformens secret store eller i en root/rollands-läsbar EnvironmentFile utanför repositoryt, exempelvis `/etc/rollands/pilot.env` med rättighet `600`.
+
+Kopiera dessutom `config/pilot-operations.example.json` till den privata sökvägen i `ROLLANDS_PILOT_OPERATIONS_PATH`. Fyll i tekniskt ansvar, redovisningsansvar, dataskyddsansvar, backupansvar, övervakningsansvar, incidentkontakt, supportväg, vem som får stoppa piloten, rollbackbeslutsprocess, offsite-backupdestination samt logg- och backupretention. Filen får ligga utanför repositoryt och får inte innehålla placeholders. `approvedForPilot` ska bara sättas till `true` efter ett uttryckligt pilotbeslut med datum i `approvedAt`.
 
 Systemet använder inte en signerad klient-session som kräver separat `SESSION_SECRET`. Sessionsvärdet genereras kryptografiskt slumpmässigt per inloggning och endast dess hash sparas i SQLite. `ROLLANDS_AUTH_ENCRYPTION_KEY` skyddar de krypterade MFA-hemligheterna och måste därför backupas säkert separat från databasen. Om den nyckeln tappas bort kan befintliga krypterade MFA-hemligheter inte dekrypteras.
 
@@ -122,7 +125,7 @@ Kör:
 npm run pilot:preflight
 ```
 
-Preflight stoppar bland annat databas/backup-path inne i repositoryt, osäker cookie, demoflagga, placeholder-nycklar och för öppna databasrättigheter.
+Preflight stoppar bland annat databas/backup-path inne i repositoryt, osäker cookie, demoflagga, placeholder-nycklar, för öppna databasrättigheter och saknade/ej godkända pilotansvar i den externa operationsfilen.
 
 ## 5. Databasplacering
 
