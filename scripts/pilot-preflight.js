@@ -68,9 +68,14 @@ function validateConfig(env=process.env){
     }
   }
 
-  const key=requireValue('ROLLANDS_AUTH_ENCRYPTION_KEY');
+  const backupEncryptionKey=requireValue('ROLLANDS_BACKUP_ENCRYPTION_KEY');
+  if(backupEncryptionKey&&(backupEncryptionKey.length<32||PLACEHOLDER.test(backupEncryptionKey)||new Set(backupEncryptionKey).size<10))fail.push('ROLLANDS_BACKUP_ENCRYPTION_KEY är för svag eller ser ut som ett exempelvärde.');
+  else if(backupEncryptionKey)pass.push('Backup encryption key configured');
+
+    const key=requireValue('ROLLANDS_AUTH_ENCRYPTION_KEY');
   if(key&&(key.length<32||PLACEHOLDER.test(key)||new Set(key).size<10))fail.push('ROLLANDS_AUTH_ENCRYPTION_KEY är för svag eller ser ut som ett exempelvärde.');
   else if(key)pass.push('MFA encryption key configured');
+  if(key&&backupEncryptionKey&&key===backupEncryptionKey)fail.push('ROLLANDS_BACKUP_ENCRYPTION_KEY måste vara en separat nyckel och får inte återanvända ROLLANDS_AUTH_ENCRYPTION_KEY.');
 
   if(String(env.ROLLANDS_API_SECURE_COOKIE||'')!=='1')fail.push('ROLLANDS_API_SECURE_COOKIE måste vara 1.');
   else pass.push('Secure cookies');
