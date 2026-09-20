@@ -98,3 +98,43 @@ test('real HTTP API refuses anonymous requests and other-company invoice IDs', a
     assert.equal((await fetch(base+`/invoices/${f.invoiceA.id}/comments`,{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({text:'Missing CSRF test'})})).status,403);
   } finally {await new Promise(resolve=>runtime.close(resolve));}
 });
+
+
+test('HTTP object-ID matrix denies other-company reads and mutations with valid session and CSRF', async () => {
+  const f=fixture();
+  Payables.initializePayables(f.db);Documents.initializeDocuments(f.db);
+  const Accounting=require('../apps/api/accounting-store.js');Accounting.initializeAccountingStore(f.db);
+  const supplierB=Payables.createSupplier(f.db,{companyId:f.b.id,supplierNumber:'B-OBJ',name:'Supplier B Obj'});
+  const supplierInvoiceB=Payables.createSupplierInvoice(f.db,{companyId:f.b.id,supplierId:supplierB.id,supplierInvoiceNumber:'B-OBJ-1',invoiceDate:'2026-09-18',dueDate:'2026-10-18',totalOre:125000,vatOre:25000,registeredBy:f.user.id});
+  Payables.storeDocument(f.db,{companyId:f.b.id,invoiceId:supplierInvoiceB.id,name:'b.pdf',bytes:Buffer.from('%PDF-1.4\nB tenant\n')});
+  const entryB=Accounting.postEntry(f.db,{companyId:f.b.id,postingDate:'2026-09-18',description:'Tenant B',sourceType:'tenant-matrix',sourceId:'b',createdBy:f.user.id,lines:[{account:'1930',debitOre:1000,creditOre:0,text:'Bank'},{account:'2999',debitOre:0,creditOre:1000,text:'Motkonto'}]}).entry;
+  const pendingB=Documents.createPending(f.db,{companyId:f.b.id,uploadedBy:f.user.id,title:'Tenant B document',fileName:'tenant-b.pdf'});
+  Documents.storeContent(f.db,{companyId:f.b.id,documentId:pendingB.id,bytes:Buffer.from('%PDF-1.4\nprivate b\n')});
+  const runtime=createServer({db:f.db,port:4180,secureCookies:false});
+  await new Promise(resolve=>runtime.server.listen(0,'127.0.0.1',resolve));
+  const base=`http://127.0.0.1:${runtime.server.address().port}/api/v1`;
+  try {
+    Db.addMembership(f.db,{companyId:f.a.id,userId:f.user.id});
+    const token=Auth.randomToken(),csrf=Auth.randomToken();
+    Db.createSession(f.db,{tokenHash:Auth.hashToken(token),csrfHash:Auth.hashToken(csrf),companyId:f.a.id,userId:f.user.id,expiresAt:new Date(Date.now()+60000).toISOString()});
+    const headers={Cookie:`rollands_session=${token}`};
+    const mutationHeaders={...headers,'Content-Type':'application/json','X-CSRF-Token':csrf};
+    const getRoutes=[
+      `/payables/invoices/${supplierInvoiceB.id}`,
+      `/payables/invoices/${supplierInvoiceB.id}/document`,
+      `/accounting/entries/${entryB.id}`,
+      `/documents/${pendingB.id}`,
+      `/documents/${pendingB.id}/content`
+    ];
+    for(const route of getRoutes)assert.equal((await fetch(base+route,{headers})).status,404,route);
+    const mutations=[
+      [`/invoices/${f.invoiceB.id}/comments`,{text:'cross tenant'}],
+      [`/payables/invoices/${supplierInvoiceB.id}/coding`,{lines:[{account:'4010',text:'X',debitOre:100000,creditOre:0},{account:'2641',text:'Moms',debitOre:25000,creditOre:0},{account:'2440',text:'Skuld',debitOre:0,creditOre:125000}]}],
+      [`/accounting/entries/${entryB.id}/correct`,{postingDate:'2026-09-19',reason:'cross tenant correction'}]
+    ];
+    for(const [route,body] of mutations)assert.equal((await fetch(base+route,{method:'POST',headers:mutationHeaders,body:JSON.stringify(body)})).status,404,route);
+    assert.equal(Db.commentsForInvoice(f.db,f.b.id,f.invoiceB.id).length,0);
+    assert.equal(Payables.invoiceById(f.db,f.b.id,supplierInvoiceB.id).coding.length,0);
+    assert.equal(Accounting.listEntries(f.db,f.b.id).length,1);
+  } finally {await new Promise(resolve=>runtime.close(resolve));}
+});
