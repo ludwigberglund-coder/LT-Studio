@@ -144,6 +144,20 @@ Rolands publika statiska webb finns som referens. Det finns ännu ingen färdig 
 
 Målbilden säger att olika företag kan ha olika aktiverade moduler. Nuvarande privata medlemmar har samma funktioner inom sitt företag och navigationen är i huvudsak gemensam. Företagsspecifika feature flags/modulval behöver införas innan olika abonnemang eller kundpaket används.
 
+### Automatisk tenant-schemakontroll
+
+Etapp 2 inför ett maskinläsbart schema-kontrakt i `apps/api/tenant-integrity.js`.
+
+Varje databastabell måste nu vara en av följande:
+
+- uttryckligen plattforms-/identitetsnivå,
+- direkt företagsägd med `company_id`,
+- eller ha exakt en obligatorisk foreign key till en direkt företagsägd förälder.
+
+En okänd tabell utan tenant-scope gör att tenant-guard-installationen stoppas. För tabeller som ärver scope via en förälder installeras dessutom en trigger som stoppar omkoppling till en förälder i ett annat företag.
+
+Detta minskar risken att en framtida modul råkar skapa privat kunddata utanför flerföretagsskyddet.
+
 ### Driftmiljö och releaseprocess
 
 GitHub är källan för kod och dokumentation, men en verklig gemensam staging- och produktionsmiljö med säkra secrets, databas, objektlagring, övervakning och rollback behöver fortfarande etableras.
@@ -153,7 +167,7 @@ GitHub är källan för kod och dokumentation, men en verklig gemensam staging- 
 1. Låt CI verifiera denna ändring och kund-nummer-två-testet.
 2. Behåll production-readiness som högsta prioritet för Rolands.
 3. Kartlägg alla tabeller med privat data mot krav på `company_id` och tenant-integritetsregler.
-4. Inför ett maskinläsbart test som misslyckas om en ny företagsbunden tabell saknar dokumenterad tenant-strategi.
+4. ✅ Maskinläsbart tenant-schemakontrakt är infört och stoppar okända oskopade tabeller.
 5. Planera PostgreSQL-migrering utan att ändra affärsregler.
 6. Planera skyddad objektlagring för dokument och PDF-original.
 7. Inför företagsspecifik modulaktivering först när kärnflödena är säkra.
