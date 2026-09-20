@@ -28,7 +28,8 @@
     "pilot:backup": "node scripts/pilot-backup.js",
     "pilot:restore:verify": "node scripts/pilot-restore-verify.js",
     "platform:rotate-mfa": "node scripts/rotate-mfa.js",
-    "security:history-scan": "node scripts/scan-git-history-secrets.js"
+    "security:history-scan": "node scripts/scan-git-history-secrets.js",
+    "pilot:backup:retention": "node scripts/pilot-backup-retention.js"
   },
   "engines": {
     "node": ">=24"
