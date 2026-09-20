@@ -33,3 +33,8 @@ test('leverantörsfakturans detaljvy visar både fakturadatum och förfallodatum
   assert.match(source,/<span>Fakturadatum<\/span><strong>\$\{esc\(selected\.invoiceDate\)\}<\/strong>/);
   assert.match(source,/<span>Förfallodatum<\/span><strong>\$\{esc\(selected\.dueDate\)\}<\/strong>/);
 });
+
+test('leverantörsfakturasidan versionsmärker huvudskriptet för att undvika gammal cache',()=>{
+  const html=fs.readFileSync(htmlPath,'utf8');
+  assert.match(html,/src="\.\/payables\.js\?v=20260920-2"/);
+});
