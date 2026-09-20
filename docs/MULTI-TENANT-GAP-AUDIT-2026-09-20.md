@@ -101,6 +101,12 @@ Det fanns redan flera tvåföretagstester, men inget sammanhållet test som säk
 
 **Rättat:** `test/saas-second-tenant.test.js` verifierar detta.
 
+### 5. Privata portalskal och fakturautkast hade kvar Rolands-standarder
+
+Flera privata portalsidor hade Rolands som laddningsnamn, sidomenynamn eller breadcrumb även när servern redan arbetade i ett annat företag. Fakturautkastet använde dessutom `https://rollands.se` som reservwebbadress när ett annat företag saknade egen webbplats.
+
+**Rättat:** privata portalskal använder LT Studio som plattformsnamn och aktivt företagsnamn från session/CMS. Reservlänken till `rollands.se` är borttagen. Den uttryckliga Rolands-demon får fortsatt visa Rolands eftersom den representerar referenskunden.
+
 ## Rolands-specifikt som ska vara kvar
 
 Följande är inte i sig fel eftersom Rolands är referenskund och har en egen publik demo:
