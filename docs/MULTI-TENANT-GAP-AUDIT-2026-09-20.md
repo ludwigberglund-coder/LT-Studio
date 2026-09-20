@@ -138,6 +138,8 @@ Detta är främst teknisk namn-/migrationsskuld, inte i sig en företagsisolatio
 
 Nuvarande backend använder SQLite. Målarkitekturen anger PostgreSQL eller jämförbar transaktionsdatabas för skarp skalbar drift.
 
+Den kontrollerade vägen från dagens SQLite till PostgreSQL är nu dokumenterad i [POSTGRESQL-MIGRATION-PLAN.md](POSTGRESQL-MIGRATION-PLAN.md). Själva databasmigreringen är **inte** påbörjad; nästa kodsteg är först en tydlig datalager- och transaktionsgräns utan ändrade affärsregler.
+
 Innan många samtidiga kundmiljöer bör databasstrategi, migreringar, låsning och tenant-skydd verifieras i den framtida produktionsdatabasen.
 
 ### Dokument lagras ännu inte i extern objektlagring
@@ -176,7 +178,7 @@ GitHub är källan för kod och dokumentation, men en verklig gemensam staging- 
 2. Behåll production-readiness som högsta prioritet för Rolands.
 3. Kartlägg alla tabeller med privat data mot krav på `company_id` och tenant-integritetsregler.
 4. ✅ Maskinläsbart tenant-schemakontrakt är infört och stoppar okända oskopade tabeller.
-5. Planera PostgreSQL-migrering utan att ändra affärsregler.
+5. ✅ PostgreSQL-migreringen är dokumenterad; nästa kodsteg är en datalagergräns utan ändrade affärsregler.
 6. Planera skyddad objektlagring för dokument och PDF-original.
 7. Inför företagsspecifik modulaktivering först när kärnflödena är säkra.
 8. Bygg generell publicering av kundhemsidor separat från den privata appen.
