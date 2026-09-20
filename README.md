@@ -12,6 +12,7 @@ Börja här:
 - [Pilotens deployment-instruktion](docs/ROLANDS-PILOT-DEPLOYMENT.md)
 - [Produktvision](docs/PRODUCT-VISION.md)
 - [SaaS-målarkitektur för flera kunder](docs/SAAS-TARGET-ARCHITECTURE.md)
+- [Flerföretagsaudit och luckor för kund nummer två](docs/MULTI-TENANT-GAP-AUDIT-2026-09-20.md)
 
 ## GitHub är vår gemensamma källa
 
