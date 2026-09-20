@@ -2,6 +2,8 @@
 
 const test=require('node:test');
 const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
 const {fixture}=require('./private-workflows-fixture.cjs');
 
 async function run(fn){
@@ -46,3 +48,19 @@ test('ny kund får neutral CMS-startpunkt utan Rolands innehåll',()=>run(async 
   assert.match(data.state.published.site.meta.title,new RegExp(f.b.displayName));
   assert.doesNotMatch(JSON.stringify(data.state),/Rolands|Rollands|556406-5059|Billdal/i);
 }));
+
+
+test('privata portalskal har ingen hårdkodad Rolands-identitet för kund nummer två',()=>{
+  const portal=path.join(__dirname,'..','apps','portal');
+  const files=fs.readdirSync(portal).filter(name=>/\.(?:html|js)$/.test(name));
+  const forbidden=[
+    /<strong>Rollands<\/strong>/,
+    /Rollands \/ (?:Ekonomi|Försäljning|Administration)/,
+    /Rollands plattform/,
+    /website:company\.website\|\|'https:\/\/rollands\.se'/
+  ];
+  for(const name of files){
+    const source=fs.readFileSync(path.join(portal,name),'utf8');
+    for(const pattern of forbidden)assert.doesNotMatch(source,pattern,name+' får inte använda Rolands som privat plattformsstandard');
+  }
+});
