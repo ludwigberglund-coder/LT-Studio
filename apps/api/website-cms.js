@@ -48,7 +48,34 @@ function initializeWebsiteCms(db){db.exec(`
   }
 }
 
-function defaultContent(db,companyId){const company=db.prepare(`SELECT legal_name AS legalName,display_name AS displayName,org_number AS orgNumber FROM companies WHERE id=?`).get(companyId);if(!company)throw cmsError('Företaget hittades inte.','COMPANY_NOT_FOUND',404);if(company.orgNumber===DEFAULT_COMPANY.orgNumber)return{site:clone(DEFAULT_SITE),company:clone(DEFAULT_COMPANY)};const base=clone(DEFAULT_COMPANY);base.legalName=company.legalName;base.displayName=company.displayName;base.orgNumber=company.orgNumber;base.vatNumber='EJ ANGIVET';base.registeredOffice='EJ ANGIVET';base.address={street:'',postalCode:'',city:'',full:'Adress ej angiven'};base.contact={phone:'Ej angivet',phoneHref:'+46000000000',email:'info@example.invalid'};base.links={maps:'#kontakt'};return{site:clone(DEFAULT_SITE),company:base}}
+function genericSite(company){
+  const name=text(company.displayName||company.legalName||'Företaget');
+  return{
+    meta:{title:`${name} | Webbplats`,description:`Information, erbjudanden och kontakt för ${name}.`,language:'sv'},
+    navigation:[{label:'Hem',href:'#hem'},{label:'Erbjudande',href:'#erbjudande'},{label:'Om oss',href:'#om'},{label:'Kontakt',href:'#kontakt'}],
+    hero:{eyebrow:`Välkommen till ${name}`,title:'Enklare information för kunder och företag.',body:`Här hittar du aktuell information om ${name}.`,primaryCta:{label:'Kontakta oss',href:'#kontakt'},secondaryCta:{label:'Läs mer',href:'#om'}},
+    highlights:[{value:'Aktuellt',label:'information och erbjudanden'},{value:'Kontakt',label:'nå oss enkelt'},{value:'Företag',label:'anpassat efter verksamheten'}],
+    services:{eyebrow:'Vårt erbjudande',title:'Produkter och tjänster',body:'Anpassa innehållet i webbplatsadministrationen efter verksamhetens faktiska erbjudande.',items:[
+      {id:'products',symbol:'01',title:'Produkter och tjänster',description:'Beskriv företagets viktigaste produkter eller tjänster här.'},
+      {id:'business',symbol:'02',title:'För företag',description:'Beskriv erbjudanden eller lösningar för företagskunder här.'},
+      {id:'service',symbol:'03',title:'Service',description:'Beskriv den service och hjälp som kunder kan få.'}
+    ]},
+    story:{eyebrow:'Om oss',title:`Om ${name}`,body:'Beskriv verksamheten, inriktningen och det som är viktigt för kunderna.',points:['Tydlig information för kunder','Aktuella kontaktuppgifter och öppettider','Innehåll som kan uppdateras utan kodändringar']},
+    contact:{eyebrow:'Kontakt',title:'Välkommen att höra av dig',body:`Kontakta ${name} för aktuell information och frågor.`,openingHours:[{days:'Öppettider',hours:'Lägg in aktuella öppettider'}]},
+    footer:{tagline:`${name}.`,adminLabel:'Öppna webbplatsadministration'}
+  };
+}
+function defaultContent(db,companyId){
+  const company=db.prepare(`SELECT legal_name AS legalName,display_name AS displayName,org_number AS orgNumber FROM companies WHERE id=?`).get(companyId);
+  if(!company)throw cmsError('Företaget hittades inte.','COMPANY_NOT_FOUND',404);
+  if(company.orgNumber===DEFAULT_COMPANY.orgNumber)return{site:clone(DEFAULT_SITE),company:clone(DEFAULT_COMPANY)};
+  const base=clone(DEFAULT_COMPANY);
+  base.legalName=company.legalName;base.displayName=company.displayName;base.orgNumber=company.orgNumber;base.vatNumber='EJ ANGIVET';base.registeredOffice='EJ ANGIVET';
+  base.address={street:'',postalCode:'',city:'',full:'Adress ej angiven'};
+  base.contact={phone:'Ej angivet',phoneHref:'+46000000000',email:'info@example.invalid'};
+  base.website='';base.invoice={bankgiro:'',taxStatus:''};base.business={description:'',currency:'SEK'};base.links={maps:'#kontakt'};
+  return{site:genericSite(company),company:base};
+}
 function ensureState(db,companyId){let row=db.prepare(`SELECT company_id AS companyId,draft_site_json AS draftSiteJson,draft_company_json AS draftCompanyJson,draft_updated_by AS draftUpdatedBy,draft_updated_at AS draftUpdatedAt,draft_revision AS draftRevision,published_site_json AS publishedSiteJson,published_company_json AS publishedCompanyJson,published_version AS publishedVersion,published_by AS publishedBy,published_at AS publishedAt FROM website_cms_state WHERE company_id=?`).get(companyId);if(!row){const initial=defaultContent(db,companyId),stamp=now();db.prepare(`INSERT INTO website_cms_state(company_id,draft_site_json,draft_company_json,draft_updated_at,published_site_json,published_company_json,published_version) VALUES(?,?,?,?,?,?,0)`).run(companyId,JSON.stringify(initial.site),JSON.stringify(initial.company),stamp,JSON.stringify(initial.site),JSON.stringify(initial.company));row=db.prepare(`SELECT company_id AS companyId,draft_site_json AS draftSiteJson,draft_company_json AS draftCompanyJson,draft_updated_by AS draftUpdatedBy,draft_updated_at AS draftUpdatedAt,draft_revision AS draftRevision,published_site_json AS publishedSiteJson,published_company_json AS publishedCompanyJson,published_version AS publishedVersion,published_by AS publishedBy,published_at AS publishedAt FROM website_cms_state WHERE company_id=?`).get(companyId)}return row}
 function state(db,companyId){const row=ensureState(db,companyId);return{companyId:row.companyId,draft:{revision:row.draftRevision,site:parse(row.draftSiteJson,DEFAULT_SITE),company:parse(row.draftCompanyJson,DEFAULT_COMPANY),updatedBy:row.draftUpdatedBy,updatedAt:row.draftUpdatedAt},published:{site:parse(row.publishedSiteJson,DEFAULT_SITE),company:parse(row.publishedCompanyJson,DEFAULT_COMPANY),version:Number(row.publishedVersion||0),publishedBy:row.publishedBy,publishedAt:row.publishedAt}}}
 
