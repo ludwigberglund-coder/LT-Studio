@@ -6,6 +6,7 @@ const crypto=require('node:crypto');
 const {DatabaseSync}=require('node:sqlite');
 const {inspectTenantRelations}=require('../apps/api/tenant-integrity.js');
 const {validateLines}=require('../apps/api/accounting-store.js');
+const {magicMatches}=require('../apps/api/documents.js');
 
 function required(name){const value=String(process.env[name]||'').trim();if(!value)throw new Error(`${name} must be supplied.`);return value}
 function sha256(filename){return crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex')}
@@ -22,6 +23,18 @@ function verifyDatabase(filename){
     if(!tenants.ok)throw new Error('RESTORE_TENANT_FAILED: cross-company references found.');
     const accountingTables=['accounting_entries','accounting_entry_lines','accounting_sequences'];
     if(accountingTables.some(table=>present.has(table))&&!accountingTables.every(table=>present.has(table)))throw new Error('RESTORE_ACCOUNTING_SCHEMA_INCOMPLETE');
+    let archivedDocuments=0;
+    if(present.has('documents')){
+      const columns=new Set(db.prepare('PRAGMA table_info(documents)').all().map(row=>row.name));
+      for(const column of ['id','mime_type','sha256','size_bytes','content_blob','status'])if(!columns.has(column))throw new Error(`RESTORE_DOCUMENT_SCHEMA_INCOMPLETE: missing ${column}.`);
+      for(const row of db.prepare("SELECT id,mime_type AS mimeType,sha256,size_bytes AS sizeBytes,content_blob AS bytes FROM documents WHERE status='ready'").iterate()){
+        const bytes=row.bytes?Buffer.from(row.bytes):null;
+        const expected=String(row.sha256||'').trim().toLowerCase();
+        const actual=bytes?crypto.createHash('sha256').update(bytes).digest('hex'):'';
+        if(!bytes||!/^[a-f0-9]{64}$/.test(expected)||!Number.isSafeInteger(Number(row.sizeBytes))||Number(row.sizeBytes)!==bytes.length||actual!==expected||!magicMatches(row.mimeType,bytes))throw new Error(`RESTORE_DOCUMENT_INTEGRITY_FAILED: archived document ${row.id} is corrupt.`);
+        archivedDocuments++;
+      }
+    }
     let journalEntries=0;
     if(present.has('accounting_entries')){
       const lines=db.prepare('SELECT account,line_text AS text,debit_ore AS debitOre,credit_ore AS creditOre FROM accounting_entry_lines WHERE entry_id=? ORDER BY line_number');
@@ -41,7 +54,7 @@ function verifyDatabase(filename){
       }
       if(db.prepare('SELECT 1 FROM accounting_sequences s WHERE s.last_number<>0 AND NOT EXISTS (SELECT 1 FROM accounting_entries e WHERE e.company_id=s.company_id AND e.series=s.series AND e.fiscal_year=s.fiscal_year) LIMIT 1').get())throw new Error('RESTORE_SEQUENCE_FAILED: sequence without journal entries.');
     }
-    return {sqliteIntegrity:true,foreignKeys:true,tenantRelations:tenants.checkedRelations,journalEntries};
+    return {sqliteIntegrity:true,foreignKeys:true,tenantRelations:tenants.checkedRelations,journalEntries,archivedDocuments};
   }finally{db.close()}
 }
 function main(){
