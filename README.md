@@ -11,6 +11,7 @@ Börja här:
 - [Backup och verifierad återställning](docs/BACKUP-RESTORE-PILOT.md)
 - [Pilotens deployment-instruktion](docs/ROLANDS-PILOT-DEPLOYMENT.md)
 - [Produktvision](docs/PRODUCT-VISION.md)
+- [SaaS-målarkitektur för flera kunder](docs/SAAS-TARGET-ARCHITECTURE.md)
 
 ## GitHub är vår gemensamma källa
 
