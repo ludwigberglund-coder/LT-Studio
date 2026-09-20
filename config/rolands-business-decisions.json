@@ -9,17 +9,28 @@
       "type": "calendar-year",
       "start": "01-01",
       "end": "12-31",
-      "decision": "approved"
+      "decision": "verified-public-record",
+      "verifiedThrough": "2024-12-31",
+      "evidence": [
+        "https://www.allabolag.se/foretag/rolands-frukt-o-gr%C3%B6nt-aktiebolag/billdal/livsmedel/2K0P82RI5YFWD",
+        "https://krafman.se/rolands-frukt-o-gront-aktiebolag/5564065059/sammanfattning"
+      ]
     },
     "framework": {
       "value": "K2",
-      "decision": "approved-target",
-      "productionGate": "Verify against the latest signed annual report before production use."
+      "decision": "target-unverified",
+      "productionGate": "Verify against the latest signed annual report before production use.",
+      "verified": false,
+      "evidenceStatus": "No public evidence reviewed on 2026-09-20 was sufficient to establish the latest signed annual report framework."
     },
     "vatPeriod": {
       "value": "monthly",
-      "decision": "approved-target",
-      "productionGate": "Verify the registered VAT reporting period with Skatteverket before filing or production use."
+      "decision": "target-unverified",
+      "productionGate": "Verify the registered VAT reporting period with Skatteverket before filing or production use.",
+      "verified": false,
+      "evidenceStatus": "VAT registration is public, but the registered filing frequency was not established from the reviewed public sources.",
+      "publicRegistrationVerified": true,
+      "publicRegistrationEvidence": "https://www.allabolag.se/foretag/rolands-frukt-o-gr%C3%B6nt-aktiebolag/billdal/livsmedel/2K0P82RI5YFWD"
     },
     "moneyPrecision": {
       "storageUnit": "ore",
@@ -55,5 +66,6 @@
     ]
   },
   "approvedAt": "2026-09-15",
-  "status": "business-decisions-recorded"
+  "status": "business-decisions-recorded",
+  "verifiedAt": "2026-09-20"
 }
