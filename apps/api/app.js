@@ -8,10 +8,10 @@ const Receivables = require('../../packages/receivables/customer-receivables.js'
 const Auth = require('./auth.js');
 const Db = require('./database.js');
 const CustomerInvoicing = require('./customer-invoicing.js');
+const WebsiteCms = require('./website-cms.js');
 
 const DEFAULT_ACCESS = JSON.parse(fs.readFileSync(path.join(__dirname,'..','..','config','access-control.json'),'utf8'));
 const DEFAULT_RATES = JSON.parse(fs.readFileSync(path.join(__dirname,'..','..','config','legal-rates.json'),'utf8'));
-const DEFAULT_COMPANY_PROFILE = JSON.parse(fs.readFileSync(path.join(__dirname,'..','..','content','company.json'),'utf8'));
 const BODY_LIMIT = 256 * 1024;
 
 function apiError(message, code = 'API_ERROR', statusCode = 400) {
@@ -102,7 +102,11 @@ function createApiApp(options) {
     throw new Error('Sessionstiderna måste vara heltal och absolut maxgräns måste vara minst lika lång som inaktivitetsgränsen.');
   }
   const authEncryptionKey = options.authEncryptionKey || '';
-  const companyProfile = options.companyProfile || DEFAULT_COMPANY_PROFILE;
+  WebsiteCms.initializeWebsiteCms(db);
+  const fixedCompanyProfile = options.companyProfile || null;
+  const companyProfileFor = typeof options.companyProfileFor === 'function'
+    ? options.companyProfileFor
+    : companyId => fixedCompanyProfile || WebsiteCms.state(db,companyId).published.company;
   CustomerInvoicing.initializeCustomerInvoicing(db);
   const loginAttempts = new Map();
 
@@ -240,7 +244,9 @@ function createApiApp(options) {
         const session=currentSession(req);
         if(!session) return send(res,200,{authenticated:false});
         Db.touchSession(db,session.tokenHash,sessionExpiryIso(sessionIdleMinutes));
-        return send(res,200,{authenticated:true,user:{id:session.userId,username:session.username,displayName:session.displayName},companyId:session.companyId});
+        const company=Db.companyById(db,session.companyId);
+        return send(res,200,{authenticated:true,user:{id:session.userId,username:session.username,displayName:session.displayName},companyId:session.companyId,
+          company:{id:session.companyId,name:company?.displayName||company?.legalName||'Företaget',legalName:company?.legalName||''}});
       }
 
       const session=requireSession(req);
@@ -298,6 +304,7 @@ function createApiApp(options) {
 
       if(req.method==='GET' && url.pathname==='/api/v1/customer-invoices/config') {
         requirePermission(session,'customer-invoice.view');
+        const companyProfile=companyProfileFor(session.companyId);
         const resolved=CustomerInvoicing.resolvedProfile(db,session.companyId,companyProfile);
         const status=CustomerInvoicing.profileStatus(Db.companyById(db,session.companyId),resolved.profile);
         const blocker=resolved.configured?status.blocker:'Privata fakturainställningar saknas. Bankgiro och skattestatus måste läggas in i den privata databasen före bokföring.';
@@ -338,7 +345,7 @@ function createApiApp(options) {
       if(req.method==='POST' && url.pathname==='/api/v1/customer-invoices') {
         requirePermission(session,'customer-invoice.issue');
         const payload=await readJson(req,res); if(!payload) return;
-        const prepared=Db.transaction(db,()=>CustomerInvoicing.prepareInvoiceIssuance(db,{companyId:session.companyId,userId:session.userId,payload,profile:companyProfile}));
+        const prepared=Db.transaction(db,()=>CustomerInvoicing.prepareInvoiceIssuance(db,{companyId:session.companyId,userId:session.userId,payload,profile:companyProfileFor(session.companyId)}));
         if(prepared.duplicate)return send(res,200,prepared.result);
         let pdfBytes;
         try{pdfBytes=await CustomerInvoicing.renderInvoicePdf(prepared.document)}
