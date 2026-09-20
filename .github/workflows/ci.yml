@@ -76,6 +76,8 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Run supplier invoice browser flow
         run: npm run test:browser:payables
+      - name: Run payment overview browser filters
+        run: npm run test:browser:payments
       - name: Run complete navigation and invoice browser flow
         run: node test/menu-invoice-browser.cjs
       - name: Run private API PDF and CMS browser flows
