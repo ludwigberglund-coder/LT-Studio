@@ -27,3 +27,9 @@ test('payables.js använder gemensamma demo-workflows för leverantörsbetalning
   assert.match(source,/Workflows\.releaseSupplierPayment\(paymentId\)/);
   assert.match(source,/Workflows\.confirmSupplierPayment\(paymentId,reference\)/);
 });
+
+test('leverantörsfakturans detaljvy visar både fakturadatum och förfallodatum',()=>{
+  const source=fs.readFileSync(payablesPath,'utf8');
+  assert.match(source,/<span>Fakturadatum<\/span><strong>\$\{esc\(selected\.invoiceDate\)\}<\/strong>/);
+  assert.match(source,/<span>Förfallodatum<\/span><strong>\$\{esc\(selected\.dueDate\)\}<\/strong>/);
+});
