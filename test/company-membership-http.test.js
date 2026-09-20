@@ -58,8 +58,19 @@ test('företagsgränsen gäller läsning, PDF och mutation trots autentisering o
   });
   assert.equal(foreignCustomerCredit.status,404);
 
+  const foreignComments=await fetch(f.base+'/api/v1/invoices/'+f.issued.invoice.id+'/comments',{headers:otherHeaders});
+  assert.equal(foreignComments.status,404);
+
+  const foreignCommentCreate=await fetch(f.base+'/api/v1/invoices/'+f.issued.invoice.id+'/comments',{
+    method:'POST',
+    headers:otherHeaders,
+    body:JSON.stringify({text:'Ska aldrig sparas i annat företag'})
+  });
+  assert.equal(foreignCommentCreate.status,404);
+
   assert.equal(Db.auditForCompany(f.db,f.b.id).filter(e=>e.action.startsWith('SUPPLIER_')).length,0);
   assert.equal(Db.auditForCompany(f.db,f.b.id).filter(e=>e.action.startsWith('CUSTOMER_INVOICE_')).length,0);
+  assert.equal(Db.auditForCompany(f.db,f.b.id).filter(e=>e.action==='INVOICE_COMMENT_ADDED').length,0);
 }));
 test('MFA krävs även för nya medlemmar utan tidigare roller',()=>run(async f=>{
   const user=Db.createUser(f.db,{username:'no.mfa',displayName:'No MFA test',passwordHash:Auth.hashPassword(f.PASSWORD)});
