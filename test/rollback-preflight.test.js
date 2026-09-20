@@ -20,7 +20,8 @@ function fixture(){
   fs.writeFileSync(path.join(dir,'tracked.txt'),'two\n');
   git(dir,['add','tracked.txt']);git(dir,['commit','-q','-m','two']);
   const second=git(dir,['rev-parse','HEAD']);
-  return{dir,first,second};
+  const branchName=git(dir,['rev-parse','--abbrev-ref','HEAD']);
+  return{dir,first,second,branchName};
 }
 
 test('rollback verifier accepterar en tidigare ancestor-commit',()=>{
@@ -45,13 +46,13 @@ test('rollback verifier stoppar samma commit som nuvarande release',()=>{
 });
 
 test('rollback verifier stoppar commit från sidogren',()=>{
-  const {dir,first,second}=fixture();
+  const {dir,first,second,branchName}=fixture();
   try{
     git(dir,['checkout','-q','-b','side',first]);
     fs.writeFileSync(path.join(dir,'side.txt'),'side\n');
     git(dir,['add','side.txt']);git(dir,['commit','-q','-m','side']);
     const side=git(dir,['rev-parse','HEAD']);
-    git(dir,['checkout','-q','master']);
+    git(dir,['checkout','-q',branchName]);
     assert.equal(git(dir,['rev-parse','HEAD']),second);
     assert.throws(
       ()=>Rollback.verifyRollback({cwd:dir,currentCommit:second,targetCommit:side}),
