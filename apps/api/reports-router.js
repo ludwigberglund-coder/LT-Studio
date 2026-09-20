@@ -35,7 +35,7 @@ function createReportsRouter(options){
       if(url.pathname==='/api/v1/reports/payables-control')return send(res,200,Reports.payablesControl(db,s.companyId)),true;
       if(url.pathname==='/api/v1/reports/export'){
         const result=CsvExports.buildExport(db,s.companyId,{dataset:String(url.searchParams.get('dataset')||''),from,to});
-        res.writeHead(200,{...securityHeaders(),'Content-Type':'text/csv; charset=utf-8','Content-Disposition':`attachment; filename="${result.filename}"`,'Content-Length':result.bytes.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Export-Row-Count':String(result.count)});
+        res.writeHead(200,{...securityHeaders(),'Content-Type':'text/csv; charset=utf-8','Content-Disposition':`attachment; filename="${result.filename}"`,'Content-Length':result.bytes.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Export-Row-Count':String(result.count),...(result.totalOre===null?{}:{'X-Export-Total-Ore':String(result.totalOre)})});
         res.end(result.bytes);return true;
       }
       send(res,404,{error:'Hittades inte.',code:'NOT_FOUND'});return true;
