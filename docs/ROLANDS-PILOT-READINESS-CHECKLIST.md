@@ -19,7 +19,7 @@ Senast granskad: 2026-09-20. Företag: Rolands Frukt o Grönt Aktiebolag, 556406
 | Rättelse med bibehållen originalhistorik | 🟡 Delvis klar | PR 66: atomisk manuell rättelse med moms, originalkoppling och audit. Osäkra fristående rättelser av automatiska poster och 151x/244x nekas. Komplett rättelse som uppdaterar reskontra och betalningsstatus tillsammans återstår. |
 | Moms i faktura och leverantörsbokföring | 🟡 Delvis klar | Beräkning/konton och normal inhemsk kontering finns. Komplett regel- och scenarioverifiering återstår. |
 | Momsavstämning mot bokförd huvudbok | 🟡 Delvis klar | PR 71: huvudbelopp kommer nu från bokförda momskonton och källanknutna kund-/leverantörsfakturor stäms av mot verifikation. Full deklarationslogik, specialfall och periodavslut återstår. |
-| Aktuella momssatser, tidpunkt och klassificering | 🟡 Delvis klar | Kundfakturor kräver verifierad försäljningstyp: livsmedel 12 % t.o.m. 2026-03-31 och 6 % från 2026-04-01, restaurang/catering 12 %, övrigt normalfall 25 %. Backend härleder sats och stoppar motsägande konto/sats. EU/import/momsfritt/krediter över regeländring och regler efter 2026-12-31 återstår. |
+| Aktuella momssatser, tidpunkt och klassificering | 🟡 Delvis klar | PR 104 verifierar kundfakturans svenska normalregler genom 2027: livsmedel 12 % t.o.m. 2026-03-31 och 6 % 2026-04-01–2027-12-31, restaurang/catering 12 % och övrigt normalfall 25 %. Backend härleder sats och stoppar motsägande konto/sats. Datum från 2028 blockeras tills regelverket verifierats på nytt. EU/import/momsfritt och övriga specialfall återstår. |
 | Dröjsmålsränta och betalningspåminnelser | 🟡 Delvis klar | PR 70: delbetalningsdagar och verifierade halvår styr beräkningen, ofullständig/komplex historik blockeras och regelversion sparas. Källanknuten kredit-/justeringshistorik samt dokumenterad rättslig startgrund per kundtyp återstår. |
 | Fakturadatum, förfallodatum, separat bokföringsdatum | 🟡 Delvis klar | Fält finns åtskilda. PR 66 låser ursprungliga datum när kundfakturans underlag arkiverats. PDF, leveransdatum och riktiga backendflöden ska verifieras tillsammans. |
 | Återanvändning av kunddata och inget artikelnummerkrav | 🟡 Delvis klar | Backend hämtar köpare från kundregister; betalningsvillkor/referenser och hela UAT behöver kompletteras. |
@@ -56,3 +56,8 @@ Bas: `3c69c0266b1e3be0b052c708826561e732876c66`. Ett regressionstest reproducera
 ## Ny användarmodell 2026-09-20
 
 Rollfält och rolltilldelning har ersatts med personligt företagsmedlemskap. MFA krävs för alla. De automatiska medlemskaps- och migrationsproven finns i `company-membership-http.test.js`, `membership-migration.test.js` och `access-control.test.js`. Se [migration, kontroller och begränsningar](ACCESS-CONTROL.md). Full CI måste passera före merge. Den fullständiga IDOR-matrisen och faktisk pilot-UAT är fortsatt delvis/inte klara; inga sådana rader markeras gröna av detta arbete.
+
+
+## Verifierad uppföljning 2026-09-20 – kundmoms genom 2027
+
+PR 104 uppdaterar den daterade kundfakturaregleringen efter kontroll mot gällande mervärdesskattelag och Skatteverkets rättsliga vägledning. Livsmedel är 12 procent till och med 2026-03-31 och 6 procent från 2026-04-01 till och med 2027-12-31. Restaurang/catering ligger kvar på 12 procent och normal skattesats på 25 procent. Testerna kontrollerar gränsdagarna och kräver att 2028-01-01 fortfarande stoppas tills en ny uttrycklig regelverifiering gjorts. **NO-GO kvarstår eftersom specialfall och full momsdeklarationslogik inte är klara.**
