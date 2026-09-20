@@ -72,13 +72,13 @@
     sidebar.classList.add('shared-sidebar');sidebar.parentElement.classList.add('shared-workspace-shell');
     sidebar.setAttribute('aria-label','Huvudmeny');sidebar.dataset.sharedRoute=route;
     const saved=read();
+    const context=await navigationContext();const allowedGroups=context.groups;
     const brand=document.createElement('a');brand.className='shared-brand';brand.href=href('portal/dashboard.html');
     const companyName=demo?'Rollands':String(context.session?.company?.name||'Företaget');
     const brandName=document.createElement('strong');brandName.textContent=companyName;
     const brandPlatform=document.createElement('small');brandPlatform.textContent='LT STUDIO';brand.append(brandName,brandPlatform);
     const info=document.createElement('p');info.className='shared-company';info.textContent=demo?'Demoföretag · fiktiv data':companyName+' · skyddad företagsportal';
     const nav=document.createElement('nav');nav.className='shared-navigation';nav.setAttribute('aria-label','Systemets alla verktyg');
-    const context=await navigationContext();const allowedGroups=context.groups;
     for(const group of allowedGroups){
       const details=document.createElement('details');details.dataset.navGroup=group.id;
       details.open=group.items.some(item=>active(item[2]))||saved[group.id]!==false;
