@@ -4,6 +4,7 @@ const ContentStore=require('./document-content-store.js');
 const PrivateObject=require('./private-object-contract.js');
 
 function createSqliteDocumentPrivateObjectProvider(db){
+  // This bridge intentionally accepts only generic document objects; other kinds use their own SQLite bridge.
   const store=ContentStore.createSqliteDocumentContentStore(db);
 
   function isDocument(reference){
