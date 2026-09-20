@@ -44,9 +44,22 @@ test('företagsgränsen gäller läsning, PDF och mutation trots autentisering o
   }
   const otherHeaders=await f.login(f.other.username);
   assert.equal((await fetch(f.base+'/api/v1/payables/invoices/'+f.otherPayable.id,{headers:otherHeaders})).status,200);
-  const foreignCustomer=await fetch(f.base+'/api/v1/customer-invoices/'+f.issued.invoice.id+'/pdf',{headers:otherHeaders});
-  assert.equal(foreignCustomer.status,404);
+
+  const foreignCustomerDetail=await fetch(f.base+'/api/v1/customer-invoices/'+f.issued.invoice.id,{headers:otherHeaders});
+  assert.equal(foreignCustomerDetail.status,404);
+
+  const foreignCustomerPdf=await fetch(f.base+'/api/v1/customer-invoices/'+f.issued.invoice.id+'/pdf',{headers:otherHeaders});
+  assert.equal(foreignCustomerPdf.status,404);
+
+  const foreignCustomerCredit=await fetch(f.base+'/api/v1/customer-invoices/'+f.issued.invoice.id+'/credit',{
+    method:'POST',
+    headers:otherHeaders,
+    body:JSON.stringify({requestId:'cross-company-credit-attempt-001'})
+  });
+  assert.equal(foreignCustomerCredit.status,404);
+
   assert.equal(Db.auditForCompany(f.db,f.b.id).filter(e=>e.action.startsWith('SUPPLIER_')).length,0);
+  assert.equal(Db.auditForCompany(f.db,f.b.id).filter(e=>e.action.startsWith('CUSTOMER_INVOICE_')).length,0);
 }));
 test('MFA krävs även för nya medlemmar utan tidigare roller',()=>run(async f=>{
   const user=Db.createUser(f.db,{username:'no.mfa',displayName:'No MFA test',passwordHash:Auth.hashPassword(f.PASSWORD)});
