@@ -71,7 +71,7 @@ function createObjectMetadata(input={}){
   return Object.freeze(metadata);
 }
 
-function metadataForBytes({companyId,kind:objectKind,objectId,mimeType:contentType,bytes,status:'ready'}){
+function metadataForBytes({companyId,kind:objectKind,objectId,mimeType:contentType,bytes}){
   if(!Buffer.isBuffer(bytes)||!bytes.length)throw contractError('Binärt innehåll saknas.');
   return createObjectMetadata({
     companyId,
