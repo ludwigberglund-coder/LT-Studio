@@ -396,3 +396,8 @@ Sätt en separat `ROLLANDS_BACKUP_ENCRYPTION_KEY` i secret manager. `scripts/pil
 ## Backupretention
 
 Retention använder `backupRetentionDays` från den godkända privata operationsfilen. Kör först `npm run pilot:backup:retention` utan flagga och granska JSON-planen. Inga filer raderas i dry-run. Kör först därefter `npm run pilot:backup:retention -- --apply` om planen är korrekt. Verktyget hanterar bara filer som matchar Rollands backupnamn, raderar hela backupfamiljen tillsammans och bevarar alltid den nyaste familjen även om alla filer är äldre än retentionstiden. Extern lagringsleverantör måste ha en motsvarande eller striktare retention som verifieras separat.
+
+
+## Isolerad restore-övning
+
+Sätt `ROLLANDS_RESTORE_DRILL_PATH` och `ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH` till privata sökvägar utanför repositoryt. Kör `npm run pilot:restore:drill`. Kommandot väljer senaste krypterade backup, verifierar dess checksumma, dekrypterar en unik testkopia, kör SQLite-, foreign-key-, tenant-, journal- och dokumentintegritetskontroller, raderar testkopian och skriver därefter ett `0600`-skyddat JSON-evidensbevis. Produktionsdatabasen ersätts eller öppnas aldrig av drill-kommandot. Misslyckad restore ska inte uppdatera ett tidigare lyckat evidensbevis.
