@@ -11,7 +11,7 @@ Senast granskad: 2026-09-20. Företag: Rolands Frukt o Grönt Aktiebolag, 556406
 | GitHub som källa, spårbara ändringar | ✅ Klar | Baseline c8bb496; separata grenar/PR:er med kontroller före sammanslagning. |
 | Atomisk lagring av en verifikation | ✅ Klar | PR 62; fel vid andra raden återställer huvud, rader och nummerserie. PR 66 testar även fel i förseglingen. |
 | Identiska/ändrade återförsök på journalnivå | ✅ Klar | PR 62; identiskt återanvänder, ändrat innehåll nekas. |
-| Dubbelklick/idempotens i alla affärsflöden | 🟡 Delvis klar | PR 91 jämför innehållet bakom kundfakturans/kreditens request-ID och stoppar ändrade återförsök; nummerreservationen gör PDF-fel säkert återupptagbara. Övriga mutationer måste fortfarande verifieras systematiskt. |
+| Dubbelklick/idempotens i alla affärsflöden | 🟡 Delvis klar | PR 91 jämför innehållet bakom kundfakturans/kreditens request-ID. PR 92 stoppar ändrade återförsök av bokförd leverantörsbetalning. PR 102 gör även betalningsförberedelsen audit-idempotent: tio identiska anrop ger en betalning och en `SUPPLIER_PAYMENT_PREPARED`-händelse, medan ändrat datum/konto nekas. Övriga mutationer måste fortfarande verifieras systematiskt. |
 | Deklarerade företagsrelationer i SQLite | ✅ Klar | PR 63; kontroll vid start och spärrar för INSERT/UPDATE. Befintlig ogiltig historik stoppar start utan att tas bort. |
 | Fullständig företagsisolering och IDOR | 🟡 Delvis klar | Vanlig företagsfiltrering, 14 routefamiljers anonyma anrop och flera objektprov; hela identitets-/företags-/metodmatrisen och polymorfa länkar återstår. |
 | Inloggning, sessionscookie, MFA och CSRF | 🟡 Delvis klar | PR 73: 60 min idle-timeout, 8 h absolut sluttid och engångsförbrukning av TOTP-steg är testade; aktuellt företagsmedlemskap kontrolleras på servern vid varje anrop. Kontorecovery, processöverskridande brute-force-skydd, nyckelrotation och driftprov återstår. |
@@ -56,3 +56,8 @@ Bas: `3c69c0266b1e3be0b052c708826561e732876c66`. Ett regressionstest reproducera
 ## Ny användarmodell 2026-09-20
 
 Rollfält och rolltilldelning har ersatts med personligt företagsmedlemskap. MFA krävs för alla. De automatiska medlemskaps- och migrationsproven finns i `company-membership-http.test.js`, `membership-migration.test.js` och `access-control.test.js`. Se [migration, kontroller och begränsningar](ACCESS-CONTROL.md). Full CI måste passera före merge. Den fullständiga IDOR-matrisen och faktisk pilot-UAT är fortsatt delvis/inte klara; inga sådana rader markeras gröna av detta arbete.
+
+
+## Verifierad uppföljning 2026-09-20 – idempotent betalningsförberedelse
+
+PR 102 rättar ett fall där själva leverantörsbetalningen redan var idempotent men API-lagret skrev en ny audit-händelse vid varje identiskt återförsök. Första giltiga anropet svarar nu 201 och skapar betalning + audit. Identiska återförsök svarar 200 med `duplicate: true`, samma betalnings-id och utan ny audit. Regressionstest gör totalt tio identiska anrop och kräver exakt en rad i `supplier_payments` och exakt en `SUPPLIER_PAYMENT_PREPARED`-händelse. Ett återförsök med ändrat datum stoppas med 409 `PAYMENT_ALREADY_EXISTS`. **NO-GO kvarstår tills hela mutationsmatrisen och UAT är verifierade.**
