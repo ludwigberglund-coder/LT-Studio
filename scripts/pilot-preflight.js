@@ -68,6 +68,10 @@ function validateConfig(env=process.env){
     }
   }
 
+  const backupKey=requireValue('ROLLANDS_BACKUP_ENCRYPTION_KEY');
+  if(backupKey&&(backupKey.length<32||PLACEHOLDER.test(backupKey)||new Set(backupKey).size<10))fail.push('ROLLANDS_BACKUP_ENCRYPTION_KEY är för svag eller ser ut som ett exempelvärde.');
+  else if(backupKey)pass.push('Backup encryption key configured');
+
   const key=requireValue('ROLLANDS_AUTH_ENCRYPTION_KEY');
   if(key&&(key.length<32||PLACEHOLDER.test(key)||new Set(key).size<10))fail.push('ROLLANDS_AUTH_ENCRYPTION_KEY är för svag eller ser ut som ett exempelvärde.');
   else if(key)pass.push('MFA encryption key configured');
@@ -87,7 +91,7 @@ function validateConfig(env=process.env){
     else pass.push('Database file permissions');
   }else if(databasePath){warn.push('Databasfilen finns inte ännu. Det är normalt före första bootstrap, men kontrollera rättigheter efter skapandet.');}
 
-  warn.push('Preflight kan inte verifiera att HTTPS-certifikat, DNS, offsite-backup, logginsamling eller extern övervakning faktiskt är konfigurerade.');
+  warn.push('Preflight kan inte verifiera att HTTPS-certifikat, DNS, extern kopiering av den krypterade backupen, logginsamling eller extern övervakning faktiskt är konfigurerade.');
   return{pass,fail,warn};
 }
 
