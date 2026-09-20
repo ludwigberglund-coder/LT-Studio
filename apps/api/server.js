@@ -68,7 +68,8 @@ function createServer(options = {}) {
   if (databasePath !== ':memory:') fs.mkdirSync(path.dirname(path.resolve(databasePath)),{recursive:true,mode:0o700});
   const db = options.db || Db.openDatabase(databasePath);
   Queues.initializeQueues(db); ReminderOutbox.initializeReminderOutbox(db); Bank.initializeBankPayments(db); Payables.initializePayables(db); SupplierMasterdata.initializeSupplierMasterdata(db); PaymentConfirmation.initializePaymentConfirmation(db); Inventory.initializeInventory(db); Payroll.initializePayroll(db); Documents.initializeDocuments(db); AccountingAdmin.initializeAccountingAdmin(db); WebsiteCms.initializeWebsiteCms(db);
-  const api = createApiApp({db,secureCookies,authEncryptionKey});
+  const protectedMode=process.env.NODE_ENV==='production'||['pilot','production'].includes(String(process.env.ROLLANDS_ENV||'').trim());
+  const api = createApiApp({db,secureCookies,authEncryptionKey,databasePath,requirePrivatePermissions:protectedMode,minFreeBytes:options.minFreeBytes,readinessProbe:options.readinessProbe});
   const automationReview = createAutomationReviewRouter({db}); const bank = createBankRouter({db}); const payables = createPayablesRouter({db}); const supplierMasterdata = createSupplierMasterdataRouter({db}); const paymentRelease = createPaymentReleaseRouter({db}); const paymentConfirmation = createPaymentConfirmationRouter({db}); const inventory = createInventoryRouter({db}); const reports = createReportsRouter({db}); const payroll = createPayrollRouter({db}); const documents = createDocumentsRouter({db}); const accounting = createAccountingAdminRouter({db}); const websiteCms = createWebsiteCmsRouter({db});
   // Apply guards after every router has initialized its tables, before accepting requests.
   require('./tenant-integrity.js').installTenantGuards(db);
