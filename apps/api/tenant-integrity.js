@@ -42,29 +42,31 @@ function inspectTenantCoverage(db) {
   const roots = new Set(ROOT_SCOPE_TABLES.filter(table => structure.tables.includes(table)));
   const direct = new Set(structure.tenants);
   const inherited = new Map();
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const table of structure.tables) {
-      if (roots.has(table) || direct.has(table) || inherited.has(table)) continue;
-      const tableColumns = new Map(structure.columns.get(table).map(column => [column.name,column]));
-      const via = structure.foreignKeys.get(table)
-        .filter(fk => {
-          const column = tableColumns.get(fk.from);
-          return Boolean(column && (column.notnull || column.pk) && (direct.has(fk.table) || inherited.has(fk.table)));
-        })
-        .map(fk => ({column:fk.from,targetTable:fk.table,targetColumn:fk.to || null}));
-      if (!via.length) continue;
-      inherited.set(table,{table,via});
-      changed = true;
-    }
+  const ambiguousInheritedTables = [];
+  for (const table of structure.tables) {
+    if (roots.has(table) || direct.has(table)) continue;
+    const tableColumns = new Map(structure.columns.get(table).map(column => [column.name,column]));
+    const via = structure.foreignKeys.get(table)
+      .filter(fk => {
+        const column = tableColumns.get(fk.from);
+        return Boolean(column && (column.notnull || column.pk) && direct.has(fk.table));
+      })
+      .map(fk => {
+        const targetColumns=structure.columns.get(fk.table);
+        const pk=targetColumns.filter(column=>column.pk);
+        return {column:fk.from,targetTable:fk.table,targetColumn:fk.to || (pk.length===1?pk[0].name:null)};
+      })
+      .filter(row=>row.targetColumn);
+    if (via.length === 1) inherited.set(table,{table,via});
+    else if (via.length > 1) ambiguousInheritedTables.push({table,via});
   }
   const unscopedTables = structure.tables.filter(table => !roots.has(table) && !direct.has(table) && !inherited.has(table));
   return {
-    ok:unscopedTables.length===0,
+    ok:unscopedTables.length===0 && ambiguousInheritedTables.length===0,
     rootTables:[...roots].sort(),
     directTenantTables:[...direct].sort(),
     inheritedTenantTables:[...inherited.values()].sort((a,b)=>a.table.localeCompare(b.table)),
+    ambiguousInheritedTables:ambiguousInheritedTables.sort((a,b)=>a.table.localeCompare(b.table)),
     unscopedTables:unscopedTables.sort()
   };
 }
@@ -83,7 +85,8 @@ function installTenantGuards(db) {
   try {
     const coverage = inspectTenantCoverage(db);
     if (!coverage.ok) {
-      throw failure(`Tenant scope is undefined for: ${coverage.unscopedTables.join(', ')}. Add company_id, a NOT NULL foreign key to a tenant-owned parent, or explicitly classify a truly global platform table.`);
+      const names=[...coverage.unscopedTables,...coverage.ambiguousInheritedTables.map(row=>row.table)];
+      throw failure(`Tenant scope is undefined or ambiguous for: ${names.join(', ')}. Add company_id, exactly one NOT NULL foreign key to a tenant-owned parent, or explicitly classify a truly global platform table.`);
     }
     const report = inspectTenantRelations(db);
     if (!report.ok) {
@@ -91,6 +94,17 @@ function installTenantGuards(db) {
       throw failure(`Existing cross-company or orphan references in: ${[...new Set(report.violations.map(row => row.table))].join(', ')}. Startup stopped; review a backup before repair.`);
     }
     const {tenants, columns, relations} = schema(db);
+    for (const inherited of coverage.inheritedTenantTables) {
+      const owner=inherited.via[0];
+      const suffix=crypto.createHash('sha256').update(JSON.stringify({table:inherited.table,...owner})).digest('hex').slice(0,20);
+      db.exec(`CREATE TRIGGER IF NOT EXISTS ${quote(`tenant_inherited_owner_${suffix}`)} BEFORE UPDATE OF ${quote(owner.column)} ON ${quote(inherited.table)}
+        WHEN NEW.${quote(owner.column)} IS NOT OLD.${quote(owner.column)} AND NOT EXISTS (
+          SELECT 1 FROM ${quote(owner.targetTable)} old_parent
+          JOIN ${quote(owner.targetTable)} new_parent ON new_parent.company_id=old_parent.company_id
+          WHERE old_parent.${quote(owner.targetColumn)}=OLD.${quote(owner.column)}
+            AND new_parent.${quote(owner.targetColumn)}=NEW.${quote(owner.column)})
+        BEGIN SELECT RAISE(ABORT, 'TENANT_INHERITED_OWNER_MISMATCH'); END`);
+    }
     for (const relation of relations) {
       const {table, column, targetTable, targetColumn} = relation;
       const suffix = crypto.createHash('sha256').update(JSON.stringify(relation)).digest('hex').slice(0, 20);
