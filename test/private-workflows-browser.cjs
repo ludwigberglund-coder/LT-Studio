@@ -6,6 +6,7 @@ const {chromium}=require('playwright');
 const {fixture}=require('./private-workflows-fixture.cjs');
 const Auth=require('../apps/api/auth.js');
 const Cms=require('../apps/api/website-cms.js');
+const Settings=require('../apps/api/company-invoice-settings.js');
 (async()=>{
   const f=await fixture();let browser,context,page;
   const out=path.resolve(__dirname,'..','test-artifacts');fs.mkdirSync(out,{recursive:true});
@@ -96,6 +97,15 @@ const Cms=require('../apps/api/website-cms.js');
     fs.writeFileSync(path.join(out,'private-supplier-original.pdf'),await original.body());
     await page.waitForTimeout(800); // Let the native viewer paint before visual review.
     await page.screenshot({path:path.join(out,'private-supplier-pdf-view.png'),fullPage:false});checks.push('Original supplier PDF served byte-exact through private iframe with CSP active');
+    f.db.prepare('DELETE FROM company_invoice_settings WHERE company_id=?').run(f.a.id);
+    await page.goto(f.base+'/portal/invoices.html');
+    await page.getByRole('button',{name:'+ Ny kundfaktura',exact:true}).click();
+    const blockedIssueButton=page.getByRole('button',{name:'Skapa och bokför faktura',exact:true});
+    assert.equal(await blockedIssueButton.isDisabled(),true);
+    await page.getByRole('button',{name:'Spara utkast',exact:true}).click();
+    assert.equal(await blockedIssueButton.isDisabled(),true);
+    checks.push('Blocked customer invoice issue action stays disabled after editor actions');
+    Settings.setInvoiceSettings(f.db,{companyId:f.a.id,bankgiro:'123-4567',taxStatus:'Testunderlag',updatedBy:f.admin.id});
     await page.goto(f.base+'/portal/invoices.html');
     await page.locator(`[data-preview="${f.issued.invoice.id}"]`).click();
     const [pdfTab]=await Promise.all([
