@@ -7,6 +7,8 @@ const Matcher=require('../../packages/automation/bank-payment-matcher.js');
 const Auth=require('./auth.js');
 const Db=require('./database.js');
 const Bank=require('./bank-payments.js');
+const Payables=require('./payables.js');
+const PaymentsOverview=require('./payments-overview.js');
 const Queues=require('./queues.js');
 const {readJson,securityHeaders}=require('./app.js');
 
@@ -16,7 +18,7 @@ function send(res,status,body){if(res.writableEnded)return;res.writeHead(status,
 
 function createBankRouter(options){
   const db=options?.db;if(!db)throw new Error('Databas krävs för bankflödet.');
-  Bank.initializeBankPayments(db);Queues.initializeQueues(db);
+  Bank.initializeBankPayments(db);Payables.initializePayables(db);Queues.initializeQueues(db);
   const model=Access.createModel(options.accessConfig||DEFAULT_ACCESS);
   function session(req){const token=Auth.parseCookies(req.headers.cookie).rollands_session;if(!token)return null;const s=Db.sessionByTokenHash(db,Auth.hashToken(token));if(!s||s.disabled)return null;s.actor={id:s.userId,name:s.displayName,companyId:s.companyId,authenticated:true,membershipActive:true,disabled:Boolean(s.disabled)};return s}
   function requireSession(req){const s=session(req);if(!s)throw routeError('Personlig inloggning krävs.','AUTH_REQUIRED',401);return s}
@@ -30,6 +32,16 @@ function createBankRouter(options){
       const s=requireSession(req);if(req.method!=='GET')csrf(req,s);
       if(req.method==='GET'&&url.pathname==='/api/v1/bank/payments'){
         permission(s,'bank.view');return send(res,200,{payments:Bank.list(db,s.companyId,{status:String(url.searchParams.get('status')||'')})}),true;
+      }
+      if(req.method==='GET'&&url.pathname==='/api/v1/bank/overview'){
+        permission(s,'bank.view');
+        return send(res,200,PaymentsOverview.list(db,s.companyId,{
+          from:String(url.searchParams.get('from')||''),to:String(url.searchParams.get('to')||''),
+          date:String(url.searchParams.get('date')||''),period:String(url.searchParams.get('period')||''),
+          direction:String(url.searchParams.get('direction')||''),account:String(url.searchParams.get('account')||''),
+          status:String(url.searchParams.get('status')||''),counterparty:String(url.searchParams.get('counterparty')||''),
+          minOre:String(url.searchParams.get('minOre')||''),maxOre:String(url.searchParams.get('maxOre')||'')
+        })),true;
       }
       if(req.method==='POST'&&url.pathname==='/api/v1/bank/payments'){
         permission(s,'bank.import');const payload=await readJson(req,res);if(!payload)return true;
