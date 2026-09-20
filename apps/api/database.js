@@ -79,6 +79,13 @@ function initializeSchema(db) {
       PRIMARY KEY(user_id,totp_counter)
     ) STRICT;
 
+    CREATE TABLE IF NOT EXISTS login_attempts (
+      key_hash TEXT PRIMARY KEY,
+      failure_count INTEGER NOT NULL CHECK(failure_count >= 0),
+      reset_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    ) STRICT;
+
     CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY,
       company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -186,6 +193,7 @@ function initializeSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_audit_company_created ON audit_events(company_id,created_at);
     CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
     CREATE INDEX IF NOT EXISTS idx_mfa_used_steps_used_at ON mfa_used_steps(used_at);
+    CREATE INDEX IF NOT EXISTS idx_login_attempts_reset ON login_attempts(reset_at);
   `);
   if (!hasColumn(db,'sessions','absolute_expires_at')) {
     db.exec("ALTER TABLE sessions ADD COLUMN absolute_expires_at TEXT NOT NULL DEFAULT ''");
@@ -307,6 +315,31 @@ function consumeMfaStep(db,{userId,totpCounter}) {
     throw error;
   }
   return {userId,totpCounter,usedAt:now};
+}
+
+function noteLoginFailure(db,{keyHash,windowMinutes=15,nowMs=Date.now()}) {
+  if(!/^[a-f0-9]{64}$/.test(String(keyHash||''))) throw databaseError('Ogiltig inloggningsnyckel.','INVALID_LOGIN_ATTEMPT_KEY',500);
+  const now=new Date(nowMs).toISOString(),resetAt=new Date(nowMs+windowMinutes*60*1000).toISOString();
+  db.prepare('DELETE FROM login_attempts WHERE reset_at<=?').run(now);
+  const row=db.prepare('SELECT failure_count AS failureCount,reset_at AS resetAt FROM login_attempts WHERE key_hash=?').get(keyHash);
+  if(!row){
+    db.prepare('INSERT INTO login_attempts(key_hash,failure_count,reset_at,updated_at) VALUES(?,?,?,?)').run(keyHash,1,resetAt,now);
+    return{failureCount:1,resetAt};
+  }
+  const failureCount=Number(row.failureCount)+1;
+  db.prepare('UPDATE login_attempts SET failure_count=?,updated_at=? WHERE key_hash=?').run(failureCount,now,keyHash);
+  return{failureCount,resetAt:row.resetAt};
+}
+
+function loginAttemptState(db,{keyHash,nowMs=Date.now()}) {
+  if(!/^[a-f0-9]{64}$/.test(String(keyHash||''))) return null;
+  const now=new Date(nowMs).toISOString();
+  db.prepare('DELETE FROM login_attempts WHERE reset_at<=?').run(now);
+  return db.prepare('SELECT failure_count AS failureCount,reset_at AS resetAt,updated_at AS updatedAt FROM login_attempts WHERE key_hash=?').get(keyHash)||null;
+}
+
+function clearLoginAttempts(db,keyHash) {
+  if(/^[a-f0-9]{64}$/.test(String(keyHash||''))) db.prepare('DELETE FROM login_attempts WHERE key_hash=?').run(keyHash);
 }
 
 function deleteSession(db, tokenHash) {
@@ -486,6 +519,9 @@ module.exports = Object.freeze({
   sessionByTokenHash,
   touchSession,
   consumeMfaStep,
+  noteLoginFailure,
+  loginAttemptState,
+  clearLoginAttempts,
   deleteSession,
   createCustomer,
   customerById,
