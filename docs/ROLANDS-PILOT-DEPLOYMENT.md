@@ -94,6 +94,7 @@ ROLLANDS_API_SECURE_COOKIE=1
 ROLLANDS_DATABASE_PATH=/srv/rollands-data/platform.sqlite
 ROLLANDS_BACKUP_PATH=/srv/rollands-backups
 ROLLANDS_PILOT_OPERATIONS_PATH=/etc/rollands/pilot-operations.json
+ROLLANDS_BACKUP_ENCRYPTION_KEY=<separat stark backupnyckel>
 ROLLANDS_AUTH_ENCRYPTION_KEY=<stark slumpmässig hemlighet>
 ROLLANDS_DEMO_DATA=0
 ```
@@ -385,3 +386,8 @@ Före faktisk pilotinstallation behöver ni välja och meddela:
 7. **Logg- och övervakningslösning** – minst vem som tar emot larm vid driftstopp/backupfel och hur länge driftloggar sparas.
 
 När servern är installerad ska `pilot:preflight`, health check, verklig backup→restore och hela manuella `ROLANDS-PILOT-UAT.md` genomföras. Först därefter kan beslut om **READY FOR CONTROLLED ROLANDS PILOT** tas.
+
+
+## Krypterad backup för offsite
+
+Sätt en separat `ROLLANDS_BACKUP_ENCRYPTION_KEY` i secret manager. `scripts/pilot-backup.js` skapar då en autentiserat krypterad `.sqlite.enc` och `.sha256`. Kopiera endast dessa två filer till offsite-lagring. `scripts/pilot-restore-verify.js` kan ta `.enc` direkt och vägrar skapa restore-target vid fel nyckel, manipulerad ciphertext eller misslyckad databasverifiering.
