@@ -79,6 +79,13 @@ function initializeSchema(db) {
       PRIMARY KEY(user_id,totp_counter)
     ) STRICT;
 
+    CREATE TABLE IF NOT EXISTS login_attempts (
+      attempt_key TEXT PRIMARY KEY,
+      failure_count INTEGER NOT NULL CHECK(failure_count>=0),
+      reset_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    ) STRICT;
+
     CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY,
       company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -186,6 +193,7 @@ function initializeSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_audit_company_created ON audit_events(company_id,created_at);
     CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
     CREATE INDEX IF NOT EXISTS idx_mfa_used_steps_used_at ON mfa_used_steps(used_at);
+    CREATE INDEX IF NOT EXISTS idx_login_attempts_reset ON login_attempts(reset_at);
   `);
   if (!hasColumn(db,'sessions','absolute_expires_at')) {
     db.exec("ALTER TABLE sessions ADD COLUMN absolute_expires_at TEXT NOT NULL DEFAULT ''");
@@ -264,6 +272,39 @@ function membership(db, companyId, userId) {
 function membershipsForUser(db, userId) {
   return db.prepare(`SELECT m.company_id AS companyId,c.legal_name AS legalName,c.display_name AS displayName
     FROM memberships m JOIN companies c ON c.id=m.company_id WHERE m.user_id=? ORDER BY c.display_name`).all(userId);
+}
+
+function loginAttemptStatus(db,attemptKey,{nowMs=Date.now(),limit=5}={}){
+  const key=String(attemptKey||'').trim();
+  if(!key)return null;
+  const row=db.prepare('SELECT failure_count AS count,reset_at AS resetAt,updated_at AS updatedAt FROM login_attempts WHERE attempt_key=?').get(key);
+  if(!row)return null;
+  const resetMs=Date.parse(row.resetAt);
+  if(!Number.isFinite(resetMs)||resetMs<=nowMs)return null;
+  return {...row,blocked:Number(row.count)>=limit,retryAfterSeconds:Math.max(1,Math.ceil((resetMs-nowMs)/1000))};
+}
+
+function noteLoginFailure(db,{attemptKey,nowMs=Date.now(),windowMs=15*60*1000,limit=5}){
+  const key=String(attemptKey||'').trim();
+  if(!/^[a-f0-9]{64}$/.test(key))throw databaseError('Ogiltig nyckel för inloggningsspärr.','INVALID_LOGIN_ATTEMPT_KEY',500);
+  if(!Number.isSafeInteger(windowMs)||windowMs<1000||!Number.isSafeInteger(limit)||limit<1)throw databaseError('Ogiltig konfiguration för inloggningsspärr.','INVALID_LOGIN_THROTTLE_CONFIG',500);
+  return transaction(db,()=>{
+    const now=new Date(nowMs).toISOString();
+    db.prepare('DELETE FROM login_attempts WHERE reset_at<=?').run(now);
+    const current=db.prepare('SELECT failure_count AS count,reset_at AS resetAt FROM login_attempts WHERE attempt_key=?').get(key);
+    const count=current?Number(current.count)+1:1;
+    const resetAt=current?.resetAt||new Date(nowMs+windowMs).toISOString();
+    db.prepare(`INSERT INTO login_attempts(attempt_key,failure_count,reset_at,updated_at) VALUES(?,?,?,?)
+      ON CONFLICT(attempt_key) DO UPDATE SET failure_count=excluded.failure_count,reset_at=excluded.reset_at,updated_at=excluded.updated_at`)
+      .run(key,count,resetAt,now);
+    const resetMs=Date.parse(resetAt);
+    return{count,resetAt,blocked:count>=limit,retryAfterSeconds:Math.max(1,Math.ceil((resetMs-nowMs)/1000))};
+  });
+}
+
+function clearLoginFailures(db,attemptKey){
+  const key=String(attemptKey||'').trim();
+  if(key)db.prepare('DELETE FROM login_attempts WHERE attempt_key=?').run(key);
 }
 
 function createSession(db, {tokenHash,csrfHash,userId,companyId,expiresAt,absoluteExpiresAt = expiresAt}) {
@@ -482,6 +523,9 @@ module.exports = Object.freeze({
   addMembership,
   membership,
   membershipsForUser,
+  loginAttemptStatus,
+  noteLoginFailure,
+  clearLoginFailures,
   createSession,
   sessionByTokenHash,
   touchSession,
