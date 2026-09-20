@@ -33,7 +33,8 @@
     "pilot:backup:retention": "node scripts/pilot-backup-retention.js",
     "pilot:restore:drill": "node scripts/pilot-restore-drill.js",
     "platform:rotate-auth-key": "node scripts/rotate-auth-encryption-key.js",
-    "platform:recover-account": "node scripts/recover-account.js"
+    "platform:recover-account": "node scripts/recover-account.js",
+    "pilot:release:verify": "node scripts/pilot-release-verify.js"
   },
   "engines": {
     "node": ">=24"

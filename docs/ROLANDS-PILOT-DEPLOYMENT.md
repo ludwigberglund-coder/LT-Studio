@@ -339,12 +339,16 @@ Båda måste passera utan blockerande FAIL. `pilot:preflight` skriver aldrig ut 
 2. kör `npm run pilot:backup`,
 3. verifiera att offsite-kopian finns,
 4. hämta den granskade nya committen/taggen,
-5. `npm ci --omit=dev --ignore-scripts`,
-6. `npm run pilot:check`,
-7. `npm run pilot:preflight`,
-8. starta om tjänsten,
-9. kontrollera `/api/v1/health`,
-10. gör kort UAT-smoke med testdata innan normal användning fortsätter.
+5. sätt `ROLLANDS_RELEASE_COMMIT` till den fullständiga 40-teckens SHA som faktiskt godkänts för releasen,
+6. kör `npm run pilot:release:verify` och stoppa deployen om commit eller spårade filer avviker,
+7. `npm ci --omit=dev --ignore-scripts`,
+8. `npm run pilot:check`,
+9. `npm run pilot:preflight`,
+10. starta om tjänsten,
+11. kontrollera `/api/v1/readiness`,
+12. gör kort UAT-smoke med testdata innan normal användning fortsätter.
+
+`pilot:release:verify` jämför den godkända SHA:n med Git `HEAD` och kräver en ren worktree för spårade filer. Ospårade driftfiler ignoreras. Kommandot bevisar vilken kodversion som ligger i checkouten; det ersätter inte backup, preflight, readiness eller UAT.
 
 ## 17. Rollback
 
