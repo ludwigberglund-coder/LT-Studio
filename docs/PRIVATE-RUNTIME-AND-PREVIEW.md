@@ -4,9 +4,9 @@ Granskning: 2026-09-18. Detta stänger avgränsade tekniska fel, inte hela pilot
 
 ## Två olika miljöer
 
-GitHub Pages är en separat statisk demo med fiktiva uppgifter. `npm start` startar den privata Node/SQLite-servern. Den privata servern tillåter inte att en adressparameter som `?demo=1` växlar till demodata. Demo- och UAT-hjälpfiler, gamla `/admin`- och `/legacy`-sidor serveras inte därifrån. Menyn visar endast understödda verktyg för rollen. Kundreskontra leder till API-vyn, inte den fristående demon.
+GitHub Pages är en separat statisk demo med fiktiva uppgifter. `npm start` startar den privata Node/SQLite-servern. Den privata servern tillåter inte att en adressparameter som `?demo=1` växlar till demodata. Demo- och UAT-hjälpfiler, gamla `/admin`- och `/legacy`-sidor serveras inte därifrån. Menyn visar endast understödda verktyg för företagets medlemmar. Kundreskontra leder till API-vyn, inte den fristående demon.
 
-Kod för att visa portalen är inte hemlig. Privatekonomiska uppgifter skyddas genom session, roll och företagskontroll i API:t. Ingen fullständig automatisk klassificering/rensning av tidigare inlagda demoposter påstås; befintlig databas måste granskas före pilot.
+Kod för att visa portalen är inte hemlig. Privatekonomiska uppgifter skyddas genom personlig session, medlemskap och företagskontroll i API:t. Ingen fullständig automatisk klassificering/rensning av tidigare inlagda demoposter påstås; befintlig databas måste granskas före pilot.
 
 ## Bindande startkontroll
 
@@ -41,7 +41,7 @@ Utkastets versionsräknare tillkommer via en repeterbar schemauppdatering som in
 ## Testbevis och avgränsning
 
 - `test/private-runtime.test.js`: bindande startkontroll, demo-query, blockerade filer, symlänkar, filrättigheter och privata menylänkar.
-- `test/private-workflows-http.test.js`: riktiga HTTP-anrop med MFA/session/CSRF, företags- och rollkontroll, versionskonflikt, parallell publicering, auditfel/rollback, PDF-innehåll och repeterbar migrering.
+- `test/private-workflows-http.test.js`: riktiga HTTP-anrop med MFA/session/CSRF, företags- och medlemskapskontroll, versionskonflikt, parallell publicering, auditfel/rollback, PDF-innehåll och repeterbar migrering.
 - `test/private-workflows-browser.cjs`: webbläsarflöde mot riktig API-server med fiktiva uppgifter och säkerhetsregler aktiva. Inloggning, utkast, omladdning, privat förhandsvisning, nätverksfel, konflikt och PDF-knappar provas. Körs i CI, inte via demo/proxy som ersätter API-svar.
 
 Lokala Node 22-kontroller ersätter inte projektets Node 24-CI. Den lokala webbläsarmiljön blockerar localhost; webbläsarverifieringen görs därför i CI utan att kringgå policyn. Resultat, skärmbilder och test-PDF:er sparas som `rollands-invoice-navigation-qa`. Testdata är påhittade.

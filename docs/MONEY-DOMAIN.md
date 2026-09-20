@@ -77,7 +77,7 @@ Okänd precision ska alltid stanna för manuell kontroll.
 Öresmodellen är en grundmodul, inte ett färdigt bokföringssystem. Nästa steg är:
 
 1. gemensamma domänidentifierare och tidsstämplar,
-2. personliga användare och roller,
+2. personliga personliga användare och företagsmedlemskap,
 3. verifikationsmodell med debet och kredit i ören,
 4. oföränderlig bokföringshistorik och rättelseverifikationer,
 5. reskontra och betalningsavstämning ovanpå samma modell.

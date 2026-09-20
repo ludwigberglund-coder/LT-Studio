@@ -8,7 +8,7 @@ Den nya backendgrunden under `apps/api/` är därför ett separat serversystem. 
 
 - vem användaren är,
 - vilket företag användaren tillhör,
-- vilka roller personen har,
+- vilket företag personen är medlem i,
 - om åtgärden är tillåten,
 - om formuläret kommer från en giltig inloggad session,
 - vilket företags data som får läsas eller ändras,
@@ -30,7 +30,7 @@ Lösenord lagras inte som vanlig text. Servern använder `scrypt` med separat sl
 
 ### MFA
 
-Roller som kan utföra kritiska åtgärder kräver flerfaktorsautentisering. TOTP-hemligheten krypteras med AES-256-GCM innan den lagras.
+Alla personliga användare kräver flerfaktorsautentisering. TOTP-hemligheten krypteras med AES-256-GCM innan den lagras.
 
 Krypteringsnyckeln kommer från servermiljön och ska aldrig läggas i GitHub. Ett godkänt TOTP-tidssteg förbrukas i databasen och kan därför inte återanvändas för en andra inloggning.
 
@@ -107,7 +107,6 @@ För det allra första kontot används bootstrap-kommandot. Det gör ingen ändr
 ROLLANDS_BOOTSTRAP_USERNAME
 ROLLANDS_BOOTSTRAP_DISPLAY_NAME
 ROLLANDS_BOOTSTRAP_PASSWORD
-ROLLANDS_BOOTSTRAP_ROLES
 ROLLANDS_BOOTSTRAP_MFA_SECRET
 ROLLANDS_AUTH_ENCRYPTION_KEY
 ```

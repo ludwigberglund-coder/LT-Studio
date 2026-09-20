@@ -11,8 +11,8 @@ const Payables=require('../apps/api/payables.js');
 const Accounting=require('../apps/api/accounting-store.js');
 const {createServer}=require('../apps/api/server.js');
 
-function makeSession(db,companyId,userId,roles){
-  Db.addMembership(db,{companyId,userId,roles});
+function makeSession(db,companyId,userId){
+  Db.addMembership(db,{companyId,userId});
   const token=Auth.randomToken(32),csrf=Auth.randomToken(24);
   Db.createSession(db,{tokenHash:Auth.hashToken(token),csrfHash:Auth.hashToken(csrf),userId,companyId,expiresAt:new Date(Date.now()+60*60*1000).toISOString()});
   return{token,csrf};

@@ -35,7 +35,7 @@ Alla privata verksamhetsobjekt ska i produktion vara kopplade till ett internt, 
 Företagsisolering ska finnas i flera lager:
 
 1. sessionen anger vilket eller vilka företag användaren får öppna,
-2. behörighetsmotorn kontrollerar rollen inom valt företag,
+2. servern kontrollerar aktivt medlemskap i valt företag,
 3. varje API-operation kräver ett verifierat företagssammanhang,
 4. varje databasfråga avgränsas till rätt `companyId`,
 5. dokumentlagringen använder separata företagssökvägar och serverkontroller,
@@ -56,7 +56,7 @@ Varje företag ska kunna ha egna:
 - aktiverade moduler,
 - bokförings- och momsinställningar,
 - kontoplan och nummerserier,
-- användare, roller och attestregler,
+- personliga användare, företagsmedlemskap och attestregler,
 - integrationer,
 - affärsdata och dokument.
 
@@ -110,7 +110,7 @@ apps/
 packages/
   companies/      Företagsmodell, medlemskap och modulaktivering
   accounting/     Penning-, bokförings- och verifikationsregler
-  access-control/ Roller, behörigheter och attestseparation
+  access-control/ Personligt företagsmedlemskap och attestseparation
   invoicing/      Kund- och leverantörsfakturor
   banking/        Import, matchning och bankavstämning
   inventory/      Lager, inventering och svinn
@@ -136,9 +136,9 @@ Det gamla systemet ska inte rivas på en gång. Det används som fungerande refe
 - Penningbelopp lagras som heltal i ören.
 - Kvantiteter som behöver decimaler lagras som skalade heltal, inte flyttal.
 - All åtkomst använder default deny och namngivna behörigheter.
-- Roller tilldelas inom ett specifikt företag, inte globalt utan sammanhang.
-- Systemadministration och ekonomiska beslut är separata roller.
-- Kritiska arbetsflöden använder fyrögonprincip även när någon har flera roller.
+- Medlemskap tilldelas ett specifikt företag och ger aldrig åtkomst till andra företag.
+- Alla autentiserade medlemmar har samma funktioner inom företaget.
+- Befintliga kritiska arbetsflöden kräver två olika personliga användaridentiteter.
 - Verifikationer måste balansera exakt i ören och får obrutna nummer per serie och år.
 - Bokförda poster är append-only: rättelser skapar mot- och ersättningsverifikationer i stället för överskrivning.
 - Periodlås är en egen domänregel och upplåsning kräver både behörighet, orsak och separat beställare.
@@ -188,7 +188,7 @@ Innan vi betraktar plattformen som företagsneutral ska en automatisk eller repr
 Testet ska visa att:
 
 - företagen kan ha olika design och aktiverade moduler,
-- användare får olika roller i respektive företag,
+- användare får åtkomst endast till de företag där de har medlemskap,
 - samma e-postadress vid behov kan vara medlem i mer än ett företag utan sammanblandning,
 - fakturor, bokföring, lager och dokument aldrig läcker mellan företagen,
 - den gemensamma ekonomiska kärnan används av båda.

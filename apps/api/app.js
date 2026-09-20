@@ -142,7 +142,7 @@ function createApiApp(options) {
     const session=Db.sessionByTokenHash(db,tokenHash);
     if(!session || session.disabled) return null;
     session.tokenHash=tokenHash;
-    session.actor={id:session.userId,name:session.displayName,roles:session.roles,disabled:Boolean(session.disabled)};
+    session.actor={id:session.userId,name:session.displayName,companyId:session.companyId,authenticated:true,membershipActive:true,disabled:Boolean(session.disabled)};
     return session;
   }
 
@@ -188,10 +188,10 @@ function createApiApp(options) {
     else return send(res,409,{error:'Välj företag för inloggningen.',code:'COMPANY_REQUIRED',companies:memberships.map(item=>({id:item.companyId,name:item.displayName}))});
     if(!selected) return send(res,403,{error:'Användaren saknar åtkomst till valt företag.',code:'COMPANY_ACCESS_DENIED'});
 
-    const mfaRequired=selected.roles.some(role=>accessConfig.policy.mfaRequiredRoles.includes(role));
+    const mfaRequired=true;
     let mfaCounter=null;
     if(mfaRequired) {
-      if(!user.mfaSecretEncrypted) return send(res,403,{error:'Den här rollen kräver MFA men kontot är inte färdigregistrerat.',code:'MFA_ENROLLMENT_REQUIRED'});
+      if(!user.mfaSecretEncrypted) return send(res,403,{error:'MFA krävs men kontot är inte färdigregistrerat.',code:'MFA_ENROLLMENT_REQUIRED'});
       if(!authEncryptionKey) return send(res,503,{error:'MFA kan inte verifieras eftersom serverns krypteringsnyckel saknas.',code:'MFA_SERVER_NOT_CONFIGURED'});
       let secret;
       try { secret=Auth.decryptSecret(user.mfaSecretEncrypted,authEncryptionKey); }
@@ -217,7 +217,7 @@ function createApiApp(options) {
     return send(res,200,{
       authenticated:true,
       csrfToken,
-      user:{id:user.id,username:user.username,displayName:user.displayName,roles:selected.roles},
+      user:{id:user.id,username:user.username,displayName:user.displayName},
       company:{id:selected.companyId,name:selected.displayName}
     },{'Set-Cookie':Auth.sessionCookie(sessionToken,{secure:secureCookies,maxAgeSeconds:sessionMaxMinutes*60})});
   }
@@ -240,7 +240,7 @@ function createApiApp(options) {
         const session=currentSession(req);
         if(!session) return send(res,200,{authenticated:false});
         Db.touchSession(db,session.tokenHash,sessionExpiryIso(sessionIdleMinutes));
-        return send(res,200,{authenticated:true,user:{id:session.userId,username:session.username,displayName:session.displayName,roles:session.roles},companyId:session.companyId});
+        return send(res,200,{authenticated:true,user:{id:session.userId,username:session.username,displayName:session.displayName},companyId:session.companyId});
       }
 
       const session=requireSession(req);

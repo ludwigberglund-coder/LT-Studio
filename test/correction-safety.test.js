@@ -11,7 +11,7 @@ function seed(){
   const db=Db.openDatabase(':memory:');Admin.initializeAccountingAdmin(db);
   const company=Db.createCompany(db,{legalName:'Correction test',orgNumber:'TEST-CORRECTION'});
   const user=Db.createUser(db,{username:'correction',displayName:'Correction test',passwordHash:'test-not-a-login'});
-  Db.addMembership(db,{companyId:company.id,userId:user.id,roles:['accountant']});
+  Db.addMembership(db,{companyId:company.id,userId:user.id});
   return {db,company,user};
 }
 function post(s,sourceType='manual',lines=null){return Accounting.postEntry(s.db,{companyId:s.company.id,createdBy:s.user.id,postingDate:'2026-09-18',description:'Original with VAT',sourceType,sourceId:sourceType,lines:lines||[{account:'5460',debitOre:10000},{account:'2641',debitOre:2500},{account:'1930',creditOre:12500}]}).entry;}

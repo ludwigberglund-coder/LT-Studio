@@ -19,7 +19,7 @@ test('MFA-rotation ersätter hemligheten, återkallar sessioner och rensar anvä
       passwordHash:Auth.hashPassword('Ett mycket langt testlosenord 2026!'),
       mfaSecretEncrypted:Auth.encryptSecret(oldSecret,key)
     });
-    Db.addMembership(db,{companyId:company.id,userId:user.id,roles:['accountant']});
+    Db.addMembership(db,{companyId:company.id,userId:user.id});
     Db.createSession(db,{
       tokenHash:'session-hash',
       csrfHash:'csrf-hash',

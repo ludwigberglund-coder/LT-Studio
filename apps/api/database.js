@@ -20,6 +20,12 @@ function openDatabase(filename = ':memory:') {
   db.exec('PRAGMA foreign_keys = ON; PRAGMA recursive_triggers = ON; PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA busy_timeout = 5000;');
   try {
     initializeSchema(db);
+    if (db.prepare('PRAGMA table_info(memberships)').all().some(column => column.name === 'roles_json')) {
+      transaction(db, () => {
+        db.exec('ALTER TABLE memberships DROP COLUMN roles_json');
+        db.exec('DELETE FROM sessions');
+      });
+    }
     require('./tenant-integrity.js').installTenantGuards(db);
     return db;
   } catch (error) {
@@ -51,7 +57,6 @@ function initializeSchema(db) {
     CREATE TABLE IF NOT EXISTS memberships (
       company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      roles_json TEXT NOT NULL,
       created_at TEXT NOT NULL,
       PRIMARY KEY(company_id,user_id)
     ) STRICT;
@@ -246,22 +251,19 @@ function userByUsername(db, username) {
   return db.prepare('SELECT id,username,display_name AS displayName,password_hash AS passwordHash,mfa_secret_encrypted AS mfaSecretEncrypted,disabled,created_at AS createdAt FROM users WHERE username=?').get(username) || null;
 }
 
-function addMembership(db, {companyId,userId,roles}) {
-  const uniqueRoles = [...new Set((roles || []).map(String))];
-  db.prepare('INSERT OR REPLACE INTO memberships(company_id,user_id,roles_json,created_at) VALUES(?,?,?,?)')
-    .run(companyId,userId,JSON.stringify(uniqueRoles),nowIso());
+function addMembership(db, {companyId,userId}) {
+  db.prepare('INSERT INTO memberships(company_id,user_id,created_at) VALUES(?,?,?) ON CONFLICT(company_id,user_id) DO NOTHING')
+    .run(companyId,userId,nowIso());
   return membership(db, companyId, userId);
 }
 
 function membership(db, companyId, userId) {
-  const row = db.prepare('SELECT company_id AS companyId,user_id AS userId,roles_json AS rolesJson,created_at AS createdAt FROM memberships WHERE company_id=? AND user_id=?').get(companyId,userId);
-  return row ? {...row, roles:jsonParse(row.rolesJson,[])} : null;
+  return db.prepare('SELECT company_id AS companyId,user_id AS userId,created_at AS createdAt FROM memberships WHERE company_id=? AND user_id=?').get(companyId,userId) || null;
 }
 
 function membershipsForUser(db, userId) {
-  return db.prepare(`SELECT m.company_id AS companyId,c.legal_name AS legalName,c.display_name AS displayName,m.roles_json AS rolesJson
-    FROM memberships m JOIN companies c ON c.id=m.company_id WHERE m.user_id=? ORDER BY c.display_name`).all(userId)
-    .map(row => ({...row, roles:jsonParse(row.rolesJson,[])}));
+  return db.prepare(`SELECT m.company_id AS companyId,c.legal_name AS legalName,c.display_name AS displayName
+    FROM memberships m JOIN companies c ON c.id=m.company_id WHERE m.user_id=? ORDER BY c.display_name`).all(userId);
 }
 
 function createSession(db, {tokenHash,csrfHash,userId,companyId,expiresAt,absoluteExpiresAt = expiresAt}) {
@@ -276,11 +278,11 @@ function sessionByTokenHash(db, tokenHash) {
   const now = nowIso();
   const row = db.prepare(`SELECT s.token_hash AS tokenHash,s.csrf_hash AS csrfHash,s.user_id AS userId,s.company_id AS companyId,
       s.expires_at AS expiresAt,s.absolute_expires_at AS absoluteExpiresAt,s.created_at AS createdAt,s.last_seen_at AS lastSeenAt,
-      u.username,u.display_name AS displayName,u.disabled,m.roles_json AS rolesJson
+      u.username,u.display_name AS displayName,u.disabled
     FROM sessions s JOIN users u ON u.id=s.user_id JOIN memberships m ON m.user_id=s.user_id AND m.company_id=s.company_id
     WHERE s.token_hash=? AND s.expires_at>? AND s.absolute_expires_at>?`).get(tokenHash,now,now);
   if (!row) return null;
-  return {...row, roles:jsonParse(row.rolesJson,[])};
+  return row;
 }
 
 function touchSession(db, tokenHash, requestedExpiresAt) {

@@ -105,7 +105,6 @@ function validateContent() {
       services: site.services?.items?.length || 0,
       adminModules: admin.modules?.length || 0,
       roadmapSteps: admin.roadmap?.length || 0,
-      accessRoles: accessReport.summary.roles || 0,
       accessPermissions: accessReport.summary.permissions || 0,
       separationWorkflows: accessReport.summary.workflows || 0
     }
@@ -119,7 +118,7 @@ if (require.main === module) {
     for (const error of report.errors) console.error(`- ${error}`);
     process.exitCode = 1;
   } else {
-    console.log(`Innehållet är giltigt: ${report.summary.navigationItems} menyval, ${report.summary.services} erbjudanden, ${report.summary.adminModules} moduler, ${report.summary.accessRoles} roller.`);
+    console.log(`Innehållet är giltigt: ${report.summary.navigationItems} menyval, ${report.summary.services} erbjudanden, ${report.summary.adminModules} moduler, personliga företagsmedlemskap.`);
   }
 }
 

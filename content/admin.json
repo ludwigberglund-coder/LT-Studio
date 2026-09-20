@@ -5,7 +5,7 @@
     { "id": "overview", "label": "Översikt", "symbol": "01" },
     { "id": "content", "label": "Webbplatsinnehåll", "symbol": "02" },
     { "id": "money", "label": "Öreskalkylator", "symbol": "03" },
-    { "id": "access", "label": "Roller och behörigheter", "symbol": "04" },
+    { "id": "access", "label": "Inloggning och företagsmedlemskap", "symbol": "04" },
     { "id": "journal", "label": "Verifikationer och perioder", "symbol": "05" },
     { "id": "modules", "label": "Systemmoduler", "symbol": "06" },
     { "id": "decisions", "label": "Verksamhetsbeslut", "symbol": "07" }
@@ -21,7 +21,7 @@
     },
     {
       "id": "identity",
-      "title": "Användare, roller och attest",
+      "title": "Personliga användare, företag och attest",
       "description": "Default-deny, minsta möjliga behörighet, MFA-krav och fyrögonprincip är definierade i en gemensam regelmotor. Den nya API-grunden använder personliga konton och serverlagrade sessioner.",
       "status": "Backendgrund pågår",
       "tone": "progress",
@@ -82,7 +82,7 @@
   "roadmap": [
     { "step": "01", "title": "Grund och innehåll", "status": "Klar" },
     { "step": "02", "title": "Datamodell i ören", "status": "Kärna klar" },
-    { "step": "03", "title": "Användare och roller", "status": "Backendgrund pågår" },
+    { "step": "03", "title": "Personliga företagsmedlemmar", "status": "Backendgrund pågår" },
     { "step": "04", "title": "Bokföringsmotor", "status": "Domänkärna klar" },
     { "step": "05", "title": "Reskontra och bank", "status": "Kundreskontra v1 pågår" },
     { "step": "06", "title": "Lager, lön och rapporter", "status": "Planerad" }

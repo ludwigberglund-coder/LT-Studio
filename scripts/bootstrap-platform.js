@@ -40,11 +40,7 @@ function main() {
   const username = Auth.normalizeUsername(requiredEnv('ROLLANDS_BOOTSTRAP_USERNAME'));
   const displayName = requiredEnv('ROLLANDS_BOOTSTRAP_DISPLAY_NAME');
   const password = requiredEnv('ROLLANDS_BOOTSTRAP_PASSWORD');
-  const roles = String(process.env.ROLLANDS_BOOTSTRAP_ROLES || 'system-admin').split(',').map(value=>value.trim()).filter(Boolean);
-  if (!roles.length) throw new Error('Minst en bootstrap-roll krävs.');
-  for (const role of roles) if (!accessModel.rolesById.has(role)) throw new Error(`Okänd bootstrap-roll: ${role}`);
-
-  const requiresMfa = roles.some(role => accessConfig.policy.mfaRequiredRoles.includes(role));
+  const requiresMfa = true;
   let encryptedMfa = null;
   if (requiresMfa) {
     const mfaSecret = requiredEnv('ROLLANDS_BOOTSTRAP_MFA_SECRET');
@@ -71,10 +67,10 @@ function main() {
         passwordHash:Auth.hashPassword(password),
         mfaSecretEncrypted:encryptedMfa
       });
-      Db.addMembership(db,{companyId:company.id,userId:user.id,roles});
-      Db.appendAudit(db,{companyId:company.id,userId:user.id,action:'BOOTSTRAP_USER_CREATED',entityType:'user',entityId:user.id,details:{username,roles}});
+      Db.addMembership(db,{companyId:company.id,userId:user.id});
+      Db.appendAudit(db,{companyId:company.id,userId:user.id,action:'BOOTSTRAP_USER_CREATED',entityType:'user',entityId:user.id,details:{username}});
       console.log(`Företag klart: ${company.displayName} (${company.id})`);
-      console.log(`Personligt konto skapat: ${username} (${roles.join(', ')})`);
+      console.log(`Personligt konto skapat: ${username}`);
     });
   } finally {
     db.close();

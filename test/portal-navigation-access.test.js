@@ -2,31 +2,13 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const Nav=require('../apps/portal/portal-nav.js');
-const access=require('../config/access-control.json');
-
-test('privat navigation visar bara verktyg som rollen har behörighet till',()=>{
-  const accountant=Nav.visibleGroups(access,['accountant']);
-  const ids=accountant.flatMap(group=>group.items.map(item=>item[0]));
-  assert.ok(ids.includes('receivables'));
-  assert.ok(ids.includes('accounting'));
-  assert.ok(ids.includes('reports'));
-  assert.equal(ids.includes('website'),false);
-  assert.equal(ids.includes('access'),false);
-  assert.equal(ids.includes('legacy'),false);
-  assert.equal(ids.includes('res-tools'),false);
+test('alla inloggade företagsmedlemmar ser samma privata verktyg',()=>{
+  const ids=Nav.visibleGroups({authenticated:true}).flatMap(g=>g.items.map(i=>i[0]));
+  for(const id of ['receivables','accounting','reports','website','payables','documents'])assert.ok(ids.includes(id));
+  for(const id of ['access','legacy','res-tools'])assert.equal(ids.includes(id),false);
+  assert.deepEqual(Nav.visibleGroups(),[]);
 });
-
-test('systemadministratör får administration men inte kundreskontra',()=>{
-  const admin=Nav.visibleGroups(access,['system-admin']);
-  const ids=admin.flatMap(group=>group.items.map(item=>item[0]));
-  assert.ok(ids.includes('website'));
-  assert.ok(ids.includes('access'));
-  assert.ok(ids.includes('reports'));
-  assert.equal(ids.includes('receivables'),false);
-});
-
-test('demo behåller referensverktygen',()=>{
-  const ids=Nav.visibleGroups(access,[],{demo:true}).flatMap(group=>group.items.map(item=>item[0]));
+test('demo är uttryckligt avskild från privat navigation',()=>{
+  const ids=Nav.visibleGroups({demo:true}).flatMap(g=>g.items.map(i=>i[0]));
   assert.ok(ids.includes('legacy'));
-  assert.ok(ids.includes('res-tools'));
 });

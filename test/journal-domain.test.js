@@ -10,10 +10,10 @@ const Journal = require('../packages/accounting/journal.js');
 const accessConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'access-control.json'), 'utf8'));
 const access = AccessControl.createModel(accessConfig);
 
-const accountant = {id: 'accountant-1', roles: ['accountant']};
-const approver = {id: 'approver-1', roles: ['approver']};
-const controller = {id: 'controller-1', roles: ['controller']};
-const auditor = {id: 'auditor-1', roles: ['auditor']};
+const accountant = {id: 'accountant-1', companyId:'test-company',authenticated:true,membershipActive:true};
+const approver = {id: 'approver-1', companyId:'test-company',authenticated:true,membershipActive:true};
+const controller = {id: 'controller-1', companyId:'test-company',authenticated:true,membershipActive:true};
+const auditor = {id:'inactive-user',companyId:'test-company',authenticated:true,membershipActive:false};
 
 function idFactory() {
   let counter = 0;
@@ -101,7 +101,7 @@ test('obalans, ogiltiga konton, datum, reserverade typer och otillräcklig behö
   assert.equal(ledger.entries.length, 0);
 });
 
-test('periodlås stoppar bokföring och upplåsning kräver rätt roll samt en annan beställare', () => {
+test('periodlås stoppar bokföring och upplåsning kräver aktivt medlemskap samt en annan beställare', () => {
   const ledger = Journal.createLedger({fiscalYearStart: '2026-01-01', fiscalYearEnd: '2026-12-31'});
   const ids = idFactory();
   const locked = Journal.lockPeriod(ledger, '2026-09', context(approver, {

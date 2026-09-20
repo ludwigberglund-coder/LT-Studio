@@ -24,7 +24,7 @@ Följande måste vara löst i den verkliga driftmiljön innan riktiga pilotdata 
 - `Secure`, `HttpOnly`, `SameSite=Strict` sessionscookie,
 - MFA-krypteringsnyckel på minst 32 starka slumpmässiga tecken,
 - fresh pilotdatabas utan demoseedning,
-- första personliga admin-kontot skapat med bootstrap,
+- första personliga kontot skapat med bootstrap,
 - daglig verifierad SQLite-backup och kopiering till annan server/tjänst,
 - systemd eller motsvarande restart-policy,
 - logginsamling och kontroll av `/api/v1/health`,
@@ -136,7 +136,7 @@ I nuvarande pilotarkitektur lagras skyddade dokument/PDF-original som BLOB-data 
 
 Det betyder också att databasens storlek växer med dokumentmängden. Övervaka disk och backupstorlek under piloten.
 
-## 7. Fresh pilotdatabas och första admin
+## 7. Ny pilotdatabas och första personliga användaren
 
 Pilotdatabasen ska börja som en ny fil. Ingen demoimport behövs.
 
@@ -149,7 +149,6 @@ ROLLANDS_BOOTSTRAP_COMPANY_ORG_NUMBER=<organisationsnummer>
 ROLLANDS_BOOTSTRAP_USERNAME=<personligt användarnamn>
 ROLLANDS_BOOTSTRAP_DISPLAY_NAME=<personens namn>
 ROLLANDS_BOOTSTRAP_PASSWORD=<unikt långt lösenord>
-ROLLANDS_BOOTSTRAP_ROLES=system-admin
 ROLLANDS_BOOTSTRAP_MFA_SECRET=<ny TOTP-hemlighet>
 ```
 
@@ -246,7 +245,7 @@ Servern använder:
 - CSRF-token för muterande requests,
 - AES-256-GCM för MFA-hemligheter.
 
-Roller som anges i `config/access-control.json` kräver MFA. Dela aldrig ett konto mellan personer.
+Alla personliga användare kräver MFA. Dela aldrig ett konto mellan personer.
 
 ## 11. Backup i pilotdrift
 
@@ -378,8 +377,8 @@ Före faktisk pilotinstallation behöver ni välja och meddela:
 2. **Pilotdomän** – exempelvis en separat subdomän. Jag ska inte hitta på ett riktigt namn.
 3. **DNS** – domänen måste peka till pilotservern innan HTTPS kan verifieras.
 4. **Backupdestination offsite** – exempelvis krypterad object storage eller separat backupserver. Den får inte endast vara samma disk som produktion.
-5. **Namngivna pilotanvändare och roller** – minst de personer som behövs för fyrögonmomenten. Dela inte konton.
-6. **Vem som är första system-admin** – personligt användarnamn och MFA ska skapas direkt på servern, aldrig skickas in i repositoryt.
+5. **Namngivna pilotpersonliga användare och företagsmedlemskap** – minst de personer som behövs för fyrögonmomenten. Dela inte konton.
+6. **Vem som är första personliga användaren** – personligt användarnamn och MFA ska skapas direkt på servern, aldrig skickas in i repositoryt.
 7. **Logg- och övervakningslösning** – minst vem som tar emot larm vid driftstopp/backupfel och hur länge driftloggar sparas.
 
 När servern är installerad ska `pilot:preflight`, health check, verklig backup→restore och hela manuella `ROLANDS-PILOT-UAT.md` genomföras. Först därefter kan beslut om **READY FOR CONTROLLED ROLANDS PILOT** tas.

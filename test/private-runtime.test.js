@@ -69,7 +69,7 @@ test('storage symlinks into the repository cannot bypass private preflight',()=>
 test('private navigation contains only usable portal links and uses the real receivables API screen',()=>withServer(async base=>{
   const Nav=require('../apps/portal/portal-nav.js');
   const access=require('../config/access-control.json');
-  const items=Nav.visibleGroups(access,access.roles.map(role=>role.id)).flatMap(group=>group.items);
+  const items=Nav.visibleGroups({authenticated:true}).flatMap(group=>group.items);
   assert.equal(new Set(items.map(row=>row[2])).size,items.length);
   assert.equal(items.find(row=>row[0]==='receivables')[2],'portal/index.html');
   assert.ok(!items.some(row=>/^(admin|legacy)\//.test(row[2]) || row[0]==='uat'));
@@ -77,7 +77,7 @@ test('private navigation contains only usable portal links and uses the real rec
   const alias=await fetch(base+'/portal/receivables.html',{redirect:'manual'});
   assert.equal(alias.status,302);assert.equal(alias.headers.get('location'),'/portal/index.html');
   assert.ok(Nav.visibleGroups(access,[],{}).length===0);
-  assert.ok(Nav.visibleGroups(access,[],{demo:true}).flatMap(group=>group.items).some(row=>row[0]==='uat'));
+  assert.ok(Nav.visibleGroups({demo:true}).flatMap(group=>group.items).some(row=>row[0]==='uat'));
 }));
 
 

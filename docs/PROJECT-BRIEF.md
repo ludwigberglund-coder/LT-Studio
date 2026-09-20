@@ -21,7 +21,7 @@ Systemet delas i fyra tydliga lager:
 
 1. **Publik hemsida** – öppen information för kunder och besökare.
 2. **Login och säkerhetsgräns** – personliga konton, sessioner, MFA och serverkontroll.
-3. **Företagsportal** – privata arbetsytor och moduler efter användarens roll.
+3. **Företagsportal** – privata arbetsytor och samma moduler för alla företagsmedlemmar.
 4. **Gemensam plattformskärna** – ekonomi-, säkerhets-, data- och integrationsregler som återanvänds av alla företag.
 
 ## Företagsanpassning
@@ -32,7 +32,7 @@ Varje företag ska få en egen företagsmiljö med:
 - logotyp, färger, webbtexter och domän,
 - bokförings- och momsinställningar,
 - aktiverade moduler,
-- användare och roller,
+- personliga användare och företagsmedlemskap,
 - egna integrationer,
 - strikt avskild affärsdata och dokumentlagring.
 
@@ -61,14 +61,14 @@ Företagsskillnader ska i första hand lösas med konfiguration, tema och valbar
 - dokumentinkorg och originalunderlag,
 - webbplatsadministration,
 - personal- och löneunderlag,
-- inställningar, användare, roller och integrationer.
+- inställningar, personliga användare, företagsmedlemskap och integrationer.
 
 ## Säkerhetsprinciper
 
 - Privat data får aldrig skyddas enbart genom en dold webbadress.
 - Backend kontrollerar varje skyddad åtgärd.
 - Åtkomst nekas som standard och ges genom namngivna behörigheter.
-- Känsliga roller ska använda MFA.
+- Alla personliga användare ska använda MFA.
 - Kritiska flöden ska kunna kräva två olika personer.
 - Bokförda poster skrivs inte över utan rättas spårbart.
 - Osäkra automatiska förslag ska gå till manuell granskning.
@@ -130,6 +130,6 @@ Lösningen är bevisat återanvändbar när vi kan skapa en andra testkund och u
 
 - byta namn, varumärke och webbdesign,
 - välja andra moduler,
-- skapa separata användare och roller,
+- skapa separata personliga användare och företagsmedlemskap,
 - använda en helt egen datamiljö,
 - behålla samma säkerhets-, penning- och bokföringsregler.

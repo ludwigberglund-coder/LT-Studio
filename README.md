@@ -23,7 +23,7 @@ Alla ändringar görs i en arbetsgren. Granska skillnaden, kör relevanta tester
 ```text
 apps/website/            publik hemsida
 apps/portal/             företagsportal med API- och separat demoläge
-apps/api/                Node.js-backend, sessioner, roller och SQLite
+apps/api/                Node.js-backend, sessioner, företagsmedlemskap och SQLite
 apps/admin/              äldre projektadmin och domändemos
 packages/                delade ekonomi-, behörighets- och faktureringsregler
 content/                 offentliga texter och företagsuppgifter
@@ -34,7 +34,7 @@ docs/                    beslut, guider och granskningsbevis
 public/ och server.js    äldre referensimplementation, inte pilotbackend
 ```
 
-Den aktuella backenddatabasen är SQLite med främmande nycklar, WAL och FULL-synkronisering. Den är inte PostgreSQL. Personlig inloggning, MFA, rollkontroller och företagsfiltrering finns. Journalpostning är atomisk och deklarerade företagsrelationer kontrolleras på databasnivå. Fullständig oföränderlighet, momsavstämning, driftisolering och flera andra pilotspärrar återstår enligt checklistan.
+Den aktuella backenddatabasen är SQLite med främmande nycklar, WAL och FULL-synkronisering. Den är inte PostgreSQL. Personlig inloggning, MFA, medlemskapskontroller och företagsfiltrering finns. Journalpostning är atomisk och deklarerade företagsrelationer kontrolleras på databasnivå. Fullständig oföränderlighet, momsavstämning, driftisolering och flera andra pilotspärrar återstår enligt checklistan.
 
 Den persistenta bokföringen i `apps/api/accounting-store.js` och domändemon i `packages/accounting/journal.js` är olika implementationer. Kontrollera vilken som faktiskt används när en funktion granskas.
 
@@ -50,7 +50,7 @@ npm run build:static
 npm run preview:static
 ```
 
-Den statiska förhandsvisningen är avsedd för demo. Befintliga webbläsartester körs även i GitHub Actions. De täcker inte automatiskt alla roller, alla knappar eller den riktiga HTTPS-/API-miljön.
+Den statiska förhandsvisningen är avsedd för demo. Befintliga webbläsartester körs även i GitHub Actions. De täcker inte automatiskt alla företagsgränser, alla knappar eller den riktiga HTTPS-/API-miljön.
 
 Backend startas med:
 
@@ -71,7 +71,7 @@ npm run pilot:backup
 npm run pilot:restore:verify
 ```
 
-Miljövariabler och säkra sökvägar beskrivs i `.env.example` och [backup-guiden](docs/BACKUP-RESTORE-PILOT.md). Förkontrollen är ännu inte en bindande del av serverstarten. Den får därför inte betraktas som ett skydd som alltid körs. Återställningskommandot skapar bara en separat testkopia och ersätter aldrig produktionsdatabasen.
+Miljövariabler och säkra sökvägar beskrivs i `.env.example` och [backup-guiden](docs/BACKUP-RESTORE-PILOT.md). Pilot-/produktionsstart kör också en bindande miljökontroll. Den ersätter inte verifiering av faktisk hosting och backup. Återställningskommandot skapar bara en separat testkopia och ersätter aldrig produktionsdatabasen.
 
 Vid `TENANT_INTEGRITY_ERROR` ska uppstarten stoppas och historiken bevaras för utredning. Radera inte poster eller stäng av kontrollerna för att få servern att starta.
 

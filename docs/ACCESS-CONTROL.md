@@ -1,105 +1,34 @@
-# Roller, behörigheter och attestseparation
+# Personlig autentisering och företagsmedlemskap
 
-## Syfte
+Alla personliga, autentiserade användare i samma företag har samma behörighet. Inga interna användarroller eller behörighetsnivåer tilldelas.
 
-Det nya Rollands-systemet använder ett centralt behörighetsregelverk. Ekonomifunktioner ska inte själva gissa vem som får göra vad. De frågar i stället samma behörighetsmodul före varje skyddad åtgärd.
+## Säkerhetsgränsen
 
-Reglerna finns i:
+Varje skyddat API-anrop kräver en giltig serverlagrad session. Databasen kopplar sessionen till en aktiv användare och ett fortfarande existerande medlemskap i det valda företaget. Saknat medlemskap, avstängt konto eller utgången session nekar åtkomst direkt. Ett objekt hämtas eller ändras med sessionens företags-ID, aldrig ett företags-ID som klienten skickar in.
 
-- `config/access-control.json` – roller, behörigheter, MFA-krav och separationsflöden.
-- `packages/access-control/authorization.js` – validering och beslut.
-- `test/access-control.test.js` – automatiska säkerhetsgränser.
+MFA krävs för alla inloggningar. Lösenordsskydd, TOTP-engångsförbrukning, idle-/absolut sessionstid, CSRF och inloggningens försöksspärr kvarstår. Audit identifierar den person som faktiskt utförde åtgärden. Frontendnavigation är aldrig en säkerhetsgräns.
 
-## Grundprinciper
+`config/access-control.json` innehåller kända åtgärder och gemensamma kontrollregler. Åtgärdslistan tilldelas inte individuellt: samtliga företagsmedlemmar får använda alla definierade åtgärder. Den används för att neka okända operationer och beskriva arbetsflöden.
 
-1. **Default deny.** Allt som inte uttryckligen tillåts nekas.
-2. **Personliga konton.** Delade användarnamn får inte användas i produktion.
-3. **Minsta möjliga behörighet.** Varje roll får endast rättigheter som behövs för arbetsuppgiften.
-4. **Fyrögonprincip.** Kritiska steg kräver olika personer även när någon har flera roller.
-5. **MFA för känsliga roller.** Systemadministration, ekonomi, attest, kontroll och lön kräver flerfaktorsautentisering.
-6. **Ingen dold superanvändare.** Systemadministratören har inte automatiskt rätt att bokföra, attestera eller frisläppa betalningar.
-7. **Servern bestämmer.** Ett dolt eller inaktiverat gränssnitt är aldrig ett säkerhetsskydd; framtida API måste göra samma kontroll på serversidan.
+## Personseparation
 
-## Roller
+Befintliga krav på olika personer vid leverantörsattest, ändrade betalningsuppgifter, betalningsfrisläppning, periodupplåsning och lagerjustering finns kvar. Alla medlemmar kan utföra båda stegen, men samma person kan inte kontrollera sin egen åtgärd när flödet kräver en andra person. Detta är en kontroll av händelsehistoriken, inte olika behörighetsnivåer. Det är en produktregel och ska inte beskrivas som ett generellt lagkrav.
 
-Den första rollmatrisen innehåller:
+## Säker uppgradering
 
-- systemadministratör,
-- ekonom,
-- attestant,
-- ekonomikontrollant,
-- försäljning och kassa,
-- lageransvarig,
-- löneansvarig,
-- revisor eller läsbehörig granskare.
+1. Ta och verifiera backup, inklusive MFA-krypteringsnyckeln separat. Prova uppgraderingen på en isolerad kopia.
+2. Den gamla medlemskapskolumnen `roles_json` tas bort i en databastransaktion. Konton, medlemskap, datum, lösenord, MFA-hemligheter och historiska auditposter bevaras.
+3. Tidigare sessioner avslutas i samma transaktion. Alla behöver logga in igen med MFA. Ett konto som tidigare saknade MFA måste först få personlig MFA konfigurerad via den befintliga, spårbara återställningsrutinen.
+4. Om migreringen misslyckas rullas både kolumnändringen och sessionsåterkallelsen tillbaka. Uppstarten stoppas.
+5. Upprepad uppstart förändrar inte medlemskap eller nya sessioner.
 
-Rollerna är verksamhetsroller, inte namn på enskilda personer. En person kan ha flera roller, men attestseparationen gäller fortfarande för samma underlag.
+Återgång till gammal kod kräver en separat verifierad backup och plan för data som skapats efter uppgraderingen. Återställ aldrig en gammal databas ovanpå nya ekonomiska händelser utan avstämning. Gamla auditposter kan beskriva tidigare rolltilldelningar; historiken skrivs inte om.
 
-## Kritiska separationsflöden
+## Testbevis
 
-Följande arbetsflöden kräver olika personliga användaridentiteter:
+- `membership-migration.test.js`: bevarade konton, medlemskap och audit, sessionsåterkallelse, upprepad uppstart och rollback vid injicerat migrationsfel.
+- `company-membership-http.test.js`: två personliga medlemmar har samma åtkomst i 14 API-familjer; anonym åtkomst, indraget medlemskap och avstängt konto nekas; företagsfrämmande läsning, PDF och mutation nekas; MFA krävs även för nya konton.
+- `access-control.test.js`: samma definierade åtgärder för alla medlemmar, nekad ogiltig identitet och fortsatt personseparation.
+- Övriga HTTP-, CSRF-, tenant- och webbläsartester körs i full CI. `npm test` upptäcker nu alla `test/*.test.js` automatiskt.
 
-- registrering och attest av samma leverantörsfaktura,
-- förberedelse och frisläppning av samma betalning,
-- begäran och upplåsning av samma bokföringsperiod,
-- inventering och godkännande av samma lagerjustering.
-
-Kontrollen sker med `evaluateWorkflowAction`. Funktionen kräver både rätt behörighet och godkänd separation mellan aktörerna.
-
-## Exempel för framtida API
-
-```js
-const AccessControl = require('./packages/access-control/authorization.js');
-const config = require('./config/access-control.json');
-const access = AccessControl.createModel(config);
-
-const actor = {
-  id: session.userId,
-  roles: session.roles,
-  disabled: false
-};
-
-AccessControl.requirePermission(access, actor, 'accounting.post');
-```
-
-För ett attestflöde:
-
-```js
-const decision = AccessControl.evaluateWorkflowAction(
-  access,
-  actor,
-  'supplier-invoice-approval',
-  {
-    registeredBy: invoice.registeredBy,
-    approvedBy: actor.id
-  }
-);
-
-if (!decision.allowed) throw new Error(decision.reason);
-```
-
-## Så ändras en roll
-
-1. Ändra endast `config/access-control.json`.
-2. Lägg till eller ta bort uttryckliga behörighets-id:n i rollen.
-3. Kör `npm run content:check` och `npm test`.
-4. Skapa pull request och låt GitHub Actions kontrollera ändringen.
-5. Granska särskilt om ändringen bryter attestseparation eller ger en roll onödigt bred åtkomst.
-
-Nya behörigheter ska ha ett stabilt tekniskt id, svensk beskrivning, kategori och risknivå. Gamla id:n ska inte byta betydelse eftersom loggar och historik kommer att hänvisa till dem.
-
-## Gräns för GitHub Pages-demon
-
-Projektadmin visar rollmatrisen och kan simulera beslut, men detta är inte en verklig inloggning. GitHub Pages saknar skyddad server, sessionsdatabas och hemlighetshantering.
-
-Före produktion krävs därför:
-
-- extern identitetsleverantör eller egen säker kontotjänst,
-- säkra lösenord eller lösenordsfri inloggning,
-- MFA,
-- kortlivade servervaliderade sessioner,
-- återkallelse av sessioner,
-- loggning av inloggning och behörighetsändringar,
-- skydd mot brute force och kapade sessioner,
-- serverkontroll av varje skyddat API-anrop,
-- regelbunden åtkomstgranskning.
+Testmatrisen är inte ett påstående om fullständig täckning av varje route/metod/objekt. Full drift-UAT och återstående polymorfa objektrelationer är fortsatt pilotpunkter. **NO-GO för verkliga verksamhetsdata kvarstår.**

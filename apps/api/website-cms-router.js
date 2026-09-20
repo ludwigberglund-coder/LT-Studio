@@ -31,7 +31,7 @@ function createWebsiteCmsRouter(options){
     const token=Auth.parseCookies(req.headers.cookie).rollands_session;
     const s=token?Db.sessionByTokenHash(db,Auth.hashToken(token)):null;
     if(!s||s.disabled)throw routeError('Personlig inloggning kr\u00e4vs.','AUTH_REQUIRED',401);
-    s.actor={id:s.userId,name:s.displayName,roles:s.roles,disabled:Boolean(s.disabled)};return s;
+    s.actor={id:s.userId,name:s.displayName,companyId:s.companyId,authenticated:true,membershipActive:true,disabled:Boolean(s.disabled)};return s;
   }
   function csrf(req,s){const supplied=String(req.headers['x-csrf-token']||'');if(!supplied||!Auth.safeEqualText(Auth.hashToken(supplied),s.csrfHash))throw routeError('S\u00e4kerhetskontrollen misslyckades.','CSRF_FAILED',403)}
   function permission(s){if(!Access.authorize(accessModel,s.actor,'website.manage').allowed)throw routeError('Du saknar beh\u00f6righet f\u00f6r \u00e5tg\u00e4rden.','ACCESS_DENIED',403)}

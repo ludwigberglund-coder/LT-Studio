@@ -37,16 +37,13 @@
       return {ok: false, errors: ['Behörighetskonfigurationen måste vara ett objekt.'], summary: {}};
     }
 
-    if (config.version !== 1) errors.push('version måste vara 1.');
+    if (config.version !== 2) errors.push('version måste vara 2.');
     if (config.policy?.defaultDecision !== 'deny') errors.push('policy.defaultDecision måste vara deny.');
-    if (config.policy?.unknownRole !== 'deny') errors.push('policy.unknownRole måste vara deny.');
+    if (config.policy?.requireMfa !== true) errors.push('MFA krävs för alla användare.');
     if (config.policy?.requirePersonalAccounts !== true) errors.push('policy.requirePersonalAccounts måste vara true.');
 
     if (!Array.isArray(config.permissions) || config.permissions.length === 0) {
       errors.push('permissions måste innehålla minst en behörighet.');
-    }
-    if (!Array.isArray(config.roles) || config.roles.length === 0) {
-      errors.push('roles måste innehålla minst en roll.');
     }
     if (!Array.isArray(config.workflows) || config.workflows.length === 0) {
       errors.push('workflows måste innehålla minst ett separationsflöde.');
@@ -62,33 +59,6 @@
       if (!nonEmptyText(permission?.label)) errors.push(`${prefix}.label måste vara text.`);
       if (!nonEmptyText(permission?.category)) errors.push(`${prefix}.category måste vara text.`);
       if (!['read', 'write', 'critical'].includes(permission?.risk)) errors.push(`${prefix}.risk måste vara read, write eller critical.`);
-    }
-
-    const roleIds = (config.roles || []).map(role => role?.id);
-    for (const duplicate of duplicates(roleIds)) errors.push(`Dubblerad roll: ${duplicate}.`);
-    const roleSet = new Set(roleIds);
-
-    for (const [index, role] of (config.roles || []).entries()) {
-      const prefix = `roles[${index}]`;
-      if (!IDENTIFIER_PATTERN.test(role?.id || '')) errors.push(`${prefix}.id har ogiltigt format.`);
-      if (!nonEmptyText(role?.label)) errors.push(`${prefix}.label måste vara text.`);
-      if (!nonEmptyText(role?.description)) errors.push(`${prefix}.description måste vara text.`);
-      if (!Array.isArray(role?.permissions) || role.permissions.length === 0) {
-        errors.push(`${prefix}.permissions måste innehålla minst en behörighet.`);
-        continue;
-      }
-      for (const duplicate of duplicates(role.permissions)) errors.push(`${prefix} innehåller dubblerad behörighet ${duplicate}.`);
-      for (const permissionId of role.permissions) {
-        if (!permissionSet.has(permissionId)) errors.push(`${prefix} hänvisar till okänd behörighet ${permissionId}.`);
-      }
-    }
-
-    const mfaRoles = config.policy?.mfaRequiredRoles;
-    if (!Array.isArray(mfaRoles)) {
-      errors.push('policy.mfaRequiredRoles måste vara en lista.');
-    } else {
-      for (const duplicate of duplicates(mfaRoles)) errors.push(`policy.mfaRequiredRoles innehåller dubbletten ${duplicate}.`);
-      for (const roleId of mfaRoles) if (!roleSet.has(roleId)) errors.push(`MFA hänvisar till okänd roll ${roleId}.`);
     }
 
     const workflowIds = (config.workflows || []).map(workflow => workflow?.id);
@@ -118,7 +88,6 @@
       errors,
       summary: {
         permissions: config.permissions?.length || 0,
-        roles: config.roles?.length || 0,
         workflows: config.workflows?.length || 0,
         criticalPermissions: (config.permissions || []).filter(permission => permission?.risk === 'critical').length
       }
@@ -130,7 +99,6 @@
     if (!report.ok) throw accessError(`Ogiltig behörighetskonfiguration: ${report.errors[0]}`, 'INVALID_ACCESS_CONFIG', report);
 
     const permissionsById = new Map(config.permissions.map(permission => [permission.id, Object.freeze({...permission})]));
-    const rolesById = new Map(config.roles.map(role => [role.id, Object.freeze({...role, permissions: Object.freeze([...role.permissions])})]));
     const workflowsById = new Map(config.workflows.map(workflow => [workflow.id, Object.freeze({
       ...workflow,
       fields: Object.freeze(workflow.fields.map(field => Object.freeze({...field})))
@@ -140,71 +108,38 @@
       config,
       report,
       permissionsById,
-      rolesById,
       workflowsById
     });
   }
 
   function asModel(modelOrConfig) {
-    if (modelOrConfig?.permissionsById instanceof Map && modelOrConfig?.rolesById instanceof Map) return modelOrConfig;
+    if (modelOrConfig?.permissionsById instanceof Map) return modelOrConfig;
     return createModel(modelOrConfig);
   }
 
   function normalizeActor(actor) {
     if (!actor || typeof actor !== 'object' || Array.isArray(actor)) return null;
     const id = typeof actor.id === 'string' ? actor.id.trim() : '';
-    const roles = Array.isArray(actor.roles) ? [...new Set(actor.roles.filter(nonEmptyText))] : [];
-    return {id, roles, disabled: actor.disabled === true};
+    const companyId = typeof actor.companyId === 'string' ? actor.companyId.trim() : '';
+    return {id, companyId, authenticated:actor.authenticated === true, membershipActive:actor.membershipActive === true, disabled:actor.disabled === true};
+  }
+
+  // Only server-created actors from a current session/membership may cross this boundary.
+  // Object ownership must additionally be checked by company-scoped data access.
+  function authorize(modelOrConfig, actor, permissionId) {
+    const model = asModel(modelOrConfig);
+    const current = normalizeActor(actor);
+    let code = 'ALLOWED', reason = 'Personlig användare med aktivt företagsmedlemskap.';
+    if (!model.permissionsById.has(permissionId)) {code='UNKNOWN_PERMISSION';reason='Åtgärden är inte definierad.';}
+    else if (!current?.id || !current.authenticated) {code='MISSING_IDENTITY';reason='Personlig inloggning krävs.';}
+    else if (current.disabled) {code='ACCOUNT_DISABLED';reason='Användarkontot är inaktiverat.';}
+    else if (!current.companyId || !current.membershipActive) {code='COMPANY_ACCESS_DENIED';reason='Aktivt företagsmedlemskap krävs.';}
+    return {allowed:code==='ALLOWED',code,reason,permissionId,actorId:current?.id,companyId:current?.companyId};
   }
 
   function permissionsForActor(modelOrConfig, actor) {
     const model = asModel(modelOrConfig);
-    const normalized = normalizeActor(actor);
-    const permissions = new Set();
-    if (!normalized || !normalized.id || normalized.disabled) return permissions;
-
-    for (const roleId of normalized.roles) {
-      const role = model.rolesById.get(roleId);
-      if (!role) continue;
-      for (const permissionId of role.permissions) permissions.add(permissionId);
-    }
-    return permissions;
-  }
-
-  function authorize(modelOrConfig, actor, permissionId) {
-    const model = asModel(modelOrConfig);
-    const normalized = normalizeActor(actor);
-
-    if (!model.permissionsById.has(permissionId)) {
-      return {allowed: false, code: 'UNKNOWN_PERMISSION', reason: 'Behörigheten är inte definierad.', permissionId};
-    }
-    if (!normalized?.id) {
-      return {allowed: false, code: 'MISSING_IDENTITY', reason: 'Personlig användaridentitet saknas.', permissionId};
-    }
-    if (normalized.disabled) {
-      return {allowed: false, code: 'ACCOUNT_DISABLED', reason: 'Användarkontot är inaktiverat.', permissionId, actorId: normalized.id};
-    }
-    const unknownRoles = normalized.roles.filter(roleId => !model.rolesById.has(roleId));
-    if (unknownRoles.length) {
-      return {
-        allowed: false,
-        code: 'UNKNOWN_ROLE',
-        reason: `Användaren har okänd roll: ${unknownRoles.join(', ')}.`,
-        permissionId,
-        actorId: normalized.id,
-        roles: normalized.roles
-      };
-    }
-
-    const allowed = permissionsForActor(model, normalized).has(permissionId);
-    return {
-      allowed,
-      code: allowed ? 'ALLOWED' : 'ACCESS_DENIED',
-      reason: allowed ? 'Rollen ger behörighet.' : 'Rollen saknar behörigheten.',
-      permissionId,
-      actorId: normalized.id,
-      roles: normalized.roles
-    };
+    return new Set([...model.permissionsById.keys()].filter(id => authorize(model,actor,id).allowed));
   }
 
   function requirePermission(modelOrConfig, actor, permissionId) {

@@ -20,7 +20,7 @@ async function withApi(callback) {
   const other=Db.createCompany(db,{legalName:'Annat Automationsbolag AB',displayName:'Annat Bolag',orgNumber:'559400-0002'});
   const password='Ett sakert automationslosenord 2026!';
   const user=Db.createUser(db,{username:'ekonom.test',displayName:'Ekonom Test',passwordHash:Auth.hashPassword(password),mfaSecretEncrypted:Auth.encryptSecret(MFA_SECRET,ENCRYPTION_KEY)});
-  Db.addMembership(db,{companyId:company.id,userId:user.id,roles:['accountant']});
+  Db.addMembership(db,{companyId:company.id,userId:user.id});
   const proposal=Automation.createProposal({companyId:company.id,type:'booking-account-suggestion',sourceId:'supplier-100',confidence:.96,deterministic:false,reason:'Leverantör och tidigare bokningar pekar på samma kostnadskonto.',evidence:[{kind:'supplier-history',label:'Tidigare konto',value:'4010',sourceId:'supplier-100'}],suggestion:{amountOre:125000,vatOre:25000,debitAccount:'4010',vatAccount:'2641',creditAccount:'2440'},engine:{kind:'rules',name:'coding-suggestion',version:'1'},createdAt:'2026-09-16T04:00:00.000Z'});
   const saved=Queues.saveAutomationProposal(db,proposal,{idempotencyKey:'supplier-100:v1'}).proposal;
   const otherProposal=Automation.createProposal({companyId:other.id,type:'booking-account-suggestion',sourceId:'other-100',confidence:.97,deterministic:false,reason:'Annan kunds data.',evidence:[{kind:'history',label:'Konto',value:'5010',sourceId:'other-100'}],suggestion:{amountOre:10000,debitAccount:'5010',creditAccount:'2440'},engine:{name:'coding-suggestion',version:'1'},createdAt:'2026-09-16T04:01:00.000Z'});

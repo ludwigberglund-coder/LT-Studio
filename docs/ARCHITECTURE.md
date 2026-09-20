@@ -33,7 +33,7 @@ Servern binder till `127.0.0.1` som standard. Nätverksbindning kräver `ROLLAND
 - Statiska sökvägar normaliseras och kontrolleras även efter upplösning av symboliska länkar.
 - CSV-export neutraliserar celler som annars kan tolkas som kalkylbladsformler.
 
-Autentiseringen är avsedd som lokal/första driftspärr. Produktionsmiljö kräver riktiga användaridentiteter, roller, tvåfaktor och central sessionshantering.
+Autentiseringen är avsedd som lokal/första driftspärr. Produktionsmiljö kräver riktiga användaridentiteter, företagsmedlemskap, tvåfaktor och central sessionshantering.
 
 ### Datalager
 

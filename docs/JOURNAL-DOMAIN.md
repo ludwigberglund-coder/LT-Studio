@@ -14,7 +14,7 @@
 Modulen använder två tidigare grundlager:
 
 - `packages/accounting/money.js` för säkra heltal i ören,
-- `packages/access-control/authorization.js` för roll- och behörighetskontroll.
+- `packages/access-control/authorization.js` för personlig identitet och företagsmedlemskap.
 
 ## Grundregler
 
@@ -165,7 +165,7 @@ GitHub Pages-demon innehåller en interaktiv sida under:
 
 Där går det att:
 
-- välja en roll,
+- välja en personlig demoanvändare,
 - bokföra en balanserad manuell verifikation,
 - prova behörighetsnekning,
 - låsa och låsa upp period,

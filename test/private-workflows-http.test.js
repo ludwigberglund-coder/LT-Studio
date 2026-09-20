@@ -6,10 +6,10 @@ const Cms=require('../apps/api/website-cms.js');
 const Db=require('../apps/api/database.js');
 async function run(callback){const f=await fixture();try{await callback(f);}finally{await f.close();}}
 async function json(base,path,headers,method='GET',body){const res=await fetch(base+path,{method,headers,body:body?JSON.stringify(body):undefined});return{res,data:await res.json()};}
-test('private preview requires authentication and website permission for HTML and assets',()=>run(async f=>{
+test('private preview requires authentication and active company membership for HTML and assets',()=>run(async f=>{
   for(const route of ['/website-preview/','/website-preview/app.js','/website-preview/shared/content.js']){
     assert.equal((await fetch(f.base+route)).status,401);
-    assert.equal((await fetch(f.base+route,{headers:await f.login(f.auditor.username)})).status,403);
+    assert.equal((await fetch(f.base+route,{headers:await f.login(f.auditor.username)})).status,200);
     const res=await fetch(f.base+route,{headers:await f.login()});assert.equal(res.status,200);assert.equal(res.headers.get('cache-control'),'no-store');
     assert.match(res.headers.get('content-security-policy'),/frame-ancestors 'none'/);
   }
@@ -89,7 +89,7 @@ test('changed supplier PDF bytes cannot be served or approved using an old finge
   assert.equal(response.status,409);
   const body=await response.json();assert.equal(body.code,'DOCUMENT_INTEGRITY_ERROR');
   assert.doesNotMatch(JSON.stringify(body),/%PDF|document_blob|SELECT|\.js:/);
-  Db.addMembership(f.db,{companyId:f.a.id,userId:f.auditor.id,roles:['approver']});
+  Db.addMembership(f.db,{companyId:f.a.id,userId:f.auditor.id});
   const reviewed=Payables.invoiceById(f.db,f.a.id,f.payable.id);
   const approval=await json(f.base,'/api/v1/payables/invoices/'+f.payable.id+'/approve',await f.login(f.auditor.username),'POST',{expectedCodingSha256:reviewed.codingSha256,expectedDocumentSha256:reviewed.documentSha256});
   assert.equal(approval.res.status,409);assert.equal(approval.data.code,'DOCUMENT_INTEGRITY_ERROR');

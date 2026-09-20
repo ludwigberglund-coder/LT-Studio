@@ -5,7 +5,7 @@ const STORAGE_KEY = 'rollands-journal-domain-demo-v1';
 let accessConfig;
 let accessModel;
 let ledger;
-let selectedRoleId = 'accountant';
+let selectedUserId = 'demo-user-1';
 let message = '';
 let messageIsError = false;
 let formState = {
@@ -32,7 +32,7 @@ function access() {
 }
 
 function actor() {
-  return {id: `demo-${selectedRoleId}`, roles: [selectedRoleId]};
+  return {id:selectedUserId,companyId:'demo-company',authenticated:true,membershipActive:true};
 }
 
 function context(extra = {}) {
@@ -60,7 +60,7 @@ function createSeedLedger() {
       {account: '2621', text: 'Utgående moms 12 %', debitOre: 0, creditOre: 12000}
     ]
   }, {
-    actor: {id: 'demo-accountant', roles: ['accountant']},
+    actor: {id:'demo-user-1',companyId:'demo-company',authenticated:true,membershipActive:true},
     access: accessModel,
     now: '2026-09-01T08:00:00.000Z',
     idFactory: prefix => `${prefix}-seed-1001`
@@ -91,10 +91,8 @@ export function configureJournal(config) {
   ledger = loadLedger();
 }
 
-function roleOptions() {
-  return accessConfig.roles.map(role => `
-    <option value="${escapeHtml(role.id)}" ${role.id === selectedRoleId ? 'selected' : ''}>${escapeHtml(role.label)}</option>
-  `).join('');
+function userOptions() {
+  return ['demo-user-1','demo-user-2'].map(id=>`<option value="${id}" ${id===selectedUserId?'selected':''}>${id}</option>`).join('');
 }
 
 function kindLabel(kind) {
@@ -144,14 +142,13 @@ export function journalView() {
   const report = api().validateLedger(ledger);
   const period = currentPeriod();
   const locked = api().periodStatus(ledger, period) === 'locked';
-  const selectedRole = accessModel.rolesById.get(selectedRoleId);
 
   return `
     <section class="metrics-grid journal-metrics">
       <article class="metric-card"><span>Verifikationer</span><strong>${report.summary.entries}</strong><p>Alla poster är balanserade och numrerade per serie.</p></article>
       <article class="metric-card"><span>Nästa nummer</span><strong>A${Number(ledger.sequences['A:2026'] || 0) + 1}</strong><p>Löpnummer återanvänds inte efter rättelser.</p></article>
       <article class="metric-card"><span>Rättelser</span><strong>${report.summary.corrections}</strong><p>Originalposter bevaras och vänds med nya poster.</p></article>
-      <article class="metric-card"><span>Period ${escapeHtml(period)}</span><strong>${locked ? 'Låst' : 'Öppen'}</strong><p>${locked ? 'Nya poster stoppas.' : 'Bokföring är tillåten med rätt roll.'}</p></article>
+      <article class="metric-card"><span>Period ${escapeHtml(period)}</span><strong>${locked ? 'Låst' : 'Öppen'}</strong><p>${locked ? 'Nya poster stoppas.' : 'Bokföring är tillåten för företagets medlemmar.'}</p></article>
     </section>
 
     ${messageMarkup()}
@@ -162,17 +159,14 @@ export function journalView() {
           <div><span class="kicker">Domändemo</span><h2>Bokför en balanserad verifikation</h2><p>Alla belopp omvandlas till heltal i ören innan posten skapas.</p></div>
         </div>
         <div class="journal-form-grid">
-          <label class="field"><span>Aktiv roll</span><select data-journal-field="role">${roleOptions()}</select></label>
+          <label class="field"><span>Personlig demoanvändare</span><select data-journal-field="user">${userOptions()}</select></label>
           <label class="field"><span>Bokföringsdag</span><input type="date" value="${escapeHtml(formState.date)}" data-journal-field="date" required></label>
           <label class="field journal-wide"><span>Beskrivning</span><input value="${escapeHtml(formState.description)}" data-journal-field="description" required></label>
           <label class="field"><span>Belopp inklusive ören</span><input inputmode="decimal" value="${escapeHtml(formState.amount)}" data-journal-field="amount" required></label>
           <label class="field"><span>Debetkonto</span><input inputmode="numeric" maxlength="4" value="${escapeHtml(formState.debitAccount)}" data-journal-field="debitAccount" required></label>
           <label class="field"><span>Kreditkonto</span><input inputmode="numeric" maxlength="4" value="${escapeHtml(formState.creditAccount)}" data-journal-field="creditAccount" required></label>
         </div>
-        <div class="journal-role-note">
-          <b>${escapeHtml(selectedRole?.label || selectedRoleId)}</b>
-          <span>${escapeHtml(selectedRole?.description || '')}</span>
-        </div>
+        <p>Alla demoanvändare har samma funktioner. Företagsisoleringen kontrolleras i den privata servern.</p>
         <div class="form-actions">
           <button class="button primary" type="submit">Bokför verifikation</button>
           <button class="button ghost" type="button" data-journal-action="lock">Lås ${escapeHtml(period)}</button>
@@ -216,10 +210,10 @@ export function journalView() {
 export function handleJournalInput(target, render) {
   const field = target?.dataset?.journalField;
   if (!field) return false;
-  if (field === 'role') selectedRoleId = target.value;
+  if (field === 'user') selectedUserId = target.value;
   else if (Object.hasOwn(formState, field)) formState[field] = target.value;
   message = '';
-  if (field === 'role' || field === 'date') render();
+  if (field === 'user' || field === 'date') render();
   return true;
 }
 

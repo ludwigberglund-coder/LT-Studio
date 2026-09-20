@@ -18,8 +18,8 @@ test('pilotkritisk företagsisolering hindrar korsläsning av privat ekonomidata
     const companyB=Db.createCompany(db,{legalName:'Company B AB',displayName:'Company B',orgNumber:'559999-2002'});
     const userA=Db.createUser(db,{username:'company-a-user',displayName:'Company A User',passwordHash:'test-only-hash-a'});
     const userB=Db.createUser(db,{username:'company-b-user',displayName:'Company B User',passwordHash:'test-only-hash-b'});
-    Db.addMembership(db,{companyId:companyA.id,userId:userA.id,roles:['accountant']});
-    Db.addMembership(db,{companyId:companyB.id,userId:userB.id,roles:['accountant']});
+    Db.addMembership(db,{companyId:companyA.id,userId:userA.id});
+    Db.addMembership(db,{companyId:companyB.id,userId:userB.id});
 
     const customerB=Db.createCustomer(db,{companyId:companyB.id,customerNumber:'KB-1',name:'Company B Kund AB'});
     const invoiceB=Db.createInvoice(db,{companyId:companyB.id,customerId:customerB.id,invoiceNumber:'B-1001',invoiceDate:'2026-09-17',postingDate:'2026-09-17',dueDate:'2026-10-17',totalOre:50000,remainingOre:50000,vatOre:10000,status:'Bokförd'});

@@ -11,7 +11,7 @@ test('lösenordsrotation byter hash, återkallar sessioner och loggar händelsen
     const company=Db.createCompany(db,{legalName:'Test AB',displayName:'Test',orgNumber:'556000-0000'});
     const oldPassword='Ett gammalt langt testlosenord 2026!';
     const user=Db.createUser(db,{username:'ekonom',displayName:'Ekonom',passwordHash:Auth.hashPassword(oldPassword)});
-    Db.addMembership(db,{companyId:company.id,userId:user.id,roles:['accountant']});
+    Db.addMembership(db,{companyId:company.id,userId:user.id});
     Db.createSession(db,{tokenHash:'tokenhash',csrfHash:'csrfhash',userId:user.id,companyId:company.id,expiresAt:'2099-01-01T00:00:00.000Z'});
 
     const newPassword='Ett helt nytt langt testlosenord 2026!';
