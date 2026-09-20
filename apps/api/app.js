@@ -8,6 +8,7 @@ const Receivables = require('../../packages/receivables/customer-receivables.js'
 const Auth = require('./auth.js');
 const Db = require('./database.js');
 const CustomerInvoicing = require('./customer-invoicing.js');
+const Readiness = require('./readiness.js');
 
 const DEFAULT_ACCESS = JSON.parse(fs.readFileSync(path.join(__dirname,'..','..','config','access-control.json'),'utf8'));
 const DEFAULT_RATES = JSON.parse(fs.readFileSync(path.join(__dirname,'..','..','config','legal-rates.json'),'utf8'));
@@ -104,6 +105,8 @@ function createApiApp(options) {
   const authEncryptionKey = options.authEncryptionKey || '';
   const companyProfile = options.companyProfile || DEFAULT_COMPANY_PROFILE;
   CustomerInvoicing.initializeCustomerInvoicing(db);
+  Readiness.initializeReadiness(db);
+  const readinessProbe=options.readinessProbe||(()=>Readiness.evaluateReadiness({db,databasePath:options.databasePath||':memory:',requirePrivatePermissions:options.requirePrivatePermissions===true,minFreeBytes:options.minFreeBytes??Readiness.DEFAULT_MIN_FREE_BYTES}));
   const loginAttempts = new Map();
 
   function cleanupAttempts() {
@@ -231,7 +234,13 @@ function createApiApp(options) {
     if(!url.pathname.startsWith('/api/v1/')) return send(res,404,{error:'Hittades inte.',code:'NOT_FOUND'});
 
     try {
-      if(req.method==='GET' && url.pathname==='/api/v1/health') return send(res,200,{ok:true,service:'rollands-api-v1'});
+      if(req.method==='GET' && url.pathname==='/api/v1/health') return send(res,200,{ok:true,status:'alive',service:'rollands-api-v1'});
+      if(req.method==='GET' && url.pathname==='/api/v1/ready') {
+        let report;
+        try{report=readinessProbe()}catch{report={ok:false,status:'not-ready',checks:{database:'failed',storage:'failed'},issues:['READINESS_CHECK_FAILED']}}
+        const body={ok:report.ok===true,status:report.ok===true?'ready':'not-ready',service:'rollands-api-v1',checks:report.checks||{database:'failed',storage:'failed'},issues:Array.isArray(report.issues)?report.issues.slice(0,10):['READINESS_CHECK_FAILED']};
+        return send(res,body.ok?200:503,body);
+      }
       if(req.method==='POST' && url.pathname==='/api/v1/auth/login') {
         const payload=await readJson(req,res); if(!payload) return;
         return loginResponse(req,res,payload);
