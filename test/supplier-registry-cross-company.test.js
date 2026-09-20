@@ -6,6 +6,8 @@ const {fixture}=require('./private-workflows-fixture.cjs');
 const Db=require('../apps/api/database.js');
 const Payables=require('../apps/api/payables.js');
 
+// Cross-company supplier mutations must fail closed before any masterdata change is persisted.
+
 test('leverantörsregister stoppar profil- och betalningsändring över företagsgränsen',async()=>{
   const f=await fixture();
   try{
