@@ -31,7 +31,7 @@ Senast granskad: 2026-09-20. Företag: Rolands Frukt o Grönt Aktiebolag, 556406
 | Health/readiness, driftlogg och fungerande larm | ❌ Inte klar | Teknisk grund finns men disk-/DB-/timeout- och larmscenarier saknas. |
 | Secrets-hantering och historikskanning | 🟡 Delvis klar | Platshållare i exempelkonfiguration; snapshot-skanning utan tydliga tokenfynd. Full Git-historik och faktisk drift måste kontrolleras. |
 | Miljöspärr och separation demo/pilot/produktion | 🟡 Delvis klar | PR 67: bindande startkontroll, privata lagringssökvägar, servernekat demo-query och inga demo-/legacyhjälpfiler. Granskning av befintliga data och verklig drift återstår. |
-| Betalningsöversikt dag/vecka/månad/kvartal | 🟡 Delvis klar | Delvyer finns; en konsekvent filtrerad privat översikt ska sluttestas. |
+| Betalningsöversikt dag/vecka/månad/kvartal | 🟡 Delvis klar | PR 98 lägger en gemensam privat översikt ovanpå befintliga inbetalningar och leverantörsbetalningar. Dag, vecka, månad och kvartal stöds, liksom datumintervall, riktning, konto, status, motpart och beloppsfilter på API-nivå. In-/ut-/nettototaler räknas server-side. Bankvyn visar periodvalen utan att duplicera källdata. Full UAT och exportkoppling från just denna vy återstår. |
 | Filtrerad Excel-kompatibel export | ❌ Inte klar | Fullständighet, samma filter som vyn och formelinjektionsskydd återstår att verifiera. |
 | Arbetslista och begriplig återkoppling | 🟡 Delvis klar | Flera vyer finns; godkänd får inte kallas bokförd, fel får inte döljas som nollvärden. |
 | Obligatoriska releasekontroller och rollback | 🟡 Delvis klar | CI finns; branch/ruleset, produktionsflöde och databasrollback behöver driftsbevis. |
@@ -56,3 +56,8 @@ Bas: `3c69c0266b1e3be0b052c708826561e732876c66`. Ett regressionstest reproducera
 ## Ny användarmodell 2026-09-20
 
 Rollfält och rolltilldelning har ersatts med personligt företagsmedlemskap. MFA krävs för alla. De automatiska medlemskaps- och migrationsproven finns i `company-membership-http.test.js`, `membership-migration.test.js` och `access-control.test.js`. Se [migration, kontroller och begränsningar](ACCESS-CONTROL.md). Full CI måste passera före merge. Den fullständiga IDOR-matrisen och faktisk pilot-UAT är fortsatt delvis/inte klara; inga sådana rader markeras gröna av detta arbete.
+
+
+## Verifierad uppföljning 2026-09-20 – betalningsöversikt
+
+PR 98 inför `/api/v1/bank/overview` som en läsvy ovanpå befintliga `bank_payments` och `supplier_payments`. Källdata flyttas eller dupliceras inte. Endpointen kräver personlig session och använder sessionens företag i båda datakällorna. Den stöder dag, ISO-vecka, månad och kvartal samt explicit datumintervall. Filter finns för in/ut, konto, status, motpart och min/max-belopp. Servern räknar inbetalningar, utbetalningar, netto och antal efter filtrering. Den privata Bank-sidan visar samma översikt och behåller den separata matchningsdelen för inkommande bankhändelser. Regressionstester täcker periodgränser, filter, företagsisolering och HTTP-session. **NO-GO kvarstår.**
