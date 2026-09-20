@@ -5,6 +5,7 @@ const crypto=require('node:crypto');
 const Db=require('../apps/api/database.js');
 const Auth=require('../apps/api/auth.js');
 const Documents=require('../apps/api/documents.js');
+const ContentStore=require('../apps/api/document-content-store.js');
 
 function seed(){const db=Db.openDatabase(':memory:');Documents.initializeDocuments(db);const company=Db.createCompany(db,{legalName:'Dokumentbolaget AB',displayName:'Dokumentbolaget',orgNumber:'559900-8080'});const user=Db.createUser(db,{username:'docs',displayName:'Dokumenttest',passwordHash:Auth.hashPassword('Sakert dokumenttest 2026!')});return{db,company,user}}
 function pdf(text='test'){return Buffer.from(`%PDF-1.4\n% ${text}\n`,'ascii')}
@@ -22,3 +23,19 @@ test('dokument är strikt isolerade mellan företag',()=>{const {db,company,user
 test('skadat arkivinnehåll eller felaktig storlek stoppas vid läsning',()=>{const {db,company,user}=seed();try{const doc=Documents.createPending(db,{companyId:company.id,uploadedBy:user.id,title:'Arkivkontroll',category:'other',fileName:'arkiv.pdf',mimeType:'application/pdf'});const bytes=pdf('archive');Documents.storeContent(db,{companyId:company.id,documentId:doc.id,bytes});assert.deepEqual(Buffer.from(Documents.content(db,company.id,doc.id).bytes),bytes);db.prepare('UPDATE documents SET content_blob=? WHERE company_id=? AND id=?').run(pdf('tampered'),company.id,doc.id);assert.throws(()=>Documents.content(db,company.id,doc.id),e=>e.code==='DOCUMENT_INTEGRITY_ERROR'&&e.statusCode===409);db.prepare('UPDATE documents SET content_blob=?,size_bytes=? WHERE company_id=? AND id=?').run(bytes,bytes.length+1,company.id,doc.id);assert.throws(()=>Documents.content(db,company.id,doc.id),e=>e.code==='DOCUMENT_INTEGRITY_ERROR');}finally{db.close()}});
 
 test('samma filhash får finnas i två olika företag',()=>{const {db,company,user}=seed();try{const other=Db.createCompany(db,{legalName:'Annat AB',displayName:'Annat',orgNumber:'559901-0001'});const user2=Db.createUser(db,{username:'docs2',displayName:'Dokumenttest 2',passwordHash:Auth.hashPassword('Sakert dokumenttest 2026!')});const bytes=pdf('shared-template');const a=Documents.createPending(db,{companyId:company.id,uploadedBy:user.id,title:'Underlag A',category:'other',fileName:'a.pdf',mimeType:'application/pdf'});const b=Documents.createPending(db,{companyId:other.id,uploadedBy:user2.id,title:'Underlag B',category:'other',fileName:'b.pdf',mimeType:'application/pdf'});Documents.storeContent(db,{companyId:company.id,documentId:a.id,bytes});Documents.storeContent(db,{companyId:other.id,documentId:b.id,bytes});assert.equal(Documents.listDocuments(db,company.id).length,1);assert.equal(Documents.listDocuments(db,other.id).length,1);}finally{db.close()}});
+
+
+test('intern dokumentlagring är företagsskopad och låses när originalet är färdigt',()=>{const {db,company,user}=seed();try{
+  const other=Db.createCompany(db,{legalName:'Lagring B AB',displayName:'Lagring B',orgNumber:'559901-1002'});
+  const doc=Documents.createPending(db,{companyId:company.id,uploadedBy:user.id,title:'Lagringsgräns',category:'other',fileName:'storage.pdf',mimeType:'application/pdf'});
+  const store=ContentStore.createSqliteDocumentContentStore(db),bytes=pdf('storage-seam');
+  assert.equal(store.put({companyId:other.id,documentId:doc.id,bytes}),false);
+  assert.equal(store.exists({companyId:other.id,documentId:doc.id}),false);
+  assert.equal(store.get({companyId:other.id,documentId:doc.id}),null);
+  assert.equal(store.put({companyId:company.id,documentId:doc.id,bytes}),true);
+  assert.equal(store.exists({companyId:company.id,documentId:doc.id}),true);
+  assert.deepEqual(store.get({companyId:company.id,documentId:doc.id}),bytes);
+  Documents.storeContent(db,{companyId:company.id,documentId:doc.id,bytes});
+  assert.equal(store.put({companyId:company.id,documentId:doc.id,bytes:pdf('replacement')}),false);
+  assert.deepEqual(Documents.content(db,company.id,doc.id).bytes,bytes);
+}finally{db.close()}});
