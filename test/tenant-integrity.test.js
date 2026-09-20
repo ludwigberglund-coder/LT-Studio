@@ -141,9 +141,10 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
 
 
 test('full private runtime has an explicit tenant scope for every database table', () => {
-  const runtime=createServer({databasePath:':memory:',secureCookies:false});
+  const db=Db.openDatabase(':memory:');
   try {
-    const report=Guards.inspectTenantCoverage(runtime.db);
+    createServer({db,port:4180,secureCookies:false});
+    const report=Guards.inspectTenantCoverage(db);
     assert.equal(report.ok,true,JSON.stringify(report));
     assert.deepEqual(report.rootTables,['companies','login_attempts','mfa_used_steps','users']);
     assert.ok(report.directTenantTables.includes('invoices'));
@@ -151,8 +152,9 @@ test('full private runtime has an explicit tenant scope for every database table
     assert.ok(report.directTenantTables.includes('website_cms_state'));
     assert.ok(report.inheritedTenantTables.some(row=>row.table==='accounting_entry_lines'&&row.via.some(v=>v.targetTable==='accounting_entries')));
     assert.ok(report.inheritedTenantTables.some(row=>row.table==='accounting_entry_seals'&&row.via.some(v=>v.targetTable==='accounting_entries')));
+    assert.deepEqual(report.ambiguousInheritedTables,[]);
     assert.deepEqual(report.unscopedTables,[]);
-  } finally {runtime.close(()=>{});}
+  } finally {db.close();}
 });
 
 test('startup guard rejects a new private table whose tenant scope is undefined', () => {
@@ -166,7 +168,7 @@ test('startup guard rejects a new private table whose tenant scope is undefined'
   } finally {db.close();}
 });
 
-test('tenant scope can be inherited through a mandatory parent relationship', () => {
+test('tenant scope can be inherited through one mandatory parent and cannot move across companies', () => {
   const db=Db.openDatabase(':memory:');
   try {
     db.exec(`CREATE TABLE invoice_private_metadata(
@@ -178,6 +180,18 @@ test('tenant scope can be inherited through a mandatory parent relationship', ()
     const inherited=report.inheritedTenantTables.find(row=>row.table==='invoice_private_metadata');
     assert.ok(inherited);
     assert.ok(inherited.via.some(v=>v.column==='invoice_id'&&v.targetTable==='invoices'));
-    assert.doesNotThrow(()=>Guards.installTenantGuards(db));
+    Guards.installTenantGuards(db);
+
+    const a=Db.createCompany(db,{legalName:'Inherited A AB',orgNumber:'INHERITED-A'});
+    const b=Db.createCompany(db,{legalName:'Inherited B AB',orgNumber:'INHERITED-B'});
+    const ca=Db.createCustomer(db,{companyId:a.id,customerNumber:'A-1',name:'A Kund'});
+    const cb=Db.createCustomer(db,{companyId:b.id,customerNumber:'B-1',name:'B Kund'});
+    const common={invoiceDate:'2026-09-20',postingDate:'2026-09-20',dueDate:'2026-10-20',totalOre:10000,remainingOre:10000,vatOre:2000,status:'Bokförd'};
+    const a1=Db.createInvoice(db,{...common,companyId:a.id,customerId:ca.id,invoiceNumber:'A-1'});
+    const a2=Db.createInvoice(db,{...common,companyId:a.id,customerId:ca.id,invoiceNumber:'A-2'});
+    const b1=Db.createInvoice(db,{...common,companyId:b.id,customerId:cb.id,invoiceNumber:'B-1'});
+    db.prepare('INSERT INTO invoice_private_metadata(invoice_id,payload_json) VALUES(?,?)').run(a1.id,'{}');
+    assert.doesNotThrow(()=>db.prepare('UPDATE invoice_private_metadata SET invoice_id=? WHERE invoice_id=?').run(a2.id,a1.id));
+    assert.throws(()=>db.prepare('UPDATE invoice_private_metadata SET invoice_id=? WHERE invoice_id=?').run(b1.id,a2.id),/TENANT_INHERITED_OWNER_MISMATCH/);
   } finally {db.close();}
 });
