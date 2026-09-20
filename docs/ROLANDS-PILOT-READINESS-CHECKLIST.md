@@ -32,7 +32,7 @@ Senast granskad: 2026-09-20. Företag: Rolands Frukt o Grönt Aktiebolag, 556406
 | Secrets-hantering och historikskanning | 🟡 Delvis klar | Platshållare i exempelkonfiguration; snapshot-skanning utan tydliga tokenfynd. Full Git-historik och faktisk drift måste kontrolleras. |
 | Miljöspärr och separation demo/pilot/produktion | 🟡 Delvis klar | PR 67: bindande startkontroll, privata lagringssökvägar, servernekat demo-query och inga demo-/legacyhjälpfiler. Granskning av befintliga data och verklig drift återstår. |
 | Betalningsöversikt dag/vecka/månad/kvartal | 🟡 Delvis klar | Delvyer finns; en konsekvent filtrerad privat översikt ska sluttestas. |
-| Filtrerad Excel-kompatibel export | ❌ Inte klar | Fullständighet, samma filter som vyn och formelinjektionsskydd återstår att verifiera. |
+| Filtrerad Excel-kompatibel export | 🟡 Delvis klar | PR 97 lägger privata, företagsisolerade CSV-exporter för kundreskontra, leverantörsreskontra, kund-/leverantörsfakturor, in-/utbetalningar, samlade betalningar, verifikationer, kontotransaktioner och momsunderlag. `from/to` styr både datamängd och filnamn, radantal och totalbelopp beräknas server-side, och textfält neutraliseras mot Excel-formelinjektion. UI-koppling och full UAT mot varje vy återstår. |
 | Arbetslista och begriplig återkoppling | 🟡 Delvis klar | Flera vyer finns; godkänd får inte kallas bokförd, fel får inte döljas som nollvärden. |
 | Obligatoriska releasekontroller och rollback | 🟡 Delvis klar | CI finns; branch/ruleset, produktionsflöde och databasrollback behöver driftsbevis. |
 | Rolands nio UAT-scenarier mot pilotserver | ❌ Inte klar | Befintliga demo- och kodtester ersätter inte ett signerat pilot-UAT. |
@@ -56,3 +56,8 @@ Bas: `3c69c0266b1e3be0b052c708826561e732876c66`. Ett regressionstest reproducera
 ## Ny användarmodell 2026-09-20
 
 Rollfält och rolltilldelning har ersatts med personligt företagsmedlemskap. MFA krävs för alla. De automatiska medlemskaps- och migrationsproven finns i `company-membership-http.test.js`, `membership-migration.test.js` och `access-control.test.js`. Se [migration, kontroller och begränsningar](ACCESS-CONTROL.md). Full CI måste passera före merge. Den fullständiga IDOR-matrisen och faktisk pilot-UAT är fortsatt delvis/inte klara; inga sådana rader markeras gröna av detta arbete.
+
+
+## Verifierad uppföljning 2026-09-20 – Excel-kompatibla exporter
+
+PR 97 inför ett privat `/api/v1/reports/export`-API med separata dataset för kundreskontra, leverantörsreskontra, kundfakturor, leverantörsfakturor, inbetalningar, utbetalningar, samlade betalningar, verifikationer, kontotransaktioner och momsunderlag. Exporten kräver personlig session och använder inloggat företag i varje SQL-fråga. `from` och `to` är obligatoriska giltiga datum och samma intervall används för urval och filnamn. CSV-filen är UTF-8 med semikolon för svensk Excel. Text som kan tolkas som formel neutraliseras innan filen skapas. Servern lämnar även radantal och totalbelopp där ett huvudbelopp finns. Regressionstester täcker periodfilter, tenant isolation och formelinjektion. Koppling från varje privat vy och signerat UAT återstår. **NO-GO kvarstår.**
