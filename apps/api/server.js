@@ -32,6 +32,7 @@ const WebsiteCms = require('./website-cms.js');
 
 const repositoryRoot = path.resolve(__dirname,'..','..');
 const {validateRuntime,demoRequest,resolveStaticRequest,serveStatic} = require('./private-runtime.js');
+const {readinessReport}=require('./readiness.js');
 
 function normalizeHostname(value) {
   const raw = String(value || '').trim().toLowerCase().replace(/\.$/, '');
@@ -79,6 +80,14 @@ function createServer(options = {}) {
       if (!['GET','HEAD'].includes(req.method || 'GET')) { res.writeHead(405,{'Allow':'GET, HEAD','Cache-Control':'no-store'}); return res.end(); }
       const body=Buffer.from(JSON.stringify({runtimeId}));
       res.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Content-Length':body.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
+      return res.end(req.method==='HEAD'?undefined:body);
+    }
+    if (String(req.url || '').split('?')[0] === '/api/v1/readiness') {
+      if (!['GET','HEAD'].includes(req.method || 'GET')) { res.writeHead(405,{'Allow':'GET, HEAD','Cache-Control':'no-store'}); return res.end(); }
+      const protectedMode=process.env.NODE_ENV==='production'||['pilot','production'].includes(String(process.env.ROLLANDS_ENV||'').trim());
+      const report=readinessReport({db,databasePath,backupPath:process.env.ROLLANDS_BACKUP_PATH||'',requireBackup:protectedMode});
+      const body=Buffer.from(JSON.stringify({ok:report.ok,service:'rollands-api-v1',checks:report.checks,freeMiB:report.freeBytes===null?null:Math.floor(report.freeBytes/1048576),backupAgeMinutes:report.backupAgeMs===null?null:Math.floor(report.backupAgeMs/60000)}));
+      res.writeHead(report.ok?200:503,{'Content-Type':'application/json; charset=utf-8','Content-Length':body.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
       return res.end(req.method==='HEAD'?undefined:body);
     }
     if (String(req.url || '').startsWith('/website-preview/') && await websiteCms.handle(req,res)) return;
