@@ -44,3 +44,21 @@ test('intern leverantörs-PDF-lagring är företagsskopad och låst efter attest
   assert.equal(store.put({companyId:company.id,invoiceId:invoice.id,bytes:pdf('replacement')}),false);
   assert.deepEqual(Payables.document(db,company.id,invoice.id).bytes,bytes);
 }finally{db.close()}});
+
+
+test('leverantörsfakturans PDF kan beskrivas med provider-neutral företagsisolerad metadata',()=>{const {db,company,invoice}=seed();try{
+  assert.equal(Payables.privateObjectMetadata(db,company.id,invoice.id),null);
+  const bytes=pdf('supplier-object-metadata');
+  const stored=Payables.storeDocument(db,{companyId:company.id,invoiceId:invoice.id,name:'metadata.pdf',bytes});
+  const metadata=Payables.privateObjectMetadata(db,company.id,invoice.id);
+  assert.equal(metadata.companyId,company.id);
+  assert.equal(metadata.kind,'supplier-invoice');
+  assert.equal(metadata.objectId,invoice.id);
+  assert.equal(metadata.objectKey,`private/${company.id}/supplier-invoices/${invoice.id}`);
+  assert.equal(metadata.mimeType,'application/pdf');
+  assert.equal(metadata.sizeBytes,bytes.length);
+  assert.equal(metadata.sha256,stored.sha256);
+
+  const other=Db.createCompany(db,{legalName:'Leverantör Metadata B AB',displayName:'Metadata B',orgNumber:'559901-4004'});
+  assert.equal(Payables.privateObjectMetadata(db,other.id,invoice.id),null);
+}finally{db.close()}});
