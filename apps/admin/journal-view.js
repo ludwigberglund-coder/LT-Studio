@@ -186,7 +186,7 @@ export function journalView() {
           <li>Rättelser skapar motverifikation, aldrig överskrivning.</li>
           <li>Behörighet kontrolleras före varje åtgärd.</li>
         </ul>
-        <p>För upplåsning används en separat beställare i demon. Den aktiva rollen måste dessutom ha behörigheten <code>period.unlock</code>.</p>
+        <p>För upplåsning används en separat beställare i demon. Den personliga användaren måste vara en aktiv medlem i företaget och samma person får inte både begära och utföra upplåsningen.</p>
       </aside>
     </section>
 
