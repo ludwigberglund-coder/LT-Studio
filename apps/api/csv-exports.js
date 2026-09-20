@@ -76,25 +76,25 @@ function payments(db,companyId,{from,to}){
   return [...incoming,...outgoing].sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.direction).localeCompare(String(b.direction))||String(a.reference).localeCompare(String(b.reference)));
 }
 const DEFINITIONS=Object.freeze({
-  'receivables':{filename:'kundreskontra',rows:customerInvoices,columns:[
+  'receivables':{filename:'kundreskontra',rows:customerInvoices,totalField:'totalOre',columns:[
     ['Fakturadatum','invoiceDate'],['Förfallodatum','dueDate'],['Fakturanummer','invoiceNumber'],['Kundnummer','customerNumber'],['Kund','customerName'],['Belopp öre','totalOre'],['Moms öre','vatOre'],['Utestående öre','remainingOre'],['Status','status'],['OCR','ocr']
   ]},
-  'customer-invoices':{filename:'kundfakturor',rows:customerInvoices,columns:[
+  'customer-invoices':{filename:'kundfakturor',rows:customerInvoices,totalField:'totalOre',columns:[
     ['Fakturadatum','invoiceDate'],['Förfallodatum','dueDate'],['Fakturanummer','invoiceNumber'],['Kundnummer','customerNumber'],['Kund','customerName'],['Belopp öre','totalOre'],['Moms öre','vatOre'],['Utestående öre','remainingOre'],['Status','status'],['OCR','ocr']
   ]},
-  'payables':{filename:'leverantorsreskontra',rows:supplierInvoices,columns:[
+  'payables':{filename:'leverantorsreskontra',rows:supplierInvoices,totalField:'totalOre',columns:[
     ['Fakturadatum','invoiceDate'],['Förfallodatum','dueDate'],['Leverantörsfaktura','supplierInvoiceNumber'],['Leverantörsnummer','supplierNumber'],['Leverantör','supplierName'],['Belopp öre','totalOre'],['Moms öre','vatOre'],['Utestående öre','openAmountOre'],['Status','status'],['Valuta','currency']
   ]},
-  'supplier-invoices':{filename:'leverantorsfakturor',rows:supplierInvoices,columns:[
+  'supplier-invoices':{filename:'leverantorsfakturor',rows:supplierInvoices,totalField:'totalOre',columns:[
     ['Fakturadatum','invoiceDate'],['Förfallodatum','dueDate'],['Leverantörsfaktura','supplierInvoiceNumber'],['Leverantörsnummer','supplierNumber'],['Leverantör','supplierName'],['Belopp öre','totalOre'],['Moms öre','vatOre'],['Utestående öre','openAmountOre'],['Status','status'],['Valuta','currency']
   ]},
-  'incoming-payments':{filename:'inbetalningar',rows:incomingPayments,columns:[
+  'incoming-payments':{filename:'inbetalningar',rows:incomingPayments,totalField:'amountOre',columns:[
     ['Betalningsdatum','paymentDate'],['Fakturanummer','invoiceNumber'],['Kundnummer','customerNumber'],['Kund','customerName'],['Belopp öre','amountOre'],['Betalningssätt','paymentMethod'],['Konto','account'],['Bankreferens','bankReference'],['Verifikation','journalNumber']
   ]},
-  'outgoing-payments':{filename:'utbetalningar',rows:outgoingPayments,columns:[
+  'outgoing-payments':{filename:'utbetalningar',rows:outgoingPayments,totalField:'amountOre',columns:[
     ['Betalningsdatum','paymentDate'],['Leverantörsfaktura','supplierInvoiceNumber'],['Leverantörsnummer','supplierNumber'],['Leverantör','supplierName'],['Belopp öre','amountOre'],['Konto','account'],['Status','status'],['Bankgiro','bankgiro'],['Plusgiro','plusgiro'],['Frisläppt','releasedAt']
   ]},
-  'payments':{filename:'betalningar',rows:payments,columns:[
+  'payments':{filename:'betalningar',rows:payments,totalField:'amountOre',columns:[
     ['Datum','date'],['Riktning','direction'],['Referens','reference'],['Motpart','counterparty'],['Belopp öre','amountOre'],['Konto','account'],['Status','status']
   ]},
   'entries':{filename:'verifikationer',rows:entries,columns:[
@@ -115,6 +115,7 @@ function buildExport(db,companyId,{dataset,from,to}){
   const rows=def.rows(db,companyId,{from,to});
   const columns=def.columns.map(([label,value])=>({label,value}));
   const bytes=csvDocument(columns,rows);
-  return{dataset:key,from,to,count:rows.length,filename:`${def.filename}-${from}-${to}.csv`,bytes};
+  const totalOre=def.totalField?rows.reduce((sum,row)=>sum+Number(row[def.totalField]||0),0):null;
+  return{dataset:key,from,to,count:rows.length,totalOre,filename:`${def.filename}-${from}-${to}.csv`,bytes};
 }
 module.exports=Object.freeze({csvCell,csvDocument,buildExport,DEFINITIONS,validateRange});
