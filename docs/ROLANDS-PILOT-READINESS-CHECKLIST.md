@@ -33,7 +33,7 @@ Senast granskad: 2026-09-20. Företag: Rolands Frukt o Grönt Aktiebolag, 556406
 | Miljöspärr och separation demo/pilot/produktion | 🟡 Delvis klar | PR 67: bindande startkontroll, privata lagringssökvägar, servernekat demo-query och inga demo-/legacyhjälpfiler. Granskning av befintliga data och verklig drift återstår. |
 | Betalningsöversikt dag/vecka/månad/kvartal | 🟡 Delvis klar | Delvyer finns; en konsekvent filtrerad privat översikt ska sluttestas. |
 | Filtrerad Excel-kompatibel export | ❌ Inte klar | Fullständighet, samma filter som vyn och formelinjektionsskydd återstår att verifiera. |
-| Arbetslista och begriplig återkoppling | 🟡 Delvis klar | Flera vyer finns; godkänd får inte kallas bokförd, fel får inte döljas som nollvärden. |
+| Arbetslista och begriplig återkoppling | 🟡 Delvis klar | PR 100 gör automationsgodkännande tydligt: frontend använder backends `executionStatus` och visar en kvarstående bekräftelse att förslaget är godkänt men inte bokfört eller betalt när status är `not-executed`. Övriga statusmeddelanden och full UAT återstår. |
 | Obligatoriska releasekontroller och rollback | 🟡 Delvis klar | CI finns; branch/ruleset, produktionsflöde och databasrollback behöver driftsbevis. |
 | Rolands nio UAT-scenarier mot pilotserver | ❌ Inte klar | Befintliga demo- och kodtester ersätter inte ett signerat pilot-UAT. |
 | K2/K3, momsperiod och bolagsspecifika inställningar | ❌ Inte klar | Målinställningar finns; faktisk årsredovisning och registrerad redovisningsperiod ska styrkas. |
@@ -56,3 +56,8 @@ Bas: `3c69c0266b1e3be0b052c708826561e732876c66`. Ett regressionstest reproducera
 ## Ny användarmodell 2026-09-20
 
 Rollfält och rolltilldelning har ersatts med personligt företagsmedlemskap. MFA krävs för alla. De automatiska medlemskaps- och migrationsproven finns i `company-membership-http.test.js`, `membership-migration.test.js` och `access-control.test.js`. Se [migration, kontroller och begränsningar](ACCESS-CONTROL.md). Full CI måste passera före merge. Den fullständiga IDOR-matrisen och faktisk pilot-UAT är fortsatt delvis/inte klara; inga sådana rader markeras gröna av detta arbete.
+
+
+## Verifierad uppföljning 2026-09-20 – godkännandefeedback
+
+PR 100 förstärker återkopplingen i Automationskön. Backend hade redan explicit `executionStatus: not-executed` och testbevis för att ett godkännande inte automatiskt bokför eller betalar. Frontend använder nu detta värde som sanningskälla och visar `✓ Förslaget har godkänts` tillsammans med att ingen bokföring eller betalning genomfördes. Bekräftelsen ligger kvar efter att listan laddas om och nästa öppna förslag visas. Regressionstest förbjuder formuleringen `godkänts och bokförts` i detta flöde. **NO-GO kvarstår.**
