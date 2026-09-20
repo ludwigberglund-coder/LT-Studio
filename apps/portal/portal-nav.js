@@ -5,7 +5,7 @@
     {id:'economy',label:'Ekonomi',items:[
       ['invoices','Kundfakturor','portal/invoices.html'],['receivables','Kundreskontra','portal/receivables.html'],
       ['receivables-details','Reskontradetaljer & påminnelser','portal/index.html'],
-      ['payables','Leverantörsfakturor & reskontra','portal/payables.html'],['bank','Bank & avstämning','portal/bank.html'],
+      ['payables','Leverantörsfakturor & reskontra','portal/payables.html'],['payments','Betalningar','portal/payments.html'],['bank','Bank & avstämning','portal/bank.html'],
       ['automation','Automationskö','portal/automation.html'],['accounting','Bokföring','portal/accounting.html'],
       ['reports','Rapporter','portal/reports.html'],['accounts','Kontoplan & intäktskonton','portal/accounts.html'],
       ['payroll','Lön & lönejournal','portal/payroll.html'],['money','Öreskalkylator','admin/#/money'],
