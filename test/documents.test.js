@@ -39,3 +39,23 @@ test('intern dokumentlagring är företagsskopad och låses när originalet är 
   assert.equal(store.put({companyId:company.id,documentId:doc.id,bytes:pdf('replacement')}),false);
   assert.deepEqual(Documents.content(db,company.id,doc.id).bytes,bytes);
 }finally{db.close()}});
+
+
+test('färdigt dokument kan beskrivas med provider-neutral företagsisolerad metadata',()=>{const {db,company,user}=seed();try{
+  const doc=Documents.createPending(db,{companyId:company.id,uploadedBy:user.id,title:'Objektmetadata',category:'other',fileName:'metadata.pdf',mimeType:'application/pdf'});
+  assert.equal(Documents.privateObjectMetadata(db,company.id,doc.id),null);
+  const bytes=pdf('object-metadata');
+  const ready=Documents.storeContent(db,{companyId:company.id,documentId:doc.id,bytes});
+  const metadata=Documents.privateObjectMetadata(db,company.id,doc.id);
+  assert.equal(metadata.companyId,company.id);
+  assert.equal(metadata.kind,'document');
+  assert.equal(metadata.objectId,doc.id);
+  assert.equal(metadata.objectKey,`private/${company.id}/documents/${doc.id}`);
+  assert.equal(metadata.mimeType,'application/pdf');
+  assert.equal(metadata.sizeBytes,bytes.length);
+  assert.equal(metadata.sha256,ready.sha256);
+  assert.equal(metadata.createdAt,ready.completedAt);
+
+  const other=Db.createCompany(db,{legalName:'Metadata B AB',displayName:'Metadata B',orgNumber:'559901-3003'});
+  assert.equal(Documents.privateObjectMetadata(db,other.id,doc.id),null);
+}finally{db.close()}});
