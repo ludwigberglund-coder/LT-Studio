@@ -50,7 +50,11 @@ test('riktiga HTTP-rutter genomför leverantörsfakturans bokföringsflöde utan
     result=await request(base,`/api/v1/payables/invoices/${invoice.id}/post`,accountantSession,{method:'POST',body:{}});assert.equal(result.response.status,200);const invoiceEntry=result.data.entry;assert.deepEqual(invoiceEntry.lines.map(line=>[line.account,line.debitOre,line.creditOre]),[['4010',100000,0],['2641',25000,0],['2440',0,125000]]);
     result=await request(base,`/api/v1/payables/invoices/${invoice.id}/post`,accountantSession,{method:'POST',body:{}});assert.equal(result.response.status,200);assert.equal(result.data.duplicate,true);assert.equal(result.data.entry.id,invoiceEntry.id);
 
-    result=await request(base,`/api/v1/payables/invoices/${invoice.id}/prepare-payment`,accountantSession,{method:'POST',body:{paymentDate:'2026-09-17',account:'1930'}});assert.equal(result.response.status,201);const payment=result.data.payment;
+    result=await request(base,`/api/v1/payables/invoices/${invoice.id}/prepare-payment`,accountantSession,{method:'POST',body:{paymentDate:'2026-09-17',account:'1930'}});assert.equal(result.response.status,201);assert.equal(result.data.duplicate,false);const payment=result.data.payment;
+    for(let i=0;i<9;i++){const retry=await request(base,`/api/v1/payables/invoices/${invoice.id}/prepare-payment`,accountantSession,{method:'POST',body:{paymentDate:'2026-09-17',account:'1930'}});assert.equal(retry.response.status,200);assert.equal(retry.data.duplicate,true);assert.equal(retry.data.payment.id,payment.id);}
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM supplier_payments WHERE company_id=? AND supplier_invoice_id=?').get(company.id,invoice.id).n,1);
+    assert.equal(Db.auditForCompany(db,company.id).filter(event=>event.action==='SUPPLIER_PAYMENT_PREPARED').length,1);
+    result=await request(base,`/api/v1/payables/invoices/${invoice.id}/prepare-payment`,accountantSession,{method:'POST',body:{paymentDate:'2026-09-18',account:'1930'}});assert.equal(result.response.status,409);assert.equal(result.data.code,'PAYMENT_ALREADY_EXISTS');
     result=await request(base,`/api/v1/payables/payments/${payment.id}/release`,approverSession,{method:'POST',body:{}});assert.equal(result.response.status,200);
     result=await request(base,`/api/v1/payables/payments/${payment.id}/confirm`,accountantSession,{method:'POST',body:{confirmationReference:'BANK-BKS-OLD',postingDate:'2026-09-17'}});assert.equal(result.response.status,404);
     assert.equal(Accounting.entryBySource(db,company.id,'supplier-payment',payment.id),null);
