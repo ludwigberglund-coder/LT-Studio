@@ -6,6 +6,7 @@ const Accounting=require('./accounting-store.js');
 const Invoice=require('../../packages/invoicing/invoice.js');
 const InvoiceSettings=require('./company-invoice-settings.js');
 const Pdf=require('../../packages/invoicing/pdf.js');
+const PdfArchiveStore=require('./customer-invoice-pdf-archive-store.js');
 const {protectAppendOnly}=require('./history-guards.js');
 
 function invoiceError(message,code='CUSTOMER_INVOICE_ERROR',statusCode=422){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
@@ -188,7 +189,7 @@ function reserveInvoiceNumber(db,{companyId,requestId,purpose,payloadSha256,sour
 function markReservationIssued(db,{companyId,requestId,invoiceId}){const now=new Date().toISOString(),result=db.prepare(`UPDATE customer_invoice_number_reservations SET issued_invoice_id=?,status='issued',updated_at=? WHERE company_id=? AND request_id=? AND status='reserved'`).run(invoiceId,now,companyId,requestId);if(Number(result.changes||0)!==1)throw invoiceError('Fakturanumrets reservation kunde inte slutföras.','INVOICE_RESERVATION_STATE_ERROR',409)}
 function pdfArchiveMetadata(db,companyId,invoiceId){return db.prepare(`SELECT file_name AS fileName,mime_type AS mimeType,pdf_sha256 AS pdfSha256,size_bytes AS sizeBytes,created_at AS createdAt FROM customer_invoice_pdf_archives WHERE company_id=? AND invoice_id=?`).get(companyId,invoiceId)||null}
 function pdfArchiveForInvoice(db,companyId,invoiceId){
-  const row=db.prepare(`SELECT file_name AS fileName,mime_type AS mimeType,pdf_blob AS bytes,pdf_sha256 AS pdfSha256,size_bytes AS sizeBytes,created_at AS createdAt FROM customer_invoice_pdf_archives WHERE company_id=? AND invoice_id=?`).get(companyId,invoiceId);
+  const row=PdfArchiveStore.createSqliteCustomerInvoicePdfArchiveStore(db).get({companyId,invoiceId});
   if(!row)throw invoiceError('Den exakt arkiverade PDF-fakturan saknas.','INVOICE_PDF_ARCHIVE_NOT_FOUND',404);
   const bytes=Buffer.from(row.bytes||[]);
   if(bytes.length!==row.sizeBytes||bytes.subarray(0,5).toString('ascii')!=='%PDF-'||crypto.createHash('sha256').update(bytes).digest('hex')!==row.pdfSha256)throw invoiceError('Den arkiverade PDF-fakturans digitala fingeravtryck stämmer inte. Åtkomsten har stoppats.','INVOICE_PDF_ARCHIVE_INTEGRITY_ERROR',409);
@@ -200,7 +201,10 @@ function storePdfArchive(db,{companyId,invoiceId,invoiceNumber,documentType='FAK
   if(bytes.length>15*1024*1024)throw invoiceError('Den utfärdade PDF-fakturan är för stor för arkivet.','INVOICE_PDF_ARCHIVE_TOO_LARGE',500);
   const pdfSha256=crypto.createHash('sha256').update(bytes).digest('hex'),createdAt=new Date().toISOString();
   const prefix=documentType==='KREDITFAKTURA'?'Kreditfaktura':'Faktura',fileName=`${prefix}-${String(invoiceNumber).replace(/[^0-9A-Za-z_-]/g,'_')}.pdf`;
-  db.prepare(`INSERT INTO customer_invoice_pdf_archives(invoice_id,company_id,file_name,mime_type,pdf_blob,pdf_sha256,size_bytes,created_at) VALUES(?,?,?,'application/pdf',?,?,?,?)`).run(invoiceId,companyId,fileName,bytes,pdfSha256,bytes.length,createdAt);
+  const stored=PdfArchiveStore.createSqliteCustomerInvoicePdfArchiveStore(db).put({
+    invoiceId,companyId,fileName,mimeType:'application/pdf',bytes,pdfSha256,sizeBytes:bytes.length,createdAt
+  });
+  if(!stored)throw invoiceError('PDF-arkivet kunde inte lagras.','INVOICE_PDF_ARCHIVE_STORE_FAILED',500);
   return pdfArchiveMetadata(db,companyId,invoiceId);
 }
 async function renderInvoicePdf(document){try{return Buffer.from(await Pdf.createInvoicePdf(document))}catch(error){throw invoiceError(`PDF-fakturan kunde inte skapas: ${error.message}`,'INVOICE_PDF_GENERATION_FAILED',500)}}
