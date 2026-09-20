@@ -352,12 +352,20 @@ Båda måste passera utan blockerande FAIL. `pilot:preflight` skriver aldrig ut 
 
 ## 17. Rollback
 
-Kodrollback:
+Kodrollback ska förhandsverifieras innan någon checkout ändras.
 
 1. stoppa tjänsten,
-2. checka ut tidigare dokumenterad fungerande commit,
-3. `npm ci --omit=dev --ignore-scripts`,
-4. starta tjänsten och kontrollera health.
+2. sätt `ROLLANDS_RELEASE_COMMIT` till den fullständiga SHA som faktiskt körs nu,
+3. sätt `ROLLANDS_ROLLBACK_COMMIT` till den fullständiga SHA som har beslutats som rollbackmål,
+4. kör `npm run pilot:rollback:verify`,
+5. fortsätt endast om kommandot bekräftar att checkouten är ren och rollbackmålet är en verklig tidigare commit i den nuvarande releasens historik,
+6. checka ut den verifierade rollback-committen,
+7. `npm ci --omit=dev --ignore-scripts`,
+8. sätt `ROLLANDS_RELEASE_COMMIT` till rollback-committen och kör `npm run pilot:release:verify`,
+9. kör `npm run pilot:check` och `npm run pilot:preflight`,
+10. starta tjänsten och kontrollera `/api/v1/readiness`.
+
+`pilot:rollback:verify` ändrar varken kod eller databas. Det stoppar samma-commit, sidogren/non-ancestor, fel nuvarande release och lokalt modifierade spårade filer.
 
 Databasrollback är en separat och mer riskfylld åtgärd. Återställ **inte** automatiskt en äldre databas bara för att kodrollback sker; ny pilotdata kan då gå förlorad. Använd backuprestore endast vid databasincident och efter separat verifiering enligt avsnitt 12.
 
