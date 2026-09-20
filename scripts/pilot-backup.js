@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const crypto=require('node:crypto');
 const {DatabaseSync}=require('node:sqlite');
+const BackupCrypto=require('./backup-crypto.js');
 
 function required(name){const value=String(process.env[name]||'').trim();if(!value)throw new Error(`${name} måste anges.`);return value}
 function sqlLiteral(value){return `'${String(value).replaceAll("'","''")}'`}
@@ -32,7 +33,17 @@ function main(){
   finally{verify.close()}
   console.log(`Backup skapad: ${target}`);
   console.log(`SHA-256: ${digest}`);
-  console.log('Backupen är lokalt verifierad. Kopiera den därefter till separat/offsite lagring enligt driftinstruktionen.');
+  const backupKey=String(process.env.ROLLANDS_BACKUP_ENCRYPTION_KEY||'');
+  if(backupKey){
+    const encrypted=`${target}.enc`;
+    const encryptedResult=BackupCrypto.encryptFile(target,encrypted,backupKey);
+    fs.writeFileSync(`${encrypted}.sha256`,`${encryptedResult.sha256}  ${path.basename(encrypted)}\n`,{mode:0o600});
+    console.log(`Krypterad offsite-kopia skapad: ${encrypted}`);
+    console.log(`Krypterad SHA-256: ${encryptedResult.sha256}`);
+    console.log('Kopiera endast .enc-filen och dess .sha256 till separat/offsite lagring.');
+  }else{
+    console.log('Ingen krypterad offsite-kopia skapades eftersom ROLLANDS_BACKUP_ENCRYPTION_KEY saknas.');
+  }
 }
 
 if(require.main===module){try{main()}catch(error){console.error(error.message);process.exitCode=1}}
