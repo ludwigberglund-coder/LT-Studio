@@ -8,6 +8,7 @@ const Db=require('./database.js');
 const Reports=require('./reports.js');
 const Accounting=require('./accounting-store.js');
 const Payables=require('./payables.js');
+const PaymentOverview=require('./payment-overview.js');
 const {securityHeaders}=require('./app.js');
 
 const DEFAULT_ACCESS=JSON.parse(fs.readFileSync(path.join(__dirname,'..','..','config','access-control.json'),'utf8'));
@@ -31,6 +32,7 @@ function createReportsRouter(options){
       if(url.pathname==='/api/v1/reports/profit-loss')return send(res,200,Reports.profitLoss(db,s.companyId,{from,to})),true;
       if(url.pathname==='/api/v1/reports/vat-control')return send(res,200,Reports.vatControl(db,s.companyId,{period})),true;
       if(url.pathname==='/api/v1/reports/receivables-control')return send(res,200,Reports.receivablesControl(db,s.companyId)),true;
+      if(url.pathname==='/api/v1/reports/payments-overview')return send(res,200,PaymentOverview.paymentOverview(db,s.companyId,{mode:String(url.searchParams.get('mode')||'month'),date:String(url.searchParams.get('date')||''),status:String(url.searchParams.get('status')||''),direction:String(url.searchParams.get('direction')||'')})),true;
       if(url.pathname==='/api/v1/reports/payables-control')return send(res,200,Reports.payablesControl(db,s.companyId)),true;
       send(res,404,{error:'Hittades inte.',code:'NOT_FOUND'});return true;
     }catch(error){const status=Number(error.statusCode||500);if(status>=500)console.error(error);send(res,status,{error:status>=500?'Ett internt serverfel uppstod.':String(error.message||'Begäran misslyckades.'),code:error.code||'INTERNAL_ERROR'});return true}
