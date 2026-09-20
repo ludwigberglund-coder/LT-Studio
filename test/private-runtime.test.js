@@ -44,8 +44,18 @@ test('production start cannot bypass preflight by binding to loopback',()=>{
     assert.notEqual(result.status,0);assert.match(result.stderr,/UNSAFE_RUNTIME_CONFIGURATION/);assert.equal(fs.existsSync(file),false);
   }finally{fs.rmSync(folder,{recursive:true,force:true})}
 });
-function config(folder){return{NODE_ENV:'production',ROLLANDS_ENV:'pilot',ROLLANDS_DATABASE_PATH:path.join(folder,'db.sqlite'),ROLLANDS_BACKUP_PATH:folder,
-  ROLLANDS_API_HOST:'127.0.0.1',ROLLANDS_API_SECURE_COOKIE:'1',ROLLANDS_AUTH_ENCRYPTION_KEY:'test-only-runtime-key-123456789-ABCDEFGHIJKLMNOPQRSTUVWXYZ',ROLLANDS_ALLOWED_HOSTS:'pilot.rollands.internal',ROLLANDS_DEMO_DATA:'0'}}
+function config(folder){
+  const operationsPath=path.join(folder,'pilot-operations.json');
+  fs.writeFileSync(operationsPath,JSON.stringify({
+    schemaVersion:1,technicalOwner:'Tekniskt ansvar',accountingOwner:'Redovisningsansvar',dataProtectionOwner:'Dataskyddsansvar',
+    backupOwner:'Backupansvar',monitoringOwner:'Övervakningsansvar',incidentContact:'incident@example.test',
+    supportChannel:'support@example.test',pilotStopAuthority:'Pilotansvarig',rollbackDecisionProcess:'Incidentansvarig fattar dokumenterat återgångsbeslut.',
+    offsiteBackupDestination:'Extern krypterad backupdestination',logRetentionDays:30,backupRetentionDays:90,approvedForPilot:true,approvedAt:'2026-09-20'
+  }));
+  return{NODE_ENV:'production',ROLLANDS_ENV:'pilot',ROLLANDS_DATABASE_PATH:path.join(folder,'db.sqlite'),ROLLANDS_BACKUP_PATH:folder,
+    ROLLANDS_PILOT_OPERATIONS_PATH:operationsPath,ROLLANDS_API_HOST:'127.0.0.1',ROLLANDS_API_SECURE_COOKIE:'1',
+    ROLLANDS_AUTH_ENCRYPTION_KEY:'test-only-runtime-key-123456789-ABCDEFGHIJKLMNOPQRSTUVWXYZ',ROLLANDS_ALLOWED_HOSTS:'pilot.rollands.internal',ROLLANDS_DEMO_DATA:'0'};
+}
 function settings(env){return {databasePath:env.ROLLANDS_DATABASE_PATH,host:env.ROLLANDS_API_HOST,secureCookies:env.ROLLANDS_API_SECURE_COOKIE==='1',authEncryptionKey:env.ROLLANDS_AUTH_ENCRYPTION_KEY,allowedHosts:env.ROLLANDS_ALLOWED_HOSTS.split(',')}}
 test('validated private start creates a 0600 database file and rejects all nonzero demo flags',()=>{
   const folder=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-private-mode-'));
@@ -57,6 +67,23 @@ test('validated private start creates a 0600 database file and rejects all nonze
     validateRuntime(env,settings(env));assert.equal(fs.statSync(env.ROLLANDS_DATABASE_PATH).mode&0o777,0o600);
   }finally{fs.rmSync(folder,{recursive:true,force:true})}
 });
+test('pilot preflight requires an approved external operations decision file',()=>{
+  const folder=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-operations-gate-'));
+  try{
+    const env=config(folder);
+    fs.rmSync(env.ROLLANDS_PILOT_OPERATIONS_PATH);
+    assert.ok(validateConfig(env).fail.some(v=>v.includes('operationsfil')));
+    fs.writeFileSync(env.ROLLANDS_PILOT_OPERATIONS_PATH,JSON.stringify({
+      schemaVersion:1,technicalOwner:'REPLACE_WITH_PERSON',accountingOwner:'A',dataProtectionOwner:'B',backupOwner:'C',monitoringOwner:'D',
+      incidentContact:'E',supportChannel:'F',pilotStopAuthority:'G',rollbackDecisionProcess:'H',offsiteBackupDestination:'I',
+      logRetentionDays:30,backupRetentionDays:90,approvedForPilot:false,approvedAt:'YYYY-MM-DD'
+    }));
+    const report=validateConfig(env);
+    assert.ok(report.fail.some(v=>v.includes('placeholder')));
+    assert.ok(report.fail.some(v=>v.includes('approvedForPilot')));
+  }finally{fs.rmSync(folder,{recursive:true,force:true})}
+});
+
 test('storage symlinks into the repository cannot bypass private preflight',()=>{
   const folder=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-symlink-test-'));
   try{
