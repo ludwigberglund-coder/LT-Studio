@@ -29,7 +29,13 @@ function createExportsRouter(options){
         to:String(url.searchParams.get('to')||''),
         status:String(url.searchParams.get('status')||''),
         account:String(url.searchParams.get('account')||''),
-        period:String(url.searchParams.get('period')||'')
+        period:String(url.searchParams.get('period')||''),
+        mode:String(url.searchParams.get('mode')||'month'),
+        date:String(url.searchParams.get('date')||''),
+        direction:String(url.searchParams.get('direction')||''),
+        query:String(url.searchParams.get('query')||''),
+        sort:String(url.searchParams.get('sort')||'date'),
+        order:String(url.searchParams.get('order')||'asc')
       };
       const dataset=Exports.select(db,s.companyId,match[1],filters);
       const body=Buffer.from(Exports.buildCsv(dataset),'utf8');

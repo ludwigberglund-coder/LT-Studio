@@ -5,13 +5,14 @@ const assert=require('node:assert/strict');
 const Db=require('../apps/api/database.js');
 const Auth=require('../apps/api/auth.js');
 const Payables=require('../apps/api/payables.js');
+const Bank=require('../apps/api/bank-payments.js');
 const Accounting=require('../apps/api/accounting-store.js');
 const Exports=require('../apps/api/exports.js');
 const {createServer}=require('../apps/api/server.js');
 
 function seed(){
   const db=Db.openDatabase(':memory:');
-  Payables.initializePayables(db);Accounting.initializeAccountingStore(db);
+  Payables.initializePayables(db);Bank.initializeBankPayments(db);Accounting.initializeAccountingStore(db);
   const company=Db.createCompany(db,{legalName:'Export Test AB',displayName:'Export Test',orgNumber:'559990-1001'});
   const user=Db.createUser(db,{username:'export.user',displayName:'Export User',passwordHash:Auth.hashPassword('Sakert exportlosenord 2026!')});
   Db.addMembership(db,{companyId:company.id,userId:user.id});
@@ -19,7 +20,10 @@ function seed(){
   Db.createInvoice(db,{companyId:company.id,customerId:customer.id,invoiceNumber:'310001',invoiceDate:'2026-09-01',postingDate:'2026-09-01',dueDate:'2026-09-30',totalOre:125000,remainingOre:125000,vatOre:25000,status:'Bokförd'});
   Db.createInvoice(db,{companyId:company.id,customerId:customer.id,invoiceNumber:'310002',invoiceDate:'2026-08-01',postingDate:'2026-08-01',dueDate:'2026-08-31',totalOre:50000,remainingOre:0,vatOre:10000,status:'Betald'});
   const supplier=Payables.createSupplier(db,{companyId:company.id,supplierNumber:'L-1',name:'+SUM(1,1)',orgNumber:'559990-2002',bankgiro:'123-4567'});
-  Payables.createSupplierInvoice(db,{companyId:company.id,supplierId:supplier.id,supplierInvoiceNumber:'@INV-1',invoiceDate:'2026-09-05',dueDate:'2026-10-05',totalOre:100000,vatOre:20000,registeredBy:user.id});
+  const supplierInvoice=Payables.createSupplierInvoice(db,{companyId:company.id,supplierId:supplier.id,supplierInvoiceNumber:'@INV-1',invoiceDate:'2026-09-05',dueDate:'2026-10-05',totalOre:100000,vatOre:20000,registeredBy:user.id});
+  Bank.create(db,{companyId:company.id,externalId:'EXP-IN-1',bookingDate:'2026-09-15',amountOre:55000,reference:'EXP-IN',payerName:'Export Kund',createdBy:user.id});
+  db.prepare(`INSERT INTO supplier_payments(id,company_id,supplier_invoice_id,payment_date,amount_ore,account,status,prepared_by,recipient_name,recipient_bankgiro,created_at,updated_at)
+    VALUES('EXP-OUT-1',?,?,?,?,?,'paid',?,?,?,'2026-09-16T10:00:00.000Z','2026-09-16T10:00:00.000Z')`).run(company.id,supplierInvoice.id,'2026-09-16',100000,'1930',user.id,'+SUM(1,1)','123-4567');
   Accounting.postEntry(db,{companyId:company.id,postingDate:'2026-09-10',description:'@journal export',sourceType:'manual',sourceId:'exp-1',createdBy:user.id,lines:[{account:'1930',debitOre:100000,creditOre:0,text:'Bank'},{account:'3001',debitOre:0,creditOre:100000,text:'=sales'}]});
   return{db,company,user};
 }
@@ -59,6 +63,19 @@ test('leverantörs- och huvudboksexport neutraliserar formelceller',()=>{
     const ledger=Exports.buildCsv(Exports.ledger(db,company.id,{from:'2026-09-01',to:'2026-09-30'}));
     assert.match(ledger,/"'=sales"/);
     assert.match(ledger,/"'@journal export"/);
+  }finally{db.close()}
+});
+
+test('betalningsöversiktsexport återanvänder vyfilter, sortering och formelskydd',()=>{
+  const {db,company}=seed();
+  try{
+    const dataset=Exports.paymentOverview(db,company.id,{mode:'month',date:'2026-09-20',query:'+sum',account:'1930',sort:'amount',order:'desc'});
+    assert.equal(dataset.rows.length,1);
+    assert.equal(dataset.rows[0].direction,'Utbetalning');
+    assert.equal(dataset.rows[0].amountOre,-100000);
+    const csv=Exports.buildCsv(dataset);
+    assert.match(csv,/"'\+SUM\(1,1\)"/);
+    assert.equal(csv.includes('Export Kund'),false);
   }finally{db.close()}
 });
 

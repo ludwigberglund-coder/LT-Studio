@@ -3,6 +3,7 @@
 const Reports=require('./reports.js');
 const Accounting=require('./accounting-store.js');
 const Payables=require('./payables.js');
+const PaymentOverview=require('./payment-overview.js');
 
 function exportError(message,code='EXPORT_ERROR',statusCode=422){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
 function text(value){return String(value??'').trim()}
@@ -70,6 +71,23 @@ function payables(db,companyId,{from='',to='',status=''}={}){
     ['openAmountOre','Utestående öre'],['vatOre','Moms öre'],['currency','Valuta']
   ]};
 }
+function paymentOverview(db,companyId,filters={}){
+  const report=PaymentOverview.paymentOverview(db,companyId,filters);
+  return {filename:'betalningsoversikt.csv',rows:report.rows.map(row=>({
+    paymentDate:row.paymentDate,
+    direction:row.direction==='in'?'Inbetalning':'Utbetalning',
+    counterparty:row.counterparty||'',
+    invoiceNumber:row.invoiceNumber||'',
+    status:row.status||'',
+    reference:row.reference||'',
+    paymentAccount:row.paymentAccount||'',
+    counterpartyAccount:row.counterpartyAccount||'',
+    amountOre:row.direction==='out'?-Number(row.amountOre||0):Number(row.amountOre||0)
+  })),columns:[
+    ['paymentDate','Betalningsdatum'],['direction','Typ'],['counterparty','Motpart'],['invoiceNumber','Fakturanummer'],
+    ['status','Status'],['reference','Referens'],['paymentAccount','Konto'],['counterpartyAccount','Motpartskonto'],['amountOre','Belopp öre']
+  ]};
+}
 function payments(db,companyId,{from='',to='',status=''}={}){
   validateRange(from,to);
   const rows=Payables.listPayments(db,companyId).filter(row=>matchesDate(row.paymentDate,from,to)&&matchesStatus(row.status,status));
@@ -113,9 +131,10 @@ function select(db,companyId,type,filters){
   if(type==='payables')return payables(db,companyId,filters);
   if(type==='supplier-invoices')return {...payables(db,companyId,filters),filename:'leverantorsfakturor.csv'};
   if(type==='payments')return payments(db,companyId,filters);
+  if(type==='payments-overview')return paymentOverview(db,companyId,filters);
   if(type==='journal')return journal(db,companyId,filters);
   if(type==='ledger')return ledger(db,companyId,filters);
   if(type==='vat')return vat(db,companyId,filters);
   throw exportError('Exporttypen stöds inte.','EXPORT_NOT_FOUND',404);
 }
-module.exports=Object.freeze({safeText,csvCell,toCsv,receivables,receipts,payables,payments,journal,ledger,vat,buildCsv,select,validateRange});
+module.exports=Object.freeze({safeText,csvCell,toCsv,receivables,receipts,payables,payments,paymentOverview,journal,ledger,vat,buildCsv,select,validateRange});
