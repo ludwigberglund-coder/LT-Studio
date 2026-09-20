@@ -48,3 +48,7 @@ Den privata CMS-vägen har versionskontroll och atomisk audit-loggning. Sparande
 Tekniskt ansvarig och redovisningsansvarig ska stänga relevanta BLOCKER-rader med testbevis, exakt releaseversion och datum. Därefter genomför Rolands UAT med fiktiva/avidentifierade data i den tänkta driftmiljön. Först efter godkända bevis fattas ett uttryckligt beslut om begränsad pilot, datamängd, användare, varaktighet och stoppkriterier.
 
 Detta arbete ansluter inte e-post eller bank och slår inte på självständig AI-bokföring. Ett godkännande av ett förslag måste alltid beskriva den faktiskt genomförda åtgärden.
+
+## Verifierad uppföljning 2026-09-20 – betalningsåterförsök
+
+Bas: `3c69c0266b1e3be0b052c708826561e732876c66`. Ett regressionstest reproducerade att leverantörsbetalningens redan bokförda resultat återlämnades även när återförsöket ändrade bokföringsdatum eller utelämnade bankreferensen. Backend jämför nu både normaliserad referens och effektivt bokföringsdatum med den sparade betalningen/verifikationen och svarar 409 vid avvikelse. Tio identiska försök skapar bara en betalningsverifikation och en audit-händelse. De 11 berörda betalnings-/leverantörsbokföringstesterna passerar på Node 24.19.0. Detta stänger endast denna lucka i P12; den fullständiga mutationsmatrisen och drift-UAT återstår. **NO-GO kvarstår.**
