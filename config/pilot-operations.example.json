@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "technicalOwner": "REPLACE_WITH_PERSON_OR_FUNCTION",
+  "accountingOwner": "REPLACE_WITH_PERSON_OR_FUNCTION",
+  "dataProtectionOwner": "REPLACE_WITH_PERSON_OR_FUNCTION",
+  "backupOwner": "REPLACE_WITH_PERSON_OR_FUNCTION",
+  "monitoringOwner": "REPLACE_WITH_PERSON_OR_FUNCTION",
+  "incidentContact": "REPLACE_WITH_CONTACT_ROUTE",
+  "supportChannel": "REPLACE_WITH_SUPPORT_ROUTE",
+  "pilotStopAuthority": "REPLACE_WITH_PERSON_OR_FUNCTION",
+  "rollbackDecisionProcess": "REPLACE_WITH_DOCUMENTED_DECISION_PROCESS",
+  "offsiteBackupDestination": "REPLACE_WITH_EXTERNAL_BACKUP_DESTINATION",
+  "logRetentionDays": 30,
+  "backupRetentionDays": 90,
+  "approvedForPilot": false,
+  "approvedAt": "YYYY-MM-DD"
+}

@@ -29,12 +29,18 @@ test('pilot preflight stoppar demo, placeholders och databas i repositoryt',()=>
 
 test('pilot preflight godkänner en säker serverkonfiguration utan att kräva demo',()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-preflight-'));
-  const dbDir=path.join(dir,'db'),backupDir=path.join(dir,'backup');
+  const dbDir=path.join(dir,'db'),backupDir=path.join(dir,'backup'),operationsPath=path.join(dir,'pilot-operations.json');
   fs.mkdirSync(dbDir,{mode:0o700});fs.mkdirSync(backupDir,{mode:0o700});
+  fs.writeFileSync(operationsPath,JSON.stringify({
+    schemaVersion:1,technicalOwner:'Tekniskt ansvar',accountingOwner:'Redovisningsansvar',dataProtectionOwner:'Dataskyddsansvar',
+    backupOwner:'Backupansvar',monitoringOwner:'Övervakningsansvar',incidentContact:'incident@example.test',supportChannel:'support@example.test',
+    pilotStopAuthority:'Pilotansvarig',rollbackDecisionProcess:'Dokumenterat incidentbeslut krävs före rollback.',
+    offsiteBackupDestination:'Extern krypterad backupdestination',logRetentionDays:30,backupRetentionDays:90,approvedForPilot:true,approvedAt:'2026-09-20'
+  }));
   try{
     const result=validateConfig({
       NODE_ENV:'production',ROLLANDS_ENV:'pilot',ROLLANDS_DEMO_DATA:'0',
-      ROLLANDS_DATABASE_PATH:path.join(dbDir,'platform.sqlite'),ROLLANDS_BACKUP_PATH:backupDir,
+      ROLLANDS_DATABASE_PATH:path.join(dbDir,'platform.sqlite'),ROLLANDS_BACKUP_PATH:backupDir,ROLLANDS_PILOT_OPERATIONS_PATH:operationsPath,
       ROLLANDS_AUTH_ENCRYPTION_KEY:'v7r2M9xQ4pL8sT1nW6kD3yH5cF0bJ2zR',
       ROLLANDS_API_SECURE_COOKIE:'1',ROLLANDS_API_HOST:'127.0.0.1',ROLLANDS_ALLOWED_HOSTS:'pilot.rollands.internal'
     });

@@ -2,6 +2,7 @@
 
 const fs=require('node:fs');
 const path=require('node:path');
+const {validateOperationsFile}=require('./pilot-operations.js');
 
 const root=path.resolve(__dirname,'..');
 const PLACEHOLDER=/REPLACE_WITH|example\.invalid|changeme|default|placeholder/i;
@@ -43,6 +44,7 @@ function validateConfig(env=process.env){
 
   const databasePath=requireValue('ROLLANDS_DATABASE_PATH');
   const backupPath=requireValue('ROLLANDS_BACKUP_PATH');
+  const operationsPath=requireValue('ROLLANDS_PILOT_OPERATIONS_PATH');
   if(databasePath){
     if(!path.isAbsolute(databasePath))fail.push('ROLLANDS_DATABASE_PATH måste vara en absolut sökväg.');
     else if(!outsideRepository(databasePath))fail.push('ROLLANDS_DATABASE_PATH måste ligga utanför Git-repositoryt.');
@@ -56,6 +58,15 @@ function validateConfig(env=process.env){
     else pass.push('Backup path');
   }
   if(databasePath&&backupPath&&path.resolve(databasePath).startsWith(path.resolve(backupPath)+path.sep))fail.push('Produktionsdatabasen får inte ligga inne i backup-katalogen.');
+  if(operationsPath){
+    if(!path.isAbsolute(operationsPath))fail.push('ROLLANDS_PILOT_OPERATIONS_PATH måste vara en absolut sökväg.');
+    else if(!outsideRepository(operationsPath))fail.push('ROLLANDS_PILOT_OPERATIONS_PATH måste ligga utanför Git-repositoryt.');
+    else {
+      const operations=validateOperationsFile(operationsPath);
+      if(!operations.ok)operations.fail.forEach(item=>fail.push('Pilot operations: '+item));
+      else pass.push('Pilot operations decisions');
+    }
+  }
 
   const key=requireValue('ROLLANDS_AUTH_ENCRYPTION_KEY');
   if(key&&(key.length<32||PLACEHOLDER.test(key)||new Set(key).size<10))fail.push('ROLLANDS_AUTH_ENCRYPTION_KEY är för svag eller ser ut som ett exempelvärde.');
