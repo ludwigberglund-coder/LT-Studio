@@ -70,3 +70,12 @@ test('leverantörsfakturans runtime använder det gemensamma provider-kontraktet
   assert.doesNotMatch(source,/require\('\.\/supplier-invoice-document-store\.js'\)/);
   assert.match(source,/createContractedPrivateObjectStore/);
 });
+
+
+test('dokumentarkivets runtime använder det gemensamma provider-kontraktet',()=>{
+  const source=fs.readFileSync(path.join(API_DIR,'documents.js'),'utf8');
+  assert.match(source,/require\('\.\/private-object-store-contract\.js'\)/);
+  assert.match(source,/require\('\.\/sqlite-document-private-object-provider\.js'\)/);
+  assert.doesNotMatch(source,/require\('\.\/document-content-store\.js'\)/);
+  assert.match(source,/createContractedPrivateObjectStore/);
+});
