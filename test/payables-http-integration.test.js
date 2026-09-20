@@ -38,8 +38,15 @@ test('riktiga HTTP-rutter genomför leverantörsfakturans bokföringsflöde utan
   try{
     let result=await request(base,'/api/v1/payables/suppliers',accountantSession,{method:'POST',body:{supplierNumber:'L-144',name:'Billdal Kyla & Service AB',orgNumber:'559100-1449',bankgiro:'333-4411',defaultCostAccount:'4010'}});
     assert.equal(result.response.status,201);const supplier=result.data.supplier;
-    result=await request(base,'/api/v1/payables/invoices',accountantSession,{method:'POST',body:{supplierId:supplier.id,supplierInvoiceNumber:'BKS-771',invoiceDate:'2026-09-08',dueDate:'2026-09-17',totalOre:125000,vatOre:25000,currency:'SEK'}});
-    assert.equal(result.response.status,201);const invoice=result.data.invoice;
+    result=await request(base,'/api/v1/payables/invoices',accountantSession,{method:'POST',body:{supplierId:supplier.id,supplierInvoiceNumber:'BKS-MISSING-VAT-TYPE',invoiceDate:'2026-09-08',dueDate:'2026-09-17',totalOre:125000,vatOre:25000,currency:'SEK'}});
+    assert.equal(result.response.status,422);assert.equal(result.data.code,'UNSUPPORTED_SUPPLIER_VAT_TREATMENT');
+    result=await request(base,'/api/v1/payables/invoices',accountantSession,{method:'POST',body:{supplierId:supplier.id,supplierInvoiceNumber:'BKS-EU',invoiceDate:'2026-09-08',dueDate:'2026-09-17',totalOre:125000,vatOre:0,currency:'SEK',vatTreatment:'eu-goods'}});
+    assert.equal(result.response.status,422);assert.equal(result.data.code,'UNSUPPORTED_SUPPLIER_VAT_TREATMENT');
+    result=await request(base,'/api/v1/payables/invoices',accountantSession,{method:'POST',body:{supplierId:supplier.id,supplierInvoiceNumber:'BKS-ZERO',invoiceDate:'2026-09-08',dueDate:'2026-09-17',totalOre:125000,vatOre:0,currency:'SEK',vatTreatment:'se-domestic-full-input-vat'}});
+    assert.equal(result.response.status,422);assert.equal(result.data.code,'UNSUPPORTED_SUPPLIER_VAT_TREATMENT');
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM supplier_invoices WHERE company_id=?').get(company.id).n,0);
+    result=await request(base,'/api/v1/payables/invoices',accountantSession,{method:'POST',body:{supplierId:supplier.id,supplierInvoiceNumber:'BKS-771',invoiceDate:'2026-09-08',dueDate:'2026-09-17',totalOre:125000,vatOre:25000,currency:'SEK',vatTreatment:'se-domestic-full-input-vat'}});
+    assert.equal(result.response.status,201);assert.equal(result.data.vatTreatment,'se-domestic-full-input-vat');const invoice=result.data.invoice;
     result=await request(base,`/api/v1/payables/invoices/${invoice.id}/document`,accountantSession,{method:'PUT',body:Buffer.from('%PDF-1.4\n% BKS-771 HTTP test\n'),headers:{'Content-Type':'application/pdf','X-Document-Name':'BKS-771.pdf'}});assert.equal(result.response.status,201);
     const lines=[{account:'4010',debitOre:100000,creditOre:0,text:'Servicekostnad',vatCode:'INPUT_VAT'},{account:'2641',debitOre:25000,creditOre:0,text:'Ingående moms',vatCode:'INPUT_VAT'},{account:'2440',debitOre:0,creditOre:125000,text:'Leverantörsskuld',vatCode:''}];
     result=await request(base,`/api/v1/payables/invoices/${invoice.id}/coding`,accountantSession,{method:'PUT',body:{lines}});assert.equal(result.response.status,200);const reviewed=result.data.invoice;
