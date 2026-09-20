@@ -6,6 +6,7 @@ const http=require('node:http');
 const Auth=require('../apps/api/auth.js');
 const Db=require('../apps/api/database.js');
 const Invoicing=require('../apps/api/customer-invoicing.js');
+const PdfArchiveStore=require('../apps/api/customer-invoice-pdf-archive-store.js');
 const InvoiceSettings=require('../apps/api/company-invoice-settings.js');
 const {createApiApp}=require('../apps/api/app.js');
 
@@ -47,6 +48,11 @@ test('utfärdad kundfaktura arkiverar och återger exakt PDF företagsisolerat',
   assert.match(body.pdfArchive.pdfSha256,/^[a-f0-9]{64}$/);
   const archived=Invoicing.pdfArchiveForInvoice(db,co1.id,body.invoice.id);
   assert.equal(archived.bytes.subarray(0,5).toString('ascii'),'%PDF-');
+  const store=PdfArchiveStore.createSqliteCustomerInvoicePdfArchiveStore(db);
+  assert.equal(store.exists({companyId:co1.id,invoiceId:body.invoice.id}),true);
+  assert.equal(store.exists({companyId:co2.id,invoiceId:body.invoice.id}),false);
+  assert.equal(store.get({companyId:co2.id,invoiceId:body.invoice.id}),null);
+  assert.deepEqual(store.get({companyId:co1.id,invoiceId:body.invoice.id}).bytes,archived.bytes);
   const downloaded=await fetch(base+'/api/v1/customer-invoices/'+body.invoice.id+'/pdf',{headers:{Cookie:signed.cookie}});
   const bytes=Buffer.from(await downloaded.arrayBuffer());
   assert.equal(downloaded.status,200);
