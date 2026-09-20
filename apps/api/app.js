@@ -104,31 +104,19 @@ function createApiApp(options) {
   const authEncryptionKey = options.authEncryptionKey || '';
   const companyProfile = options.companyProfile || DEFAULT_COMPANY_PROFILE;
   CustomerInvoicing.initializeCustomerInvoicing(db);
-  const loginAttempts = new Map();
-
-  function cleanupAttempts() {
-    const now=Date.now();
-    for(const [key,item] of loginAttempts) if(item.resetAt<=now) loginAttempts.delete(key);
-  }
 
   function loginKey(req,username) {
-    return `${req.socket?.remoteAddress || 'unknown'}|${String(username || '').toLocaleLowerCase('sv')}`;
+    const identity=`${req.socket?.remoteAddress || 'unknown'}|${String(username || '').toLocaleLowerCase('sv')}`;
+    return crypto.createHash('sha256').update('rollands-login-v1|'+identity).digest('hex');
   }
 
   function noteLoginFailure(req,username) {
-    cleanupAttempts();
-    const key=loginKey(req,username), now=Date.now();
-    const current=loginAttempts.get(key);
-    const value=!current || current.resetAt<=now ? {count:0,resetAt:now+15*60*1000} : current;
-    value.count+=1;
-    loginAttempts.set(key,value);
-    return value;
+    return Db.noteLoginFailure(db,{keyHash:loginKey(req,username),windowMinutes:15});
   }
 
   function loginBlocked(req,username) {
-    cleanupAttempts();
-    const value=loginAttempts.get(loginKey(req,username));
-    return Boolean(value && value.count>=5 && value.resetAt>Date.now());
+    const value=Db.loginAttemptState(db,{keyHash:loginKey(req,username)});
+    return Boolean(value && value.failureCount>=5);
   }
 
   function sessionExpiryIso(minutes, fromMs = Date.now()) {
@@ -213,7 +201,7 @@ function createApiApp(options) {
       });
       Db.appendAudit(db,{companyId:selected.companyId,userId:user.id,action:'SESSION_LOGIN',entityType:'session',details:{username:user.username,mfaRequired,sessionIdleMinutes,sessionMaxMinutes}});
     });
-    loginAttempts.delete(loginKey(req,username));
+    Db.clearLoginAttempts(db,loginKey(req,username));
     return send(res,200,{
       authenticated:true,
       csrfToken,
