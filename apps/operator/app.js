@@ -42,10 +42,19 @@ function companyRows(){
     return `<tr><td><strong>${esc(company.displayName)}</strong><br><small>${esc(company.legalName)}</small></td><td>${esc(company.orgNumber||'—')}</td><td>${access}</td><td>${company.activeSessionCount}</td><td>${company.invoiceRecordCount}</td><td>${dateTime(company.lastActivityAt)}</td></tr>`;
   }).join('');
 }
+function securityEventLabel(kind){
+  return ({
+    LOGIN_FAILURE_THRESHOLD:'Många felaktiga kundinloggningar',
+    OPERATOR_LOGIN_FAILURE_THRESHOLD:'Många felaktiga LT-admininloggningar'
+  })[kind]||String(kind||'Säkerhetshändelse').replaceAll('_',' ');
+}
+function severityLabel(value){
+  return ({critical:'Kritisk',warning:'Varning',info:'Information'})[value]||String(value||'Okänd');
+}
 function securityEvents(){
   const events=security?.events||[];
   if(!events.length)return '<div class="empty">Inga säkerhetshändelser i listan.</div>';
-  return events.map(event=>`<div class="event"><span class="status-pill"><span class="dot ${esc(event.severity)}"></span>${esc(event.severity)}</span><strong>${esc(event.kind)}</strong><time>${dateTime(event.createdAt)}</time></div>`).join('');
+  return events.map(event=>`<div class="event"><span class="status-pill"><span class="dot ${esc(event.severity)}"></span>${esc(severityLabel(event.severity))}</span><strong>${esc(securityEventLabel(event.kind))}</strong><time>${dateTime(event.createdAt)}</time></div>`).join('');
 }
 function readinessChecks(){
   const checks=readiness?.checks&&typeof readiness.checks==='object'?readiness.checks:{};
