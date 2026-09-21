@@ -21,7 +21,6 @@ ReadWritePaths=/srv/lt-studio-data /srv/lt-studio-backups /srv/lt-studio-restore
 CapabilityBoundingSet=
 AmbientCapabilities=
 LockPersonality=true
-MemoryDenyWriteExecute=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 SystemCallArchitectures=native
 
