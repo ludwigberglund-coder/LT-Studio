@@ -238,7 +238,6 @@ function initializeSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_invoices_company_due ON invoices(company_id,due_date);
     CREATE INDEX IF NOT EXISTS idx_comments_invoice ON invoice_comments(company_id,invoice_id,created_at);
     CREATE INDEX IF NOT EXISTS idx_reminders_invoice ON invoice_reminders(company_id,invoice_id,sent_at);
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_reminders_request_fingerprint ON invoice_reminders(company_id,invoice_id,request_fingerprint) WHERE request_fingerprint<>'';
     CREATE INDEX IF NOT EXISTS idx_audit_company_created ON audit_events(company_id,created_at);
     CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
     CREATE INDEX IF NOT EXISTS idx_mfa_used_steps_used_at ON mfa_used_steps(used_at);
