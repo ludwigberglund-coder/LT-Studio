@@ -84,6 +84,19 @@ test('samma MFA-kod kan inte användas för två inloggningar', async () => with
   assert.equal(body.code,'MFA_CODE_REPLAYED');
 }));
 
+test('inaktivitetsgränsen stänger sessionen även om absolut maxgräns återstår', async () => withApi(async ({base,password,db}) => {
+  const signed=await login(base,password);
+  assert.equal(signed.response.status,200);
+  const rawToken=decodeURIComponent(signed.cookie.slice(signed.cookie.indexOf('=')+1));
+  const tokenHash=Auth.hashToken(rawToken);
+
+  db.prepare("UPDATE sessions SET expires_at='2000-01-01T00:00:00.000Z',absolute_expires_at='2099-01-01T00:00:00.000Z' WHERE token_hash=?").run(tokenHash);
+  const session=await fetch(`${base}/api/v1/session`,{headers:{Cookie:signed.cookie}});
+  const body=await session.json();
+  assert.equal(session.status,200);
+  assert.equal(body.authenticated,false);
+}));
+
 test('absolut sessionstid kan inte förlängas av fortsatt aktivitet', async () => withApi(async ({base,password,db}) => {
   const signed=await login(base,password);
   assert.equal(signed.response.status,200);
