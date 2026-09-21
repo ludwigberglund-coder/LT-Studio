@@ -209,6 +209,8 @@ function fixture(){
     NODE_ENV:'production',
     ROLLANDS_ENV:'staging',
     ROLLANDS_DEMO_DATA:'0',
+    ROLLANDS_DATA_CLASSIFICATION:'synthetic',
+    ROLLANDS_REAL_DATA_ALLOWED:'0',
     ROLLANDS_DATABASE_PATH:databasePath,
     ROLLANDS_BACKUP_PATH:backupDir,
     ROLLANDS_PILOT_OPERATIONS_PATH:operationsPath,

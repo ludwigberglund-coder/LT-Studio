@@ -38,6 +38,8 @@ function fixture(){
     NODE_ENV:'production',
     ROLLANDS_ENV:'staging',
     ROLLANDS_DEMO_DATA:'0',
+    ROLLANDS_DATA_CLASSIFICATION:'synthetic',
+    ROLLANDS_REAL_DATA_ALLOWED:'0',
     ROLLANDS_DATABASE_PATH:path.join(dbDir,'platform.sqlite'),
     ROLLANDS_BACKUP_PATH:backupDir,
     ROLLANDS_PILOT_OPERATIONS_PATH:operationsPath,
@@ -142,5 +144,24 @@ test('staging preflight refuses audit bucket or credentials reused from other R2
     env.R2_AUDIT_ACCESS_KEY_ID=env.R2_STAGING_ACCESS_KEY_ID;
     result=validateStaging(env);
     assert.ok(result.fail.some(item=>item.includes('R2 audit anchor')&&item.includes('separat credential-scope')));
+  }finally{fs.rmSync(dir,{recursive:true,force:true})}
+});
+
+
+test('staging preflight refuses missing synthetic data classification',()=>{
+  const {dir,env}=fixture();
+  try{
+    delete env.ROLLANDS_DATA_CLASSIFICATION;
+    const result=validateStaging(env);
+    assert.ok(result.fail.some(item=>item.includes('ROLLANDS_DATA_CLASSIFICATION')&&item.includes('synthetic')));
+  }finally{fs.rmSync(dir,{recursive:true,force:true})}
+});
+
+test('staging preflight refuses any real-data allowance',()=>{
+  const {dir,env}=fixture();
+  try{
+    env.ROLLANDS_REAL_DATA_ALLOWED='1';
+    const result=validateStaging(env);
+    assert.ok(result.fail.some(item=>item.includes('ROLLANDS_REAL_DATA_ALLOWED')&&item.includes('0')));
   }finally{fs.rmSync(dir,{recursive:true,force:true})}
 });

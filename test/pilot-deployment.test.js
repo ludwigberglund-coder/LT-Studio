@@ -142,6 +142,8 @@ test('staging preflight kan köras före slutligt pilotgodkännande men pilot ka
     NODE_ENV:'production',
     ROLLANDS_ENV:'staging',
     ROLLANDS_DEMO_DATA:'0',
+    ROLLANDS_DATA_CLASSIFICATION:'synthetic',
+    ROLLANDS_REAL_DATA_ALLOWED:'0',
     ROLLANDS_DATABASE_PATH:path.join(dbDir,'platform.sqlite'),
     ROLLANDS_BACKUP_PATH:backupDir,
     ROLLANDS_PILOT_OPERATIONS_PATH:operationsPath,
