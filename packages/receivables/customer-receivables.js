@@ -219,6 +219,7 @@
   }
 
   function statutoryInterestForInvoice(invoice, toDate, config) {
+    verifiedInterestStart(invoice);
     const history = interestBalanceHistory(invoice, toDate);
     if (toDate <= history.dueDate || history.totalOre === 0) return {interestOre:0,days:0,segments:[],principalOre:history.balanceOre};
 
