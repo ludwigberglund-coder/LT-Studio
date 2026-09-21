@@ -37,8 +37,14 @@ const out=path.join(__dirname,'..','test-artifacts');
     page=await context.newPage();
     await page.addInitScript(value=>sessionStorage.setItem('rollands-csrf',value),csrf);
     const errors=[];
+    const httpErrors=[];
     page.on('pageerror',error=>errors.push(error.message));
-    page.on('console',message=>{if(message.type()==='error')errors.push(message.text())});
+    page.on('response',response=>{
+      if(response.status()<400)return;
+      const requestUrl=new URL(response.url());
+      const expectedMissingOpeningBalance=response.status()===404&&requestUrl.pathname==='/api/v1/accounting/opening-balances/2026';
+      if(!expectedMissingOpeningBalance)httpErrors.push(`${response.status()} ${requestUrl.pathname}`);
+    });
 
     await page.goto(base+'/portal/accounting.html',{waitUntil:'networkidle'});
     await page.getByRole('heading',{name:'Importera startsaldo'}).waitFor({timeout:15000});
@@ -81,9 +87,10 @@ const out=path.join(__dirname,'..','test-artifacts');
     assert.equal(response.status,200);
     assert.equal(response.body.entry.number,'IB1');
     assert.deepEqual(errors,[]);
+    assert.deepEqual(httpErrors,[]);
     checks.push({kind:'api-readback'});
 
-    fs.writeFileSync(path.join(out,'opening-balance-browser-results.json'),JSON.stringify({ok:true,checks,errors},null,2));
+    fs.writeFileSync(path.join(out,'opening-balance-browser-results.json'),JSON.stringify({ok:true,checks,errors,httpErrors},null,2));
     console.log(`Opening balance browser checks passed: ${checks.length} checks.`);
   }catch(error){
     fs.writeFileSync(path.join(out,'opening-balance-browser-results.json'),JSON.stringify({ok:false,checks,failure:error.stack},null,2));
