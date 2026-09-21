@@ -28,6 +28,10 @@ function writeEvidence(filename,value){
   }
 }
 
+function removeSqliteArtifacts(filename){
+  for(const suffix of ['', '-wal', '-shm', '-journal'])fs.rmSync(filename+suffix,{force:true});
+  return ['', '-wal', '-shm', '-journal'].every(suffix=>!fs.existsSync(filename+suffix));
+}
 async function runR2RestoreDrill({target,source,drillDir,evidencePath,backupKey,now=new Date()}={}){
   if(!target||typeof target.getToFile!=='function')throw new Error('R2 restore-target med getToFile() krävs.');
   if(!source||source.ok!==true)throw new Error('Verifierat offsite-backupbevis krävs för R2 restore-drill.');
@@ -60,7 +64,7 @@ async function runR2RestoreDrill({target,source,drillDir,evidencePath,backupKey,
     fs.chmodSync(restored,0o600);
     verified=verifyDatabase(restored,{requirePrivateObjectSchema:true});
   }finally{
-    fs.rmSync(restored,{force:true});
+    if(!removeSqliteArtifacts(restored))throw new Error('R2 restore-drill kunde inte rensa SQLite-testfiler.');
     fs.rmSync(downloaded,{force:true});
   }
 
@@ -138,4 +142,4 @@ if(require.main===module){
   });
 }
 
-module.exports=Object.freeze({required,writeEvidence,runR2RestoreDrill,main});
+module.exports=Object.freeze({required,writeEvidence,removeSqliteArtifacts,runR2RestoreDrill,main});
