@@ -47,6 +47,27 @@ function securityEvents(){
   if(!events.length)return '<div class="empty">Inga säkerhetshändelser i listan.</div>';
   return events.map(event=>`<div class="event"><span class="status-pill"><span class="dot ${esc(event.severity)}"></span>${esc(event.severity)}</span><strong>${esc(event.kind)}</strong><time>${dateTime(event.createdAt)}</time></div>`).join('');
 }
+function readinessChecks(){
+  const checks=readiness?.checks&&typeof readiness.checks==='object'?readiness.checks:{};
+  const rows=[
+    ['databaseRead','Databas · läsning'],
+    ['databaseWrite','Databas · skrivning'],
+    ['diskSpace','Diskutrymme'],
+    ['backup','Backup'],
+    ['restoreDrill','Restore-test'],
+    ['monitoring','Extern monitoring']
+  ];
+  return rows.map(([key,label])=>{
+    const ok=checks[key]===true,known=typeof checks[key]==='boolean';
+    const state=known?(ok?'OK':'Problem'):'Saknas';
+    const kind=known?(ok?'ok':'critical'):'warning';
+    let detail='';
+    if(key==='backup'&&readiness?.backupAgeMinutes!==null&&readiness?.backupAgeMinutes!==undefined)detail=`${readiness.backupAgeMinutes} min sedan`;
+    if(key==='restoreDrill'&&readiness?.restoreDrillAgeMinutes!==null&&readiness?.restoreDrillAgeMinutes!==undefined)detail=`${Math.round(readiness.restoreDrillAgeMinutes/60)} h sedan`;
+    if(key==='monitoring'&&readiness?.monitoringAgeMinutes!==null&&readiness?.monitoringAgeMinutes!==undefined)detail=`${Math.round(readiness.monitoringAgeMinutes/60)} h sedan`;
+    return `<div class="health-row"><strong>${esc(label)}</strong><span>${esc(detail||'')}</span><span class="status-pill"><span class="dot ${kind}"></span>${state}</span></div>`;
+  }).join('');
+}
 function dashboard(){
   const ready=readinessState(),sec=securityState(),operator=session?.operator||{};
   root.innerHTML=`<div class="operator-shell"><aside class="sidebar"><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div class="side-copy">Central driftadmin för den gemensamma SaaS-plattformen.</div><nav class="side-nav"><button class="active">Översikt</button></nav><div class="side-footer">Read-only version. Kundernas affärsdata visas inte i driftvyn.</div></aside>
@@ -59,13 +80,14 @@ function dashboard(){
     <article class="metric"><span>Säkerhet 24 h</span><strong class="${sec.kind}">${sec.label}</strong><small>${overview?.security?.total??0} händelser totalt</small></article>
   </section>
   <section class="panel"><div class="panel-head"><div><h2>Kundmiljöer</h2><p>Teknisk metadata för varje företag.</p></div><button class="button secondary" data-action="refresh">Uppdatera</button></div><div class="table-wrap"><table><thead><tr><th>Företag</th><th>Org.nr</th><th>Åtkomst</th><th>Sessioner</th><th>Fakturaposter</th><th>Senaste aktivitet</th></tr></thead><tbody>${companyRows()}</tbody></table></div></section>
+  <section class="panel"><div class="panel-head"><div><h2>Hälsokontroller</h2><p>Exakt vilken del av driften som är frisk eller behöver åtgärdas.</p></div></div><div class="health-list">${readinessChecks()}</div></section>
   <section class="panel"><div class="panel-head"><div><h2>Säkerhetshändelser</h2><p>Redigerad driftvy utan IP, användarnamn eller tekniska fingeravtryck.</p></div></div><div class="event-list">${securityEvents()}</div></section>
   </section></div>`;
 }
 async function loadData(){
   const [o,r,s]=await Promise.all([
     api('/overview'),
-    api('/readiness').catch(err=>({ok:false,error:err.message,checks:[]})),
+    api('/readiness').catch(err=>({ok:false,error:err.message,checks:{}})),
     api('/security-events?limit=50')
   ]);
   overview=o;readiness=r;security=s;
