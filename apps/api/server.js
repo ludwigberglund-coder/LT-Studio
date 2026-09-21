@@ -18,6 +18,7 @@ const {createExportsRouter}=require('./exports-router.js');
 const {createPayrollRouter} = require('./payroll-router.js');
 const {createDocumentsRouter} = require('./documents-router.js');
 const {createAccountingAdminRouter} = require('./accounting-admin-router.js');
+const {createOpeningMigrationImportRouter} = require('./opening-migration-import-router.js');
 const {createWebsiteCmsRouter} = require('./website-cms-router.js');
 const Db = require('./database.js');
 const Queues = require('./queues.js');
@@ -78,7 +79,7 @@ function createServer(options = {}) {
   PrivateObjectCopyLedger.initializePrivateObjectCopyLedger(db);
   Queues.initializeQueues(db); ReminderOutbox.initializeReminderOutbox(db); Bank.initializeBankPayments(db); Payables.initializePayables(db); SupplierMasterdata.initializeSupplierMasterdata(db); PaymentConfirmation.initializePaymentConfirmation(db); Inventory.initializeInventory(db); Payroll.initializePayroll(db); Documents.initializeDocuments(db); AccountingAdmin.initializeAccountingAdmin(db); WebsiteCms.initializeWebsiteCms(db);
   const api = createApiApp({db,secureCookies,authEncryptionKey,operationalLogger,operationalRuntimeId:runtimeId});
-  const automationReview = createAutomationReviewRouter({db}); const bank = createBankRouter({db}); const payables = createPayablesRouter({db}); const supplierMasterdata = createSupplierMasterdataRouter({db}); const paymentRelease = createPaymentReleaseRouter({db}); const paymentConfirmation = createPaymentConfirmationRouter({db}); const inventory = createInventoryRouter({db}); const reports = createReportsRouter({db}); const exportsRouter=createExportsRouter({db}); const payroll = createPayrollRouter({db}); const documents = createDocumentsRouter({db}); const accounting = createAccountingAdminRouter({db}); const websiteCms = createWebsiteCmsRouter({db});
+  const automationReview = createAutomationReviewRouter({db}); const bank = createBankRouter({db}); const payables = createPayablesRouter({db}); const supplierMasterdata = createSupplierMasterdataRouter({db}); const paymentRelease = createPaymentReleaseRouter({db}); const paymentConfirmation = createPaymentConfirmationRouter({db}); const inventory = createInventoryRouter({db}); const reports = createReportsRouter({db}); const exportsRouter=createExportsRouter({db}); const payroll = createPayrollRouter({db}); const documents = createDocumentsRouter({db}); const openingMigrationImport=createOpeningMigrationImportRouter({db}); const accounting = createAccountingAdminRouter({db}); const websiteCms = createWebsiteCmsRouter({db});
   const protectedMode=protectedRuntimeMode(process.env);
   const stagingMode=String(process.env.ROLLANDS_ENV||'').trim()==='staging';
   const readinessPayload=({includeMonitoring=true}={})=>{
@@ -175,7 +176,7 @@ function createServer(options = {}) {
       if (serveStatic(req,res)) return;
       res.writeHead(404,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}); return res.end(JSON.stringify({error:'Hittades inte.',code:'NOT_FOUND'}));
     }
-    if (await automationReview.handle(req,res)) return; if (await bank.handle(req,res)) return; if (await supplierMasterdata.handle(req,res)) return; if (await paymentRelease.handle(req,res)) return; if (await paymentConfirmation.handle(req,res)) return; if (await inventory.handle(req,res)) return; if (await reports.handle(req,res)) return; if (await exportsRouter.handle(req,res)) return; if (await payroll.handle(req,res)) return; if (await documents.handle(req,res)) return; if (await accounting.handle(req,res)) return; if (await websiteCms.handle(req,res)) return; if (await payables.handle(req,res)) return; return await api.handle(req,res);
+    if (await automationReview.handle(req,res)) return; if (await bank.handle(req,res)) return; if (await supplierMasterdata.handle(req,res)) return; if (await paymentRelease.handle(req,res)) return; if (await paymentConfirmation.handle(req,res)) return; if (await inventory.handle(req,res)) return; if (await reports.handle(req,res)) return; if (await exportsRouter.handle(req,res)) return; if (await payroll.handle(req,res)) return; if (await documents.handle(req,res)) return; if (await openingMigrationImport.handle(req,res)) return; if (await accounting.handle(req,res)) return; if (await websiteCms.handle(req,res)) return; if (await payables.handle(req,res)) return; return await api.handle(req,res);
     }catch(error){
       operationalCode=OperationalLog.safeCode?OperationalLog.safeCode(error?.code):'REQUEST_HANDLER_ERROR';
       operationalLogger.emit({
@@ -196,7 +197,7 @@ function createServer(options = {}) {
     }
   });
   function close(callback) { server.close(() => { try { db.close(); } catch {} if (callback) callback(); }); }
-  return Object.freeze({server,db,api,operator,automationReview,bank,payables,supplierMasterdata,paymentRelease,paymentConfirmation,inventory,reports,exportsRouter,payroll,documents,accounting,websiteCms,host,port,databasePath,runtimeId,close});
+  return Object.freeze({server,db,api,operator,automationReview,bank,payables,supplierMasterdata,paymentRelease,paymentConfirmation,inventory,reports,exportsRouter,payroll,documents,openingMigrationImport,accounting,websiteCms,host,port,databasePath,runtimeId,close});
 }
 if (require.main === module) {
   const runtime = createServer();
