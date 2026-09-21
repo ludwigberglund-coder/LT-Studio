@@ -18,6 +18,7 @@ test('staging environment template is synthetic-only and uses runtime-supported 
     'ROLLANDS_DEMO_DATA=0',
     'ROLLANDS_API_HOST=127.0.0.1',
     'ROLLANDS_API_SECURE_COOKIE=1',
+    'R2_STAGING_AUDIT_EVIDENCE_PATH=/srv/lt-studio-ops/r2-staging-audit-evidence.json',
     'R2_STAGING_ENABLED=1',
     'R2_STAGING_JURISDICTION=eu',
     'R2_STAGING_ACCOUNT_ID=<SECRET_STORE_VALUE>',
