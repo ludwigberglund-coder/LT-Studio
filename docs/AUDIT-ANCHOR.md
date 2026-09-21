@@ -70,3 +70,18 @@ npm run staging:signoff
 `staging:evidence:verify` kontrollerar inte bara evidensfilens metadata. Den läser även det lokala ankaret, verifierar dess SHA-256 och byteantal mot R2-evidensen och kontrollerar att den nuvarande databasen fortfarande har exakt samma ankrade auditprefix. Auditbucketen måste matcha aktuell `R2_AUDIT_BUCKET`.
 
 Staging-signoff använder schema 2 och binder både `ROLLANDS_AUDIT_ANCHOR_PATH` och `ROLLANDS_AUDIT_ANCHOR_EVIDENCE_PATH` med SHA-256. Äldre schema-1-signoff måste därför skapas om före pilotbeslut.
+
+
+## Löpande readiness
+
+Auditankaret är inte bara ett engångskrav vid staging-signoff. I skyddad drift kräver både `/api/v1/readiness/core` och full `/api/v1/readiness` ett giltigt auditankare.
+
+Readiness blir röd om:
+
+- R2-evidensen saknas eller är äldre än 24 timmar,
+- evidensen gäller annan bucket än aktuell `R2_AUDIT_BUCKET`,
+- den lokala ankarefilens SHA-256 eller storlek inte matchar R2-evidensen,
+- ankarets root-SHA inte matchar evidensen,
+- den aktuella databasen inte längre innehåller exakt samma ankrade historikprefix.
+
+LT Studio-admin visar kontrollen som **Audit · externt ankare** samt ankarets ålder. Själva root-SHA:n exponeras inte i den publika readiness-payloaden.
