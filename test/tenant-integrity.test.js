@@ -134,6 +134,8 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
   const entryB=Accounting.postEntry(f.db,{companyId:f.b.id,postingDate:'2026-09-18',description:'Tenant B',sourceType:'tenant-matrix',sourceId:'b',createdBy:f.user.id,lines:[{account:'1930',debitOre:1000,creditOre:0,text:'Bank'},{account:'2999',debitOre:0,creditOre:1000,text:'Motkonto'}]}).entry;
   const pendingB=Documents.createPending(f.db,{companyId:f.b.id,uploadedBy:f.user.id,title:'Tenant B document',fileName:'tenant-b.pdf'});
   Documents.storeContent(f.db,{companyId:f.b.id,documentId:pendingB.id,bytes:Buffer.from('%PDF-1.4\nprivate b\n')});
+  const documentA=Documents.createPending(f.db,{companyId:f.a.id,uploadedBy:f.user.id,title:'Tenant A link test',fileName:'tenant-a-link.pdf'});
+  Documents.storeContent(f.db,{companyId:f.a.id,documentId:documentA.id,bytes:Buffer.from('%PDF-1.4\nprivate a link test\n')});
   const bankPaymentB=Bank.create(f.db,{companyId:f.b.id,externalId:'B-TENANT-MATRIX-1',bookingDate:'2026-09-20',amountOre:125000,currency:'SEK',reference:'B-only',createdBy:f.user.id}).payment;
   const inventoryItemB=Inventory.createItem(f.db,{companyId:f.b.id,sku:'B-TENANT-ITEM',name:'Tenant B inventory item',unit:'kg',purchaseAccount:'4010',inventoryAccount:'1460'});
   Inventory.addMovement(f.db,{companyId:f.b.id,itemId:inventoryItemB.id,movementDate:'2026-09-20',type:'receipt',quantityMilli:5000,actorId:f.user.id});
@@ -261,6 +263,8 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
       [`/automation/proposals/${automationProposalB.id}/approve`,{}],
       [`/automation/proposals/${automationProposalB.id}/reject`,{reason:'cross tenant'}],
       [`/payroll/runs/${payrollRunB.id}/post`,{}],
+      [`/documents/${documentA.id}/links`,{entityType:'customer-invoice',entityId:f.invoiceB.id,label:'cross tenant customer invoice'}],
+      [`/documents/${documentA.id}/links`,{entityType:'supplier-invoice',entityId:supplierInvoiceB.id,label:'cross tenant supplier invoice'}],
       [`/payables/payments/${supplierPaymentB.id}/release`,{}],
       [`/payables/payments/${supplierPaymentB.id}/confirm-post`,{confirmationReference:'CROSS-TENANT-REF',postingDate:'2026-09-25'}],
       [`/suppliers/changes/${supplierChangeB.id}/approve`,{}],
@@ -316,7 +320,9 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
     assert.equal(Master.changeRequestById(f.db,f.b.id,supplierChangeB.id).status,'pending');
     assert.equal(Admin.unlockRequestById(f.db,f.b.id,unlockRequestB.id).status,'pending');
     assert.equal(f.db.prepare('SELECT status FROM accounting_periods WHERE company_id=? AND period=?').get(f.b.id,'2026-08').status,'locked');
+    assert.deepEqual(Documents.linksForDocument(f.db,f.a.id,documentA.id),[]);
     const tenantAAudit=Db.auditForCompany(f.db,f.a.id);
+    assert.equal(tenantAAudit.some(event=>event.action==='DOCUMENT_LINKED'&&event.entityId===documentA.id),false);
     assert.equal(tenantAAudit.some(event=>
       event.entityId===bankPaymentB.id||
       event.entityId===inventoryItemB.id||
