@@ -4,6 +4,7 @@ const assert=require('node:assert/strict');
 const {fixture}=require('./private-workflows-fixture.cjs');
 const Cms=require('../apps/api/website-cms.js');
 const Db=require('../apps/api/database.js');
+const Queues=require('../apps/api/queues.js');
 async function run(callback){const f=await fixture();try{await callback(f);}finally{await f.close();}}
 async function json(base,path,headers,method='GET',body){const res=await fetch(base+path,{method,headers,body:body?JSON.stringify(body):undefined});return{res,data:await res.json()};}
 test('private preview requires authentication and active company membership for HTML and assets',()=>run(async f=>{
@@ -86,6 +87,38 @@ test('bankimport och matchning är idempotenta genom det privata HTTP-API:t',()=
   const audit=Db.auditForCompany(f.db,f.a.id);
   assert.equal(audit.filter(x=>x.action==='BANK_PAYMENT_IMPORTED'&&x.entityId===first.data.payment.id).length,1);
   assert.equal(audit.filter(x=>x.action==='BANK_PAYMENT_MATCH_PROPOSED'&&x.entityId===first.data.payment.id).length,1);
+}));
+
+test('betalningspåminnelse är idempotent och skapar bara ett utskick vid retry',()=>run(async f=>{
+  const headers=await f.login();
+  const body={
+    requestId:'reminder-http-retry-0001',
+    sentDate:'2026-10-20',
+    includeInterest:true,
+    includeReminderFee:false,
+    includeBusinessLatePaymentCompensation:false,
+    kind:'payment-reminder',
+    note:'Kontrollerad retry'
+  };
+  const route='/api/v1/invoices/'+f.issued.invoice.id+'/reminders';
+
+  const first=await fetch(f.base+route,{method:'POST',headers,body:JSON.stringify(body)});
+  const firstData=await first.json();
+  assert.equal(first.status,201);assert.equal(firstData.duplicate,false);
+
+  const retry=await fetch(f.base+route,{method:'POST',headers,body:JSON.stringify(body)});
+  const retryData=await retry.json();
+  assert.equal(retry.status,200);assert.equal(retryData.duplicate,true);assert.equal(retryData.reminder.id,firstData.reminder.id);
+
+  const conflict=await fetch(f.base+route,{method:'POST',headers,body:JSON.stringify({...body,note:'Ändrat innehåll'})});
+  const conflictData=await conflict.json();
+  assert.equal(conflict.status,409);assert.equal(conflictData.code,'REMINDER_IDEMPOTENCY_CONFLICT');
+
+  const reminders=Db.remindersForInvoice(f.db,f.a.id,f.issued.invoice.id);
+  assert.equal(reminders.length,1);assert.equal(reminders[0].id,firstData.reminder.id);
+  const notifications=Queues.listNotifications(f.db,f.a.id).filter(item=>item.entityType==='invoice-reminder'&&item.entityId===firstData.reminder.id);
+  assert.equal(notifications.length,1);
+  assert.equal(Db.auditForCompany(f.db,f.a.id).filter(event=>event.action==='PAYMENT_REMINDER_CREATED'&&event.details?.requestId===body.requestId).length,1);
 }));
 
 test('draft revision schema migration is repeatable and preserves existing content',()=>run(async f=>{
