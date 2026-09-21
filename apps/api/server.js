@@ -78,9 +78,37 @@ function createServer(options = {}) {
   const api = createApiApp({db,secureCookies,authEncryptionKey});
   const automationReview = createAutomationReviewRouter({db}); const bank = createBankRouter({db}); const payables = createPayablesRouter({db}); const supplierMasterdata = createSupplierMasterdataRouter({db}); const paymentRelease = createPaymentReleaseRouter({db}); const paymentConfirmation = createPaymentConfirmationRouter({db}); const inventory = createInventoryRouter({db}); const reports = createReportsRouter({db}); const exportsRouter=createExportsRouter({db}); const payroll = createPayrollRouter({db}); const documents = createDocumentsRouter({db}); const accounting = createAccountingAdminRouter({db}); const websiteCms = createWebsiteCmsRouter({db});
   const protectedMode=protectedRuntimeMode(process.env);
-  const readinessPayload=()=>{
-    const report=readinessReport({db,databasePath,backupPath:process.env.ROLLANDS_BACKUP_PATH||'',offsiteBackupEvidencePath:process.env.ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH||'',restoreEvidencePath:process.env.ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH||'',monitoringEvidencePath:process.env.ROLLANDS_MONITORING_EVIDENCE_PATH||'',requireBackup:protectedMode,requireOffsiteBackupEvidence:protectedMode,requireRestoreEvidence:protectedMode,requireMonitoringEvidence:protectedMode});
-    return {ok:report.ok,service:'rollands-api-v1',checks:report.checks,freeMiB:report.freeBytes===null?null:Math.floor(report.freeBytes/1048576),backupAgeMinutes:report.backupAgeMs===null?null:Math.floor(report.backupAgeMs/60000),offsiteBackupAgeMinutes:report.offsiteBackupAgeMs===null?null:Math.floor(report.offsiteBackupAgeMs/60000),restoreDrillAgeMinutes:report.restoreDrillAgeMs===null?null:Math.floor(report.restoreDrillAgeMs/60000),monitoringAgeMinutes:report.monitoringAgeMs===null?null:Math.floor(report.monitoringAgeMs/60000),alertTestAgeMinutes:report.alertAgeMs===null?null:Math.floor(report.alertAgeMs/60000)};
+  const stagingMode=String(process.env.ROLLANDS_ENV||'').trim()==='staging';
+  const readinessPayload=({includeMonitoring=true}={})=>{
+    const report=readinessReport({
+      db,
+      databasePath,
+      backupPath:process.env.ROLLANDS_BACKUP_PATH||'',
+      offsiteBackupEvidencePath:process.env.ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH||'',
+      r2StagingAuditEvidencePath:process.env.R2_STAGING_AUDIT_EVIDENCE_PATH||'',
+      restoreEvidencePath:process.env.ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH||'',
+      r2RestoreEvidencePath:process.env.ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH||'',
+      monitoringEvidencePath:process.env.ROLLANDS_MONITORING_EVIDENCE_PATH||'',
+      requireBackup:protectedMode,
+      requireOffsiteBackupEvidence:protectedMode,
+      requireR2StagingAuditEvidence:stagingMode,
+      requireRestoreEvidence:protectedMode,
+      requireR2RestoreEvidence:stagingMode,
+      requireMonitoringEvidence:protectedMode&&includeMonitoring
+    });
+    return {
+      ok:report.ok,
+      service:'rollands-api-v1',
+      checks:report.checks,
+      freeMiB:report.freeBytes===null?null:Math.floor(report.freeBytes/1048576),
+      backupAgeMinutes:report.backupAgeMs===null?null:Math.floor(report.backupAgeMs/60000),
+      offsiteBackupAgeMinutes:report.offsiteBackupAgeMs===null?null:Math.floor(report.offsiteBackupAgeMs/60000),
+      r2StagingAuditAgeMinutes:report.r2StagingAuditAgeMs===null?null:Math.floor(report.r2StagingAuditAgeMs/60000),
+      restoreDrillAgeMinutes:report.restoreDrillAgeMs===null?null:Math.floor(report.restoreDrillAgeMs/60000),
+      r2RestoreDrillAgeMinutes:report.r2RestoreDrillAgeMs===null?null:Math.floor(report.r2RestoreDrillAgeMs/60000),
+      monitoringAgeMinutes:report.monitoringAgeMs===null?null:Math.floor(report.monitoringAgeMs/60000),
+      alertTestAgeMinutes:report.alertAgeMs===null?null:Math.floor(report.alertAgeMs/60000)
+    };
   };
   const operator=createOperatorRouter({db,secureCookies,authEncryptionKey,readinessProvider:readinessPayload});
 
@@ -95,9 +123,16 @@ function createServer(options = {}) {
       res.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Content-Length':body.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
       return res.end(req.method==='HEAD'?undefined:body);
     }
+    if (String(req.url || '').split('?')[0] === '/api/v1/readiness/core') {
+      if (!['GET','HEAD'].includes(req.method || 'GET')) { res.writeHead(405,{'Allow':'GET, HEAD','Cache-Control':'no-store'}); return res.end(); }
+      const payload=readinessPayload({includeMonitoring:false});
+      const body=Buffer.from(JSON.stringify(payload));
+      res.writeHead(payload.ok?200:503,{'Content-Type':'application/json; charset=utf-8','Content-Length':body.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
+      return res.end(req.method==='HEAD'?undefined:body);
+    }
     if (String(req.url || '').split('?')[0] === '/api/v1/readiness') {
       if (!['GET','HEAD'].includes(req.method || 'GET')) { res.writeHead(405,{'Allow':'GET, HEAD','Cache-Control':'no-store'}); return res.end(); }
-      const payload=readinessPayload();
+      const payload=readinessPayload({includeMonitoring:true});
       const body=Buffer.from(JSON.stringify(payload));
       res.writeHead(payload.ok?200:503,{'Content-Type':'application/json; charset=utf-8','Content-Length':body.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
       return res.end(req.method==='HEAD'?undefined:body);
