@@ -44,6 +44,7 @@
     "test:browser:opening-balance": "node test/opening-balance-browser.cjs",
     "storage:audit-r2": "node scripts/private-object-r2-audit.js",
     "pilot:backup:offsite-r2": "node scripts/pilot-backup-offsite-r2.js",
+    "pilot:restore:offsite-r2": "node scripts/pilot-restore-offsite-r2.js",
     "staging:preflight": "node scripts/staging-preflight.js"
   },
   "engines": {
