@@ -65,6 +65,15 @@ function initializeCustomerInvoicing(db){
       updated_at TEXT NOT NULL,
       PRIMARY KEY(company_id,user_id)
     ) STRICT;
+    CREATE TABLE IF NOT EXISTS customer_invoice_customer_preferences(
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      payment_terms_days INTEGER NOT NULL DEFAULT 30 CHECK(payment_terms_days BETWEEN 0 AND 365),
+      our_reference TEXT NOT NULL DEFAULT '',
+      your_reference TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY(company_id,customer_id)
+    ) STRICT;
     CREATE TABLE IF NOT EXISTS customer_invoice_credits(
       company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
       request_id TEXT NOT NULL,
@@ -81,6 +90,13 @@ function initializeCustomerInvoicing(db){
     CREATE INDEX IF NOT EXISTS idx_customer_invoice_pdf_archives_company ON customer_invoice_pdf_archives(company_id,created_at);
     CREATE INDEX IF NOT EXISTS idx_customer_invoice_reservations_status ON customer_invoice_number_reservations(company_id,status,created_at);
     CREATE INDEX IF NOT EXISTS idx_customer_invoice_drafts_updated ON customer_invoice_drafts(company_id,updated_at);
+    CREATE TRIGGER IF NOT EXISTS tenant_customer_invoice_preferences_insert BEFORE INSERT ON customer_invoice_customer_preferences
+      WHEN NOT EXISTS(SELECT 1 FROM customers WHERE id=NEW.customer_id AND company_id=NEW.company_id)
+      BEGIN SELECT RAISE(ABORT,'TENANT_RELATION_VIOLATION'); END;
+    CREATE TRIGGER IF NOT EXISTS tenant_customer_invoice_preferences_update BEFORE UPDATE ON customer_invoice_customer_preferences
+      WHEN NEW.company_id IS NOT OLD.company_id OR NEW.customer_id IS NOT OLD.customer_id
+        OR NOT EXISTS(SELECT 1 FROM customers WHERE id=NEW.customer_id AND company_id=NEW.company_id)
+      BEGIN SELECT RAISE(ABORT,'TENANT_RELATION_VIOLATION'); END;
     CREATE TRIGGER IF NOT EXISTS tenant_customer_invoice_credits_insert BEFORE INSERT ON customer_invoice_credits
       WHEN NOT EXISTS(SELECT 1 FROM invoices WHERE id=NEW.original_invoice_id AND company_id=NEW.company_id)
         OR NOT EXISTS(SELECT 1 FROM invoices WHERE id=NEW.credit_invoice_id AND company_id=NEW.company_id)
@@ -102,7 +118,29 @@ function initializeCustomerInvoicing(db){
       AND (${fields.map(field=>`NEW.${field} IS NOT OLD.${field}`).join(' OR ')})
     BEGIN SELECT RAISE(ABORT,'ISSUED_INVOICE_IMMUTABLE'); END;`);
 }
-function customerByNumber(db,companyId,customerNumber){return Db.listCustomers(db,companyId).find(row=>row.customerNumber===text(customerNumber))||null}
+function customerInvoicePreferences(db,companyId,customerId){
+  const row=db.prepare(`SELECT payment_terms_days AS paymentTermsDays,our_reference AS ourReference,your_reference AS yourReference
+    FROM customer_invoice_customer_preferences WHERE company_id=? AND customer_id=?`).get(companyId,customerId);
+  return row||{paymentTermsDays:30,ourReference:'',yourReference:''};
+}
+function setCustomerInvoicePreferences(db,{companyId,customerId,paymentTermsDays=30,ourReference='',yourReference=''}){
+  const days=Number(paymentTermsDays);
+  if(!Number.isInteger(days)||days<0||days>365)throw invoiceError('Betalningsvillkor måste vara ett helt antal dagar mellan 0 och 365.','INVALID_CUSTOMER_PAYMENT_TERMS',422);
+  const own=text(ourReference),their=text(yourReference);
+  if(own.length>120||their.length>120)throw invoiceError('Fakturareferens får vara högst 120 tecken.','INVALID_CUSTOMER_INVOICE_REFERENCE',422);
+  const now=new Date().toISOString();
+  db.prepare(`INSERT INTO customer_invoice_customer_preferences(company_id,customer_id,payment_terms_days,our_reference,your_reference,updated_at)
+    VALUES(?,?,?,?,?,?)
+    ON CONFLICT(company_id,customer_id) DO UPDATE SET
+      payment_terms_days=excluded.payment_terms_days,our_reference=excluded.our_reference,your_reference=excluded.your_reference,
+      updated_at=excluded.updated_at`)
+    .run(companyId,customerId,days,own,their,now);
+  return customerInvoicePreferences(db,companyId,customerId);
+}
+function customersWithInvoicePreferences(db,companyId){
+  return Db.listCustomers(db,companyId).map(customer=>({...customer,...customerInvoicePreferences(db,companyId,customer.id)}));
+}
+function customerByNumber(db,companyId,customerNumber){return customersWithInvoicePreferences(db,companyId).find(row=>row.customerNumber===text(customerNumber))||null}
 function nextInvoiceNumber(db,companyId){
   const row=db.prepare(`SELECT MAX(number) AS maxNumber FROM (
       SELECT CAST(invoice_number AS INTEGER) AS number FROM invoices
@@ -418,4 +456,4 @@ function finalizeCreditIssuance(db,{companyId,userId,prepared,pdfBytes}){
   return{...invoiceBundle(db,companyId,creditInvoice.id),duplicate:false,original:Db.invoiceById(db,companyId,original.id)};
 }
 
-module.exports=Object.freeze({initializeCustomerInvoicing,customerByNumber,nextInvoiceNumber,profileStatus,resolvedProfile,listCustomerInvoices,documentForInvoice,pdfArchiveMetadata,pdfArchivePrivateObjectMetadata,pdfArchiveForInvoice,invoiceBundle,getCustomerInvoiceDraft,saveCustomerInvoiceDraft,clearCustomerInvoiceDraft,prepareInvoiceIssuance,finalizeInvoiceIssuance,prepareCreditIssuance,finalizeCreditIssuance,renderInvoicePdf,creditDocumentFrom,creditSettlementState,validateCreditSource,validateRequestId,reservationByRequest});
+module.exports=Object.freeze({initializeCustomerInvoicing,customerInvoicePreferences,setCustomerInvoicePreferences,customersWithInvoicePreferences,customerByNumber,nextInvoiceNumber,profileStatus,resolvedProfile,listCustomerInvoices,documentForInvoice,pdfArchiveMetadata,pdfArchivePrivateObjectMetadata,pdfArchiveForInvoice,invoiceBundle,getCustomerInvoiceDraft,saveCustomerInvoiceDraft,clearCustomerInvoiceDraft,prepareInvoiceIssuance,finalizeInvoiceIssuance,prepareCreditIssuance,finalizeCreditIssuance,renderInvoicePdf,creditDocumentFrom,creditSettlementState,validateCreditSource,validateRequestId,reservationByRequest});

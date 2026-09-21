@@ -92,7 +92,11 @@ function validatedCustomerInput(payload={}) {
   if(orgNumber.length>40) throw apiError('Organisationsnumret är för långt.','INVALID_CUSTOMER_ORG_NUMBER',422);
   const address=String(payload.address||'').trim();
   if(address.length>500) throw apiError('Fakturaadressen är för lång.','INVALID_CUSTOMER_ADDRESS',422);
-  return{name,email:email||null,orgNumber:orgNumber||null,address:{full:address},reminderFeeAgreed:payload.reminderFeeAgreed===true};
+  const paymentTermsDays=payload.paymentTermsDays===undefined||payload.paymentTermsDays===null||payload.paymentTermsDays===''?30:Number(payload.paymentTermsDays);
+  if(!Number.isInteger(paymentTermsDays)||paymentTermsDays<0||paymentTermsDays>365) throw apiError('Betalningsvillkor måste vara ett helt antal dagar mellan 0 och 365.','INVALID_CUSTOMER_PAYMENT_TERMS',422);
+  const ourReference=String(payload.ourReference||'').trim(),yourReference=String(payload.yourReference||'').trim();
+  if(ourReference.length>120||yourReference.length>120) throw apiError('Fakturareferens får vara högst 120 tecken.','INVALID_CUSTOMER_INVOICE_REFERENCE',422);
+  return{name,email:email||null,orgNumber:orgNumber||null,address:{full:address},reminderFeeAgreed:payload.reminderFeeAgreed===true,paymentTermsDays,ourReference,yourReference};
 }
 
 function readJson(req,res) {
@@ -312,7 +316,7 @@ function createApiApp(options) {
 
       if(req.method==='GET' && url.pathname==='/api/v1/customers') {
         requirePermission(session,'customer-invoice.view');
-        return send(res,200,{customers:Db.listCustomers(db,session.companyId)});
+        return send(res,200,{customers:CustomerInvoicing.customersWithInvoicePreferences(db,session.companyId)});
       }
 
       if(req.method==='POST' && url.pathname==='/api/v1/customers') {
@@ -324,9 +328,11 @@ function createApiApp(options) {
           customer=Db.createCustomer(db,{
             companyId:session.companyId,
             customerNumber:Db.nextCustomerNumber(db,session.companyId),
-            ...input,customerType:'business'
+            name:input.name,email:input.email,orgNumber:input.orgNumber,address:input.address,reminderFeeAgreed:input.reminderFeeAgreed,customerType:'business'
           });
-          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'CUSTOMER_CREATED',entityType:'customer',entityId:customer.id,details:{customerNumber:customer.customerNumber}});
+          const preferences=CustomerInvoicing.setCustomerInvoicePreferences(db,{companyId:session.companyId,customerId:customer.id,paymentTermsDays:input.paymentTermsDays,ourReference:input.ourReference,yourReference:input.yourReference});
+          customer={...customer,...preferences};
+          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'CUSTOMER_CREATED',entityType:'customer',entityId:customer.id,details:{customerNumber:customer.customerNumber,paymentTermsDays:customer.paymentTermsDays,ourReference:customer.ourReference,yourReference:customer.yourReference}});
         });
         return send(res,201,{customer});
       }
@@ -338,15 +344,21 @@ function createApiApp(options) {
         const input=validatedCustomerInput(payload),customerId=customerMatch[1];
         let customer;
         Db.transaction(db,()=>{
-          const before=Db.customerById(db,session.companyId,customerId);
-          if(!before) throw apiError('Kunden hittades inte i det inloggade företaget.','CUSTOMER_NOT_FOUND',404);
-          customer=Db.updateCustomer(db,{companyId:session.companyId,id:customerId,...input});
+          const beforeBase=Db.customerById(db,session.companyId,customerId);
+          if(!beforeBase) throw apiError('Kunden hittades inte i det inloggade företaget.','CUSTOMER_NOT_FOUND',404);
+          const before={...beforeBase,...CustomerInvoicing.customerInvoicePreferences(db,session.companyId,customerId)};
+          customer=Db.updateCustomer(db,{companyId:session.companyId,id:customerId,name:input.name,email:input.email,orgNumber:input.orgNumber,address:input.address,reminderFeeAgreed:input.reminderFeeAgreed});
+          const preferences=CustomerInvoicing.setCustomerInvoicePreferences(db,{companyId:session.companyId,customerId,paymentTermsDays:input.paymentTermsDays,ourReference:input.ourReference,yourReference:input.yourReference});
+          customer={...customer,...preferences};
           const changedFields=[
             before.name!==customer.name?'name':null,
             (before.orgNumber||'')!==(customer.orgNumber||'')?'orgNumber':null,
             (before.email||'')!==(customer.email||'')?'email':null,
             String(before.address?.full||'')!==String(customer.address?.full||'')?'address':null,
-            before.reminderFeeAgreed!==customer.reminderFeeAgreed?'reminderFeeAgreed':null
+            before.reminderFeeAgreed!==customer.reminderFeeAgreed?'reminderFeeAgreed':null,
+            Number(before.paymentTermsDays)!==Number(customer.paymentTermsDays)?'paymentTermsDays':null,
+            (before.ourReference||'')!==(customer.ourReference||'')?'ourReference':null,
+            (before.yourReference||'')!==(customer.yourReference||'')?'yourReference':null
           ].filter(Boolean);
           Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'CUSTOMER_UPDATED',entityType:'customer',entityId:customer.id,details:{customerNumber:customer.customerNumber,changedFields}});
         });
