@@ -47,6 +47,22 @@ Följande måste vara löst i den verkliga driftmiljön innan riktiga pilotdata 
 
 ---
 
+## Miljöordning: staging före pilot
+
+Använd **inte** `approvedForPilot:true` för att låsa upp den miljö där pilotbevisen ska skapas.
+
+Den avsedda ordningen är:
+
+1. sätt `NODE_ENV=production` och `ROLLANDS_ENV=staging`,
+2. fyll den privata operationsfilen med riktiga ansvar, kontaktvägar, offsite-destination och retention, men låt `approvedForPilot` vara `false` och `approvedAt` vara tomt/null,
+3. kör `npm run pilot:preflight`; staging omfattas av samma privata runtimekrav som pilot/produktion,
+4. genomför backup → restore drill, extern monitoring/larmtest och Rolands UAT med fiktiva eller avidentifierade data,
+5. dokumentera resultat och fatta därefter ett uttryckligt pilotbeslut,
+6. sätt `approvedForPilot:true` och ett verkligt `approvedAt` i den privata operationsfilen,
+7. byt till `ROLLANDS_ENV=pilot` och kör `npm run pilot:preflight` igen före första riktiga pilotdata.
+
+`staging` är alltså **inte ett osäkert development-läge**. Servern behandlar staging som skyddad privat runtime med permanent databas, säkra cookies, riktiga hemligheter, demo avstängt och samma readiness-gates för backup, restore-evidens och monitorering. Skillnaden är endast att det slutliga affärsbeslutet om pilot ännu inte behöver vara taget.
+
 ## 1. Serverkrav
 
 För pilotfasen är en Linux-server/VM med **en applikationsinstans** tillräcklig. Rekommenderad miniminivå är 2 vCPU, 2–4 GB RAM och SSD-baserad persistent disk med gott om marginal för databas, dokument och backup.
@@ -101,7 +117,7 @@ ROLLANDS_DEMO_DATA=0
 
 Lägg secrets i hostingplattformens secret store eller i en root/rollands-läsbar EnvironmentFile utanför repositoryt, exempelvis `/etc/rollands/pilot.env` med rättighet `600`.
 
-Kopiera dessutom `config/pilot-operations.example.json` till den privata sökvägen i `ROLLANDS_PILOT_OPERATIONS_PATH`. Fyll i tekniskt ansvar, redovisningsansvar, dataskyddsansvar, backupansvar, övervakningsansvar, incidentkontakt, supportväg, vem som får stoppa piloten, rollbackbeslutsprocess, offsite-backupdestination samt logg- och backupretention. Filen får ligga utanför repositoryt och får inte innehålla placeholders. `approvedForPilot` ska bara sättas till `true` efter ett uttryckligt pilotbeslut med datum i `approvedAt`.
+Kopiera dessutom `config/pilot-operations.example.json` till den privata sökvägen i `ROLLANDS_PILOT_OPERATIONS_PATH`. Fyll i tekniskt ansvar, redovisningsansvar, dataskyddsansvar, backupansvar, övervakningsansvar, incidentkontakt, supportväg, vem som får stoppa piloten, rollbackbeslutsprocess, offsite-backupdestination samt logg- och backupretention. Filen ska ligga utanför repositoryt och får inte innehålla placeholders. I staging ska `approvedForPilot` vara `false` och `approvedAt` tomt/null. `approvedForPilot` får bara sättas till `true` efter ett uttryckligt pilotbeslut och då krävs ett verkligt datum i `approvedAt`.
 
 ### Privata fakturainställningar
 
@@ -350,7 +366,7 @@ npm run pilot:check
 npm run pilot:preflight
 ```
 
-Båda måste passera utan blockerande FAIL. `pilot:preflight` skriver aldrig ut secret-värden.
+Båda måste passera utan blockerande FAIL. Under teknisk staging/UAT används `ROLLANDS_ENV=staging`, vilket inte kräver slutligt pilotgodkännande men fortfarande kräver komplett driftkonfiguration och alla övriga säkerhetskrav. Inför verklig pilot byts miljön till `ROLLANDS_ENV=pilot`, operationsfilen ska då innehålla `approvedForPilot:true` + giltigt `approvedAt`, och preflight körs på nytt. `pilot:preflight` skriver aldrig ut secret-värden.
 
 ## 16. Uppdatering till ny version
 

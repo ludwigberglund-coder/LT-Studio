@@ -51,6 +51,53 @@ test('pilot preflight godkänner en säker serverkonfiguration utan att kräva d
   }finally{fs.rmSync(dir,{recursive:true,force:true})}
 });
 
+test('staging preflight kan köras före slutligt pilotgodkännande men pilot kan inte det',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-staging-preflight-'));
+  const dbDir=path.join(dir,'db'),backupDir=path.join(dir,'backup'),operationsPath=path.join(dir,'pilot-operations.json');
+  fs.mkdirSync(dbDir,{mode:0o700});fs.mkdirSync(backupDir,{mode:0o700});
+  fs.writeFileSync(operationsPath,JSON.stringify({
+    schemaVersion:1,
+    technicalOwner:'Tekniskt ansvar',
+    accountingOwner:'Redovisningsansvar',
+    dataProtectionOwner:'Dataskyddsansvar',
+    backupOwner:'Backupansvar',
+    monitoringOwner:'Övervakningsansvar',
+    incidentContact:'incident@staging.test',
+    supportChannel:'support@staging.test',
+    pilotStopAuthority:'Pilotansvarig',
+    rollbackDecisionProcess:'Dokumenterat incidentbeslut krävs före rollback.',
+    offsiteBackupDestination:'Separat krypterad stagingbackup',
+    logRetentionDays:30,
+    backupRetentionDays:90,
+    approvedForPilot:false,
+    approvedAt:null
+  }));
+  const env={
+    NODE_ENV:'production',
+    ROLLANDS_ENV:'staging',
+    ROLLANDS_DEMO_DATA:'0',
+    ROLLANDS_DATABASE_PATH:path.join(dbDir,'platform.sqlite'),
+    ROLLANDS_BACKUP_PATH:backupDir,
+    ROLLANDS_PILOT_OPERATIONS_PATH:operationsPath,
+    ROLLANDS_AUTH_ENCRYPTION_KEY:'staging-auth-key-v7r2M9xQ4pL8sT1nW6kD3yH5',
+    ROLLANDS_BACKUP_ENCRYPTION_KEY:'staging-backup-key-v7r2M9xQ4pL8sT1nW6kD3yH5',
+    ROLLANDS_API_SECURE_COOKIE:'1',
+    ROLLANDS_API_HOST:'127.0.0.1',
+    ROLLANDS_ALLOWED_HOSTS:'staging.rollands.internal'
+  };
+  try{
+    const staging=validateConfig(env);
+    assert.deepEqual(staging.fail,[]);
+    assert.ok(staging.pass.includes('Staging operations responsibilities'));
+    assert.ok(staging.warn.some(item=>item.includes('approvedForPilot')));
+
+    const pilot=validateConfig({...env,ROLLANDS_ENV:'pilot'});
+    assert.ok(pilot.fail.some(item=>item.includes('approvedForPilot')));
+    const production=validateConfig({...env,ROLLANDS_ENV:'production'});
+    assert.ok(production.fail.some(item=>item.includes('approvedForPilot')));
+  }finally{fs.rmSync(dir,{recursive:true,force:true})}
+});
+
 test('pilot backup och restore-kommandon skapar och verifierar separata SQLite-filer',()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-deploy-backup-'));
   const dbDir=path.join(dir,'db'),backupDir=path.join(dir,'backups'),restoreDir=path.join(dir,'restore');
