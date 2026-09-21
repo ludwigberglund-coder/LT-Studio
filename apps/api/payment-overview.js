@@ -6,6 +6,20 @@ function overviewError(message,code='PAYMENT_OVERVIEW_ERROR',statusCode=422){con
 function text(v){return String(v??'').trim()}
 function validDate(v){return Reports.validDate(v)}
 function addDays(date,days){const d=new Date(date+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10)}
+function paymentStatusLabel(direction,status){
+  const key=String(direction||'')+':'+String(status||'').trim().toLowerCase();
+  return ({
+    'in:unmatched':'Ej matchad',
+    'in:proposal-created':'Matchningsförslag skapat',
+    'in:reviewed':'Granskad',
+    'in:posted':'Bokförd inbetalning',
+    'in:ignored':'Ignorerad',
+    'out:prepared':'Förberedd – ej frisläppt',
+    'out:released':'Frisläppt – väntar bankbekräftelse',
+    'out:paid':'Betald & bokförd',
+    'out:cancelled':'Avbruten'
+  })[key]||String(status||'');
+}
 function periodBounds({mode='month',date}={}){
   const anchor=text(date);
   if(!validDate(anchor))throw overviewError('Ett giltigt datum krävs för betalningsperioden.','INVALID_PAYMENT_PERIOD_DATE');
@@ -64,6 +78,7 @@ function paymentOverview(db,companyId,{mode='month',date,status='',direction='',
   });
   const incomingOre=rows.filter(r=>r.direction==='in').reduce((s,r)=>s+Number(r.amountOre||0),0);
   const outgoingOre=rows.filter(r=>r.direction==='out').reduce((s,r)=>s+Number(r.amountOre||0),0);
-  return{period:bounds,filters:{status:normalizedStatus||null,direction:normalizedDirection||null,query:normalizedQuery||null,account:normalizedAccount||null,sort:normalizedSort,order:normalizedOrder},summary:{incomingOre,outgoingOre,netOre:incomingOre-outgoingOre,count:rows.length},rows};
+  const displayRows=rows.map(row=>({...row,statusLabel:paymentStatusLabel(row.direction,row.status)}));
+  return{period:bounds,filters:{status:normalizedStatus||null,direction:normalizedDirection||null,query:normalizedQuery||null,account:normalizedAccount||null,sort:normalizedSort,order:normalizedOrder},summary:{incomingOre,outgoingOre,netOre:incomingOre-outgoingOre,count:displayRows.length},rows:displayRows};
 }
-module.exports=Object.freeze({periodBounds,paymentOverview});
+module.exports=Object.freeze({periodBounds,paymentStatusLabel,paymentOverview});
