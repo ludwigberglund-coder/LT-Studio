@@ -162,7 +162,30 @@ function createAdjustment(db,input){return createAdjustmentRecord(db,input).adju
 function createAdjustmentIdempotent(db,input){return createAdjustmentRecord(db,input,{requireRequestId:true})}
 function adjustmentById(db,companyId,adjustmentId){return db.prepare(`SELECT a.id,a.company_id AS companyId,a.item_id AS itemId,a.adjustment_date AS adjustmentDate,a.current_quantity_milli AS currentQuantityMilli,a.counted_quantity_milli AS countedQuantityMilli,a.difference_milli AS differenceMilli,a.reason,a.status,a.counted_by AS countedBy,a.approved_by AS approvedBy,a.approved_at AS approvedAt,a.rejected_by AS rejectedBy,a.rejected_at AS rejectedAt,a.request_id AS requestId,a.created_at AS createdAt,i.sku,i.name,i.unit FROM inventory_adjustments a JOIN inventory_items i ON i.id=a.item_id AND i.company_id=a.company_id WHERE a.company_id=? AND a.id=?`).get(companyId,adjustmentId)||null}
 function listAdjustments(db,companyId,{status='pending'}={}){const allowed=['pending','approved','rejected','all'];const filter=allowed.includes(status)?status:'pending';const base=`SELECT a.id,a.item_id AS itemId,a.adjustment_date AS adjustmentDate,a.current_quantity_milli AS currentQuantityMilli,a.counted_quantity_milli AS countedQuantityMilli,a.difference_milli AS differenceMilli,a.reason,a.status,a.counted_by AS countedBy,a.approved_by AS approvedBy,a.approved_at AS approvedAt,a.created_at AS createdAt,i.sku,i.name,i.unit FROM inventory_adjustments a JOIN inventory_items i ON i.id=a.item_id AND i.company_id=a.company_id WHERE a.company_id=?`;return filter==='all'?db.prepare(`${base} ORDER BY a.created_at DESC`).all(companyId):db.prepare(`${base} AND a.status=? ORDER BY a.created_at DESC`).all(companyId,filter)}
+function movementByAdjustment(db,companyId,adjustmentId){const row=db.prepare(`SELECT id FROM inventory_movements WHERE company_id=? AND reference_type='inventory-adjustment' AND reference_id=? ORDER BY created_at LIMIT 1`).get(companyId,adjustmentId);return row?movementById(db,companyId,row.id):null}
 function approveAdjustment(db,{companyId,adjustmentId,approvedBy}){const adjustment=adjustmentById(db,companyId,adjustmentId);if(!adjustment)throw inventoryError('Lagerjusteringen hittades inte.','ADJUSTMENT_NOT_FOUND',404);if(adjustment.status!=='pending')throw inventoryError('Lagerjusteringen är redan behandlad.','ADJUSTMENT_ALREADY_DECIDED',409);if(adjustment.countedBy===approvedBy)throw inventoryError('Den som inventerade får inte ensam godkänna samma lagerjustering.','SEPARATION_OF_DUTIES_FAILED',409);const current=balanceMilli(db,companyId,adjustment.itemId);if(current!==adjustment.currentQuantityMilli)throw inventoryError('Lagersaldot har ändrats sedan inventeringen. Gör en ny inventering.','STOCK_CHANGED_SINCE_COUNT',409);const movement=addMovement(db,{companyId,itemId:adjustment.itemId,movementDate:adjustment.adjustmentDate,type:'adjustment',quantityMilli:adjustment.differenceMilli,referenceType:'inventory-adjustment',referenceId:adjustment.id,note:adjustment.reason,actorId:approvedBy});const approvedAt=nowIso();db.prepare(`UPDATE inventory_adjustments SET status='approved',approved_by=?,approved_at=? WHERE company_id=? AND id=? AND status='pending'`).run(approvedBy,approvedAt,companyId,adjustmentId);return{adjustment:adjustmentById(db,companyId,adjustmentId),movement}}
+function approveAdjustmentIdempotent(db,input){
+  try{return{...approveAdjustment(db,input),duplicate:false}}
+  catch(error){
+    if(error?.code!=='ADJUSTMENT_ALREADY_DECIDED')throw error;
+    const current=adjustmentById(db,input.companyId,input.adjustmentId);
+    if(current?.status==='approved'&&current.approvedBy===input.approvedBy){
+      const movement=movementByAdjustment(db,input.companyId,input.adjustmentId);
+      if(!movement)throw inventoryError('Den godkända lagerjusteringen saknar sin lagerrörelse.','ADJUSTMENT_MOVEMENT_MISSING',409);
+      return{adjustment:current,movement,duplicate:true};
+    }
+    throw error;
+  }
+}
 function rejectAdjustment(db,{companyId,adjustmentId,rejectedBy}){const adjustment=adjustmentById(db,companyId,adjustmentId);if(!adjustment)throw inventoryError('Lagerjusteringen hittades inte.','ADJUSTMENT_NOT_FOUND',404);if(adjustment.status!=='pending')throw inventoryError('Lagerjusteringen är redan behandlad.','ADJUSTMENT_ALREADY_DECIDED',409);const rejectedAt=nowIso();db.prepare(`UPDATE inventory_adjustments SET status='rejected',rejected_by=?,rejected_at=? WHERE company_id=? AND id=? AND status='pending'`).run(rejectedBy,rejectedAt,companyId,adjustmentId);return adjustmentById(db,companyId,adjustmentId)}
+function rejectAdjustmentIdempotent(db,input){
+  try{return{adjustment:rejectAdjustment(db,input),duplicate:false}}
+  catch(error){
+    if(error?.code!=='ADJUSTMENT_ALREADY_DECIDED')throw error;
+    const current=adjustmentById(db,input.companyId,input.adjustmentId);
+    if(current?.status==='rejected'&&current.rejectedBy===input.rejectedBy)return{adjustment:current,duplicate:true};
+    throw error;
+  }
+}
 
-module.exports=Object.freeze({initializeInventory,createItem,createItemIdempotent,itemById,listItems,balanceMilli,addMovement,addMovementIdempotent,movementById,listMovements,createAdjustment,createAdjustmentIdempotent,adjustmentById,listAdjustments,approveAdjustment,rejectAdjustment,validRequestId});
+module.exports=Object.freeze({initializeInventory,createItem,createItemIdempotent,itemById,listItems,balanceMilli,addMovement,addMovementIdempotent,movementById,movementByAdjustment,listMovements,createAdjustment,createAdjustmentIdempotent,adjustmentById,listAdjustments,approveAdjustment,approveAdjustmentIdempotent,rejectAdjustment,rejectAdjustmentIdempotent,validRequestId});
