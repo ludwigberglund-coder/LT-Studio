@@ -119,8 +119,6 @@ const Settings=require('../apps/api/company-invoice-settings.js');
     await pdfTab.screenshot({path:path.join(out,'private-customer-pdf-view.png')});
     await pdfTab.close();
     assert.deepEqual(await page.evaluate(()=>window.__cspFailures),[]);checks.push('Customer PDF button uses real API invoice and local pinned PDF library');
-    page.once('dialog',dialog=>dialog.accept('Felaktig testfaktura ska krediteras.'));
-    page.once('dialog',dialog=>dialog.accept());
     await page.getByRole('button',{name:'Kreditera faktura',exact:true}).click();
     await page.waitForFunction(()=>document.body.innerText.includes('KREDITFAKTURA')||document.body.innerText.includes('Kreditfaktura'));
     const creditedOriginal=Db.invoiceById(f.db,f.a.id,f.issued.invoice.id);
