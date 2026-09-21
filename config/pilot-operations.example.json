@@ -13,5 +13,5 @@
   "logRetentionDays": 30,
   "backupRetentionDays": 90,
   "approvedForPilot": false,
-  "approvedAt": "YYYY-MM-DD"
+  "approvedAt": null
 }
