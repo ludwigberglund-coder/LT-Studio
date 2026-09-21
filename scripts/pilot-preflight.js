@@ -45,6 +45,7 @@ function validateConfig(env=process.env){
   const databasePath=requireValue('ROLLANDS_DATABASE_PATH');
   const backupPath=requireValue('ROLLANDS_BACKUP_PATH');
   const operationsPath=requireValue('ROLLANDS_PILOT_OPERATIONS_PATH');
+  const offsiteEvidencePath=requireValue('ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH');
   if(databasePath){
     if(!path.isAbsolute(databasePath))fail.push('ROLLANDS_DATABASE_PATH måste vara en absolut sökväg.');
     else if(!outsideRepository(databasePath))fail.push('ROLLANDS_DATABASE_PATH måste ligga utanför Git-repositoryt.');
@@ -66,6 +67,11 @@ function validateConfig(env=process.env){
       if(!operations.ok)operations.fail.forEach(item=>fail.push('Pilot operations: '+item));
       else pass.push(mode==='staging'?'Staging operations responsibilities':'Pilot operations decisions');
     }
+  }
+  if(offsiteEvidencePath){
+    if(!path.isAbsolute(offsiteEvidencePath))fail.push('ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH måste vara en absolut sökväg.');
+    else if(!outsideRepository(offsiteEvidencePath))fail.push('ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH måste ligga utanför Git-repositoryt.');
+    else pass.push('Offsite backup evidence path');
   }
 
   const backupKey=requireValue('ROLLANDS_BACKUP_ENCRYPTION_KEY');
@@ -92,7 +98,7 @@ function validateConfig(env=process.env){
   }else if(databasePath){warn.push('Databasfilen finns inte ännu. Det är normalt före första bootstrap, men kontrollera rättigheter efter skapandet.');}
 
   if(mode==='staging')warn.push('Staging kräver inte approvedForPilot=true. Slutligt pilotgodkännande måste registreras och preflight köras om efter byte till ROLLANDS_ENV=pilot.');
-  warn.push('Preflight kan inte verifiera att HTTPS-certifikat, DNS, extern kopiering av den krypterade backupen, logginsamling eller extern övervakning faktiskt är konfigurerade.');
+  warn.push('Preflight verifierar konfigurerade privata sökvägar men ersätter inte verkligt offsite-upload/readback-bevis, fjärretention, larmleverans, restore-drill, HTTPS/DNS eller central logginsamling.');
   return{pass,fail,warn};
 }
 
