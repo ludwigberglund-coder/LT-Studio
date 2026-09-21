@@ -1,6 +1,6 @@
 # ROLANDS PILOT READINESS CHECKLIST
 
-Senast granskad: 2026-09-20. Företag: Rolands Frukt o Grönt Aktiebolag, 556406-5059.
+Senast granskad: 2026-09-21. Företag: Rolands Frukt o Grönt Aktiebolag, 556406-5059.
 
 **Samlat beslut: ❌ Inte klar för pilot med verkliga verksamhets- eller bokföringsdata.** Detta är en nulägeschecklista, inte ett slutintyg. Se [audit och bevis](PRODUCTION-READINESS-AUDIT-2026-09-18.md) och [uppföljning om historik och rättelser, PR 66](HISTORY-PROTECTION.md).
 
@@ -8,12 +8,12 @@ Senast granskad: 2026-09-20. Företag: Rolands Frukt o Grönt Aktiebolag, 556406
 
 | Kritiskt område | Status | Bevis eller vad som återstår |
 |---|---|---|
-| GitHub som källa, spårbara ändringar | ✅ Klar | Baseline c8bb496; separata grenar/PR:er med kontroller före sammanslagning. |
+| GitHub som källa, spårbara ändringar | 🟡 Delvis klar | Branch → PR → CI används och `Quality and security checks` kör full test-/browserkedja. Verifiering 2026-09-21 visar dock `main` som `protected: false` och inga repository rulesets. BLOCKER #226 kräver tekniskt PR-/CI-skydd innan pilot. |
 | Atomisk lagring av en verifikation | ✅ Klar | PR 62; fel vid andra raden återställer huvud, rader och nummerserie. PR 66 testar även fel i förseglingen. |
 | Identiska/ändrade återförsök på journalnivå | ✅ Klar | PR 62; identiskt återanvänder, ändrat innehåll nekas. |
-| Dubbelklick/idempotens i alla affärsflöden | 🟡 Delvis klar | PR 91 skyddar kundfaktura/kredit. PR 110 verifierar dessutom bankimport, leverantörsfaktura, dokumentarkiv och bokföringsrättelse mot dubbla beständiga objekt. Full mutationsinventering återstår. |
+| Dubbelklick/idempotens i alla affärsflöden | 🟡 Delvis klar | Kundfaktura/kredit och tidigare kärnflöden är skyddade. PR 212 härdar bank, leverantörsbokföring, betalningsförberedelse/-bekräftelse och lön; PR 217 gör lagermutationer retry-säkra; PR 221 gör leverantörsändringar och flera beslut retry-säkra. Fortsatt mutationsinventering krävs när nya skrivflöden tillkommer. |
 | Deklarerade företagsrelationer i SQLite | ✅ Klar | PR 63; kontroll vid start och spärrar för INSERT/UPDATE. Befintlig ogiltig historik stoppar start utan att tas bort. |
-| Fullständig företagsisolering och IDOR | 🟡 Delvis klar | PR 107 utökar objektmatrisen med andra-företags-ID för leverantörsfaktura/PDF, verifikation och dokument samt mutationer med giltig session + CSRF. Hela route/metodmatrisen och polymorfa länkar återstår. |
+| Fullständig företagsisolering och IDOR | 🟡 Delvis klar | PR 206 spärrar polymorfa dokumentlänkar mot fel företag och PR 209 utökar den metodmedvetna HTTP-IDOR-matrisen. PR 223 kör dessutom kund nummer två genom riktig kundfaktura, PDF och bokföring och kräver 404 från företag A. Startup-regler klassificerar privata tabeller efter tenant-scope. Nya routes/objekttyper måste fortsatt omfattas av samma blockerande matris. |
 | Inloggning, sessionscookie, MFA och CSRF | 🟡 Delvis klar | PR 73 verifierar sessionstider, MFA och CSRF. PR 123 gör inloggningsspärren persistent i SQLite över serveromstart. PR 124 ger atomisk rotation av MFA-masterkey och PR 127 tvåpersons kontorecovery med lösenords-/MFA-rotation, sessionsåterkallelse och audit. Verkliga drift-/recoveryövningar återstår. |
 | Oföränderliga bokföringsposter och audit-logg | 🟡 Delvis klar | PR 66: databasspärrar, journalförsegling och kontroller vid start/läsning/restore; auditlogg kan inte skrivas om genom vanlig databasoperation. Oberoende revisionsankare, full arkivtäckning och verklig driftverifiering återstår. |
 | Rättelse med bibehållen originalhistorik | 🟡 Delvis klar | PR 66: atomisk manuell rättelse med moms, originalkoppling och audit. Osäkra fristående rättelser av automatiska poster och 151x/244x nekas. Komplett rättelse som uppdaterar reskontra och betalningsstatus tillsammans återstår. |
@@ -27,14 +27,15 @@ Senast granskad: 2026-09-20. Företag: Rolands Frukt o Grönt Aktiebolag, 556406
 | Kundfordringar, leverantörsskulder, ingående balanser | 🟡 Delvis klar | PR 75 stämmer av aktuellt kundreskontrasaldo mot konto 1510 och flaggar saknad/avvikande källverifikation. PR 76 stämmer av bokförda leverantörsskulder mot konto 2440 och särredovisar ej bokförda leverantörsfakturor. Inga differenser rättas automatiskt. Inga verifierade ingående balans-importer eller kompletta källanknutna rättelseflöden finns ännu. |
 | Lokalt tekniskt backup-/restore-verktyg | 🟡 Delvis klar | PR 64/66/94 verifierar SQLite, journal och dokumentintegritet. PR 116 kan återställa direkt från krypterad backup. PR 119 lägger restore-drill med privat evidens som readiness kan kräva. Verkligt återställningsprov i avsedd driftmiljö återstår. |
 | Krypterad extern backup, retention och larm | 🟡 Delvis klar | PR 116 skapar autentiserat krypterad `.sqlite.enc`. PR 117 ger dry-run-first retention med explicit `--apply`. PR 119 kräver färskt restore-drill-bevis och PR 122 kräver färskt externt monitorerings-/larmbevis i readiness. Faktisk extern lagring, körd retention och verkligt larmtest återstår. |
-| Arkivering av original och långsiktig läsbarhet | 🟡 Delvis klar | PR 91 arkiverar exakt utfärdad kund-/kredit-PDF oföränderligt i den privata databasen. PR 94 gör det allmänna dokumentarkivet fail-closed vid avvikande SHA-256, storlek eller filsignatur och tar med samma kontroll i restore-verifieringen. Extern långtidslagring, retention, arkivexport/återläsning över hela bevarandetiden och driftavtal återstår. |
+| Arkivering av original och långsiktig läsbarhet | 🟡 Delvis klar | Exakt utfärdad kund-/kredit-PDF och dokumentintegritet är skyddade. PR 200 inventerar och SHA-verifierar alla tre privata filflöden, PR 202/204/208 ger recoverable ledger, idempotent planering och verifierad async copy-worker, och PR 213 ger en fail-closed R2 EU-stagingadapter. Ordinarie runtime läser fortfarande SQLite; verklig stagingmigrering, restore av extern objektlagring, retention och produktions-cutover återstår. |
 | Health/readiness, driftlogg och fungerande larm | 🟡 Delvis klar | PR 95 kontrollerar DB, skrivbarhet, disk och backup. PR 119 lägger färskt restore-drill-bevis och PR 122 kräver extern HTTPS-monitorering med nyligen lyckad readiness-probe och verifierad larmleverans. Central logginsamling och verkligt driftbevis återstår. |
 | Secrets-hantering och historikskanning | 🟡 Delvis klar | PR 112 skannar full Git-historik i CI. PR 116 kräver separat backupkrypteringsnyckel och PR 124 ger atomisk rotation av `ROLLANDS_AUTH_ENCRYPTION_KEY` för lagrade MFA-hemligheter med fail-closed förkontroll. Verklig secret manager, genomförd rotation i drift och nyckelretention återstår. |
 | Miljöspärr och separation demo/pilot/produktion | 🟡 Delvis klar | PR 67: bindande startkontroll, privata lagringssökvägar, servernekat demo-query och inga demo-/legacyhjälpfiler. Granskning av befintliga data och verklig drift återstår. |
 | Betalningsöversikt dag/vecka/månad/kvartal | 🟡 Delvis klar | PR 106 samlar in-/utbetalningar i privat vy med dag, ISO-vecka, månad och kvartal samt in/ut/netto-summor. Fler detaljfilter, sortering och browser-UAT återstår. |
 | Filtrerad Excel-kompatibel export | 🟡 Delvis klar | PR 105 lägger autentiserade Excel-kompatibla CSV-exporter för reskontror, fakturor, in-/utbetalningar, verifikationer, kontotransaktioner och momsunderlag med filtervalidering och formelinjektionsskydd. Portalens filterkoppling och full browser-UAT återstår. |
 | Arbetslista och begriplig återkoppling | 🟡 Delvis klar | Flera vyer finns; godkänd får inte kallas bokförd, fel får inte döljas som nollvärden. |
-| Obligatoriska releasekontroller och rollback | 🟡 Delvis klar | CI finns; branch/ruleset, produktionsflöde och databasrollback behöver driftsbevis. |
+| Obligatoriska releasekontroller och rollback | 🟡 Delvis klar | Full CI finns och används före merge, men GitHub tvingar ännu inte fram den: `main` är oskyddad och rulesets saknas. BLOCKER #226 måste stängas. Release-/rollbackverktyg behöver dessutom verkligt staging-/produktionsbevis. |
+| Kund nummer två end-to-end | 🟡 Delvis klar | PR 223 verifierar verifierad svensk faktureringsidentitet och ett komplett företag-B-flöde genom kundregister → kundfaktura → arkiverad PDF → bokföring → tenant-isolerad läsning. Befintliga tester täcker även flera andra kärnmoduler. Riktig staging, backup/restore och UAT för kund nummer två återstår. |
 | Rolands nio UAT-scenarier mot pilotserver | ❌ Inte klar | Befintliga demo- och kodtester ersätter inte ett signerat pilot-UAT. |
 | K2/K3, momsperiod och bolagsspecifika inställningar | 🟡 Delvis klar | PR 111 skiljer verifierade fakta från målbeslut. Kalenderår har offentligt stöd; K2 och månadsvis moms är uttryckligen target-unverified tills signerad årsredovisning respektive Skatteverket kontrollerats. |
 | Driftansvarig, dataskydd, support och pilotstopp | 🟡 Delvis klar | PR 113 gör en extern operationsfil obligatorisk i pilot/produktion och kräver ansvar, incident/supportväg, rollbackprocess, offsite-backupdestination, retention och explicit pilotgodkännande. Verkliga personer/avtal måste fortfarande fyllas i privat. |
@@ -76,3 +77,21 @@ PR 116 är sammanslagen till `main`. Backupverktyget kan skapa en separat AES-25
 ## Verifierad uppföljning 2026-09-20 – auth och driftbevis
 
 Checklistan är synkad mot mergade PR 117, 119, 122, 123, 124 och 127. Det innebär kodbevis för retention, restore-drill, extern monitorerings-/larmgate, persistent inloggningsspärr, atomisk MFA-masterkey-rotation och tvåpersons kontorecovery. Ingen av dessa kodkontroller ersätter verkliga driftövningar, extern leverantörskonfiguration eller full Rolands-UAT. **Samlat beslut är fortsatt NO-GO.**
+
+
+## Konsoliderad status 2026-09-21
+
+Den tekniska basen har flyttats tydligt framåt sedan checklistans tidigare 2026-09-20-läge:
+
+- central privat objektlagringsfactory och fail-fast provider-val är mergade,
+- verifierbart migrationsmanifest, recoverable copy-ledger, idempotent copy-planerare och async copy-worker är mergade,
+- en R2 EU-adapter finns endast för explicit staging och ordinarie runtime är fortsatt SQLite,
+- IDOR-/tenant-matrisen och polymorfa dokumentrelationer har stärkts,
+- finansiella, lager- och leverantörsrelaterade retries har stärkts,
+- kund nummer två kan i CI ställa ut egen faktura med verifierad företagsidentitet, PDF och bokföring utan korsläsning,
+- pseudonymiserade plattformssäkerhetshändelser finns som grund för framtida operatörsövervakning,
+- en operativ försäljningsrapport med tenant-isolerad export är mergad.
+
+Detta ändrar **inte** det samlade pilotbeslutet. **NO-GO kvarstår** tills minst verklig staging/restore/monitorering, GitHub branch protection/ruleset enligt BLOCKER #226, nödvändiga driftuppgifter och signerat Rolands-UAT är verifierade.
+
+Öppna PR:er räknas inte som färdigt bevis förrän de är mergade och deras CI-resultat är godkänt.
