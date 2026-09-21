@@ -38,7 +38,7 @@ function validateConfig(env=process.env){
   };
 
   const mode=requireValue('ROLLANDS_ENV');
-  if(mode&&!['pilot','production'].includes(mode))fail.push('ROLLANDS_ENV måste vara pilot eller production.');
+  if(mode&&!['staging','pilot','production'].includes(mode))fail.push('ROLLANDS_ENV måste vara staging, pilot eller production.');
   if(String(env.NODE_ENV||'')!=='production')fail.push('NODE_ENV måste vara production.');
   if(String(env.ROLLANDS_DEMO_DATA||'0')!=='0')fail.push('ROLLANDS_DEMO_DATA måste vara 0 i pilot/produktion.');
 
@@ -62,9 +62,9 @@ function validateConfig(env=process.env){
     if(!path.isAbsolute(operationsPath))fail.push('ROLLANDS_PILOT_OPERATIONS_PATH måste vara en absolut sökväg.');
     else if(!outsideRepository(operationsPath))fail.push('ROLLANDS_PILOT_OPERATIONS_PATH måste ligga utanför Git-repositoryt.');
     else {
-      const operations=validateOperationsFile(operationsPath);
+      const operations=validateOperationsFile(operationsPath,{requireApproval:['pilot','production'].includes(mode)});
       if(!operations.ok)operations.fail.forEach(item=>fail.push('Pilot operations: '+item));
-      else pass.push('Pilot operations decisions');
+      else pass.push(mode==='staging'?'Staging operations responsibilities':'Pilot operations decisions');
     }
   }
 
@@ -91,6 +91,7 @@ function validateConfig(env=process.env){
     else pass.push('Database file permissions');
   }else if(databasePath){warn.push('Databasfilen finns inte ännu. Det är normalt före första bootstrap, men kontrollera rättigheter efter skapandet.');}
 
+  if(mode==='staging')warn.push('Staging kräver inte approvedForPilot=true. Slutligt pilotgodkännande måste registreras och preflight köras om efter byte till ROLLANDS_ENV=pilot.');
   warn.push('Preflight kan inte verifiera att HTTPS-certifikat, DNS, extern kopiering av den krypterade backupen, logginsamling eller extern övervakning faktiskt är konfigurerade.');
   return{pass,fail,warn};
 }
