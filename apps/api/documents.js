@@ -2,8 +2,7 @@
 
 const crypto=require('node:crypto');
 const PrivateObject=require('./private-object-contract.js');
-const StoreContract=require('./private-object-store-contract.js');
-const DocumentProvider=require('./sqlite-document-private-object-provider.js');
+const StoreFactory=require('./private-object-store-factory.js');
 
 function documentError(message,code='DOCUMENT_ERROR',statusCode=422){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
 function id(prefix){return `${prefix}_${crypto.randomUUID()}`}
@@ -68,9 +67,10 @@ function storeContent(db,{companyId,documentId,bytes}){
     sha256,
     createdAt:completedAt
   });
-  const store=StoreContract.createContractedPrivateObjectStore(
-    DocumentProvider.createSqliteDocumentPrivateObjectProvider(db)
-  );
+  const store=StoreFactory.createPrivateObjectStore({
+    db,
+    kind:PrivateObject.PRIVATE_OBJECT_KINDS.DOCUMENT
+  });
   const savepoint=`document_content_${crypto.randomBytes(8).toString('hex')}`;
   db.exec(`SAVEPOINT ${savepoint}`);
   try{
@@ -92,9 +92,10 @@ function verifyContent(row){if(!row||row.status!=='ready'||!row.bytes)throw docu
 function content(db,companyId,documentId){
   const row=db.prepare(`SELECT file_name AS fileName,mime_type AS mimeType,sha256,size_bytes AS sizeBytes,status FROM documents WHERE company_id=? AND id=?`).get(companyId,documentId);
   if(row){
-    const store=StoreContract.createContractedPrivateObjectStore(
-      DocumentProvider.createSqliteDocumentPrivateObjectProvider(db)
-    );
+    const store=StoreFactory.createPrivateObjectStore({
+      db,
+      kind:PrivateObject.PRIVATE_OBJECT_KINDS.DOCUMENT
+    });
     row.bytes=store.get({companyId,kind:PrivateObject.PRIVATE_OBJECT_KINDS.DOCUMENT,objectId:documentId});
   }
   return verifyContent(row);
