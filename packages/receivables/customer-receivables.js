@@ -186,9 +186,13 @@
     events.sort((a,b) => a.date.localeCompare(b.date) || a.transactionId.localeCompare(b.transactionId));
 
     let principalOre = totalOre;
+    const dailyDeltas = new Map();
     for (const event of events) {
       if (event.date > toDate) continue;
-      principalOre += event.balanceDeltaOre;
+      dailyDeltas.set(event.date,(dailyDeltas.get(event.date)||0)+event.balanceDeltaOre);
+    }
+    for (const [,balanceDeltaOre] of [...dailyDeltas.entries()].sort(([a],[b])=>a.localeCompare(b))) {
+      principalOre += balanceDeltaOre;
       if (principalOre < 0 || principalOre > totalOre) throw domainError('Betalningshistoriken ger ett ogiltigt fakturasaldo och måste granskas manuellt.', 'INVALID_BALANCE_HISTORY', 409);
     }
     const storedRemainingOre = assertOre(invoice?.remainingOre, 'Restbelopp');
