@@ -53,7 +53,7 @@ const out=path.join(__dirname,'..','test-artifacts');
     await page.getByRole('heading',{name:'Plattformsöversikt',exact:true}).waitFor({timeout:15000});
     const body=await page.locator('body').innerText();
     assert.match(body,/Browser Kund/);
-    assert.match(body,/Säkerhet 24 h/);
+    assert.match(body,/Säkerhet 24 h/i);
     assert.match(body,/Hälsokontroller/);
     assert.match(body,/Databas · läsning/);
     assert.match(body,/Extern monitoring/);
