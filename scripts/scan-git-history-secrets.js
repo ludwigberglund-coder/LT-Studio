@@ -13,12 +13,17 @@ const RULES=Object.freeze([
   {id:'stripe-secret',regex:/\bsk_(?:live|test)_[A-Za-z0-9]{20,}\b/}
 ]);
 const PLACEHOLDER=/REPLACE_WITH|example\.invalid|placeholder|changeme|test-only|not-a-login-hash/i;
+const SAFE_PUBLIC_TEST_VALUES=Object.freeze(new Set(['aws-access-key|AKIAIOSFODNN7EXAMPLE']));
 
 function findingsInText(text){
   const findings=[];
   for(const [index,line] of String(text||'').split(/\r?\n/).entries()){
     if(PLACEHOLDER.test(line))continue;
-    for(const rule of RULES)if(rule.regex.test(line))findings.push({rule:rule.id,line:index+1});
+    for(const rule of RULES){
+      const flags=rule.regex.flags.includes('g')?rule.regex.flags:rule.regex.flags+'g';
+      const matches=[...line.matchAll(new RegExp(rule.regex.source,flags))];
+      if(matches.some(match=>!SAFE_PUBLIC_TEST_VALUES.has(rule.id+'|'+match[0])))findings.push({rule:rule.id,line:index+1});
+    }
   }
   return findings;
 }
@@ -69,4 +74,4 @@ function main(){
   console.log('Git-historik kontrollerad: '+report.commitsScanned+' commits, inga högkonfidensfynd.');
 }
 if(require.main===module)main();
-module.exports={RULES,PLACEHOLDER,findingsInText,loadBaseline,scanHistory};
+module.exports={RULES,PLACEHOLDER,SAFE_PUBLIC_TEST_VALUES,findingsInText,loadBaseline,scanHistory};
