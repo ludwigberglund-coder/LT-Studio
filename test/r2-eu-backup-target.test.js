@@ -207,3 +207,60 @@ test('S3-signering kan använda förberäknad SHA-256 för streaming utan att ä
     error=>error.code==='R2_SIGNING_PAYLOAD_HASH_INVALID'
   );
 });
+
+
+test('R2-backup kan laddas ned till ny fil med streaming och verifierad SHA-256',async()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-r2-backup-download-'));
+  try{
+    const artifact=BackupTarget.inspectEncryptedBackup(createArtifact(dir).encrypted);
+    const remote=fakeR2();
+    const config=BackupTarget.configFromEnvironment(testEnv());
+    const target=BackupTarget.createR2EuBackupTarget({config,fetchImpl:remote.fetchImpl});
+    const uploaded=await BackupTarget.uploadEncryptedBackup({artifact,target});
+
+    const downloaded=path.join(dir,'downloaded-'+artifact.basename);
+    const result=await target.getToFile({
+      storageKey:uploaded.storageKey,
+      filename:downloaded,
+      sha256:artifact.sha256,
+      sizeBytes:artifact.sizeBytes
+    });
+
+    assert.equal(result.verified,true);
+    assert.equal(result.sha256,artifact.sha256);
+    assert.equal(result.sizeBytes,artifact.sizeBytes);
+    assert.equal(fs.readFileSync(downloaded).equals(fs.readFileSync(artifact.filename)),true);
+    assert.equal(fs.statSync(downloaded).mode&0o077,0);
+    assert.ok(remote.calls.some(call=>call.method==='GET'&&call.storageKey===uploaded.storageKey));
+  }finally{
+    fs.rmSync(dir,{recursive:true,force:true});
+  }
+});
+
+test('R2-download lämnar ingen användbar fil vid integritetsfel',async()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-r2-backup-download-corrupt-'));
+  try{
+    const artifact=BackupTarget.inspectEncryptedBackup(createArtifact(dir).encrypted);
+    const remote=fakeR2();
+    const config=BackupTarget.configFromEnvironment(testEnv());
+    const target=BackupTarget.createR2EuBackupTarget({config,fetchImpl:remote.fetchImpl});
+    const uploaded=await BackupTarget.uploadEncryptedBackup({artifact,target});
+    const damaged=Buffer.from(remote.objects.get(uploaded.storageKey));
+    damaged[damaged.length-1]^=1;
+    remote.objects.set(uploaded.storageKey,damaged);
+
+    const downloaded=path.join(dir,'corrupt-'+artifact.basename);
+    await assert.rejects(
+      ()=>target.getToFile({
+        storageKey:uploaded.storageKey,
+        filename:downloaded,
+        sha256:artifact.sha256,
+        sizeBytes:artifact.sizeBytes
+      }),
+      error=>error.code==='R2_BACKUP_REMOTE_INTEGRITY_MISMATCH'
+    );
+    assert.equal(fs.existsSync(downloaded),false);
+  }finally{
+    fs.rmSync(dir,{recursive:true,force:true});
+  }
+});
