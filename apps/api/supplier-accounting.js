@@ -43,6 +43,27 @@ function initializeSupplierAccounting(db){
       first_seen_at TEXT NOT NULL,
       PRIMARY KEY(company_id,confirmation_reference)
     ) STRICT;
+    CREATE TABLE IF NOT EXISTS supplier_invoice_date_corrections(
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      invoice_id TEXT NOT NULL REFERENCES supplier_invoices(id) ON DELETE RESTRICT,
+      request_id TEXT NOT NULL,
+      original_entry_id TEXT NOT NULL REFERENCES accounting_entries(id) ON DELETE RESTRICT,
+      reversal_entry_id TEXT NOT NULL REFERENCES accounting_entries(id) ON DELETE RESTRICT,
+      replacement_entry_id TEXT NOT NULL REFERENCES accounting_entries(id) ON DELETE RESTRICT,
+      old_invoice_date TEXT NOT NULL,
+      new_invoice_date TEXT NOT NULL,
+      old_due_date TEXT NOT NULL,
+      new_due_date TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      corrected_by TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+      corrected_at TEXT NOT NULL,
+      UNIQUE(company_id,request_id),
+      UNIQUE(company_id,reversal_entry_id),
+      UNIQUE(company_id,replacement_entry_id)
+    ) STRICT;
+    CREATE INDEX IF NOT EXISTS idx_supplier_invoice_date_corrections_invoice
+      ON supplier_invoice_date_corrections(company_id,invoice_id,corrected_at);
     CREATE TABLE IF NOT EXISTS supplier_payment_attempts(
       id TEXT PRIMARY KEY,
       company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -94,6 +115,7 @@ function initializeSupplierAccounting(db){
         WHERE r.company_id=p.company_id AND r.confirmation_reference=p.confirmation_reference
       )`);
   protectAppendOnly(db,'supplier_payment_confirmation_refs');
+  protectAppendOnly(db,'supplier_invoice_date_corrections');
 }
 
 function operationBySource(db,companyId,operationType,sourceId){return db.prepare(`SELECT company_id AS companyId,operation_type AS operationType,source_id AS sourceId,accounting_entry_id AS accountingEntryId,created_at AS createdAt FROM supplier_accounting_operations WHERE company_id=? AND operation_type=? AND source_id=?`).get(companyId,operationType,sourceId)||null}
@@ -147,6 +169,82 @@ function assertSupplierInvoiceCoding(invoice){
   const costNet=validated.lines.filter(line=>!['2440','2641'].includes(line.account)).reduce((sum,line)=>sum+line.debitOre-line.creditOre,0);
   if(costNet!==invoice.totalOre-invoice.vatOre)throw flowError('Kostnadskonteringens nettobelopp stämmer inte med fakturans belopp exklusive moms.','INVALID_COST_CODING');
   return validated;
+}
+
+
+function supplierInvoiceDateCorrectionByRequest(db,companyId,requestId){
+  return db.prepare(\`SELECT id,company_id AS companyId,invoice_id AS invoiceId,request_id AS requestId,original_entry_id AS originalEntryId,reversal_entry_id AS reversalEntryId,replacement_entry_id AS replacementEntryId,old_invoice_date AS oldInvoiceDate,new_invoice_date AS newInvoiceDate,old_due_date AS oldDueDate,new_due_date AS newDueDate,reason,corrected_by AS correctedBy,corrected_at AS correctedAt FROM supplier_invoice_date_corrections WHERE company_id=? AND request_id=?\`).get(companyId,text(requestId))||null;
+}
+function comparableEntryLines(lines){
+  return (lines||[]).map(line=>({account:String(line.account||''),debitOre:Number(line.debitOre||0),creditOre:Number(line.creditOre||0)}));
+}
+function correctSupplierInvoiceDates(db,{companyId,invoiceId,requestId,newInvoiceDate,newDueDate,reason,actorId}){
+  initializeSupplierAccounting(db);
+  return Db.transaction(db,()=>{
+    const key=text(requestId),cleanReason=text(reason),invoiceDate=text(newInvoiceDate),dueDate=text(newDueDate);
+    if(!validRequestId(key))throw flowError('Ett giltigt request-id krävs för fakturarättelsen.','INVALID_SUPPLIER_INVOICE_CORRECTION_REQUEST_ID',422);
+    if(cleanReason.length<5||cleanReason.length>500)throw flowError('Fakturarättelsen kräver en tydlig orsak på 5–500 tecken.','SUPPLIER_INVOICE_CORRECTION_REASON_REQUIRED',422);
+    if(!Payables.validDate(invoiceDate)||!Payables.validDate(dueDate)||dueDate<invoiceDate)throw flowError('Det nya fakturadatumet eller förfallodatumet är ogiltigt.','INVALID_SUPPLIER_INVOICE_CORRECTION_DATE',422);
+    if(!actorId)throw flowError('Personlig användaridentitet krävs för rättelsen.','PERSONAL_IDENTITY_REQUIRED',401);
+
+    const previous=supplierInvoiceDateCorrectionByRequest(db,companyId,key);
+    if(previous){
+      if(previous.invoiceId!==invoiceId||previous.newInvoiceDate!==invoiceDate||previous.newDueDate!==dueDate||previous.reason!==cleanReason||previous.correctedBy!==actorId)throw flowError('Request-id är redan använt för en annan fakturarättelse.','SUPPLIER_INVOICE_CORRECTION_IDEMPOTENCY_CONFLICT',409);
+      const invoice=supplierInvoiceWithAccountingStatus(db,companyId,invoiceId);
+      const reversal=Accounting.entryById(db,companyId,previous.reversalEntryId),replacement=Accounting.entryById(db,companyId,previous.replacementEntryId);
+      if(!invoice||!reversal||!replacement)throw flowError('Rättelsehistoriken och bokföringen är inte synkroniserade.','SUPPLIER_ACCOUNTING_INTEGRITY_ERROR',500);
+      return{invoice,correction:previous,reversal,replacement,duplicate:true};
+    }
+
+    let invoice=supplierInvoiceWithAccountingStatus(db,companyId,invoiceId);
+    if(!invoice)throw flowError('Leverantörsfakturan hittades inte.','INVOICE_NOT_FOUND',404);
+    if(invoice.status!=='approved'||invoice.accountingStatus!=='posted'||!invoice.liabilityAccountingEntryId)throw flowError('Endast en bokförd och obetald leverantörsfaktura kan få datumet rättat i detta flöde.','SUPPLIER_INVOICE_DATE_CORRECTION_NOT_ALLOWED',409);
+    if(invoice.openAmountOre!==invoice.totalOre)throw flowError('Fakturans öppna reskontrabelopp måste motsvara hela fakturabeloppet innan datumet kan rättas.','SUPPLIER_INVOICE_CORRECTION_OPEN_AMOUNT_MISMATCH',409);
+    if(Payables.paymentByInvoice(db,companyId,invoiceId))throw flowError('Datumet kan inte rättas efter att en betalning har förberetts. Rätta betalningsflödet först.','SUPPLIER_INVOICE_CORRECTION_PAYMENT_EXISTS',409);
+    if(invoice.invoiceDate===invoiceDate&&invoice.dueDate===dueDate)throw flowError('De nya datumen är identiska med fakturans nuvarande datum.','SUPPLIER_INVOICE_CORRECTION_NOOP',409);
+
+    const validated=assertSupplierInvoiceCoding(invoice);
+    const original=Accounting.entryById(db,companyId,invoice.liabilityAccountingEntryId);
+    if(!original)throw flowError('Fakturans aktuella leverantörsskuld saknar bokföringsverifikation.','SUPPLIER_ACCOUNTING_INTEGRITY_ERROR',500);
+    if(original.postingDate!==invoice.invoiceDate)throw flowError('Fakturadatumet och den aktuella leverantörsskuldens bokföringsdatum är inte synkroniserade.','SUPPLIER_ACCOUNTING_INTEGRITY_ERROR',500);
+    if(JSON.stringify(comparableEntryLines(original.lines))!==JSON.stringify(comparableEntryLines(validated.lines)))throw flowError('Den bokförda leverantörsskulden stämmer inte med den attesterade konteringen.','SUPPLIER_ACCOUNTING_INTEGRITY_ERROR',500);
+
+    const correctionId=id('sidir');
+    const reversal=Accounting.postEntry(db,{
+      companyId,
+      postingDate:original.postingDate,
+      description:\`Motverifikation \${original.number} – rättat fakturadatum\`.slice(0,240),
+      sourceType:'supplier-invoice-date-correction-reversal',
+      sourceId:\`\${correctionId}:reversal\`,
+      createdBy:actorId,
+      series:original.series,
+      lines:original.lines.map(line=>({account:line.account,text:\`Rättelse av \${original.number}: \${line.text||original.description}\`,debitOre:line.creditOre,creditOre:line.debitOre}))
+    });
+    if(reversal.duplicate)throw flowError('Motverifikationen finns redan utan motsvarande rättelsehistorik.','SUPPLIER_ACCOUNTING_INTEGRITY_ERROR',500);
+    const replacement=Accounting.postEntry(db,{
+      companyId,
+      postingDate:invoiceDate,
+      description:\`Rättad leverantörsfaktura \${invoice.supplierInvoiceNumber} – \${invoice.supplierName}\`.slice(0,240),
+      sourceType:'supplier-invoice-date-correction-replacement',
+      sourceId:\`\${correctionId}:replacement\`,
+      createdBy:actorId,
+      series:original.series,
+      lines:validated.lines
+    });
+    if(replacement.duplicate)throw flowError('Ersättningsverifikationen finns redan utan motsvarande rättelsehistorik.','SUPPLIER_ACCOUNTING_INTEGRITY_ERROR',500);
+
+    const correctedAt=nowIso();
+    db.prepare(\`INSERT INTO supplier_invoice_date_corrections(id,company_id,invoice_id,request_id,original_entry_id,reversal_entry_id,replacement_entry_id,old_invoice_date,new_invoice_date,old_due_date,new_due_date,reason,corrected_by,corrected_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)\`).run(
+      correctionId,companyId,invoice.id,key,original.id,reversal.entry.id,replacement.entry.id,invoice.invoiceDate,invoiceDate,invoice.dueDate,dueDate,cleanReason,actorId,correctedAt
+    );
+    const updated=db.prepare(\`UPDATE supplier_invoices SET invoice_date=?,due_date=?,liability_accounting_entry_id=?,liability_posted_at=?,updated_at=? WHERE company_id=? AND id=? AND status='approved' AND accounting_status='posted' AND liability_accounting_entry_id=? AND invoice_date=? AND due_date=? AND open_amount_ore=?\`).run(
+      invoiceDate,dueDate,replacement.entry.id,correctedAt,correctedAt,companyId,invoice.id,original.id,invoice.invoiceDate,invoice.dueDate,invoice.totalOre
+    );
+    if(updated.changes!==1)throw flowError('Fakturan ändrades av någon annan under rättelsen.','SUPPLIER_INVOICE_CORRECTION_CONFLICT',409);
+    Db.appendAudit(db,{companyId,userId:actorId,action:'SUPPLIER_INVOICE_DATES_CORRECTED',entityType:'supplier-invoice',entityId:invoice.id,details:{reason:cleanReason,oldInvoiceDate:invoice.invoiceDate,newInvoiceDate:invoiceDate,oldDueDate:invoice.dueDate,newDueDate:dueDate,originalAccountingEntryId:original.id,reversalAccountingEntryId:reversal.entry.id,replacementAccountingEntryId:replacement.entry.id,openAmountOre:invoice.totalOre}});
+    invoice=supplierInvoiceWithAccountingStatus(db,companyId,invoice.id);
+    return{invoice,correction:supplierInvoiceDateCorrectionByRequest(db,companyId,key),originalEntry:original,reversal:reversal.entry,replacement:replacement.entry,duplicate:false};
+  });
 }
 
 function postSupplierInvoice(db,{companyId,invoiceId,actorId}){
@@ -284,4 +382,4 @@ function correctSupplierPayment(db,{companyId,paymentId,requestId,correctionDate
   });
 }
 
-module.exports=Object.freeze({initializeSupplierAccounting,operationBySource,accountingStatus,paymentAttempts,activePaymentAttempt,correctionAttemptByRequest,assertSupplierInvoiceCoding,postSupplierInvoice,paymentForConfirmation,confirmSupplierPayment,correctSupplierPayment});
+module.exports=Object.freeze({initializeSupplierAccounting,operationBySource,accountingStatus,paymentAttempts,activePaymentAttempt,correctionAttemptByRequest,supplierInvoiceDateCorrectionByRequest,assertSupplierInvoiceCoding,postSupplierInvoice,correctSupplierInvoiceDates,paymentForConfirmation,confirmSupplierPayment,correctSupplierPayment});
