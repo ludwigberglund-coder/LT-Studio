@@ -3,8 +3,7 @@
 const crypto=require('node:crypto');
 const Domain=require('../../packages/payables/supplier-invoices.js');
 const PrivateObject=require('./private-object-contract.js');
-const StoreContract=require('./private-object-store-contract.js');
-const SupplierProvider=require('./sqlite-supplier-invoice-private-object-provider.js');
+const StoreFactory=require('./private-object-store-factory.js');
 
 function err(message,code='PAYABLES_ERROR',statusCode=422,details){const e=new Error(message);e.code=code;e.statusCode=statusCode;if(details)e.details=details;return e}
 function id(prefix){return `${prefix}_${crypto.randomUUID()}`}
@@ -93,9 +92,10 @@ function storeDocument(db,{companyId,invoiceId,name,mime='application/pdf',bytes
     sha256:sha,
     createdAt:invoice.createdAt
   });
-  const store=StoreContract.createContractedPrivateObjectStore(
-    SupplierProvider.createSqliteSupplierInvoicePrivateObjectProvider(db)
-  );
+  const store=StoreFactory.createPrivateObjectStore({
+    db,
+    kind:PrivateObject.PRIVATE_OBJECT_KINDS.SUPPLIER_INVOICE
+  });
   const savepoint=`supplier_pdf_${crypto.randomBytes(8).toString('hex')}`;
   db.exec(`SAVEPOINT ${savepoint}`);
   try{
@@ -115,9 +115,10 @@ function storeDocument(db,{companyId,invoiceId,name,mime='application/pdf',bytes
 function document(db,companyId,invoiceId){
   const row=db.prepare(`SELECT document_name AS name,document_mime AS mime,document_sha256 AS sha256 FROM supplier_invoices WHERE company_id=? AND id=?`).get(companyId,invoiceId);
   if(row){
-    const store=StoreContract.createContractedPrivateObjectStore(
-      SupplierProvider.createSqliteSupplierInvoicePrivateObjectProvider(db)
-    );
+    const store=StoreFactory.createPrivateObjectStore({
+      db,
+      kind:PrivateObject.PRIVATE_OBJECT_KINDS.SUPPLIER_INVOICE
+    });
     row.bytes=store.get({companyId,kind:PrivateObject.PRIVATE_OBJECT_KINDS.SUPPLIER_INVOICE,objectId:invoiceId});
   }
   if(!row||!row.bytes)throw err('PDF-underlaget hittades inte.','DOCUMENT_NOT_FOUND',404);
