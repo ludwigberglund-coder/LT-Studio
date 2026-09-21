@@ -57,6 +57,37 @@ test('PDF is same-origin frameable only after object-level authentication',()=>r
   assert.equal(res.headers.get('cache-control'),'no-store');assert.deepEqual(Buffer.from(await res.arrayBuffer()),f.pdf);
   const foreign=await fetch(f.base+'/api/v1/payables/invoices/'+f.otherPayable.id+'/document',{headers});assert.equal(foreign.status,404);assert.equal(foreign.headers.get('x-frame-options'),'DENY');
 }));
+test('bankimport och matchning är idempotenta genom det privata HTTP-API:t',()=>run(async f=>{
+  const headers=await f.login();
+  const input={
+    externalId:'HTTP-BANK-IDEMP-1',
+    bookingDate:'2026-09-20',
+    valueDate:'2026-09-21',
+    amountOre:f.issued.invoice.totalOre,
+    currency:'SEK',
+    reference:f.issued.invoice.ocr||f.issued.invoice.invoiceNumber,
+    message:'Idempotens banktest',
+    payerName:'Fiktiv testkund AB',
+    payerAccount:'SE0000000000000000000000'
+  };
+  const first=await json(f.base,'/api/v1/bank/payments',headers,'POST',input);
+  assert.equal(first.res.status,201);assert.equal(first.data.duplicate,false);
+  const retry=await json(f.base,'/api/v1/bank/payments',headers,'POST',input);
+  assert.equal(retry.res.status,200);assert.equal(retry.data.duplicate,true);assert.equal(retry.data.payment.id,first.data.payment.id);
+
+  const conflict=await json(f.base,'/api/v1/bank/payments',headers,'POST',{...input,amountOre:input.amountOre+100});
+  assert.equal(conflict.res.status,409);assert.equal(conflict.data.code,'BANK_IDEMPOTENCY_CONFLICT');
+
+  const firstMatch=await json(f.base,`/api/v1/bank/payments/${first.data.payment.id}/match`,headers,'POST');
+  assert.equal(firstMatch.res.status,200);assert.equal(firstMatch.data.duplicate,false);assert.ok(firstMatch.data.proposal?.id);
+  const secondMatch=await json(f.base,`/api/v1/bank/payments/${first.data.payment.id}/match`,headers,'POST');
+  assert.equal(secondMatch.res.status,200);assert.equal(secondMatch.data.duplicate,true);assert.equal(secondMatch.data.proposal.id,firstMatch.data.proposal.id);
+
+  const audit=Db.auditForCompany(f.db,f.a.id);
+  assert.equal(audit.filter(x=>x.action==='BANK_PAYMENT_IMPORTED'&&x.entityId===first.data.payment.id).length,1);
+  assert.equal(audit.filter(x=>x.action==='BANK_PAYMENT_MATCH_PROPOSED'&&x.entityId===first.data.payment.id).length,1);
+}));
+
 test('draft revision schema migration is repeatable and preserves existing content',()=>run(async f=>{
   const before=Cms.state(f.db,f.a.id);f.db.exec('ALTER TABLE website_cms_state DROP COLUMN draft_revision');
   Cms.initializeWebsiteCms(f.db);const migrated=Cms.state(f.db,f.a.id);
