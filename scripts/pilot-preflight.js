@@ -61,6 +61,21 @@ function validateConfig(env=process.env){
   if(String(env.NODE_ENV||'')!=='production')fail.push('NODE_ENV måste vara production.');
   if(String(env.ROLLANDS_DEMO_DATA||'0')!=='0')fail.push('ROLLANDS_DEMO_DATA måste vara 0 i pilot/produktion.');
 
+  if(mode==='staging'){
+    const dataClassification=String(env.ROLLANDS_DATA_CLASSIFICATION||'').trim().toLowerCase();
+    const realDataAllowed=String(env.ROLLANDS_REAL_DATA_ALLOWED||'').trim();
+    if(dataClassification!=='synthetic'){
+      fail.push('ROLLANDS_DATA_CLASSIFICATION måste vara synthetic i staging. Verklig kunddata får inte användas.');
+    }else{
+      pass.push('Synthetic-only staging data classification');
+    }
+    if(realDataAllowed!=='0'){
+      fail.push('ROLLANDS_REAL_DATA_ALLOWED måste uttryckligen vara 0 i staging.');
+    }else{
+      pass.push('Real customer data disabled in staging');
+    }
+  }
+
   const databasePath=requireValue('ROLLANDS_DATABASE_PATH');
   const backupPath=requireValue('ROLLANDS_BACKUP_PATH');
   const operationsPath=requireValue('ROLLANDS_PILOT_OPERATIONS_PATH');
