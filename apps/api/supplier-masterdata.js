@@ -80,21 +80,17 @@ function createChangeRequest(db,{companyId,supplierId,kind,changes,requestedBy,r
       return{request:existing,duplicate:true};
     }
   }
-  if(kind==='profile'){
-    const current=snapshot(supplier),alreadyApplied=Object.entries(clean).every(([name,value])=>text(current[name])===text(value));
-    if(alreadyApplied){
-      const row=db.prepare(`SELECT id FROM supplier_change_requests WHERE company_id=? AND supplier_id=? AND kind='profile' AND status='approved' AND requested_by=? AND changes_json=? ORDER BY requested_at DESC LIMIT 1`).get(companyId,supplierId,requestedBy,JSON.stringify(clean));
-      if(row)return{request:changeRequestById(db,companyId,row.id),duplicate:true};
-      throw masterdataError('Leverantörsuppgifterna har redan dessa värden.','NO_SUPPLIER_CHANGE',409);
-    }
-  }
-  if(kind==='payment-details'){
-    const pending=db.prepare(`SELECT id FROM supplier_change_requests WHERE company_id=? AND supplier_id=? AND kind='payment-details' AND status='pending'`).get(companyId,supplierId);
-    if(pending)throw masterdataError('Det finns redan en väntande ändring av betalningsuppgifter.','PAYMENT_CHANGE_PENDING',409,{requestId:pending.id});
+  const current=snapshot(supplier),alreadyApplied=Object.entries(clean).every(([name,value])=>text(current[name])===text(value));
+  if(alreadyApplied){
+    const row=db.prepare(`SELECT id FROM supplier_change_requests WHERE company_id=? AND supplier_id=? AND kind=? AND status='approved' AND requested_by=? AND changes_json=? ORDER BY requested_at DESC LIMIT 1`).get(companyId,supplierId,kind,requestedBy,JSON.stringify(clean));
+    if(row)return{request:changeRequestById(db,companyId,row.id),duplicate:true};
+    throw masterdataError(kind==='payment-details'?'Betalningsuppgifterna har redan dessa värden.':'Leverantörsuppgifterna har redan dessa värden.','NO_SUPPLIER_CHANGE',409);
   }
   const requestId=id('schg'),requestedAt=nowIso();
   db.prepare(`INSERT INTO supplier_change_requests(id,company_id,supplier_id,kind,changes_json,status,requested_by,requested_at,request_key) VALUES(?,?,?,?,?,'pending',?,?,?)`).run(requestId,companyId,supplierId,kind,JSON.stringify(clean),requestedBy,requestedAt,key||null);
-  const request=kind==='profile'?approveProfileChange(db,{companyId,requestId,actorId:requestedBy}):changeRequestById(db,companyId,requestId);
+  const request=kind==='profile'
+    ?approveProfileChange(db,{companyId,requestId,actorId:requestedBy})
+    :activatePaymentChange(db,{companyId,requestId,actorId:requestedBy});
   return{request,duplicate:false};
 }
 function requestChange(db,input){return createChangeRequest(db,input).request}
@@ -104,6 +100,7 @@ function listPending(db,companyId){return db.prepare(`SELECT r.id,r.supplier_id 
 function applyChanges(db,supplier,changes){const next={...snapshot(supplier),...changes};db.prepare(`UPDATE suppliers SET name=?,org_number=?,email=?,bankgiro=?,plusgiro=?,default_cost_account=?,updated_at=? WHERE company_id=? AND id=?`).run(next.name,text(next.orgNumber)||null,text(next.email)||null,text(next.bankgiro)||null,text(next.plusgiro)||null,text(next.defaultCostAccount)||null,nowIso(),supplier.companyId,supplier.id);return Payables.supplierById(db,supplier.companyId,supplier.id)}
 function appendHistory(db,{companyId,supplierId,requestId,changeType,before,after,changedBy}){db.prepare(`INSERT INTO supplier_change_history(id,company_id,supplier_id,request_id,change_type,before_json,after_json,changed_by,changed_at) VALUES(?,?,?,?,?,?,?,?,?)`).run(id('shist'),companyId,supplierId,requestId,changeType,JSON.stringify(before),JSON.stringify(after),changedBy,nowIso())}
 function approveProfileChange(db,{companyId,requestId,actorId}){const request=changeRequestById(db,companyId,requestId);if(!request||request.kind!=='profile'||request.status!=='pending')throw masterdataError('Profiländringen kan inte behandlas.','INVALID_CHANGE_STATUS',409);const supplier=Payables.supplierById(db,companyId,request.supplierId),before=snapshot(supplier),updated=applyChanges(db,supplier,request.changes),after=snapshot(updated),time=nowIso();db.prepare(`UPDATE supplier_change_requests SET status='approved',approved_by=?,approved_at=? WHERE company_id=? AND id=?`).run(actorId,time,companyId,requestId);appendHistory(db,{companyId,supplierId:supplier.id,requestId,changeType:'profile',before,after,changedBy:actorId});return changeRequestById(db,companyId,requestId)}
+function activatePaymentChange(db,{companyId,requestId,actorId}){const request=changeRequestById(db,companyId,requestId);if(!request||request.kind!=='payment-details'||request.status!=='pending')throw masterdataError('Betalningsändringen kan inte behandlas.','INVALID_CHANGE_STATUS',409);const supplier=Payables.supplierById(db,companyId,request.supplierId),before=snapshot(supplier),updated=applyChanges(db,supplier,request.changes),after=snapshot(updated),time=nowIso();db.prepare(`UPDATE supplier_change_requests SET status='approved',approved_by=?,approved_at=? WHERE company_id=? AND id=?`).run(actorId,time,companyId,requestId);appendHistory(db,{companyId,supplierId:supplier.id,requestId,changeType:'payment-details',before,after,changedBy:actorId});return changeRequestById(db,companyId,requestId)}
 function approvePaymentChange(db,{companyId,requestId,approvedBy}){const request=changeRequestById(db,companyId,requestId);if(!request)throw masterdataError('Ändringsbegäran hittades inte.','CHANGE_NOT_FOUND',404);if(request.kind!=='payment-details'||request.status!=='pending')throw masterdataError('Betalningsändringen kan inte godkännas.','INVALID_CHANGE_STATUS',409);if(request.requestedBy===approvedBy)throw masterdataError('En annan person måste godkänna ändringen av betalningsuppgifter.','SEPARATION_OF_DUTIES_FAILED',409);const supplier=Payables.supplierById(db,companyId,request.supplierId),before=snapshot(supplier),updated=applyChanges(db,supplier,request.changes),after=snapshot(updated),time=nowIso();db.prepare(`UPDATE supplier_change_requests SET status='approved',approved_by=?,approved_at=? WHERE company_id=? AND id=?`).run(approvedBy,time,companyId,requestId);appendHistory(db,{companyId,supplierId:supplier.id,requestId,changeType:'payment-details',before,after,changedBy:approvedBy});return{request:changeRequestById(db,companyId,requestId),supplier:publicSupplier(updated)}}
 function rejectPaymentChange(db,{companyId,requestId,rejectedBy,reason}){const request=changeRequestById(db,companyId,requestId);if(!request)throw masterdataError('Ändringsbegäran hittades inte.','CHANGE_NOT_FOUND',404);if(request.kind!=='payment-details'||request.status!=='pending')throw masterdataError('Betalningsändringen kan inte avvisas.','INVALID_CHANGE_STATUS',409);const time=nowIso();db.prepare(`UPDATE supplier_change_requests SET status='rejected',rejected_by=?,rejected_at=?,decision_reason=? WHERE company_id=? AND id=?`).run(rejectedBy,time,text(reason).slice(0,500)||null,companyId,requestId);return changeRequestById(db,companyId,requestId)}
 function history(db,companyId,supplierId){return db.prepare(`SELECT id,request_id AS requestId,change_type AS changeType,before_json AS beforeJson,after_json AS afterJson,changed_by AS changedBy,changed_at AS changedAt FROM supplier_change_history WHERE company_id=? AND supplier_id=? ORDER BY changed_at DESC`).all(companyId,supplierId).map(row=>({...row,before:JSON.parse(row.beforeJson),after:JSON.parse(row.afterJson)}))}
