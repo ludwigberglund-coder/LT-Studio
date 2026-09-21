@@ -8,6 +8,8 @@ const path=require('node:path');
 const {DatabaseSync}=require('node:sqlite');
 const {spawnSync}=require('node:child_process');
 const {bootstrapSyntheticStaging,SYNTHETIC_TENANTS}=require('../scripts/bootstrap-staging-synthetic.js');
+const {assertSyntheticStagingDatabase}=require('../apps/api/staging-data-policy.js');
+const Db=require('../apps/api/database.js');
 
 const root=path.resolve(__dirname,'..');
 
@@ -130,5 +132,31 @@ test('synthetic staging bootstrap rejects a path whose real parent resolves insi
       /utanför Git-repositoryt/
     );
     assert.equal(fs.existsSync(path.join(root,'should-never-exist.sqlite')),false);
+  }finally{fs.rmSync(dir,{recursive:true,force:true})}
+});
+
+
+test('staging runtime gate accepts only the approved synthetic bootstrap database',()=>{
+  const {dir,env}=fixture();
+  try{
+    bootstrapSyntheticStaging({env,root});
+    const db=Db.openDatabase(env.ROLLANDS_DATABASE_PATH);
+    try{
+      const result=assertSyntheticStagingDatabase(db,env);
+      assert.equal(result.required,true);
+      assert.equal(result.ok,true);
+      assert.equal(result.companies,2);
+    }finally{db.close()}
+  }finally{fs.rmSync(dir,{recursive:true,force:true})}
+});
+
+test('staging runtime gate refuses a database containing any non-approved company identity',()=>{
+  const {dir,env}=fixture();
+  try{
+    const db=Db.openDatabase(env.ROLLANDS_DATABASE_PATH);
+    try{
+      Db.createCompany(db,{legalName:'Example Real-Looking Customer AB',displayName:'Example Customer',orgNumber:'559999-9999'});
+      assert.throws(()=>assertSyntheticStagingDatabase(db,env),error=>error?.code==='UNSAFE_STAGING_DATA');
+    }finally{db.close()}
   }finally{fs.rmSync(dir,{recursive:true,force:true})}
 });
