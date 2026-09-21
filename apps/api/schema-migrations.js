@@ -16,8 +16,8 @@ const MIGRATIONS=Object.freeze([
     version:2,
     id:'customer-archive-2026-09-21-v2',
     name:'customer-archive-and-safe-removal-2026-09-21',
-    description:'Add non-destructive customer archival state so invoice history can be preserved while archived customers are excluded from new invoicing.',
-    sql:'ALTER TABLE customers ADD COLUMN archived_at TEXT; CREATE INDEX IF NOT EXISTS idx_customers_company_archived ON customers(company_id,archived_at,customer_number);'
+    description:'Record the compatible customer archival schema upgrade after startup has ensured the additive archived_at column exists.',
+    sql:''
   })
 ]);
 
