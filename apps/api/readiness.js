@@ -162,7 +162,7 @@ function monitoringEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_MONITORING
     if(provider.length<2||alertRoute.length<3)return{ok:false,ageMs:null,alertAgeMs:null};
     let parsed;try{parsed=new URL(endpoint)}catch{return{ok:false,ageMs:null,alertAgeMs:null}}
     if(parsed.protocol!=='https:'||parsed.hostname==='localhost'||parsed.hostname==='127.0.0.1'||parsed.hostname==='::1')return{ok:false,ageMs:null,alertAgeMs:null};
-    if(!parsed.pathname.endsWith('/api/v1/readiness'))return{ok:false,ageMs:null,alertAgeMs:null};
+    if(parsed.pathname!=='/api/v1/readiness/core')return{ok:false,ageMs:null,alertAgeMs:null};
     const checkedAt=Date.parse(String(value.checkedAt||'')),alertTestedAt=Date.parse(String(value.alertTestedAt||''));
     if(!Number.isFinite(checkedAt)||!Number.isFinite(alertTestedAt)||checkedAt>now+5*60*1000||alertTestedAt>now+5*60*1000)return{ok:false,ageMs:null,alertAgeMs:null};
     const ageMs=Math.max(0,now-checkedAt),alertAgeMs=Math.max(0,now-alertTestedAt);
