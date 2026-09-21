@@ -65,6 +65,45 @@
       return{groups:visibleGroups({authenticated:session?.authenticated===true}),session};
     }catch{return{groups:[],session:null}}
   }
+  function avatarInitials(name){return String(name||'Användare').trim().split(/\s+/).filter(Boolean).map(part=>part[0]).join('').slice(0,2).toUpperCase()||'AN';}
+  async function mountUserMenu(){
+    const topbar=document.querySelector('.topbar');if(!topbar)return;
+    if(topbar.querySelector('.shared-user-menu'))return;
+    const context=await navigationContext();
+    const existing=topbar.querySelector('.user-chip');if(existing)existing.remove();
+    const wrap=document.createElement('div');wrap.className='shared-user-menu';
+    const button=document.createElement('button');button.type='button';button.className='shared-user-trigger';button.setAttribute('aria-haspopup','true');button.setAttribute('aria-expanded','false');
+    const displayName=demo?'Demoanvändare':String(context.session?.user?.displayName||context.session?.user?.username||'Användare');
+    const avatar=document.createElement('span');avatar.className='shared-user-avatar';avatar.textContent=avatarInitials(displayName);
+    const label=document.createElement('span');label.className='shared-user-label';
+    const name=document.createElement('strong');name.textContent=displayName;
+    const company=document.createElement('small');company.textContent=demo?'Demoläge':String(context.session?.company?.name||'Företaget');
+    label.append(name,company);button.append(avatar,label);
+    const menu=document.createElement('div');menu.className='shared-user-dropdown';menu.hidden=true;
+    const profile=document.createElement('a');profile.href=href('portal/dashboard.html');profile.textContent='Profil & översikt';menu.append(profile);
+    if(demo){
+      const leave=document.createElement('a');leave.href=href('./');leave.textContent='Lämna demon';menu.append(leave);
+    }else if(context.session?.authenticated===true){
+      const logout=document.createElement('button');logout.type='button';logout.textContent='Logga ut';
+      logout.addEventListener('click',async()=>{
+        logout.disabled=true;
+        const csrf=sessionStorage.getItem('rollands-csrf')||'';
+        try{
+          const response=await fetch('/api/v1/auth/logout',{method:'POST',credentials:'same-origin',headers:{Accept:'application/json',...(csrf?{'X-CSRF-Token':csrf}:{})}});
+          if(!response.ok)throw new Error('Utloggningen misslyckades.');
+          sessionStorage.removeItem('rollands-csrf');
+          location.href=href('portal/index.html');
+        }catch{
+          logout.disabled=false;
+          logout.textContent='Försök logga ut igen';
+        }
+      });
+      menu.append(logout);
+    }
+    button.addEventListener('click',()=>{const open=menu.hidden;menu.hidden=!open;button.setAttribute('aria-expanded',String(open));});
+    document.addEventListener('click',event=>{if(!wrap.contains(event.target)){menu.hidden=true;button.setAttribute('aria-expanded','false');}});
+    wrap.append(button,menu);topbar.append(wrap);
+  }
   async function mount(){
     const sidebar=document.querySelector('.sidebar');if(!sidebar)return;
     const route=location.pathname+location.hash;
@@ -99,7 +138,7 @@
     if(!sidebar.dataset.scrollBound){sidebar.addEventListener('scroll',()=>{try{sessionStorage.setItem(key+':scroll',String(sidebar.scrollTop))}catch{}});sidebar.dataset.scrollBound='1';}
   }
   let pending=false;
-  function schedule(){if(pending)return;pending=true;queueMicrotask(async()=>{pending=false;await mount();});}
+  function schedule(){if(pending)return;pending=true;queueMicrotask(async()=>{pending=false;await Promise.all([mount(),mountUserMenu()]);});}
   // Renders can replace the entire sidebar. Stay subscribed instead of disconnecting after boot.
   new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true});
   addEventListener('hashchange',schedule);
@@ -107,5 +146,5 @@
   addEventListener('focus',ensureFreshRuntime);
   addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')ensureFreshRuntime();});
   setInterval(ensureFreshRuntime,30000);
-  root.RollandsNavigation={groups,mount,href};ensureFreshRuntime();mount();
+  root.RollandsNavigation={groups,mount,mountUserMenu,href};ensureFreshRuntime();mount();mountUserMenu();
 })(globalThis);
