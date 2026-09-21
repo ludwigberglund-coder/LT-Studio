@@ -9,6 +9,7 @@ const Bank=require('../apps/api/bank-payments.js');
 const Queues=require('../apps/api/queues.js');
 const Matcher=require('../packages/automation/bank-payment-matcher.js');
 const CustomerPayment=require('../apps/api/customer-payment-posting.js');
+const Receivables=require('../packages/receivables/customer-receivables.js');
 const {createServer}=require('../apps/api/server.js');
 
 const MFA_SECRET='GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
@@ -148,6 +149,9 @@ test('delbetalning minskar restbeloppet atomiskt och en senare betalning kan slu
     assert.equal(firstAudit.details.partialPayment,true);
     assert.equal(firstAudit.details.remainingBeforeOre,125000);
     assert.equal(firstAudit.details.remainingAfterOre,75000);
+    const receivableAfterFirst=Db.listReceivables(db,ctx.company.id).find(row=>row.id===ctx.invoice.id);
+    const history=Receivables.interestBalanceHistory(receivableAfterFirst,'2026-09-21');
+    assert.equal(history.balanceOre,75000);
 
     const secondBank=Bank.create(db,{companyId:ctx.company.id,externalId:'BANK-PART-2',bookingDate:'2026-09-21',amountOre:75000,reference:ctx.invoice.invoiceNumber,payerName:'Kundbetalning Test AB',createdBy:ctx.user.id}).payment;
     const secondAnalysis=Matcher.analyzeIncomingPayment(secondBank,Db.listReceivables(db,ctx.company.id));
