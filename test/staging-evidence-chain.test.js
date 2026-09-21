@@ -146,7 +146,7 @@ function fixture(){
   write(monitorPath,{
     schemaVersion:1,
     provider:'Extern monitor',
-    endpoint:'https://staging.example.se/api/v1/readiness',
+    endpoint:'https://staging.example.se/api/v1/readiness/core',
     alertRoute:'driftjour',
     checkedAt:new Date(now-20*60*1000).toISOString(),
     alertTestedAt:new Date(now-25*60*1000).toISOString(),
