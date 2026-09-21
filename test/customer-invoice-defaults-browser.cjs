@@ -2,45 +2,12 @@
 
 const assert=require('node:assert/strict');
 const http=require('node:http');
-const fs=require('node:fs');
-const path=require('node:path');
 const {chromium}=require('playwright');
 const Db=require('../apps/api/database.js');
 const Auth=require('../apps/api/auth.js');
 const Invoicing=require('../apps/api/customer-invoicing.js');
 const {createServer}=require('../apps/api/server.js');
 
-function contentType(file){
-  const ext=path.extname(file);
-  return ext==='.html'?'text/html; charset=utf-8':ext==='.js'?'text/javascript; charset=utf-8':ext==='.css'?'text/css; charset=utf-8':'application/octet-stream';
-}
-function proxy(backendPort){
-  const portalRoot=path.resolve(__dirname,'..','apps','portal');
-  const sharedRoot=path.resolve(__dirname,'..','apps','shared');
-  return http.createServer((req,res)=>{
-    const url=new URL(req.url,'http://localhost');
-    if(url.pathname.startsWith('/api/v1/')){
-      const p=http.request({host:'127.0.0.1',port:backendPort,path:req.url,method:req.method,headers:req.headers},up=>{
-        res.writeHead(up.statusCode||500,up.headers);
-        up.pipe(res);
-      });
-      req.pipe(p);
-      return;
-    }
-    let file;
-    if(url.pathname.startsWith('/shared/'))file=path.resolve(sharedRoot,url.pathname.slice('/shared/'.length));
-    else{
-      const rel=url.pathname==='/'?'customers.html':url.pathname.replace(/^\/portal\//,'').replace(/^\/+/, '');
-      file=path.resolve(portalRoot,rel);
-    }
-    if(!file.startsWith(portalRoot)&&!file.startsWith(sharedRoot)){res.writeHead(403);res.end('Forbidden');return}
-    fs.readFile(file,(error,bytes)=>{
-      if(error){res.writeHead(404);res.end('Not found');return}
-      res.writeHead(200,{'Content-Type':contentType(file)});
-      res.end(bytes);
-    });
-  });
-}
 async function listen(server){
   await new Promise((resolve,reject)=>server.listen(0,'127.0.0.1',error=>error?reject(error):resolve()));
   return server.address().port;
@@ -52,7 +19,7 @@ async function close(server){
 (async()=>{
   const db=Db.openDatabase(':memory:');
   const runtime=createServer({db,host:'127.0.0.1',secureCookies:false});
-  let portal,browser;
+  let browser;
   try{
     const company=Db.createCompany(db,{legalName:'Kundstandard AB',displayName:'Kundstandard',orgNumber:'559944-1001'});
     const user=Db.createUser(db,{username:'defaults.browser',displayName:'Defaults Browser',passwordHash:'test-only'});
@@ -68,16 +35,14 @@ async function close(server){
       expiresAt:'2099-01-01T00:00:00.000Z',absoluteExpiresAt:'2099-01-01T00:00:00.000Z'
     });
 
-    const backendPort=await listen(runtime.server);
-    portal=proxy(backendPort);
-    const port=await listen(portal),base='http://127.0.0.1:'+port;
+    const port=await listen(runtime.server),base='http://127.0.0.1:'+port;
     browser=await chromium.launch({headless:true});
     const context=await browser.newContext();
     await context.addCookies([{name:'rollands_session',value:token,url:base}]);
     const page=await context.newPage();
     await page.addInitScript(value=>sessionStorage.setItem('rollands-csrf',value),csrf);
 
-    await page.goto(base+'/customers.html',{waitUntil:'networkidle'});
+    await page.goto(base+'/portal/customers.html',{waitUntil:'networkidle'});
     await page.getByRole('button',{name:'Redigera',exact:true}).click();
     await page.locator('input[name="paymentTermsDays"]').fill('14');
     await page.locator('input[name="ourReference"]').fill('Anna Sälj');
@@ -90,7 +55,7 @@ async function close(server){
     assert.equal(stored.ourReference,'Anna Sälj');
     assert.equal(stored.yourReference,'PO-4477');
 
-    await page.goto(base+'/invoices.html?resume=1',{waitUntil:'networkidle'});
+    await page.goto(base+'/portal/invoices.html?resume=1',{waitUntil:'networkidle'});
     await page.getByRole('heading',{name:'Ny kundfaktura',exact:true}).waitFor();
     await page.locator('select[name="customerNumber"]').selectOption('K-1001');
     await page.locator('input[name="ourReference"]').waitFor();
@@ -130,7 +95,6 @@ async function close(server){
     console.log('Customer invoice defaults browser UAT: OK');
   }finally{
     if(browser)await browser.close();
-    if(portal)await close(portal);
     await close(runtime.server);
     try{db.close()}catch{}
   }
