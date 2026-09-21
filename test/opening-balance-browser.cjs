@@ -73,7 +73,8 @@ const out=path.join(__dirname,'..','test-artifacts');
     const ibRow=page.locator('[data-entry]').filter({hasText:'IB1'});
     await ibRow.click();
     assert.equal(await page.locator('#correction-form').count(),0);
-    assert.match(await page.locator('.entry-detail').innerText(),/rättas inte genom det generella rättelseflödet/i);
+    const selectedDetail=page.locator('.accounting-grid > article.panel').first().locator('.entry-detail');
+    assert.match(await selectedDetail.innerText(),/rättas inte genom det generella rättelseflödet/i);
     checks.push({kind:'generic-correction-hidden'});
 
     const response=await page.evaluate(()=>fetch('/api/v1/accounting/opening-balances/2026',{credentials:'same-origin'}).then(async r=>({status:r.status,body:await r.json()})));
