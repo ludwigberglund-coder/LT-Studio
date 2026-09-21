@@ -38,14 +38,28 @@ function byExternalId(db,companyId,externalId){return row(db.prepare(`${SELECT} 
 
 function create(db,input){
   const companyId=text(input.companyId),externalId=text(input.externalId),bookingDate=text(input.bookingDate),currency=text(input.currency||'SEK').toUpperCase();
+  const valueDate=text(input.valueDate)||null,reference=text(input.reference)||null,message=text(input.message)||null,payerName=text(input.payerName)||null,payerAccount=text(input.payerAccount)||null;
   if(!companyId||!externalId)throw error('Företag och bankens externa id krävs.','INVALID_BANK_ID');
   if(!/^\d{4}-\d{2}-\d{2}$/.test(bookingDate))throw error('Bokföringsdatum för bankhändelsen är ogiltigt.','INVALID_BANK_DATE');
   if(!Number.isSafeInteger(input.amountOre)||input.amountOre<=0)throw error('Inbetalningen måste vara ett positivt heltalsbelopp i ören.','INVALID_BANK_AMOUNT');
   if(currency!=='SEK')throw error('Den första versionen stöder endast SEK.','UNSUPPORTED_CURRENCY');
-  const existing=byExternalId(db,companyId,externalId);if(existing)return {payment:existing,duplicate:true};
+  const existing=byExternalId(db,companyId,externalId);
+  if(existing){
+    const matches=
+      existing.bookingDate===bookingDate&&
+      (existing.valueDate||null)===valueDate&&
+      existing.amountOre===input.amountOre&&
+      existing.currency===currency&&
+      (existing.reference||null)===reference&&
+      (existing.message||null)===message&&
+      (existing.payerName||null)===payerName&&
+      (existing.payerAccount||null)===payerAccount;
+    if(!matches)throw error('Bankens externa id är redan importerat med andra uppgifter.','BANK_IDEMPOTENCY_CONFLICT',409);
+    return {payment:existing,duplicate:true};
+  }
   const createdAt=nowIso(),paymentId=input.id||id();
   db.prepare(`INSERT INTO bank_payments(id,company_id,external_id,booking_date,value_date,amount_ore,currency,reference,message,payer_name,payer_account,status,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
-    paymentId,companyId,externalId,bookingDate,text(input.valueDate)||null,input.amountOre,currency,text(input.reference)||null,text(input.message)||null,text(input.payerName)||null,text(input.payerAccount)||null,'unmatched',text(input.createdBy)||null,createdAt,createdAt
+    paymentId,companyId,externalId,bookingDate,valueDate,input.amountOre,currency,reference,message,payerName,payerAccount,'unmatched',text(input.createdBy)||null,createdAt,createdAt
   );
   return {payment:byId(db,companyId,paymentId),duplicate:false};
 }
