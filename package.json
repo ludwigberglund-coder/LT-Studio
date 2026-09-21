@@ -49,7 +49,10 @@
     "pilot:restore:r2-drill": "node scripts/pilot-restore-drill-r2.js",
     "staging:monitoring:evidence": "node scripts/staging-monitoring-evidence.js",
     "staging:uat:verify": "node scripts/pilot-uat-evidence.js",
-    "staging:signoff": "node scripts/staging-signoff.js"
+    "staging:signoff": "node scripts/staging-signoff.js",
+    "audit:anchor:create": "node scripts/audit-anchor.js",
+    "audit:anchor:verify": "node scripts/audit-anchor.js --verify",
+    "audit:anchor:r2": "node scripts/audit-anchor-r2.js"
   },
   "engines": {
     "node": ">=24"
