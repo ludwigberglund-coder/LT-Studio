@@ -42,13 +42,13 @@ function uatFixture(overrides={}){
 function signoffFixture(dir){
   fs.mkdirSync(dir,{recursive:true,mode:0o700});
   const sourcePaths={};
-  for(const key of ['uat','r2Audit','offsiteBackup','restoreDrill','r2RestoreDrill','monitoring','auditAnchor','auditAnchorEvidence']){
+  for(const key of ['uat','r2Audit','offsiteBackup','restoreDrill','r2RestoreDrill','monitoring','logging','auditAnchor','auditAnchorEvidence']){
     const filename=path.join(dir,key+'.json');
     fs.writeFileSync(filename,JSON.stringify({key,fixture:true}));
     sourcePaths[key]=filename;
   }
   const signoff={
-    schemaVersion:2,
+    schemaVersion:3,
     environment:'staging',
     createdAt:'2026-09-21T17:15:00.000Z',
     releaseCommit:COMMIT,
@@ -61,6 +61,7 @@ function signoffFixture(dir){
       restoreDrill:true,
       r2RestoreDrill:true,
       monitoring:true,
+      logging:true,
       auditAnchor:true,
       sameBackupArtifact:true
     },
@@ -110,6 +111,12 @@ test('staging-signoff verifierar alla privata källfiler mot SHA-256',()=>{
     result=validateStagingSignoffFile(f.signoffPath,{expectedCommit:COMMIT,sourcePaths:f.sourcePaths,now:NOW});
     assert.equal(result.ok,false);
     assert.ok(result.fail.some(item=>item.includes('monitoring')&&item.includes('ändrats')));
+
+    const loggingChanged=signoffFixture(path.join(dir,'logging-changed'));
+    fs.writeFileSync(loggingChanged.sourcePaths.logging,JSON.stringify({changed:true}));
+    result=validateStagingSignoffFile(loggingChanged.signoffPath,{expectedCommit:COMMIT,sourcePaths:loggingChanged.sourcePaths,now:NOW});
+    assert.equal(result.ok,false);
+    assert.ok(result.fail.some(item=>item.includes('logging')&&item.includes('ändrats')));
 
     const repaired=signoffFixture(path.join(dir,'second'));
     fs.writeFileSync(repaired.sourcePaths.auditAnchor,JSON.stringify({changed:true}));

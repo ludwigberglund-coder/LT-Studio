@@ -69,7 +69,7 @@ npm run staging:signoff
 
 `staging:evidence:verify` kontrollerar inte bara evidensfilens metadata. Den läser även det lokala ankaret, verifierar dess SHA-256 och byteantal mot R2-evidensen och kontrollerar att den nuvarande databasen fortfarande har exakt samma ankrade auditprefix. Auditbucketen måste matcha aktuell `R2_AUDIT_BUCKET`.
 
-Staging-signoff använder schema 2 och binder både `ROLLANDS_AUDIT_ANCHOR_PATH` och `ROLLANDS_AUDIT_ANCHOR_EVIDENCE_PATH` med SHA-256. Äldre schema-1-signoff måste därför skapas om före pilotbeslut.
+Staging-signoff använder nu schema 3. Den binder fortfarande både `ROLLANDS_AUDIT_ANCHOR_PATH` och `ROLLANDS_AUDIT_ANCHOR_EVIDENCE_PATH` med SHA-256 och binder dessutom det separata central-loggbeviset. Äldre signoff-format måste därför skapas om före pilotbeslut.
 
 
 ## Löpande readiness

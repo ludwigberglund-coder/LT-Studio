@@ -68,6 +68,7 @@ function validateStaging(env=process.env){
     'ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH',
     'ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH',
     'ROLLANDS_MONITORING_EVIDENCE_PATH',
+    'ROLLANDS_LOGGING_EVIDENCE_PATH',
     'ROLLANDS_AUDIT_ANCHOR_PATH',
     'ROLLANDS_AUDIT_ANCHOR_EVIDENCE_PATH'
   ]){
@@ -121,7 +122,7 @@ function main(){
     console.log('\nSTAGING NOT READY');
     process.exitCode=1;
   }else{
-    console.log('\nSTAGING CONFIGURATION PASS - verklig R2-readback, backup/restore, HTTPS och larmtest återstår som driftbevis.');
+    console.log('\nSTAGING CONFIGURATION PASS - verklig R2-readback, backup/restore, HTTPS, central loggtransport och larmtest återstår som driftbevis.');
   }
 }
 

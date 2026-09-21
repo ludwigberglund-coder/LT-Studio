@@ -75,7 +75,7 @@ function writePilotApprovalFixture(dir,releaseCommit){
   const stamp=new Date(Date.now()-60*1000).toISOString();
   const signoffPath=path.join(dir,'staging-signoff.json');
   fs.writeFileSync(signoffPath,JSON.stringify({
-    schemaVersion:2,
+    schemaVersion:3,
     environment:'staging',
     createdAt:stamp,
     releaseCommit,
@@ -88,6 +88,7 @@ function writePilotApprovalFixture(dir,releaseCommit){
       restoreDrill:true,
       r2RestoreDrill:true,
       monitoring:true,
+      logging:true,
       auditAnchor:true,
       sameBackupArtifact:true
     },
@@ -144,6 +145,7 @@ function pilotRuntimeFixture(dir,releaseCommit){
     ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH:approval.sourcePaths.restoreDrill,
     ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH:approval.sourcePaths.r2RestoreDrill,
     ROLLANDS_MONITORING_EVIDENCE_PATH:approval.sourcePaths.monitoring,
+    ROLLANDS_LOGGING_EVIDENCE_PATH:approval.sourcePaths.logging,
     ROLLANDS_AUDIT_ANCHOR_PATH:approval.sourcePaths.auditAnchor,
     ROLLANDS_AUDIT_ANCHOR_EVIDENCE_PATH:approval.sourcePaths.auditAnchorEvidence
   };

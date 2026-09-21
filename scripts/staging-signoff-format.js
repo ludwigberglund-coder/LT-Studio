@@ -10,11 +10,12 @@ const SOURCE_ENV=Object.freeze({
   restoreDrill:'ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH',
   r2RestoreDrill:'ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH',
   monitoring:'ROLLANDS_MONITORING_EVIDENCE_PATH',
+  logging:'ROLLANDS_LOGGING_EVIDENCE_PATH',
   auditAnchor:'ROLLANDS_AUDIT_ANCHOR_PATH',
   auditAnchorEvidence:'ROLLANDS_AUDIT_ANCHOR_EVIDENCE_PATH'
 });
 const REQUIRED_CHECKS=Object.freeze([
-  'preflight','r2Audit','offsiteBackup','restoreDrill','r2RestoreDrill','monitoring','auditAnchor','sameBackupArtifact'
+  'preflight','r2Audit','offsiteBackup','restoreDrill','r2RestoreDrill','monitoring','logging','auditAnchor','sameBackupArtifact'
 ]);
 
 function sha256File(filename){return crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex')}
@@ -23,7 +24,7 @@ function validCommit(value){return /^[a-f0-9]{40}$/.test(String(value||'').trim(
 function validateStagingSignoff(value,{expectedCommit='',sourcePaths={},now=Date.now()}={}){
   const fail=[];
   if(!value||typeof value!=='object'||Array.isArray(value))return{ok:false,fail:['Staging-signoff måste vara ett JSON-objekt.']};
-  if(value.schemaVersion!==2)fail.push('schemaVersion måste vara 2. Äldre staging-signoff måste skapas om med auditankare.');
+  if(value.schemaVersion!==3)fail.push('schemaVersion måste vara 3. Äldre staging-signoff måste skapas om med central loggtransport och auditankare.');
   if(value.environment!=='staging')fail.push('environment måste vara staging.');
   if(value.readyForPilotDecision!==true)fail.push('readyForPilotDecision måste vara true.');
   const commit=String(value.releaseCommit||'').trim().toLowerCase();

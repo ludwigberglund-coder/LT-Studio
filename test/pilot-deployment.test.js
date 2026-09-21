@@ -26,6 +26,7 @@ function writePilotSignoffFixture(dir){
     ['restoreDrill','restore-drill.json'],
     ['r2RestoreDrill','r2-restore-drill.json'],
     ['monitoring','monitoring.json'],
+    ['logging','logging.json'],
     ['auditAnchor','audit-anchor.json'],
     ['auditAnchorEvidence','audit-anchor-evidence.json']
   ]){
@@ -35,7 +36,7 @@ function writePilotSignoffFixture(dir){
   }
   const signoffPath=path.join(dir,'staging-signoff.json');
   fs.writeFileSync(signoffPath,JSON.stringify({
-    schemaVersion:2,
+    schemaVersion:3,
     environment:'staging',
     createdAt:'2026-09-20T15:00:00.000Z',
     releaseCommit:RELEASE_COMMIT,
@@ -43,7 +44,7 @@ function writePilotSignoffFixture(dir){
     uatCompletedAt:'2026-09-20T14:00:00.000Z',
     checks:{
       preflight:true,r2Audit:true,offsiteBackup:true,restoreDrill:true,
-      r2RestoreDrill:true,monitoring:true,auditAnchor:true,sameBackupArtifact:true
+      r2RestoreDrill:true,monitoring:true,logging:true,auditAnchor:true,sameBackupArtifact:true
     },
     evidence:{backupSha256:'b'.repeat(64)},
     sourceEvidenceSha256:Object.fromEntries(
@@ -63,6 +64,7 @@ function writePilotSignoffFixture(dir){
       ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH:sourcePaths.restoreDrill,
       ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH:sourcePaths.r2RestoreDrill,
       ROLLANDS_MONITORING_EVIDENCE_PATH:sourcePaths.monitoring,
+      ROLLANDS_LOGGING_EVIDENCE_PATH:sourcePaths.logging,
       ROLLANDS_AUDIT_ANCHOR_PATH:sourcePaths.auditAnchor,
       ROLLANDS_AUDIT_ANCHOR_EVIDENCE_PATH:sourcePaths.auditAnchorEvidence
     }

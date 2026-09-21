@@ -36,6 +36,35 @@ Före pilot ska hostingmiljön:
 
 Loggtransportens credentials får aldrig läggas i GitHub.
 
+## Stagingbevis för central loggtransport
+
+När en riktig central loggtjänst är konfigurerad ska ett verkligt staging-request genomföras och svarets `X-Request-Id` kopieras. Driftansvarig söker därefter efter exakt samma request-id i den centrala loggtjänsten.
+
+Först **efter** att den faktiska loggraden har hittats får följande privata bevis skapas:
+
+```bash
+npm run staging:logging:evidence
+```
+
+Kommandot kräver bland annat:
+
+- `ROLLANDS_ENV=staging`,
+- explicit `ROLLANDS_STRUCTURED_LOGS=1`,
+- leverantör och logisk destination,
+- exakt request-id från testet,
+- färsk testtid, observatör och uppslagsreferens,
+- bekräftelse att request-id faktiskt hittades,
+- bekräftad krypterad transport,
+- begränsad loggåtkomst,
+- retention som exakt matchar `logRetentionDays` i den privata operationsfilen,
+- konfigurerade larm för `security_event`, återkommande 5xx och utebliven loggström.
+
+Evidensfilen måste ligga utanför Git-repositoryt och skrivs med privata filrättigheter. Den innehåller inga loggcredentials och ingen kunddata.
+
+Kommandot kontaktar inte leverantörens privata sök-API. Det betyder att de manuella bekräftelseflaggorna endast får sättas efter den riktiga kontrollen hos leverantören. Verktygets uppgift är att göra bevisets struktur, färskhet, retention och koppling till staging-signoff maskinellt verifierbara.
+
+`staging:evidence:verify` och `staging:signoff` kräver därefter ett färskt giltigt loggbevis. Signoff schema 3 binder loggbevisfilen med SHA-256; ändras filen efter signoff blir verifieringen röd.
+
 ## Fail-safe
 
 Om själva logg-writern kastar ett fel får den inte krascha kundrequesten. Det betyder inte att loggbortfall är acceptabelt i drift: den externa plattformen måste övervaka att loggströmmen faktiskt tas emot.

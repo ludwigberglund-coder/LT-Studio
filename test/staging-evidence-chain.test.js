@@ -48,6 +48,7 @@ function fixture(){
   const restorePath=path.join(opsDir,'restore-drill.json');
   const r2RestorePath=path.join(opsDir,'r2-restore-drill.json');
   const monitorPath=path.join(opsDir,'monitoring.json');
+  const loggingPath=path.join(opsDir,'logging.json');
   const auditAnchorPath=path.join(opsDir,'audit-anchor.json');
   const auditAnchorEvidencePath=path.join(opsDir,'audit-anchor-r2.json');
   const databasePath=path.join(dbDir,'platform.sqlite');
@@ -186,6 +187,23 @@ function fixture(){
     alertTestReference:'alert-test-staging-001',
     alertObserver:'LT Studio driftansvarig'
   });
+  write(loggingPath,{
+    schemaVersion:1,
+    environment:'staging',
+    source:'stderr',
+    provider:'Central Logg AB',
+    destination:'lt-studio-staging',
+    testedAt:new Date(now-15*60*1000).toISOString(),
+    testRequestId:'123e4567-e89b-42d3-a456-426614174000',
+    requestIdLookupSucceeded:true,
+    lookupReference:'lookup-staging-001',
+    observer:'LT Studio driftansvarig',
+    transportEncrypted:true,
+    accessRestricted:true,
+    retentionDays:30,
+    alerts:{securityEvent:true,http5xx:true,streamMissing:true},
+    alertingReference:'alerts-staging-001'
+  });
 
   const env={
     NODE_ENV:'production',
@@ -223,10 +241,11 @@ function fixture(){
     ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH:restorePath,
     ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH:r2RestorePath,
     ROLLANDS_MONITORING_EVIDENCE_PATH:monitorPath,
+    ROLLANDS_LOGGING_EVIDENCE_PATH:loggingPath,
     ROLLANDS_AUDIT_ANCHOR_PATH:auditAnchorPath,
     ROLLANDS_AUDIT_ANCHOR_EVIDENCE_PATH:auditAnchorEvidencePath
   };
-  return{dir,env,now,paths:{r2Path,offsitePath,restorePath,r2RestorePath,monitorPath,auditAnchorPath,auditAnchorEvidencePath,databasePath},backupSha,backupFile};
+  return{dir,env,now,paths:{r2Path,offsitePath,restorePath,r2RestorePath,monitorPath,loggingPath,auditAnchorPath,auditAnchorEvidencePath,databasePath},backupSha,backupFile};
 }
 
 test('staging evidence chain passes only when all fresh proofs agree',()=>{
@@ -236,7 +255,10 @@ test('staging evidence chain passes only when all fresh proofs agree',()=>{
     assert.equal(result.ok,true,JSON.stringify({fail:result.fail,checks:result.checks,evidence:result.evidence}));
     assert.deepEqual(result.fail,[]);
     assert.equal(result.checks.sameBackupArtifact,true);
+    assert.equal(result.checks.logging,true);
     assert.equal(result.checks.auditAnchor,true);
+    assert.equal(result.evidence.loggingRetentionDays,30);
+    assert.equal(result.evidence.loggingTestRequestId,'123e4567-e89b-42d3-a456-426614174000');
     assert.equal(result.evidence.backupSha256,f.backupSha);
     assert.match(result.evidence.auditAnchorRootSha256,/^[a-f0-9]{64}$/);
   }finally{fs.rmSync(f.dir,{recursive:true,force:true})}
@@ -331,5 +353,31 @@ test('staging evidence chain rejects audit evidence from wrong or stale audit bu
     result=validateEvidenceChain(f.env,{now:f.now});
     assert.equal(result.ok,false);
     assert.equal(result.checks.auditAnchor,false);
+  }finally{fs.rmSync(f.dir,{recursive:true,force:true})}
+});
+
+
+test('staging evidence chain rejects stale central logging proof',()=>{
+  const f=fixture();
+  try{
+    const evidence=JSON.parse(fs.readFileSync(f.paths.loggingPath,'utf8'));
+    evidence.testedAt=new Date(f.now-25*60*60*1000).toISOString();
+    write(f.paths.loggingPath,evidence);
+    const result=validateEvidenceChain(f.env,{now:f.now});
+    assert.equal(result.ok,false);
+    assert.equal(result.checks.logging,false);
+    assert.ok(result.fail.some(item=>item.includes('Central loggtransport')));
+  }finally{fs.rmSync(f.dir,{recursive:true,force:true})}
+});
+
+test('staging evidence chain rejects logging retention that differs from operations decision',()=>{
+  const f=fixture();
+  try{
+    const evidence=JSON.parse(fs.readFileSync(f.paths.loggingPath,'utf8'));
+    evidence.retentionDays=14;
+    write(f.paths.loggingPath,evidence);
+    const result=validateEvidenceChain(f.env,{now:f.now});
+    assert.equal(result.ok,false);
+    assert.equal(result.checks.logging,false);
   }finally{fs.rmSync(f.dir,{recursive:true,force:true})}
 });
