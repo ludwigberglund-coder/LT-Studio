@@ -64,6 +64,7 @@ function fixture(){
     R2_STAGING_AUDIT_EVIDENCE_PATH:path.join(opsDir,'r2-audit.json'),
     ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH:path.join(opsDir,'offsite-backup.json'),
     ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH:path.join(opsDir,'restore-drill.json'),
+    ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH:path.join(opsDir,'r2-restore-drill.json'),
     ROLLANDS_MONITORING_EVIDENCE_PATH:path.join(opsDir,'monitoring.json')
   };
   return{dir,env};
