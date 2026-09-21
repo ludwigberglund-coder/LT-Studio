@@ -52,6 +52,8 @@ async function main(){
     encryptedSizeBytes:uploaded.sizeBytes,
     encryptedStorageKey:uploaded.storageKey,
     checksumStorageKey:uploaded.checksumStorageKey,
+    checksumSha256:artifact.checksumSha256,
+    checksumSizeBytes:artifact.checksumSizeBytes,
     remoteEncryptedVerified:true,
     remoteChecksumVerified:true
   });
