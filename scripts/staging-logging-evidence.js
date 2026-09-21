@@ -48,7 +48,10 @@ function confirmationFromEnvironment(env=process.env,{now=Date.now()}={}){
   }
   const provider=required(env.ROLLANDS_LOGGING_PROVIDER,'ROLLANDS_LOGGING_PROVIDER',2);
   const destination=required(env.ROLLANDS_LOGGING_DESTINATION,'ROLLANDS_LOGGING_DESTINATION',3);
-  const testRequestId=required(env.ROLLANDS_LOGGING_TEST_REQUEST_ID,'ROLLANDS_LOGGING_TEST_REQUEST_ID',36);
+  const testRequestId=String(env.ROLLANDS_LOGGING_TEST_REQUEST_ID||'').trim();
+  if(!testRequestId||PLACEHOLDER.test(testRequestId)){
+    throw loggingError('ROLLANDS_LOGGING_TEST_REQUEST_ID saknas eller ser ut som ett exempelvärde.','STAGING_LOGGING_VALUE_REQUIRED');
+  }
   if(!REQUEST_ID.test(testRequestId))throw loggingError('ROLLANDS_LOGGING_TEST_REQUEST_ID måste vara ett giltigt server-request-id (UUID).','STAGING_LOGGING_REQUEST_ID_INVALID');
   const lookupReference=required(env.ROLLANDS_LOGGING_LOOKUP_REFERENCE,'ROLLANDS_LOGGING_LOOKUP_REFERENCE',6);
   const alertingReference=required(env.ROLLANDS_LOGGING_ALERTING_REFERENCE,'ROLLANDS_LOGGING_ALERTING_REFERENCE',6);
