@@ -67,6 +67,7 @@ function readinessChecks(){
     ['r2StagingAudit','R2 · privata objekt'],
     ['restoreDrill','Lokal restore-test'],
     ['r2RestoreDrill','R2 · restore-test'],
+    ['stagingEvidenceConsistent','Stagingbevis · samma miljö'],
     ['monitoring','Extern monitoring']
   ];
   return rows.map(([key,label])=>{

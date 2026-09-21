@@ -153,6 +153,16 @@ function offsiteBackupEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_OFFSITE
     return{ok:ageMs<=maxAgeMs,ageMs,sha256:sha,encryptedFile,bucket:String(value.bucket||'').trim(),sizeBytes};
   }catch{return{ok:false,ageMs:null}}
 }
+function stagingEvidenceConsistency({r2Audit,offsite,restore,r2Restore,expectedObjectBucket='',expectedBackupBucket=''}={}){
+  const objectBucket=String(expectedObjectBucket||'').trim();
+  const backupBucket=String(expectedBackupBucket||'').trim();
+  if(!r2Audit?.ok||!offsite?.ok||!restore?.ok||!r2Restore?.ok||!objectBucket||!backupBucket)return false;
+  if(r2Audit.bucket!==objectBucket||offsite.bucket!==backupBucket||r2Restore.bucket!==backupBucket)return false;
+  const sameSha=offsite.sha256===restore.sha256&&offsite.sha256===r2Restore.sha256;
+  const sameFile=offsite.encryptedFile===restore.sourceFile&&offsite.encryptedFile===r2Restore.sourceFile;
+  const sameSize=offsite.sizeBytes===restore.sourceSizeBytes&&offsite.sizeBytes===r2Restore.sizeBytes;
+  return sameSha&&sameFile&&sameSize;
+}
 function monitoringEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS}={}){
   try{
     if(!filename||!fs.existsSync(filename)||!fs.statSync(filename).isFile())return{ok:false,ageMs:null,alertAgeMs:null};
@@ -170,7 +180,7 @@ function monitoringEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_MONITORING
   }catch{return{ok:false,ageMs:null,alertAgeMs:null}}
 }
 
-function readinessReport({db,databasePath=':memory:',backupPath='',offsiteBackupEvidencePath='',r2StagingAuditEvidencePath='',restoreEvidencePath='',r2RestoreEvidencePath='',monitoringEvidencePath='',now=Date.now(),minFreeBytes=DEFAULT_MIN_FREE_BYTES,backupMaxAgeMs=DEFAULT_BACKUP_MAX_AGE_MS,offsiteBackupMaxAgeMs=DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS,r2StagingAuditMaxAgeMs=DEFAULT_R2_STAGING_AUDIT_MAX_AGE_MS,restoreDrillMaxAgeMs=DEFAULT_RESTORE_DRILL_MAX_AGE_MS,monitoringEvidenceMaxAgeMs=DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,requireBackup=false,requireOffsiteBackupEvidence=false,requireR2StagingAuditEvidence=false,requireRestoreEvidence=false,requireR2RestoreEvidence=false,requireMonitoringEvidence=false}){
+function readinessReport({db,databasePath=':memory:',backupPath='',offsiteBackupEvidencePath='',r2StagingAuditEvidencePath='',restoreEvidencePath='',r2RestoreEvidencePath='',monitoringEvidencePath='',expectedR2StagingBucket='',expectedR2BackupBucket='',now=Date.now(),minFreeBytes=DEFAULT_MIN_FREE_BYTES,backupMaxAgeMs=DEFAULT_BACKUP_MAX_AGE_MS,offsiteBackupMaxAgeMs=DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS,r2StagingAuditMaxAgeMs=DEFAULT_R2_STAGING_AUDIT_MAX_AGE_MS,restoreDrillMaxAgeMs=DEFAULT_RESTORE_DRILL_MAX_AGE_MS,monitoringEvidenceMaxAgeMs=DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,requireBackup=false,requireOffsiteBackupEvidence=false,requireR2StagingAuditEvidence=false,requireRestoreEvidence=false,requireR2RestoreEvidence=false,requireStagingEvidenceConsistency=false,requireMonitoringEvidence=false}){
   const databaseRead=databaseReadOk(db);
   const databaseWrite=databaseWriteOk(db);
   let freeBytes=0,diskSpace=true;
@@ -181,31 +191,39 @@ function readinessReport({db,databasePath=':memory:',backupPath='',offsiteBackup
     if(candidate){backupAgeMs=Math.max(0,now-candidate.mtimeMs);backup=backupAgeMs<=backupMaxAgeMs&&verifyBackup(candidate)}
     else backup=false;
   }
-  let offsiteBackup=true,offsiteBackupAgeMs=null;
-  if(requireOffsiteBackupEvidence){
-    const evidence=offsiteBackupEvidence(offsiteBackupEvidencePath,{now,maxAgeMs:offsiteBackupMaxAgeMs});
-    offsiteBackup=evidence.ok;offsiteBackupAgeMs=evidence.ageMs;
+  let offsiteBackup=true,offsiteBackupAgeMs=null,offsiteEvidenceResult={ok:false};
+  if(requireOffsiteBackupEvidence||requireStagingEvidenceConsistency){
+    offsiteEvidenceResult=offsiteBackupEvidence(offsiteBackupEvidencePath,{now,maxAgeMs:offsiteBackupMaxAgeMs});
+    if(requireOffsiteBackupEvidence){offsiteBackup=offsiteEvidenceResult.ok;offsiteBackupAgeMs=offsiteEvidenceResult.ageMs;}
   }
-  let r2StagingAudit=true,r2StagingAuditAgeMs=null;
-  if(requireR2StagingAuditEvidence){
-    const evidence=r2StagingAuditEvidence(r2StagingAuditEvidencePath,{now,maxAgeMs:r2StagingAuditMaxAgeMs});
-    r2StagingAudit=evidence.ok;r2StagingAuditAgeMs=evidence.ageMs;
+  let r2StagingAudit=true,r2StagingAuditAgeMs=null,r2AuditEvidenceResult={ok:false};
+  if(requireR2StagingAuditEvidence||requireStagingEvidenceConsistency){
+    r2AuditEvidenceResult=r2StagingAuditEvidence(r2StagingAuditEvidencePath,{now,maxAgeMs:r2StagingAuditMaxAgeMs});
+    if(requireR2StagingAuditEvidence){r2StagingAudit=r2AuditEvidenceResult.ok;r2StagingAuditAgeMs=r2AuditEvidenceResult.ageMs;}
   }
-  let restoreDrill=true,restoreDrillAgeMs=null;
-  if(requireRestoreEvidence){
-    const evidence=restoreDrillEvidence(restoreEvidencePath,{now,maxAgeMs:restoreDrillMaxAgeMs});
-    restoreDrill=evidence.ok;restoreDrillAgeMs=evidence.ageMs;
+  let restoreDrill=true,restoreDrillAgeMs=null,restoreEvidenceResult={ok:false};
+  if(requireRestoreEvidence||requireStagingEvidenceConsistency){
+    restoreEvidenceResult=restoreDrillEvidence(restoreEvidencePath,{now,maxAgeMs:restoreDrillMaxAgeMs});
+    if(requireRestoreEvidence){restoreDrill=restoreEvidenceResult.ok;restoreDrillAgeMs=restoreEvidenceResult.ageMs;}
   }
-  let r2RestoreDrill=true,r2RestoreDrillAgeMs=null;
-  if(requireR2RestoreEvidence){
-    const evidence=r2RestoreDrillEvidence(r2RestoreEvidencePath,{now,maxAgeMs:restoreDrillMaxAgeMs});
-    r2RestoreDrill=evidence.ok;r2RestoreDrillAgeMs=evidence.ageMs;
+  let r2RestoreDrill=true,r2RestoreDrillAgeMs=null,r2RestoreEvidenceResult={ok:false};
+  if(requireR2RestoreEvidence||requireStagingEvidenceConsistency){
+    r2RestoreEvidenceResult=r2RestoreDrillEvidence(r2RestoreEvidencePath,{now,maxAgeMs:restoreDrillMaxAgeMs});
+    if(requireR2RestoreEvidence){r2RestoreDrill=r2RestoreEvidenceResult.ok;r2RestoreDrillAgeMs=r2RestoreEvidenceResult.ageMs;}
   }
+  const stagingEvidenceConsistent=!requireStagingEvidenceConsistency||stagingEvidenceConsistency({
+    r2Audit:r2AuditEvidenceResult,
+    offsite:offsiteEvidenceResult,
+    restore:restoreEvidenceResult,
+    r2Restore:r2RestoreEvidenceResult,
+    expectedObjectBucket:expectedR2StagingBucket,
+    expectedBackupBucket:expectedR2BackupBucket
+  });
   let monitoring=true,monitoringAgeMs=null,alertAgeMs=null;
   if(requireMonitoringEvidence){
     const evidence=monitoringEvidence(monitoringEvidencePath,{now,maxAgeMs:monitoringEvidenceMaxAgeMs});
     monitoring=evidence.ok;monitoringAgeMs=evidence.ageMs;alertAgeMs=evidence.alertAgeMs;
   }
-  return Object.freeze({ok:databaseRead&&databaseWrite&&diskSpace&&backup&&offsiteBackup&&r2StagingAudit&&restoreDrill&&r2RestoreDrill&&monitoring,checks:{databaseRead,databaseWrite,diskSpace,backup,offsiteBackup,r2StagingAudit,restoreDrill,r2RestoreDrill,monitoring},freeBytes:Number.isFinite(freeBytes)?freeBytes:null,backupAgeMs,offsiteBackupAgeMs,r2StagingAuditAgeMs,restoreDrillAgeMs,r2RestoreDrillAgeMs,monitoringAgeMs,alertAgeMs});
+  return Object.freeze({ok:databaseRead&&databaseWrite&&diskSpace&&backup&&offsiteBackup&&r2StagingAudit&&restoreDrill&&r2RestoreDrill&&stagingEvidenceConsistent&&monitoring,checks:{databaseRead,databaseWrite,diskSpace,backup,offsiteBackup,r2StagingAudit,restoreDrill,r2RestoreDrill,stagingEvidenceConsistent,monitoring},freeBytes:Number.isFinite(freeBytes)?freeBytes:null,backupAgeMs,offsiteBackupAgeMs,r2StagingAuditAgeMs,restoreDrillAgeMs,r2RestoreDrillAgeMs,monitoringAgeMs,alertAgeMs});
 }
-module.exports=Object.freeze({DEFAULT_MIN_FREE_BYTES,DEFAULT_BACKUP_MAX_AGE_MS,DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS,DEFAULT_R2_STAGING_AUDIT_MAX_AGE_MS,DEFAULT_RESTORE_DRILL_MAX_AGE_MS,DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,latestBackup,verifyBackup,diskFreeBytes,databaseReadOk,databaseWriteOk,r2StagingAuditEvidence,offsiteBackupEvidence,restoreDrillEvidence,r2RestoreDrillEvidence,monitoringEvidence,readinessReport});
+module.exports=Object.freeze({DEFAULT_MIN_FREE_BYTES,DEFAULT_BACKUP_MAX_AGE_MS,DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS,DEFAULT_R2_STAGING_AUDIT_MAX_AGE_MS,DEFAULT_RESTORE_DRILL_MAX_AGE_MS,DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,latestBackup,verifyBackup,diskFreeBytes,databaseReadOk,databaseWriteOk,r2StagingAuditEvidence,offsiteBackupEvidence,restoreDrillEvidence,r2RestoreDrillEvidence,stagingEvidenceConsistency,monitoringEvidence,readinessReport});
