@@ -115,7 +115,20 @@ function createApiApp(options) {
   }
 
   function noteLoginFailure(req,username) {
-    return Db.noteLoginFailure(db,{keyHash:loginKey(req,username),windowMinutes:15});
+    const keyHash=loginKey(req,username);
+    let state;
+    Db.transaction(db,()=>{
+      state=Db.noteLoginFailure(db,{keyHash,windowMinutes:15});
+      if(state.failureCount===5) {
+        Db.appendSecurityEvent(db,{
+          kind:'LOGIN_FAILURE_THRESHOLD',
+          severity:'warning',
+          fingerprintHash:keyHash,
+          details:{failureCount:state.failureCount,windowMinutes:15,retryAfterSeconds:900}
+        });
+      }
+    });
+    return state;
   }
 
   function loginBlocked(req,username) {
