@@ -128,6 +128,7 @@ function signS3Request({
   method,
   url,
   body=Buffer.alloc(0),
+  payloadHash:providedPayloadHash,
   headers={},
   accessKeyId,
   secretAccessKey,
@@ -138,8 +139,12 @@ function signS3Request({
 }={}){
   const target=url instanceof URL?new URL(url.toString()):new URL(String(url));
   const verb=String(method||'GET').trim().toUpperCase();
-  const payload=Buffer.isBuffer(body)?body:Buffer.from(body||'');
-  const payloadHash=sha256Hex(payload);
+  const suppliedPayloadHash=String(providedPayloadHash??'').trim().toLowerCase();
+  if(suppliedPayloadHash&&!/^[a-f0-9]{64}$/.test(suppliedPayloadHash)){
+    throw r2Error('Förberäknad payload-SHA-256 är ogiltig.','R2_SIGNING_PAYLOAD_HASH_INVALID');
+  }
+  const payload=suppliedPayloadHash?null:(Buffer.isBuffer(body)?body:Buffer.from(body||''));
+  const payloadHash=suppliedPayloadHash||sha256Hex(payload);
   const timestamp=amzDate(now);
   const dateStamp=timestamp.slice(0,8);
   const normalizedHeaders={};
