@@ -4,8 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const {DatabaseSync} = require('node:sqlite');
+const SchemaMigrations = require('./schema-migrations.js');
 
-const CORE_SCHEMA_MIGRATION_ID='core-schema-2026-09-21-v1';
+const CORE_SCHEMA_MIGRATION_ID=SchemaMigrations.CORE_SCHEMA_MIGRATION_ID;
 
 function databaseError(message, code = 'DATABASE_ERROR', statusCode = 500) {
   const error = new Error(message);
@@ -41,6 +42,9 @@ function initializeSchema(db) {
     db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       id TEXT PRIMARY KEY,
+      version INTEGER NOT NULL CHECK(version>0),
+      name TEXT NOT NULL,
+      checksum_sha256 TEXT NOT NULL CHECK(length(checksum_sha256)=64),
       applied_at TEXT NOT NULL
     ) STRICT;
 
@@ -277,9 +281,12 @@ function initializeSchema(db) {
   protectAppendOnly(db,'audit_events');
   protectAppendOnly(db,'security_events');
   protectAppendOnly(db,'platform_operator_audit_events');
-  db.prepare('INSERT INTO schema_migrations(id,applied_at) VALUES(?,?) ON CONFLICT(id) DO NOTHING')
-    .run(CORE_SCHEMA_MIGRATION_ID,nowIso());
+  SchemaMigrations.initialize(db);
   });
+}
+
+function schemaMigrationStatus(db) {
+  return SchemaMigrations.status(db);
 }
 
 function hasColumn(db, tableName, columnName) {
@@ -700,6 +707,7 @@ module.exports = Object.freeze({
   CORE_SCHEMA_MIGRATION_ID,
   openDatabase,
   initializeSchema,
+  schemaMigrationStatus,
   transaction,
   createCompany,
   companyById,
