@@ -330,7 +330,7 @@ function createApiApp(options) {
             customerNumber:Db.nextCustomerNumber(db,session.companyId),
             name:input.name,email:input.email,orgNumber:input.orgNumber,address:input.address,reminderFeeAgreed:input.reminderFeeAgreed,customerType:'business'
           });
-          const preferences=CustomerInvoicing.setCustomerInvoicePreferences(db,{companyId:session.companyId,customerId:customer.id,paymentTermsDays:input.paymentTermsDays,ourReference:input.ourReference,yourReference:input.yourReference,updatedBy:session.userId});
+          const preferences=CustomerInvoicing.setCustomerInvoicePreferences(db,{companyId:session.companyId,customerId:customer.id,paymentTermsDays:input.paymentTermsDays,ourReference:input.ourReference,yourReference:input.yourReference});
           customer={...customer,...preferences};
           Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'CUSTOMER_CREATED',entityType:'customer',entityId:customer.id,details:{customerNumber:customer.customerNumber,paymentTermsDays:customer.paymentTermsDays,ourReference:customer.ourReference,yourReference:customer.yourReference}});
         });
@@ -348,7 +348,7 @@ function createApiApp(options) {
           if(!beforeBase) throw apiError('Kunden hittades inte i det inloggade företaget.','CUSTOMER_NOT_FOUND',404);
           const before={...beforeBase,...CustomerInvoicing.customerInvoicePreferences(db,session.companyId,customerId)};
           customer=Db.updateCustomer(db,{companyId:session.companyId,id:customerId,name:input.name,email:input.email,orgNumber:input.orgNumber,address:input.address,reminderFeeAgreed:input.reminderFeeAgreed});
-          const preferences=CustomerInvoicing.setCustomerInvoicePreferences(db,{companyId:session.companyId,customerId,paymentTermsDays:input.paymentTermsDays,ourReference:input.ourReference,yourReference:input.yourReference,updatedBy:session.userId});
+          const preferences=CustomerInvoicing.setCustomerInvoicePreferences(db,{companyId:session.companyId,customerId,paymentTermsDays:input.paymentTermsDays,ourReference:input.ourReference,yourReference:input.yourReference});
           customer={...customer,...preferences};
           const changedFields=[
             before.name!==customer.name?'name':null,
