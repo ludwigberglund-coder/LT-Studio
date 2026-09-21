@@ -11,6 +11,9 @@ const Queues = require('../apps/api/queues.js');
 const Automation = require('../packages/automation/proposals.js');
 const Payroll = require('../apps/api/payroll.js');
 const Cms = require('../apps/api/website-cms.js');
+const SupplierAccounting = require('../apps/api/supplier-accounting.js');
+const Master = require('../apps/api/supplier-masterdata.js');
+const Admin = require('../apps/api/accounting-admin.js');
 const {createServer} = require('../apps/api/server.js');
 const Auth = require('../apps/api/auth.js');
 function fixture() {
@@ -108,11 +111,26 @@ test('real HTTP API refuses anonymous requests and other-company invoice IDs', a
 
 test('HTTP object-ID matrix denies other-company reads and mutations with valid session and CSRF', async () => {
   const f=fixture();
-  Payables.initializePayables(f.db);Documents.initializeDocuments(f.db);Bank.initializeBankPayments(f.db);Inventory.initializeInventory(f.db);Queues.initializeQueues(f.db);Payroll.initializePayroll(f.db);Cms.initializeWebsiteCms(f.db);
+  Payables.initializePayables(f.db);Documents.initializeDocuments(f.db);Bank.initializeBankPayments(f.db);Inventory.initializeInventory(f.db);Queues.initializeQueues(f.db);Payroll.initializePayroll(f.db);Cms.initializeWebsiteCms(f.db);SupplierAccounting.initializeSupplierAccounting(f.db);Master.initializeSupplierMasterdata(f.db);Admin.initializeAccountingAdmin(f.db);
   const Accounting=require('../apps/api/accounting-store.js');Accounting.initializeAccountingStore(f.db);
-  const supplierB=Payables.createSupplier(f.db,{companyId:f.b.id,supplierNumber:'B-OBJ',name:'Supplier B Obj'});
+  const supplierB=Payables.createSupplier(f.db,{companyId:f.b.id,supplierNumber:'B-OBJ',name:'Supplier B Obj',bankgiro:'555-0001',defaultCostAccount:'4010'});
   const supplierInvoiceB=Payables.createSupplierInvoice(f.db,{companyId:f.b.id,supplierId:supplierB.id,supplierInvoiceNumber:'B-OBJ-1',invoiceDate:'2026-09-18',dueDate:'2026-10-18',totalOre:125000,vatOre:25000,registeredBy:f.user.id});
   Payables.storeDocument(f.db,{companyId:f.b.id,invoiceId:supplierInvoiceB.id,name:'b.pdf',bytes:Buffer.from('%PDF-1.4\nB tenant\n')});
+  const foreignApprover=Db.createUser(f.db,{username:'foreign-approver',displayName:'Foreign Approver',passwordHash:'not-a-login-hash'});
+  const paymentSupplierInvoiceB=Payables.createSupplierInvoice(f.db,{companyId:f.b.id,supplierId:supplierB.id,supplierInvoiceNumber:'B-PAY-1',invoiceDate:'2026-09-18',dueDate:'2026-10-18',totalOre:125000,vatOre:25000,registeredBy:f.user.id});
+  Payables.storeDocument(f.db,{companyId:f.b.id,invoiceId:paymentSupplierInvoiceB.id,name:'b-payment.pdf',bytes:Buffer.from('%PDF-1.4\nB payment tenant\n')});
+  Payables.saveCoding(f.db,{companyId:f.b.id,invoiceId:paymentSupplierInvoiceB.id,lines:[
+    {account:'4010',text:'Kostnad',debitOre:100000,creditOre:0},
+    {account:'2641',text:'Ingående moms',debitOre:25000,creditOre:0},
+    {account:'2440',text:'Leverantörsskuld',debitOre:0,creditOre:125000}
+  ]});
+  const paymentInvoiceReviewed=Payables.invoiceById(f.db,f.b.id,paymentSupplierInvoiceB.id);
+  Payables.approve(f.db,{companyId:f.b.id,invoiceId:paymentSupplierInvoiceB.id,actorId:foreignApprover.id,expectedCodingSha256:paymentInvoiceReviewed.codingSha256,expectedDocumentSha256:paymentInvoiceReviewed.documentSha256});
+  SupplierAccounting.postSupplierInvoice(f.db,{companyId:f.b.id,invoiceId:paymentSupplierInvoiceB.id,actorId:f.user.id});
+  const supplierPaymentB=Payables.preparePayment(f.db,{companyId:f.b.id,invoiceId:paymentSupplierInvoiceB.id,paymentDate:'2026-09-25',amountOre:125000,account:'1930',preparedBy:f.user.id});
+  const supplierChangeB=Master.requestChange(f.db,{companyId:f.b.id,supplierId:supplierB.id,kind:'payment-details',changes:{bankgiro:'999-8888'},requestedBy:f.user.id});
+  Admin.lockPeriod(f.db,{companyId:f.b.id,period:'2026-08',lockedBy:f.user.id});
+  const unlockRequestB=Admin.requestUnlock(f.db,{companyId:f.b.id,period:'2026-08',reason:'Tenant B controlled unlock request',requestedBy:f.user.id});
   const entryB=Accounting.postEntry(f.db,{companyId:f.b.id,postingDate:'2026-09-18',description:'Tenant B',sourceType:'tenant-matrix',sourceId:'b',createdBy:f.user.id,lines:[{account:'1930',debitOre:1000,creditOre:0,text:'Bank'},{account:'2999',debitOre:0,creditOre:1000,text:'Motkonto'}]}).entry;
   const pendingB=Documents.createPending(f.db,{companyId:f.b.id,uploadedBy:f.user.id,title:'Tenant B document',fileName:'tenant-b.pdf'});
   Documents.storeContent(f.db,{companyId:f.b.id,documentId:pendingB.id,bytes:Buffer.from('%PDF-1.4\nprivate b\n')});
@@ -144,6 +162,8 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
   Cms.saveDraft(f.db,{companyId:f.a.id,site:cmsASeed.draft.site,company:cmsACompany,userId:f.user.id});
   const cmsABefore=Cms.state(f.db,f.a.id);
   const cmsBBefore=Cms.state(f.db,f.b.id);
+  const supplierBBefore=Payables.supplierById(f.db,f.b.id,supplierB.id);
+  const accountingEntriesBBefore=Accounting.listEntries(f.db,f.b.id).length;
   const runtime=createServer({db:f.db,port:4180,secureCookies:false});
   await new Promise(resolve=>runtime.server.listen(0,'127.0.0.1',resolve));
   const base=`http://127.0.0.1:${runtime.server.address().port}/api/v1`;
@@ -188,6 +208,26 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
     assert.equal(payrollList.status,200);
     assert.equal((await payrollList.json()).runs.some(row=>row.id===payrollRunB.id),false);
 
+    const supplierList=await fetch(base+'/suppliers',{headers});
+    assert.equal(supplierList.status,200);
+    assert.equal((await supplierList.json()).suppliers.some(row=>row.id===supplierB.id),false);
+
+    const pendingSupplierChanges=await fetch(base+'/suppliers/pending-changes',{headers});
+    assert.equal(pendingSupplierChanges.status,200);
+    assert.equal((await pendingSupplierChanges.json()).changes.some(row=>row.id===supplierChangeB.id),false);
+
+    const foreignSupplierHistory=await fetch(base+`/suppliers/${supplierB.id}/history`,{headers});
+    assert.equal(foreignSupplierHistory.status,200);
+    assert.deepEqual((await foreignSupplierHistory.json()).history,[]);
+
+    const periods=await fetch(base+'/accounting/periods?year=2026',{headers});
+    assert.equal(periods.status,200);
+    assert.equal((await periods.json()).periods.some(row=>row.period==='2026-08'),false);
+
+    const unlockRequests=await fetch(base+'/accounting/unlock-requests?status=all',{headers});
+    assert.equal(unlockRequests.status,200);
+    assert.equal((await unlockRequests.json()).requests.some(row=>row.id===unlockRequestB.id),false);
+
     const cmsRead=await fetch(base+'/website/cms',{headers});
     assert.equal(cmsRead.status,200);
     const cmsReadBody=await cmsRead.json();
@@ -200,6 +240,16 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
     });
     assert.equal(foreignAutomationEdit.status,404);
 
+    const foreignSupplierProfile=await fetch(base+`/suppliers/${supplierB.id}/profile`,{
+      method:'PUT',headers:mutationHeaders,body:JSON.stringify({name:'Cross tenant supplier edit'})
+    });
+    assert.equal(foreignSupplierProfile.status,404);
+
+    const foreignSupplierPaymentDetails=await fetch(base+`/suppliers/${supplierB.id}/payment-details`,{
+      method:'POST',headers:mutationHeaders,body:JSON.stringify({bankgiro:'111-9999'})
+    });
+    assert.equal(foreignSupplierPaymentDetails.status,404);
+
     const mutations=[
       [`/invoices/${f.invoiceB.id}/comments`,{text:'cross tenant'}],
       [`/customer-invoices/${f.invoiceB.id}/credit`,{requestId:'cross-tenant-credit-0001',reason:'cross tenant'}],
@@ -211,6 +261,12 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
       [`/automation/proposals/${automationProposalB.id}/approve`,{}],
       [`/automation/proposals/${automationProposalB.id}/reject`,{reason:'cross tenant'}],
       [`/payroll/runs/${payrollRunB.id}/post`,{}],
+      [`/payables/payments/${supplierPaymentB.id}/release`,{}],
+      [`/payables/payments/${supplierPaymentB.id}/confirm-post`,{confirmationReference:'CROSS-TENANT-REF',postingDate:'2026-09-25'}],
+      [`/suppliers/changes/${supplierChangeB.id}/approve`,{}],
+      [`/suppliers/changes/${supplierChangeB.id}/reject`,{reason:'cross tenant'}],
+      [`/accounting/unlock-requests/${unlockRequestB.id}/approve`,{reason:'cross tenant'}],
+      [`/accounting/unlock-requests/${unlockRequestB.id}/reject`,{reason:'cross tenant'}],
       [`/payables/invoices/${supplierInvoiceB.id}/coding`,{lines:[{account:'4010',text:'X',debitOre:100000,creditOre:0},{account:'2641',text:'Moms',debitOre:25000,creditOre:0},{account:'2440',text:'Skuld',debitOre:0,creditOre:125000}]}],
       [`/accounting/entries/${entryB.id}/correct`,{postingDate:'2026-09-19',reason:'cross tenant correction'}]
     ];
@@ -249,19 +305,28 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
 
     assert.equal(Db.commentsForInvoice(f.db,f.b.id,f.invoiceB.id).length,0);
     assert.equal(Payables.invoiceById(f.db,f.b.id,supplierInvoiceB.id).coding.length,0);
-    assert.equal(Accounting.listEntries(f.db,f.b.id).length,1);
+    assert.equal(Accounting.listEntries(f.db,f.b.id).length,accountingEntriesBBefore);
     assert.equal(Bank.byId(f.db,f.b.id,bankPaymentB.id).status,'unmatched');
     assert.equal(Inventory.balanceMilli(f.db,f.b.id,inventoryItemB.id),5000);
     assert.equal(Inventory.adjustmentById(f.db,f.b.id,inventoryAdjustmentB.id).status,'pending');
     assert.equal(Queues.automationProposalById(f.db,f.b.id,automationProposalB.id).status,automationProposalB.status);
     assert.equal(Payroll.runById(f.db,f.b.id,payrollRunB.id).status,'validated');
+    assert.equal(Payables.paymentById(f.db,f.b.id,supplierPaymentB.id).status,'prepared');
+    assert.deepEqual(Payables.supplierById(f.db,f.b.id,supplierB.id),supplierBBefore);
+    assert.equal(Master.changeRequestById(f.db,f.b.id,supplierChangeB.id).status,'pending');
+    assert.equal(Admin.unlockRequestById(f.db,f.b.id,unlockRequestB.id).status,'pending');
+    assert.equal(f.db.prepare('SELECT status FROM accounting_periods WHERE company_id=? AND period=?').get(f.b.id,'2026-08').status,'locked');
     const tenantAAudit=Db.auditForCompany(f.db,f.a.id);
     assert.equal(tenantAAudit.some(event=>
       event.entityId===bankPaymentB.id||
       event.entityId===inventoryItemB.id||
       event.entityId===inventoryAdjustmentB.id||
       event.entityId===automationProposalB.id||
-      event.entityId===payrollRunB.id
+      event.entityId===payrollRunB.id||
+      event.entityId===supplierPaymentB.id||
+      event.entityId===supplierB.id||
+      event.entityId===supplierChangeB.id||
+      event.entityId===unlockRequestB.id
     ),false);
   } finally {await new Promise(resolve=>runtime.close(resolve));}
 });
