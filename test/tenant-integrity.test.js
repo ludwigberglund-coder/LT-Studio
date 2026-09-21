@@ -120,6 +120,7 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
     const headers={Cookie:`rollands_session=${token}`};
     const mutationHeaders={...headers,'Content-Type':'application/json','X-CSRF-Token':csrf};
     const getRoutes=[
+      `/customer-invoices/${f.invoiceB.id}`,
       `/payables/invoices/${supplierInvoiceB.id}`,
       `/payables/invoices/${supplierInvoiceB.id}/document`,
       `/accounting/entries/${entryB.id}`,
