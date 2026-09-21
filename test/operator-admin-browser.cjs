@@ -57,6 +57,7 @@ const out=path.join(__dirname,'..','test-artifacts');
     assert.match(body,/Hälsokontroller/);
     assert.match(body,/Databas · läsning/);
     assert.match(body,/Extern monitoring/);
+    assert.match(body,/Audit · externt ankare/);
     assert.match(body,/Många felaktiga kundinloggningar/);
     assert.doesNotMatch(body,/Hemlig Browserkund|SECRET-BROWSER-CUSTOMER|SECRET-BROWSER-INVOICE|333300|66660|never-in-ui|cccccccc/);
     checks.push({kind:'overview',company:'Browser Kund'});
