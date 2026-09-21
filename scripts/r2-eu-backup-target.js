@@ -340,9 +340,10 @@ function createR2EuBackupTarget({env=process.env,config,fetchImpl=globalThis.fet
   }
 
   async function getToFile({storageKey,filename,sha256,sizeBytes}={}){
-    const targetFile=path.resolve(String(filename||''));
+    const selectedFilename=String(filename||'').trim();
+    if(!selectedFilename)throw backupError('Restore-destination saknas.','R2_BACKUP_DOWNLOAD_TARGET_REQUIRED');
+    const targetFile=path.resolve(selectedFilename);
     const expectedSha=String(sha256||'').trim().toLowerCase();
-    if(!targetFile||filename==null)throw backupError('Restore-destination saknas.','R2_BACKUP_DOWNLOAD_TARGET_REQUIRED');
     if(!/^[a-f0-9]{64}$/.test(expectedSha))throw backupError('Restore-SHA-256 är ogiltig.','R2_BACKUP_DOWNLOAD_SHA256_INVALID');
     if(!Number.isSafeInteger(sizeBytes)||sizeBytes<1)throw backupError('Restore-storleken är ogiltig.','R2_BACKUP_DOWNLOAD_SIZE_INVALID');
     if(fs.existsSync(targetFile))throw backupError('Restore-destinationen finns redan.','R2_BACKUP_DOWNLOAD_TARGET_EXISTS');
@@ -365,7 +366,11 @@ function createR2EuBackupTarget({env=process.env,config,fetchImpl=globalThis.fet
       const writeChunk=chunk=>{
         const bytes=Buffer.from(chunk);
         let offset=0;
-        while(offset<bytes.length)offset+=fs.writeSync(fd,bytes,offset,bytes.length-offset);
+        while(offset<bytes.length){
+          const written=fs.writeSync(fd,bytes,offset,bytes.length-offset);
+          if(written<=0)throw backupError('R2 offsite-download kunde inte skrivas lokalt.','R2_BACKUP_DOWNLOAD_WRITE_FAILED');
+          offset+=written;
+        }
         actualSize+=bytes.length;
         hash.update(bytes);
       };
