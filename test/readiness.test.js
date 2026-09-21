@@ -26,6 +26,7 @@ function restoreEvidence(verifiedAt){
     sqliteIntegrity:true,
     foreignKeys:true,
     privateObjectsVerified:true,
+    privateObjectSchemaComplete:true,
     privateObjectCount:3,
     verifiedPrivateObjectCount:3,
     privateObjectBytes:600,
@@ -95,6 +96,9 @@ test('restore drill evidence kräver färsk schema-2-verifiering av alla privata
     assert.equal(evidence.ageMs,2*24*60*60*1000);
 
     fs.writeFileSync(evidencePath,JSON.stringify({...valid,schemaVersion:1}));
+    assert.equal(require('../apps/api/readiness.js').restoreDrillEvidence(evidencePath,{now}).ok,false);
+
+    fs.writeFileSync(evidencePath,JSON.stringify({...valid,privateObjectSchemaComplete:false}));
     assert.equal(require('../apps/api/readiness.js').restoreDrillEvidence(evidencePath,{now}).ok,false);
 
     fs.writeFileSync(evidencePath,JSON.stringify({...valid,privateObjectsVerified:false}));
