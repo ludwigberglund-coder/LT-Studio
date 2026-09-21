@@ -109,3 +109,25 @@ test('API-start initierar kopieringsledgern innan requests accepteras',()=>{
   assert.match(source,/require\('\.\/private-object-copy-ledger\.js'\)/);
   assert.match(source,/PrivateObjectCopyLedger\.initializePrivateObjectCopyLedger\(db\)/);
 });
+
+
+test('identisk planering återanvänder raden även om ett senare försök har annan createdAt',()=>{
+  const db=fixture();
+  try{
+    const source=metadata({});
+    const first=Ledger.planPrivateObjectCopy(db,{
+      metadata:source,
+      provider:'r2',
+      createdAt:'2026-09-21T09:40:00.000Z'
+    });
+    const second=Ledger.planPrivateObjectCopy(db,{
+      metadata:source,
+      provider:'r2',
+      createdAt:'2026-09-21T09:41:00.000Z'
+    });
+
+    assert.equal(second.createdAt,first.createdAt);
+    assert.equal(second.storageKey,first.storageKey);
+    assert.equal(db.prepare('SELECT COUNT(*) AS count FROM private_object_copies').get().count,1);
+  }finally{db.close()}
+});
