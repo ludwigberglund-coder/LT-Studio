@@ -10,6 +10,7 @@ Börja här:
 - [Audit: konkreta risker, källor och rättelser](docs/PRODUCTION-READINESS-AUDIT-2026-09-18.md)
 - [ROLANDS PILOT READINESS CHECKLIST](docs/ROLANDS-PILOT-READINESS-CHECKLIST.md)
 - [Backup och verifierad återställning](docs/BACKUP-RESTORE-PILOT.md)
+- [Synthetic-only staging deployment](docs/STAGING-DEPLOYMENT.md)
 - [Pilotens deployment-instruktion](docs/ROLANDS-PILOT-DEPLOYMENT.md)
 - [Produktvision](docs/PRODUCT-VISION.md)
 - [SaaS-målarkitektur för flera kunder](docs/SAAS-TARGET-ARCHITECTURE.md)
@@ -64,7 +65,7 @@ npm start
 
 `npm start` och `npm run api` startar `apps/api/server.js`. `npm run dev` och `npm run legacy:start` startar den äldre referensservern och ska inte användas för pilotdrift. `npm run data:backup` gäller det äldre JSON-lagret; använd `pilot:backup` för SQLite.
 
-För personlig testinloggning behöver en separat testdatabas, företagsmedlemskap och MFA konfigureras via `scripts/bootstrap-platform.js`. Se `.env.example` och deployment-guiden. Lägg inte riktiga värden i GitHub. Privata bankgiro-/fakturainställningar läggs i databasen via `npm run platform:set-invoice-settings`, inte i offentliga innehållsfiler.
+För lokal utveckling kan en separat testdatabas användas. Riktig staging får däremot endast skapas via `npm run staging:bootstrap:synthetic -- --apply`; inga Rolands- eller andra kunddata får användas där. Se `.env.example` och deployment-guiden. Lägg inte riktiga värden i GitHub. Privata bankgiro-/fakturainställningar läggs i databasen via `npm run platform:set-invoice-settings`, inte i offentliga innehållsfiler.
 
 ## Driftkontroller – inte ett automatiskt pilotgodkännande
 
