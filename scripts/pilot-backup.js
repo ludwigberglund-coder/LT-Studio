@@ -5,6 +5,7 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {DatabaseSync}=require('node:sqlite');
 const BackupCrypto=require('./backup-crypto.js');
+const {assertSyntheticStagingDatabase}=require('../apps/api/staging-data-policy.js');
 
 function required(name){const value=String(process.env[name]||'').trim();if(!value)throw new Error(`${name} måste anges.`);return value}
 function sqlLiteral(value){return `'${String(value).replaceAll("'","''")}'`}
@@ -21,6 +22,7 @@ function main(){
 
   const db=new DatabaseSync(source,{timeout:5000});
   try{
+    if(String(process.env.ROLLANDS_ENV||'').trim().toLowerCase()==='staging')assertSyntheticStagingDatabase(db,process.env);
     const integrity=db.prepare('PRAGMA integrity_check').get();
     if(integrity.integrity_check!=='ok')throw new Error('Databasens integrity_check misslyckades. Backup avbruten.');
     db.exec(`VACUUM INTO ${sqlLiteral(target)}`);
