@@ -80,6 +80,20 @@ Kommandot väljer den senaste lokala `.sqlite.enc`-filen och **stoppar** om dess
 
 Evidensfilen skrivs först efter verifierad remote read-back och ska ligga utanför repositoryt. Den innehåller inte credentials eller okrypterade databasbytes.
 
+## Readiness-gate
+
+I `staging`, `pilot` och `production` kräver `/api/v1/readiness` nu ett färskt privat bevis i `ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH`.
+
+Beviset godtas endast när det visar:
+
+- R2 som provider och EU-jurisdiktion,
+- lyckad verifiering av både den krypterade backupen och checksumobjektet efter remote read-back,
+- giltig SHA-256 och förväntade immutabla storage keys,
+- positiv filstorlek,
+- ett `verifiedAt` som inte är äldre än 26 timmar.
+
+Saknat, manipulerat eller för gammalt bevis gör readiness röd (`503`). Det betyder inte att serverprocessen måste stängas av, men miljön ska inte betraktas som redo för trafik förrän en ny riktig offsite-körning har verifierats.
+
 ## Det som fortfarande återstår
 
 Denna adapter löser inte allt katastrofskydd.

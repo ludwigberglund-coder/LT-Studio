@@ -46,7 +46,7 @@ test('readiness kräver läsbar och skrivbar databas',()=>{
   try{
     const report=readinessReport({db,databasePath:':memory:',minFreeBytes:1});
     assert.equal(report.ok,true);
-    assert.deepEqual(report.checks,{databaseRead:true,databaseWrite:true,diskSpace:true,backup:true,restoreDrill:true,monitoring:true});
+    assert.deepEqual(report.checks,{databaseRead:true,databaseWrite:true,diskSpace:true,backup:true,offsiteBackup:true,restoreDrill:true,monitoring:true});
   }finally{db.close()}
 });
 
@@ -68,6 +68,49 @@ test('pilot-readiness stoppar saknad, skadad och för gammal backup',()=>{
     writeBackup(backupDir,'rollands-stale.sqlite',27*60*60*1000);
     report=readinessReport({db,databasePath:dbPath,backupPath:backupDir,requireBackup:true,minFreeBytes:1,backupMaxAgeMs:26*60*60*1000});
     assert.equal(report.ok,false);assert.equal(report.checks.backup,false);
+  }finally{db.close();fs.rmSync(dir,{recursive:true,force:true})}
+});
+
+test('readiness kräver färskt verifierat R2-offsitebevis i skyddad drift',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-readiness-offsite-'));
+  const evidencePath=path.join(dir,'offsite-evidence.json');
+  const db=Db.openDatabase(':memory:');
+  const now=Date.UTC(2026,8,21,12,0,0);
+  const sha='b'.repeat(64);
+  const encryptedFile='rollands-2026-09-21T10-00-00.sqlite.enc';
+  const valid={
+    schemaVersion:1,
+    verifiedAt:new Date(now-60*60*1000).toISOString(),
+    provider:'r2',
+    jurisdiction:'eu',
+    bucket:'private-backups',
+    encryptedFile,
+    encryptedSha256:sha,
+    encryptedSizeBytes:4096,
+    encryptedStorageKey:`encrypted-sqlite-backups/${sha}/${encryptedFile}`,
+    checksumStorageKey:`encrypted-sqlite-backups/${sha}/${encryptedFile}.sha256`,
+    remoteEncryptedVerified:true,
+    remoteChecksumVerified:true
+  };
+  try{
+    let report=readinessReport({db,databasePath:':memory:',requireOffsiteBackupEvidence:true,offsiteBackupEvidencePath:evidencePath,now});
+    assert.equal(report.ok,false);assert.equal(report.checks.offsiteBackup,false);
+
+    fs.writeFileSync(evidencePath,JSON.stringify(valid));
+    report=readinessReport({db,databasePath:':memory:',requireOffsiteBackupEvidence:true,offsiteBackupEvidencePath:evidencePath,now});
+    assert.equal(report.ok,true);assert.equal(report.checks.offsiteBackup,true);assert.equal(report.offsiteBackupAgeMs,60*60*1000);
+
+    fs.writeFileSync(evidencePath,JSON.stringify({...valid,remoteChecksumVerified:false}));
+    report=readinessReport({db,databasePath:':memory:',requireOffsiteBackupEvidence:true,offsiteBackupEvidencePath:evidencePath,now});
+    assert.equal(report.ok,false);assert.equal(report.checks.offsiteBackup,false);
+
+    fs.writeFileSync(evidencePath,JSON.stringify({...valid,verifiedAt:new Date(now-27*60*60*1000).toISOString()}));
+    report=readinessReport({db,databasePath:':memory:',requireOffsiteBackupEvidence:true,offsiteBackupEvidencePath:evidencePath,now});
+    assert.equal(report.ok,false);assert.equal(report.checks.offsiteBackup,false);
+
+    fs.writeFileSync(evidencePath,JSON.stringify({...valid,encryptedStorageKey:'encrypted-sqlite-backups/wrong/'+encryptedFile}));
+    report=readinessReport({db,databasePath:':memory:',requireOffsiteBackupEvidence:true,offsiteBackupEvidencePath:evidencePath,now});
+    assert.equal(report.ok,false);assert.equal(report.checks.offsiteBackup,false);
   }finally{db.close();fs.rmSync(dir,{recursive:true,force:true})}
 });
 
