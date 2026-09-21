@@ -56,7 +56,10 @@ function nameSimilarity(paymentName, customerName) {
 }
 
 function scoreCandidate(payment, invoice) {
-  const amountMatch = Number(payment.amountOre) === Number(invoice.remainingOre);
+  const paymentAmount=Number(payment.amountOre),remaining=Number(invoice.remainingOre);
+  const amountMatch = paymentAmount === remaining;
+  const partialAmount = paymentAmount > 0 && paymentAmount < remaining;
+  const amountWithinBalance = paymentAmount > 0 && paymentAmount <= remaining;
   const ocrMatch = referenceMatches(payment,invoice.ocr);
   const invoiceNumberMatch = referenceMatches(payment,invoice.invoiceNumber);
   const customerNameScore = nameSimilarity(payment.payerName,invoice.customerName);
@@ -67,12 +70,13 @@ function scoreCandidate(payment, invoice) {
   if (ocrMatch) { score += 0.62; evidence.push({kind:'payment-reference',label:'OCR',value:text(invoice.ocr),sourceId:payment.id}); }
   else if (invoiceNumberMatch) { score += 0.56; evidence.push({kind:'payment-reference',label:'Fakturanummer',value:text(invoice.invoiceNumber),sourceId:payment.id}); }
   if (amountMatch) { score += 0.32; evidence.push({kind:'amount',label:'Exakt restbelopp',value:String(payment.amountOre),sourceId:payment.id}); }
+  else if (partialAmount) { score += 0.18; evidence.push({kind:'amount',label:'Delbetalning inom restbelopp',value:String(payment.amountOre),sourceId:payment.id}); }
   if (customerNameScore >= 0.9) { score += 0.14; evidence.push({kind:'payer-name',label:'Betalarnamn',value:text(payment.payerName),sourceId:payment.id}); }
   else if (customerNameScore >= 0.5) { score += 0.07; evidence.push({kind:'payer-name',label:'Delvis namnmatchning',value:text(payment.payerName),sourceId:payment.id}); }
 
   score = Math.min(1,score);
   if ((ocrMatch || invoiceNumberMatch) && amountMatch) deterministic = true;
-  return Object.freeze({invoice,score,deterministic,amountMatch,ocrMatch,invoiceNumberMatch,customerNameScore,evidence:Object.freeze(evidence)});
+  return Object.freeze({invoice,score,deterministic,amountMatch,partialAmount,amountWithinBalance,ocrMatch,invoiceNumberMatch,customerNameScore,evidence:Object.freeze(evidence)});
 }
 
 function analyzeIncomingPayment(payment,invoices) {
@@ -81,7 +85,7 @@ function analyzeIncomingPayment(payment,invoices) {
   if (!Array.isArray(invoices)) throw matcherError('Fakturalistan saknas.','INVALID_INVOICE_LIST');
 
   const eligible = invoices.filter(invoice=>invoice && invoice.companyId===payment.companyId && Number.isSafeInteger(invoice.remainingOre) && invoice.remainingOre>0);
-  const scored = eligible.map(invoice=>scoreCandidate(payment,invoice)).filter(candidate=>candidate.score>=0.45).sort((a,b)=>b.score-a.score || String(a.invoice.id).localeCompare(String(b.invoice.id)));
+  const scored = eligible.map(invoice=>scoreCandidate(payment,invoice)).filter(candidate=>candidate.amountWithinBalance&&candidate.score>=0.45).sort((a,b)=>b.score-a.score || String(a.invoice.id).localeCompare(String(b.invoice.id)));
   if (!scored.length) return Object.freeze({status:'no-match',paymentId:payment.id,candidates:Object.freeze([]),reason:'Ingen öppen kundfaktura gav tillräckligt starka matchningssignaler.'});
 
   const best = scored[0];
@@ -93,6 +97,7 @@ function analyzeIncomingPayment(payment,invoices) {
   if (best.ocrMatch) reasonParts.push('OCR matchar');
   else if (best.invoiceNumberMatch) reasonParts.push('fakturanummer matchar');
   if (best.amountMatch) reasonParts.push('beloppet matchar restbeloppet');
+  else if (best.partialAmount) reasonParts.push('beloppet är en delbetalning inom restbeloppet');
   if (best.customerNameScore >= 0.9) reasonParts.push('betalarnamnet matchar kunden');
   if (ambiguous) reasonParts.push('flera fakturor ligger nära samma matchningspoäng');
 
