@@ -69,6 +69,12 @@ function validateEvidenceChain(env=process.env,{now=Date.now()}={}){
     if(offsite.encryptedFile!==r2Restore.sourceFile){
       fail.push('R2 restore-drillen gäller inte samma krypterade backupfil som offsite-readback verifierade.');
     }
+    if(offsite.encryptedStorageKey!==r2Restore.sourceStorageKey||offsite.checksumStorageKey!==r2Restore.sourceChecksumStorageKey){
+      fail.push('R2 restore-drillen gäller inte samma R2-objektnycklar som offsite-readback verifierade.');
+    }
+    if(offsite.checksumSha256!==r2Restore.sourceChecksumSha256||offsite.checksumSizeBytes!==r2Restore.sourceChecksumSizeBytes){
+      fail.push('R2 restore-drillen gäller inte samma checksumobjekt som offsite-readback verifierade.');
+    }
   }
 
   const checks=Object.freeze({
@@ -81,7 +87,9 @@ function validateEvidenceChain(env=process.env,{now=Date.now()}={}){
     sameBackupArtifact:
       offsite.ok&&restore.ok&&r2Restore.ok&&
       offsite.sha256===restore.sha256&&offsite.encryptedFile===restore.sourceFile&&
-      offsite.sha256===r2Restore.sha256&&offsite.encryptedFile===r2Restore.sourceFile
+      offsite.sha256===r2Restore.sha256&&offsite.encryptedFile===r2Restore.sourceFile&&
+      offsite.encryptedStorageKey===r2Restore.sourceStorageKey&&offsite.checksumStorageKey===r2Restore.sourceChecksumStorageKey&&
+      offsite.checksumSha256===r2Restore.sourceChecksumSha256&&offsite.checksumSizeBytes===r2Restore.sourceChecksumSizeBytes
   });
 
   return Object.freeze({
