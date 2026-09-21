@@ -265,7 +265,10 @@ function initializeSchema(db) {
   if (!hasColumn(db,'invoice_reminders','interest_start_evidence_source')) db.exec("ALTER TABLE invoice_reminders ADD COLUMN interest_start_evidence_source TEXT NOT NULL DEFAULT ''");
   if (!hasColumn(db,'invoice_reminders','interest_start_verified_at')) db.exec("ALTER TABLE invoice_reminders ADD COLUMN interest_start_verified_at TEXT NOT NULL DEFAULT ''");
   db.exec("UPDATE invoice_reminders SET reminder_date=substr(sent_at,1,10) WHERE reminder_date IS NULL OR reminder_date=''");
-  require('./history-guards.js').protectAppendOnly(db, 'audit_events');
+  const {protectAppendOnly}=require('./history-guards.js');
+  protectAppendOnly(db,'audit_events');
+  protectAppendOnly(db,'security_events');
+  protectAppendOnly(db,'platform_operator_audit_events');
 }
 
 function hasColumn(db, tableName, columnName) {
