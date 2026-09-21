@@ -83,6 +83,29 @@ function reminderRequestFingerprint(reminder) {
   return crypto.createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
 }
 
+function customerCreateRequestId(value) {
+  const requestId=String(value||'').trim();
+  if(!/^[A-Za-z0-9][A-Za-z0-9._:-]{7,199}$/.test(requestId)) {
+    throw apiError('Ett giltigt request-id krävs när en kund skapas. Ladda om formuläret och försök igen.','CUSTOMER_REQUEST_ID_REQUIRED',422);
+  }
+  return requestId;
+}
+
+function customerIdForRequest(companyId,requestId) {
+  return 'customer_req_'+crypto.createHash('sha256').update(String(companyId)+'|'+requestId).digest('hex');
+}
+
+function sameCustomerInput(customer,input) {
+  return Boolean(customer &&
+    customer.name===input.name &&
+    String(customer.orgNumber||'')===String(input.orgNumber||'') &&
+    String(customer.email||'')===String(input.email||'') &&
+    String(customer.address?.full||'')===String(input.address?.full||'') &&
+    Boolean(customer.reminderFeeAgreed)===Boolean(input.reminderFeeAgreed) &&
+    String(customer.customerType||'business')==='business'
+  );
+}
+
 function validatedCustomerInput(payload={}) {
   const name=String(payload.name||'').trim();
   if(!name || name.length>160) throw apiError('Kundnamn måste anges och vara högst 160 tecken.','INVALID_CUSTOMER_NAME',422);
@@ -318,17 +341,25 @@ function createApiApp(options) {
       if(req.method==='POST' && url.pathname==='/api/v1/customers') {
         requirePermission(session,'customer-invoice.create');
         const payload=await readJson(req,res); if(!payload) return;
+        const requestId=customerCreateRequestId(payload.requestId);
         const input=validatedCustomerInput(payload);
-        let customer;
-        Db.transaction(db,()=>{
-          customer=Db.createCustomer(db,{
+        const customerId=customerIdForRequest(session.companyId,requestId);
+        const result=Db.transaction(db,()=>{
+          const existing=Db.customerById(db,session.companyId,customerId);
+          if(existing){
+            if(!sameCustomerInput(existing,input)) throw apiError('Request-id är redan använt för en annan kund. Ingen ny kund skapades.','CUSTOMER_IDEMPOTENCY_CONFLICT',409);
+            return{customer:existing,duplicate:true};
+          }
+          const customer=Db.createCustomer(db,{
+            id:customerId,
             companyId:session.companyId,
             customerNumber:Db.nextCustomerNumber(db,session.companyId),
             ...input,customerType:'business'
           });
-          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'CUSTOMER_CREATED',entityType:'customer',entityId:customer.id,details:{customerNumber:customer.customerNumber}});
+          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'CUSTOMER_CREATED',entityType:'customer',entityId:customer.id,details:{customerNumber:customer.customerNumber,requestId}});
+          return{customer,duplicate:false};
         });
-        return send(res,201,{customer});
+        return send(res,result.duplicate?200:201,result);
       }
 
       const customerMatch=url.pathname.match(/^\/api\/v1\/customers\/([^/]+)$/);
@@ -535,4 +566,4 @@ function createApiApp(options) {
   return Object.freeze({handle,accessModel,legalRates});
 }
 
-module.exports=Object.freeze({createApiApp,readJson,securityHeaders,verifiedInterestStartEvidence,reminderRequestFingerprint});
+module.exports=Object.freeze({createApiApp,readJson,securityHeaders,verifiedInterestStartEvidence,reminderRequestFingerprint,customerCreateRequestId,customerIdForRequest,sameCustomerInput});
