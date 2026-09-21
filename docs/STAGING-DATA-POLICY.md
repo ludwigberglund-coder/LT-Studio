@@ -37,6 +37,10 @@ If either condition is missing or changed, protected runtime validation fails cl
 
 These variables are a deployment safety gate. They do not replace operational discipline: the staging database itself must be created from synthetic fixtures or fictitious bootstrap data.
 
+The protected API runtime also verifies the **database contents on every staging startup**. The database must contain exactly the two approved synthetic fixture companies created by `staging:bootstrap:synthetic`, with their original synthetic identities and matching `SYNTHETIC_STAGING_BOOTSTRAP` audit evidence. If a different database is selected, a company identity is replaced, or the synthetic bootstrap provenance is missing, startup fails closed before the server accepts requests.
+
+This second gate is intentionally stricter than checking environment variables alone. It protects against an operator accidentally pointing staging at a pilot, production or other customer database while the environment still says `synthetic`.
+
 ## Safe staging bootstrap
 
 Do not use the generic `platform:bootstrap` command in staging. It is intentionally blocked there because it accepts manually supplied company identity.
