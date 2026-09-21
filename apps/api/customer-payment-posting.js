@@ -158,7 +158,7 @@ function executeApprovedCustomerPayment(db,{companyId,proposalId,actorId}){
       series:'A',
       lines:[
         {account:'1930',text:`Bankinbetalning ${bankPayment.externalId}`,debitOre:amountOre,creditOre:0},
-        {account:'1510',text:`Betald kundfaktura ${invoice.invoiceNumber}`,debitOre:0,creditOre:amountOre}
+        {account:'1510',text:`Inbetalning kundfaktura ${invoice.invoiceNumber}`,debitOre:0,creditOre:amountOre}
       ]
     });
     if(posted.duplicate)throw paymentError('Kundbetalningsverifikationen finns redan utan motsvarande exekveringshistorik.','CUSTOMER_PAYMENT_EXECUTION_INTEGRITY_ERROR',500);
