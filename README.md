@@ -15,6 +15,7 @@ Börja här:
 - [SaaS-målarkitektur för flera kunder](docs/SAAS-TARGET-ARCHITECTURE.md)
 - [Flerföretagsaudit och luckor för kund nummer två](docs/MULTI-TENANT-GAP-AUDIT-2026-09-20.md)
 - [PostgreSQL-migreringsplan](docs/POSTGRESQL-MIGRATION-PLAN.md)
+- [Pre-launch: BankID och Tink Link](docs/PRE-LAUNCH-INTEGRATIONS.md)
 
 ## GitHub är vår gemensamma källa
 
