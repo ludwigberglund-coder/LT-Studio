@@ -134,11 +134,13 @@ function vatControl(db,companyId,{period}){
   const rows=vatLedgerRows(db,companyId,{from,to});
   const outputByAccount=Object.fromEntries(Object.keys(OUTPUT_VAT_ACCOUNTS).map(account=>[account,0]));
   let inputVatOre=0;
-  const unsupportedVatAccounts=[];
+  const unsupportedVatAccounts=[],settlementActivity=[];
   for(const row of rows){
     if(Object.hasOwn(OUTPUT_VAT_ACCOUNTS,row.account)) outputByAccount[row.account]=row.creditOre-row.debitOre;
     else if(INPUT_VAT_ACCOUNTS.has(row.account)) inputVatOre+=row.debitOre-row.creditOre;
-    else if(!VAT_SETTLEMENT_ACCOUNTS.has(row.account) && row.debitOre!==row.creditOre) unsupportedVatAccounts.push({...row,netOre:row.debitOre-row.creditOre});
+    else if(VAT_SETTLEMENT_ACCOUNTS.has(row.account)){
+      if(row.debitOre!==row.creditOre)settlementActivity.push({...row,netOre:row.debitOre-row.creditOre});
+    }else if(row.debitOre!==row.creditOre) unsupportedVatAccounts.push({...row,netOre:row.debitOre-row.creditOre});
   }
   const outputVatOre=Object.values(outputByAccount).reduce((sum,value)=>sum+value,0);
   const customerChecks=customerVatSourceChecks(db,companyId,{from,to});
@@ -149,10 +151,12 @@ function vatControl(db,companyId,{period}){
   ];
   const customer=db.prepare(`SELECT COUNT(*) AS count,COALESCE(SUM(vat_ore),0) AS vatOre,COALESCE(SUM(total_ore),0) AS totalOre FROM invoices WHERE company_id=? AND posting_date BETWEEN ? AND ?`).get(companyId,from,to)||{};
   const supplier=db.prepare(`SELECT COUNT(*) AS count,COALESCE(SUM(vat_ore),0) AS vatOre,COALESCE(SUM(total_ore),0) AS totalOre FROM supplier_invoices WHERE company_id=? AND invoice_date BETWEEN ? AND ? AND status<>'rejected'`).get(companyId,from,to)||{count:0,vatOre:0,totalOre:0};
-  const integrityOk=sourceMismatches.length===0&&unsupportedVatAccounts.length===0;
-  const warning=integrityOk
-    ? 'Momsbeloppen är avstämda mot bokförda momskonton för de källanknutna fakturorna. Underlaget är fortfarande inte en färdig momsdeklaration: full momskodning, redovisningsmetod och övriga svenska momsfall måste vara verifierade.'
-    : 'Momsavstämningen innehåller differenser eller momskonton som den här versionen inte kan klassificera säkert. Perioden får inte behandlas som deklarationsklar.';
+  const integrityOk=sourceMismatches.length===0&&unsupportedVatAccounts.length===0&&settlementActivity.length===0;
+  const warning=settlementActivity.length
+    ? 'Momsperioden innehåller aktivitet på momsredovisningskonto 2650. Den här versionen kan ännu inte säkert skilja periodens transaktionsmoms från en momsavräkning efter omföring, så perioden får inte behandlas som deklarationsklar.'
+    : integrityOk
+      ? 'Momsbeloppen är avstämda mot bokförda momskonton för de källanknutna fakturorna. Underlaget är fortfarande inte en färdig momsdeklaration: full momskodning, redovisningsmetod och övriga svenska momsfall måste vara verifierade.'
+      : 'Momsavstämningen innehåller differenser eller momskonton som den här versionen inte kan klassificera säkert. Perioden får inte behandlas som deklarationsklar.';
   return{
     period,from,to,basis:'booked-ledger-control',declarationReady:false,integrityOk,
     outputVatOre,inputVatOre,netVatOre:outputVatOre-inputVatOre,
@@ -164,6 +168,7 @@ function vatControl(db,companyId,{period}){
     ledgerAccounts:rows,
     sourceReconciliation:{customerInvoices:customerChecks,supplierInvoices:supplierChecks,mismatches:sourceMismatches},
     unsupportedVatAccounts,
+    settlementActivity,
     operationalControl:{
       customerInvoiceCount:Number(customer.count||0),supplierInvoiceCount:Number(supplier.count||0),
       customerVatOre:Number(customer.vatOre||0),supplierVatOre:Number(supplier.vatOre||0),

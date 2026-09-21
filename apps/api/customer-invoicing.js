@@ -351,7 +351,7 @@ function assertCreditDate(value){
 }
 function creditDocumentFrom(original,invoiceNumber,creditDate,reason){
   const document=structuredClone(original);
-  const negate=value=>Number.isSafeInteger(Number(value))?-Number(value):value;
+  const negate=value=>{const amount=Number(value);return Number.isSafeInteger(amount)?(amount===0?0:-amount):value};
   document.schemaVersion=Math.max(Number(document.schemaVersion||0),3);
   document.documentType='KREDITFAKTURA';
   document.invoiceNumber=invoiceNumber;

@@ -1,6 +1,6 @@
 # Moms – pilotkontroll för Rolands
 
-Senast verifierad: 2026-09-18.
+Senast verifierad: 2026-09-21.
 
 Detta dokument beskriver den tekniska momsavstämningen inför Rolands pilot. Det är inte ett intyg om att systemet kan skapa eller lämna en fullständig svensk momsdeklaration.
 
@@ -41,8 +41,8 @@ Rapporten är fortsatt markerad som inte deklarationsklar. Följande behöver ve
 
 1. Företagets faktiska redovisningsmetod och momsperiod.
 2. Datum- och verksamhetsstyrd klassificering mellan livsmedel 6 procent, restaurangtjänst 12 procent och andra varor/tjänster.
-3. Kreditfakturor över en momssatsändring.
-4. EU-handel, import, omvänd betalningsskyldighet och andra särskilda momskoder.
+3. Delkrediter och andra ändringsfakturor utöver den nu verifierade helkrediteringen. Helkreditering av en livsmedelsfaktura från före 1 april 2026 är verifierad att återföra originalets 12-procentiga moms även när kreditfakturan utfärdas efter att den nya 6-procentiga satsen börjat gälla.
+4. EU-handel, import, omvänd betalningsskyldighet och andra särskilda momskoder. Dessa är fortsatt inte automatiskt klassificerade; kända ej stödda 26xx-konton gör momsavstämningen fail-closed och perioden markeras inte som deklarationsklar.
 5. Periodisering/tidpunkt för leverantörsfakturor enligt vald redovisningsmetod.
 6. Avstämning av eventuella ingående balanser och konto 2650 när momsperioden avslutas.
 
@@ -63,3 +63,18 @@ Backend kräver klassificeringen när en verklig kundfaktura utfärdas. Om den a
 Reglerna i programmet är medvetet verifierade till och med 2026-12-31. Fakturor efter det datumet blockeras tills regelverket har kontrollerats på nytt. Det är striktare än att gissa att en tillfällig eller ändrad regel fortfarande gäller.
 
 Detta täcker inte momsfri omsättning, EU-handel, export, import, omvänd betalningsskyldighet eller andra specialfall. Sådana fall ska fortfarande hanteras utanför det automatiska pilotflödet tills de uttryckligen stöds och testas.
+
+
+## Verifiering 21 september 2026
+
+Automatiska regressionstester verifierar nu följande gränsfall:
+
+- en livsmedelsfaktura den 31 mars 2026 använder 12 procent,
+- en helkredit den 2 april 2026 återför samma 12-procentiga moms och samma ursprungliga momskonto i stället för att räknas om till 6 procent,
+- en ny livsmedelsfaktura den 3 april 2026 använder 6 procent,
+- aprilperioden kan samtidigt innehålla negativ 12-procentig utgående moms från krediten och positiv 6-procentig utgående moms från ny försäljning,
+- källavstämningen kräver att kreditfakturans negativa momsbelopp exakt stämmer med den bokförda återföringen,
+- aktivitet på konto 2650 gör kontrollen fail-closed, eftersom rapporten ännu inte kan skilja transaktionsmoms från en genomförd momsavräkning utan särskild periodavslutslogik,
+- konton för ännu ej stödda specialfall, exempelvis 2614 och 2645, klassificeras inte som vanlig svensk 25/12/6-procentsmoms utan gör kontrollen ofullständig.
+
+Detta innebär inte att EU-handel, import eller omvänd betalningsskyldighet är implementerade för automatisk momsdeklaration. Tvärtom är verifieringen till för att bevisa att systemet inte gissar i dessa fall.
