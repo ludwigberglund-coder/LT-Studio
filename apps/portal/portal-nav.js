@@ -108,7 +108,9 @@
     const sidebar=document.querySelector('.sidebar');if(!sidebar)return;
     const route=location.pathname+location.hash;
     if(sidebar.dataset.sharedRoute===route&&sidebar.querySelector('.shared-navigation'))return;
-    sidebar.classList.add('shared-sidebar');sidebar.parentElement.classList.add('shared-workspace-shell');
+    sidebar.classList.add('shared-sidebar');
+    const workspace=sidebar.parentElement;workspace.classList.add('shared-workspace-shell');
+    const workspaceMain=[...workspace.children].find(child=>child!==sidebar);if(workspaceMain)workspaceMain.classList.add('shared-workspace-main');
     sidebar.setAttribute('aria-label','Huvudmeny');sidebar.dataset.sharedRoute=route;
     const saved=read();
     const context=await navigationContext();const allowedGroups=context.groups;

@@ -1,6 +1,6 @@
 /* Loaded last in every workspace. Never hide links because another route is active. */
 .shared-workspace-shell{display:grid!important;grid-template-columns:276px minmax(0,1fr)!important;min-height:100vh}
-.shared-workspace-shell>.main,.shared-workspace-shell>.main-area,.shared-workspace-shell>.admin-main{margin-left:0!important;width:auto!important;min-width:0}
+.shared-workspace-shell>.main,.shared-workspace-shell>.main-area,.shared-workspace-shell>.admin-main,.shared-workspace-shell>.shared-workspace-main{margin-left:0!important;width:auto!important;min-width:0}
 .sidebar.shared-sidebar{display:flex!important;flex-direction:column!important;gap:16px!important;position:sticky!important;top:0!important;left:auto!important;bottom:auto!important;width:276px!important;min-width:0!important;height:100dvh!important;max-height:100dvh!important;overflow-y:auto!important;overflow-x:hidden!important;padding:25px 17px!important;background:#143c30!important;color:#fff!important;transform:none!important;visibility:visible!important;z-index:25;align-self:start;scrollbar-width:thin;scrollbar-color:#6d9281 #143c30}
 .shared-sidebar .shared-brand{display:block!important;text-decoration:none;color:#fff;padding:0 10px;flex-shrink:0}
 .shared-sidebar .shared-brand strong{display:block;font:700 33px/1.1 Georgia,serif;letter-spacing:-1px}
