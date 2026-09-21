@@ -50,11 +50,11 @@ test('gemensamma portalen upptäcker serveruppdatering utan hård omladdning',()
 test('alla portalsidor får gemensam användarmeny med namn, avatar och säker utloggning',()=>{
   const js=fs.readFileSync(path.join(portal,'portal-nav.js'),'utf8');
   const css=fs.readFileSync(path.join(portal,'styles.css'),'utf8');
-  assert.match(js,/function mountUserMenu()/);
+  assert.match(js,/function mountUserMenu\(\)/);
   assert.match(js,/shared-user-menu/);
   assert.match(js,/shared-user-avatar/);
   assert.match(js,/displayName/);
-  assert.match(js,/fetch('\/api\/v1\/auth\/logout'/);
+  assert.match(js,/fetch\('\/api\/v1\/auth\/logout'/);
   assert.match(js,/method:'POST'/);
   assert.match(js,/X-CSRF-Token/);
   assert.match(js,/sessionStorage\.removeItem\('rollands-csrf'\)/);
