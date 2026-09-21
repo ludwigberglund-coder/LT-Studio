@@ -170,8 +170,9 @@
       const type = String(transaction?.transactionType || transaction?.type || '').trim().toLowerCase();
       const supportedPayment = type === 'payment' && amountOre < 0;
       const supportedReversal = type === 'payment-reversal' && amountOre > 0;
-      if (!supportedPayment && !supportedReversal) {
-        if (amountOre < 0 || type === 'payment-reversal') throw domainError('Ränteberäkningen innehåller en kredit eller betalningsåterföring med ogiltigt tecken.', 'UNSUPPORTED_BALANCE_HISTORY', 409);
+      const supportedCredit = type === 'credit' && amountOre < 0 && String(transaction?.account||'') === '1510' && /^credit-note:/.test(String(transaction?.bankReference||'')) && String(transaction?.journalNumber||'').trim().length>0;
+      if (!supportedPayment && !supportedReversal && !supportedCredit) {
+        if (amountOre < 0 || type === 'payment-reversal' || type === 'credit') throw domainError('Ränteberäkningen innehåller en kredit eller betalningsåterföring med ogiltigt tecken.', 'UNSUPPORTED_BALANCE_HISTORY', 409);
         continue;
       }
       events.push({

@@ -5,6 +5,7 @@ const Db=require('../apps/api/database.js');
 const Auth=require('../apps/api/auth.js');
 const Accounting=require('../apps/api/accounting-store.js');
 const Admin=require('../apps/api/accounting-admin.js');
+const AccountingSettings=require('../apps/api/accounting-settings.js');
 
 function seed(){
   const db=Db.openDatabase(':memory:');
@@ -171,5 +172,29 @@ test('första ingående balans måste importeras innan årets övriga verifikati
     ]}),e=>e.code==='OPENING_BALANCE_REQUIRES_EMPTY_YEAR'&&e.statusCode===409);
     assert.equal(Accounting.listEntries(db,company.id).length,1);
     assert.equal(Admin.openingBalanceByYear(db,company.id,'2026'),null);
+  }finally{db.close()}
+});
+
+
+test('kundåterbetalningskonto kräver explicit verifierat skuldkonto och beslutsreferens',()=>{
+  const {db,company,maker}=seed();
+  try{
+    assert.equal(AccountingSettings.getAccountingSettings(db,company.id),null);
+    assert.throws(()=>AccountingSettings.setCustomerRefundLiabilityAccount(db,{companyId:company.id,account:'1510',decisionReference:'Beslut #254',updatedBy:maker.id}),e=>e.code==='INVALID_CUSTOMER_REFUND_LIABILITY_ACCOUNT');
+    assert.throws(()=>AccountingSettings.setCustomerRefundLiabilityAccount(db,{companyId:company.id,account:'2440',decisionReference:'Beslut #254',updatedBy:maker.id}),e=>e.code==='PROTECTED_CUSTOMER_REFUND_LIABILITY_ACCOUNT');
+    assert.throws(()=>AccountingSettings.setCustomerRefundLiabilityAccount(db,{companyId:company.id,account:'2890',decisionReference:'x',updatedBy:maker.id}),e=>e.code==='CUSTOMER_REFUND_DECISION_REFERENCE_REQUIRED');
+    const saved=AccountingSettings.setCustomerRefundLiabilityAccount(db,{companyId:company.id,account:'2890',decisionReference:'Testbeslut för verifierad kundåterbetalningsskuld.',updatedBy:maker.id});
+    assert.equal(saved.customerRefundLiabilityAccount,'2890');
+    assert.equal(saved.customerRefundDecisionReference,'Testbeslut för verifierad kundåterbetalningsskuld.');
+    assert.equal(saved.updatedBy,maker.id);
+  }finally{db.close()}
+});
+
+test('kundåterbetalningskonto är strikt företagsisolerat',()=>{
+  const {db,company,company2,maker}=seed();
+  try{
+    AccountingSettings.setCustomerRefundLiabilityAccount(db,{companyId:company.id,account:'2890',decisionReference:'Testbeslut för företag ett.',updatedBy:maker.id});
+    assert.equal(AccountingSettings.getAccountingSettings(db,company.id).customerRefundLiabilityAccount,'2890');
+    assert.equal(AccountingSettings.getAccountingSettings(db,company2.id),null);
   }finally{db.close()}
 });
