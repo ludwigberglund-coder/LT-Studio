@@ -187,3 +187,87 @@ test('ej bokförda leverantörsfakturor redovisas separat från 2440-avstämning
 }finally{db.close()}});
 
 test('felaktiga perioder och konton stoppas',()=>{const {db,company}=seed();try{assert.throws(()=>Reports.vatControl(db,company.id,{period:'2026-13'}),e=>e.code==='INVALID_PERIOD');assert.throws(()=>Reports.generalLedger(db,company.id,{from:'2026-09-01',to:'2026-09-30',account:'26A1'}),e=>e.code==='INVALID_ACCOUNT');assert.throws(()=>Reports.trialBalance(db,company.id,{from:'2026-10-01',to:'2026-09-01'}),e=>e.code==='INVALID_REPORT_RANGE');}finally{db.close()}});
+
+
+test('åldersintervallen har tydliga gränser',()=>{
+  assert.equal(Reports.agingBucket('2026-10-21','2026-10-20'),'notDue');
+  assert.equal(Reports.agingBucket('2026-10-20','2026-10-20'),'dueToday');
+  assert.equal(Reports.agingBucket('2026-09-20','2026-10-20'),'overdue1to30');
+  assert.equal(Reports.agingBucket('2026-09-19','2026-10-20'),'overdue31to60');
+  assert.equal(Reports.agingBucket('2026-08-20','2026-10-20'),'overdue61to90');
+  assert.equal(Reports.agingBucket('2026-07-20','2026-10-20'),'overdue91Plus');
+  assert.throws(()=>Reports.agingBucket('2026-02-30','2026-10-20'),e=>e.code==='INVALID_AGING_DATE');
+});
+
+test('kundfordringsanalys grupperar öppna saldon efter förfalloålder och isolerar företag',()=>{
+  const {db,company}=seed();
+  try{
+    const customer2=Db.createCustomer(db,{companyId:company.id,customerNumber:'K-2',name:'Ny Kund AB'});
+    Db.createInvoice(db,{companyId:company.id,customerId:customer2.id,invoiceNumber:'1002',invoiceDate:'2026-10-01',postingDate:'2026-10-01',dueDate:'2026-11-01',totalOre:50000,vatOre:10000,remainingOre:50000,status:'Bokförd'});
+    Db.createInvoice(db,{companyId:company.id,customerId:customer2.id,invoiceNumber:'1003',invoiceDate:'2026-08-01',postingDate:'2026-08-01',dueDate:'2026-09-05',totalOre:30000,vatOre:6000,remainingOre:30000,status:'Bokförd'});
+
+    const other=Db.createCompany(db,{legalName:'Hemligt Aging AB',displayName:'Hemligt Aging',orgNumber:'559900-6061'});
+    const otherCustomer=Db.createCustomer(db,{companyId:other.id,customerNumber:'SECRET-K',name:'Hemlig Agingkund'});
+    Db.createInvoice(db,{companyId:other.id,customerId:otherCustomer.id,invoiceNumber:'SECRET-AGING',invoiceDate:'2026-08-01',postingDate:'2026-08-01',dueDate:'2026-08-01',totalOre:999999,vatOre:199999,remainingOre:999999,status:'Bokförd'});
+
+    const r=Reports.receivablesAging(db,company.id,{asOf:'2026-10-20'});
+    assert.equal(r.basis,'current-open-receivables-aging');
+    assert.equal(r.totals.invoiceCount,3);
+    assert.equal(r.totals.openOre,205000);
+    assert.equal(r.totals.notDueOre,50000);
+    assert.equal(r.totals.overdue1to30Ore,125000);
+    assert.equal(r.totals.overdue31to60Ore,30000);
+    assert.equal(r.customers.length,2);
+    assert.doesNotMatch(JSON.stringify(r),/SECRET-AGING|Hemlig Agingkund|999999/);
+    assert.match(r.warning,/nuvarande öppna kundfordringar/i);
+  }finally{db.close()}
+});
+
+test('leverantörsskuldsanalys skiljer bokfört från ej bokfört och isolerar företag',()=>{
+  const {db,company,user}=seed();
+  try{
+    const supplier2=Payables.createSupplier(db,{companyId:company.id,supplierNumber:'L-2',name:'Ny Leverantör AB',defaultCostAccount:'4010'});
+    Payables.createSupplierInvoice(db,{companyId:company.id,supplierId:supplier2.id,supplierInvoiceNumber:'S-2',invoiceDate:'2026-10-01',dueDate:'2026-11-20',totalOre:40000,vatOre:8000,registeredBy:user.id});
+
+    const other=Db.createCompany(db,{legalName:'Hemlig Leverantör AB',displayName:'Hemlig Leverantör',orgNumber:'559900-6062'});
+    const otherUser=Db.createUser(db,{username:'secret.report',displayName:'Secret Report',passwordHash:'test-only'});
+    const otherSupplier=Payables.createSupplier(db,{companyId:other.id,supplierNumber:'SECRET-L',name:'Hemlig Leverantörspartner',defaultCostAccount:'4010'});
+    Payables.createSupplierInvoice(db,{companyId:other.id,supplierId:otherSupplier.id,supplierInvoiceNumber:'SECRET-S',invoiceDate:'2026-08-01',dueDate:'2026-08-01',totalOre:888888,vatOre:177778,registeredBy:otherUser.id});
+
+    const r=Reports.payablesAging(db,company.id,{asOf:'2026-11-10'});
+    assert.equal(r.basis,'current-open-payables-aging');
+    assert.equal(r.totals.invoiceCount,2);
+    assert.equal(r.totals.openOre,102500);
+    assert.equal(r.totals.postedOpenOre,62500);
+    assert.equal(r.totals.unpostedOpenOre,40000);
+    assert.equal(r.totals.notDueOre,40000);
+    assert.equal(r.totals.overdue31to60Ore,62500);
+    assert.equal(r.suppliers.length,2);
+    assert.doesNotMatch(JSON.stringify(r),/SECRET-S|Hemlig Leverantörspartner|888888/);
+    assert.match(r.warning,/ej bokförda öppna fakturor/i);
+  }finally{db.close()}
+});
+
+test('inköpsrapport summerar leverantörer på fakturadatum och isolerar företag',()=>{
+  const {db,company,user}=seed();
+  try{
+    const supplier2=Payables.createSupplier(db,{companyId:company.id,supplierNumber:'L-2',name:'Stora Inköp AB',defaultCostAccount:'4010'});
+    Payables.createSupplierInvoice(db,{companyId:company.id,supplierId:supplier2.id,supplierInvoiceNumber:'S-2',invoiceDate:'2026-09-20',dueDate:'2026-10-20',totalOre:120000,vatOre:20000,registeredBy:user.id});
+
+    const other=Db.createCompany(db,{legalName:'Annat Inköpsbolag AB',displayName:'Annat Inköpsbolag',orgNumber:'559900-6063'});
+    const otherUser=Db.createUser(db,{username:'other.purchase',displayName:'Other Purchase',passwordHash:'test-only'});
+    const otherSupplier=Payables.createSupplier(db,{companyId:other.id,supplierNumber:'X-L',name:'Hemlig Inköpsleverantör',defaultCostAccount:'4010'});
+    Payables.createSupplierInvoice(db,{companyId:other.id,supplierId:otherSupplier.id,supplierInvoiceNumber:'X-SECRET-PURCHASE',invoiceDate:'2026-09-10',dueDate:'2026-10-10',totalOre:999999,vatOre:199999,registeredBy:otherUser.id});
+
+    const r=Reports.supplierPurchasesReport(db,company.id,{from:'2026-09-01',to:'2026-09-30'});
+    assert.equal(r.basis,'supplier-invoice-operational');
+    assert.equal(r.totals.invoiceCount,2);
+    assert.equal(r.totals.netOre,150000);
+    assert.equal(r.totals.vatOre,32500);
+    assert.equal(r.totals.grossOre,182500);
+    assert.equal(r.totals.openOre,182500);
+    assert.equal(r.suppliers[0].supplierNumber,'L-2');
+    assert.doesNotMatch(JSON.stringify(r),/X-SECRET-PURCHASE|Hemlig Inköpsleverantör|999999/);
+    assert.match(r.warning,/fakturadatum/i);
+  }finally{db.close()}
+});
