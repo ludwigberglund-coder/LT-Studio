@@ -48,6 +48,9 @@ test('påminnelser sparar ränteunderlaget och kan granskas i efterhand', () => 
   try {
     const invoice=Db.invoiceById(db,co1.id,inv1.id);
     invoice.transactions=Db.transactionsForInvoice(db,co1.id,inv1.id);
+    invoice.interestStartBasis='predetermined-due-date';
+    invoice.interestStartEvidenceSource='issued-invoice-document';
+    invoice.interestStartVerifiedAt='2026-08-01T10:00:00.000Z';
     const reminder=Receivables.createReminderRecord({
       invoice,
       companyId:co1.id,
@@ -67,6 +70,9 @@ test('påminnelser sparar ränteunderlaget och kan granskas i efterhand', () => 
     assert.equal(saved.deliveredAt,null);
     assert.equal(saved.rateConfigVersion,'2');
     assert.equal(saved.rateVerifiedAt,'2026-09-18');
+    assert.equal(saved.interestStartBasis,'predetermined-due-date');
+    assert.equal(saved.interestStartEvidenceSource,'issued-invoice-document');
+    assert.equal(saved.interestStartVerifiedAt,'2026-08-01T10:00:00.000Z');
   } finally { db.close(); }
 });
 
