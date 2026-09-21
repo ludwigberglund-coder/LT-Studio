@@ -34,7 +34,9 @@ test('parallel publication creates one revision and restore changes only the dra
   const headers=await f.login(),before=Cms.state(f.db,f.a.id);
   const body={expectedRevision:before.draft.revision,expectedPublishedVersion:before.published.version};
   const results=await Promise.all([1,2].map(()=>json(f.base,'/api/v1/website/cms/publish',headers,'POST',body)));
-  assert.deepEqual(results.map(x=>x.res.status).sort(),[201,409]);assert.equal(Cms.listRevisions(f.db,f.a.id).length,1);
+  assert.deepEqual(results.map(x=>x.res.status).sort(),[200,201]);
+  assert.deepEqual(results.map(x=>x.data.duplicate).sort(),[false,true]);
+  assert.equal(Cms.listRevisions(f.db,f.a.id).length,1);
   const current=Cms.state(f.db,f.a.id);
   const restored=await json(f.base,'/api/v1/website/cms/revisions/1/restore',headers,'POST',{expectedRevision:current.draft.revision});
   assert.equal(restored.res.status,200);assert.equal(restored.data.state.draft.revision,current.draft.revision+1);
