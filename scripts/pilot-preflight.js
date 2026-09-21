@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {validateOperationsFile}=require('./pilot-operations.js');
 const {validateStagingSignoffFile,SOURCE_ENV}=require('./staging-signoff-format.js');
+const {verifyRelease}=require('./pilot-release-verify.js');
 
 const root=path.resolve(__dirname,'..');
 const PLACEHOLDER=/REPLACE_WITH|example\.invalid|changeme|default|placeholder/i;
@@ -22,6 +23,13 @@ function resolvedStoragePath(filename){
 function outsideRepository(filename){
   const relative=path.relative(fs.realpathSync(root),resolvedStoragePath(filename));
   return Boolean(relative && (relative==='..' || relative.startsWith('..'+path.sep) || path.isAbsolute(relative)));
+}
+
+function verifyDeploymentIdentity(env=process.env,{cwd=root,verifier=verifyRelease}={}){
+  const mode=String(env.ROLLANDS_ENV||'').trim();
+  if(!['pilot','production'].includes(mode))return Object.freeze({required:false,ok:true});
+  const result=verifier({cwd,expectedCommit:env.ROLLANDS_RELEASE_COMMIT});
+  return Object.freeze({required:true,ok:true,commit:result.commit,trackedWorktreeClean:result.trackedWorktreeClean===true});
 }
 
 function writableDirectory(target){
@@ -138,6 +146,14 @@ function validateConfig(env=process.env){
 
 function main(){
   const result=validateConfig(process.env);
+  if(!result.fail.length&&['pilot','production'].includes(String(process.env.ROLLANDS_ENV||'').trim())){
+    try{
+      const release=verifyDeploymentIdentity(process.env);
+      if(release.required&&release.ok)result.pass.push('Deployed checkout matches approved release commit');
+    }catch(error){
+      result.fail.push('Release identity: '+(error?.message||String(error)));
+    }
+  }
   console.log('ROLLANDS PILOT SERVER PREFLIGHT');
   console.log('\nPASS:');
   if(result.pass.length)result.pass.forEach(item=>console.log(`- ${item}`));else console.log('- Inga.');
@@ -150,4 +166,4 @@ function main(){
 }
 
 if(require.main===module)main();
-module.exports={validateConfig,outsideRepository,writableDirectory};
+module.exports={validateConfig,verifyDeploymentIdentity,outsideRepository,writableDirectory};
