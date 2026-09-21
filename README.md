@@ -80,7 +80,7 @@ Vid `TENANT_INTEGRITY_ERROR` ska uppstarten stoppas och historiken bevaras för 
 
 ## Offentlig demo och redigering
 
-[Publik webbplats](https://ludwigberglund-coder.github.io/Rollands/) och [företagsportalens demo](https://ludwigberglund-coder.github.io/Rollands/portal/dashboard.html?demo=1) använder fiktiva uppgifter. Demoändringar kan ligga enbart i den egna webbläsaren och är inte delad, säker företagsdata.
+[Publik webbplats](https://ludwigberglund-coder.github.io/LT-Studio/) och [företagsportalens demo](https://ludwigberglund-coder.github.io/LT-Studio/portal/dashboard.html?demo=1) använder fiktiva uppgifter. Demoändringar kan ligga enbart i den egna webbläsaren och är inte delad, säker företagsdata.
 
 Offentliga texter finns i `content/site.json` och `content/company.json`. Se [redigeringsguiden](docs/EDITING.md). Företagets juridiska/ekonomiska inställningar ska inte ändras via ett offentligt CMS.
 
