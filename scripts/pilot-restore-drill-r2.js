@@ -70,7 +70,7 @@ async function runR2RestoreDrill({target,source,drillDir,evidencePath,backupKey,
     }
     BackupCrypto.decryptFile(downloaded,restored,backupKey);
     fs.chmodSync(restored,0o600);
-    verified=verifyDatabase(restored,{requirePrivateObjectSchema:true});
+    verified=verifyDatabase(restored,{requirePrivateObjectSchema:true,requireSyntheticStaging:true});
   }finally{
     if(!removeSqliteArtifacts(restored))throw new Error('R2 restore-drill kunde inte rensa SQLite-testfiler.');
     fs.rmSync(downloaded,{force:true});
