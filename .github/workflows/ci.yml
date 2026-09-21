@@ -84,6 +84,8 @@ jobs:
         run: xvfb-run -a node test/private-workflows-browser.cjs
       - name: Run LT operator admin browser flow
         run: npm run test:browser:operator
+      - name: Run opening balance browser flow
+        run: npm run test:browser:opening-balance
       - name: Upload invoice and navigation review artifacts
         if: always()
         uses: actions/upload-artifact@v7
