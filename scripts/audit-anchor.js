@@ -77,9 +77,10 @@ function streamDigest(db,stream,{limit=null}={}){
   });
 }
 
-function rootDigest(streams){
+function rootDigest(streams,anchoredAt){
   const canonical={
     schemaVersion:1,
+    anchoredAt:String(anchoredAt||''),
     streams:STREAMS.map(def=>{
       const row=streams[def.name];
       return{
@@ -109,10 +110,11 @@ function createAuditAnchorFromDatabase(filename,{now=Date.now()}={}){
     }
     const streams={};
     for(const stream of STREAMS)streams[stream.name]=streamDigest(db,stream);
-    const rootSha256=rootDigest(streams);
+    const anchoredAt=new Date(now).toISOString();
+    const rootSha256=rootDigest(streams,anchoredAt);
     return Object.freeze({
       schemaVersion:1,
-      anchoredAt:new Date(now).toISOString(),
+      anchoredAt,
       rootSha256,
       streams:Object.freeze(streams)
     });
@@ -136,7 +138,7 @@ function validateAnchorShape(anchor){
       if(!/^[a-f0-9]{64}$/.test(String(row.sha256||'')))fail.push('sha256 är ogiltig för '+stream.name+'.');
     }
   }
-  if(fail.length===0&&rootDigest(anchor.streams)!==anchor.rootSha256)fail.push('rootSha256 matchar inte stream-summeringarna.');
+  if(fail.length===0&&rootDigest(anchor.streams,anchor.anchoredAt)!==anchor.rootSha256)fail.push('rootSha256 matchar inte ankartid och stream-summeringar.');
   return{ok:fail.length===0,fail};
 }
 
