@@ -7,7 +7,8 @@ const MIGRATIONS=Object.freeze([
   Object.freeze({
     version:1,
     name:'core-sqlite-baseline-2026-09-21',
-    description:'Adopt the current verified LT Studio private SQLite core schema as the versioned migration baseline.'
+    description:'Adopt the current verified LT Studio private SQLite core schema as the versioned migration baseline.',
+    sql:''
   })
 ]);
 
@@ -18,7 +19,7 @@ function migrationError(message,code='SCHEMA_MIGRATION_ERROR'){
 }
 function checksum(row){
   return crypto.createHash('sha256')
-    .update(JSON.stringify({version:row.version,name:row.name,description:row.description}))
+    .update(JSON.stringify({version:row.version,name:row.name,description:row.description,sql:row.sql}))
     .digest('hex');
 }
 function expectedRows(){
@@ -70,6 +71,7 @@ function initialize(db){
     const insert=db.prepare('INSERT INTO schema_migrations(version,name,checksum_sha256,applied_at) VALUES(?,?,?,?)');
     for(const migration of expectedRows()){
       if(applied.has(migration.version))continue;
+      if(migration.sql)db.exec(migration.sql);
       insert.run(migration.version,migration.name,migration.checksumSha256,new Date().toISOString());
     }
     db.exec(`RELEASE SAVEPOINT ${savepoint}`);
