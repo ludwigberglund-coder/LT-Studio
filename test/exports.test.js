@@ -89,8 +89,10 @@ test('betalningsöversiktsexport återanvänder vyfilter, sortering och formelsk
     const dataset=Exports.paymentOverview(db,company.id,{mode:'month',date:'2026-09-20',query:'+sum',account:'1930',sort:'amount',order:'desc'});
     assert.equal(dataset.rows.length,1);
     assert.equal(dataset.rows[0].direction,'Utbetalning');
+    assert.equal(dataset.rows[0].status,'Betald & bokförd');
     assert.equal(dataset.rows[0].amountOre,-100000);
     const csv=Exports.buildCsv(dataset);
+    assert.match(csv,/Betald & bokförd/);
     assert.match(csv,/"'\+SUM\(1,1\)"/);
     assert.equal(csv.includes('Export Kund'),false);
   }finally{db.close()}
