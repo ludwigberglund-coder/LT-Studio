@@ -26,7 +26,16 @@ Alla tre privata filflöden har dessutom varsin SQLite-providerbrygga:
 - `apps/api/sqlite-supplier-invoice-private-object-provider.js`,
 - `apps/api/sqlite-customer-invoice-private-object-provider.js`.
 
-Runtime för dokumentarkiv, leverantörsfakturans PDF och kundfakturans arkiverade PDF går nu genom det gemensamma provider-kontraktet. Bryggorna använder fortfarande de befintliga SQLite-adaptrarna bakom kontraktet.
+Runtime för dokumentarkiv, leverantörsfakturans PDF och kundfakturans arkiverade PDF går nu genom den centrala `apps/api/private-object-store-factory.js`.
+
+Factoryn:
+
+- väljer provider centralt,
+- använder `sqlite` som enda tillåtna och förvalda provider,
+- mappar objekttyp till rätt SQLite-brygga,
+- stoppar okända providers fail-closed.
+
+Bryggorna använder fortfarande de befintliga SQLite-adaptrarna bakom kontraktet.
 
 De underliggande SQLite-adaptrarna är fortsatt:
 
@@ -34,7 +43,7 @@ De underliggande SQLite-adaptrarna är fortsatt:
 - `apps/api/supplier-invoice-document-store.js`,
 - `apps/api/customer-invoice-pdf-archive-store.js`.
 
-`test/storage-seam-contract.test.js` fungerar som arkitekturspärr i CI. Den stoppar direkt runtime-åtkomst till privata BLOB-fält och verifierar dessutom att de tre affärsflödena inte kringgår provider-kontraktet.
+`test/storage-seam-contract.test.js` fungerar som arkitekturspärr i CI. Den stoppar direkt runtime-åtkomst till privata BLOB-fält och verifierar dessutom att alla tre affärsflöden använder den centrala factoryn i stället för att importera provider eller provider-kontrakt direkt.
 
 **Viktigt:** allt binärt innehåll ligger fortfarande i SQLite. Ingen extern objektlagring är aktiverad och ingen kunddata har migrerats.
 
@@ -216,17 +225,19 @@ Därför ska framtida migration vara verifierbar och återkörbar, och gammalt i
 
 Nästa etapp ska fortfarande inte flytta några filer.
 
-Metadataformen, provider-kontraktet, de tre SQLite-bryggorna och runtime-kopplingen finns nu.
+Metadataformen, provider-kontraktet, de tre SQLite-bryggorna, den centrala factoryn och runtime-kopplingen finns nu.
 
-Nästa lämpliga steg är en liten **provider-factory/konfigurationsgräns** som väljer aktiv implementation centralt i stället för att varje affärsmodul själv skapa sin SQLite-provider.
+Nästa lämpliga steg är **fail-fast validering av lagringskonfiguration vid API-start**.
 
 Den etappen ska:
 
-- ha SQLite som enda tillåtna och förvalda provider,
-- inte innehålla S3-, R2- eller annan extern implementation,
+- validera `PRIVATE_OBJECT_STORAGE_PROVIDER` när API:t startar,
+- använda `sqlite` som standard om variabeln saknas,
+- stoppa uppstart direkt om en okänd provider anges,
 - inte ändra databasstruktur eller API,
 - inte flytta några filer,
-- göra ett framtida providerbyte möjligt på ett enda kontrollerat ställe,
-- fail-closed om en okänd provider anges.
+- inte införa S3-, R2- eller annan extern implementation.
 
-Först efter att den gränsen är testad bör en separat etapp utvärdera en extern objektlagringsprovider.
+Det gör att en felaktig produktionskonfiguration upptäcks vid start i stället för först när någon försöker läsa eller skriva en privat fil.
+
+Först efter den kontrollen bör en separat etapp utvärdera en extern objektlagringsprovider.
