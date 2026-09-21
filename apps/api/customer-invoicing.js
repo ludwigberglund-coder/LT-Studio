@@ -7,8 +7,7 @@ const Invoice=require('../../packages/invoicing/invoice.js');
 const InvoiceSettings=require('./company-invoice-settings.js');
 const Pdf=require('../../packages/invoicing/pdf.js');
 const PrivateObject=require('./private-object-contract.js');
-const StoreContract=require('./private-object-store-contract.js');
-const CustomerInvoiceProvider=require('./sqlite-customer-invoice-private-object-provider.js');
+const StoreFactory=require('./private-object-store-factory.js');
 const {protectAppendOnly}=require('./history-guards.js');
 
 function invoiceError(message,code='CUSTOMER_INVOICE_ERROR',statusCode=422){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
@@ -206,9 +205,10 @@ function pdfArchivePrivateObjectMetadata(db,companyId,invoiceId){
 function pdfArchiveForInvoice(db,companyId,invoiceId){
   const row=pdfArchiveMetadata(db,companyId,invoiceId);
   if(!row)throw invoiceError('Den exakt arkiverade PDF-fakturan saknas.','INVOICE_PDF_ARCHIVE_NOT_FOUND',404);
-  const store=StoreContract.createContractedPrivateObjectStore(
-    CustomerInvoiceProvider.createSqliteCustomerInvoicePrivateObjectProvider(db)
-  );
+  const store=StoreFactory.createPrivateObjectStore({
+    db,
+    kind:PrivateObject.PRIVATE_OBJECT_KINDS.CUSTOMER_INVOICE_PDF
+  });
   const bytes=Buffer.from(store.get({
     companyId,
     kind:PrivateObject.PRIVATE_OBJECT_KINDS.CUSTOMER_INVOICE_PDF,
@@ -232,9 +232,10 @@ function storePdfArchive(db,{companyId,invoiceId,invoiceNumber,documentType='FAK
     sha256:pdfSha256,
     createdAt
   });
-  const store=StoreContract.createContractedPrivateObjectStore(
-    CustomerInvoiceProvider.createSqliteCustomerInvoicePrivateObjectProvider(db)
-  );
+  const store=StoreFactory.createPrivateObjectStore({
+    db,
+    kind:PrivateObject.PRIVATE_OBJECT_KINDS.CUSTOMER_INVOICE_PDF
+  });
   if(!store.put({metadata,bytes}))throw invoiceError('PDF-arkivet kunde inte lagras.','INVOICE_PDF_ARCHIVE_STORE_FAILED',500);
   const archived=pdfArchiveMetadata(db,companyId,invoiceId);
   if(!archived||archived.fileName!==expectedFileName)throw invoiceError('PDF-arkivets metadata stämmer inte med fakturaunderlaget.','INVOICE_PDF_ARCHIVE_STORE_FAILED',500);
