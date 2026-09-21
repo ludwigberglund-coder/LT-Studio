@@ -38,6 +38,7 @@ function validateStaging(env=process.env){
     pass.push('Separate R2 object and backup buckets');
   }
 
+  const evidencePaths=new Map();
   for(const name of [
     'R2_STAGING_AUDIT_EVIDENCE_PATH',
     'ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH',
@@ -59,7 +60,14 @@ function validateStaging(env=process.env){
         fail.push(name+' måste ligga utanför Git-repositoryt.');
         continue;
       }
-      pass.push(name+' outside repository');
+      const normalized=path.resolve(value);
+      const previous=evidencePaths.get(normalized);
+      if(previous){
+        fail.push(name+' och '+previous+' måste använda separata evidensfiler.');
+      }else{
+        evidencePaths.set(normalized,name);
+        pass.push(name+' outside repository');
+      }
     }catch(error){
       fail.push(name+' kunde inte verifieras: '+(error?.message||String(error)));
     }
