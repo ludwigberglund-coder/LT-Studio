@@ -108,3 +108,38 @@ test('HTTP-export kräver personlig session och skickar fil som bilaga',async()=
     assert.match(await response.text(),/320001/);
   }finally{await new Promise(resolve=>runtime.close(resolve))}
 });
+
+
+test('HTTP-export isoleras av sessionens företag även när flera företag har data i samma period',async()=>{
+  const runtime=createServer({databasePath:':memory:',db:Db.openDatabase(':memory:'),secureCookies:false});
+  const companyA=Db.createCompany(runtime.db,{legalName:'Export A AB',displayName:'Export A',orgNumber:'559990-4001'});
+  const companyB=Db.createCompany(runtime.db,{legalName:'Export B AB',displayName:'Export B',orgNumber:'559990-4002'});
+  const userA=Db.createUser(runtime.db,{username:'export.a',displayName:'Export A User',passwordHash:'test-only-a'});
+  const userB=Db.createUser(runtime.db,{username:'export.b',displayName:'Export B User',passwordHash:'test-only-b'});
+  Db.addMembership(runtime.db,{companyId:companyA.id,userId:userA.id});
+  Db.addMembership(runtime.db,{companyId:companyB.id,userId:userB.id});
+  const customerA=Db.createCustomer(runtime.db,{companyId:companyA.id,customerNumber:'KA-1',name:'Kund A'});
+  const customerB=Db.createCustomer(runtime.db,{companyId:companyB.id,customerNumber:'KB-1',name:'Kund B'});
+  Db.createInvoice(runtime.db,{companyId:companyA.id,customerId:customerA.id,invoiceNumber:'A-ONLY-1001',invoiceDate:'2026-09-01',postingDate:'2026-09-01',dueDate:'2026-09-30',totalOre:10000,remainingOre:10000,vatOre:2000,status:'Bokförd'});
+  Db.createInvoice(runtime.db,{companyId:companyB.id,customerId:customerB.id,invoiceNumber:'B-SECRET-9001',invoiceDate:'2026-09-01',postingDate:'2026-09-01',dueDate:'2026-09-30',totalOre:90000,remainingOre:90000,vatOre:18000,status:'Bokförd'});
+  const tokenA=Auth.randomToken(32),csrfA=Auth.randomToken(24);
+  const tokenB=Auth.randomToken(32),csrfB=Auth.randomToken(24);
+  const expiresAt=new Date(Date.now()+60000).toISOString();
+  Db.createSession(runtime.db,{tokenHash:Auth.hashToken(tokenA),csrfHash:Auth.hashToken(csrfA),userId:userA.id,companyId:companyA.id,expiresAt});
+  Db.createSession(runtime.db,{tokenHash:Auth.hashToken(tokenB),csrfHash:Auth.hashToken(csrfB),userId:userB.id,companyId:companyB.id,expiresAt});
+  await new Promise(resolve=>runtime.server.listen(0,'127.0.0.1',resolve));
+  const base=`http://127.0.0.1:${runtime.server.address().port}`;
+  try{
+    const exportA=await fetch(base+'/api/v1/exports/receivables?from=2026-09-01&to=2026-09-30',{headers:{Cookie:`rollands_session=${tokenA}`}});
+    const textA=await exportA.text();
+    assert.equal(exportA.status,200);
+    assert.match(textA,/A-ONLY-1001/);
+    assert.doesNotMatch(textA,/B-SECRET-9001/);
+
+    const exportB=await fetch(base+'/api/v1/exports/receivables?from=2026-09-01&to=2026-09-30',{headers:{Cookie:`rollands_session=${tokenB}`}});
+    const textB=await exportB.text();
+    assert.equal(exportB.status,200);
+    assert.match(textB,/B-SECRET-9001/);
+    assert.doesNotMatch(textB,/A-ONLY-1001/);
+  }finally{await new Promise(resolve=>runtime.close(resolve))}
+});
