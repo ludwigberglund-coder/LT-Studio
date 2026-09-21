@@ -98,7 +98,7 @@ function createMovement(db,input,{requireRequestId=false}={}){
     const found=movementByRequestId(db,value.companyId,value.requestId);
     if(found){
       const existing=movementById(db,value.companyId,found.id);
-      const same=existing.itemId===value.itemId&&existing.movementDate===value.movementDate&&existing.type===value.type&&existing.quantityMilli===value.quantityMilli&&
+      const same=existing.itemId===value.itemId&&existing.movementDate===value.movementDate&&existing.type===value.type&&existing.quantityMilli===value.quantityMilli&&existing.actorId===value.actorId&&
         (existing.unitCostOre??null)===(value.unitCostOre??null)&&(existing.referenceType||null)===value.referenceType&&(existing.referenceId||null)===value.referenceId&&(existing.note||null)===value.note;
       if(!same)throw inventoryError('Request-id är redan använt för en annan lagerrörelse.','INVENTORY_IDEMPOTENCY_CONFLICT',409);
       return{movement:existing,duplicate:true};
@@ -129,7 +129,7 @@ function createAdjustmentRecord(db,input,{requireRequestId=false}={}){
     const found=adjustmentByRequestId(db,companyId,requestId);
     if(found){
       const existing=adjustmentById(db,companyId,found.id);
-      const same=existing.itemId===itemId&&existing.adjustmentDate===adjustmentDate&&existing.countedQuantityMilli===countedQuantityMilli&&existing.reason===reason;
+      const same=existing.itemId===itemId&&existing.adjustmentDate===adjustmentDate&&existing.countedQuantityMilli===countedQuantityMilli&&existing.reason===reason&&existing.countedBy===countedBy;
       if(!same)throw inventoryError('Request-id är redan använt för en annan inventering.','INVENTORY_IDEMPOTENCY_CONFLICT',409);
       return{adjustment:existing,duplicate:true};
     }
