@@ -131,20 +131,29 @@ test('företagsisolering gör ett annat företags faktura osynlig även med kän
   assert.equal(response.status,404);
 }));
 
-test('påminnelseavgift utan avtal stoppas men lagstadgad ränta kan registreras spårbart', async () => withApi(async ({base,password,inv1,db,co1}) => {
+test('importerad faktura utan arkiverat utställningsbevis får påminnelse men inte automatisk dröjsmålsränta', async () => withApi(async ({base,password,inv1,db,co1}) => {
   const signed=await login(base,password);
   const headers={Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken};
-  const blocked=await fetch(`${base}/api/v1/invoices/${inv1.id}/reminders`,{method:'POST',headers,body:JSON.stringify({sentDate:'2026-09-15',includeReminderFee:true,includeInterest:true})});
-  assert.equal(blocked.status,409);
-  const created=await fetch(`${base}/api/v1/invoices/${inv1.id}/reminders`,{method:'POST',headers,body:JSON.stringify({sentDate:'2026-09-15',includeReminderFee:false,includeInterest:true,note:'Första påminnelsen'})});
+  const feeBlocked=await fetch(`${base}/api/v1/invoices/${inv1.id}/reminders`,{method:'POST',headers,body:JSON.stringify({sentDate:'2026-09-15',includeReminderFee:true,includeInterest:true})});
+  assert.equal(feeBlocked.status,409);
+
+  const interestBlocked=await fetch(`${base}/api/v1/invoices/${inv1.id}/reminders`,{method:'POST',headers,body:JSON.stringify({sentDate:'2026-09-15',includeReminderFee:false,includeInterest:true})});
+  const blockedBody=await interestBlocked.json();
+  assert.equal(interestBlocked.status,409);
+  assert.equal(blockedBody.code,'INTEREST_START_BASIS_UNVERIFIED');
+  assert.equal(Db.remindersForInvoice(db,co1.id,inv1.id).length,0);
+
+  const created=await fetch(`${base}/api/v1/invoices/${inv1.id}/reminders`,{method:'POST',headers,body:JSON.stringify({sentDate:'2026-09-15',includeReminderFee:false,includeInterest:false,note:'Första påminnelsen utan ränta'})});
   const data=await created.json();
   assert.equal(created.status,201);
   assert.equal(data.deliveryStatus,'not-sent');
   assert.equal(data.reminder.reminderFeeOre,0);
-  assert.ok(data.reminder.interestOre>0);
+  assert.equal(data.reminder.interestOre,0);
+  assert.equal(data.reminder.interestStartBasis,'none');
   const savedReminder=Db.remindersForInvoice(db,co1.id,inv1.id)[0];
   assert.equal(savedReminder.deliveryStatus,'not-sent');
   assert.equal(savedReminder.deliveredAt,null);
+  assert.equal(savedReminder.interestStartBasis,'none');
   assert.ok(Db.auditForCompany(db,co1.id).some(event=>event.action==='PAYMENT_REMINDER_CREATED'));
 }));
 

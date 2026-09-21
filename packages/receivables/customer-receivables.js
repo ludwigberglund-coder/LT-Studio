@@ -203,7 +203,23 @@
     return Object.freeze({dueDate,totalOre,balanceOre:principalOre,events:Object.freeze(events)});
   }
 
+  function verifiedInterestStart(invoice) {
+    const basis=String(invoice?.interestStartBasis||'').trim();
+    const source=String(invoice?.interestStartEvidenceSource||'').trim();
+    const verifiedAt=String(invoice?.interestStartVerifiedAt||'').trim();
+    if(basis!=='predetermined-due-date'||source!=='issued-invoice-document'||!verifiedAt){
+      throw domainError('Dröjsmålsränta är blockerad eftersom rättslig startgrund inte är verifierad för fakturan. Skapa påminnelsen utan ränta eller granska underlaget manuellt.','INTEREST_START_BASIS_UNVERIFIED',409);
+    }
+    const dueDate=assertIsoDate(invoice?.dueDate,'Förfallodatum');
+    const invoiceDate=assertIsoDate(invoice?.invoiceDate,'Fakturadatum');
+    if(invoiceDate>dueDate)throw domainError('Fakturadatum ligger efter förfallodatum och kan inte användas som verifierad räntegrund.','INTEREST_START_BASIS_INVALID',409);
+    const timestamp=Date.parse(verifiedAt);
+    if(!Number.isFinite(timestamp))throw domainError('Räntegrundens verifieringstid är ogiltig.','INTEREST_START_BASIS_INVALID',409);
+    return Object.freeze({basis,startDate:dueDate,evidenceSource:source,verifiedAt:new Date(timestamp).toISOString()});
+  }
+
   function statutoryInterestForInvoice(invoice, toDate, config) {
+    verifiedInterestStart(invoice);
     const history = interestBalanceHistory(invoice, toDate);
     if (toDate <= history.dueDate || history.totalOre === 0) return {interestOre:0,days:0,segments:[],principalOre:history.balanceOre};
 
@@ -284,9 +300,11 @@
       throw domainError('Påminnelseavgift får inte läggas till utan att den avtalats senast när skulden uppkom.', 'REMINDER_FEE_NOT_AGREED', 409);
     }
     const reminderFeeOre = feeRequested ? assertOre(Number(config?.reminderFeeOre), 'Påminnelseavgift') : 0;
-    const interest = options?.includeInterest === false
-      ? {interestOre:0,days:0,segments:[],principalOre:storedRemainingOre}
-      : statutoryInterestForInvoice(invoice,sentDate,config);
+    const includeInterest=options?.includeInterest!==false;
+    const interestStart=includeInterest?verifiedInterestStart(invoice):null;
+    const interest = includeInterest
+      ? statutoryInterestForInvoice(invoice,sentDate,config)
+      : {interestOre:0,days:0,segments:[],principalOre:storedRemainingOre};
     const remainingOre = interest.principalOre;
     if (remainingOre <= 0) throw domainError('Fakturan var redan slutbetald på påminnelsedatumet.', 'NOT_OUTSTANDING', 409);
 
@@ -309,7 +327,10 @@
       businessLatePaymentCompensationOre: businessCompensation,
       totalDueOre: remainingOre + reminderFeeOre + interest.interestOre + businessCompensation,
       interest,
-      statutoryRateOnSentDateBasisPoints: referenceRateFor(sentDate, config).basisPoints + Number(config.interestActMarginBasisPoints)
+      interestStartBasis:interestStart?.basis||'none',
+      interestStartEvidenceSource:interestStart?.evidenceSource||'',
+      interestStartVerifiedAt:interestStart?.verifiedAt||'',
+      statutoryRateOnSentDateBasisPoints: includeInterest ? referenceRateFor(sentDate, config).basisPoints + Number(config.interestActMarginBasisPoints) : 0
     });
   }
 
@@ -336,6 +357,9 @@
       businessLatePaymentCompensationOre: preview.businessLatePaymentCompensationOre,
       totalDueOre: preview.totalDueOre,
       annualRateBasisPoints: preview.statutoryRateOnSentDateBasisPoints,
+      interestStartBasis:preview.interestStartBasis,
+      interestStartEvidenceSource:preview.interestStartEvidenceSource,
+      interestStartVerifiedAt:preview.interestStartVerifiedAt,
       interestSegments: preview.interest.segments,
       note: String(options?.note || '').trim().slice(0,1000)
     });
@@ -395,6 +419,7 @@
     statutoryInterest,
     interestBalanceHistory,
     statutoryInterestForInvoice,
+    verifiedInterestStart,
     createInvoiceComment,
     latestReminderDate,
     reminderPreview,

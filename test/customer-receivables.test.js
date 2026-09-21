@@ -8,6 +8,23 @@ const Receivables = require('../packages/receivables/customer-receivables.js');
 
 const legalRates = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'legal-rates.json'), 'utf8'));
 
+function verifiedInvoice(overrides={}) {
+  const invoiceDate=overrides.invoiceDate||'2026-08-01';
+  const dueDate=overrides.dueDate||'2026-09-01';
+  return {
+    id:'inv-1',
+    invoiceDate,
+    dueDate,
+    totalOre:100_000,
+    remainingOre:100_000,
+    transactions:[],
+    interestStartBasis:'predetermined-due-date',
+    interestStartEvidenceSource:'issued-invoice-document',
+    interestStartVerifiedAt:invoiceDate+'T09:00:00.000Z',
+    ...overrides
+  };
+}
+
 test('kundreskontran innehåller alla läsbara kolumner från kravbilden och kan styras per kolumn', () => {
   const labels = Receivables.RECEIVABLE_COLUMNS.map(column => column.label);
   for (const label of ['Period','Avityp','Bet sätt','Girokonto','Avinr','Bokfdatum avi/fakt','Avibelopp','Ffd','Senaste påm','Avi kont','Buntnr','Betdatum','Bokfdatum trans','Bokntyp','Transnr','Transbelopp','Trans godk','Trans kont','Restbelopp']) {
@@ -33,8 +50,20 @@ test('ränteberäkning delar upp perioden när referensräntan ändras', () => {
   assert.equal(result.segments[1].referenceRateBasisPoints, 200);
 });
 
+test('automatisk dröjsmålsränta kräver verifierad startgrund men påminnelse utan ränta är tillåten', () => {
+  const unverified={id:'inv-old',invoiceDate:'2026-08-01',dueDate:'2026-09-01',totalOre:100_000,remainingOre:100_000,transactions:[]};
+  assert.throws(
+    ()=>Receivables.reminderPreview(unverified,{sentDate:'2026-09-10',includeInterest:true},legalRates),
+    error=>error.code==='INTEREST_START_BASIS_UNVERIFIED'
+  );
+  const safe=Receivables.reminderPreview(unverified,{sentDate:'2026-09-10',includeInterest:false},legalRates);
+  assert.equal(safe.interestOre,0);
+  assert.equal(safe.interestStartBasis,'none');
+  assert.equal(safe.statutoryRateOnSentDateBasisPoints,0);
+});
+
 test('påminnelseavgift läggs inte på utan dokumenterat avtal', () => {
-  const invoice = {id:'inv-1', dueDate:'2026-09-01', totalOre:100_000, remainingOre:100_000, transactions:[]};
+  const invoice = verifiedInvoice();
   assert.throws(() => Receivables.reminderPreview(invoice, {
     sentDate:'2026-09-10', includeReminderFee:true, reminderFeeAgreed:false
   }, legalRates), error => error.code === 'REMINDER_FEE_NOT_AGREED');
@@ -48,7 +77,7 @@ test('påminnelseavgift läggs inte på utan dokumenterat avtal', () => {
 });
 
 test('förseningsersättning och påminnelseavgift kombineras inte felaktigt', () => {
-  const invoice={id:'inv-1',dueDate:'2026-09-01',totalOre:100_000,remainingOre:100_000,transactions:[]};
+  const invoice=verifiedInvoice();
   assert.throws(()=>Receivables.reminderPreview(invoice,{
     sentDate:'2026-09-10',includeReminderFee:true,reminderFeeAgreed:true,includeBusinessLatePaymentCompensation:true,customerType:'business'
   },legalRates),error=>error.code==='COLLECTION_COST_OVERLAP');
@@ -58,7 +87,7 @@ test('förseningsersättning och påminnelseavgift kombineras inte felaktigt', (
 });
 
 test('dröjsmålsränta följer faktisk delbetalningsdag i stället för dagens restbelopp', () => {
-  const base={id:'inv-1',dueDate:'2026-09-01',totalOre:100_000,remainingOre:50_000};
+  const base=verifiedInvoice({remainingOre:50_000});
   const early=Receivables.reminderPreview({...base,transactions:[{id:'p1',transactionType:'payment',paymentDate:'2026-09-02',amountOre:-50_000,approved:true}]},{sentDate:'2026-09-18'},legalRates);
   const late=Receivables.reminderPreview({...base,transactions:[{id:'p1',transactionType:'payment',paymentDate:'2026-09-17',amountOre:-50_000,approved:true}]},{sentDate:'2026-09-18'},legalRates);
   assert.equal(early.principalOre,50_000);
@@ -69,10 +98,10 @@ test('dröjsmålsränta följer faktisk delbetalningsdag i stället för dagens 
 });
 
 test('betalning före förfallodagen minskar kapitalet innan räntan börjar', () => {
-  const preview=Receivables.reminderPreview({
-    id:'inv-1',dueDate:'2026-09-10',totalOre:100_000,remainingOre:40_000,
+  const preview=Receivables.reminderPreview(verifiedInvoice({
+    dueDate:'2026-09-10',remainingOre:40_000,
     transactions:[{id:'p1',transactionType:'payment',paymentDate:'2026-09-05',amountOre:-60_000,approved:true}]
-  },{sentDate:'2026-09-20'},legalRates);
+  }),{sentDate:'2026-09-20'},legalRates);
   assert.equal(preview.principalOre,40_000);
   assert.ok(preview.interest.segments.every(segment=>segment.principalOre===40_000));
 });
@@ -83,23 +112,23 @@ test('okänd framtida referensränteperiod är blockerad i stället för att är
 });
 
 test('ofullständig eller komplex saldohistorik blockeras hellre än att ränta gissas', () => {
-  assert.throws(()=>Receivables.reminderPreview({id:'inv-1',dueDate:'2026-09-01',totalOre:100_000,remainingOre:50_000},{sentDate:'2026-09-18'},legalRates),error=>error.code==='INCOMPLETE_BALANCE_HISTORY');
-  assert.throws(()=>Receivables.reminderPreview({
-    id:'inv-1',dueDate:'2026-09-01',totalOre:100_000,remainingOre:50_000,
+  assert.throws(()=>Receivables.reminderPreview(verifiedInvoice({remainingOre:50_000,transactions:undefined}),{sentDate:'2026-09-18'},legalRates),error=>error.code==='INCOMPLETE_BALANCE_HISTORY');
+  assert.throws(()=>Receivables.reminderPreview(verifiedInvoice({
+    remainingOre:50_000,
     transactions:[{id:'c1',transactionType:'credit',postingDate:'2026-09-10',amountOre:-50_000,approved:true}]
-  },{sentDate:'2026-09-18'},legalRates),error=>error.code==='UNSUPPORTED_BALANCE_HISTORY');
+  }),{sentDate:'2026-09-18'},legalRates),error=>error.code==='UNSUPPORTED_BALANCE_HISTORY');
 });
 
 test('restbelopp måste stämma med betalningshistoriken innan ränta får beräknas', () => {
-  assert.throws(()=>Receivables.reminderPreview({
-    id:'inv-1',dueDate:'2026-09-01',totalOre:100_000,remainingOre:40_000,
+  assert.throws(()=>Receivables.reminderPreview(verifiedInvoice({
+    remainingOre:40_000,
     transactions:[{id:'p1',transactionType:'payment',paymentDate:'2026-09-02',amountOre:-50_000,approved:true}]
-  },{sentDate:'2026-09-18'},legalRates),error=>error.code==='BALANCE_HISTORY_MISMATCH');
+  }),{sentDate:'2026-09-18'},legalRates),error=>error.code==='BALANCE_HISTORY_MISMATCH');
 });
 
 test('påminnelsepost sparar beräkningsdag, leveransstatus och verifierad räntekonfiguration', () => {
   const record=Receivables.createReminderRecord({
-    invoice:{id:'inv-1',dueDate:'2026-09-01',totalOre:100_000,remainingOre:100_000,transactions:[]},
+    invoice:verifiedInvoice(),
     companyId:'co-1',actor:{id:'u1',name:'Anna'},options:{sentDate:'2026-09-18'},config:legalRates,now:'2026-09-18T09:00:00.000Z'
   });
   assert.equal(record.reminderDate,'2026-09-18');
@@ -107,6 +136,9 @@ test('påminnelsepost sparar beräkningsdag, leveransstatus och verifierad ränt
   assert.equal(record.deliveredAt,null);
   assert.equal(record.rateConfigVersion,'2');
   assert.equal(record.rateVerifiedAt,'2026-09-18');
+  assert.equal(record.interestStartBasis,'predetermined-due-date');
+  assert.equal(record.interestStartEvidenceSource,'issued-invoice-document');
+  assert.equal(record.interestStartVerifiedAt,'2026-08-01T09:00:00.000Z');
 });
 
 test('fakturakommentar kräver personlig identitet och bevarar författare och tid', () => {
