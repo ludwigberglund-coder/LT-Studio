@@ -9,7 +9,7 @@ async function api(path,options={}){
   const headers={Accept:'application/json',...(options.headers||{})};
   const response=await fetch('/api/operator/v1'+path,{credentials:'same-origin',...options,headers});
   const data=await response.json().catch(()=>({}));
-  if(!response.ok){const e=new Error(data.error||'Begäran misslyckades.');e.code=data.code;e.status=response.status;throw e}
+  if(!response.ok){const e=new Error(data.error||'Begäran misslyckades.');e.code=data.code;e.status=response.status;e.data=data;throw e}
   return data;
 }
 function loginView(){
@@ -87,7 +87,7 @@ function dashboard(){
 async function loadData(){
   const [o,r,s]=await Promise.all([
     api('/overview'),
-    api('/readiness').catch(err=>({ok:false,error:err.message,checks:{}})),
+    api('/readiness').catch(err=>err.data&&typeof err.data==='object'?err.data:{ok:false,error:err.message,checks:{}}),
     api('/security-events?limit=50')
   ]);
   overview=o;readiness=r;security=s;
