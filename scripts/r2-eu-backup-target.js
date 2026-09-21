@@ -358,13 +358,13 @@ function createR2EuBackupTarget({env=process.env,config,fetchImpl=globalThis.fet
       if(response.body&&typeof response.body[Symbol.asyncIterator]==='function'){
         for await(const chunk of response.body){
           const bytes=Buffer.from(chunk);
-          fs.writeSync(fd,bytes);
+          if(fs.writeSync(fd,bytes)!==bytes.length)throw backupError('R2 restore-download kunde inte skriva hela filsegmentet.','R2_BACKUP_DOWNLOAD_WRITE_FAILED');
           hash.update(bytes);
           sizeBytes+=bytes.length;
         }
       }else if(typeof response.arrayBuffer==='function'){
         const bytes=Buffer.from(await response.arrayBuffer());
-        fs.writeSync(fd,bytes);
+        if(fs.writeSync(fd,bytes)!==bytes.length)throw backupError('R2 restore-download kunde inte skriva hela filen.','R2_BACKUP_DOWNLOAD_WRITE_FAILED');
         hash.update(bytes);
         sizeBytes=bytes.length;
       }else{
