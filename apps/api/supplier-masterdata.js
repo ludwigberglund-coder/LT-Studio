@@ -80,6 +80,14 @@ function createChangeRequest(db,{companyId,supplierId,kind,changes,requestedBy,r
       return{request:existing,duplicate:true};
     }
   }
+  if(kind==='profile'){
+    const current=snapshot(supplier),alreadyApplied=Object.entries(clean).every(([name,value])=>text(current[name])===text(value));
+    if(alreadyApplied){
+      const row=db.prepare(`SELECT id FROM supplier_change_requests WHERE company_id=? AND supplier_id=? AND kind='profile' AND status='approved' AND requested_by=? AND changes_json=? ORDER BY requested_at DESC LIMIT 1`).get(companyId,supplierId,requestedBy,JSON.stringify(clean));
+      if(row)return{request:changeRequestById(db,companyId,row.id),duplicate:true};
+      throw masterdataError('Leverantörsuppgifterna har redan dessa värden.','NO_SUPPLIER_CHANGE',409);
+    }
+  }
   if(kind==='payment-details'){
     const pending=db.prepare(`SELECT id FROM supplier_change_requests WHERE company_id=? AND supplier_id=? AND kind='payment-details' AND status='pending'`).get(companyId,supplierId);
     if(pending)throw masterdataError('Det finns redan en väntande ändring av betalningsuppgifter.','PAYMENT_CHANGE_PENDING',409,{requestId:pending.id});
