@@ -14,7 +14,7 @@ const {createServer}=require('../apps/api/server.js');
 const MFA_SECRET='GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 const ENCRYPTION_KEY='customer-payment-test-encryption-key-longer-than-thirty-two-characters';
 
-function seed(db,{companyName='Customer Pay AB',orgNumber='559960-1001',userPrefix='cpay',externalId='BANK-CPAY-1',invoiceNumber='310501'}={}){
+function seed(db,{companyName='Customer Pay AB',orgNumber='559960-1001',userPrefix='cpay',externalId='BANK-CPAY-1',invoiceNumber='310501',bankAmountOre=125000}={}){
   CustomerPayment.initializeCustomerPaymentPosting(db);
   const company=Db.createCompany(db,{legalName:companyName,displayName:companyName,orgNumber});
   const user=Db.createUser(db,{username:`${userPrefix}.user`,displayName:'Customer Payment User',passwordHash:Auth.hashPassword('Sakert kundbetalningstest 2026!'),mfaSecretEncrypted:Auth.encryptSecret(MFA_SECRET,ENCRYPTION_KEY)});
@@ -26,7 +26,7 @@ function seed(db,{companyName='Customer Pay AB',orgNumber='559960-1001',userPref
     {account:'3051',text:'Försäljning',debitOre:0,creditOre:100000},
     {account:'2611',text:'Utgående moms',debitOre:0,creditOre:25000}
   ]}).entry;
-  const bank=Bank.create(db,{companyId:company.id,externalId,bookingDate:'2026-09-20',amountOre:125000,reference:invoiceNumber,payerName:'Kundbetalning Test AB',createdBy:user.id}).payment;
+  const bank=Bank.create(db,{companyId:company.id,externalId,bookingDate:'2026-09-20',amountOre:bankAmountOre,reference:invoiceNumber,payerName:'Kundbetalning Test AB',createdBy:user.id}).payment;
   const analysis=Matcher.analyzeIncomingPayment(bank,Db.listReceivables(db,company.id));
   assert.equal(analysis.status,'proposal');
   const proposal=Queues.saveAutomationProposal(db,Matcher.createMatchProposal(bank,analysis,{createdBy:user.id}),{idempotencyKey:`bank-payment-match:${bank.id}:v1`}).proposal;
@@ -132,4 +132,52 @@ test('privat API godkänner först och genomför sedan kundbetalningen med CSRF 
   }finally{
     await new Promise(resolve=>runtime.close(resolve));
   }
+});
+
+
+test('delbetalning minskar restbeloppet atomiskt och en senare betalning kan slutreglera samma faktura',()=>{
+  const db=Db.openDatabase(':memory:');try{
+    const ctx=seed(db,{externalId:'BANK-PART-1',invoiceNumber:'310507',bankAmountOre:50000});
+    approve(db,ctx);
+    const first=CustomerPayment.executeApprovedCustomerPayment(db,{companyId:ctx.company.id,proposalId:ctx.proposal.id,actorId:ctx.user.id});
+    assert.equal(first.invoice.remainingOre,75000);
+    assert.equal(first.invoice.status,'Bokförd');
+    assert.equal(first.transaction.amountOre,-50000);
+    assert.equal(net([ctx.invoiceEntry,first.entry],'1510'),75000);
+    const firstAudit=Db.auditForCompany(db,ctx.company.id).find(event=>event.action==='CUSTOMER_PAYMENT_POSTED_FROM_APPROVED_MATCH'&&event.entityId===ctx.bank.id);
+    assert.equal(firstAudit.details.partialPayment,true);
+    assert.equal(firstAudit.details.remainingBeforeOre,125000);
+    assert.equal(firstAudit.details.remainingAfterOre,75000);
+
+    const secondBank=Bank.create(db,{companyId:ctx.company.id,externalId:'BANK-PART-2',bookingDate:'2026-09-21',amountOre:75000,reference:ctx.invoice.invoiceNumber,payerName:'Kundbetalning Test AB',createdBy:ctx.user.id}).payment;
+    const secondAnalysis=Matcher.analyzeIncomingPayment(secondBank,Db.listReceivables(db,ctx.company.id));
+    assert.equal(secondAnalysis.status,'proposal');
+    const secondProposal=Queues.saveAutomationProposal(db,Matcher.createMatchProposal(secondBank,secondAnalysis,{createdBy:ctx.user.id}),{idempotencyKey:`bank-payment-match:${secondBank.id}:v1`}).proposal;
+    Bank.setStatus(db,ctx.company.id,secondBank.id,'proposal-created');
+    Queues.approveAutomationProposal(db,{companyId:ctx.company.id,proposalId:secondProposal.id,userId:ctx.user.id});
+    const second=CustomerPayment.executeApprovedCustomerPayment(db,{companyId:ctx.company.id,proposalId:secondProposal.id,actorId:ctx.user.id});
+    assert.equal(second.invoice.remainingOre,0);
+    assert.equal(second.invoice.status,'Betald');
+    assert.equal(second.transaction.amountOre,-75000);
+    assert.equal(Db.transactionsForInvoice(db,ctx.company.id,ctx.invoice.id).length,2);
+    assert.equal(net([ctx.invoiceEntry,first.entry,second.entry],'1510'),0);
+  }finally{db.close()}
+});
+
+test('delbetalning kan inte omföras automatiskt innan den verifierade rättelsemodellen stöder delsaldo',()=>{
+  const db=Db.openDatabase(':memory:');try{
+    const ctx=seed(db,{externalId:'BANK-PART-RECLASS',invoiceNumber:'310508',bankAmountOre:50000});
+    approve(db,ctx);
+    CustomerPayment.executeApprovedCustomerPayment(db,{companyId:ctx.company.id,proposalId:ctx.proposal.id,actorId:ctx.user.id});
+    const otherCustomer=Db.createCustomer(db,{companyId:ctx.company.id,customerNumber:'K-PART-OTHER',name:'Annan delbetalningskund AB'});
+    const other=Db.createInvoice(db,{companyId:ctx.company.id,customerId:otherCustomer.id,invoiceNumber:'310509',ocr:'310509',invoiceDate:'2026-09-01',postingDate:'2026-09-01',dueDate:'2026-09-20',totalOre:50000,remainingOre:50000,vatOre:10000,status:'Bokförd',invoiceAccount:'1510'});
+    Accounting.postEntry(db,{companyId:ctx.company.id,postingDate:'2026-09-01',description:'Målfaktura för delbetalningsspärr',sourceType:'customer-invoice',sourceId:other.id,createdBy:ctx.user.id,series:'F',lines:[
+      {account:'1510',text:'Kundfordran',debitOre:50000,creditOre:0},
+      {account:'3051',text:'Försäljning',debitOre:0,creditOre:40000},
+      {account:'2611',text:'Utgående moms',debitOre:0,creditOre:10000}
+    ]});
+    assert.throws(()=>CustomerPayment.reclassifyCustomerPayment(db,{companyId:ctx.company.id,proposalId:ctx.proposal.id,targetInvoiceId:other.id,requestId:'partial-reclass-block-0001',correctionDate:'2026-09-21',reason:'Kontrollerad spärr av delbetalningsomföring.',actorId:ctx.user.id}),e=>e.code==='CUSTOMER_PAYMENT_RECLASS_PARTIAL_UNSUPPORTED'&&e.statusCode===409);
+    assert.equal(Db.invoiceById(db,ctx.company.id,ctx.invoice.id).remainingOre,75000);
+    assert.equal(Db.invoiceById(db,ctx.company.id,other.id).remainingOre,50000);
+  }finally{db.close()}
 });
