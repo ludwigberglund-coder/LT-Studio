@@ -4,6 +4,7 @@ let session=null,reportType='trial',fromDate='2026-09-01',toDate='2026-09-30',pe
 function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function ore(v){return new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK',minimumFractionDigits:2}).format(Number(v||0)/100)}
 function url(path){return `${path}${isDemo?'?demo=1':''}`}
+function isAgingReport(){return reportType==='receivables-aging'||reportType==='payables-aging'}
 async function api(path){const r=await fetch(`/api/v1${path}`,{credentials:'same-origin',headers:{Accept:'application/json'}});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||'Begäran misslyckades.');return data}
 function sidebar(){return `<aside class="sidebar reports-nav"><div class="logo"><strong>${esc(isDemo?'Rollands':session?.company?.name||'Företaget')}</strong><small>LT STUDIO</small></div><div class="company-pill">${esc(session?.company?.name||(isDemo?'Rollands Frukt o Grönt AB':'Företaget'))}<br>${isDemo?'Demoföretag':'Skyddad företagsmiljö'}</div><div class="side-group"><span>Arbetsyta</span><a class="side-link" href="${url('./dashboard.html')}">Översikt</a></div><div class="side-group"><span>Ekonomi</span><a class="side-link" href="${url('./payables.html')}">Leverantörsfakturor</a><a class="side-link" href="${url('./bank.html')}">Bank & avstämning</a><a class="side-link" href="${url('./inventory.html')}">Lager</a><a class="side-link active" href="${url('./reports.html')}">Rapporter</a><a class="side-link" href="${url('./automation.html')}">Automationskö</a></div><div class="sidebar-footer">Rapporter bygger på bokförda verifikationer. Momsrutan är ännu avstämningsunderlag.</div></aside>`}
 function demoReport(){
@@ -31,18 +32,46 @@ async function loadReport(){
   else if(reportType==='ledger')report=await api(`/reports/general-ledger?from=${fromDate}&to=${toDate}`);
   else if(reportType==='pl')report=await api(`/reports/profit-loss?from=${fromDate}&to=${toDate}`);
   else if(reportType==='sales')report=await api(`/reports/sales?from=${fromDate}&to=${toDate}`);
+  else if(reportType==='receivables-aging')report=await api(`/reports/receivables-aging?asOf=${toDate}`);
+  else if(reportType==='payables-aging')report=await api(`/reports/payables-aging?asOf=${toDate}`);
+  else if(reportType==='supplier-purchases')report=await api(`/reports/supplier-purchases?from=${fromDate}&to=${toDate}`);
   else report=await api(`/reports/vat-control?period=${period}`);
   render();
 }
 function exportAction(){
-  if(isDemo||reportType!=='sales')return '';
-  const href=`/api/v1/exports/sales?from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}`;
-  return `<a class="button ghost" href="${href}">Exportera CSV för Excel</a>`;
+  if(isDemo)return '';
+  const params=new URLSearchParams();
+  let type='';
+  if(reportType==='sales'||reportType==='supplier-purchases'){type=reportType;params.set('from',fromDate);params.set('to',toDate)}
+  else if(reportType==='receivables-aging'||reportType==='payables-aging'){type=reportType;params.set('asOf',toDate)}
+  else return '';
+  return `<a class="button ghost" href="/api/v1/exports/${type}?${params.toString()}">Exportera CSV för Excel</a>`;
 }
-function toolbar(){return `<section class="report-toolbar"><label>Från<input type="date" data-field="from" value="${esc(fromDate)}" ${reportType==='vat'?'disabled':''}></label><label>Till<input type="date" data-field="to" value="${esc(toDate)}" ${reportType==='vat'?'disabled':''}></label><label>Momsperiod<input type="month" data-field="period" value="${esc(period)}" ${reportType!=='vat'?'disabled':''}></label><button class="button" data-action="reload">Uppdatera</button>${exportAction()}<div class="report-tabs"><button class="report-tab ${reportType==='sales'?'active':''}" data-report="sales">Försäljning</button><button class="report-tab ${reportType==='trial'?'active':''}" data-report="trial">Balanslista</button><button class="report-tab ${reportType==='ledger'?'active':''}" data-report="ledger">Huvudbok</button><button class="report-tab ${reportType==='pl'?'active':''}" data-report="pl">Resultat</button><button class="report-tab ${reportType==='vat'?'active':''}" data-report="vat">Momsavstämning</button></div></section>`}
+function toolbar(){
+  const aging=isAgingReport();
+  return `<section class="report-toolbar">
+    <label>Från<input type="date" data-field="from" value="${esc(fromDate)}" ${reportType==='vat'||aging?'disabled':''}></label>
+    <label>${aging?'Rapportdatum':'Till'}<input type="date" data-field="to" value="${esc(toDate)}" ${reportType==='vat'?'disabled':''}></label>
+    <label>Momsperiod<input type="month" data-field="period" value="${esc(period)}" ${reportType!=='vat'?'disabled':''}></label>
+    <button class="button" data-action="reload">Uppdatera</button>${exportAction()}
+    <div class="report-tabs">
+      <button class="report-tab ${reportType==='sales'?'active':''}" data-report="sales">Försäljning</button>
+      <button class="report-tab ${reportType==='supplier-purchases'?'active':''}" data-report="supplier-purchases">Inköp</button>
+      <button class="report-tab ${reportType==='receivables-aging'?'active':''}" data-report="receivables-aging">Kundfordringar</button>
+      <button class="report-tab ${reportType==='payables-aging'?'active':''}" data-report="payables-aging">Leverantörsskulder</button>
+      <button class="report-tab ${reportType==='trial'?'active':''}" data-report="trial">Balanslista</button>
+      <button class="report-tab ${reportType==='ledger'?'active':''}" data-report="ledger">Huvudbok</button>
+      <button class="report-tab ${reportType==='pl'?'active':''}" data-report="pl">Resultat</button>
+      <button class="report-tab ${reportType==='vat'?'active':''}" data-report="vat">Momsavstämning</button>
+    </div>
+  </section>`;
+}
 function summary(){
   if(!report)return '';
   if(reportType==='sales')return `<section class="report-summary"><article><span>Nettoförsäljning</span><strong>${ore(report.totals?.netOre)}</strong></article><article><span>Brutto</span><strong>${ore(report.totals?.grossOre)}</strong></article><article><span>Fakturor</span><strong>${report.totals?.invoiceCount||0}</strong></article><article><span>Snittfaktura</span><strong>${ore(report.totals?.averageInvoiceOre)}</strong></article></section>`;
+  if(reportType==='supplier-purchases')return `<section class="report-summary"><article><span>Nettoinköp</span><strong>${ore(report.totals?.netOre)}</strong></article><article><span>Brutto</span><strong>${ore(report.totals?.grossOre)}</strong></article><article><span>Leverantörsfakturor</span><strong>${report.totals?.invoiceCount||0}</strong></article><article><span>Utestående</span><strong>${ore(report.totals?.openOre)}</strong></article></section>`;
+  if(reportType==='receivables-aging')return `<section class="report-summary"><article><span>Öppet totalt</span><strong>${ore(report.totals?.openOre)}</strong></article><article><span>Ej förfallet</span><strong>${ore(report.totals?.notDueOre)}</strong></article><article><span>1–30 dagar</span><strong>${ore(report.totals?.overdue1to30Ore)}</strong></article><article><span>31+ dagar</span><strong>${ore((report.totals?.overdue31to60Ore||0)+(report.totals?.overdue61to90Ore||0)+(report.totals?.overdue91PlusOre||0))}</strong></article></section>`;
+  if(reportType==='payables-aging')return `<section class="report-summary"><article><span>Öppet totalt</span><strong>${ore(report.totals?.openOre)}</strong></article><article><span>Bokfört öppet</span><strong>${ore(report.totals?.postedOpenOre)}</strong></article><article><span>Ej bokfört</span><strong>${ore(report.totals?.unpostedOpenOre)}</strong></article><article><span>Förfallet 31+ dagar</span><strong>${ore((report.totals?.overdue31to60Ore||0)+(report.totals?.overdue61to90Ore||0)+(report.totals?.overdue91PlusOre||0))}</strong></article></section>`;
   if(reportType==='trial')return `<section class="report-summary"><article><span>Debet perioden</span><strong>${ore(report.totals?.debitOre)}</strong></article><article><span>Kredit perioden</span><strong>${ore(report.totals?.creditOre)}</strong></article><article><span>Antal konton</span><strong>${report.rows?.length||0}</strong></article><article><span>Kontroll</span><strong>${report.totals?.debitOre===report.totals?.creditOre?'Balanserar':'Avvikelse'}</strong></article></section>`;
   if(reportType==='pl')return `<section class="report-summary"><article><span>Periodens resultat</span><strong>${ore(report.resultOre)}</strong></article><article><span>Resultatkonton</span><strong>${report.rows?.length||0}</strong></article></section>`;
   if(reportType==='vat')return `<section class="report-summary"><article><span>Utgående moms</span><strong>${ore(report.outputVatOre)}</strong></article><article><span>Ingående moms</span><strong>${ore(report.inputVatOre)}</strong></article><article><span>Netto moms</span><strong>${ore(report.netVatOre)}</strong></article><article><span>Status</span><strong>Avstämning</strong></article></section>`;
@@ -56,7 +85,7 @@ function content(){
   if(reportType==='pl')return `<section class="report-panel"><div class="report-head"><div><span class="eyebrow">Resultat</span><h2>Resultatrapport</h2></div><strong>${ore(report.resultOre)}</strong></div><div class="report-table-wrap"><table class="report-table"><thead><tr><th>Konto</th><th>Periodbelopp</th></tr></thead><tbody>${report.rows.map(r=>`<tr><td class="account">${esc(r.account)}</td><td class="money">${ore(r.amountOre)}</td></tr>`).join('')}</tbody></table></div></section>`;
   return `<section class="vat-panel"><div class="report-head"><div><span class="eyebrow">${esc(period)}</span><h2>Momsavstämning</h2></div><strong>${ore(report.netVatOre)}</strong></div><div class="vat-grid"><article><span>Utgående moms</span><strong>${ore(report.outputVatOre)}</strong><small>${report.customerInvoiceCount} kundfakturor</small></article><article><span>Ingående moms</span><strong>${ore(report.inputVatOre)}</strong><small>${report.supplierInvoiceCount} leverantörsfakturor</small></article><article><span>Netto</span><strong>${ore(report.netVatOre)}</strong></article></div><div class="notice warning vat-warning"><b>Kontrollunderlag – inte färdig momsdeklaration.</b> ${esc(report.warning||'')}</div></section>`;
 }
-function render(){app.innerHTML=`<div class="reports-shell">${sidebar()}<section class="reports-main"><header class="topbar"><div><h1>Rapporter</h1><p>Försäljning · bokföring · huvudbok · resultat · moms</p></div><div class="user-chip"><b>${esc(session?.user?.displayName||'Demoanvändare')}</b></div></header><main class="content">${isDemo?'<div class="demo-banner"><b>GitHub Pages-demo.</b> Rapporterna visar exempeldata.</div>':''}${message?`<div class="notice">${esc(message)}</div>`:''}${toolbar()}${summary()}${content()}</main></section></div>`}
+function render(){app.innerHTML=`<div class="reports-shell">${sidebar()}<section class="reports-main"><header class="topbar"><div><h1>Rapporter</h1><p>Försäljning · inköp · reskontra · bokföring · moms</p></div><div class="user-chip"><b>${esc(session?.user?.displayName||'Demoanvändare')}</b></div></header><main class="content">${isDemo?'<div class="demo-banner"><b>GitHub Pages-demo.</b> Rapporterna visar exempeldata.</div>':''}${message?`<div class="notice">${esc(message)}</div>`:''}${toolbar()}${summary()}${content()}</main></section></div>`}
 document.addEventListener('change',e=>{if(e.target.dataset.field==='from')fromDate=e.target.value;if(e.target.dataset.field==='to')toDate=e.target.value;if(e.target.dataset.field==='period')period=e.target.value});
 document.addEventListener('click',e=>{const tab=e.target.closest('[data-report]');if(tab){reportType=tab.dataset.report;report=null;loadReport().catch(err=>{message=err.message;render()});return}if(e.target.closest('[data-action="reload"]')){report=null;loadReport().catch(err=>{message=err.message;render()})}});
 async function load(){if(isDemo){session={user:{displayName:'Demo Ekonomi'},company:{name:'Rollands Frukt o Grönt AB'}};return loadReport()}const s=await api('/session');if(!s.authenticated){location.href='./index.html';return}session=s;await loadReport()}
