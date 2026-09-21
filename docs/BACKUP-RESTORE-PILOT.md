@@ -27,7 +27,7 @@ passera utan blockerande fel. Gaten verifierar den serverkonfiguration som går 
 - privat R2 EU-konfiguration för stagingobjekt,
 - separat privat R2 EU-konfiguration för krypterad offsite-backup,
 - olika buckets för privata runtimeobjekt och katastrofbackup,
-- evidensfiler för R2-audit, offsite-backup, restore-drill och monitorering utanför Git-repositoryt.
+- evidensfiler för R2-audit, offsite-backup, lokal restore-drill, restore direkt från R2 och monitorering utanför Git-repositoryt.
 
 Kommandot gör **inga nätverksanrop till R2** och bevisar därför inte att credentials fungerar eller att objekten finns. Det är en fail-closed konfigurationskontroll som ska köras först. När den är grön fortsätter driftbeviset i denna ordning:
 
@@ -36,16 +36,17 @@ Kommandot gör **inga nätverksanrop till R2** och bevisar därför inte att cre
 3. kopiera testobjekt till R2,
 4. köra `npm run storage:audit-r2`,
 5. skapa krypterad backup och köra `npm run pilot:backup:offsite-r2`,
-6. genomföra separat restore-drill,
-7. genomföra verkligt monitorerings-/larmtest.
+6. genomföra lokal `npm run pilot:restore:drill` mot samma krypterade backup,
+7. genomföra `npm run pilot:restore:offsite-r2` som hämtar backup + checksumma direkt från R2,
+8. genomföra verkligt monitorerings-/larmtest.
 
-När de fyra privata evidensfilerna finns ska hela kedjan verifieras med:
+När de fem privata evidensfilerna finns ska hela kedjan verifieras med:
 
 ```bash
 npm run staging:evidence:verify
 ```
 
-Kedjeverifieringen kräver färsk godkänd R2-audit, verifierad offsite-backup, godkänd restore-drill och fungerande extern HTTPS-monitorering/larm. Den kräver dessutom att R2-auditen gäller den bucket som är konfigurerad nu och att restore-drillen använder **exakt samma krypterade backupfil och SHA-256** som offsite-uploaden läste tillbaka från R2. Ett grönt resultat betyder därmed att bevisen är konsekventa med varandra; det ersätter fortfarande inte ett separat test av katastrofåterställning direkt från en senare R2-download.
+Kedjeverifieringen kräver färsk godkänd R2-audit, verifierad offsite-backup, godkänd lokal restore-drill, godkänd restore direkt från de faktiska R2-objektnycklarna samt fungerande extern HTTPS-monitorering/larm. Den kräver dessutom att R2-auditen gäller den bucket som är konfigurerad nu, att den lokala restore-drillen använder **exakt samma krypterade backupfil och SHA-256** som offsite-uploaden läste tillbaka från R2 och att offsite-restore-beviset matchar samma SHA, storlek och R2-objektnycklar. Ett grönt resultat betyder att hela evidenskedjan är inbördes konsekvent; den verkliga stagingkörningen måste fortfarande genomföras med riktiga privata credentials.
 
 ## Krypterad offsite-upload
 
@@ -60,6 +61,20 @@ Adaptern accepterar endast servergenererade `.sqlite.enc`-filer med korrekt loka
 Se [offsite-backupens säkerhets- och driftkontrakt](OFFSITE-BACKUP-R2.md).
 
 **Kodstöd är inte driftbevis.** Checklistan förblir delvis klar tills detta har körts återkommande i avsedd miljö med separat backup-bucket, begränsade credentials, retention/raderingsskydd, larm och verifierad restore från den faktiska offsite-kopian.
+
+## Restore direkt från offsite-kopian
+
+Efter verifierad `pilot:backup:offsite-r2` ska katastrofvägen testas utan att använda den lokala backupfilen:
+
+```bash
+export ROLLANDS_RESTORE_DRILL_PATH=/srv/rollands-restore-drill
+export ROLLANDS_OFFSITE_RESTORE_EVIDENCE_PATH=/srv/rollands-ops/offsite-restore-evidence.json
+npm run pilot:restore:offsite-r2
+```
+
+Kommandot hämtar de två R2-objektnycklar som finns i upload-evidenset, verifierar downloadens SHA-256 och storlek, kontrollerar checksumobjektet, dekrypterar och kör hela restore-verifieringen. Temporära R2-downloads och den dekrypterade testdatabasen raderas innan separat offsite-restore-evidens skrivs. Produktionsdatabasen ändras aldrig.
+
+Skyddad readiness accepterar offsite-restore-evidens i högst 30 dagar. Stagingens samlade evidensverifierare kräver att beviset gäller samma SHA, storlek och R2-objektnycklar som offsite-uploaden.
 
 ## Plan att godkänna och införa före pilot
 
@@ -107,4 +122,4 @@ Kommandot genomför **inte** övergång till produktion. Den kräver skrivstopp,
 
 `test/pilot-deployment.test.js`, `test/sqlite-backup-restore.test.js` och `test/restore-drill.test.js` kör verkliga backup-/restoreflöden mot temporära SQLite-filer. Det fyllda privata objekt-scenariot innehåller ett allmänt dokument, en leverantörs-PDF och en arkiverad kundfaktura-PDF och kräver att samtliga tre återläses med korrekt integritet. Ett separat korruptionsprov ändrar leverantörs-PDF:ens bytes utan att ändra metadata och kräver `RESTORE_PRIVATE_OBJECT_INTEGRITY_FAILED`.
 
-Testerna bevisar fortfarande inte återställning från R2 eller annan extern objektlagring, faktisk offsite-drift, myndighetsgodkännande, katastrofåterställning i skarp infrastruktur eller avstämning av verkliga ingående balanser.
+Automatiska tester verifierar nu även R2-download/restore-flödet mot en isolerad S3-kompatibel testsimulering, inklusive korrupt remote-objekt och fail-closed evidens. De bevisar fortfarande **inte** att de riktiga R2-credentials, den riktiga privata bucketens policy/retention eller katastrofåterställning i skarp infrastruktur fungerar; det kräver den verkliga stagingkörningen.
