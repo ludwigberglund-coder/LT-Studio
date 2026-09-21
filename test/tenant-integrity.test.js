@@ -175,6 +175,26 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
     assert.equal(inventoryAdjustments.status,200);
     assert.equal((await inventoryAdjustments.json()).adjustments.some(row=>row.id===inventoryAdjustmentB.id),false);
 
+    const automationList=await fetch(base+'/automation/proposals',{headers});
+    assert.equal(automationList.status,200);
+    assert.equal((await automationList.json()).proposals.some(row=>row.id===automationProposalB.id),false);
+
+    const payrollList=await fetch(base+'/payroll/runs',{headers});
+    assert.equal(payrollList.status,200);
+    assert.equal((await payrollList.json()).runs.some(row=>row.id===payrollRunB.id),false);
+
+    const cmsRead=await fetch(base+'/website/cms',{headers});
+    assert.equal(cmsRead.status,200);
+    const cmsReadBody=await cmsRead.json();
+    assert.equal(cmsReadBody.state.companyId,f.a.id);
+    assert.equal(cmsReadBody.state.companyId===f.b.id,false);
+
+    const foreignAutomationEdit=await fetch(base+`/automation/proposals/${automationProposalB.id}/suggestion`,{
+      method:'PUT',headers:mutationHeaders,
+      body:JSON.stringify({accountingLines:[{account:'4010',debitOre:10000,creditOre:0},{account:'2440',debitOre:0,creditOre:10000}]})
+    });
+    assert.equal(foreignAutomationEdit.status,404);
+
     const mutations=[
       [`/invoices/${f.invoiceB.id}/comments`,{text:'cross tenant'}],
       [`/customer-invoices/${f.invoiceB.id}/credit`,{requestId:'cross-tenant-credit-0001',reason:'cross tenant'}],
@@ -183,18 +203,61 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
       ['/inventory/adjustments',{itemId:inventoryItemB.id,adjustmentDate:'2026-09-20',countedQuantityMilli:3000,reason:'cross tenant'}],
       [`/inventory/adjustments/${inventoryAdjustmentB.id}/approve`,{}],
       [`/inventory/adjustments/${inventoryAdjustmentB.id}/reject`,{}],
+      [`/automation/proposals/${automationProposalB.id}/approve`,{}],
+      [`/automation/proposals/${automationProposalB.id}/reject`,{reason:'cross tenant'}],
+      [`/payroll/runs/${payrollRunB.id}/post`,{}],
       [`/payables/invoices/${supplierInvoiceB.id}/coding`,{lines:[{account:'4010',text:'X',debitOre:100000,creditOre:0},{account:'2641',text:'Moms',debitOre:25000,creditOre:0},{account:'2440',text:'Skuld',debitOre:0,creditOre:125000}]}],
       [`/accounting/entries/${entryB.id}/correct`,{postingDate:'2026-09-19',reason:'cross tenant correction'}]
     ];
     for(const [route,body] of mutations)assert.equal((await fetch(base+route,{method:'POST',headers:mutationHeaders,body:JSON.stringify(body)})).status,404,route);
+
+    const injectedPayroll=await fetch(base+'/payroll/runs',{
+      method:'POST',headers:mutationHeaders,
+      body:JSON.stringify({
+        companyId:f.b.id,period:'2026-10',payDate:'2026-10-25',sourceName:'Tenant injection attempt',
+        grossSalaryOre:100000,withheldTaxOre:30000,employerContributionsOre:31420,netPayOre:70000,vacationLiabilityChangeOre:0,
+        lines:payrollLines
+      })
+    });
+    assert.equal(injectedPayroll.status,201);
+    const injectedPayrollBody=await injectedPayroll.json();
+    assert.equal(injectedPayrollBody.run.companyId,f.a.id);
+    assert.equal(Payroll.listRuns(f.db,f.b.id).length,1);
+
+    const cmsSite=structuredClone(cmsABefore.draft.site);
+    cmsSite.hero.title='Tenant A controlled CMS update';
+    const cmsCompany=structuredClone(cmsABefore.draft.company);
+    const injectedCms=await fetch(base+'/website/cms/draft',{
+      method:'PUT',headers:mutationHeaders,
+      body:JSON.stringify({
+        companyId:f.b.id,
+        expectedRevision:cmsABefore.draft.revision,
+        site:cmsSite,
+        company:cmsCompany
+      })
+    });
+    assert.equal(injectedCms.status,200);
+    const injectedCmsBody=await injectedCms.json();
+    assert.equal(injectedCmsBody.state.companyId,f.a.id);
+    assert.equal(injectedCmsBody.state.draft.site.hero.title,'Tenant A controlled CMS update');
+    assert.deepEqual(Cms.state(f.db,f.b.id),cmsBBefore);
+
     assert.equal(Db.commentsForInvoice(f.db,f.b.id,f.invoiceB.id).length,0);
     assert.equal(Payables.invoiceById(f.db,f.b.id,supplierInvoiceB.id).coding.length,0);
     assert.equal(Accounting.listEntries(f.db,f.b.id).length,1);
     assert.equal(Bank.byId(f.db,f.b.id,bankPaymentB.id).status,'unmatched');
     assert.equal(Inventory.balanceMilli(f.db,f.b.id,inventoryItemB.id),5000);
     assert.equal(Inventory.adjustmentById(f.db,f.b.id,inventoryAdjustmentB.id).status,'pending');
+    assert.equal(Queues.automationProposalById(f.db,f.b.id,automationProposalB.id).status,automationProposalB.status);
+    assert.equal(Payroll.runById(f.db,f.b.id,payrollRunB.id).status,'validated');
     const tenantAAudit=Db.auditForCompany(f.db,f.a.id);
-    assert.equal(tenantAAudit.some(event=>event.entityId===bankPaymentB.id||event.entityId===inventoryItemB.id||event.entityId===inventoryAdjustmentB.id),false);
+    assert.equal(tenantAAudit.some(event=>
+      event.entityId===bankPaymentB.id||
+      event.entityId===inventoryItemB.id||
+      event.entityId===inventoryAdjustmentB.id||
+      event.entityId===automationProposalB.id||
+      event.entityId===payrollRunB.id
+    ),false);
   } finally {await new Promise(resolve=>runtime.close(resolve));}
 });
 
