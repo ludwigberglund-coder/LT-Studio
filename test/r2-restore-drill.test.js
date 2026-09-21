@@ -102,7 +102,10 @@ test('R2 restore-drill lämnar inget bevis eller testdatabas vid fel backupnycke
       bucket:'rollands-backup-staging',
       encryptedFile:path.basename(f.encrypted),
       sha256:f.result.sha256,
-      sizeBytes:f.result.sizeBytes
+      sizeBytes:f.result.sizeBytes,
+      checksumStorageKey:`encrypted-sqlite-backups/${f.result.sha256}/${path.basename(f.encrypted)}.sha256`,
+      checksumSha256:f.checksumSha256,
+      checksumSizeBytes:f.checksumSizeBytes
     };
     await assert.rejects(
       ()=>runR2RestoreDrill({
@@ -113,6 +116,41 @@ test('R2 restore-drill lämnar inget bevis eller testdatabas vid fel backupnycke
         backupKey:'Wrong-R2-Restore-Key-2026-ABCDEFGHIJKLMNOPQRSTUVWXYZ'
       }),
       error=>String(error.code||'').startsWith('BACKUP_')
+    );
+    assert.equal(fs.existsSync(evidencePath),false);
+    assert.deepEqual(fs.existsSync(drillDir)?fs.readdirSync(drillDir):[],[]);
+  }finally{
+    fs.rmSync(dir,{recursive:true,force:true});
+  }
+});
+
+
+test('R2 restore-drill stoppar korrupt checksumobjekt före dekryptering',async()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-r2-restore-drill-checksum-'));
+  const drillDir=path.join(dir,'drill'),evidencePath=path.join(dir,'ops','evidence.json');
+  try{
+    const f=encryptedFixture(dir);
+    const corruptChecksum=path.join(dir,'corrupt.sha256');
+    fs.writeFileSync(corruptChecksum,'0'.repeat(64)+'  '+path.basename(f.encrypted)+'\n',{mode:0o600});
+    const source={
+      ok:true,
+      bucket:'rollands-backup-staging',
+      encryptedFile:path.basename(f.encrypted),
+      sha256:f.result.sha256,
+      sizeBytes:f.result.sizeBytes,
+      checksumStorageKey:`encrypted-sqlite-backups/${f.result.sha256}/${path.basename(f.encrypted)}.sha256`,
+      checksumSha256:BackupCrypto.sha256File(corruptChecksum),
+      checksumSizeBytes:fs.statSync(corruptChecksum).size
+    };
+    await assert.rejects(
+      ()=>runR2RestoreDrill({
+        target:fakeDownloadTarget(f.encrypted,corruptChecksum),
+        source,
+        drillDir,
+        evidencePath,
+        backupKey:KEY
+      }),
+      /checksumobjektet matchar inte/
     );
     assert.equal(fs.existsSync(evidencePath),false);
     assert.deepEqual(fs.existsSync(drillDir)?fs.readdirSync(drillDir):[],[]);
