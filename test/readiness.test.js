@@ -41,12 +41,44 @@ function restoreEvidence(verifiedAt){
   };
 }
 
+function offsiteRestoreEvidence(verifiedAt){
+  const sha='c'.repeat(64);
+  const encryptedFile='rollands-2026-09-21T10-00-00.sqlite.enc';
+  return {
+    schemaVersion:1,
+    verifiedAt,
+    provider:'r2',
+    jurisdiction:'eu',
+    sourceEncryptedSha256:sha,
+    sourceSizeBytes:8192,
+    encryptedStorageKey:`encrypted-sqlite-backups/${sha}/${encryptedFile}`,
+    checksumStorageKey:`encrypted-sqlite-backups/${sha}/${encryptedFile}.sha256`,
+    remoteDownloadVerified:true,
+    sqliteIntegrity:true,
+    foreignKeys:true,
+    privateObjectsVerified:true,
+    privateObjectSchemaComplete:true,
+    privateObjectCount:3,
+    verifiedPrivateObjectCount:3,
+    privateObjectBytes:600,
+    privateObjectIssueCount:0,
+    privateObjectsByKind:{
+      document:{objects:1,verified:1,bytes:100},
+      'supplier-invoice':{objects:1,verified:1,bytes:200},
+      'customer-invoice-pdf':{objects:1,verified:1,bytes:300}
+    },
+    productionDatabaseTouched:false,
+    restoreCopyRemoved:true,
+    downloadedCopiesRemoved:true
+  };
+}
+
 test('readiness kräver läsbar och skrivbar databas',()=>{
   const db=Db.openDatabase(':memory:');
   try{
     const report=readinessReport({db,databasePath:':memory:',minFreeBytes:1});
     assert.equal(report.ok,true);
-    assert.deepEqual(report.checks,{databaseRead:true,databaseWrite:true,diskSpace:true,backup:true,offsiteBackup:true,restoreDrill:true,monitoring:true});
+    assert.deepEqual(report.checks,{databaseRead:true,databaseWrite:true,diskSpace:true,backup:true,offsiteBackup:true,restoreDrill:true,offsiteRestore:true,monitoring:true});
   }finally{db.close()}
 });
 
@@ -111,6 +143,34 @@ test('readiness kräver färskt verifierat R2-offsitebevis i skyddad drift',()=>
     fs.writeFileSync(evidencePath,JSON.stringify({...valid,encryptedStorageKey:'encrypted-sqlite-backups/wrong/'+encryptedFile}));
     report=readinessReport({db,databasePath:':memory:',requireOffsiteBackupEvidence:true,offsiteBackupEvidencePath:evidencePath,now});
     assert.equal(report.ok,false);assert.equal(report.checks.offsiteBackup,false);
+  }finally{db.close();fs.rmSync(dir,{recursive:true,force:true})}
+});
+
+test('readiness kräver verifierad restore från den faktiska R2-kopian',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-readiness-offsite-restore-'));
+  const evidencePath=path.join(dir,'offsite-restore-evidence.json');
+  const db=Db.openDatabase(':memory:');
+  const now=Date.UTC(2026,8,21,12,0,0);
+  try{
+    let report=readinessReport({db,databasePath:':memory:',requireOffsiteRestoreEvidence:true,offsiteRestoreEvidencePath:evidencePath,now});
+    assert.equal(report.ok,false);assert.equal(report.checks.offsiteRestore,false);
+
+    const valid=offsiteRestoreEvidence(new Date(now-2*24*60*60*1000).toISOString());
+    fs.writeFileSync(evidencePath,JSON.stringify(valid));
+    report=readinessReport({db,databasePath:':memory:',requireOffsiteRestoreEvidence:true,offsiteRestoreEvidencePath:evidencePath,now});
+    assert.equal(report.ok,true);assert.equal(report.checks.offsiteRestore,true);assert.equal(report.offsiteRestoreAgeMs,2*24*60*60*1000);
+
+    fs.writeFileSync(evidencePath,JSON.stringify({...valid,remoteDownloadVerified:false}));
+    report=readinessReport({db,databasePath:':memory:',requireOffsiteRestoreEvidence:true,offsiteRestoreEvidencePath:evidencePath,now});
+    assert.equal(report.ok,false);assert.equal(report.checks.offsiteRestore,false);
+
+    fs.writeFileSync(evidencePath,JSON.stringify({...valid,downloadedCopiesRemoved:false}));
+    report=readinessReport({db,databasePath:':memory:',requireOffsiteRestoreEvidence:true,offsiteRestoreEvidencePath:evidencePath,now});
+    assert.equal(report.ok,false);assert.equal(report.checks.offsiteRestore,false);
+
+    fs.writeFileSync(evidencePath,JSON.stringify({...valid,verifiedAt:new Date(now-31*24*60*60*1000).toISOString()}));
+    report=readinessReport({db,databasePath:':memory:',requireOffsiteRestoreEvidence:true,offsiteRestoreEvidencePath:evidencePath,now});
+    assert.equal(report.ok,false);assert.equal(report.checks.offsiteRestore,false);
   }finally{db.close();fs.rmSync(dir,{recursive:true,force:true})}
 });
 
