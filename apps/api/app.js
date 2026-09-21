@@ -444,33 +444,34 @@ function createApiApp(options) {
           note:String(payload.note||'').trim().slice(0,1000)
         };
         const requestSha256=crypto.createHash('sha256').update(JSON.stringify(normalizedRequest)).digest('hex');
-        const previous=Db.reminderByRequestId(db,session.companyId,requestId);
-        if(previous){
-          if(previous.requestSha256!==requestSha256)throw apiError('Idempotensnyckeln används redan för en annan betalningspåminnelse.','REMINDER_IDEMPOTENCY_CONFLICT',409);
-          return send(res,200,{reminder:previous,deliveryStatus:previous.deliveryStatus,duplicate:true});
-        }
-        const created=Receivables.createReminderRecord({
-          invoice,
-          companyId:session.companyId,
-          actor:session.actor,
-          options:{
-            sentDate:normalizedRequest.sentDate,
-            includeReminderFee:normalizedRequest.includeReminderFee,
-            reminderFeeAgreed:invoice.reminderFeeAgreed,
-            includeInterest:normalizedRequest.includeInterest,
-            includeBusinessLatePaymentCompensation:normalizedRequest.includeBusinessLatePaymentCompensation,
-            customerType:invoice.customerType,
-            kind:normalizedRequest.kind,
-            note:normalizedRequest.note
-          },
-          config:legalRates
-        });
-        const reminder={...created,requestId,requestSha256};
-        Db.transaction(db,()=>{
+        const result=Db.transaction(db,()=>{
+          const previous=Db.reminderByRequestId(db,session.companyId,requestId);
+          if(previous){
+            if(previous.requestSha256!==requestSha256)throw apiError('Idempotensnyckeln används redan för en annan betalningspåminnelse.','REMINDER_IDEMPOTENCY_CONFLICT',409);
+            return{reminder:previous,duplicate:true};
+          }
+          const created=Receivables.createReminderRecord({
+            invoice,
+            companyId:session.companyId,
+            actor:session.actor,
+            options:{
+              sentDate:normalizedRequest.sentDate,
+              includeReminderFee:normalizedRequest.includeReminderFee,
+              reminderFeeAgreed:invoice.reminderFeeAgreed,
+              includeInterest:normalizedRequest.includeInterest,
+              includeBusinessLatePaymentCompensation:normalizedRequest.includeBusinessLatePaymentCompensation,
+              customerType:invoice.customerType,
+              kind:normalizedRequest.kind,
+              note:normalizedRequest.note
+            },
+            config:legalRates
+          });
+          const reminder={...created,requestId,requestSha256};
           Db.addReminder(db,reminder);
           Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'PAYMENT_REMINDER_CREATED',entityType:'invoice',entityId:invoice.id,details:{reminderId:reminder.id,totalDueOre:reminder.totalDueOre,deliveryStatus:'not-sent',requestId}});
+          return{reminder,duplicate:false};
         });
-        return send(res,201,{reminder,deliveryStatus:'not-sent',duplicate:false});
+        return send(res,result.duplicate?200:201,{...result,deliveryStatus:result.reminder.deliveryStatus});
       }
 
       return send(res,404,{error:'Hittades inte.',code:'NOT_FOUND'});
