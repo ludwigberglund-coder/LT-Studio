@@ -266,3 +266,22 @@ Den kommande etappen ska därför definiera:
 - backup och restore för både databas och objektlagring.
 
 Ingen extern provider ska aktiveras innan detta är testat.
+
+
+## Extern kopieringsledger
+
+Nästa kontrollplan är nu definierad i `apps/api/private-object-copy-ledger.js`.
+
+Ledgern skapar inga externa kopior och aktiverar ingen extern runtime-provider. Den lagrar endast serverstyrd metadata för framtida kopieringsförsök och använder en innehållsspecifik fysisk nyckel:
+
+```text
+<logical-object-key>/<sha256>
+```
+
+Det gör att en ny version av exempelvis en leverantörsfaktura inte behöver skriva över en tidigare version i objektlagringen.
+
+Tillstånden är `pending`, `failed` och `ready`. En `ready`-rad är slutgiltig och kan inte återöppnas eller ändras.
+
+Runtime-factoryn tillåter fortfarande endast `sqlite`. `r2` och `s3` förekommer endast som planerade migrationstargets i ledgern och kan inte användas för ordinarie filåtkomst.
+
+Nästa implementation ska vara en separat staging-worker som kan kopiera ett verifierat manifestobjekt till en extern testbucket, läsa tillbaka det, verifiera SHA-256 och först därefter markera ledger-raden `ready`. SQLite-BLOB ska ligga kvar under hela staging- och rollback-fasen.
