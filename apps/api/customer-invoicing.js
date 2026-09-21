@@ -369,16 +369,33 @@ function creditDocumentFrom(original,invoiceNumber,creditDate,reason){
   document.demo=false;
   return document;
 }
+function creditSettlementState(db,companyId,invoice){
+  const transactions=Db.transactionsForInvoice(db,companyId,invoice.id).filter(row=>row.approved!==false);
+  let expectedRemaining=invoice.totalOre,grossPaymentsOre=0,reversedPaymentsOre=0;
+  for(const transaction of transactions){
+    const amountOre=Number(transaction.amountOre||0),type=text(transaction.transactionType).toLowerCase();
+    if(!Number.isSafeInteger(amountOre))throw invoiceError('Kundreskontran innehåller ett ogiltigt transaktionsbelopp. Krediteringen stoppades.','CREDIT_BALANCE_HISTORY_INVALID',409);
+    if(amountOre===0)continue;
+    if(type==='payment'&&amountOre<0){expectedRemaining+=amountOre;grossPaymentsOre+=Math.abs(amountOre);continue}
+    if(type==='payment-reversal'&&amountOre>0){expectedRemaining+=amountOre;reversedPaymentsOre+=amountOre;continue}
+    throw invoiceError('Kundreskontran innehåller en saldoförändring som kreditflödet ännu inte kan verifiera säkert.','CREDIT_BALANCE_HISTORY_UNSUPPORTED',409);
+  }
+  if(expectedRemaining<0||expectedRemaining>invoice.totalOre)throw invoiceError('Kundreskontrans betalningshistorik ger ett ogiltigt saldo. Krediteringen stoppades.','CREDIT_BALANCE_HISTORY_INVALID',409);
+  if(expectedRemaining!==invoice.remainingOre)throw invoiceError('Fakturans restbelopp stämmer inte med betalningshistoriken. Krediteringen stoppades.','CREDIT_BALANCE_HISTORY_MISMATCH',409);
+  const settledOre=invoice.totalOre-invoice.remainingOre;
+  return Object.freeze({transactions:Object.freeze(transactions),expectedRemaining,grossPaymentsOre,reversedPaymentsOre,settledOre,hasPaymentHistory:transactions.length>0});
+}
 function validateCreditSource(db,{companyId,invoiceId,payload}){
   const original=Db.invoiceById(db,companyId,invoiceId);if(!original)throw invoiceError('Fakturan hittades inte i det inloggade företaget.','INVOICE_NOT_FOUND',404);if(original.totalOre<=0)throw invoiceError('En kreditfaktura kan inte krediteras med detta flöde.','CREDIT_SOURCE_INVALID',409);
   const existingCredit=db.prepare('SELECT credit_invoice_id AS creditInvoiceId FROM customer_invoice_credits WHERE company_id=? AND original_invoice_id=?').get(companyId,invoiceId);if(existingCredit)throw invoiceError('Fakturan är redan krediterad.','INVOICE_ALREADY_CREDITED',409);
-  const transactions=Db.transactionsForInvoice(db,companyId,invoiceId).filter(row=>row.approved!==false);if(original.remainingOre!==original.totalOre||transactions.length)throw invoiceError('Endast en helt obetald faktura utan registrerade transaktioner kan helkrediteras i denna pilotversion.','CREDIT_REQUIRES_UNPAID_INVOICE',409);
+  const settlement=creditSettlementState(db,companyId,original);
+  if(settlement.settledOre>0)throw invoiceError('Fakturan har mottagna betalningar som inte är återförda. Helkredit skulle skapa en skuld till kunden, men något verifierat återbetalnings-/skuldkonto är ännu inte beslutat i systemets kontoplan. Krediteringen stoppades.','CREDIT_AFTER_PAYMENT_REQUIRES_REFUND_ACCOUNT',409);
   const reason=text(payload?.reason);if(reason.length<5||reason.length>500)throw invoiceError('Ange en tydlig orsak på 5–500 tecken.','CREDIT_REASON_REQUIRED',422);
   const creditDate=assertCreditDate(payload?.creditDate),periodRow=db.prepare('SELECT status FROM accounting_periods WHERE company_id=? AND period=?').get(companyId,creditDate.slice(0,7));if(periodRow?.status==='locked')throw invoiceError(`Bokföringsperioden ${creditDate.slice(0,7)} är låst.`,'PERIOD_LOCKED',409);
   const stored=documentForInvoice(db,companyId,invoiceId);if(!stored)throw invoiceError('Fakturans arkiverade originalunderlag saknas. Krediteringen stoppades.','INVOICE_DOCUMENT_REQUIRED',409);if(!pdfArchiveMetadata(db,companyId,invoiceId))throw invoiceError('Fakturans exakt arkiverade PDF saknas. Krediteringen stoppades.','INVOICE_PDF_ARCHIVE_REQUIRED',409);
   const originalEntry=Accounting.entryBySource(db,companyId,'customer-invoice',invoiceId);if(!originalEntry)throw invoiceError('Fakturans ursprungsverifikation saknas. Krediteringen stoppades.','INVOICE_ACCOUNTING_ENTRY_REQUIRED',409);
   const receivableLines=originalEntry.lines.filter(line=>line.account==='1510'),bookedReceivableOre=receivableLines.reduce((sum,line)=>sum+Number(line.debitOre||0)-Number(line.creditOre||0),0);if(!receivableLines.length||bookedReceivableOre!==original.totalOre)throw invoiceError('Fakturans kundfordringspost kan inte verifieras. Krediteringen stoppades.','INVOICE_ACCOUNTING_MISMATCH',409);
-  return{original,reason,creditDate,stored,originalEntry};
+  return{original,reason,creditDate,stored,originalEntry,settlement};
 }
 function prepareCreditIssuance(db,{companyId,userId,invoiceId,payload}){
   const requestId=validateRequestId(payload?.requestId),prior=db.prepare('SELECT original_invoice_id AS originalInvoiceId,credit_invoice_id AS creditInvoiceId FROM customer_invoice_credits WHERE company_id=? AND request_id=?').get(companyId,requestId);
@@ -401,4 +418,4 @@ function finalizeCreditIssuance(db,{companyId,userId,prepared,pdfBytes}){
   return{...invoiceBundle(db,companyId,creditInvoice.id),duplicate:false,original:Db.invoiceById(db,companyId,original.id)};
 }
 
-module.exports=Object.freeze({initializeCustomerInvoicing,customerByNumber,nextInvoiceNumber,profileStatus,resolvedProfile,listCustomerInvoices,documentForInvoice,pdfArchiveMetadata,pdfArchivePrivateObjectMetadata,pdfArchiveForInvoice,invoiceBundle,getCustomerInvoiceDraft,saveCustomerInvoiceDraft,clearCustomerInvoiceDraft,prepareInvoiceIssuance,finalizeInvoiceIssuance,prepareCreditIssuance,finalizeCreditIssuance,renderInvoicePdf,creditDocumentFrom,validateRequestId,reservationByRequest});
+module.exports=Object.freeze({initializeCustomerInvoicing,customerByNumber,nextInvoiceNumber,profileStatus,resolvedProfile,listCustomerInvoices,documentForInvoice,pdfArchiveMetadata,pdfArchivePrivateObjectMetadata,pdfArchiveForInvoice,invoiceBundle,getCustomerInvoiceDraft,saveCustomerInvoiceDraft,clearCustomerInvoiceDraft,prepareInvoiceIssuance,finalizeInvoiceIssuance,prepareCreditIssuance,finalizeCreditIssuance,renderInvoicePdf,creditDocumentFrom,creditSettlementState,validateCreditSource,validateRequestId,reservationByRequest});
