@@ -8,6 +8,9 @@ const path=require('node:path');
 const {spawnSync}=require('node:child_process');
 const {DatabaseSync}=require('node:sqlite');
 const Db=require('../apps/api/database.js');
+const Documents=require('../apps/api/documents.js');
+const Payables=require('../apps/api/payables.js');
+const CustomerInvoicing=require('../apps/api/customer-invoicing.js');
 const BackupCrypto=require('../scripts/backup-crypto.js');
 
 const root=path.resolve(__dirname,'..');
@@ -47,6 +50,9 @@ test('pilot backup skapar krypterad artifact som restore verifierar direkt',()=>
   const dbPath=path.join(dir,'source.sqlite'),backupDir=path.join(dir,'backups'),restoreTarget=path.join(dir,'restore','verified.sqlite');
   fs.mkdirSync(backupDir,{mode:0o700});
   const db=Db.openDatabase(dbPath);
+  Documents.initializeDocuments(db);
+  Payables.initializePayables(db);
+  CustomerInvoicing.initializeCustomerInvoicing(db);
   Db.createCompany(db,{legalName:'Encrypted Restore AB',displayName:'Encrypted Restore',orgNumber:'559955-1001'});
   db.close();
   try{
