@@ -5,6 +5,7 @@ const path = require('node:path');
 const {validateConfig} = require('../../scripts/pilot-preflight.js');
 const root = path.resolve(__dirname, '..', '..');
 const portal = path.join(root, 'apps', 'portal');
+const operator = path.join(root, 'apps', 'operator');
 const types = {'.html':'text/html; charset=utf-8', '.js':'application/javascript; charset=utf-8', '.css':'text/css; charset=utf-8', '.json':'application/json; charset=utf-8'};
 // Only browser assets are exposed. A new config or source file is NOT public by default.
 const files = new Map([
@@ -48,6 +49,7 @@ function resolveStaticRequest(requestUrl) {
   try { pathname=decodeURIComponent(new URL(requestUrl,'http://local').pathname); } catch { return null; }
   if (demoRequest(requestUrl)) return null;
   if (pathname==='/' || pathname==='/portal/receivables.html') return {redirect:'/portal/index.html'};
+  if (pathname==='/operator' || pathname==='/operator/') return {redirect:'/operator/index.html'};
   let file=files.get(pathname);
   if (pathname==='/shared/vendor/pdf-lib.min.js') file=require.resolve('pdf-lib/dist/pdf-lib.min.js');
   if (pathname.startsWith('/portal/')) {
@@ -55,6 +57,11 @@ function resolveStaticRequest(requestUrl) {
     // No nested paths, backups, hidden files, or local demo/test helpers.
     if (!/^[a-z][a-z0-9-]*\.(?:html|js|css)$/.test(name) || /^(?:demo-|uat\.)/.test(name)) return null;
     file=path.join(portal,name);
+  }
+  if (pathname.startsWith('/operator/')) {
+    const name=pathname.slice('/operator/'.length);
+    if (!/^[a-z][a-z0-9-]*\.(?:html|js|css)$/.test(name)) return null;
+    file=path.join(operator,name);
   }
   if (!file) return null;
   try {
