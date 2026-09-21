@@ -89,15 +89,19 @@ function createServer(options = {}) {
       restoreEvidencePath:process.env.ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH||'',
       r2RestoreEvidencePath:process.env.ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH||'',
       monitoringEvidencePath:process.env.ROLLANDS_MONITORING_EVIDENCE_PATH||'',
+      auditAnchorEvidencePath:process.env.ROLLANDS_AUDIT_ANCHOR_EVIDENCE_PATH||'',
+      auditAnchorPath:process.env.ROLLANDS_AUDIT_ANCHOR_PATH||'',
       expectedR2StagingBucket:process.env.R2_STAGING_BUCKET||'',
       expectedR2BackupBucket:process.env.R2_BACKUP_BUCKET||'',
+      expectedR2AuditBucket:process.env.R2_AUDIT_BUCKET||'',
       requireBackup:protectedMode,
       requireOffsiteBackupEvidence:protectedMode,
       requireR2StagingAuditEvidence:stagingMode,
       requireRestoreEvidence:protectedMode,
       requireR2RestoreEvidence:stagingMode,
       requireStagingEvidenceConsistency:stagingMode,
-      requireMonitoringEvidence:protectedMode&&includeMonitoring
+      requireMonitoringEvidence:protectedMode&&includeMonitoring,
+      requireAuditAnchorEvidence:protectedMode
     });
     return {
       ok:report.ok,
@@ -110,7 +114,8 @@ function createServer(options = {}) {
       restoreDrillAgeMinutes:report.restoreDrillAgeMs===null?null:Math.floor(report.restoreDrillAgeMs/60000),
       r2RestoreDrillAgeMinutes:report.r2RestoreDrillAgeMs===null?null:Math.floor(report.r2RestoreDrillAgeMs/60000),
       monitoringAgeMinutes:report.monitoringAgeMs===null?null:Math.floor(report.monitoringAgeMs/60000),
-      alertTestAgeMinutes:report.alertAgeMs===null?null:Math.floor(report.alertAgeMs/60000)
+      alertTestAgeMinutes:report.alertAgeMs===null?null:Math.floor(report.alertAgeMs/60000),
+      auditAnchorAgeMinutes:report.auditAnchorAgeMs===null?null:Math.floor(report.auditAnchorAgeMs/60000)
     };
   };
   const operator=createOperatorRouter({db,secureCookies,authEncryptionKey,readinessProvider:readinessPayload});
