@@ -133,9 +133,28 @@ function verifyImportIntegrity(db,companyId,year){
   const payableTotal=rows.payables.reduce((sum,row)=>sum+Number(row.openingAmountOre||0),0);
   const ledger1510=entry.lines.filter(line=>line.account==='1510').reduce((sum,line)=>sum+line.debitOre-line.creditOre,0);
   const ledger2440=entry.lines.filter(line=>line.account==='2440').reduce((sum,line)=>sum+line.creditOre-line.debitOre,0);
+  const receivableMismatch=db.prepare(`SELECT COUNT(*) AS n
+    FROM opening_migration_receivables r
+    LEFT JOIN invoices i ON i.id=r.invoice_id AND i.company_id=r.company_id
+    LEFT JOIN customers c ON c.id=i.customer_id AND c.company_id=i.company_id
+    WHERE r.company_id=? AND r.fiscal_year=? AND (
+      i.id IS NULL OR c.customer_number<>r.customer_number OR i.invoice_number<>r.invoice_number OR
+      i.total_ore<>r.original_total_ore OR i.invoice_account<>'1510' OR i.posting_date<>? OR
+      i.remaining_ore<0 OR i.remaining_ore>r.opening_amount_ore
+    )`).get(companyId,record.year,record.postingDate)?.n||0;
+  const payableMismatch=db.prepare(`SELECT COUNT(*) AS n
+    FROM opening_migration_payables r
+    LEFT JOIN supplier_invoices i ON i.id=r.invoice_id AND i.company_id=r.company_id
+    LEFT JOIN suppliers s ON s.id=i.supplier_id AND s.company_id=i.company_id
+    WHERE r.company_id=? AND r.fiscal_year=? AND (
+      i.id IS NULL OR s.supplier_number<>r.supplier_number OR i.supplier_invoice_number<>r.invoice_number OR
+      i.total_ore<>r.original_total_ore OR i.liability_accounting_entry_id<>? OR
+      i.open_amount_ore<0 OR i.open_amount_ore>r.opening_amount_ore
+    )`).get(companyId,record.year,record.openingEntryId)?.n||0;
   if(rows.receivables.length!==record.receivableCount||rows.payables.length!==record.payableCount||
      receivableTotal!==record.receivablesOre||payableTotal!==record.payablesOre||
-     ledger1510!==record.receivablesOre||ledger2440!==record.payablesOre){
+     ledger1510!==record.receivablesOre||ledger2440!==record.payablesOre||
+     Number(receivableMismatch)!==0||Number(payableMismatch)!==0){
     throw migrationError('Systembytesimportens reskontra och ingående balans stämmer inte längre överens.','OPENING_MIGRATION_INTEGRITY_ERROR',500);
   }
   return{import:record,entry,receivables:rows.receivables,payables:rows.payables};
