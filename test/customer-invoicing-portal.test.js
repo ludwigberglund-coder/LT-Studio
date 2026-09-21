@@ -76,6 +76,7 @@ test('kundfaktura kan bara ställas ut med uttryckligt knappklick, aldrig via En
   assert.match(source,/if\(action==='issue-invoice'\)\{await issueInvoice\(\);return;\}/);
   assert.match(source,/event\.key!=='Enter'/);
   assert.match(source,/Enter ställer inte ut fakturan/);
+  assert.match(source,/button\.dataset\.action==='issue-invoice'[\s\S]*!issueReady/);
   const submitStart=source.indexOf("document.addEventListener('submit'");
   const submitEnd=source.indexOf('async function refreshPrivateCustomers',submitStart);
   const submitSource=source.slice(submitStart,submitEnd);
