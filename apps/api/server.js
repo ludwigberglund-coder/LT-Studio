@@ -37,6 +37,7 @@ const PrivateObjectCopyLedger = require('./private-object-copy-ledger.js');
 const repositoryRoot = path.resolve(__dirname,'..','..');
 const {validateRuntime,protectedRuntimeMode,demoRequest,resolveStaticRequest,serveStatic} = require('./private-runtime.js');
 const {readinessReport}=require('./readiness.js');
+const OperationalLog=require('./operational-log.js');
 
 function normalizeHostname(value) {
   const raw = String(value || '').trim().toLowerCase().replace(/\.$/, '');
@@ -63,6 +64,7 @@ function createServer(options = {}) {
   const authEncryptionKey = options.authEncryptionKey ?? process.env.ROLLANDS_AUTH_ENCRYPTION_KEY ?? '';
   const configuredAllowedHosts = options.allowedHosts || String(process.env.ROLLANDS_ALLOWED_HOSTS || '').split(',').map(value=>value.trim()).filter(Boolean);
   const runtimeId = crypto.randomUUID();
+  const operationalLogger=OperationalLog.createOperationalLogger({writer:options.operationalLogWriter??OperationalLog.defaultWriter(process.env)});
   if (!Number.isSafeInteger(port) || port < 1 || port > 65535) throw new Error('PORT måste vara ett heltal mellan 1 och 65535.');
   if (!isLoopback(host)) {
     if (!secureCookies) throw new Error('Säkra cookies måste vara aktiverade när API:t exponeras utanför den lokala datorn.');
@@ -118,8 +120,28 @@ function createServer(options = {}) {
   // Apply guards after every router has initialized its tables, before accepting requests.
   require('./tenant-integrity.js').installTenantGuards(db);
   const server = http.createServer(async (req,res) => {
-    if (!allowedHost(req,host,configuredAllowedHosts)) { res.writeHead(421,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}); return res.end(JSON.stringify({error:'Värdnamnet är inte tillåtet.',code:'HOST_NOT_ALLOWED'})); }
-    if (demoRequest(req.url || '/')) { res.writeHead(400,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}); return res.end(JSON.stringify({error:'Demoläge är inte tillåtet på den privata servern. Använd den separata demon.',code:'DEMO_DISABLED'})); }
+    const requestId=OperationalLog.requestId();
+    const startedAt=Number(process.hrtime.bigint()/1000000n);
+    const route=OperationalLog.routeClass(req.url||'/');
+    let operationalCode='';
+    res.setHeader('X-Request-Id',requestId);
+    res.once('finish',()=>{
+      const statusCode=Number(res.statusCode)||0;
+      operationalLogger.emit({
+        level:statusCode>=500?'error':statusCode>=400?'warning':'info',
+        event:'http_request',
+        runtimeId,
+        requestId,
+        method:req.method||'GET',
+        route,
+        statusCode,
+        durationMs:Number(process.hrtime.bigint()/1000000n)-startedAt,
+        code:operationalCode
+      });
+    });
+    try{
+    if (!allowedHost(req,host,configuredAllowedHosts)) { operationalCode='HOST_NOT_ALLOWED'; res.writeHead(421,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}); return res.end(JSON.stringify({error:'Värdnamnet är inte tillåtet.',code:'HOST_NOT_ALLOWED'})); }
+    if (demoRequest(req.url || '/')) { operationalCode='DEMO_DISABLED'; res.writeHead(400,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}); return res.end(JSON.stringify({error:'Demoläge är inte tillåtet på den privata servern. Använd den separata demon.',code:'DEMO_DISABLED'})); }
     if (String(req.url || '').split('?')[0] === '/_runtime-version') {
       if (!['GET','HEAD'].includes(req.method || 'GET')) { res.writeHead(405,{'Allow':'GET, HEAD','Cache-Control':'no-store'}); return res.end(); }
       const body=Buffer.from(JSON.stringify({runtimeId}));
@@ -149,13 +171,35 @@ function createServer(options = {}) {
       res.writeHead(404,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}); return res.end(JSON.stringify({error:'Hittades inte.',code:'NOT_FOUND'}));
     }
     if (await automationReview.handle(req,res)) return; if (await bank.handle(req,res)) return; if (await supplierMasterdata.handle(req,res)) return; if (await paymentRelease.handle(req,res)) return; if (await paymentConfirmation.handle(req,res)) return; if (await inventory.handle(req,res)) return; if (await reports.handle(req,res)) return; if (await exportsRouter.handle(req,res)) return; if (await payroll.handle(req,res)) return; if (await documents.handle(req,res)) return; if (await accounting.handle(req,res)) return; if (await websiteCms.handle(req,res)) return; if (await payables.handle(req,res)) return; api.handle(req,res);
+    }catch(error){
+      operationalCode=OperationalLog.safeCode?OperationalLog.safeCode(error?.code):'REQUEST_HANDLER_ERROR';
+      operationalLogger.emit({
+        level:'error',
+        event:'request_handler_error',
+        runtimeId,
+        requestId,
+        method:req.method||'GET',
+        route,
+        code:operationalCode||'REQUEST_HANDLER_ERROR'
+      });
+      if(!res.headersSent){
+        operationalCode=operationalCode||'REQUEST_HANDLER_ERROR';
+        res.writeHead(500,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
+        return res.end(JSON.stringify({error:'Ett internt fel inträffade.',code:'INTERNAL_ERROR'}));
+      }
+      res.destroy();
+    }
   });
   function close(callback) { server.close(() => { try { db.close(); } catch {} if (callback) callback(); }); }
   return Object.freeze({server,db,api,operator,automationReview,bank,payables,supplierMasterdata,paymentRelease,paymentConfirmation,inventory,reports,exportsRouter,payroll,documents,accounting,websiteCms,host,port,databasePath,runtimeId,close});
 }
 if (require.main === module) {
   const runtime = createServer();
-  runtime.server.listen(runtime.port,runtime.host,() => { console.log(`Rollands portal och API körs på http://${runtime.host}:${runtime.port}`); console.log(`Databas: ${runtime.databasePath}`); });
+  runtime.server.listen(runtime.port,runtime.host,() => {
+    const logger=OperationalLog.createOperationalLogger({writer:OperationalLog.defaultWriter(process.env)});
+    if(logger.enabled)logger.emit({event:'service_started',runtimeId:runtime.runtimeId});
+    else console.log('Rollands portal och API är startat.');
+  });
   for (const signal of ['SIGINT','SIGTERM']) process.once(signal,() => runtime.close(() => process.exit(0)));
 }
 module.exports=Object.freeze({createServer,normalizeHostname,isLoopback,allowedHost,resolveStaticRequest,serveStatic});
