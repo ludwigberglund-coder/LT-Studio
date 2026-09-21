@@ -2,7 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const {validateConfig} = require('../../scripts/pilot-preflight.js');
+const {validateConfig,verifyDeploymentIdentity} = require('../../scripts/pilot-preflight.js');
 const root = path.resolve(__dirname, '..', '..');
 const portal = path.join(root, 'apps', 'portal');
 const operator = path.join(root, 'apps', 'operator');
@@ -30,6 +30,10 @@ function validateRuntime(env, settings) {
     ROLLANDS_AUTH_ENCRYPTION_KEY:settings.authEncryptionKey, ROLLANDS_API_SECURE_COOKIE:settings.secureCookies?'1':'0'};
   const report = validateConfig(effective);
   if (report.fail.length) throw runtimeError(`Serverstart stoppad: ${report.fail.join(' ')}`);
+  if (['pilot','production'].includes(mode)) {
+    try { verifyDeploymentIdentity(effective); }
+    catch (error) { throw runtimeError('Serverstart stoppad: '+(error?.message||String(error))); }
+  }
   // SQLite inherits this mode for WAL files. Never silently fix an existing unsafe file.
   if (!fs.existsSync(settings.databasePath)) {
     const fd = fs.openSync(settings.databasePath,'wx',0o600);
