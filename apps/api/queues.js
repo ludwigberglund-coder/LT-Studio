@@ -289,6 +289,15 @@ function approveAutomationProposal(db, {companyId, proposalId, userId, approvedA
   if (result.changes !== 1) throw queueError('Automationsförslaget kan inte godkännas i nuvarande status.', 'INVALID_PROPOSAL_STATUS', 409);
   return automationProposalById(db, companyId, proposalId);
 }
+function approveAutomationProposalIdempotent(db,input) {
+  try { return {proposal:approveAutomationProposal(db,input),duplicate:false}; }
+  catch (error) {
+    if (error?.code !== 'INVALID_PROPOSAL_STATUS') throw error;
+    const current=automationProposalById(db,input.companyId,input.proposalId);
+    if (current?.status==='approved' && current.approvedBy===input.userId) return {proposal:current,duplicate:true};
+    throw error;
+  }
+}
 
 function rejectAutomationProposal(db, {companyId, proposalId, userId, reason, rejectedAt = nowIso()}) {
   const why = text(reason);
@@ -297,6 +306,19 @@ function rejectAutomationProposal(db, {companyId, proposalId, userId, reason, re
     WHERE company_id=? AND id=? AND status IN ('manual-review','ready-for-approval')`).run(userId, rejectedAt, why.slice(0,2000), companyId, proposalId);
   if (result.changes !== 1) throw queueError('Automationsförslaget kan inte avvisas i nuvarande status.', 'INVALID_PROPOSAL_STATUS', 409);
   return automationProposalById(db, companyId, proposalId);
+}
+function rejectAutomationProposalIdempotent(db,input) {
+  const why=text(input.reason);
+  if (!why) throw queueError('Ange varför förslaget avvisas.', 'MISSING_REJECTION_REASON');
+  try { return {proposal:rejectAutomationProposal(db,{...input,reason:why}),duplicate:false}; }
+  catch (error) {
+    if (error?.code !== 'INVALID_PROPOSAL_STATUS') throw error;
+    const current=automationProposalById(db,input.companyId,input.proposalId);
+    if (current?.status==='rejected' && current.rejectedBy===input.userId && current.rejectionReason===why.slice(0,2000)) {
+      return {proposal:current,duplicate:true};
+    }
+    throw error;
+  }
 }
 
 module.exports = Object.freeze({
@@ -316,5 +338,7 @@ module.exports = Object.freeze({
   automationProposalByKey,
   listAutomationProposals,
   approveAutomationProposal,
-  rejectAutomationProposal
+  approveAutomationProposalIdempotent,
+  rejectAutomationProposal,
+  rejectAutomationProposalIdempotent
 });
