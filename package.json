@@ -46,7 +46,8 @@
     "pilot:backup:offsite-r2": "node scripts/pilot-backup-offsite-r2.js",
     "staging:preflight": "node scripts/staging-preflight.js",
     "staging:evidence:verify": "node scripts/staging-evidence-verify.js",
-    "pilot:restore:r2-drill": "node scripts/pilot-restore-drill-r2.js"
+    "pilot:restore:r2-drill": "node scripts/pilot-restore-drill-r2.js",
+    "staging:monitoring:evidence": "node scripts/staging-monitoring-evidence.js"
   },
   "engines": {
     "node": ">=24"
