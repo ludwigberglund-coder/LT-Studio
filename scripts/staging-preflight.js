@@ -42,6 +42,7 @@ function validateStaging(env=process.env){
     'R2_STAGING_AUDIT_EVIDENCE_PATH',
     'ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH',
     'ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH',
+    'ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH',
     'ROLLANDS_MONITORING_EVIDENCE_PATH'
   ]){
     const value=String(env[name]||'').trim();
