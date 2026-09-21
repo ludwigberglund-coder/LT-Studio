@@ -7,6 +7,10 @@ const Payables = require('../apps/api/payables.js');
 const Documents = require('../apps/api/documents.js');
 const Bank = require('../apps/api/bank-payments.js');
 const Inventory = require('../apps/api/inventory.js');
+const Queues = require('../apps/api/queues.js');
+const Automation = require('../packages/automation/proposals.js');
+const Payroll = require('../apps/api/payroll.js');
+const Cms = require('../apps/api/website-cms.js');
 const {createServer} = require('../apps/api/server.js');
 const Auth = require('../apps/api/auth.js');
 function fixture() {
@@ -104,7 +108,7 @@ test('real HTTP API refuses anonymous requests and other-company invoice IDs', a
 
 test('HTTP object-ID matrix denies other-company reads and mutations with valid session and CSRF', async () => {
   const f=fixture();
-  Payables.initializePayables(f.db);Documents.initializeDocuments(f.db);Bank.initializeBankPayments(f.db);Inventory.initializeInventory(f.db);
+  Payables.initializePayables(f.db);Documents.initializeDocuments(f.db);Bank.initializeBankPayments(f.db);Inventory.initializeInventory(f.db);Queues.initializeQueues(f.db);Payroll.initializePayroll(f.db);Cms.initializeWebsiteCms(f.db);
   const Accounting=require('../apps/api/accounting-store.js');Accounting.initializeAccountingStore(f.db);
   const supplierB=Payables.createSupplier(f.db,{companyId:f.b.id,supplierNumber:'B-OBJ',name:'Supplier B Obj'});
   const supplierInvoiceB=Payables.createSupplierInvoice(f.db,{companyId:f.b.id,supplierId:supplierB.id,supplierInvoiceNumber:'B-OBJ-1',invoiceDate:'2026-09-18',dueDate:'2026-10-18',totalOre:125000,vatOre:25000,registeredBy:f.user.id});
@@ -116,6 +120,25 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
   const inventoryItemB=Inventory.createItem(f.db,{companyId:f.b.id,sku:'B-TENANT-ITEM',name:'Tenant B inventory item',unit:'kg',purchaseAccount:'4010',inventoryAccount:'1460'});
   Inventory.addMovement(f.db,{companyId:f.b.id,itemId:inventoryItemB.id,movementDate:'2026-09-20',type:'receipt',quantityMilli:5000,actorId:f.user.id});
   const inventoryAdjustmentB=Inventory.createAdjustment(f.db,{companyId:f.b.id,itemId:inventoryItemB.id,adjustmentDate:'2026-09-20',countedQuantityMilli:4000,reason:'Tenant matrix',countedBy:f.user.id});
+  const automationProposalB=Queues.saveAutomationProposal(f.db,Automation.createProposal({
+    companyId:f.b.id,type:'booking-account-suggestion',sourceId:'tenant-b-automation',confidence:.91,deterministic:false,
+    reason:'Tenant B automation proposal',evidence:[],suggestion:{amountOre:10000,debitAccount:'4010',creditAccount:'2440'},
+    engine:{kind:'rules',name:'tenant-matrix',version:'1'},createdAt:'2026-09-20T08:00:00.000Z'
+  }),{idempotencyKey:'tenant-b-automation:v1'}).proposal;
+  const payrollLines=[
+    {account:'7010',text:'Bruttolön',debitOre:100000,creditOre:0},
+    {account:'7510',text:'Arbetsgivaravgifter',debitOre:31420,creditOre:0},
+    {account:'2710',text:'Personalskatt',debitOre:0,creditOre:30000},
+    {account:'2731',text:'Arbetsgivaravgifter skuld',debitOre:0,creditOre:31420},
+    {account:'2910',text:'Upplupna löner',debitOre:0,creditOre:70000}
+  ];
+  const payrollRunB=Payroll.importRun(f.db,{
+    companyId:f.b.id,period:'2026-09',payDate:'2026-09-25',sourceName:'Tenant B payroll',
+    grossSalaryOre:100000,withheldTaxOre:30000,employerContributionsOre:31420,netPayOre:70000,vacationLiabilityChangeOre:0,
+    importedBy:f.user.id,lines:payrollLines
+  });
+  const cmsABefore=Cms.state(f.db,f.a.id);
+  const cmsBBefore=Cms.state(f.db,f.b.id);
   const runtime=createServer({db:f.db,port:4180,secureCookies:false});
   await new Promise(resolve=>runtime.server.listen(0,'127.0.0.1',resolve));
   const base=`http://127.0.0.1:${runtime.server.address().port}/api/v1`;
