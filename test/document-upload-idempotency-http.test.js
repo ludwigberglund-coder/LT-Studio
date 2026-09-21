@@ -88,10 +88,34 @@ test('dokumentuppladdning är idempotent över metadata-POST och fil-PUT',async(
     assert.equal(changedBytes.status,409);
     assert.equal((await changedBytes.json()).code,'DOCUMENT_IMMUTABLE');
 
+    const linkBody={entityType:'customer-invoice',entityId:f.issued.invoice.id,label:'Fakturaunderlag'};
+    const firstLink=await fetch(f.base+'/api/v1/documents/'+firstBody.document.id+'/links',{
+      method:'POST',headers,body:JSON.stringify(linkBody)
+    });
+    const firstLinkBody=await firstLink.json();
+    assert.equal(firstLink.status,200);
+    assert.equal(firstLinkBody.duplicate,false);
+    assert.equal(firstLinkBody.links.length,1);
+
+    const retryLink=await fetch(f.base+'/api/v1/documents/'+firstBody.document.id+'/links',{
+      method:'POST',headers,body:JSON.stringify(linkBody)
+    });
+    const retryLinkBody=await retryLink.json();
+    assert.equal(retryLink.status,200);
+    assert.equal(retryLinkBody.duplicate,true);
+    assert.equal(retryLinkBody.links.length,1);
+
+    const changedLink=await fetch(f.base+'/api/v1/documents/'+firstBody.document.id+'/links',{
+      method:'POST',headers,body:JSON.stringify({...linkBody,label:'Annan etikett'})
+    });
+    assert.equal(changedLink.status,409);
+    assert.equal((await changedLink.json()).code,'DOCUMENT_LINK_IDEMPOTENCY_CONFLICT');
+
     assert.equal(Documents.listDocuments(f.db,f.a.id).length,1);
     const audit=Db.auditForCompany(f.db,f.a.id);
     assert.equal(audit.filter(event=>event.action==='DOCUMENT_REGISTERED'&&event.entityId===firstBody.document.id).length,1);
     assert.equal(audit.filter(event=>event.action==='DOCUMENT_CONTENT_STORED'&&event.entityId===firstBody.document.id).length,1);
+    assert.equal(audit.filter(event=>event.action==='DOCUMENT_LINKED'&&event.entityId===firstBody.document.id).length,1);
   }finally{
     await f.close();
   }
