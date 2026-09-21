@@ -18,7 +18,7 @@ function sameExistingFile(left,right){
   const a=fs.statSync(left),b=fs.statSync(right);
   return a.dev===b.dev&&a.ino===b.ino;
 }
-function verifyDatabase(filename){
+function verifyDatabase(filename,{requirePrivateObjectSchema=false}={}){
   // Never run application migrations against a backup being verified.
   const db=new DatabaseSync(filename,{readOnly:true});
   try{
@@ -32,20 +32,25 @@ function verifyDatabase(filename){
 
     const privateObjectTables=['documents','supplier_invoices','customer_invoice_pdf_archives'];
     const missingPrivateObjectTables=privateObjectTables.filter(table=>!present.has(table));
-    if(missingPrivateObjectTables.length){
+    if(requirePrivateObjectSchema&&missingPrivateObjectTables.length){
       throw new Error('RESTORE_PRIVATE_OBJECT_SCHEMA_INCOMPLETE: private file storage tables are missing.');
     }
-    const privateInventory=PrivateObjectInventory.buildPrivateObjectInventory(db,{provider:'sqlite'});
-    if(!privateInventory.ok||privateInventory.verifiedCount!==privateInventory.objectCount){
-      throw new Error('RESTORE_PRIVATE_OBJECT_INTEGRITY_FAILED: one or more private stored objects could not be verified.');
+
+    let privateInventory=null;
+    if(missingPrivateObjectTables.length===0){
+      privateInventory=PrivateObjectInventory.buildPrivateObjectInventory(db,{provider:'sqlite'});
+      if(!privateInventory.ok||privateInventory.verifiedCount!==privateInventory.objectCount){
+        throw new Error('RESTORE_PRIVATE_OBJECT_INTEGRITY_FAILED: one or more private stored objects could not be verified.');
+      }
     }
+
     const privateObjectsByKind=Object.fromEntries(
       Object.values(PrivateObject.PRIVATE_OBJECT_KINDS).map(kind=>[
         kind,
         {
-          objects:Number(privateInventory.countsByKind[kind]?.objects||0),
-          verified:Number(privateInventory.countsByKind[kind]?.verified||0),
-          bytes:Number(privateInventory.countsByKind[kind]?.bytes||0)
+          objects:Number(privateInventory?.countsByKind[kind]?.objects||0),
+          verified:Number(privateInventory?.countsByKind[kind]?.verified||0),
+          bytes:Number(privateInventory?.countsByKind[kind]?.bytes||0)
         }
       ])
     );
@@ -88,11 +93,12 @@ function verifyDatabase(filename){
       tenantRelations:tenants.checkedRelations,
       journalEntries,
       archivedDocuments,
-      privateObjectsVerified:true,
-      privateObjectCount:privateInventory.objectCount,
-      verifiedPrivateObjectCount:privateInventory.verifiedCount,
-      privateObjectBytes:privateInventory.totalBytes,
-      privateObjectIssueCount:privateInventory.issueCount,
+      privateObjectsVerified:Boolean(privateInventory),
+      privateObjectSchemaComplete:missingPrivateObjectTables.length===0,
+      privateObjectCount:Number(privateInventory?.objectCount||0),
+      verifiedPrivateObjectCount:Number(privateInventory?.verifiedCount||0),
+      privateObjectBytes:Number(privateInventory?.totalBytes||0),
+      privateObjectIssueCount:Number(privateInventory?.issueCount||0),
       privateObjectsByKind
     };
   }finally{db.close()}
@@ -118,14 +124,14 @@ function main(){
       const key=required('ROLLANDS_BACKUP_ENCRYPTION_KEY');
       BackupCrypto.decryptFile(source,working,key);
       fs.chmodSync(working,0o600);
-      verified=verifyDatabase(working);
+      verified=verifyDatabase(working,{requirePrivateObjectSchema:true});
       fs.renameSync(working,target);
     }else{
-      verifyDatabase(source);
+      verifyDatabase(source,{requirePrivateObjectSchema:true});
       fs.copyFileSync(source,target,fs.constants.COPYFILE_EXCL);
       fs.chmodSync(target,0o600);
       if(sha256(target)!==expected.toLowerCase())throw new Error('RESTORE_COPY_FAILED: source changed during copy.');
-      verified=verifyDatabase(target);
+      verified=verifyDatabase(target,{requirePrivateObjectSchema:true});
     }
   }catch(error){fs.rmSync(working,{force:true});fs.rmSync(target,{force:true});throw error}
   console.log(JSON.stringify({verified:true,target,sourceEncrypted:encrypted,sha256:sha256(target),...verified}));
