@@ -5,6 +5,8 @@ const Db = require('../apps/api/database.js');
 const Guards = require('../apps/api/tenant-integrity.js');
 const Payables = require('../apps/api/payables.js');
 const Documents = require('../apps/api/documents.js');
+const Bank = require('../apps/api/bank-payments.js');
+const Inventory = require('../apps/api/inventory.js');
 const {createServer} = require('../apps/api/server.js');
 const Auth = require('../apps/api/auth.js');
 function fixture() {
@@ -102,7 +104,7 @@ test('real HTTP API refuses anonymous requests and other-company invoice IDs', a
 
 test('HTTP object-ID matrix denies other-company reads and mutations with valid session and CSRF', async () => {
   const f=fixture();
-  Payables.initializePayables(f.db);Documents.initializeDocuments(f.db);
+  Payables.initializePayables(f.db);Documents.initializeDocuments(f.db);Bank.initializeBankPayments(f.db);Inventory.initializeInventory(f.db);
   const Accounting=require('../apps/api/accounting-store.js');Accounting.initializeAccountingStore(f.db);
   const supplierB=Payables.createSupplier(f.db,{companyId:f.b.id,supplierNumber:'B-OBJ',name:'Supplier B Obj'});
   const supplierInvoiceB=Payables.createSupplierInvoice(f.db,{companyId:f.b.id,supplierId:supplierB.id,supplierInvoiceNumber:'B-OBJ-1',invoiceDate:'2026-09-18',dueDate:'2026-10-18',totalOre:125000,vatOre:25000,registeredBy:f.user.id});
@@ -110,6 +112,10 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
   const entryB=Accounting.postEntry(f.db,{companyId:f.b.id,postingDate:'2026-09-18',description:'Tenant B',sourceType:'tenant-matrix',sourceId:'b',createdBy:f.user.id,lines:[{account:'1930',debitOre:1000,creditOre:0,text:'Bank'},{account:'2999',debitOre:0,creditOre:1000,text:'Motkonto'}]}).entry;
   const pendingB=Documents.createPending(f.db,{companyId:f.b.id,uploadedBy:f.user.id,title:'Tenant B document',fileName:'tenant-b.pdf'});
   Documents.storeContent(f.db,{companyId:f.b.id,documentId:pendingB.id,bytes:Buffer.from('%PDF-1.4\nprivate b\n')});
+  const bankPaymentB=Bank.create(f.db,{companyId:f.b.id,externalId:'B-TENANT-MATRIX-1',bookingDate:'2026-09-20',amountOre:125000,currency:'SEK',reference:'B-only',createdBy:f.user.id}).payment;
+  const inventoryItemB=Inventory.createItem(f.db,{companyId:f.b.id,sku:'B-TENANT-ITEM',name:'Tenant B inventory item',unit:'kg',purchaseAccount:'4010',inventoryAccount:'1460'});
+  Inventory.addMovement(f.db,{companyId:f.b.id,itemId:inventoryItemB.id,movementDate:'2026-09-20',type:'receipt',quantityMilli:5000,actorId:f.user.id});
+  const inventoryAdjustmentB=Inventory.createAdjustment(f.db,{companyId:f.b.id,itemId:inventoryItemB.id,adjustmentDate:'2026-09-20',countedQuantityMilli:4000,reason:'Tenant matrix',countedBy:f.user.id});
   const runtime=createServer({db:f.db,port:4180,secureCookies:false});
   await new Promise(resolve=>runtime.server.listen(0,'127.0.0.1',resolve));
   const base=`http://127.0.0.1:${runtime.server.address().port}/api/v1`;
@@ -129,9 +135,31 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
       `/documents/${pendingB.id}/content`
     ];
     for(const route of getRoutes)assert.equal((await fetch(base+route,{headers})).status,404,route);
+
+    const bankList=await fetch(base+'/bank/payments',{headers});
+    assert.equal(bankList.status,200);
+    assert.equal((await bankList.json()).payments.some(row=>row.id===bankPaymentB.id),false);
+
+    const inventoryItems=await fetch(base+'/inventory/items',{headers});
+    assert.equal(inventoryItems.status,200);
+    assert.equal((await inventoryItems.json()).items.some(row=>row.id===inventoryItemB.id),false);
+
+    const foreignMovements=await fetch(base+'/inventory/movements?itemId='+encodeURIComponent(inventoryItemB.id),{headers});
+    assert.equal(foreignMovements.status,200);
+    assert.deepEqual((await foreignMovements.json()).movements,[]);
+
+    const inventoryAdjustments=await fetch(base+'/inventory/adjustments?status=all',{headers});
+    assert.equal(inventoryAdjustments.status,200);
+    assert.equal((await inventoryAdjustments.json()).adjustments.some(row=>row.id===inventoryAdjustmentB.id),false);
+
     const mutations=[
       [`/invoices/${f.invoiceB.id}/comments`,{text:'cross tenant'}],
       [`/customer-invoices/${f.invoiceB.id}/credit`,{requestId:'cross-tenant-credit-0001',reason:'cross tenant'}],
+      [`/bank/payments/${bankPaymentB.id}/match`,{}],
+      ['/inventory/movements',{itemId:inventoryItemB.id,movementDate:'2026-09-20',type:'sale',quantityMilli:-1000}],
+      ['/inventory/adjustments',{itemId:inventoryItemB.id,adjustmentDate:'2026-09-20',countedQuantityMilli:3000,reason:'cross tenant'}],
+      [`/inventory/adjustments/${inventoryAdjustmentB.id}/approve`,{}],
+      [`/inventory/adjustments/${inventoryAdjustmentB.id}/reject`,{}],
       [`/payables/invoices/${supplierInvoiceB.id}/coding`,{lines:[{account:'4010',text:'X',debitOre:100000,creditOre:0},{account:'2641',text:'Moms',debitOre:25000,creditOre:0},{account:'2440',text:'Skuld',debitOre:0,creditOre:125000}]}],
       [`/accounting/entries/${entryB.id}/correct`,{postingDate:'2026-09-19',reason:'cross tenant correction'}]
     ];
@@ -139,6 +167,11 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
     assert.equal(Db.commentsForInvoice(f.db,f.b.id,f.invoiceB.id).length,0);
     assert.equal(Payables.invoiceById(f.db,f.b.id,supplierInvoiceB.id).coding.length,0);
     assert.equal(Accounting.listEntries(f.db,f.b.id).length,1);
+    assert.equal(Bank.byId(f.db,f.b.id,bankPaymentB.id).status,'unmatched');
+    assert.equal(Inventory.balanceMilli(f.db,f.b.id,inventoryItemB.id),5000);
+    assert.equal(Inventory.adjustmentById(f.db,f.b.id,inventoryAdjustmentB.id).status,'pending');
+    const tenantAAudit=Db.auditForCompany(f.db,f.a.id);
+    assert.equal(tenantAAudit.some(event=>event.entityId===bankPaymentB.id||event.entityId===inventoryItemB.id||event.entityId===inventoryAdjustmentB.id),false);
   } finally {await new Promise(resolve=>runtime.close(resolve));}
 });
 
