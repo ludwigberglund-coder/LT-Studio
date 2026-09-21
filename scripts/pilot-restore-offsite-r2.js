@@ -31,6 +31,7 @@ async function runOffsiteRestore({env=process.env,fetchImpl=globalThis.fetch,now
   if(!outsideRepository(drillDir))throw new Error('ROLLANDS_RESTORE_DRILL_PATH måste ligga utanför Git-repositoryt.');
   if(!outsideRepository(evidencePath))throw new Error('ROLLANDS_OFFSITE_RESTORE_EVIDENCE_PATH måste ligga utanför Git-repositoryt.');
   if(!outsideRepository(sourceEvidencePath))throw new Error('ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH måste ligga utanför Git-repositoryt.');
+  if(evidencePath===sourceEvidencePath)throw new Error('Offsite restore-evidens måste använda en annan fil än offsite backup-evidens.');
 
   const production=env.ROLLANDS_DATABASE_PATH?path.resolve(env.ROLLANDS_DATABASE_PATH):'';
   if(production&&(production===evidencePath||production===sourceEvidencePath||production.startsWith(drillDir+path.sep))){
