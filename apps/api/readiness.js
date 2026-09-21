@@ -129,7 +129,29 @@ function offsiteRestoreEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_OFFSIT
     if(value.sqliteIntegrity!==true||value.foreignKeys!==true||value.productionDatabaseTouched!==false||value.restoreCopyRemoved!==true||value.downloadedCopiesRemoved!==true)return{ok:false,ageMs:null};
     if(value.privateObjectsVerified!==true||value.privateObjectSchemaComplete!==true||value.privateObjectIssueCount!==0)return{ok:false,ageMs:null};
     if(!/^[a-f0-9]{64}$/.test(sha)||!Number.isSafeInteger(sizeBytes)||sizeBytes<1)return{ok:false,ageMs:null};
-    if(!new RegExp('^encrypted-sqlite-backups/'+sha+'/rollands-[0-9A-Za-z._-]+\\.sqlite\\.enc
+    const prefix=`encrypted-sqlite-backups/${sha}/`;
+    if(!encryptedKey.startsWith(prefix)||checksumKey!==encryptedKey+'.sha256')return{ok:false,ageMs:null};
+    const basename=encryptedKey.slice(prefix.length);
+    if(!/^rollands-[0-9A-Za-z._-]+\.sqlite\.enc$/.test(basename))return{ok:false,ageMs:null};
+    const objectCount=Number(value.privateObjectCount),verifiedCount=Number(value.verifiedPrivateObjectCount),objectBytes=Number(value.privateObjectBytes);
+    if(!Number.isSafeInteger(objectCount)||objectCount<0||verifiedCount!==objectCount||!Number.isSafeInteger(objectBytes)||objectBytes<0)return{ok:false,ageMs:null};
+    const byKind=value.privateObjectsByKind;
+    if(!byKind||typeof byKind!=='object')return{ok:false,ageMs:null};
+    const requiredKinds=['document','supplier-invoice','customer-invoice-pdf'];
+    let countedObjects=0,countedVerified=0,countedBytes=0;
+    for(const kind of requiredKinds){
+      const row=byKind[kind];
+      if(!row||!Number.isSafeInteger(Number(row.objects))||Number(row.objects)<0||!Number.isSafeInteger(Number(row.verified))||Number(row.verified)<0||!Number.isSafeInteger(Number(row.bytes))||Number(row.bytes)<0)return{ok:false,ageMs:null};
+      countedObjects+=Number(row.objects);countedVerified+=Number(row.verified);countedBytes+=Number(row.bytes);
+    }
+    if(countedObjects!==objectCount||countedVerified!==verifiedCount||countedBytes!==objectBytes)return{ok:false,ageMs:null};
+    const verifiedAt=Date.parse(String(value.verifiedAt||''));
+    if(!Number.isFinite(verifiedAt)||verifiedAt>now+5*60*1000)return{ok:false,ageMs:null};
+    const ageMs=Math.max(0,now-verifiedAt);
+    return{ok:ageMs<=maxAgeMs,ageMs,sha256:sha,sizeBytes,encryptedStorageKey:encryptedKey,checksumStorageKey:checksumKey};
+  }catch{return{ok:false,ageMs:null}}
+}
+function monitoringEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS}={}){
   try{
     if(!filename||!fs.existsSync(filename)||!fs.statSync(filename).isFile())return{ok:false,ageMs:null,alertAgeMs:null};
     const value=JSON.parse(fs.readFileSync(filename,'utf8'));
