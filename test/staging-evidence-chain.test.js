@@ -151,7 +151,9 @@ function fixture(){
     checkedAt:new Date(now-20*60*1000).toISOString(),
     alertTestedAt:new Date(now-25*60*1000).toISOString(),
     readinessProbeSucceeded:true,
-    alertDeliverySucceeded:true
+    alertDeliverySucceeded:true,
+    alertTestReference:'alert-test-staging-001',
+    alertObserver:'LT Studio driftansvarig'
   });
 
   const env={
