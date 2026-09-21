@@ -6,6 +6,7 @@ Vi bygger en återanvändbar plattform för småbutiker, saluhallar och mindre r
 
 Börja här:
 
+- [Säkerhetspolicy och privat rapportering](SECURITY.md)
 - [Audit: konkreta risker, källor och rättelser](docs/PRODUCTION-READINESS-AUDIT-2026-09-18.md)
 - [ROLANDS PILOT READINESS CHECKLIST](docs/ROLANDS-PILOT-READINESS-CHECKLIST.md)
 - [Backup och verifierad återställning](docs/BACKUP-RESTORE-PILOT.md)
