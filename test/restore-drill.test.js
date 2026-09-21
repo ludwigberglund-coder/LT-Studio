@@ -115,6 +115,11 @@ test('restore drill verifierar alla privata objekt och skriver evidens först ef
     const evidence=JSON.parse(fs.readFileSync(evidencePath,'utf8'));
     assert.equal(evidence.schemaVersion,2);
     assert.equal(evidence.sourceFile,path.basename(encrypted));
+    assert.match(evidence.sourceModifiedAt,/^\d{4}-\d{2}-\d{2}T/);
+    assert.ok(Number.isSafeInteger(evidence.backupAgeAtDrillMs));
+    assert.ok(evidence.backupAgeAtDrillMs>=0);
+    assert.ok(Number.isSafeInteger(evidence.restoreDurationMs));
+    assert.ok(evidence.restoreDurationMs>=0);
     assert.equal(evidence.sqliteIntegrity,true);
     assert.equal(evidence.foreignKeys,true);
     assert.equal(evidence.privateObjectsVerified,true);
