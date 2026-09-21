@@ -11,6 +11,8 @@ test('pilotservern serverar portal, nödvändig konfiguration och shared-filer m
     const root=await fetch(base+'/',{redirect:'manual'});
     assert.equal(root.status,302);
     assert.equal(root.headers.get('location'),'/portal/index.html');
+    const operator=await fetch(base+'/operator/',{redirect:'manual'});assert.equal(operator.status,302);assert.equal(operator.headers.get('location'),'/operator/index.html');
+    const operatorPage=await fetch(base+'/operator/index.html');assert.equal(operatorPage.status,200);assert.match(await operatorPage.text(),/Driftadmin/);
     const reports=await fetch(base+'/portal/reports.html');
     assert.equal(reports.status,200);
     assert.match(reports.headers.get('content-security-policy'),/frame-ancestors 'none'/);
@@ -34,8 +36,10 @@ test('pilotservern serverar portal, nödvändig konfiguration och shared-filer m
 
 test('statisk resolver tillåter endast uttryckligt publicerade rötter',()=>{
   assert.ok(resolveStaticRequest('/portal/reports.js')?.file.endsWith('apps/portal/reports.js'));
+  assert.ok(resolveStaticRequest('/operator/app.js')?.file.endsWith('apps/operator/app.js'));
   assert.ok(resolveStaticRequest('/config/legal-rates.json')?.file.endsWith('config/legal-rates.json'));
   assert.ok(resolveStaticRequest('/shared/accounting/money.js')?.file.endsWith('packages/accounting/money.js'));
   assert.equal(resolveStaticRequest('/portal/../../package.json'),null);
   assert.equal(resolveStaticRequest('/apps/api/server.js'),null);
+  assert.equal(resolveStaticRequest('/operator/../package.json'),null);
 });
