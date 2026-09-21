@@ -17,7 +17,7 @@ Detta dokument är en manuell kontrollista inför en kontrollerad första pilot 
 
 1. Skapa eller välj en leverantör.
 2. Registrera en leverantörsfaktura med belopp, moms, datum och PDF-underlag.
-3. Kontrollera att fakturabelopp och moms stämmer mot underlaget.
+3. Kontrollera att fakturabelopp, moms, fakturadatum och förfallodatum stämmer mot originalunderlaget. Om en redan bokförd men obetald leverantörsfaktura har fel faktura- eller förfallodatum ska rättelseflödet **Rätta datum** användas; ändra aldrig SQLite-raden manuellt. Flödet ska bevara originalverifikationen, skapa motverifikation på det tidigare bokföringsdatumet och en ersättningsverifikation på det korrekta fakturadatumet. Om betalning redan har förberetts ska datumrättelsen blockeras tills betalningsflödet har rättats.
 4. Kontera fakturan och spara konteringen.
 5. Attestera med en annan behörig användare där fyrögonprincip gäller.
 6. Bokför leverantörsskulden.
