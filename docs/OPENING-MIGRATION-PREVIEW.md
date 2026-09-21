@@ -4,7 +4,7 @@
 
 Innan ett befintligt företag flyttas till LT Studio måste ingående balans och öppna kund- och leverantörsposter kunna kontrolleras mot varandra.
 
-Den här etappen är **endast en förhandskontroll**. Den skriver ingen affärsdata.
+Preview-endpointen är **endast en förhandskontroll** och skriver ingen affärsdata. Sedan PR #354 finns även ett separat, uttryckligt bekräftat importflöde som använder samma kontroller innan något skrivs.
 
 ## API
 
@@ -16,7 +16,7 @@ Kräver:
 - giltig CSRF-token,
 - åtkomst till bokföringsvyn.
 
-Previewn returnerar alltid `executionSupported: false`.
+Previewn returnerar fortsatt `executionSupported: false` eftersom just preview-anropet aldrig ska kunna genomföra import. En godkänd preview kan därefter skickas till den separata import-endpointen enligt `docs/OPENING-MIGRATION-IMPORT.md`.
 
 ## Underlag
 
@@ -89,4 +89,4 @@ Den första previewversionen accepterar endast **positiva öppna poster**.
 
 Kreditfakturor, kreditsaldon och andra negativa öppna poster måste hanteras i ett separat migreringsflöde innan en exekverande import kan godkännas.
 
-Själva atomiska importen av 1510/2440 tillsammans med reskontraunderlaget är nästa separata etapp och ska inte aktiveras förrän den har egna rollback-, idempotens- och tenant-isoleringstester.
+Den atomiska importen av 1510/2440 tillsammans med reskontraunderlaget finns sedan PR #354 som ett separat privat API. Den är skyddad med preview-gate, uttrycklig bekräftelse, rollback, idempotens, tenant-isolering och efterföljande 1510/2440-avstämning. Preview-funktionen förblir read-only.
