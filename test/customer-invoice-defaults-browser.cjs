@@ -84,8 +84,8 @@ async function close(server){
     assert.equal(stored.ourReference,'Anna Sälj');
     assert.equal(stored.yourReference,'PO-4477');
 
-    await page.goto(base+'/invoices.html',{waitUntil:'networkidle'});
-    await page.getByRole('button',{name:'+ Ny kundfaktura',exact:true}).click();
+    await page.goto(base+'/invoices.html?resume=1',{waitUntil:'networkidle'});
+    await page.getByRole('heading',{name:'Ny kundfaktura',exact:true}).waitFor();
     await page.locator('select[name="customerNumber"]').selectOption('K-1001');
     await page.locator('input[name="ourReference"]').waitFor();
 
