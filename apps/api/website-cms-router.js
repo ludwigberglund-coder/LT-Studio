@@ -2,6 +2,7 @@
 
 const fs=require('node:fs');
 const path=require('node:path');
+const {isDeepStrictEqual}=require('node:util');
 const Access=require('../../packages/access-control/authorization.js');
 const Auth=require('./auth.js');
 const Db=require('./database.js');
@@ -23,6 +24,19 @@ function assertRevision(db,companyId,body,{publishing=false}={}) {
   const current=Cms.state(db,companyId);
   if(body.expectedRevision!==current.draft.revision)throw routeError('Utkastet har \u00e4ndrats i en annan flik eller av en annan anv\u00e4ndare. Dina osparade \u00e4ndringar finns kvar i formul\u00e4ret.','CMS_REVISION_CONFLICT',409);
   if(publishing&&body.expectedPublishedVersion!==current.published.version)throw routeError('En annan publicering har redan genomf\u00f6rts. H\u00e4mta senaste versionen.','CMS_PUBLICATION_CONFLICT',409);
+}
+
+function normalizedDraftMatches(current,body){
+  const site=Cms.validateSite(body.site);
+  const company=Cms.validateCompany(body.company,current.published.company);
+  return isDeepStrictEqual(site,current.draft.site)&&isDeepStrictEqual(company,current.draft.company);
+}
+function publishedMatchesDraft(current){
+  return isDeepStrictEqual(current.published.site,current.draft.site)&&isDeepStrictEqual(current.published.company,current.draft.company);
+}
+function restoredDraftMatches(db,companyId,current,version){
+  const source=Cms.revision(db,companyId,version);
+  return Boolean(source)&&isDeepStrictEqual(source.site,current.draft.site)&&isDeepStrictEqual(source.company,current.draft.company);
 }
 function createWebsiteCmsRouter(options){
   const db=options?.db;if(!db)throw new Error('Databas kr\u00e4vs.');
@@ -57,24 +71,32 @@ function createWebsiteCmsRouter(options){
       const publishing=url.pathname==='/api/v1/website/cms/publish'&&req.method==='POST';
       if(saving||publishing||(restore&&req.method==='POST')){
         const body=await readJson(req,res);if(!body)return true;
-        const value=Db.transaction(db,()=>{
-          assertRevision(db,s.companyId,body,{publishing});
+        const result=Db.transaction(db,()=>{
           const before=Cms.state(db,s.companyId);
-          const next=saving?Cms.saveDraft(db,{companyId:s.companyId,site:body.site,company:body.company,userId:s.userId}):
+          const restoreVersion=restore?Number(restore[1]):null;
+          let duplicate=false;
+          if(saving&&body.expectedRevision===before.draft.revision-1&&normalizedDraftMatches(before,body)) duplicate=true;
+          else if(publishing&&body.expectedRevision===before.draft.revision&&body.expectedPublishedVersion===before.published.version-1&&publishedMatchesDraft(before)) duplicate=true;
+          else if(restore&&body.expectedRevision===before.draft.revision-1&&restoredDraftMatches(db,s.companyId,before,restoreVersion)) duplicate=true;
+          if(!duplicate)assertRevision(db,s.companyId,body,{publishing});
+          const next=duplicate?before:
+            saving?Cms.saveDraft(db,{companyId:s.companyId,site:body.site,company:body.company,userId:s.userId}):
             publishing?Cms.publish(db,{companyId:s.companyId,userId:s.userId}):
-            Cms.restoreToDraft(db,{companyId:s.companyId,version:Number(restore[1]),userId:s.userId});
-          Db.appendAudit(db,{companyId:s.companyId,userId:s.userId,
+            Cms.restoreToDraft(db,{companyId:s.companyId,version:restoreVersion,userId:s.userId});
+          if(!duplicate)Db.appendAudit(db,{companyId:s.companyId,userId:s.userId,
             action:saving?'WEBSITE_DRAFT_SAVED':publishing?'WEBSITE_VERSION_PUBLISHED':'WEBSITE_REVISION_RESTORED_TO_DRAFT',
             entityType:'website-content',entityId:s.companyId,
             details:{previousDraftRevision:before.draft.revision,draftRevision:next.draft.revision,
               previousPublishedVersion:before.published.version,publishedVersion:next.published.version,
-              ...(restore?{sourceVersion:Number(restore[1])}:{})}});
-          return next;
+              ...(restore?{sourceVersion:restoreVersion}:{})}});
+          return{state:next,duplicate};
         });
-        const message=saving?'Utkastet sparades p\u00e5 servern. Den publika webbplatsen \u00e4r of\u00f6r\u00e4ndrad.':
+        const value=result.state;
+        const message=result.duplicate?'Beg\u00e4ran var redan genomf\u00f6rd med samma inneh\u00e5ll. Ingen ny version eller auditpost skapades.':
+          saving?'Utkastet sparades p\u00e5 servern. Den publika webbplatsen \u00e4r of\u00f6r\u00e4ndrad.':
           publishing?`Version ${value.published.version} sparades som publicerad i CMS. Koppling till den publika webbplatsens drift \u00e5terst\u00e5r.`:
           `Version ${restore[1]} \u00e5terst\u00e4lldes som utkast. Den publicerade versionen \u00e4ndrades inte.`;
-        send(res,publishing?201:200,{state:value,revisions:Cms.listRevisions(db,s.companyId),message});return true;
+        send(res,publishing&&!result.duplicate?201:200,{state:value,revisions:Cms.listRevisions(db,s.companyId),message,duplicate:result.duplicate});return true;
       }
       send(res,404,{error:'Hittades inte.',code:'NOT_FOUND'});return true;
     }catch(error){const status=Number(error.statusCode||500);if(status>=500)console.error('Website CMS request failed',{code:error.code||'INTERNAL_ERROR'});send(res,status,{error:status>=500?'Ett internt serverfel uppstod.':String(error.message||'Beg\u00e4ran misslyckades.'),code:error.code||'INTERNAL_ERROR'});return true}
