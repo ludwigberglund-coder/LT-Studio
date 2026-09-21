@@ -30,6 +30,7 @@ const Payroll = require('./payroll.js');
 const Documents = require('./documents.js');
 const AccountingAdmin = require('./accounting-admin.js');
 const WebsiteCms = require('./website-cms.js');
+const PrivateObjectStoreFactory = require('./private-object-store-factory.js');
 
 const repositoryRoot = path.resolve(__dirname,'..','..');
 const {validateRuntime,demoRequest,resolveStaticRequest,serveStatic} = require('./private-runtime.js');
@@ -67,6 +68,7 @@ function createServer(options = {}) {
     if (['0.0.0.0','::'].includes(normalizeHostname(host)) && !configuredAllowedHosts.length) throw new Error('ROLLANDS_ALLOWED_HOSTS måste anges när API:t lyssnar på en jokeradress.');
   }
   validateRuntime(process.env,{host,databasePath,secureCookies,authEncryptionKey,allowedHosts:configuredAllowedHosts,db:options.db});
+  PrivateObjectStoreFactory.providerFromEnvironment(process.env);
   if (databasePath !== ':memory:') fs.mkdirSync(path.dirname(path.resolve(databasePath)),{recursive:true,mode:0o700});
   const db = options.db || Db.openDatabase(databasePath);
   Queues.initializeQueues(db); ReminderOutbox.initializeReminderOutbox(db); Bank.initializeBankPayments(db); Payables.initializePayables(db); SupplierMasterdata.initializeSupplierMasterdata(db); PaymentConfirmation.initializePaymentConfirmation(db); Inventory.initializeInventory(db); Payroll.initializePayroll(db); Documents.initializeDocuments(db); AccountingAdmin.initializeAccountingAdmin(db); WebsiteCms.initializeWebsiteCms(db);

@@ -2,6 +2,8 @@
 
 const test=require('node:test');
 const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
 const Factory=require('../apps/api/private-object-store-factory.js');
 const PrivateObject=require('../apps/api/private-object-contract.js');
 
@@ -46,5 +48,16 @@ test('okänd objekttyp och saknad databas stoppas innan lagringsåtkomst',()=>{
   assert.throws(
     ()=>Factory.createPrivateObjectStore({db:{},kind:'unknown-private-kind',provider:'sqlite'}),
     error=>error.code==='PRIVATE_OBJECT_KIND_UNSUPPORTED'
+  );
+});
+
+
+test('API-start validerar privat lagringsprovider fail-fast',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'..','apps','api','server.js'),'utf8');
+  assert.match(source,/PrivateObjectStoreFactory\s*=\s*require\('\.\/private-object-store-factory\.js'\)/);
+  assert.match(source,/PrivateObjectStoreFactory\.providerFromEnvironment\(process\.env\)/);
+  assert.ok(
+    source.indexOf('PrivateObjectStoreFactory.providerFromEnvironment(process.env)') < source.indexOf('Db.openDatabase(databasePath)'),
+    'Providerkonfigurationen måste valideras innan databasen öppnas.'
   );
 });
