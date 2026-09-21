@@ -43,6 +43,7 @@ function fixture(){
   const r2Path=path.join(opsDir,'r2-audit.json');
   const offsitePath=path.join(opsDir,'offsite-backup.json');
   const restorePath=path.join(opsDir,'restore-drill.json');
+  const r2RestorePath=path.join(opsDir,'r2-restore-drill.json');
   const monitorPath=path.join(opsDir,'monitoring.json');
 
   write(r2Path,{
@@ -109,6 +110,39 @@ function fixture(){
     restoreCopyRemoved:true
   });
 
+  write(r2RestorePath,{
+    schemaVersion:1,
+    verifiedAt:new Date(now-25*60*1000).toISOString(),
+    sourceProvider:'r2',
+    provider:'r2',
+    jurisdiction:'eu',
+    bucket:backupBucket,
+    sourceFile:backupFile,
+    sourceEncryptedSha256:backupSha,
+    sourceSizeBytes:500,
+    sourceStorageKey:`encrypted-sqlite-backups/${backupSha}/${backupFile}`,
+    remoteDownloadVerified:true,
+    sqliteIntegrity:true,
+    foreignKeys:true,
+    tenantRelations:0,
+    journalEntries:1,
+    archivedDocuments:3,
+    privateObjectsVerified:true,
+    privateObjectSchemaComplete:true,
+    privateObjectCount:3,
+    verifiedPrivateObjectCount:3,
+    privateObjectBytes:60,
+    privateObjectIssueCount:0,
+    privateObjectsByKind:{
+      document:{objects:1,verified:1,bytes:10},
+      'supplier-invoice':{objects:1,verified:1,bytes:20},
+      'customer-invoice-pdf':{objects:1,verified:1,bytes:30}
+    },
+    productionDatabaseTouched:false,
+    remoteDownloadRemoved:true,
+    restoreCopyRemoved:true
+  });
+
   write(monitorPath,{
     schemaVersion:1,
     provider:'Extern monitor',
@@ -148,9 +182,10 @@ function fixture(){
     ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH:offsitePath,
     ROLLANDS_RESTORE_DRILL_PATH:path.join(dir,'restore'),
     ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH:restorePath,
+    ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH:r2RestorePath,
     ROLLANDS_MONITORING_EVIDENCE_PATH:monitorPath
   };
-  return{dir,env,now,paths:{r2Path,offsitePath,restorePath,monitorPath},backupSha,backupFile};
+  return{dir,env,now,paths:{r2Path,offsitePath,restorePath,r2RestorePath,monitorPath},backupSha,backupFile};
 }
 
 test('staging evidence chain passes only when all fresh proofs agree',()=>{
@@ -202,5 +237,21 @@ test('staging evidence chain rejects stale R2 audit',()=>{
     const result=validateEvidenceChain(f.env,{now:f.now});
     assert.equal(result.ok,false);
     assert.equal(result.checks.r2Audit,false);
+  }finally{fs.rmSync(f.dir,{recursive:true,force:true})}
+});
+
+
+test('staging evidence chain rejects R2 restore proof for another backup',()=>{
+  const f=fixture();
+  try{
+    const restore=JSON.parse(fs.readFileSync(f.paths.r2RestorePath,'utf8'));
+    restore.sourceEncryptedSha256='f'.repeat(64);
+    restore.sourceStorageKey=`encrypted-sqlite-backups/${restore.sourceEncryptedSha256}/${restore.sourceFile}`;
+    write(f.paths.r2RestorePath,restore);
+    const result=validateEvidenceChain(f.env,{now:f.now});
+    assert.equal(result.ok,false);
+    assert.equal(result.checks.r2RestoreDrill,true);
+    assert.equal(result.checks.sameBackupArtifact,false);
+    assert.ok(result.fail.some(item=>item.includes('R2 restore-drillen gäller inte samma krypterade backup-SHA')));
   }finally{fs.rmSync(f.dir,{recursive:true,force:true})}
 });
