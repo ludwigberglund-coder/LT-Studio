@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const Review=require('../../packages/automation/review-model.js');
 const Queues=require('./queues.js');
+const CustomerPayment=require('./customer-payment-posting.js');
 
 const ACCOUNT_CONFIG=JSON.parse(fs.readFileSync(path.join(__dirname,'..','..','config','accounting-accounts.json'),'utf8'));
 const ACCOUNTS=Object.freeze((ACCOUNT_CONFIG.accounts||[]).map(row=>Object.freeze({number:String(row.number),name:String(row.name),group:String(row.group||'Övrigt')})));
@@ -20,6 +21,14 @@ function enrichProposal(db,proposal){
     const payment=bankPayment(db,p.companyId,p.suggestion.bankPaymentId||p.sourceId);const invoice=customerInvoice(db,p.companyId,p.suggestion.invoiceId);
     if(payment){p.suggestion.amountOre=Number(p.suggestion.amountOre||payment.amountOre);p.suggestion.bookingDate=p.suggestion.bookingDate||payment.bookingDate;p.context={...(p.context||{}),payerName:payment.payerName,reference:payment.reference||payment.message,invoiceOptions:matchingCustomerInvoices(db,p.companyId,payment.amountOre)}}
     if(invoice){p.suggestion.invoiceNumber=p.suggestion.invoiceNumber||invoice.invoiceNumber;p.suggestion.customerName=p.suggestion.customerName||invoice.customerName;p.context={...(p.context||{}),invoiceNumber:invoice.invoiceNumber,customerName:invoice.customerName,remainingOre:invoice.remainingOre}}
+    const execution=CustomerPayment.executionByProposal(db,p.companyId,p.id);
+    p.executionStatus=execution?'executed':'not-executed';p.execution=execution||null;
+    if(execution){
+      const allocation=CustomerPayment.currentAllocation(db,execution);
+      const allocatedInvoice=customerInvoice(db,p.companyId,allocation.invoiceId);
+      p.currentAllocation=allocatedInvoice?{invoiceId:allocatedInvoice.id,invoiceNumber:allocatedInvoice.invoiceNumber,customerName:allocatedInvoice.customerName,remainingOre:allocatedInvoice.remainingOre}:null;
+      if(p.context)p.context.invoiceOptions=(p.context.invoiceOptions||[]).filter(row=>row.id!==allocation.invoiceId);
+    }
   }
   if(p.type==='supplier-invoice-coding'){
     const invoice=supplierInvoice(db,p.companyId,p.suggestion.invoiceId||p.sourceId);if(invoice){p.suggestion.totalOre=Number(p.suggestion.totalOre||invoice.totalOre);p.suggestion.vatOre=Number(p.suggestion.vatOre??invoice.vatOre);p.suggestion.supplierInvoiceId=invoice.id;p.context={...(p.context||{}),invoiceNumber:invoice.invoiceNumber,supplierName:invoice.supplierName}}
