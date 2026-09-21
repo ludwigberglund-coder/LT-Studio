@@ -21,7 +21,8 @@ test('plattformsoverview listar företag och aggregerad säkerhet utan affärsde
     const customerB=Db.createCustomer(db,{companyId:b.id,customerNumber:'B-CUSTOMER-SECRET',name:'Beta Hemlig Kund'});
     Db.createInvoice(db,{companyId:b.id,customerId:customerB.id,invoiceNumber:'B-INVOICE-SECRET',invoiceDate:'2026-09-21',postingDate:'2026-09-21',dueDate:'2026-10-21',totalOre:50000,remainingOre:50000,vatOre:10000,status:'Bokförd'});
     Db.appendAudit(db,{companyId:a.id,userId:user.id,action:'TEST_ACTIVITY',entityType:'test',details:{}});
-    Db.appendSecurityEvent(db,{kind:'LOGIN_FAILURE_THRESHOLD',severity:'warning',fingerprintHash:'b'.repeat(64),details:{privateTechnicalDetail:'do-not-expose'}});
+    const securityEvent=Db.appendSecurityEvent(db,{kind:'LOGIN_FAILURE_THRESHOLD',severity:'warning',fingerprintHash:'b'.repeat(64),details:{privateTechnicalDetail:'do-not-expose'}});
+    db.prepare('UPDATE security_events SET created_at=? WHERE id=?').run('2026-09-21T11:00:00.000Z',securityEvent.id);
 
     const result=platformOverview(db,{nowMs:Date.parse('2026-09-21T12:00:00.000Z')});
     assert.equal(result.runtimeModel,'shared-saas');
