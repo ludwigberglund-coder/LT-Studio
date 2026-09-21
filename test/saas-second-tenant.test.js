@@ -135,6 +135,22 @@ test('kund A och kund B hålls isär i bank, lager, lön, automation och CMS',()
 
 test('kund nummer två kan ställa ut egen faktura först efter verifierad identitet och hålls helt isolerad',()=>run(async f=>{
   Cms.publish(f.db,{companyId:f.b.id,userId:f.other.id});
+
+  Settings.initializeInvoiceSettings(f.db);
+  f.db.prepare(`INSERT INTO company_invoice_settings(
+    company_id,bankgiro,tax_status,vat_number,updated_by,updated_at
+  ) VALUES(?,?,?,?,?,?)`).run(
+    f.b.id,'987-6543','Godkänd för F-skatt',null,f.other.id,'2026-09-21T09:00:00.000Z'
+  );
+
+  const headersB=await f.login(f.other.username);
+  const headersA=await f.login(f.admin.username);
+  const legacyConfigResponse=await fetch(f.base+'/api/v1/customer-invoices/config',{headers:headersB});
+  const legacyConfig=await legacyConfigResponse.json();
+  assert.equal(legacyConfigResponse.status,200);
+  assert.equal(legacyConfig.issuanceReady,false);
+  assert.match(legacyConfig.blocker,/VAT-nummer/i);
+
   Settings.setInvoiceSettings(f.db,{
     companyId:f.b.id,
     bankgiro:'987-6543',
@@ -151,9 +167,6 @@ test('kund nummer två kan ställa ut egen faktura först efter verifierad ident
     address:{full:'Kundgatan 2, 411 02 Teststad'},
     customerType:'business'
   });
-
-  const headersB=await f.login(f.other.username);
-  const headersA=await f.login(f.admin.username);
 
   const configResponse=await fetch(f.base+'/api/v1/customer-invoices/config',{headers:headersB});
   const config=await configResponse.json();
