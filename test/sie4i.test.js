@@ -6,7 +6,7 @@ const SIE = require('../lib/sie4i.js');
 
 function store() {
   return {
-    business: {name: 'Rollands Frukt & Grönt Aktiebolag', orgNumber: '556406-5059'},
+    business: {name: 'Rollands Frukt & Grönt Aktiebolag', orgNumber: '556406-5059', companyType: 'AB'},
     journal: [
       {
         id: 'ver_A24', series: 'A', number: 'A24', date: '2026-09-14', description: 'Försäljning äpplen',
@@ -37,6 +37,24 @@ test('SIE 4I innehåller obligatorisk identifikation, konton och balanserad veri
   assert.match(text, /#TRANS 1930 \{\} 112\.00 ""/);
   assert.match(text, /#TRANS 3052 \{\} -100\.00 ""/);
   assert.match(text, /#TRANS 2621 \{\} -12\.00 ""/);
+});
+
+test('SIE 4I formaterar heltalsören exakt utan flyttalsavrundning', () => {
+  const data = {
+    business:{name:'Örestest AB',orgNumber:'559999-0001',companyType:'AB'},
+    journal:[{
+      id:'entry-1',series:'A',number:'A1',date:'2026-09-15',description:'Örestest',
+      rows:[
+        {account:'1930',debitOre:12550,creditOre:0},
+        {account:'3051',debitOre:0,creditOre:10040},
+        {account:'2611',debitOre:0,creditOre:2510}
+      ]
+    }]
+  };
+  const text=SIE.buildSie4iText(data,{generatedAt:'2026-09-15',fiscalYear:'2026',companyType:'AB'});
+  assert.match(text,/#TRANS 1930 \{\} 125\.50 ""/);
+  assert.match(text,/#TRANS 3051 \{\} -100\.40 ""/);
+  assert.match(text,/#TRANS 2611 \{\} -25\.10 ""/);
 });
 
 test('PC8-export kodar svenska tecken i stället för UTF-8', () => {
