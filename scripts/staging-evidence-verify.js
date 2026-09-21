@@ -28,6 +28,10 @@ function validateEvidenceChain(env=process.env,{now=Date.now()}={}){
     String(env.ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH||''),
     {now}
   );
+  const offsiteRestore=Readiness.offsiteRestoreEvidence(
+    String(env.ROLLANDS_OFFSITE_RESTORE_EVIDENCE_PATH||''),
+    {now}
+  );
   const monitoring=Readiness.monitoringEvidence(
     String(env.ROLLANDS_MONITORING_EVIDENCE_PATH||''),
     {now}
@@ -36,6 +40,7 @@ function validateEvidenceChain(env=process.env,{now=Date.now()}={}){
   if(!r2.ok)fail.push('R2 staging-audit saknas, är ogiltig eller för gammal.');
   if(!offsite.ok)fail.push('Offsite-backupbevis saknas, är ogiltigt eller för gammalt.');
   if(!restore.ok)fail.push('Restore-drillbevis saknas, är ogiltigt eller för gammalt.');
+  if(!offsiteRestore.ok)fail.push('R2 offsite-restorebevis saknas, är ogiltigt eller för gammalt.');
   if(!monitoring.ok)fail.push('Monitorerings-/larmbevis saknas, är ogiltigt eller för gammalt.');
 
   const configuredObjectBucket=String(env.R2_STAGING_BUCKET||'').trim();
@@ -54,14 +59,23 @@ function validateEvidenceChain(env=process.env,{now=Date.now()}={}){
       fail.push('Restore-drillen gäller inte samma krypterade backupfil som verifierades från R2.');
     }
   }
+  if(offsite.ok&&offsiteRestore.ok){
+    if(offsite.sha256!==offsiteRestore.sha256||offsite.sizeBytes!==offsiteRestore.sizeBytes){
+      fail.push('R2 restore-drillen gäller inte samma krypterade backup som offsite-uploaden verifierade.');
+    }
+    if(offsite.encryptedStorageKey!==offsiteRestore.encryptedStorageKey||offsite.checksumStorageKey!==offsiteRestore.checksumStorageKey){
+      fail.push('R2 restore-drillen gäller inte samma R2-objektnycklar som offsite-uploaden verifierade.');
+    }
+  }
 
   const checks=Object.freeze({
     preflight:preflight.fail.length===0,
     r2Audit:r2.ok&&r2.bucket===configuredObjectBucket,
     offsiteBackup:offsite.ok&&offsite.bucket===configuredBackupBucket,
     restoreDrill:restore.ok,
+    offsiteRestore:offsiteRestore.ok,
     monitoring:monitoring.ok,
-    sameBackupArtifact:offsite.ok&&restore.ok&&offsite.sha256===restore.sha256&&offsite.encryptedFile===restore.sourceFile
+    sameBackupArtifact:offsite.ok&&restore.ok&&offsiteRestore.ok&&offsite.sha256===restore.sha256&&offsite.encryptedFile===restore.sourceFile&&offsite.sha256===offsiteRestore.sha256&&offsite.sizeBytes===offsiteRestore.sizeBytes&&offsite.encryptedStorageKey===offsiteRestore.encryptedStorageKey&&offsite.checksumStorageKey===offsiteRestore.checksumStorageKey
   });
 
   return Object.freeze({
@@ -76,6 +90,7 @@ function validateEvidenceChain(env=process.env,{now=Date.now()}={}){
       offsiteBackupAgeMs:offsite.ageMs,
       backupSha256:offsite.sha256||null,
       restoreDrillAgeMs:restore.ageMs,
+      offsiteRestoreAgeMs:offsiteRestore.ageMs,
       monitoringAgeMs:monitoring.ageMs,
       alertAgeMs:monitoring.alertAgeMs
     })
@@ -87,6 +102,7 @@ function main(){
     for(const name of [
       'R2_STAGING_AUDIT_EVIDENCE_PATH',
       'ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH',
+      'ROLLANDS_OFFSITE_RESTORE_EVIDENCE_PATH',
       'ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH',
       'ROLLANDS_MONITORING_EVIDENCE_PATH'
     ])requiredPath(process.env,name);
