@@ -380,7 +380,7 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
     assert.equal(Payroll.runById(f.db,f.b.id,payrollRunB.id).status,'validated');
     assert.equal(Payables.paymentById(f.db,f.b.id,supplierPaymentB.id).status,'prepared');
     assert.deepEqual(Payables.supplierById(f.db,f.b.id,supplierB.id),supplierBBefore);
-    assert.equal(Master.changeRequestById(f.db,f.b.id,supplierChangeB.id).status,'pending');
+    assert.equal(Master.changeRequestById(f.db,f.b.id,supplierChangeB.id).status,'approved');
     assert.equal(Admin.unlockRequestById(f.db,f.b.id,unlockRequestB.id).status,'pending');
     assert.equal(f.db.prepare('SELECT status FROM accounting_periods WHERE company_id=? AND period=?').get(f.b.id,'2026-08').status,'locked');
     assert.deepEqual(Documents.linksForDocument(f.db,f.a.id,documentA.id),[]);

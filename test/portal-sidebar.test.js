@@ -87,3 +87,14 @@ test('alla portalmoduler får samma centrala workspace-layout',()=>{
   assert.match(css,/\.shared-workspace-shell>\.shared-workspace-main/);
   assert.match(css,/@media\(max-width:760px\)[\s\S]*?\.shared-workspace-shell\{grid-template-columns:minmax\(0,1fr\)!important\}/);
 });
+
+
+test('leverantörsbetalningsuppgifter sparas direkt utan separat godkännandepanel',()=>{
+  const js=fs.readFileSync(path.join(portal,'suppliers.js'),'utf8');
+  assert.match(js,/Spara betalningsuppgifter/);
+  assert.match(js,/Betalningsuppgifterna har sparats/);
+  assert.match(js,/Ändringar sparas direkt och registreras i ändringshistoriken/);
+  assert.doesNotMatch(js,/Fyrögonprincip/);
+  assert.doesNotMatch(js,/Väntar godkännande/);
+  assert.doesNotMatch(js,/Begär ändring/);
+});

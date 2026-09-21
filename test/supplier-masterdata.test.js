@@ -13,11 +13,11 @@ function approvedInvoice(db,company,userA,userB,supplier){const invoice=Payables
 
 test('profiländring aktiveras direkt men loggas med före/efter-värden',()=>{const {db,company,requester,supplier}=seed();try{const request=Master.requestChange(db,{companyId:company.id,supplierId:supplier.id,kind:'profile',changes:{name:'Nytt Leverantörsnamn AB',defaultCostAccount:'5460'},requestedBy:requester.id});assert.equal(request.status,'approved');const changed=Payables.supplierById(db,company.id,supplier.id);assert.equal(changed.name,'Nytt Leverantörsnamn AB');assert.equal(changed.defaultCostAccount,'5460');const history=Master.history(db,company.id,supplier.id);assert.equal(history.length,1);assert.equal(history[0].before.name,'Leverantör AB');assert.equal(history[0].after.defaultCostAccount,'5460');}finally{db.close()}});
 
-test('betalningsuppgifter kräver separat godkännare',()=>{const {db,company,requester,approver,supplier}=seed();try{const request=Master.requestChange(db,{companyId:company.id,supplierId:supplier.id,kind:'payment-details',changes:{bankgiro:'999-8888'},requestedBy:requester.id});assert.equal(request.status,'pending');assert.equal(Payables.supplierById(db,company.id,supplier.id).bankgiro,'111-2222');assert.throws(()=>Master.approvePaymentChange(db,{companyId:company.id,requestId:request.id,approvedBy:requester.id}),e=>e.code==='SEPARATION_OF_DUTIES_FAILED');const approved=Master.approvePaymentChange(db,{companyId:company.id,requestId:request.id,approvedBy:approver.id});assert.equal(approved.request.status,'approved');assert.equal(approved.supplier.bankgiro,'999-8888');}finally{db.close()}});
+test('betalningsuppgifter aktiveras direkt och loggas med före/efter-värden',()=>{const {db,company,requester,supplier}=seed();try{const request=Master.requestChange(db,{companyId:company.id,supplierId:supplier.id,kind:'payment-details',changes:{bankgiro:'999-8888'},requestedBy:requester.id});assert.equal(request.status,'approved');assert.equal(request.approvedBy,requester.id);assert.equal(Payables.supplierById(db,company.id,supplier.id).bankgiro,'999-8888');assert.equal(Master.listPending(db,company.id).length,0);const history=Master.history(db,company.id,supplier.id);assert.equal(history.length,1);assert.equal(history[0].before.bankgiro,'111-2222');assert.equal(history[0].after.bankgiro,'999-8888');assert.equal(history[0].changedBy,requester.id);}finally{db.close()}});
 
-test('endast en väntande betalningsändring tillåts per leverantör',()=>{const {db,company,requester,supplier}=seed();try{Master.requestChange(db,{companyId:company.id,supplierId:supplier.id,kind:'payment-details',changes:{bankgiro:'222-3333'},requestedBy:requester.id});assert.throws(()=>Master.requestChange(db,{companyId:company.id,supplierId:supplier.id,kind:'payment-details',changes:{bankgiro:'333-4444'},requestedBy:requester.id}),e=>e.code==='PAYMENT_CHANGE_PENDING');}finally{db.close()}});
+test('betalningsuppgifter kan ändras flera gånger utan väntande godkännande',()=>{const {db,company,requester,supplier}=seed();try{const first=Master.requestChange(db,{companyId:company.id,supplierId:supplier.id,kind:'payment-details',changes:{bankgiro:'222-3333'},requestedBy:requester.id});const second=Master.requestChange(db,{companyId:company.id,supplierId:supplier.id,kind:'payment-details',changes:{bankgiro:'333-4444'},requestedBy:requester.id});assert.equal(first.status,'approved');assert.equal(second.status,'approved');assert.equal(Payables.supplierById(db,company.id,supplier.id).bankgiro,'333-4444');assert.equal(Master.listPending(db,company.id).length,0);assert.equal(Master.history(db,company.id,supplier.id).length,2);}finally{db.close()}});
 
-test('förberedd betalning behåller mottagaruppgifterna även efter senare leverantörsändring',()=>{const {db,company,requester,approver,supplier}=seed();try{const invoice=approvedInvoice(db,company,requester,approver,supplier);SupplierAccounting.postSupplierInvoice(db,{companyId:company.id,invoiceId:invoice.id,actorId:requester.id});const payment=Payables.preparePayment(db,{companyId:company.id,invoiceId:invoice.id,paymentDate:'2026-09-16',amountOre:100000,account:'1930',preparedBy:requester.id});assert.equal(payment.bankgiro,'111-2222');const change=Master.requestChange(db,{companyId:company.id,supplierId:supplier.id,kind:'payment-details',changes:{bankgiro:'777-6666'},requestedBy:requester.id});Master.approvePaymentChange(db,{companyId:company.id,requestId:change.id,approvedBy:approver.id});assert.equal(Payables.supplierById(db,company.id,supplier.id).bankgiro,'777-6666');assert.equal(Payables.paymentById(db,company.id,payment.id).bankgiro,'111-2222');}finally{db.close()}});
+test('förberedd betalning behåller mottagaruppgifterna även efter senare leverantörsändring',()=>{const {db,company,requester,approver,supplier}=seed();try{const invoice=approvedInvoice(db,company,requester,approver,supplier);SupplierAccounting.postSupplierInvoice(db,{companyId:company.id,invoiceId:invoice.id,actorId:requester.id});const payment=Payables.preparePayment(db,{companyId:company.id,invoiceId:invoice.id,paymentDate:'2026-09-16',amountOre:100000,account:'1930',preparedBy:requester.id});assert.equal(payment.bankgiro,'111-2222');const change=Master.requestChange(db,{companyId:company.id,supplierId:supplier.id,kind:'payment-details',changes:{bankgiro:'777-6666'},requestedBy:requester.id});assert.equal(change.status,'approved');assert.equal(Payables.supplierById(db,company.id,supplier.id).bankgiro,'777-6666');assert.equal(Payables.paymentById(db,company.id,payment.id).bankgiro,'111-2222');}finally{db.close()}});
 
 
 test('leverantörsprofil kan återförsökas med samma request-id utan dubbla historikrader',()=>{const {db,company,requester,supplier}=seed();try{
@@ -38,9 +38,12 @@ test('betalningsändring kan återförsökas med samma request-id men nytt inneh
   const first=Master.requestChangeIdempotent(db,input);
   const retry=Master.requestChangeIdempotent(db,input);
   assert.equal(first.duplicate,false);assert.equal(retry.duplicate,true);assert.equal(retry.request.id,first.request.id);
-  assert.equal(Master.listPending(db,company.id).length,1);
+  assert.equal(first.request.status,'approved');
+  assert.equal(Master.listPending(db,company.id).length,0);
+  assert.equal(Payables.supplierById(db,company.id,supplier.id).bankgiro,'222-3333');
+  assert.equal(Master.history(db,company.id,supplier.id).length,1);
   assert.throws(()=>Master.requestChangeIdempotent(db,{...input,changes:{bankgiro:'333-4444'}}),e=>e.code==='SUPPLIER_IDEMPOTENCY_CONFLICT'&&e.statusCode===409);
-  assert.equal(Master.listPending(db,company.id).length,1);
+  assert.equal(Master.listPending(db,company.id).length,0);
 }finally{db.close()}});
 
 test('supplier-masterdata init migrerar äldre schema med request-key idempotent',()=>{const db=Db.openDatabase(':memory:');try{
@@ -66,10 +69,9 @@ test('supplier-masterdata init migrerar äldre schema med request-key idempotent
 }finally{db.close()}});
 
 
-test('godkänd betalningsändring kan inte godkännas eller avvisas en andra gång',()=>{const {db,company,requester,approver,supplier}=seed();try{
+test('direkt sparad betalningsändring kan inte eftergodkännas eller avvisas',()=>{const {db,company,requester,approver,supplier}=seed();try{
   const request=Master.requestChange(db,{companyId:company.id,supplierId:supplier.id,kind:'payment-details',changes:{bankgiro:'555-6666'},requestedBy:requester.id});
-  const approved=Master.approvePaymentChange(db,{companyId:company.id,requestId:request.id,approvedBy:approver.id});
-  assert.equal(approved.request.status,'approved');
+  assert.equal(request.status,'approved');
   assert.throws(()=>Master.approvePaymentChange(db,{companyId:company.id,requestId:request.id,approvedBy:approver.id}),e=>e.code==='INVALID_CHANGE_STATUS'&&e.statusCode===409);
   assert.throws(()=>Master.rejectPaymentChange(db,{companyId:company.id,requestId:request.id,rejectedBy:approver.id,reason:'Retry'}),e=>e.code==='INVALID_CHANGE_STATUS'&&e.statusCode===409);
   assert.equal(Master.history(db,company.id,supplier.id).filter(h=>h.requestId===request.id).length,1);
