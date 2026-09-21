@@ -39,6 +39,14 @@ Kommandot gör **inga nätverksanrop till R2** och bevisar därför inte att cre
 6. genomföra separat restore-drill,
 7. genomföra verkligt monitorerings-/larmtest.
 
+När de fyra privata evidensfilerna finns ska hela kedjan verifieras med:
+
+```bash
+npm run staging:evidence:verify
+```
+
+Kedjeverifieringen kräver färsk godkänd R2-audit, verifierad offsite-backup, godkänd restore-drill och fungerande extern HTTPS-monitorering/larm. Den kräver dessutom att R2-auditen gäller den bucket som är konfigurerad nu och att restore-drillen använder **exakt samma krypterade backupfil och SHA-256** som offsite-uploaden läste tillbaka från R2. Ett grönt resultat betyder därmed att bevisen är konsekventa med varandra; det ersätter fortfarande inte ett separat test av katastrofåterställning direkt från en senare R2-download.
+
 ## Krypterad offsite-upload
 
 Den lokala krypterade artefakten kan nu skickas till en separat privat R2 EU-bucket med:
