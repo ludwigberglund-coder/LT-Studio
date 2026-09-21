@@ -37,8 +37,13 @@ function removeSqliteArtifacts(filename){
   for(const suffix of ['', '-wal', '-shm', '-journal'])fs.rmSync(filename+suffix,{force:true});
   return ['', '-wal', '-shm', '-journal'].every(suffix=>!fs.existsSync(filename+suffix));
 }
-function runDrill({backupDir,drillDir,evidencePath,backupKey,now=new Date()}){
+function runDrill({backupDir,drillDir,evidencePath,backupKey,now=new Date(),monotonicNow=()=>Number(process.hrtime.bigint()/1000000n)}){
   const source=latestEncryptedBackup(backupDir);
+  const drillStartedAtMs=monotonicNow();
+  const nowMs=now.getTime();
+  if(!Number.isFinite(nowMs))throw new Error('Restore drill-tiden är ogiltig.');
+  if(source.mtimeMs>nowMs+5*60*1000)throw new Error('RESTORE_DRILL_BACKUP_TIME_INVALID: backupfilens tid ligger i framtiden.');
+  const backupAgeAtDrillMs=Math.max(0,nowMs-source.mtimeMs);
   const encryptedSha256=verifyTransportChecksum(source.file);
   fs.mkdirSync(drillDir,{recursive:true,mode:0o700});
   const target=path.join(drillDir,`restore-drill-${crypto.randomUUID()}.sqlite`);
@@ -50,9 +55,13 @@ function runDrill({backupDir,drillDir,evidencePath,backupKey,now=new Date()}){
   }finally{
     if(!removeSqliteArtifacts(target))throw new Error('Restore drill kunde inte rensa SQLite-testfiler.');
   }
+  const restoreDurationMs=Math.max(0,monotonicNow()-drillStartedAtMs);
   const evidence=Object.freeze({
     schemaVersion:2,
     verifiedAt:now.toISOString(),
+    sourceModifiedAt:new Date(source.mtimeMs).toISOString(),
+    backupAgeAtDrillMs,
+    restoreDurationMs,
     sourceFile:source.name,
     sourceEncryptedSha256:encryptedSha256,
     sourceSizeBytes:fs.statSync(source.file).size,
