@@ -11,16 +11,30 @@ const Payables=require('../apps/api/payables.js');
 const CustomerInvoicing=require('../apps/api/customer-invoicing.js');
 const BackupCrypto=require('../scripts/backup-crypto.js');
 const {runR2RestoreDrill,assertSeparateEvidencePaths}=require('../scripts/pilot-restore-drill-r2.js');
+const {bootstrapSyntheticStaging}=require('../scripts/bootstrap-staging-synthetic.js');
 
 const KEY='R2-Restore-Drill-Test-Key-2026-ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 function encryptedFixture(dir){
   const source=path.join(dir,'source.sqlite');
+  bootstrapSyntheticStaging({
+    env:{
+      ROLLANDS_ENV:'staging',
+      ROLLANDS_DATA_CLASSIFICATION:'synthetic',
+      ROLLANDS_REAL_DATA_ALLOWED:'0',
+      ROLLANDS_DEMO_DATA:'0',
+      ROLLANDS_DATABASE_PATH:source,
+      ROLLANDS_AUTH_ENCRYPTION_KEY:'r2-restore-synthetic-auth-key-123456789-ABCDEFG',
+      ROLLANDS_STAGING_ALPHA_PASSWORD:'R2-Synthetic-Alpha-Password-12345',
+      ROLLANDS_STAGING_BETA_PASSWORD:'R2-Synthetic-Beta-Password-67890',
+      ROLLANDS_STAGING_ALPHA_MFA_SECRET:'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC',
+      ROLLANDS_STAGING_BETA_MFA_SECRET:'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD'
+    }
+  });
   const db=Db.openDatabase(source);
   Documents.initializeDocuments(db);
   Payables.initializePayables(db);
   CustomerInvoicing.initializeCustomerInvoicing(db);
-  Db.createCompany(db,{legalName:'R2 Restore Test AB',displayName:'R2 Restore Test',orgNumber:'559990-8001'});
   db.close();
 
   const encrypted=path.join(dir,'rollands-r2-restore-test.sqlite.enc');
