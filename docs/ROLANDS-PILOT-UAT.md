@@ -122,7 +122,7 @@ När `npm run staging:signoff` är grönt skriver kommandot ut två värden som 
 - `approvedReleaseCommit` = exakt release-commit från staging-signoff,
 - `stagingSignoffSha256` = SHA-256 för staging-signofffilen.
 
-`approvedAt` får inte ligga före staging-signoffens datum. Vid nästa pilotpreflight läser systemet tillbaka samtliga privata evidensfiler och stoppar starten om någon fil har ändrats efter signoff eller om operationsfilen godkänner en annan commit/signoff.
+`approvedAt` får inte ligga före staging-signoffens datum. Vid nästa pilotpreflight läser systemet tillbaka samtliga privata evidensfiler och stoppar starten om någon fil har ändrats efter signoff eller om operationsfilen godkänner en annan commit/signoff. `npm run pilot:preflight` och den faktiska privata serverstarten verifierar dessutom checkoutens riktiga Git-HEAD mot `ROLLANDS_RELEASE_COMMIT` och stoppar en annan eller lokalt modifierad spårad kodversion.
 
 ## Slutlig pilotbedömning
 
