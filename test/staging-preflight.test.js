@@ -134,9 +134,12 @@ test('staging preflight refuses audit bucket or credentials reused from other R2
   const {dir,env}=fixture();
   try{
     env.R2_AUDIT_BUCKET=env.R2_BACKUP_BUCKET;
-    env.R2_AUDIT_ACCESS_KEY_ID=env.R2_STAGING_ACCESS_KEY_ID;
-    const result=validateStaging(env);
+    let result=validateStaging(env);
     assert.ok(result.fail.some(item=>item.includes('R2 audit anchor')&&item.includes('separat bucket')));
+
+    env.R2_AUDIT_BUCKET='rollands-audit-staging';
+    env.R2_AUDIT_ACCESS_KEY_ID=env.R2_STAGING_ACCESS_KEY_ID;
+    result=validateStaging(env);
     assert.ok(result.fail.some(item=>item.includes('R2 audit anchor')&&item.includes('separat credential-scope')));
   }finally{fs.rmSync(dir,{recursive:true,force:true})}
 });
