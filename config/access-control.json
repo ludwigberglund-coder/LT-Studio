@@ -261,23 +261,6 @@
       "reason": "Ändring av en leverantörs betalningsuppgifter måste godkännas av en annan behörig person innan de börjar användas."
     },
     {
-      "id": "payment-release",
-      "label": "Betalning: förberedelse och frisläppning",
-      "requiredPermission": "payment.release",
-      "distinctActors": true,
-      "fields": [
-        {
-          "id": "preparedBy",
-          "label": "Förberedd av"
-        },
-        {
-          "id": "releasedBy",
-          "label": "Frisläppt av"
-        }
-      ],
-      "reason": "Den som förbereder en betalning får inte ensam frisläppa samma betalning."
-    },
-    {
       "id": "period-unlock",
       "label": "Bokföringsperiod: begäran och upplåsning",
       "requiredPermission": "period.unlock",
