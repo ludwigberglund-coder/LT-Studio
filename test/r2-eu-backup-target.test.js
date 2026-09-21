@@ -141,6 +141,20 @@ test('offsite-upload streamar endast .enc plus checksumma och verifierar båda v
     assert.equal(puts[0].headers['x-amz-content-sha256'],artifact.sha256);
     assert.doesNotMatch(JSON.stringify(remote.calls),/test-backup-secret-key/);
 
+    const downloaded=path.join(dir,'downloaded.sqlite.enc');
+    const restored=await target.downloadToFile({
+      storageKey:first.storageKey,
+      filename:downloaded,
+      expectedSha256:artifact.sha256,
+      expectedSizeBytes:artifact.sizeBytes
+    });
+    assert.equal(restored.sha256,artifact.sha256);
+    assert.equal(fs.readFileSync(downloaded).equals(fs.readFileSync(artifact.filename)),true);
+    await assert.rejects(
+      ()=>target.downloadToFile({storageKey:first.storageKey,filename:downloaded}),
+      error=>error.code==='R2_BACKUP_DOWNLOAD_TARGET_EXISTS'
+    );
+
     const second=await BackupTarget.uploadEncryptedBackup({artifact,target});
     assert.equal(second.verified,true);
     assert.equal(second.encryptedAlreadyExisted,true);
