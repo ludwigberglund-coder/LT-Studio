@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const MoneyStorage=require('./money-storage-guards.js');
 // These tables are intentionally not scoped by company_id.
 // companies is the tenant registry; users/auth attempt state exists above a single company.
 const ROOT_SCOPE_TABLES = Object.freeze(['schema_migrations','companies','users','mfa_used_steps','login_attempts','security_events','platform_operators','platform_operator_sessions','platform_operator_mfa_used_steps','platform_operator_audit_events']);
@@ -93,6 +94,7 @@ function installTenantGuards(db) {
       // Preserve every historical row for investigation; never repair by deletion.
       throw failure(`Existing cross-company or orphan references in: ${[...new Set(report.violations.map(row => row.table))].join(', ')}. Startup stopped; review a backup before repair.`);
     }
+    const moneyStorage=MoneyStorage.installMoneyStorageGuards(db);
     const {tenants, columns, relations} = schema(db);
     for (const inherited of coverage.inheritedTenantTables) {
       const owner=inherited.via[0];
@@ -126,7 +128,7 @@ function installTenantGuards(db) {
         BEGIN SELECT RAISE(ABORT, 'TENANT_OBJECT_IDENTITY_IMMUTABLE'); END`);
     }
     db.exec(`RELEASE SAVEPOINT ${savepoint}`);
-    return {...report,coverage};
+    return {...report,coverage,moneyStorage};
   } catch (error) {
     try { db.exec(`ROLLBACK TO SAVEPOINT ${savepoint}`); } catch {}
     try { db.exec(`RELEASE SAVEPOINT ${savepoint}`); } catch {}
