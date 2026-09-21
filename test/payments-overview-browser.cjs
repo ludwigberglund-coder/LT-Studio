@@ -43,7 +43,7 @@ async function close(server){if(server?.listening)await new Promise(r=>server.cl
     const page=await context.newPage();await page.goto(base+'/payments.html',{waitUntil:'networkidle'});
     await page.locator('[data-field="anchor"]').fill('2026-09-10');
     await page.locator('[data-field="direction"]').selectOption('out');
-    await page.locator('[data-field="status"]').fill('paid');
+    await page.locator('[data-field="status"]').selectOption('paid');
     await page.locator('[data-field="query"]').fill('Leverantör Beta');
     await page.locator('[data-field="account"]').fill('1930');
     await page.locator('[data-field="sort"]').selectOption('amount');
@@ -55,6 +55,9 @@ async function close(server){if(server?.listening)await new Promise(r=>server.cl
     assert.equal(await page.getByText('Kund Alpha',{exact:true}).count(),0);
     assert.match(await page.locator('.report-summary').innerText(),/125,00|125\.00/);
     assert.equal(await page.locator('tbody tr').count(),1);
+    const rowText=await page.locator('tbody tr').innerText();
+    assert.match(rowText,/Betald & bokförd/);
+    assert.doesNotMatch(rowText,/\bpaid\b/i);
     const exportHref=await page.getByRole('link',{name:'Exportera CSV'}).getAttribute('href');
     const exportUrl=new URL(exportHref,base);
     assert.equal(exportUrl.pathname,'/api/v1/exports/payments-overview');
@@ -73,6 +76,7 @@ async function close(server){if(server?.listening)await new Promise(r=>server.cl
     assert.equal(download.suggestedFilename(),'betalningsoversikt.csv');
     const csv=fs.readFileSync(await download.path(),'utf8');
     assert.match(csv,/Leverantör Beta/);
+    assert.match(csv,/Betald & bokförd/);
     assert.equal(csv.includes('Kund Alpha'),false);
     assert.match(csv,/-12500/);
     console.log('Betalningsöversikt browserfilter och export: OK');
