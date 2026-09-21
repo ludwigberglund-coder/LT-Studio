@@ -44,6 +44,7 @@ Kommandot gör **inga nätverksanrop till R2** och bevisar därför inte att cre
 När de fyra privata evidensfilerna finns ska hela kedjan verifieras med:
 
 ```bash
+R2_AUDIT_ENABLED=1 npm run audit:anchor:r2
 npm run staging:evidence:verify
 npm run staging:uat:verify
 npm run staging:signoff
