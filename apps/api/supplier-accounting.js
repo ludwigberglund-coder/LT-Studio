@@ -173,7 +173,7 @@ function assertSupplierInvoiceCoding(invoice){
 
 
 function supplierInvoiceDateCorrectionByRequest(db,companyId,requestId){
-  return db.prepare(\`SELECT id,company_id AS companyId,invoice_id AS invoiceId,request_id AS requestId,original_entry_id AS originalEntryId,reversal_entry_id AS reversalEntryId,replacement_entry_id AS replacementEntryId,old_invoice_date AS oldInvoiceDate,new_invoice_date AS newInvoiceDate,old_due_date AS oldDueDate,new_due_date AS newDueDate,reason,corrected_by AS correctedBy,corrected_at AS correctedAt FROM supplier_invoice_date_corrections WHERE company_id=? AND request_id=?\`).get(companyId,text(requestId))||null;
+  return db.prepare(`SELECT id,company_id AS companyId,invoice_id AS invoiceId,request_id AS requestId,original_entry_id AS originalEntryId,reversal_entry_id AS reversalEntryId,replacement_entry_id AS replacementEntryId,old_invoice_date AS oldInvoiceDate,new_invoice_date AS newInvoiceDate,old_due_date AS oldDueDate,new_due_date AS newDueDate,reason,corrected_by AS correctedBy,corrected_at AS correctedAt FROM supplier_invoice_date_corrections WHERE company_id=? AND request_id=?`).get(companyId,text(requestId))||null;
 }
 function comparableEntryLines(lines){
   return (lines||[]).map(line=>({account:String(line.account||''),debitOre:Number(line.debitOre||0),creditOre:Number(line.creditOre||0)}));
@@ -213,20 +213,20 @@ function correctSupplierInvoiceDates(db,{companyId,invoiceId,requestId,newInvoic
     const reversal=Accounting.postEntry(db,{
       companyId,
       postingDate:original.postingDate,
-      description:\`Motverifikation \${original.number} – rättat fakturadatum\`.slice(0,240),
+      description:`Motverifikation ${original.number} – rättat fakturadatum`.slice(0,240),
       sourceType:'supplier-invoice-date-correction-reversal',
-      sourceId:\`\${correctionId}:reversal\`,
+      sourceId:`${correctionId}:reversal`,
       createdBy:actorId,
       series:original.series,
-      lines:original.lines.map(line=>({account:line.account,text:\`Rättelse av \${original.number}: \${line.text||original.description}\`,debitOre:line.creditOre,creditOre:line.debitOre}))
+      lines:original.lines.map(line=>({account:line.account,text:`Rättelse av ${original.number}: ${line.text||original.description}`,debitOre:line.creditOre,creditOre:line.debitOre}))
     });
     if(reversal.duplicate)throw flowError('Motverifikationen finns redan utan motsvarande rättelsehistorik.','SUPPLIER_ACCOUNTING_INTEGRITY_ERROR',500);
     const replacement=Accounting.postEntry(db,{
       companyId,
       postingDate:invoiceDate,
-      description:\`Rättad leverantörsfaktura \${invoice.supplierInvoiceNumber} – \${invoice.supplierName}\`.slice(0,240),
+      description:`Rättad leverantörsfaktura ${invoice.supplierInvoiceNumber} – ${invoice.supplierName}`.slice(0,240),
       sourceType:'supplier-invoice-date-correction-replacement',
-      sourceId:\`\${correctionId}:replacement\`,
+      sourceId:`${correctionId}:replacement`,
       createdBy:actorId,
       series:original.series,
       lines:validated.lines
@@ -234,10 +234,10 @@ function correctSupplierInvoiceDates(db,{companyId,invoiceId,requestId,newInvoic
     if(replacement.duplicate)throw flowError('Ersättningsverifikationen finns redan utan motsvarande rättelsehistorik.','SUPPLIER_ACCOUNTING_INTEGRITY_ERROR',500);
 
     const correctedAt=nowIso();
-    db.prepare(\`INSERT INTO supplier_invoice_date_corrections(id,company_id,invoice_id,request_id,original_entry_id,reversal_entry_id,replacement_entry_id,old_invoice_date,new_invoice_date,old_due_date,new_due_date,reason,corrected_by,corrected_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)\`).run(
+    db.prepare(`INSERT INTO supplier_invoice_date_corrections(id,company_id,invoice_id,request_id,original_entry_id,reversal_entry_id,replacement_entry_id,old_invoice_date,new_invoice_date,old_due_date,new_due_date,reason,corrected_by,corrected_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
       correctionId,companyId,invoice.id,key,original.id,reversal.entry.id,replacement.entry.id,invoice.invoiceDate,invoiceDate,invoice.dueDate,dueDate,cleanReason,actorId,correctedAt
     );
-    const updated=db.prepare(\`UPDATE supplier_invoices SET invoice_date=?,due_date=?,liability_accounting_entry_id=?,liability_posted_at=?,updated_at=? WHERE company_id=? AND id=? AND status='approved' AND accounting_status='posted' AND liability_accounting_entry_id=? AND invoice_date=? AND due_date=? AND open_amount_ore=?\`).run(
+    const updated=db.prepare(`UPDATE supplier_invoices SET invoice_date=?,due_date=?,liability_accounting_entry_id=?,liability_posted_at=?,updated_at=? WHERE company_id=? AND id=? AND status='approved' AND accounting_status='posted' AND liability_accounting_entry_id=? AND invoice_date=? AND due_date=? AND open_amount_ore=?`).run(
       invoiceDate,dueDate,replacement.entry.id,correctedAt,correctedAt,companyId,invoice.id,original.id,invoice.invoiceDate,invoice.dueDate,invoice.totalOre
     );
     if(updated.changes!==1)throw flowError('Fakturan ändrades av någon annan under rättelsen.','SUPPLIER_INVOICE_CORRECTION_CONFLICT',409);
