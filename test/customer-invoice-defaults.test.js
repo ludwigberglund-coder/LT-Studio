@@ -20,7 +20,7 @@ test('kundens faktureringsstandarder är tenant-isolerade och har säkra default
 
     assert.deepEqual(
       Invoicing.customerInvoicePreferences(db,a.id,ca.id),
-      {paymentTermsDays:30,ourReference:'',yourReference:'',updatedBy:null,updatedAt:null}
+      {paymentTermsDays:30,ourReference:'',yourReference:''}
     );
 
     const saved=Invoicing.setCustomerInvoicePreferences(db,{
