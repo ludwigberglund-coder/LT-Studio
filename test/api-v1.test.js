@@ -56,6 +56,23 @@ test('login skapar serverlagrad session och kundreskontran kräver session och M
   assert.ok(data.columns.some(column=>column.label==='Senaste påm'));
 }));
 
+test('logout kräver CSRF, raderar serversessionen och lämnar revisionsspår', async () => withApi(async ({base,password,db,co1}) => {
+  const signed=await login(base,password);
+  const missingCsrf=await fetch(`${base}/api/v1/auth/logout`,{method:'POST',headers:{Cookie:signed.cookie}});
+  assert.equal(missingCsrf.status,403);
+
+  const loggedOut=await fetch(`${base}/api/v1/auth/logout`,{method:'POST',headers:{Cookie:signed.cookie,'X-CSRF-Token':signed.body.csrfToken}});
+  const body=await loggedOut.json();
+  assert.equal(loggedOut.status,200);
+  assert.equal(body.authenticated,false);
+  assert.match(String(loggedOut.headers.get('set-cookie')||''),/Max-Age=0/);
+
+  const after=await fetch(`${base}/api/v1/session`,{headers:{Cookie:signed.cookie}});
+  assert.equal(after.status,200);
+  assert.equal((await after.json()).authenticated,false);
+  assert.ok(Db.auditForCompany(db,co1.id).some(event=>event.action==='SESSION_LOGOUT'));
+}));
+
 test('samma MFA-kod kan inte användas för två inloggningar', async () => withApi(async ({base,password}) => {
   const code=Auth.totpCode(TEST_MFA_SECRET);
   const payload={username:'sara.test',password,totp:code};
