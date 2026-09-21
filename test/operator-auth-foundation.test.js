@@ -5,6 +5,7 @@ const assert=require('node:assert/strict');
 const Db=require('../apps/api/database.js');
 const Auth=require('../apps/api/auth.js');
 const OperatorAuth=require('../apps/api/operator-auth.js');
+const {bootstrapOperator}=require('../scripts/bootstrap-operator.js');
 
 const MFA_SECRET='GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 const ENCRYPTION_KEY='operator-auth-test-key-longer-than-thirty-two-characters';
@@ -76,4 +77,28 @@ test('operatörscookien är HttpOnly, Strict och Secure som standard',()=>{
   assert.match(cookie,/SameSite=Strict/);
   assert.match(cookie,/Secure/);
   assert.match(cookie,/Max-Age=7200/);
+});
+
+
+test('operator-bootstrap skapar konto atomiskt utan att skriva över befintlig operatör',()=>{
+  const db=Db.openDatabase(':memory:');
+  try{
+    const input={
+      username:'first.operator',
+      displayName:'Första Operatören',
+      password:'Ett starkt operatorlosenord 2026!',
+      mfaSecret:MFA_SECRET,
+      encryptionKey:ENCRYPTION_KEY
+    };
+    const result=bootstrapOperator(db,input);
+    const stored=Db.platformOperatorByUsername(db,'first.operator');
+    assert.equal(result.operatorId,stored.id);
+    assert.equal(Auth.verifyPassword(input.password,stored.passwordHash),true);
+    assert.equal(Auth.decryptSecret(stored.mfaSecretEncrypted,ENCRYPTION_KEY),MFA_SECRET);
+    const audit=Db.platformOperatorAudit(db);
+    assert.equal(audit[0].action,'OPERATOR_CREATED');
+    assert.equal(audit[0].operatorId,stored.id);
+    assert.throws(()=>bootstrapOperator(db,input),/finns redan/i);
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM platform_operators').get().n,1);
+  }finally{db.close()}
 });
