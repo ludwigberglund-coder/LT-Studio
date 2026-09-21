@@ -1,0 +1,11 @@
+<STAGING_HOST> {
+    encode zstd gzip
+
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy same-origin
+        X-Frame-Options DENY
+    }
+
+    reverse_proxy 127.0.0.1:4180
+}
