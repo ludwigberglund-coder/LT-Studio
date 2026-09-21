@@ -10,7 +10,7 @@ const Documents=require('../apps/api/documents.js');
 const Payables=require('../apps/api/payables.js');
 const CustomerInvoicing=require('../apps/api/customer-invoicing.js');
 const BackupCrypto=require('../scripts/backup-crypto.js');
-const {runR2RestoreDrill}=require('../scripts/pilot-restore-drill-r2.js');
+const {runR2RestoreDrill,assertSeparateEvidencePaths}=require('../scripts/pilot-restore-drill-r2.js');
 
 const KEY='R2-Restore-Drill-Test-Key-2026-ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
@@ -105,6 +105,23 @@ test('R2 restore-drill lämnar inget bevis eller testdatabas vid fel backupnycke
     );
     assert.equal(fs.existsSync(evidencePath),false);
     assert.deepEqual(fs.existsSync(drillDir)?fs.readdirSync(drillDir):[],[]);
+  }finally{
+    fs.rmSync(dir,{recursive:true,force:true});
+  }
+});
+
+
+test('R2 restore-drill refuses to overwrite the offsite upload evidence file',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-r2-restore-evidence-collision-'));
+  try{
+    const same=path.join(dir,'offsite-evidence.json');
+    assert.throws(
+      ()=>assertSeparateEvidencePaths(same,path.join(dir,'.','offsite-evidence.json')),
+      /måste vara olika filer/
+    );
+    assert.doesNotThrow(
+      ()=>assertSeparateEvidencePaths(same,path.join(dir,'r2-restore-evidence.json'))
+    );
   }finally{
     fs.rmSync(dir,{recursive:true,force:true});
   }
