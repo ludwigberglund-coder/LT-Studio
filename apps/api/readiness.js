@@ -3,6 +3,7 @@
 const fs=require('node:fs');
 const path=require('node:path');
 const crypto=require('node:crypto');
+const AuditAnchorR2=require('../../scripts/audit-anchor-r2.js');
 
 const DEFAULT_MIN_FREE_BYTES=256*1024*1024;
 const DEFAULT_BACKUP_MAX_AGE_MS=26*60*60*1000;
@@ -183,7 +184,7 @@ function monitoringEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_MONITORING
   }catch{return{ok:false,ageMs:null,alertAgeMs:null}}
 }
 
-function readinessReport({db,databasePath=':memory:',backupPath='',offsiteBackupEvidencePath='',r2StagingAuditEvidencePath='',restoreEvidencePath='',r2RestoreEvidencePath='',monitoringEvidencePath='',expectedR2StagingBucket='',expectedR2BackupBucket='',now=Date.now(),minFreeBytes=DEFAULT_MIN_FREE_BYTES,backupMaxAgeMs=DEFAULT_BACKUP_MAX_AGE_MS,offsiteBackupMaxAgeMs=DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS,r2StagingAuditMaxAgeMs=DEFAULT_R2_STAGING_AUDIT_MAX_AGE_MS,restoreDrillMaxAgeMs=DEFAULT_RESTORE_DRILL_MAX_AGE_MS,monitoringEvidenceMaxAgeMs=DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,requireBackup=false,requireOffsiteBackupEvidence=false,requireR2StagingAuditEvidence=false,requireRestoreEvidence=false,requireR2RestoreEvidence=false,requireStagingEvidenceConsistency=false,requireMonitoringEvidence=false}){
+function readinessReport({db,databasePath=':memory:',backupPath='',offsiteBackupEvidencePath='',r2StagingAuditEvidencePath='',restoreEvidencePath='',r2RestoreEvidencePath='',monitoringEvidencePath='',auditAnchorEvidencePath='',auditAnchorPath='',expectedR2StagingBucket='',expectedR2BackupBucket='',expectedR2AuditBucket='',now=Date.now(),minFreeBytes=DEFAULT_MIN_FREE_BYTES,backupMaxAgeMs=DEFAULT_BACKUP_MAX_AGE_MS,offsiteBackupMaxAgeMs=DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS,r2StagingAuditMaxAgeMs=DEFAULT_R2_STAGING_AUDIT_MAX_AGE_MS,restoreDrillMaxAgeMs=DEFAULT_RESTORE_DRILL_MAX_AGE_MS,monitoringEvidenceMaxAgeMs=DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,auditAnchorMaxAgeMs=AuditAnchorR2.DEFAULT_AUDIT_ANCHOR_EVIDENCE_MAX_AGE_MS,requireBackup=false,requireOffsiteBackupEvidence=false,requireR2StagingAuditEvidence=false,requireRestoreEvidence=false,requireR2RestoreEvidence=false,requireStagingEvidenceConsistency=false,requireMonitoringEvidence=false,requireAuditAnchorEvidence=false}){
   const databaseRead=databaseReadOk(db);
   const databaseWrite=databaseWriteOk(db);
   let freeBytes=0,diskSpace=true;
@@ -227,6 +228,19 @@ function readinessReport({db,databasePath=':memory:',backupPath='',offsiteBackup
     const evidence=monitoringEvidence(monitoringEvidencePath,{now,maxAgeMs:monitoringEvidenceMaxAgeMs});
     monitoring=evidence.ok;monitoringAgeMs=evidence.ageMs;alertAgeMs=evidence.alertAgeMs;
   }
-  return Object.freeze({ok:databaseRead&&databaseWrite&&diskSpace&&backup&&offsiteBackup&&r2StagingAudit&&restoreDrill&&r2RestoreDrill&&stagingEvidenceConsistent&&monitoring,checks:{databaseRead,databaseWrite,diskSpace,backup,offsiteBackup,r2StagingAudit,restoreDrill,r2RestoreDrill,stagingEvidenceConsistent,monitoring},freeBytes:Number.isFinite(freeBytes)?freeBytes:null,backupAgeMs,offsiteBackupAgeMs,r2StagingAuditAgeMs,restoreDrillAgeMs,r2RestoreDrillAgeMs,monitoringAgeMs,alertAgeMs});
+  let auditAnchor=true,auditAnchorAgeMs=null,auditAnchorRootSha256=null;
+  if(requireAuditAnchorEvidence){
+    const evidence=AuditAnchorR2.auditAnchorEvidence(auditAnchorEvidencePath,{
+      now,
+      maxAgeMs:auditAnchorMaxAgeMs,
+      expectedBucket:expectedR2AuditBucket,
+      anchorPath:auditAnchorPath,
+      databasePath
+    });
+    auditAnchor=evidence.ok;
+    auditAnchorAgeMs=evidence.ageMs;
+    auditAnchorRootSha256=evidence.rootSha256||null;
+  }
+  return Object.freeze({ok:databaseRead&&databaseWrite&&diskSpace&&backup&&offsiteBackup&&r2StagingAudit&&restoreDrill&&r2RestoreDrill&&stagingEvidenceConsistent&&monitoring&&auditAnchor,checks:{databaseRead,databaseWrite,diskSpace,backup,offsiteBackup,r2StagingAudit,restoreDrill,r2RestoreDrill,stagingEvidenceConsistent,monitoring,auditAnchor},freeBytes:Number.isFinite(freeBytes)?freeBytes:null,backupAgeMs,offsiteBackupAgeMs,r2StagingAuditAgeMs,restoreDrillAgeMs,r2RestoreDrillAgeMs,monitoringAgeMs,alertAgeMs,auditAnchorAgeMs,auditAnchorRootSha256});
 }
 module.exports=Object.freeze({EVIDENCE_PLACEHOLDER,DEFAULT_MIN_FREE_BYTES,DEFAULT_BACKUP_MAX_AGE_MS,DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS,DEFAULT_R2_STAGING_AUDIT_MAX_AGE_MS,DEFAULT_RESTORE_DRILL_MAX_AGE_MS,DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,latestBackup,verifyBackup,diskFreeBytes,databaseReadOk,databaseWriteOk,r2StagingAuditEvidence,offsiteBackupEvidence,restoreDrillEvidence,r2RestoreDrillEvidence,stagingEvidenceConsistency,monitoringEvidence,readinessReport});
