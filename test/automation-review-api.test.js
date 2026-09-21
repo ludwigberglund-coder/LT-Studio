@@ -109,26 +109,34 @@ test('känt id från annat företag ger 404 i stället för informationsläckage
 }));
 
 
-test('automationsbeslut kan inte återköras med extra audit-historik',async()=>withApi(async({db,base,password,company,saved})=>{
+test('identiskt automationsgodkännande återanvänder beslutet utan extra audit-historik',async()=>withApi(async({db,base,password,company,saved})=>{
   const signed=await login(base,password);
   const headers={Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken};
   const first=await fetch(`${base}/api/v1/automation/proposals/${saved.id}/approve`,{method:'POST',headers,body:'{}'});
-  assert.equal(first.status,200);
+  const firstBody=await first.json();
+  assert.equal(first.status,200);assert.equal(firstBody.duplicate,false);
   const retry=await fetch(`${base}/api/v1/automation/proposals/${saved.id}/approve`,{method:'POST',headers,body:'{}'});
-  assert.equal(retry.status,409);assert.equal((await retry.json()).code,'INVALID_PROPOSAL_STATUS');
+  const retryBody=await retry.json();
+  assert.equal(retry.status,200);assert.equal(retryBody.duplicate,true);assert.equal(retryBody.proposal.id,firstBody.proposal.id);
+  assert.throws(()=>Queues.approveAutomationProposalIdempotent(db,{companyId:company.id,proposalId:saved.id,userId:'annan-anvandare'}),e=>e.code==='INVALID_PROPOSAL_STATUS');
   const audit=Db.auditForCompany(db,company.id).filter(event=>event.action==='AUTOMATION_PROPOSAL_APPROVED'&&event.entityId===saved.id);
   assert.equal(audit.length,1);
   assert.equal(Queues.automationProposalById(db,company.id,saved.id).status,'approved');
 }));
 
-test('automationsavslag kan inte återköras eller bytas till godkännande',async()=>withApi(async({db,base,password,company,saved})=>{
+test('identiskt automationsavslag återanvänds men ändrat eller motsatt beslut stoppas',async()=>withApi(async({db,base,password,company,saved})=>{
   const signed=await login(base,password);
   const headers={Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken};
   const body=JSON.stringify({reason:'Retry-test av avslag.'});
   const first=await fetch(`${base}/api/v1/automation/proposals/${saved.id}/reject`,{method:'POST',headers,body});
-  assert.equal(first.status,200);
+  const firstBody=await first.json();
+  assert.equal(first.status,200);assert.equal(firstBody.duplicate,false);
   const retry=await fetch(`${base}/api/v1/automation/proposals/${saved.id}/reject`,{method:'POST',headers,body});
-  assert.equal(retry.status,409);assert.equal((await retry.json()).code,'INVALID_PROPOSAL_STATUS');
+  const retryBody=await retry.json();
+  assert.equal(retry.status,200);assert.equal(retryBody.duplicate,true);assert.equal(retryBody.proposal.id,firstBody.proposal.id);
+  const changedReason=await fetch(`${base}/api/v1/automation/proposals/${saved.id}/reject`,{method:'POST',headers,body:JSON.stringify({reason:'En annan avslagsorsak.'})});
+  assert.equal(changedReason.status,409);assert.equal((await changedReason.json()).code,'INVALID_PROPOSAL_STATUS');
+  assert.throws(()=>Queues.rejectAutomationProposalIdempotent(db,{companyId:company.id,proposalId:saved.id,userId:'annan-anvandare',reason:'Retry-test av avslag.'}),e=>e.code==='INVALID_PROPOSAL_STATUS');
   const opposite=await fetch(`${base}/api/v1/automation/proposals/${saved.id}/approve`,{method:'POST',headers,body:'{}'});
   assert.equal(opposite.status,409);
   const audit=Db.auditForCompany(db,company.id);
