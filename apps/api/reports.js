@@ -1,5 +1,7 @@
 'use strict';
 
+const OpeningMigration=require('./opening-migration-import.js');
+
 function reportError(message,code='REPORT_ERROR',statusCode=422){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
 function text(v){return String(v??'').trim()}
 function validDate(v){if(!/^\d{4}-\d{2}-\d{2}$/.test(text(v)))return false;const [y,m,d]=text(v).split('-').map(Number);const dt=new Date(Date.UTC(y,m-1,d));return dt.getUTCFullYear()===y&&dt.getUTCMonth()===m-1&&dt.getUTCDate()===d}
@@ -180,6 +182,7 @@ function vatControl(db,companyId,{period}){
   };
 }
 function receivablesControl(db,companyId){
+  OpeningMigration.initializeOpeningMigrationImport(db);
   const subledger=db.prepare(`SELECT COUNT(*) AS invoiceCount,
     COALESCE(SUM(remaining_ore),0) AS openOre,
     COALESCE(SUM(total_ore),0) AS originalOre
@@ -188,7 +191,7 @@ function receivablesControl(db,companyId){
     FROM accounting_entry_lines l
     JOIN accounting_entries e ON e.id=l.entry_id
     WHERE e.company_id=? AND l.account='1510'`).get(companyId)||{};
-  const sourceChecks=db.prepare(`SELECT i.id AS invoiceId,i.invoice_number AS invoiceNumber,i.total_ore AS expectedReceivableOre,
+  const raw=db.prepare(`SELECT i.id AS invoiceId,i.invoice_number AS invoiceNumber,i.total_ore AS totalOre,
     e.id AS entryId,e.number AS journalNumber,
     COALESCE(SUM(CASE WHEN l.account='1510' THEN l.debit_ore-l.credit_ore ELSE 0 END),0) AS bookedReceivableOre
     FROM invoices i
@@ -196,11 +199,22 @@ function receivablesControl(db,companyId){
     LEFT JOIN accounting_entry_lines l ON l.entry_id=e.id
     WHERE i.company_id=?
     GROUP BY i.id,i.invoice_number,i.total_ore,e.id,e.number
-    ORDER BY i.invoice_number`).all(companyId).map(row=>({
-      invoiceId:row.invoiceId,invoiceNumber:row.invoiceNumber,entryId:row.entryId||null,journalNumber:row.journalNumber||null,
-      expectedReceivableOre:Number(row.expectedReceivableOre||0),bookedReceivableOre:Number(row.bookedReceivableOre||0),
-      differenceOre:Number(row.bookedReceivableOre||0)-Number(row.expectedReceivableOre||0)
-    }));
+    ORDER BY i.invoice_number`).all(companyId);
+  const verifiedYears=new Map();
+  const sourceChecks=raw.map(row=>{
+    if(row.entryId){
+      const expected=Number(row.totalOre||0),booked=Number(row.bookedReceivableOre||0);
+      return{invoiceId:row.invoiceId,invoiceNumber:row.invoiceNumber,sourceKind:'invoice-entry',entryId:row.entryId,journalNumber:row.journalNumber||null,
+        originalInvoiceOre:expected,expectedReceivableOre:expected,bookedReceivableOre:booked,differenceOre:booked-expected};
+    }
+    const opening=OpeningMigration.receivableByInvoice(db,companyId,row.invoiceId);
+    if(!opening)return{invoiceId:row.invoiceId,invoiceNumber:row.invoiceNumber,sourceKind:'missing',entryId:null,journalNumber:null,
+      originalInvoiceOre:Number(row.totalOre||0),expectedReceivableOre:Number(row.totalOre||0),bookedReceivableOre:0,differenceOre:-Number(row.totalOre||0)};
+    if(!verifiedYears.has(opening.year))verifiedYears.set(opening.year,OpeningMigration.verifyImportIntegrity(db,companyId,opening.year));
+    const verified=verifiedYears.get(opening.year),expected=Number(opening.openingAmountOre||0);
+    return{invoiceId:row.invoiceId,invoiceNumber:row.invoiceNumber,sourceKind:'opening-migration',entryId:verified.entry.id,journalNumber:verified.entry.number,
+      originalInvoiceOre:Number(opening.originalTotalOre||0),expectedReceivableOre:expected,bookedReceivableOre:expected,differenceOre:0};
+  });
   const missingSourceEntries=sourceChecks.filter(row=>!row.entryId);
   const sourceMismatches=sourceChecks.filter(row=>row.entryId&&row.differenceOre!==0);
   const subledgerOpenOre=Number(subledger.openOre||0);
@@ -219,12 +233,13 @@ function receivablesControl(db,companyId){
     missingSourceEntries,
     sourceMismatches,
     warning:integrityOk
-      ? 'Kundreskontrans aktuella restbelopp stämmer med konto 1510 och varje kundfaktura har en källanknuten ursprungsverifikation.'
+      ? 'Kundreskontrans aktuella restbelopp stämmer med konto 1510 och varje kundfaktura har en verifierad källkoppling till egen verifikation eller systembytespaket.'
       : 'Kundreskontra och konto 1510 stämmer inte fullt ut. Differensen måste utredas innan kundfordringarna kan betraktas som avstämda för pilot.'
   };
 }
 
 function payablesControl(db,companyId){
+  OpeningMigration.initializeOpeningMigrationImport(db);
   const ledger=db.prepare(`SELECT COALESCE(SUM(l.credit_ore-l.debit_ore),0) AS balanceOre
     FROM accounting_entry_lines l
     JOIN accounting_entries e ON e.id=l.entry_id
@@ -233,7 +248,7 @@ function payablesControl(db,companyId){
     COALESCE(SUM(open_amount_ore),0) AS openOre
     FROM supplier_invoices
     WHERE company_id=? AND liability_accounting_entry_id IS NOT NULL AND status<>'rejected'`).get(companyId)||{};
-  const sourceChecks=db.prepare(`SELECT i.id AS invoiceId,i.supplier_invoice_number AS invoiceNumber,i.total_ore AS expectedLiabilityOre,
+  const raw=db.prepare(`SELECT i.id AS invoiceId,i.supplier_invoice_number AS invoiceNumber,i.total_ore AS totalOre,
     i.open_amount_ore AS openAmountOre,i.liability_accounting_entry_id AS linkedEntryId,
     e.id AS sourceEntryId,e.number AS journalNumber,
     COALESCE(SUM(CASE WHEN l.account='2440' THEN l.credit_ore-l.debit_ore ELSE 0 END),0) AS bookedLiabilityOre
@@ -242,14 +257,27 @@ function payablesControl(db,companyId){
     LEFT JOIN accounting_entry_lines l ON l.entry_id=e.id
     WHERE i.company_id=? AND i.liability_accounting_entry_id IS NOT NULL AND i.status<>'rejected'
     GROUP BY i.id,i.supplier_invoice_number,i.total_ore,i.open_amount_ore,i.liability_accounting_entry_id,e.id,e.number
-    ORDER BY i.supplier_invoice_number`).all(companyId).map(row=>({
-      invoiceId:row.invoiceId,invoiceNumber:row.invoiceNumber,
-      expectedLiabilityOre:Number(row.expectedLiabilityOre||0),openAmountOre:Number(row.openAmountOre||0),
-      linkedEntryId:row.linkedEntryId||null,sourceEntryId:row.sourceEntryId||null,journalNumber:row.journalNumber||null,
-      bookedLiabilityOre:Number(row.bookedLiabilityOre||0),
-      differenceOre:Number(row.bookedLiabilityOre||0)-Number(row.expectedLiabilityOre||0),
-      linkMatches:Boolean(row.linkedEntryId&&row.sourceEntryId&&row.linkedEntryId===row.sourceEntryId)
-    }));
+    ORDER BY i.supplier_invoice_number`).all(companyId);
+  const verifiedYears=new Map();
+  const sourceChecks=raw.map(row=>{
+    if(row.sourceEntryId){
+      const expected=Number(row.totalOre||0),booked=Number(row.bookedLiabilityOre||0);
+      return{invoiceId:row.invoiceId,invoiceNumber:row.invoiceNumber,sourceKind:'invoice-entry',expectedLiabilityOre:expected,
+        originalInvoiceOre:expected,openAmountOre:Number(row.openAmountOre||0),linkedEntryId:row.linkedEntryId||null,
+        sourceEntryId:row.sourceEntryId,journalNumber:row.journalNumber||null,bookedLiabilityOre:booked,
+        differenceOre:booked-expected,linkMatches:Boolean(row.linkedEntryId&&row.sourceEntryId&&row.linkedEntryId===row.sourceEntryId)};
+    }
+    const opening=OpeningMigration.payableByInvoice(db,companyId,row.invoiceId);
+    if(!opening)return{invoiceId:row.invoiceId,invoiceNumber:row.invoiceNumber,sourceKind:'missing',expectedLiabilityOre:Number(row.totalOre||0),
+      originalInvoiceOre:Number(row.totalOre||0),openAmountOre:Number(row.openAmountOre||0),linkedEntryId:row.linkedEntryId||null,
+      sourceEntryId:null,journalNumber:null,bookedLiabilityOre:0,differenceOre:-Number(row.totalOre||0),linkMatches:false};
+    if(!verifiedYears.has(opening.year))verifiedYears.set(opening.year,OpeningMigration.verifyImportIntegrity(db,companyId,opening.year));
+    const verified=verifiedYears.get(opening.year),expected=Number(opening.openingAmountOre||0);
+    return{invoiceId:row.invoiceId,invoiceNumber:row.invoiceNumber,sourceKind:'opening-migration',expectedLiabilityOre:expected,
+      originalInvoiceOre:Number(opening.originalTotalOre||0),openAmountOre:Number(row.openAmountOre||0),linkedEntryId:row.linkedEntryId||null,
+      sourceEntryId:verified.entry.id,journalNumber:verified.entry.number,bookedLiabilityOre:expected,differenceOre:0,
+      linkMatches:Boolean(row.linkedEntryId&&row.linkedEntryId===verified.entry.id)};
+  });
   const sourceMismatches=sourceChecks.filter(row=>!row.linkMatches||row.differenceOre!==0);
   const unpostedInvoices=db.prepare(`SELECT id AS invoiceId,supplier_invoice_number AS invoiceNumber,status,total_ore AS totalOre,open_amount_ore AS openAmountOre
     FROM supplier_invoices
@@ -274,11 +302,10 @@ function payablesControl(db,companyId){
     sourceMismatches,
     unpostedInvoices,
     warning:integrityOk
-      ? 'Bokförda öppna leverantörsskulder stämmer med konto 2440. Ej bokförda leverantörsfakturor redovisas separat och ingår inte i avstämningen.'
+      ? 'Bokförda öppna leverantörsskulder stämmer med konto 2440 och varje post har en verifierad källkoppling till egen verifikation eller systembytespaket.'
       : 'Bokförda leverantörsskulder och konto 2440 stämmer inte fullt ut. Differensen måste utredas innan leverantörsreskontran kan betraktas som avstämd för pilot.'
   };
 }
-
 
 function dateDayNumber(value){
   if(!validDate(value))throw reportError('Rapportdatumet är ogiltigt.','INVALID_AGING_DATE');
