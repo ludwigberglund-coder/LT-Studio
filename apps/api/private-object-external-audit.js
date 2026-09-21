@@ -64,9 +64,16 @@ async function auditExternalPrivateObjects(db,{
   if(!db)throw auditError('Databas krävs för extern objekt-audit.','PRIVATE_OBJECT_EXTERNAL_AUDIT_DB_REQUIRED');
   const target=assertTargetStore(targetStore);
   const provider=Ledger.normalizeTargetProvider(targetProvider);
+  const auditTimestamp=String(auditedAt??'').trim();
+  if(!auditTimestamp||Number.isNaN(Date.parse(auditTimestamp))){
+    throw auditError(
+      'Audit-tiden måste vara en giltig tidsstämpel.',
+      'PRIVATE_OBJECT_EXTERNAL_AUDIT_TIME_INVALID'
+    );
+  }
   const inventory=Inventory.buildPrivateObjectInventory(db,{
     provider:sourceProvider,
-    generatedAt:auditedAt
+    generatedAt:auditTimestamp
   });
 
   const countsByKind={};
@@ -91,7 +98,7 @@ async function auditExternalPrivateObjects(db,{
     }
     return Object.freeze({
       schemaVersion:1,
-      auditedAt:String(auditedAt),
+      auditedAt:auditTimestamp,
       sourceProvider:inventory.sourceProvider,
       targetProvider:provider,
       sourceManifestSha256:manifestSha256(inventory.objects),
@@ -170,7 +177,7 @@ async function auditExternalPrivateObjects(db,{
 
   return Object.freeze({
     schemaVersion:1,
-    auditedAt:String(auditedAt),
+    auditedAt:auditTimestamp,
     sourceProvider:inventory.sourceProvider,
     targetProvider:provider,
     sourceManifestSha256:manifestSha256(inventory.objects),
