@@ -9,6 +9,8 @@ function id(prefix){return `${prefix}_${crypto.randomUUID()}`}
 function text(v){return String(v??'').trim()}
 function now(){return new Date().toISOString()}
 function validPeriod(v){return /^\d{4}-(0[1-9]|1[0-2])$/.test(text(v))}
+function validOpeningYear(v){return /^(19|20|21)\d{2}$/.test(text(v))}
+const OPENING_BALANCE_CONTROL_ACCOUNTS=new Set(['1510','2440']);
 
 function initializeAccountingAdmin(db){Accounting.initializeAccountingStore(db);db.exec(`
 CREATE TABLE IF NOT EXISTS accounting_corrections(
@@ -45,6 +47,36 @@ function requestUnlock(db,{companyId,period,reason,requestedBy}){if(periodStatus
 function unlockRequestById(db,companyId,requestId){return db.prepare(`SELECT id,company_id AS companyId,period,reason,status,requested_by AS requestedBy,requested_at AS requestedAt,decided_by AS decidedBy,decided_at AS decidedAt,decision_reason AS decisionReason FROM period_unlock_requests WHERE company_id=? AND id=?`).get(companyId,requestId)||null}
 function listUnlockRequests(db,companyId,{status='pending'}={}){const filter=['pending','approved','rejected','all'].includes(status)?status:'pending';const sql=`SELECT id,period,reason,status,requested_by AS requestedBy,requested_at AS requestedAt,decided_by AS decidedBy,decided_at AS decidedAt,decision_reason AS decisionReason FROM period_unlock_requests WHERE company_id=?${filter==='all'?'':' AND status=?'} ORDER BY requested_at DESC`;return filter==='all'?db.prepare(sql).all(companyId):db.prepare(sql).all(companyId,filter)}
 function decideUnlock(db,{companyId,requestId,decidedBy,decision,decisionReason=''}){const req=unlockRequestById(db,companyId,requestId);if(!req)throw accountingAdminError('Upplåsningsbegäran hittades inte.','UNLOCK_REQUEST_NOT_FOUND',404);if(req.status!=='pending')throw accountingAdminError('Begäran är redan behandlad.','UNLOCK_ALREADY_DECIDED',409);if(req.requestedBy===decidedBy)throw accountingAdminError('Den som begärde upplåsningen får inte godkänna den själv.','SEPARATION_OF_DUTIES_FAILED',409);if(!['approved','rejected'].includes(decision))throw accountingAdminError('Beslutet är ogiltigt.','INVALID_UNLOCK_DECISION');const decidedAt=now();if(decision==='approved')db.prepare(`UPDATE accounting_periods SET status='open',locked_by=NULL,locked_at=NULL WHERE company_id=? AND period=? AND status='locked'`).run(companyId,req.period);db.prepare(`UPDATE period_unlock_requests SET status=?,decided_by=?,decided_at=?,decision_reason=? WHERE company_id=? AND id=? AND status='pending'`).run(decision,decidedBy,decidedAt,text(decisionReason).slice(0,500)||null,companyId,requestId);return{request:unlockRequestById(db,companyId,requestId),period:periodStatus(db,companyId,req.period)}}
+function openingBalanceByYear(db,companyId,year){
+  if(!validOpeningYear(year))throw accountingAdminError('Året för ingående balans måste anges med fyra siffror.','INVALID_OPENING_BALANCE_YEAR');
+  return Accounting.entryBySource(db,companyId,'opening-balance',text(year));
+}
+function validateOpeningBalanceLines(lines){
+  if(!Array.isArray(lines)||lines.length<2)throw accountingAdminError('Ingående balans måste innehålla minst två rader.','INVALID_OPENING_BALANCE');
+  for(const [index,line] of lines.entries()){
+    const account=text(line?.account);
+    if(!/^[12]\d{3}$/.test(account))throw accountingAdminError(`Rad ${index+1}: ingående balans får endast använda balanskonton i klass 1–2.`,'OPENING_BALANCE_ACCOUNT_NOT_ALLOWED',409);
+    if(OPENING_BALANCE_CONTROL_ACCOUNTS.has(account))throw accountingAdminError(`Konto ${account} kräver reskontraunderlag och får inte importeras som en fristående ingående balans.`,'OPENING_BALANCE_SUBLEDGER_REQUIRED',409);
+  }
+  return Accounting.validateLines(lines).lines;
+}
+function importOpeningBalance(db,{companyId,year,postingDate,lines,createdBy}){
+  const fiscalYear=text(year);
+  if(!validOpeningYear(fiscalYear))throw accountingAdminError('Året för ingående balans måste anges med fyra siffror.','INVALID_OPENING_BALANCE_YEAR');
+  const expectedDate=`${fiscalYear}-01-01`;
+  if(text(postingDate)!==expectedDate)throw accountingAdminError(`Ingående balans för ${fiscalYear} måste bokföras ${expectedDate}.`,'INVALID_OPENING_BALANCE_DATE',409);
+  const normalized=validateOpeningBalanceLines(lines);
+  return Accounting.postEntry(db,{
+    companyId,
+    postingDate:expectedDate,
+    description:`Ingående balans ${fiscalYear}`,
+    sourceType:'opening-balance',
+    sourceId:fiscalYear,
+    createdBy,
+    series:'IB',
+    lines:normalized
+  });
+}
 function correctionByOriginal(db,companyId,entryId){return db.prepare(`SELECT id,original_entry_id AS originalEntryId,reversal_entry_id AS reversalEntryId,replacement_entry_id AS replacementEntryId,reason,created_by AS createdBy,created_at AS createdAt FROM accounting_corrections WHERE company_id=? AND original_entry_id=?`).get(companyId,entryId)||null}
 function listCorrections(db,companyId){return db.prepare(`SELECT id,original_entry_id AS originalEntryId,reversal_entry_id AS reversalEntryId,replacement_entry_id AS replacementEntryId,reason,created_by AS createdBy,created_at AS createdAt FROM accounting_corrections WHERE company_id=? ORDER BY created_at DESC`).all(companyId)}
 function correctionPolicy(db, companyId, entryId, replacementLines = null) {
@@ -104,4 +136,4 @@ function correctEntry(db, {companyId,entryId,postingDate,reason,replacementLines
     throw error;
   }
 }
-module.exports=Object.freeze({initializeAccountingAdmin,entryById,periodStatus,listPeriods,lockPeriod,requestUnlock,unlockRequestById,listUnlockRequests,decideUnlock,correctionByOriginal,listCorrections,correctEntry,correctionPolicy,validPeriod});
+module.exports=Object.freeze({initializeAccountingAdmin,entryById,periodStatus,listPeriods,lockPeriod,requestUnlock,unlockRequestById,listUnlockRequests,decideUnlock,openingBalanceByYear,importOpeningBalance,validateOpeningBalanceLines,correctionByOriginal,listCorrections,correctEntry,correctionPolicy,validPeriod,validOpeningYear});
