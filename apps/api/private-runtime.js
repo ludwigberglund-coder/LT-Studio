@@ -53,7 +53,7 @@ function resolveStaticRequest(requestUrl) {
   let pathname;
   try { pathname=decodeURIComponent(new URL(requestUrl,'http://local').pathname); } catch { return null; }
   if (demoRequest(requestUrl)) return null;
-  if (pathname==='/' || pathname==='/portal/receivables.html') return {redirect:'/portal/index.html'};
+  if (pathname==='/' || pathname==='/portal/' || pathname==='/portal/receivables.html') return {redirect:'/portal/index.html'};
   if (pathname==='/operator' || pathname==='/operator/') return {redirect:'/operator/index.html'};
   let file=files.get(pathname);
   if (pathname==='/shared/vendor/pdf-lib.min.js') file=require.resolve('pdf-lib/dist/pdf-lib.min.js');
