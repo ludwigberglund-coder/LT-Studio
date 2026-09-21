@@ -8,6 +8,12 @@ const Payables=require('../apps/api/payables.js');
 const Accounting=require('../apps/api/accounting-store.js');
 const Reports=require('../apps/api/reports.js');
 const OpeningMigration=require('../apps/api/opening-migration-import.js');
+const Bank=require('../apps/api/bank-payments.js');
+const Queues=require('../apps/api/queues.js');
+const CustomerPayment=require('../apps/api/customer-payment-posting.js');
+const Release=require('../apps/api/payment-release.js');
+const SupplierAccounting=require('../apps/api/supplier-accounting.js');
+const Matcher=require('../packages/automation/bank-payment-matcher.js');
 const {createServer}=require('../apps/api/server.js');
 
 function goodPackage(){
@@ -200,5 +206,104 @@ test('systembytesimport läcker inte masterdata från annat företag',async()=>{
     assert.match(JSON.stringify(body.details),/SECRET-K|SECRET-L/);
     assert.doesNotMatch(JSON.stringify(body),/Hemlig Kund Som Inte Får Läckas|Hemlig Leverantör Som Inte Får Läckas|Hemligt Annat/);
     assert.equal(counts(f.db,f.company.id).imports,0);
+  }finally{await f.close()}
+});
+
+
+test('importerad kundfordran kan delbetalas och fortsätter stämma mot 1510',async()=>{
+  const f=await fixture();
+  try{
+    const imported=OpeningMigration.importOpeningMigration(f.db,{...goodPackage(),companyId:f.company.id,createdBy:f.user.id});
+    assert.equal(imported.duplicate,false);
+    const invoice=Db.listReceivables(f.db,f.company.id).find(row=>row.invoiceNumber==='K-OLD-001');
+    assert.ok(invoice);
+
+    const bank=Bank.create(f.db,{
+      companyId:f.company.id,
+      externalId:'OPENING-CUSTOMER-PAY-001',
+      bookingDate:'2026-02-02',
+      valueDate:'2026-02-02',
+      amountOre:25000,
+      currency:'SEK',
+      reference:'K-OLD-001',
+      payerName:'Historisk Kund AB',
+      createdBy:f.user.id
+    }).payment;
+    const analysis=Matcher.analyzeIncomingPayment(bank,Db.listReceivables(f.db,f.company.id));
+    assert.equal(analysis.status,'proposal');
+    assert.equal(analysis.targetInvoiceId,invoice.id);
+    const proposal=Queues.saveAutomationProposal(
+      f.db,
+      Matcher.createMatchProposal(bank,analysis,{createdBy:f.user.id}),
+      {idempotencyKey:`opening-bank-match:${bank.id}:v1`}
+    ).proposal;
+    Bank.setStatus(f.db,f.company.id,bank.id,'proposal-created');
+    Queues.approveAutomationProposal(f.db,{companyId:f.company.id,proposalId:proposal.id,userId:f.user.id});
+
+    const payment=CustomerPayment.executeApprovedCustomerPayment(f.db,{
+      companyId:f.company.id,proposalId:proposal.id,actorId:f.user.id
+    });
+    assert.equal(payment.duplicate,false);
+    assert.equal(payment.invoice.remainingOre,100000);
+    assert.equal(payment.transaction.amountOre,-25000);
+
+    const control=Reports.receivablesControl(f.db,f.company.id);
+    assert.equal(control.integrityOk,true);
+    assert.equal(control.subledgerOpenOre,100000);
+    assert.equal(control.ledger1510Ore,100000);
+    assert.equal(control.differenceOre,0);
+    assert.equal(control.sourceChecks.find(row=>row.invoiceId===invoice.id).sourceKind,'opening-migration');
+
+    const retry=CustomerPayment.executeApprovedCustomerPayment(f.db,{
+      companyId:f.company.id,proposalId:proposal.id,actorId:f.user.id
+    });
+    assert.equal(retry.duplicate,true);
+    assert.equal(retry.entry.id,payment.entry.id);
+    assert.equal(Db.transactionsForInvoice(f.db,f.company.id,invoice.id).length,1);
+  }finally{await f.close()}
+});
+
+test('importerad leverantörsskuld kan betalas med hela aktuella öppna beloppet och fortsätter stämma mot 2440',async()=>{
+  const f=await fixture();
+  try{
+    OpeningMigration.importOpeningMigration(f.db,{...goodPackage(),companyId:f.company.id,createdBy:f.user.id});
+    const invoice=Payables.listInvoices(f.db,f.company.id).find(row=>row.supplierInvoiceNumber==='L-OLD-001');
+    assert.ok(invoice);
+    assert.equal(invoice.totalOre,70000);
+    assert.equal(invoice.openAmountOre,50000);
+
+    const prepared=Payables.preparePayment(f.db,{
+      companyId:f.company.id,
+      invoiceId:invoice.id,
+      paymentDate:'2026-02-03',
+      amountOre:50000,
+      account:'1930',
+      preparedBy:f.user.id
+    });
+    assert.equal(prepared.amountOre,50000);
+    assert.equal(prepared.status,'prepared');
+
+    const releaser=Db.createUser(f.db,{username:'opening.releaser',displayName:'Opening Releaser',passwordHash:'test-only'});
+    Db.addMembership(f.db,{companyId:f.company.id,userId:releaser.id});
+    const released=Release.releasePayment(f.db,{companyId:f.company.id,paymentId:prepared.id,releasedBy:releaser.id});
+    assert.equal(released.status,'released');
+
+    const paid=SupplierAccounting.confirmSupplierPayment(f.db,{
+      companyId:f.company.id,
+      paymentId:prepared.id,
+      confirmationReference:'OPENING-SUPPLIER-PAY-001',
+      postingDate:'2026-02-03',
+      actorId:f.user.id
+    });
+    assert.equal(paid.duplicate,false);
+    assert.equal(paid.payment.status,'paid');
+    assert.equal(paid.invoice?.openAmountOre??Payables.invoiceById(f.db,f.company.id,invoice.id).openAmountOre,0);
+
+    const control=Reports.payablesControl(f.db,f.company.id);
+    assert.equal(control.integrityOk,true);
+    assert.equal(control.subledgerOpenOre,0);
+    assert.equal(control.ledger2440Ore,0);
+    assert.equal(control.differenceOre,0);
+    assert.equal(control.sourceChecks.find(row=>row.invoiceId===invoice.id).sourceKind,'opening-migration');
   }finally{await f.close()}
 });
