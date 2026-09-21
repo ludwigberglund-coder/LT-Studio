@@ -95,6 +95,43 @@ function restoreDrillEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_RESTORE_
     return{ok:ageMs<=maxAgeMs,ageMs,sha256:String(value.sourceEncryptedSha256||'').toLowerCase(),sourceFile:String(value.sourceFile||'').trim(),sourceSizeBytes:Number(value.sourceSizeBytes||0)};
   }catch{return{ok:false,ageMs:null}}
 }
+function r2RestoreDrillEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_RESTORE_DRILL_MAX_AGE_MS}={}){
+  try{
+    if(!filename||!fs.existsSync(filename)||!fs.statSync(filename).isFile())return{ok:false,ageMs:null};
+    const value=JSON.parse(fs.readFileSync(filename,'utf8'));
+    if(value.schemaVersion!==1||value.sourceProvider!=='r2'||value.provider!=='r2'||value.jurisdiction!=='eu')return{ok:false,ageMs:null};
+    if(value.remoteDownloadVerified!==true||value.productionDatabaseTouched!==false||value.remoteDownloadRemoved!==true||value.restoreCopyRemoved!==true)return{ok:false,ageMs:null};
+    if(value.sqliteIntegrity!==true||value.foreignKeys!==true||value.privateObjectsVerified!==true||value.privateObjectSchemaComplete!==true||value.privateObjectIssueCount!==0)return{ok:false,ageMs:null};
+
+    const sha256=String(value.sourceEncryptedSha256||'').trim().toLowerCase();
+    const sourceFile=String(value.sourceFile||'').trim();
+    const sourceStorageKey=String(value.sourceStorageKey||'').trim();
+    const bucket=String(value.bucket||'').trim();
+    const sizeBytes=Number(value.sourceSizeBytes);
+    if(!/^[a-f0-9]{64}$/.test(sha256)||!/^rollands-[0-9A-Za-z._-]+\.sqlite\.enc$/.test(sourceFile))return{ok:false,ageMs:null};
+    if(!Number.isSafeInteger(sizeBytes)||sizeBytes<1)return{ok:false,ageMs:null};
+    if(sourceStorageKey!==`encrypted-sqlite-backups/${sha256}/${sourceFile}`)return{ok:false,ageMs:null};
+    if(!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(bucket))return{ok:false,ageMs:null};
+
+    const objectCount=Number(value.privateObjectCount),verifiedCount=Number(value.verifiedPrivateObjectCount),objectBytes=Number(value.privateObjectBytes);
+    if(!Number.isSafeInteger(objectCount)||objectCount<0||verifiedCount!==objectCount||!Number.isSafeInteger(objectBytes)||objectBytes<0)return{ok:false,ageMs:null};
+    const byKind=value.privateObjectsByKind;
+    if(!byKind||typeof byKind!=='object')return{ok:false,ageMs:null};
+    const requiredKinds=['document','supplier-invoice','customer-invoice-pdf'];
+    let countedObjects=0,countedVerified=0,countedBytes=0;
+    for(const kind of requiredKinds){
+      const row=byKind[kind];
+      if(!row||!Number.isSafeInteger(Number(row.objects))||Number(row.objects)<0||!Number.isSafeInteger(Number(row.verified))||Number(row.verified)<0||!Number.isSafeInteger(Number(row.bytes))||Number(row.bytes)<0)return{ok:false,ageMs:null};
+      countedObjects+=Number(row.objects);countedVerified+=Number(row.verified);countedBytes+=Number(row.bytes);
+    }
+    if(countedObjects!==objectCount||countedVerified!==verifiedCount||countedBytes!==objectBytes)return{ok:false,ageMs:null};
+
+    const verifiedAt=Date.parse(String(value.verifiedAt||''));
+    if(!Number.isFinite(verifiedAt)||verifiedAt>now+5*60*1000)return{ok:false,ageMs:null};
+    const ageMs=Math.max(0,now-verifiedAt);
+    return{ok:ageMs<=maxAgeMs,ageMs,sha256,sourceFile,sizeBytes,bucket};
+  }catch{return{ok:false,ageMs:null}}
+}
 function offsiteBackupEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS}={}){
   try{
     if(!filename||!fs.existsSync(filename)||!fs.statSync(filename).isFile())return{ok:false,ageMs:null};
@@ -161,4 +198,4 @@ function readinessReport({db,databasePath=':memory:',backupPath='',offsiteBackup
   }
   return Object.freeze({ok:databaseRead&&databaseWrite&&diskSpace&&backup&&offsiteBackup&&restoreDrill&&monitoring,checks:{databaseRead,databaseWrite,diskSpace,backup,offsiteBackup,restoreDrill,monitoring},freeBytes:Number.isFinite(freeBytes)?freeBytes:null,backupAgeMs,offsiteBackupAgeMs,restoreDrillAgeMs,monitoringAgeMs,alertAgeMs});
 }
-module.exports=Object.freeze({DEFAULT_MIN_FREE_BYTES,DEFAULT_BACKUP_MAX_AGE_MS,DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS,DEFAULT_R2_STAGING_AUDIT_MAX_AGE_MS,DEFAULT_RESTORE_DRILL_MAX_AGE_MS,DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,latestBackup,verifyBackup,diskFreeBytes,databaseReadOk,databaseWriteOk,r2StagingAuditEvidence,offsiteBackupEvidence,restoreDrillEvidence,monitoringEvidence,readinessReport});
+module.exports=Object.freeze({DEFAULT_MIN_FREE_BYTES,DEFAULT_BACKUP_MAX_AGE_MS,DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS,DEFAULT_R2_STAGING_AUDIT_MAX_AGE_MS,DEFAULT_RESTORE_DRILL_MAX_AGE_MS,DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,latestBackup,verifyBackup,diskFreeBytes,databaseReadOk,databaseWriteOk,r2StagingAuditEvidence,offsiteBackupEvidence,restoreDrillEvidence,r2RestoreDrillEvidence,monitoringEvidence,readinessReport});

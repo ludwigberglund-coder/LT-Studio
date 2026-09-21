@@ -108,3 +108,18 @@ Före riktig pilot krävs fortfarande verkligt driftbevis för bland annat:
 - dokumenterade RPO/RTO-resultat.
 
 Ingen kod ska markera offsite-backup som driftsatt bara för att CI för adaptern är grön.
+
+
+## Återställningsprov direkt från R2
+
+När en krypterad offsite-backup har laddats upp och verifierats kan staging hämta tillbaka just den kopian med:
+
+```bash
+npm run pilot:restore:r2-drill
+```
+
+Kommandot får i denna fas endast köras med `ROLLANDS_ENV=staging`. Det läser den färska privata offsite-evidensen, kräver att evidensens bucket matchar den nuvarande R2-konfigurationen, laddar ned det immutable backupobjektet och verifierar SHA-256 samt storlek **innan** dekryptering.
+
+Den nedladdade krypterade filen dekrypteras endast till en slumpmässig isolerad testfil under `ROLLANDS_RESTORE_DRILL_PATH`. Därefter körs SQLite-integritet, foreign keys, tenantrelationer, journaler och alla privata objekttyper. Både downloadfil och dekrypterad restore-kopia tas bort även vid fel. Produktionsdatabasen ersätts aldrig av kommandot.
+
+Ett lyckat test skriver privat evidens till `ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH`. `npm run staging:evidence:verify` kräver sedan att detta bevis gäller samma krypterade fil och SHA-256 som den verifierade offsite-uploaden.
