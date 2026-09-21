@@ -88,7 +88,7 @@ async function close(server){
     assert.equal(draft.draft.buyer.name,'Återanvänd Kund AB');
     assert.equal(draft.draft.buyer.orgNumber,'559944-2001');
     assert.equal(draft.draft.buyer.email,'faktura@ateranvand.test');
-    assert.equal(draft.draft.paymentTermsDays,14);
+    assert.equal(String(draft.draft.paymentTermsDays),'14');
     assert.equal(draft.draft.ourReference,'Anna Sälj');
     assert.equal(draft.draft.yourReference,'PO-4477');
 
