@@ -3,7 +3,7 @@
 const crypto=require('node:crypto');
 
 const SAFE_LEVELS=new Set(['info','warning','error']);
-const SAFE_EVENTS=new Set(['http_request','service_started','request_handler_error']);
+const SAFE_EVENTS=new Set(['http_request','service_started','request_handler_error','security_event']);
 
 function routeClass(url){
   const path=String(url||'/').split('?')[0]||'/';
