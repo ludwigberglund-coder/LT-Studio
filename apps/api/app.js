@@ -173,6 +173,29 @@ function createApiApp(options) {
     if(!invoice) throw apiError('Fakturan hittades inte i det inloggade företaget.','INVOICE_NOT_FOUND',404);
     invoice.transactions=Db.transactionsForInvoice(db,session.companyId,invoice.id);
     invoice.reminders=Db.remindersForInvoice(db,session.companyId,invoice.id);
+    invoice.interestStartBasis='unverified';
+    invoice.interestStartEvidenceSource='';
+    invoice.interestStartVerifiedAt='';
+    const stored=CustomerInvoicing.documentForInvoice(db,session.companyId,invoice.id);
+    const document=stored?.document;
+    const paymentTermsDays=Number(document?.paymentTermsDays);
+    const archivedDate=String(stored?.createdAt||'').slice(0,10);
+    const issuedEvidence=Boolean(
+      document &&
+      invoice.totalOre>0 &&
+      String(document.invoiceNumber||'')===String(invoice.invoiceNumber||'') &&
+      String(document.invoiceDate||'')===String(invoice.invoiceDate||'') &&
+      String(document.dueDate||'')===String(invoice.dueDate||'') &&
+      Number.isSafeInteger(paymentTermsDays) &&
+      paymentTermsDays>=0 &&
+      /^\d{4}-\d{2}-\d{2}$/.test(archivedDate) &&
+      archivedDate<=invoice.dueDate
+    );
+    if(issuedEvidence){
+      invoice.interestStartBasis='predetermined-due-date';
+      invoice.interestStartEvidenceSource='issued-invoice-document';
+      invoice.interestStartVerifiedAt=stored.createdAt;
+    }
     return invoice;
   }
 
@@ -463,7 +486,7 @@ function createApiApp(options) {
         });
         Db.transaction(db,()=>{
           Db.addReminder(db,reminder);
-          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'PAYMENT_REMINDER_CREATED',entityType:'invoice',entityId:invoice.id,details:{reminderId:reminder.id,totalDueOre:reminder.totalDueOre,deliveryStatus:'not-sent'}});
+          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'PAYMENT_REMINDER_CREATED',entityType:'invoice',entityId:invoice.id,details:{reminderId:reminder.id,totalDueOre:reminder.totalDueOre,deliveryStatus:'not-sent',interestStartBasis:reminder.interestStartBasis,interestStartEvidenceSource:reminder.interestStartEvidenceSource}});
         });
         return send(res,201,{reminder,deliveryStatus:'not-sent'});
       }
