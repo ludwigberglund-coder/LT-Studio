@@ -140,17 +140,20 @@ function offsiteBackupEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_OFFSITE
     const encryptedFile=String(value.encryptedFile||'').trim();
     const encryptedKey=String(value.encryptedStorageKey||'').trim();
     const checksumKey=String(value.checksumStorageKey||'').trim();
+    const checksumSha256=String(value.checksumSha256||'').trim().toLowerCase();
+    const checksumSizeBytes=Number(value.checksumSizeBytes);
     const sizeBytes=Number(value.encryptedSizeBytes);
     if(value.schemaVersion!==1||value.provider!=='r2'||value.jurisdiction!=='eu')return{ok:false,ageMs:null};
     if(value.remoteEncryptedVerified!==true||value.remoteChecksumVerified!==true)return{ok:false,ageMs:null};
     if(!/^[a-f0-9]{64}$/.test(sha)||!/^rollands-[0-9A-Za-z._-]+\.sqlite\.enc$/.test(encryptedFile))return{ok:false,ageMs:null};
     if(!Number.isSafeInteger(sizeBytes)||sizeBytes<1)return{ok:false,ageMs:null};
+    if(!/^[a-f0-9]{64}$/.test(checksumSha256)||!Number.isSafeInteger(checksumSizeBytes)||checksumSizeBytes<1)return{ok:false,ageMs:null};
     const prefix=`encrypted-sqlite-backups/${sha}/`;
     if(encryptedKey!==prefix+encryptedFile||checksumKey!==prefix+encryptedFile+'.sha256')return{ok:false,ageMs:null};
     const verifiedAt=Date.parse(String(value.verifiedAt||''));
     if(!Number.isFinite(verifiedAt)||verifiedAt>now+5*60*1000)return{ok:false,ageMs:null};
     const ageMs=Math.max(0,now-verifiedAt);
-    return{ok:ageMs<=maxAgeMs,ageMs,sha256:sha,encryptedFile,bucket:String(value.bucket||'').trim(),sizeBytes};
+    return{ok:ageMs<=maxAgeMs,ageMs,sha256:sha,encryptedFile,bucket:String(value.bucket||'').trim(),sizeBytes,encryptedStorageKey:encryptedKey,checksumStorageKey:checksumKey,checksumSha256,checksumSizeBytes};
   }catch{return{ok:false,ageMs:null}}
 }
 function monitoringEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS}={}){
