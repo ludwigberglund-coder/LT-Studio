@@ -112,6 +112,10 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
   const entryB=Accounting.postEntry(f.db,{companyId:f.b.id,postingDate:'2026-09-18',description:'Tenant B',sourceType:'tenant-matrix',sourceId:'b',createdBy:f.user.id,lines:[{account:'1930',debitOre:1000,creditOre:0,text:'Bank'},{account:'2999',debitOre:0,creditOre:1000,text:'Motkonto'}]}).entry;
   const pendingB=Documents.createPending(f.db,{companyId:f.b.id,uploadedBy:f.user.id,title:'Tenant B document',fileName:'tenant-b.pdf'});
   Documents.storeContent(f.db,{companyId:f.b.id,documentId:pendingB.id,bytes:Buffer.from('%PDF-1.4\nprivate b\n')});
+  const bankPaymentB=Bank.create(f.db,{companyId:f.b.id,externalId:'B-TENANT-MATRIX-1',bookingDate:'2026-09-20',amountOre:125000,currency:'SEK',reference:'B-only',createdBy:f.user.id}).payment;
+  const inventoryItemB=Inventory.createItem(f.db,{companyId:f.b.id,sku:'B-TENANT-ITEM',name:'Tenant B inventory item',unit:'kg',purchaseAccount:'4010',inventoryAccount:'1460'});
+  Inventory.addMovement(f.db,{companyId:f.b.id,itemId:inventoryItemB.id,movementDate:'2026-09-20',type:'receipt',quantityMilli:5000,actorId:f.user.id});
+  const inventoryAdjustmentB=Inventory.createAdjustment(f.db,{companyId:f.b.id,itemId:inventoryItemB.id,adjustmentDate:'2026-09-20',countedQuantityMilli:4000,reason:'Tenant matrix',countedBy:f.user.id});
   const runtime=createServer({db:f.db,port:4180,secureCookies:false});
   await new Promise(resolve=>runtime.server.listen(0,'127.0.0.1',resolve));
   const base=`http://127.0.0.1:${runtime.server.address().port}/api/v1`;
