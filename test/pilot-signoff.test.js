@@ -23,7 +23,7 @@ const REQUIRED_SCENARIOS={
 
 function uatFixture(overrides={}){
   return{
-    schemaVersion:1,
+    schemaVersion:2,
     environment:'staging',
     approved:true,
     testDataOnly:true,
@@ -47,7 +47,7 @@ function signoffFixture(dir){
     sourcePaths[key]=filename;
   }
   const signoff={
-    schemaVersion:1,
+    schemaVersion:2,
     environment:'staging',
     createdAt:'2026-09-21T17:15:00.000Z',
     releaseCommit:COMMIT,
