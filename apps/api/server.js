@@ -13,6 +13,7 @@ const {createPaymentConfirmationRouter} = require('./payment-confirmation-router
 const {createSupplierMasterdataRouter} = require('./supplier-masterdata-router.js');
 const {createInventoryRouter} = require('./inventory-router.js');
 const {createReportsRouter} = require('./reports-router.js');
+const {createOperatorRouter}=require('./operator-router.js');
 const {createExportsRouter}=require('./exports-router.js');
 const {createPayrollRouter} = require('./payroll-router.js');
 const {createDocumentsRouter} = require('./documents-router.js');
@@ -76,6 +77,13 @@ function createServer(options = {}) {
   Queues.initializeQueues(db); ReminderOutbox.initializeReminderOutbox(db); Bank.initializeBankPayments(db); Payables.initializePayables(db); SupplierMasterdata.initializeSupplierMasterdata(db); PaymentConfirmation.initializePaymentConfirmation(db); Inventory.initializeInventory(db); Payroll.initializePayroll(db); Documents.initializeDocuments(db); AccountingAdmin.initializeAccountingAdmin(db); WebsiteCms.initializeWebsiteCms(db);
   const api = createApiApp({db,secureCookies,authEncryptionKey});
   const automationReview = createAutomationReviewRouter({db}); const bank = createBankRouter({db}); const payables = createPayablesRouter({db}); const supplierMasterdata = createSupplierMasterdataRouter({db}); const paymentRelease = createPaymentReleaseRouter({db}); const paymentConfirmation = createPaymentConfirmationRouter({db}); const inventory = createInventoryRouter({db}); const reports = createReportsRouter({db}); const exportsRouter=createExportsRouter({db}); const payroll = createPayrollRouter({db}); const documents = createDocumentsRouter({db}); const accounting = createAccountingAdminRouter({db}); const websiteCms = createWebsiteCmsRouter({db});
+  const protectedMode=process.env.NODE_ENV==='production'||['pilot','production'].includes(String(process.env.ROLLANDS_ENV||'').trim());
+  const readinessPayload=()=>{
+    const report=readinessReport({db,databasePath,backupPath:process.env.ROLLANDS_BACKUP_PATH||'',restoreEvidencePath:process.env.ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH||'',monitoringEvidencePath:process.env.ROLLANDS_MONITORING_EVIDENCE_PATH||'',requireBackup:protectedMode,requireRestoreEvidence:protectedMode,requireMonitoringEvidence:protectedMode});
+    return {ok:report.ok,service:'rollands-api-v1',checks:report.checks,freeMiB:report.freeBytes===null?null:Math.floor(report.freeBytes/1048576),backupAgeMinutes:report.backupAgeMs===null?null:Math.floor(report.backupAgeMs/60000),restoreDrillAgeMinutes:report.restoreDrillAgeMs===null?null:Math.floor(report.restoreDrillAgeMs/60000),monitoringAgeMinutes:report.monitoringAgeMs===null?null:Math.floor(report.monitoringAgeMs/60000),alertTestAgeMinutes:report.alertAgeMs===null?null:Math.floor(report.alertAgeMs/60000)};
+  };
+  const operator=createOperatorRouter({db,secureCookies,authEncryptionKey,readinessProvider:readinessPayload});
+
   // Apply guards after every router has initialized its tables, before accepting requests.
   require('./tenant-integrity.js').installTenantGuards(db);
   const server = http.createServer(async (req,res) => {
@@ -89,11 +97,13 @@ function createServer(options = {}) {
     }
     if (String(req.url || '').split('?')[0] === '/api/v1/readiness') {
       if (!['GET','HEAD'].includes(req.method || 'GET')) { res.writeHead(405,{'Allow':'GET, HEAD','Cache-Control':'no-store'}); return res.end(); }
-      const protectedMode=process.env.NODE_ENV==='production'||['pilot','production'].includes(String(process.env.ROLLANDS_ENV||'').trim());
-      const report=readinessReport({db,databasePath,backupPath:process.env.ROLLANDS_BACKUP_PATH||'',restoreEvidencePath:process.env.ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH||'',monitoringEvidencePath:process.env.ROLLANDS_MONITORING_EVIDENCE_PATH||'',requireBackup:protectedMode,requireRestoreEvidence:protectedMode,requireMonitoringEvidence:protectedMode});
-      const body=Buffer.from(JSON.stringify({ok:report.ok,service:'rollands-api-v1',checks:report.checks,freeMiB:report.freeBytes===null?null:Math.floor(report.freeBytes/1048576),backupAgeMinutes:report.backupAgeMs===null?null:Math.floor(report.backupAgeMs/60000),restoreDrillAgeMinutes:report.restoreDrillAgeMs===null?null:Math.floor(report.restoreDrillAgeMs/60000),monitoringAgeMinutes:report.monitoringAgeMs===null?null:Math.floor(report.monitoringAgeMs/60000),alertTestAgeMinutes:report.alertAgeMs===null?null:Math.floor(report.alertAgeMs/60000)}));
-      res.writeHead(report.ok?200:503,{'Content-Type':'application/json; charset=utf-8','Content-Length':body.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
+      const payload=readinessPayload();
+      const body=Buffer.from(JSON.stringify(payload));
+      res.writeHead(payload.ok?200:503,{'Content-Type':'application/json; charset=utf-8','Content-Length':body.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
       return res.end(req.method==='HEAD'?undefined:body);
+    }
+    if (String(req.url || '').startsWith('/api/operator/v1/')) {
+      if (await operator.handle(req,res)) return;
     }
     if (String(req.url || '').startsWith('/website-preview/') && await websiteCms.handle(req,res)) return;
     if (!String(req.url || '').startsWith('/api/v1/')) {
@@ -103,7 +113,7 @@ function createServer(options = {}) {
     if (await automationReview.handle(req,res)) return; if (await bank.handle(req,res)) return; if (await supplierMasterdata.handle(req,res)) return; if (await paymentRelease.handle(req,res)) return; if (await paymentConfirmation.handle(req,res)) return; if (await inventory.handle(req,res)) return; if (await reports.handle(req,res)) return; if (await exportsRouter.handle(req,res)) return; if (await payroll.handle(req,res)) return; if (await documents.handle(req,res)) return; if (await accounting.handle(req,res)) return; if (await websiteCms.handle(req,res)) return; if (await payables.handle(req,res)) return; api.handle(req,res);
   });
   function close(callback) { server.close(() => { try { db.close(); } catch {} if (callback) callback(); }); }
-  return Object.freeze({server,db,api,automationReview,bank,payables,supplierMasterdata,paymentRelease,paymentConfirmation,inventory,reports,exportsRouter,payroll,documents,accounting,websiteCms,host,port,databasePath,runtimeId,close});
+  return Object.freeze({server,db,api,operator,automationReview,bank,payables,supplierMasterdata,paymentRelease,paymentConfirmation,inventory,reports,exportsRouter,payroll,documents,accounting,websiteCms,host,port,databasePath,runtimeId,close});
 }
 if (require.main === module) {
   const runtime = createServer();
