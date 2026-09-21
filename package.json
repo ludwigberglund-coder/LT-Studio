@@ -37,7 +37,8 @@
     "pilot:release:verify": "node scripts/pilot-release-verify.js",
     "pilot:rollback:verify": "node scripts/pilot-rollback-verify.js",
     "storage:inventory": "node scripts/private-object-inventory.js",
-    "storage:plan-copies": "node scripts/private-object-copy-plan.js"
+    "storage:plan-copies": "node scripts/private-object-copy-plan.js",
+    "storage:copy-one-r2": "node scripts/private-object-r2-copy-one.js"
   },
   "engines": {
     "node": ">=24"
