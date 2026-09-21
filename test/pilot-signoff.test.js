@@ -23,7 +23,7 @@ const REQUIRED_SCENARIOS={
 
 function uatFixture(overrides={}){
   return{
-    schemaVersion:2,
+    schemaVersion:1,
     environment:'staging',
     approved:true,
     testDataOnly:true,
@@ -40,6 +40,7 @@ function uatFixture(overrides={}){
 }
 
 function signoffFixture(dir){
+  fs.mkdirSync(dir,{recursive:true,mode:0o700});
   const sourcePaths={};
   for(const key of ['uat','r2Audit','offsiteBackup','restoreDrill','r2RestoreDrill','monitoring','auditAnchor','auditAnchorEvidence']){
     const filename=path.join(dir,key+'.json');
