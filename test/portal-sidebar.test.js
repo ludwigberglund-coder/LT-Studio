@@ -68,6 +68,15 @@ test('gemensam användarmeny monteras om när en moduls render ersätter toppbar
   assert.match(js,/new MutationObserver\(schedule\)/);
 });
 
+test('gemensam användarmeny har samtidighetsspärr och rensar äldre dubbletter',()=>{
+  const js=fs.readFileSync(path.join(portal,'portal-nav.js'),'utf8');
+  assert.match(js,/sharedUserMenuMounting/);
+  assert.match(js,/querySelectorAll\('\.shared-user-menu'\)/);
+  assert.match(js,/slice\(1\)\.forEach\(menu=>menu\.remove\(\)\)/);
+  assert.match(js,/querySelectorAll\('\.user-chip'\)\.forEach\(chip=>chip\.remove\(\)\)/);
+  assert.match(js,/shared-user-caret/);
+});
+
 
 test('alla portalmoduler får samma centrala workspace-layout',()=>{
   const js=fs.readFileSync(path.join(portal,'portal-nav.js'),'utf8');
