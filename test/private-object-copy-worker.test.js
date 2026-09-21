@@ -101,8 +101,12 @@ test('källan verifieras igen efter planering och korruption stoppas före uploa
   const {f,identity}=await plannedFixture();
   const target=fakeTarget();
   try{
+    const original=f.db.prepare('SELECT document_blob AS bytes FROM supplier_invoices WHERE company_id=? AND id=?')
+      .get(f.a.id,f.payable.id).bytes;
+    const corrupted=Buffer.from(original);
+    corrupted[corrupted.length-1]^=1;
     f.db.prepare('UPDATE supplier_invoices SET document_blob=? WHERE company_id=? AND id=?')
-      .run(Buffer.from('%PDF-1.4\nchanged after plan\n','ascii'),f.a.id,f.payable.id);
+      .run(corrupted,f.a.id,f.payable.id);
 
     await assert.rejects(
       Worker.copyPlannedPrivateObject(f.db,identity,{targetStore:target}),
