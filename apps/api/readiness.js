@@ -39,7 +39,20 @@ function restoreDrillEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_RESTORE_
   try{
     if(!filename||!fs.existsSync(filename)||!fs.statSync(filename).isFile())return{ok:false,ageMs:null};
     const value=JSON.parse(fs.readFileSync(filename,'utf8'));
-    if(value.schemaVersion!==1||value.sqliteIntegrity!==true||value.foreignKeys!==true||value.productionDatabaseTouched!==false||value.restoreCopyRemoved!==true)return{ok:false,ageMs:null};
+    if(value.schemaVersion!==2||value.sqliteIntegrity!==true||value.foreignKeys!==true||value.productionDatabaseTouched!==false||value.restoreCopyRemoved!==true)return{ok:false,ageMs:null};
+    if(value.privateObjectsVerified!==true||value.privateObjectIssueCount!==0)return{ok:false,ageMs:null};
+    const objectCount=Number(value.privateObjectCount),verifiedCount=Number(value.verifiedPrivateObjectCount),objectBytes=Number(value.privateObjectBytes);
+    if(!Number.isSafeInteger(objectCount)||objectCount<0||verifiedCount!==objectCount||!Number.isSafeInteger(objectBytes)||objectBytes<0)return{ok:false,ageMs:null};
+    const byKind=value.privateObjectsByKind;
+    if(!byKind||typeof byKind!=='object')return{ok:false,ageMs:null};
+    const requiredKinds=['document','supplier-invoice','customer-invoice-pdf'];
+    let countedObjects=0,countedVerified=0,countedBytes=0;
+    for(const kind of requiredKinds){
+      const row=byKind[kind];
+      if(!row||!Number.isSafeInteger(Number(row.objects))||Number(row.objects)<0||!Number.isSafeInteger(Number(row.verified))||Number(row.verified)<0||!Number.isSafeInteger(Number(row.bytes))||Number(row.bytes)<0)return{ok:false,ageMs:null};
+      countedObjects+=Number(row.objects);countedVerified+=Number(row.verified);countedBytes+=Number(row.bytes);
+    }
+    if(countedObjects!==objectCount||countedVerified!==verifiedCount||countedBytes!==objectBytes)return{ok:false,ageMs:null};
     if(!/^[a-f0-9]{64}$/.test(String(value.sourceEncryptedSha256||'').toLowerCase()))return{ok:false,ageMs:null};
     const verifiedAt=Date.parse(String(value.verifiedAt||''));
     if(!Number.isFinite(verifiedAt)||verifiedAt>now+5*60*1000)return{ok:false,ageMs:null};
