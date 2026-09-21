@@ -40,6 +40,29 @@ function send(res,status,body,extraHeaders={}) {
   res.end(JSON.stringify(body));
 }
 
+function verifiedInterestStartEvidence(invoice,stored) {
+  const document=stored?.document;
+  const paymentTermsDays=Number(document?.paymentTermsDays);
+  const archivedDate=String(stored?.createdAt||'').slice(0,10);
+  const verified=Boolean(
+    document &&
+    Number(invoice?.totalOre)>0 &&
+    String(document.invoiceNumber||'')===String(invoice?.invoiceNumber||'') &&
+    String(document.invoiceDate||'')===String(invoice?.invoiceDate||'') &&
+    String(document.dueDate||'')===String(invoice?.dueDate||'') &&
+    Number.isSafeInteger(paymentTermsDays) &&
+    paymentTermsDays>=0 &&
+    /^\d{4}-\d{2}-\d{2}$/.test(archivedDate) &&
+    archivedDate<=String(invoice?.dueDate||'')
+  );
+  if(!verified)return Object.freeze({basis:'unverified',evidenceSource:'',verifiedAt:''});
+  return Object.freeze({
+    basis:'predetermined-due-date',
+    evidenceSource:'issued-invoice-document',
+    verifiedAt:String(stored.createdAt)
+  });
+}
+
 function validatedCustomerInput(payload={}) {
   const name=String(payload.name||'').trim();
   if(!name || name.length>160) throw apiError('Kundnamn måste anges och vara högst 160 tecken.','INVALID_CUSTOMER_NAME',422);
@@ -173,29 +196,13 @@ function createApiApp(options) {
     if(!invoice) throw apiError('Fakturan hittades inte i det inloggade företaget.','INVOICE_NOT_FOUND',404);
     invoice.transactions=Db.transactionsForInvoice(db,session.companyId,invoice.id);
     invoice.reminders=Db.remindersForInvoice(db,session.companyId,invoice.id);
-    invoice.interestStartBasis='unverified';
-    invoice.interestStartEvidenceSource='';
-    invoice.interestStartVerifiedAt='';
-    const stored=CustomerInvoicing.documentForInvoice(db,session.companyId,invoice.id);
-    const document=stored?.document;
-    const paymentTermsDays=Number(document?.paymentTermsDays);
-    const archivedDate=String(stored?.createdAt||'').slice(0,10);
-    const issuedEvidence=Boolean(
-      document &&
-      invoice.totalOre>0 &&
-      String(document.invoiceNumber||'')===String(invoice.invoiceNumber||'') &&
-      String(document.invoiceDate||'')===String(invoice.invoiceDate||'') &&
-      String(document.dueDate||'')===String(invoice.dueDate||'') &&
-      Number.isSafeInteger(paymentTermsDays) &&
-      paymentTermsDays>=0 &&
-      /^\d{4}-\d{2}-\d{2}$/.test(archivedDate) &&
-      archivedDate<=invoice.dueDate
+    const interestEvidence=verifiedInterestStartEvidence(
+      invoice,
+      CustomerInvoicing.documentForInvoice(db,session.companyId,invoice.id)
     );
-    if(issuedEvidence){
-      invoice.interestStartBasis='predetermined-due-date';
-      invoice.interestStartEvidenceSource='issued-invoice-document';
-      invoice.interestStartVerifiedAt=stored.createdAt;
-    }
+    invoice.interestStartBasis=interestEvidence.basis;
+    invoice.interestStartEvidenceSource=interestEvidence.evidenceSource;
+    invoice.interestStartVerifiedAt=interestEvidence.verifiedAt;
     return invoice;
   }
 
@@ -503,4 +510,4 @@ function createApiApp(options) {
   return Object.freeze({handle,accessModel,legalRates});
 }
 
-module.exports=Object.freeze({createApiApp,readJson,securityHeaders});
+module.exports=Object.freeze({createApiApp,readJson,securityHeaders,verifiedInterestStartEvidence});
