@@ -42,6 +42,8 @@ async function close(server){if(server?.listening)await new Promise(r=>server.cl
     browser=await chromium.launch({headless:true});const context=await browser.newContext();await context.addCookies([{name:'rollands_session',value:token,url:base}]);
     const page=await context.newPage();await page.goto(base+'/payments.html',{waitUntil:'networkidle'});
     await page.locator('[data-field="anchor"]').fill('2026-09-10');
+    await page.locator('[data-field="direction"]').selectOption('out');
+    await page.locator('[data-field="status"]').fill('paid');
     await page.locator('[data-field="query"]').fill('Leverantör Beta');
     await page.locator('[data-field="account"]').fill('1930');
     await page.locator('[data-field="sort"]').selectOption('amount');
@@ -53,6 +55,17 @@ async function close(server){if(server?.listening)await new Promise(r=>server.cl
     assert.equal(await page.getByText('Kund Alpha',{exact:true}).count(),0);
     assert.match(await page.locator('.report-summary').innerText(),/125,00|125\.00/);
     assert.equal(await page.locator('tbody tr').count(),1);
+    const exportHref=await page.getByRole('link',{name:'Exportera CSV'}).getAttribute('href');
+    const exportUrl=new URL(exportHref,base);
+    assert.equal(exportUrl.pathname,'/api/v1/exports/payments-overview');
+    assert.equal(exportUrl.searchParams.get('mode'),'month');
+    assert.equal(exportUrl.searchParams.get('date'),'2026-09-10');
+    assert.equal(exportUrl.searchParams.get('direction'),'out');
+    assert.equal(exportUrl.searchParams.get('status'),'paid');
+    assert.equal(exportUrl.searchParams.get('query'),'Leverantör Beta');
+    assert.equal(exportUrl.searchParams.get('account'),'1930');
+    assert.equal(exportUrl.searchParams.get('sort'),'amount');
+    assert.equal(exportUrl.searchParams.get('order'),'desc');
     const [download]=await Promise.all([
       page.waitForEvent('download'),
       page.getByRole('link',{name:'Exportera CSV'}).click()
