@@ -1,5 +1,8 @@
 # Rolands Pilot UAT
 
+> **Miljö för tekniskt godkännande:** Kör denna UAT i den privata stagingmiljön med `NODE_ENV=production` och `ROLLANDS_ENV=staging`. Använd endast fiktiva eller avidentifierade data. `approvedForPilot` ska fortfarande vara `false` under UAT. Först när tekniska/driftsmässiga bevis och denna UAT är godkända fattas pilotbeslutet; därefter sätts `ROLLANDS_ENV=pilot`, `approvedForPilot:true` och preflight körs om.
+
+
 Detta dokument är en manuell kontrollista inför en kontrollerad första pilot hos Rolands. Den ska kunna följas av en person utan kodkunskap.
 
 ## Förutsättningar
