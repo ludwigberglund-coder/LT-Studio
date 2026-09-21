@@ -10,6 +10,7 @@ const {spawnSync}=require('node:child_process');
 const {bootstrapSyntheticStaging,SYNTHETIC_TENANTS}=require('../scripts/bootstrap-staging-synthetic.js');
 const {assertSyntheticStagingDatabase}=require('../apps/api/staging-data-policy.js');
 const Db=require('../apps/api/database.js');
+const {verifyDatabase}=require('../scripts/pilot-restore-verify.js');
 
 const root=path.resolve(__dirname,'..');
 
@@ -158,5 +159,29 @@ test('staging runtime gate refuses a database containing any non-approved compan
       Db.createCompany(db,{legalName:'Example Real-Looking Customer AB',displayName:'Example Customer',orgNumber:'559999-9999'});
       assert.throws(()=>assertSyntheticStagingDatabase(db,env),error=>error?.code==='UNSAFE_STAGING_DATA');
     }finally{db.close()}
+  }finally{fs.rmSync(dir,{recursive:true,force:true})}
+});
+
+
+test('staging restore verification accepts a synthetic staging database',()=>{
+  const {dir,env}=fixture();
+  try{
+    bootstrapSyntheticStaging({env,root});
+    const result=verifyDatabase(env.ROLLANDS_DATABASE_PATH,{requireSyntheticStaging:true});
+    assert.equal(result.sqliteIntegrity,true);
+  }finally{fs.rmSync(dir,{recursive:true,force:true})}
+});
+
+test('staging restore verification rejects a non-synthetic customer database',()=>{
+  const {dir,env}=fixture();
+  try{
+    const db=Db.openDatabase(env.ROLLANDS_DATABASE_PATH);
+    try{
+      Db.createCompany(db,{legalName:'Real Customer Example AB',displayName:'Real Customer Example',orgNumber:'559111-2222'});
+    }finally{db.close()}
+    assert.throws(
+      ()=>verifyDatabase(env.ROLLANDS_DATABASE_PATH,{requireSyntheticStaging:true}),
+      error=>error?.code==='UNSAFE_STAGING_DATA'
+    );
   }finally{fs.rmSync(dir,{recursive:true,force:true})}
 });
