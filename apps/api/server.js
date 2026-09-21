@@ -31,6 +31,7 @@ const Documents = require('./documents.js');
 const AccountingAdmin = require('./accounting-admin.js');
 const WebsiteCms = require('./website-cms.js');
 const PrivateObjectStoreFactory = require('./private-object-store-factory.js');
+const PrivateObjectCopyLedger = require('./private-object-copy-ledger.js');
 
 const repositoryRoot = path.resolve(__dirname,'..','..');
 const {validateRuntime,demoRequest,resolveStaticRequest,serveStatic} = require('./private-runtime.js');
@@ -71,6 +72,7 @@ function createServer(options = {}) {
   PrivateObjectStoreFactory.providerFromEnvironment(process.env);
   if (databasePath !== ':memory:') fs.mkdirSync(path.dirname(path.resolve(databasePath)),{recursive:true,mode:0o700});
   const db = options.db || Db.openDatabase(databasePath);
+  PrivateObjectCopyLedger.initializePrivateObjectCopyLedger(db);
   Queues.initializeQueues(db); ReminderOutbox.initializeReminderOutbox(db); Bank.initializeBankPayments(db); Payables.initializePayables(db); SupplierMasterdata.initializeSupplierMasterdata(db); PaymentConfirmation.initializePaymentConfirmation(db); Inventory.initializeInventory(db); Payroll.initializePayroll(db); Documents.initializeDocuments(db); AccountingAdmin.initializeAccountingAdmin(db); WebsiteCms.initializeWebsiteCms(db);
   const api = createApiApp({db,secureCookies,authEncryptionKey});
   const automationReview = createAutomationReviewRouter({db}); const bank = createBankRouter({db}); const payables = createPayablesRouter({db}); const supplierMasterdata = createSupplierMasterdataRouter({db}); const paymentRelease = createPaymentReleaseRouter({db}); const paymentConfirmation = createPaymentConfirmationRouter({db}); const inventory = createInventoryRouter({db}); const reports = createReportsRouter({db}); const exportsRouter=createExportsRouter({db}); const payroll = createPayrollRouter({db}); const documents = createDocumentsRouter({db}); const accounting = createAccountingAdminRouter({db}); const websiteCms = createWebsiteCmsRouter({db});
