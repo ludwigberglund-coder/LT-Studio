@@ -47,7 +47,7 @@ function runDrill({backupDir,drillDir,evidencePath,backupKey,now=new Date()}){
     fs.rmSync(target,{force:true});
   }
   const evidence=Object.freeze({
-    schemaVersion:1,
+    schemaVersion:2,
     verifiedAt:now.toISOString(),
     sourceFile:source.name,
     sourceEncryptedSha256:encryptedSha256,
@@ -57,6 +57,12 @@ function runDrill({backupDir,drillDir,evidencePath,backupKey,now=new Date()}){
     tenantRelations:Number(verified.tenantRelations||0),
     journalEntries:Number(verified.journalEntries||0),
     archivedDocuments:Number(verified.archivedDocuments||0),
+    privateObjectsVerified:verified.privateObjectsVerified===true,
+    privateObjectCount:Number(verified.privateObjectCount||0),
+    verifiedPrivateObjectCount:Number(verified.verifiedPrivateObjectCount||0),
+    privateObjectBytes:Number(verified.privateObjectBytes||0),
+    privateObjectIssueCount:Number(verified.privateObjectIssueCount||0),
+    privateObjectsByKind:verified.privateObjectsByKind,
     productionDatabaseTouched:false,
     restoreCopyRemoved:true
   });
