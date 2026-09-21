@@ -216,3 +216,35 @@ test('historisk bankreferens kan återanvändas av samma rättade betalning men 
     assert.equal(repost.payment.status,'paid');
   }finally{ctx.db.close()}
 });
+
+
+test('bokförd obetald leverantörsfaktura kan få datum rättat utan att originalhistoriken skrivs över',()=>{
+  const ctx=seed({number:'BKS-DATE-CORR'});try{
+    const posted=SupplierAccounting.postSupplierInvoice(ctx.db,{companyId:ctx.company.id,invoiceId:ctx.invoice.id,actorId:ctx.accountant.id});
+    const result=SupplierAccounting.correctSupplierInvoiceDates(ctx.db,{companyId:ctx.company.id,invoiceId:ctx.invoice.id,requestId:'supplier-date-correction-0001',newInvoiceDate:'2026-09-19',newDueDate:'2026-10-19',reason:'Fakturadatum stämmer inte med original-PDF',actorId:ctx.accountant.id});
+    assert.equal(result.duplicate,false);
+    assert.equal(result.originalEntry.id,posted.entry.id);
+    assert.equal(result.originalEntry.postingDate,'2026-09-08');
+    assert.equal(result.reversal.postingDate,'2026-09-08');
+    assert.equal(result.replacement.postingDate,'2026-09-19');
+    assert.deepEqual(result.reversal.lines.map(line=>[line.account,line.debitOre,line.creditOre]),posted.entry.lines.map(line=>[line.account,line.creditOre,line.debitOre]));
+    assert.deepEqual(result.replacement.lines.map(line=>[line.account,line.debitOre,line.creditOre]),posted.entry.lines.map(line=>[line.account,line.debitOre,line.creditOre]));
+    const corrected=Payables.invoiceById(ctx.db,ctx.company.id,ctx.invoice.id);
+    assert.equal(corrected.invoiceDate,'2026-09-19');assert.equal(corrected.dueDate,'2026-10-19');
+    assert.equal(corrected.liabilityAccountingEntryId,result.replacement.id);assert.equal(corrected.openAmountOre,125000);assert.equal(corrected.status,'approved');
+    assert.equal(SupplierAccounting.accountingStatus(ctx.db,ctx.company.id,ctx.invoice.id),'posted');
+    const retry=SupplierAccounting.correctSupplierInvoiceDates(ctx.db,{companyId:ctx.company.id,invoiceId:ctx.invoice.id,requestId:'supplier-date-correction-0001',newInvoiceDate:'2026-09-19',newDueDate:'2026-10-19',reason:'Fakturadatum stämmer inte med original-PDF',actorId:ctx.accountant.id});
+    assert.equal(retry.duplicate,true);assert.equal(retry.reversal.id,result.reversal.id);assert.equal(retry.replacement.id,result.replacement.id);
+    assert.equal(Accounting.listEntries(ctx.db,ctx.company.id).filter(entry=>entry.sourceType.startsWith('supplier-invoice-date-correction-')).length,2);
+    assert.equal(Db.auditForCompany(ctx.db,ctx.company.id).filter(event=>event.action==='SUPPLIER_INVOICE_DATES_CORRECTED').length,1);
+  }finally{ctx.db.close()}
+});
+
+test('datumrättelse blockeras när betalning redan har förberetts',()=>{
+  const ctx=seed({number:'BKS-DATE-PAY'});try{
+    SupplierAccounting.postSupplierInvoice(ctx.db,{companyId:ctx.company.id,invoiceId:ctx.invoice.id,actorId:ctx.accountant.id});
+    Payables.preparePayment(ctx.db,{companyId:ctx.company.id,invoiceId:ctx.invoice.id,paymentDate:'2026-09-17',amountOre:125000,account:'1930',preparedBy:ctx.accountant.id});
+    assert.throws(()=>SupplierAccounting.correctSupplierInvoiceDates(ctx.db,{companyId:ctx.company.id,invoiceId:ctx.invoice.id,requestId:'supplier-date-correction-0002',newInvoiceDate:'2026-09-19',newDueDate:'2026-10-19',reason:'Datumfel upptäckt efter attest',actorId:ctx.accountant.id}),error=>error.code==='SUPPLIER_INVOICE_CORRECTION_PAYMENT_EXISTS');
+    assert.equal(Accounting.listEntries(ctx.db,ctx.company.id).filter(entry=>entry.sourceType.startsWith('supplier-invoice-date-correction-')).length,0);
+  }finally{ctx.db.close()}
+});
