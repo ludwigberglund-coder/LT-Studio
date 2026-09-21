@@ -121,9 +121,9 @@ test('företagsisolering gör ett annat företags faktura osynlig även med kän
 test('påminnelseavgift utan avtal stoppas men lagstadgad ränta kan registreras spårbart', async () => withApi(async ({base,password,inv1,db,co1}) => {
   const signed=await login(base,password);
   const headers={Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken};
-  const blocked=await fetch(`${base}/api/v1/invoices/${inv1.id}/reminders`,{method:'POST',headers,body:JSON.stringify({sentDate:'2026-09-15',includeReminderFee:true,includeInterest:true})});
+  const blocked=await fetch(`${base}/api/v1/invoices/${inv1.id}/reminders`,{method:'POST',headers,body:JSON.stringify({requestId:'reminder-fee-validation-0001',sentDate:'2026-09-15',includeReminderFee:true,includeInterest:true})});
   assert.equal(blocked.status,409);
-  const created=await fetch(`${base}/api/v1/invoices/${inv1.id}/reminders`,{method:'POST',headers,body:JSON.stringify({sentDate:'2026-09-15',includeReminderFee:false,includeInterest:true,note:'Första påminnelsen'})});
+  const created=await fetch(`${base}/api/v1/invoices/${inv1.id}/reminders`,{method:'POST',headers,body:JSON.stringify({requestId:'reminder-create-0001',sentDate:'2026-09-15',includeReminderFee:false,includeInterest:true,note:'Första påminnelsen'})});
   const data=await created.json();
   assert.equal(created.status,201);
   assert.equal(data.deliveryStatus,'not-sent');
