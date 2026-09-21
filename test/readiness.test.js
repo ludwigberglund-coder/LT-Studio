@@ -9,6 +9,7 @@ const crypto=require('node:crypto');
 const Db=require('../apps/api/database.js');
 const {readinessReport}=require('../apps/api/readiness.js');
 const {createServer}=require('../apps/api/server.js');
+const AuditAnchor=require('../scripts/audit-anchor.js');
 
 function checksum(bytes){return crypto.createHash('sha256').update(bytes).digest('hex')}
 function writeBackup(dir,name='rollands-test.sqlite',ageMs=0,corruptChecksum=false){
@@ -46,7 +47,7 @@ test('readiness kräver läsbar och skrivbar databas',()=>{
   try{
     const report=readinessReport({db,databasePath:':memory:',minFreeBytes:1});
     assert.equal(report.ok,true);
-    assert.deepEqual(report.checks,{databaseRead:true,databaseWrite:true,diskSpace:true,backup:true,offsiteBackup:true,r2StagingAudit:true,restoreDrill:true,r2RestoreDrill:true,stagingEvidenceConsistent:true,monitoring:true});
+    assert.deepEqual(report.checks,{databaseRead:true,databaseWrite:true,diskSpace:true,backup:true,offsiteBackup:true,r2StagingAudit:true,restoreDrill:true,r2RestoreDrill:true,stagingEvidenceConsistent:true,monitoring:true,auditAnchor:true});
   }finally{db.close()}
 });
 
@@ -421,5 +422,74 @@ test('staging readiness binder ihop rätt buckets och exakt samma backup-artifak
     result=report();
     assert.equal(result.ok,false);
     assert.equal(result.checks.stagingEvidenceConsistent,false);
+  }finally{db.close();fs.rmSync(dir,{recursive:true,force:true})}
+});
+
+
+test('protected readiness kräver färskt auditankare som fortfarande matchar historiken',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-readiness-audit-anchor-'));
+  const dbPath=path.join(dir,'platform.sqlite');
+  const anchorPath=path.join(dir,'audit-anchor.json');
+  const evidencePath=path.join(dir,'audit-anchor-evidence.json');
+  const db=Db.openDatabase(dbPath);
+  const now=Date.UTC(2026,8,21,18,0,0);
+  try{
+    const company=Db.createCompany(db,{legalName:'Readiness Audit AB',displayName:'Readiness Audit',orgNumber:'559999-8811'});
+    const user=Db.createUser(db,{username:'readiness-audit',displayName:'Readiness Audit',passwordHash:'test-password-hash'});
+    Db.addMembership(db,{companyId:company.id,userId:user.id});
+    Db.appendAudit(db,{companyId:company.id,userId:user.id,action:'READINESS_AUDIT_FIXTURE',entityType:'fixture',entityId:'one',details:{ok:true}});
+    Db.appendSecurityEvent(db,{kind:'readiness-audit',severity:'info',fingerprintHash:'a'.repeat(64),details:{ok:true}});
+    const operator=Db.createPlatformOperator(db,{username:'readiness-operator',displayName:'Readiness Operator',passwordHash:'test-password-hash',mfaSecretEncrypted:'test-secret'});
+    Db.appendPlatformOperatorAudit(db,{operatorId:operator.id,action:'READINESS_AUDIT_FIXTURE',details:{ok:true}});
+
+    const anchor=AuditAnchor.createAuditAnchorFromDatabase(dbPath,{now:now-30*60*1000});
+    const written=AuditAnchor.writeAnchor(anchorPath,anchor);
+    const validEvidence={
+      schemaVersion:1,
+      verifiedAt:new Date(now-20*60*1000).toISOString(),
+      provider:'r2',
+      jurisdiction:'eu',
+      bucket:'private-audit',
+      storageKey:`audit-anchors/v1/${anchor.rootSha256}.json`,
+      rootSha256:anchor.rootSha256,
+      anchorSha256:written.sha256,
+      anchorSizeBytes:written.sizeBytes,
+      remoteReadbackVerified:true
+    };
+    fs.writeFileSync(evidencePath,JSON.stringify(validEvidence));
+
+    const report=overrides=>readinessReport({
+      db,
+      databasePath:dbPath,
+      now,
+      auditAnchorPath:anchorPath,
+      auditAnchorEvidencePath:evidencePath,
+      expectedR2AuditBucket:'private-audit',
+      requireAuditAnchorEvidence:true,
+      ...overrides
+    });
+
+    let result=report();
+    assert.equal(result.ok,true);
+    assert.equal(result.checks.auditAnchor,true);
+    assert.equal(result.auditAnchorAgeMs,20*60*1000);
+    assert.equal(result.auditAnchorRootSha256,anchor.rootSha256);
+
+    fs.writeFileSync(evidencePath,JSON.stringify({...validEvidence,bucket:'wrong-audit'}));
+    result=report();
+    assert.equal(result.ok,false);
+    assert.equal(result.checks.auditAnchor,false);
+
+    fs.writeFileSync(evidencePath,JSON.stringify({...validEvidence,verifiedAt:new Date(now-25*60*60*1000).toISOString()}));
+    result=report();
+    assert.equal(result.ok,false);
+    assert.equal(result.checks.auditAnchor,false);
+
+    fs.writeFileSync(evidencePath,JSON.stringify(validEvidence));
+    db.exec('DROP TRIGGER history_audit_events_update');
+    db.exec("UPDATE audit_events SET action='TAMPERED'");
+    result=report();
+    assert.equal(result.ok,false);
+    assert.equal(result.checks.auditAnchor,false);
   }finally{db.close();fs.rmSync(dir,{recursive:true,force:true})}
 });

@@ -175,3 +175,10 @@ Den här etappen stänger flera konkreta dubbelklicks- och nätverksretry-luckor
 Samtliga PR:er gick genom ordinarie GitHub-CI före merge. För de nya retry-vänliga flödena verifierar HTTP-regressioner att databasen innehåller exakt ett affärsobjekt eller en verklig mutation och exakt en relevant auditpost efter identiska retries.
 
 **Kvar efter denna etapp:** idempotensraden är fortfarande 🟡. Nästa mutationsinventering ska särskilt granska leverantörsfakturans PDF- och konteringssparning, där identiska lyckade anrop fortfarande kan skriva ny audit/uppdatering, samt besluts-, bokförings- och rättelseflöden som idag är säkra mot dubbla effekter men avsiktligt svarar 409 vid ett andra försök. De ska bedömas ett och ett: vissa bör få duplicate-success, andra bör fortsätta fail-closed eftersom en andra begäran semantiskt är en ny eller otillåten åtgärd.
+
+
+## Verifierad koduppföljning 2026-09-21 – auditankare i löpande readiness
+
+Skyddad drift (`staging`, `pilot` och `production`) kräver nu ett färskt externt auditankare även i den löpande readiness-kontrollen. Både `/api/v1/readiness/core` och full readiness blir röda om audit-evidensen saknas, är äldre än 24 timmar, gäller fel R2-auditbucket, inte matchar den lokala ankarefilen eller om den ankrade historiken inte längre matchar den aktuella databasen.
+
+LT Studio-operatörsvyn visar kontrollen som **Audit · externt ankare** och visar ankarets ålder utan att exponera root-SHA. Detta är kodbevis; verklig återkommande stagingkörning med separat privat auditbucket och separata credentials återstår. **NO-GO kvarstår.**
