@@ -61,6 +61,7 @@ function fixture(){
   const auditOperator=Db.createPlatformOperator(auditDb,{username:'staging-operator',displayName:'Staging Operator',passwordHash:'test-password-hash',mfaSecretEncrypted:'test-encrypted-secret'});
   Db.appendPlatformOperatorAudit(auditDb,{operatorId:auditOperator.id,action:'STAGING_EVIDENCE_FIXTURE',details:{ok:true}});
   auditDb.close();
+  fs.chmodSync(databasePath,0o600);
   const auditAnchor=AuditAnchor.createAuditAnchorFromDatabase(databasePath,{now:now-15*60*1000});
   const writtenAuditAnchor=AuditAnchor.writeAnchor(auditAnchorPath,auditAnchor);
   write(auditAnchorEvidencePath,{
