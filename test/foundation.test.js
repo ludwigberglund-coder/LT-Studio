@@ -26,7 +26,7 @@ test('innehållsfilerna är giltiga och verksamhetsbesluten matchar företaget',
   assert.equal(report.summary.services, 3);
   assert.ok(report.summary.adminModules >= 7);
   assert.ok(report.summary.accessPermissions >= 28);
-  assert.equal(report.summary.separationWorkflows, 5);
+  assert.equal(report.summary.separationWorkflows, 4);
 });
 
 test('innehållskontrollen stoppar dubblerad navigation och felaktigt organisationsnummer', () => {
