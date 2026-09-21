@@ -66,6 +66,23 @@ test('leverantörs- och huvudboksexport neutraliserar formelceller',()=>{
   }finally{db.close()}
 });
 
+test('försäljningsexport summerar kunder och behåller kalkylbladsformelskyddet',()=>{
+  const {db,company}=seed();
+  try{
+    const dataset=Exports.sales(db,company.id,{from:'2026-09-01',to:'2026-09-30'});
+    assert.equal(dataset.filename,'forsaljningsrapport.csv');
+    assert.equal(dataset.rows.length,1);
+    assert.equal(dataset.rows[0].invoiceCount,1);
+    assert.equal(dataset.rows[0].netOre,100000);
+    assert.equal(dataset.rows[0].vatOre,25000);
+    assert.equal(dataset.rows[0].grossOre,125000);
+    assert.equal(dataset.rows[0].outstandingOre,125000);
+    const csv=Exports.buildCsv(dataset);
+    assert.match(csv,/"'=HYPERLINK\(""https:\/\/evil\.invalid""\)"/);
+    assert.match(csv,/125000/);
+  }finally{db.close()}
+});
+
 test('betalningsöversiktsexport återanvänder vyfilter, sortering och formelskydd',()=>{
   const {db,company}=seed();
   try{
