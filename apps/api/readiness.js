@@ -7,6 +7,7 @@ const crypto=require('node:crypto');
 const DEFAULT_MIN_FREE_BYTES=256*1024*1024;
 const DEFAULT_BACKUP_MAX_AGE_MS=26*60*60*1000;
 const DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS=26*60*60*1000;
+const DEFAULT_R2_STAGING_AUDIT_MAX_AGE_MS=26*60*60*1000;
 const DEFAULT_RESTORE_DRILL_MAX_AGE_MS=30*24*60*60*1000;
 const DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS=7*24*60*60*1000;
 
@@ -36,6 +37,39 @@ function databaseWriteOk(db){
   try{db.exec('BEGIN IMMEDIATE; ROLLBACK;');return true}
   catch{try{db.exec('ROLLBACK;')}catch{}return false}
 }
+function r2StagingAuditEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_R2_STAGING_AUDIT_MAX_AGE_MS}={}){
+  try{
+    if(!filename||!fs.existsSync(filename)||!fs.statSync(filename).isFile())return{ok:false,ageMs:null};
+    const value=JSON.parse(fs.readFileSync(filename,'utf8'));
+    const manifestSha256=String(value.sourceManifestSha256||'').trim().toLowerCase();
+    const objectCount=Number(value.sourceObjectCount),totalBytes=Number(value.sourceTotalBytes);
+    const readyCount=Number(value.readyCount),verifiedCount=Number(value.verifiedExternalCount);
+    const missingReadyCount=Number(value.missingReadyCount),issueCount=Number(value.issueCount);
+    const bucket=String(value.target?.bucket||'').trim();
+    if(value.schemaVersion!==1||value.ok!==true||value.sourceOk!==true||value.sourceProvider!=='sqlite'||value.targetProvider!=='r2')return{ok:false,ageMs:null};
+    if(value.target?.provider!=='r2'||value.target?.jurisdiction!=='eu'||!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(bucket))return{ok:false,ageMs:null};
+    if(!/^[a-f0-9]{64}$/.test(manifestSha256))return{ok:false,ageMs:null};
+    if(!Number.isSafeInteger(objectCount)||objectCount<0||!Number.isSafeInteger(totalBytes)||totalBytes<0)return{ok:false,ageMs:null};
+    if(readyCount!==objectCount||verifiedCount!==objectCount||missingReadyCount!==0||issueCount!==0)return{ok:false,ageMs:null};
+    if(!Array.isArray(value.issues)||value.issues.length!==0)return{ok:false,ageMs:null};
+    const byKind=value.countsByKind;
+    if(!byKind||typeof byKind!=='object')return{ok:false,ageMs:null};
+    const requiredKinds=['document','supplier-invoice','customer-invoice-pdf'];
+    let countedObjects=0,countedReady=0,countedVerified=0,countedBytes=0;
+    for(const kind of requiredKinds){
+      const row=byKind[kind];
+      if(!row)return{ok:false,ageMs:null};
+      const objects=Number(row.objects),ready=Number(row.ready),verified=Number(row.verified),bytes=Number(row.bytes);
+      if(!Number.isSafeInteger(objects)||objects<0||ready!==objects||verified!==objects||!Number.isSafeInteger(bytes)||bytes<0)return{ok:false,ageMs:null};
+      countedObjects+=objects;countedReady+=ready;countedVerified+=verified;countedBytes+=bytes;
+    }
+    if(countedObjects!==objectCount||countedReady!==readyCount||countedVerified!==verifiedCount||countedBytes!==totalBytes)return{ok:false,ageMs:null};
+    const auditedAt=Date.parse(String(value.auditedAt||''));
+    if(!Number.isFinite(auditedAt)||auditedAt>now+5*60*1000)return{ok:false,ageMs:null};
+    const ageMs=Math.max(0,now-auditedAt);
+    return{ok:ageMs<=maxAgeMs,ageMs,manifestSha256,objectCount,totalBytes,bucket};
+  }catch{return{ok:false,ageMs:null}}
+}
 function restoreDrillEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_RESTORE_DRILL_MAX_AGE_MS}={}){
   try{
     if(!filename||!fs.existsSync(filename)||!fs.statSync(filename).isFile())return{ok:false,ageMs:null};
@@ -58,7 +92,7 @@ function restoreDrillEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_RESTORE_
     const verifiedAt=Date.parse(String(value.verifiedAt||''));
     if(!Number.isFinite(verifiedAt)||verifiedAt>now+5*60*1000)return{ok:false,ageMs:null};
     const ageMs=Math.max(0,now-verifiedAt);
-    return{ok:ageMs<=maxAgeMs,ageMs};
+    return{ok:ageMs<=maxAgeMs,ageMs,sha256:String(value.sourceEncryptedSha256||'').toLowerCase(),sourceFile:String(value.sourceFile||'').trim(),sourceSizeBytes:Number(value.sourceSizeBytes||0)};
   }catch{return{ok:false,ageMs:null}}
 }
 function offsiteBackupEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS}={}){
@@ -79,7 +113,7 @@ function offsiteBackupEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_OFFSITE
     const verifiedAt=Date.parse(String(value.verifiedAt||''));
     if(!Number.isFinite(verifiedAt)||verifiedAt>now+5*60*1000)return{ok:false,ageMs:null};
     const ageMs=Math.max(0,now-verifiedAt);
-    return{ok:ageMs<=maxAgeMs,ageMs};
+    return{ok:ageMs<=maxAgeMs,ageMs,sha256:sha,encryptedFile,bucket:String(value.bucket||'').trim(),sizeBytes};
   }catch{return{ok:false,ageMs:null}}
 }
 function monitoringEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS}={}){
@@ -127,4 +161,4 @@ function readinessReport({db,databasePath=':memory:',backupPath='',offsiteBackup
   }
   return Object.freeze({ok:databaseRead&&databaseWrite&&diskSpace&&backup&&offsiteBackup&&restoreDrill&&monitoring,checks:{databaseRead,databaseWrite,diskSpace,backup,offsiteBackup,restoreDrill,monitoring},freeBytes:Number.isFinite(freeBytes)?freeBytes:null,backupAgeMs,offsiteBackupAgeMs,restoreDrillAgeMs,monitoringAgeMs,alertAgeMs});
 }
-module.exports=Object.freeze({DEFAULT_MIN_FREE_BYTES,DEFAULT_BACKUP_MAX_AGE_MS,DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS,DEFAULT_RESTORE_DRILL_MAX_AGE_MS,DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,latestBackup,verifyBackup,diskFreeBytes,databaseReadOk,databaseWriteOk,offsiteBackupEvidence,restoreDrillEvidence,monitoringEvidence,readinessReport});
+module.exports=Object.freeze({DEFAULT_MIN_FREE_BYTES,DEFAULT_BACKUP_MAX_AGE_MS,DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS,DEFAULT_R2_STAGING_AUDIT_MAX_AGE_MS,DEFAULT_RESTORE_DRILL_MAX_AGE_MS,DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,latestBackup,verifyBackup,diskFreeBytes,databaseReadOk,databaseWriteOk,r2StagingAuditEvidence,offsiteBackupEvidence,restoreDrillEvidence,monitoringEvidence,readinessReport});
