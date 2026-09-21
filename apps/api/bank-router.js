@@ -52,8 +52,10 @@ function createBankRouter(options){
         const proposal=Matcher.createMatchProposal(payment,analysis,{createdBy:s.userId});
         const saved=Db.transaction(db,()=>{
           const stored=Queues.saveAutomationProposal(db,proposal,{idempotencyKey:`bank-payment-match:${payment.id}:v1`});
-          Bank.setStatus(db,s.companyId,payment.id,'proposal-created');
-          Db.appendAudit(db,{companyId:s.companyId,userId:s.userId,action:'BANK_PAYMENT_MATCH_PROPOSED',entityType:'bank-payment',entityId:payment.id,details:{proposalId:stored.proposal.id,invoiceId:analysis.targetInvoiceId,confidence:analysis.confidence,ambiguous:analysis.ambiguous}});
+          if(!stored.duplicate){
+            Bank.setStatus(db,s.companyId,payment.id,'proposal-created');
+            Db.appendAudit(db,{companyId:s.companyId,userId:s.userId,action:'BANK_PAYMENT_MATCH_PROPOSED',entityType:'bank-payment',entityId:payment.id,details:{proposalId:stored.proposal.id,invoiceId:analysis.targetInvoiceId,confidence:analysis.confidence,ambiguous:analysis.ambiguous}});
+          }
           return stored;
         });
         return send(res,200,{analysis,proposal:saved.proposal,duplicate:saved.duplicate,executionStatus:'not-executed'}),true;
