@@ -40,6 +40,8 @@ function fixture(){
   const backupBucket='rollands-backup-staging';
   const backupSha='d'.repeat(64);
   const backupFile='rollands-20260921T140000.sqlite.enc';
+  const checksumSha='e'.repeat(64);
+  const checksumSize=92;
   const r2Path=path.join(opsDir,'r2-audit.json');
   const offsitePath=path.join(opsDir,'offsite-backup.json');
   const restorePath=path.join(opsDir,'restore-drill.json');
@@ -80,6 +82,8 @@ function fixture(){
     encryptedSizeBytes:500,
     encryptedStorageKey:`encrypted-sqlite-backups/${backupSha}/${backupFile}`,
     checksumStorageKey:`encrypted-sqlite-backups/${backupSha}/${backupFile}.sha256`,
+    checksumSha256:checksumSha,
+    checksumSizeBytes:checksumSize,
     remoteEncryptedVerified:true,
     remoteChecksumVerified:true
   });
@@ -121,7 +125,11 @@ function fixture(){
     sourceEncryptedSha256:backupSha,
     sourceSizeBytes:500,
     sourceStorageKey:`encrypted-sqlite-backups/${backupSha}/${backupFile}`,
+    sourceChecksumStorageKey:`encrypted-sqlite-backups/${backupSha}/${backupFile}.sha256`,
+    sourceChecksumSha256:checksumSha,
+    sourceChecksumSizeBytes:checksumSize,
     remoteDownloadVerified:true,
+    remoteChecksumDownloadVerified:true,
     sqliteIntegrity:true,
     foreignKeys:true,
     tenantRelations:0,
@@ -247,11 +255,27 @@ test('staging evidence chain rejects R2 restore proof for another backup',()=>{
     const restore=JSON.parse(fs.readFileSync(f.paths.r2RestorePath,'utf8'));
     restore.sourceEncryptedSha256='f'.repeat(64);
     restore.sourceStorageKey=`encrypted-sqlite-backups/${restore.sourceEncryptedSha256}/${restore.sourceFile}`;
+    restore.sourceChecksumStorageKey=restore.sourceStorageKey+'.sha256';
     write(f.paths.r2RestorePath,restore);
     const result=validateEvidenceChain(f.env,{now:f.now});
     assert.equal(result.ok,false);
     assert.equal(result.checks.r2RestoreDrill,true);
     assert.equal(result.checks.sameBackupArtifact,false);
     assert.ok(result.fail.some(item=>item.includes('R2 restore-drillen gäller inte samma krypterade backup-SHA')));
+  }finally{fs.rmSync(f.dir,{recursive:true,force:true})}
+});
+
+
+test('staging evidence chain rejects R2 restore proof for a different checksum object',()=>{
+  const f=fixture();
+  try{
+    const restore=JSON.parse(fs.readFileSync(f.paths.r2RestorePath,'utf8'));
+    restore.sourceChecksumSha256='a'.repeat(64);
+    write(f.paths.r2RestorePath,restore);
+    const result=validateEvidenceChain(f.env,{now:f.now});
+    assert.equal(result.ok,false);
+    assert.equal(result.checks.r2RestoreDrill,true);
+    assert.equal(result.checks.sameBackupArtifact,false);
+    assert.ok(result.fail.some(item=>item.includes('samma checksumobjekt')));
   }finally{fs.rmSync(f.dir,{recursive:true,force:true})}
 });
