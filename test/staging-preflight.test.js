@@ -73,6 +73,7 @@ function fixture(){
     ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH:path.join(opsDir,'restore-drill.json'),
     ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH:path.join(opsDir,'r2-restore-drill.json'),
     ROLLANDS_MONITORING_EVIDENCE_PATH:path.join(opsDir,'monitoring.json'),
+    ROLLANDS_LOGGING_EVIDENCE_PATH:path.join(opsDir,'logging.json'),
     ROLLANDS_AUDIT_ANCHOR_PATH:path.join(opsDir,'audit-anchor.json'),
     ROLLANDS_AUDIT_ANCHOR_EVIDENCE_PATH:path.join(opsDir,'audit-anchor-evidence.json')
   };
