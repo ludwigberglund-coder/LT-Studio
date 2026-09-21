@@ -82,6 +82,8 @@ jobs:
         run: node test/menu-invoice-browser.cjs
       - name: Run private API PDF and CMS browser flows
         run: xvfb-run -a node test/private-workflows-browser.cjs
+      - name: Run LT operator admin browser flow
+        run: npm run test:browser:operator
       - name: Upload invoice and navigation review artifacts
         if: always()
         uses: actions/upload-artifact@v7
