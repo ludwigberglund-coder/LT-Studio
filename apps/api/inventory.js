@@ -70,6 +70,23 @@ function initializeInventory(db){db.exec(`
 
 function validateAccount(v){if(!/^\d{4}$/.test(text(v)))throw inventoryError('Kontot måste bestå av fyra siffror.','INVALID_ACCOUNT')}
 function createItem(db,input){const companyId=text(input.companyId),sku=text(input.sku).toUpperCase(),name=text(input.name),unit=text(input.unit||'st').toLowerCase(),purchaseAccount=text(input.purchaseAccount||'4010'),inventoryAccount=text(input.inventoryAccount||'1460');if(!companyId||!sku||sku.length>60||name.length<2||name.length>160)throw inventoryError('Företag, artikelnummer och artikelnamn krävs.','INVALID_ITEM');if(!['st','kg','l'].includes(unit))throw inventoryError('Enheten måste vara st, kg eller l.','INVALID_UNIT');validateAccount(purchaseAccount);validateAccount(inventoryAccount);if(db.prepare(`SELECT id FROM inventory_items WHERE company_id=? AND sku=?`).get(companyId,sku))throw inventoryError('Artikelnumret används redan.','DUPLICATE_ITEM',409);const itemId=input.id||id('item'),now=nowIso();db.prepare(`INSERT INTO inventory_items(id,company_id,sku,name,unit,purchase_account,inventory_account,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`).run(itemId,companyId,sku,name,unit,purchaseAccount,inventoryAccount,now,now);return itemById(db,companyId,itemId)}
+function createItemIdempotent(db,input){
+  try{return{item:createItem(db,input),duplicate:false}}
+  catch(error){
+    if(error?.code!=='DUPLICATE_ITEM')throw error;
+    const companyId=text(input.companyId),sku=text(input.sku).toUpperCase();
+    const existing=db.prepare(`SELECT id FROM inventory_items WHERE company_id=? AND sku=?`).get(companyId,sku);
+    const item=existing?itemById(db,companyId,existing.id):null;
+    if(!item)throw error;
+    const same=
+      item.name===text(input.name)&&
+      item.unit===text(input.unit||'st').toLowerCase()&&
+      item.purchaseAccount===text(input.purchaseAccount||'4010')&&
+      item.inventoryAccount===text(input.inventoryAccount||'1460');
+    if(!same)throw inventoryError('Artikelnumret finns redan med andra artikeluppgifter. Ladda om och kontrollera artikeln.','INVENTORY_ITEM_IDEMPOTENCY_CONFLICT',409);
+    return{item,duplicate:true};
+  }
+}
 function itemById(db,companyId,itemId){return db.prepare(`SELECT id,company_id AS companyId,sku,name,unit,purchase_account AS purchaseAccount,inventory_account AS inventoryAccount,active,created_at AS createdAt,updated_at AS updatedAt FROM inventory_items WHERE company_id=? AND id=?`).get(companyId,itemId)||null}
 function balanceMilli(db,companyId,itemId){const row=db.prepare(`SELECT COALESCE(SUM(quantity_milli),0) AS quantityMilli FROM inventory_movements WHERE company_id=? AND item_id=?`).get(companyId,itemId);return Number(row?.quantityMilli||0)}
 function listItems(db,companyId){return db.prepare(`SELECT i.id,i.company_id AS companyId,i.sku,i.name,i.unit,i.purchase_account AS purchaseAccount,i.inventory_account AS inventoryAccount,i.active,COALESCE(SUM(m.quantity_milli),0) AS quantityMilli FROM inventory_items i LEFT JOIN inventory_movements m ON m.company_id=i.company_id AND m.item_id=i.id WHERE i.company_id=? GROUP BY i.id ORDER BY i.name,i.sku`).all(companyId).map(row=>({...row,quantityMilli:Number(row.quantityMilli||0),active:Boolean(row.active)}))}
@@ -148,4 +165,4 @@ function listAdjustments(db,companyId,{status='pending'}={}){const allowed=['pen
 function approveAdjustment(db,{companyId,adjustmentId,approvedBy}){const adjustment=adjustmentById(db,companyId,adjustmentId);if(!adjustment)throw inventoryError('Lagerjusteringen hittades inte.','ADJUSTMENT_NOT_FOUND',404);if(adjustment.status!=='pending')throw inventoryError('Lagerjusteringen är redan behandlad.','ADJUSTMENT_ALREADY_DECIDED',409);if(adjustment.countedBy===approvedBy)throw inventoryError('Den som inventerade får inte ensam godkänna samma lagerjustering.','SEPARATION_OF_DUTIES_FAILED',409);const current=balanceMilli(db,companyId,adjustment.itemId);if(current!==adjustment.currentQuantityMilli)throw inventoryError('Lagersaldot har ändrats sedan inventeringen. Gör en ny inventering.','STOCK_CHANGED_SINCE_COUNT',409);const movement=addMovement(db,{companyId,itemId:adjustment.itemId,movementDate:adjustment.adjustmentDate,type:'adjustment',quantityMilli:adjustment.differenceMilli,referenceType:'inventory-adjustment',referenceId:adjustment.id,note:adjustment.reason,actorId:approvedBy});const approvedAt=nowIso();db.prepare(`UPDATE inventory_adjustments SET status='approved',approved_by=?,approved_at=? WHERE company_id=? AND id=? AND status='pending'`).run(approvedBy,approvedAt,companyId,adjustmentId);return{adjustment:adjustmentById(db,companyId,adjustmentId),movement}}
 function rejectAdjustment(db,{companyId,adjustmentId,rejectedBy}){const adjustment=adjustmentById(db,companyId,adjustmentId);if(!adjustment)throw inventoryError('Lagerjusteringen hittades inte.','ADJUSTMENT_NOT_FOUND',404);if(adjustment.status!=='pending')throw inventoryError('Lagerjusteringen är redan behandlad.','ADJUSTMENT_ALREADY_DECIDED',409);const rejectedAt=nowIso();db.prepare(`UPDATE inventory_adjustments SET status='rejected',rejected_by=?,rejected_at=? WHERE company_id=? AND id=? AND status='pending'`).run(rejectedBy,rejectedAt,companyId,adjustmentId);return adjustmentById(db,companyId,adjustmentId)}
 
-module.exports=Object.freeze({initializeInventory,createItem,itemById,listItems,balanceMilli,addMovement,addMovementIdempotent,movementById,listMovements,createAdjustment,createAdjustmentIdempotent,adjustmentById,listAdjustments,approveAdjustment,rejectAdjustment,validRequestId});
+module.exports=Object.freeze({initializeInventory,createItem,createItemIdempotent,itemById,listItems,balanceMilli,addMovement,addMovementIdempotent,movementById,listMovements,createAdjustment,createAdjustmentIdempotent,adjustmentById,listAdjustments,approveAdjustment,rejectAdjustment,validRequestId});
