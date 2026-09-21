@@ -10,6 +10,29 @@ function text(v){return String(v??'').trim()}
 function nowIso(){return new Date().toISOString()}
 const ALLOWED_MIME=Object.freeze(['application/pdf','image/jpeg','image/png']);
 const MAX_BYTES=15*1024*1024;
+const TENANT_LINK_TARGETS=Object.freeze({
+  invoice:'invoices',
+  'customer-invoice':'invoices',
+  customer:'customers',
+  'supplier-invoice':'supplier_invoices',
+  supplier:'suppliers',
+  'accounting-entry':'accounting_entries',
+  'bank-payment':'bank_payments',
+  'supplier-payment':'supplier_payments',
+  'payroll-run':'payroll_runs',
+  'inventory-item':'inventory_items',
+  'inventory-movement':'inventory_movements',
+  'inventory-adjustment':'inventory_adjustments',
+  'automation-proposal':'automation_proposals',
+  document:'documents'
+});
+function assertLinkTarget(db,companyId,entityType,entityId){
+  const type=text(entityType).toLowerCase(),entity=text(entityId),table=TENANT_LINK_TARGETS[type];
+  if(!table)return;
+  const available=db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table);
+  const owned=available&&db.prepare(`SELECT 1 FROM "${table}" WHERE company_id=? AND id=?`).get(companyId,entity);
+  if(!owned)throw documentError('Kopplingsobjektet hittades inte i det inloggade företaget.','DOCUMENT_LINK_TARGET_NOT_FOUND',404);
+}
 
 function initializeDocuments(db){db.exec(`
   CREATE TABLE IF NOT EXISTS documents(
@@ -45,7 +68,7 @@ function initializeDocuments(db){db.exec(`
 `)}
 function sanitizeName(value){const name=text(value).replace(/[\r\n\\/]+/g,'_').slice(0,180);if(!name)throw documentError('Filnamn krävs.','INVALID_DOCUMENT_NAME');return name}
 function validateMeta(input){const title=text(input.title).slice(0,180),category=text(input.category||'other').toLowerCase();if(title.length<2)throw documentError('Dokumentets titel måste vara minst två tecken.','INVALID_DOCUMENT_TITLE');if(!/^[a-z0-9-]{2,40}$/.test(category))throw documentError('Dokumentkategorin är ogiltig.','INVALID_DOCUMENT_CATEGORY');return{title,category,note:text(input.note).slice(0,1000),fileName:sanitizeName(input.fileName||'underlag.pdf'),mimeType:text(input.mimeType||'application/pdf').toLowerCase()}}
-function createPending(db,{companyId,uploadedBy,...input}){const meta=validateMeta(input);if(!ALLOWED_MIME.includes(meta.mimeType))throw documentError('Endast PDF, JPEG och PNG stöds i dokumentarkivet.','UNSUPPORTED_DOCUMENT_TYPE',415);const documentId=input.id||id('doc'),createdAt=nowIso();db.prepare(`INSERT INTO documents(id,company_id,file_name,mime_type,category,title,note,status,uploaded_by,created_at) VALUES(?,?,?,?,?,?,?,'pending',?,?)`).run(documentId,companyId,meta.fileName,meta.mimeType,meta.category,meta.title,meta.note||null,uploadedBy,createdAt);if(input.entityType&&input.entityId)linkDocument(db,{companyId,documentId,entityType:input.entityType,entityId:input.entityId,label:input.linkLabel||''});return documentById(db,companyId,documentId)}
+function createPending(db,{companyId,uploadedBy,...input}){const meta=validateMeta(input);if(!ALLOWED_MIME.includes(meta.mimeType))throw documentError('Endast PDF, JPEG och PNG stöds i dokumentarkivet.','UNSUPPORTED_DOCUMENT_TYPE',415);if(input.entityType&&input.entityId)assertLinkTarget(db,companyId,input.entityType,input.entityId);const documentId=input.id||id('doc'),createdAt=nowIso();db.prepare(`INSERT INTO documents(id,company_id,file_name,mime_type,category,title,note,status,uploaded_by,created_at) VALUES(?,?,?,?,?,?,?,'pending',?,?)`).run(documentId,companyId,meta.fileName,meta.mimeType,meta.category,meta.title,meta.note||null,uploadedBy,createdAt);if(input.entityType&&input.entityId)linkDocument(db,{companyId,documentId,entityType:input.entityType,entityId:input.entityId,label:input.linkLabel||''});return documentById(db,companyId,documentId)}
 function magicMatches(mime,bytes){if(mime==='application/pdf')return bytes.length>=5&&bytes.subarray(0,5).toString('ascii')==='%PDF-';if(mime==='image/jpeg')return bytes.length>=3&&bytes[0]===0xff&&bytes[1]===0xd8&&bytes[2]===0xff;if(mime==='image/png')return bytes.length>=8&&bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]));return false}
 function storeContent(db,{companyId,documentId,bytes}){
   const doc=documentById(db,companyId,documentId);
@@ -85,7 +108,7 @@ function storeContent(db,{companyId,documentId,bytes}){
   }
   return documentById(db,companyId,documentId);
 }
-function linkDocument(db,{companyId,documentId,entityType,entityId,label=''}){const doc=documentById(db,companyId,documentId);if(!doc)throw documentError('Dokumentet hittades inte.','DOCUMENT_NOT_FOUND',404);const type=text(entityType).toLowerCase(),entity=text(entityId);if(!/^[a-z0-9-]{1,80}$/.test(type)||!entity||entity.length>160)throw documentError('Dokumentlänken är ogiltig.','INVALID_DOCUMENT_LINK');db.prepare(`INSERT OR IGNORE INTO document_links(document_id,company_id,entity_type,entity_id,label,created_at) VALUES(?,?,?,?,?,?)`).run(documentId,companyId,type,entity,text(label).slice(0,180)||null,nowIso());return linksForDocument(db,companyId,documentId)}
+function linkDocument(db,{companyId,documentId,entityType,entityId,label=''}){const doc=documentById(db,companyId,documentId);if(!doc)throw documentError('Dokumentet hittades inte.','DOCUMENT_NOT_FOUND',404);const type=text(entityType).toLowerCase(),entity=text(entityId);if(!/^[a-z0-9-]{1,80}$/.test(type)||!entity||entity.length>160)throw documentError('Dokumentlänken är ogiltig.','INVALID_DOCUMENT_LINK');assertLinkTarget(db,companyId,type,entity);db.prepare(`INSERT OR IGNORE INTO document_links(document_id,company_id,entity_type,entity_id,label,created_at) VALUES(?,?,?,?,?,?)`).run(documentId,companyId,type,entity,text(label).slice(0,180)||null,nowIso());return linksForDocument(db,companyId,documentId)}
 function linksForDocument(db,companyId,documentId){return db.prepare(`SELECT entity_type AS entityType,entity_id AS entityId,label,created_at AS createdAt FROM document_links WHERE company_id=? AND document_id=? ORDER BY created_at`).all(companyId,documentId)}
 function documentById(db,companyId,documentId){const row=db.prepare(`SELECT id,company_id AS companyId,file_name AS fileName,mime_type AS mimeType,category,title,note,sha256,size_bytes AS sizeBytes,status,uploaded_by AS uploadedBy,created_at AS createdAt,completed_at AS completedAt FROM documents WHERE company_id=? AND id=?`).get(companyId,documentId);return row?{...row,links:linksForDocument(db,companyId,row.id)}:null}
 function verifyContent(row){if(!row||row.status!=='ready'||!row.bytes)throw documentError('Dokumentinnehållet hittades inte.','DOCUMENT_CONTENT_NOT_FOUND',404);const bytes=Buffer.from(row.bytes);const expected=text(row.sha256).toLowerCase();const actual=crypto.createHash('sha256').update(bytes).digest('hex');if(!/^[a-f0-9]{64}$/.test(expected)||!Number.isSafeInteger(Number(row.sizeBytes))||Number(row.sizeBytes)!==bytes.length||expected!==actual||!magicMatches(row.mimeType,bytes))throw documentError('Dokumentets integritetskontroll misslyckades.','DOCUMENT_INTEGRITY_ERROR',409);return{...row,bytes}}
