@@ -310,3 +310,25 @@ skapar endast planeringsmetadata för R2. `s3` kan anges som alternativ migratio
 Detta innebär att vi nu kan inventera källan och skapa en reproducerbar migrationsplan utan att exponera eller flytta kunddata.
 
 Nästa steg är en separat staging-adapter/worker. Den ska ta **en redan planerad pending-rad**, ladda upp motsvarande verifierade källobjekt, läsa tillbaka objektet, kontrollera SHA-256 och först därefter markera raden `ready`.
+
+
+## Asynkron staging-worker
+
+En provider-neutral kopieringsworker finns nu i `apps/api/private-object-copy-worker.js`.
+
+Workern tar endast en redan planerad ledger-rad och ett explicit injicerat staging-target. Den:
+
+1. verifierar SQLite-källobjektet igen precis före kopiering,
+2. kontrollerar att ledgerns fysiska nyckel fortfarande motsvarar objektets serverstyrda nyckel + SHA-256,
+3. laddar upp till staging-target,
+4. läser tillbaka objektet,
+5. verifierar storlek och SHA-256 på den återlästa kopian,
+6. markerar ledger-raden `ready` först efter lyckad verifiering,
+7. markerar försöket `failed` med en säker felkod vid fel,
+8. återanvänder samma immutabla lagringsnyckel vid omförsök.
+
+En redan `ready`-markerad kopia ger ett idempotent resultat utan nya externa anrop.
+
+**Fortfarande inte aktiverat:** ingen R2/S3-SDK, inga credentials, ingen riktig bucket, ingen extern läsning i runtime och ingen borttagning av SQLite-BLOB.
+
+Nästa säkra etapp är därför en **R2-staging-adapter i en isolerad testmiljö**, med EU-jurisdiktion, privat bucket och minimala credentials. Den ska endast användas av staging-workern. Ordinarie systemtrafik ska fortsatt läsa och skriva SQLite tills stagingkopiering, restore och rollback har verifierats end-to-end.
