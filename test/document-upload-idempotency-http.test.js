@@ -19,6 +19,14 @@ test('dokumentuppladdning är idempotent över metadata-POST och fil-PUT',async(
       note:'Retry-test'
     };
 
+    const missingRequestId=await fetch(f.base+'/api/v1/documents',{
+      method:'POST',
+      headers,
+      body:JSON.stringify({...meta,requestId:undefined})
+    });
+    assert.equal(missingRequestId.status,422);
+    assert.equal((await missingRequestId.json()).code,'DOCUMENT_REQUEST_ID_REQUIRED');
+
     const first=await fetch(f.base+'/api/v1/documents',{
       method:'POST',
       headers,
