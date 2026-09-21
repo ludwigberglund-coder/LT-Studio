@@ -80,6 +80,37 @@ Kommandot väljer den senaste lokala `.sqlite.enc`-filen och **stoppar** om dess
 
 Evidensfilen skrivs först efter verifierad remote read-back och ska ligga utanför repositoryt. Den innehåller inte credentials eller okrypterade databasbytes.
 
+## Restore direkt från R2
+
+Den externa backupen kan nu verifieras genom en separat restore-drill som **inte använder den lokala backupkopian**.
+
+Kräv följande privata sökvägar utanför repositoryt:
+
+```text
+ROLLANDS_RESTORE_DRILL_PATH=/privat/restore-drill
+ROLLANDS_OFFSITE_RESTORE_EVIDENCE_PATH=/privat/ops/offsite-restore-evidence.json
+```
+
+Kör:
+
+```bash
+npm run pilot:restore:offsite-r2
+```
+
+Kommandot:
+
+1. läser det senaste verifierade `ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH`,
+2. kräver att evidensen matchar den R2-bucket som är konfigurerad just nu,
+3. hämtar den krypterade backupen och checksumobjektet direkt från R2,
+4. streamar dem till en unik privat arbetskatalog och vägrar skriva över befintliga filer,
+5. verifierar SHA-256, storlek, checksumfil och det krypterade backupformatet,
+6. dekrypterar en temporär kopia,
+7. verifierar SQLite-integritet, foreign keys, tenantrelationer, journaler och samtliga privata objekttyper,
+8. raderar både den dekrypterade kopian och de nedladdade R2-kopiorna,
+9. skriver först därefter ett separat `ROLLANDS_OFFSITE_RESTORE_EVIDENCE_PATH` med rättighet 0600.
+
+Produktionsdatabasen öppnas eller ersätts aldrig av kommandot.
+
 ## Readiness-gate
 
 I `staging`, `pilot` och `production` kräver `/api/v1/readiness` nu ett färskt privat bevis i `ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH`.
@@ -94,6 +125,8 @@ Beviset godtas endast när det visar:
 
 Saknat, manipulerat eller för gammalt bevis gör readiness röd (`503`). Det betyder inte att serverprocessen måste stängas av, men miljön ska inte betraktas som redo för trafik förrän en ny riktig offsite-körning har verifierats.
 
+Skyddad readiness kräver dessutom ett separat, högst 30 dagar gammalt `ROLLANDS_OFFSITE_RESTORE_EVIDENCE_PATH` som bevisar att de faktiska R2-objekten har laddats ner, verifierats, dekrypterats och klarat full restore-kontroll. Saknat eller ogiltigt offsite-restore-bevis gör också readiness röd.
+
 ## Det som fortfarande återstår
 
 Denna adapter löser inte allt katastrofskydd.
@@ -103,7 +136,7 @@ Före riktig pilot krävs fortfarande verkligt driftbevis för bland annat:
 - schemalagd återkommande upload,
 - larm om offsite-upload eller read-back misslyckas,
 - fjärretention/versionsskydd eller motsvarande raderingsskydd,
-- genomfört restore-drill från den faktiska offsite-kopian,
+- verkligt återkommande restore-drill från den faktiska offsite-kopian på stagingservern,
 - separat säker återställning av backupkrypteringsnyckeln,
 - dokumenterade RPO/RTO-resultat.
 
