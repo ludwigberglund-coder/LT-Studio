@@ -13,7 +13,7 @@ function assertOutsideRepository(root,filename){
   if(!relative||(!relative.startsWith('..')&&!path.isAbsolute(relative)))throw new Error('ROLLANDS_DATABASE_PATH måste ligga utanför repositoryt i pilot/produktion.');
   return resolved;
 }
-function updateInvoiceSettings(db,{orgNumber,username,bankgiro,taxStatus,accessConfig}){
+function updateInvoiceSettings(db,{orgNumber,username,bankgiro,taxStatus,vatNumber,accessConfig}){
   const companyRow=db.prepare('SELECT id FROM companies WHERE org_number=?').get(orgNumber);
   if(!companyRow)throw new Error('Företaget finns inte i databasen.');
   const company=Db.companyById(db,companyRow.id);
@@ -26,8 +26,8 @@ function updateInvoiceSettings(db,{orgNumber,username,bankgiro,taxStatus,accessC
   if(!decision.allowed)throw new Error('Kontot saknar behörighet att ändra företagets fakturainställningar.');
   let settings;
   Db.transaction(db,()=>{
-    settings=Settings.setInvoiceSettings(db,{companyId:company.id,bankgiro,taxStatus,updatedBy:user.id});
-    Db.appendAudit(db,{companyId:company.id,userId:user.id,action:'COMPANY_INVOICE_SETTINGS_UPDATED',entityType:'company',entityId:company.id,details:{bankgiroConfigured:true,taxStatusConfigured:true}});
+    settings=Settings.setInvoiceSettings(db,{companyId:company.id,bankgiro,taxStatus,vatNumber,updatedBy:user.id});
+    Db.appendAudit(db,{companyId:company.id,userId:user.id,action:'COMPANY_INVOICE_SETTINGS_UPDATED',entityType:'company',entityId:company.id,details:{bankgiroConfigured:true,taxStatusConfigured:true,vatNumberConfigured:true}});
   });
   return{company,settings};
 }
@@ -43,10 +43,11 @@ function main(){
       username:requiredEnv('ROLLANDS_INVOICE_SETTINGS_USERNAME'),
       bankgiro:requiredEnv('ROLLANDS_INVOICE_BANKGIRO'),
       taxStatus:requiredEnv('ROLLANDS_INVOICE_TAX_STATUS'),
+      vatNumber:requiredEnv('ROLLANDS_INVOICE_VAT_NUMBER'),
       accessConfig
     });
     console.log(`Privata fakturainställningar uppdaterade för: ${result.company.displayName}`);
-    console.log('Bankgiro och skattestatus har inte skrivits till loggen eller GitHub.');
+    console.log('Bankgiro, VAT-nummer och skattestatus har inte skrivits till loggen eller GitHub.');
     console.log(`Databas: ${databasePath}`);
   }finally{db.close();}
 }

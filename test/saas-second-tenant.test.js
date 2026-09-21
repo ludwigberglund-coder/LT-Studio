@@ -9,6 +9,10 @@ const Bank=require('../apps/api/bank-payments.js');
 const Inventory=require('../apps/api/inventory.js');
 const Payroll=require('../apps/api/payroll.js');
 const Queues=require('../apps/api/queues.js');
+const Db=require('../apps/api/database.js');
+const Cms=require('../apps/api/website-cms.js');
+const Settings=require('../apps/api/company-invoice-settings.js');
+const Accounting=require('../apps/api/accounting-store.js');
 
 async function run(fn){
   const f=await fixture();
@@ -126,4 +130,112 @@ test('kund A och kund B hålls isär i bank, lager, lön, automation och CMS',()
   assert.match(cmsA.state.draft.site.hero.title,/Testbutik A/);
   assert.match(cmsB.state.draft.site.hero.title,/Testbutik B/);
   assert.doesNotMatch(JSON.stringify(cmsA.state),/B-ONLY|Kund B isoleringstest|Kund B artikel/);
+}));
+
+
+test('kund nummer två kan ställa ut egen faktura först efter verifierad identitet och hålls helt isolerad',()=>run(async f=>{
+  Cms.publish(f.db,{companyId:f.b.id,userId:f.other.id});
+
+  Settings.initializeInvoiceSettings(f.db);
+  f.db.prepare(`INSERT INTO company_invoice_settings(
+    company_id,bankgiro,tax_status,vat_number,updated_by,updated_at
+  ) VALUES(?,?,?,?,?,?)`).run(
+    f.b.id,'987-6543','Godkänd för F-skatt',null,f.other.id,'2026-09-21T09:00:00.000Z'
+  );
+
+  const headersB=await f.login(f.other.username);
+  const headersA=await f.login(f.admin.username);
+  const legacyConfigResponse=await fetch(f.base+'/api/v1/customer-invoices/config',{headers:headersB});
+  const legacyConfig=await legacyConfigResponse.json();
+  assert.equal(legacyConfigResponse.status,200);
+  assert.equal(legacyConfig.issuanceReady,false);
+  assert.match(legacyConfig.blocker,/VAT-nummer/i);
+
+  Settings.setInvoiceSettings(f.db,{
+    companyId:f.b.id,
+    bankgiro:'987-6543',
+    taxStatus:'Godkänd för F-skatt',
+    vatNumber:'SE559900100201',
+    updatedBy:f.other.id
+  });
+  const customerB=Db.createCustomer(f.db,{
+    companyId:f.b.id,
+    customerNumber:'B-K-2001',
+    name:'Kund B Fakturamottagare AB',
+    orgNumber:'559900-2002',
+    email:'kund-b@example.invalid',
+    address:{full:'Kundgatan 2, 411 02 Teststad'},
+    customerType:'business'
+  });
+
+  const configResponse=await fetch(f.base+'/api/v1/customer-invoices/config',{headers:headersB});
+  const config=await configResponse.json();
+  assert.equal(configResponse.status,200);
+  assert.equal(config.issuanceReady,true);
+  assert.equal(config.company.legalName,f.b.legalName);
+  assert.equal(config.company.displayName,f.b.displayName);
+  assert.equal(config.company.orgNumber,f.b.orgNumber);
+  assert.equal(config.company.vatNumber,'SE559900100201');
+  assert.equal(config.company.address.full,'Testgatan 1, 411 01 Teststad');
+  assert.doesNotMatch(JSON.stringify(config.company),/Rolands|Rollands|556406-5059|EJ ANGIVET|Adress ej angiven/i);
+
+  const payload={
+    requestId:'tenant-b-invoice-e2e-0001',
+    customerNumber:customerB.customerNumber,
+    invoiceDate:'2026-09-20',
+    postingDate:'2026-09-20',
+    dueDate:'2026-10-20',
+    paymentTermsDays:30,
+    ourReference:'Kund B',
+    yourReference:'Isoleringstest',
+    notes:'Fiktiv kund nummer två-faktura',
+    lines:[{
+      description:'Kund B testleverans',
+      quantity:'1',
+      unit:'st',
+      unitPrice:'1000,00',
+      vatTreatment:'se-standard-25',
+      vatRate:'25',
+      revenueAccount:'3051'
+    }]
+  };
+  const issueResponse=await fetch(f.base+'/api/v1/customer-invoices',{
+    method:'POST',
+    headers:headersB,
+    body:JSON.stringify(payload)
+  });
+  const issued=await issueResponse.json();
+  assert.equal(issueResponse.status,201,JSON.stringify(issued));
+  assert.equal(issued.invoice.companyId,f.b.id);
+  assert.equal(issued.invoice.customerId,customerB.id);
+  assert.equal(issued.document.seller.name,f.b.legalName);
+  assert.equal(issued.document.seller.orgNumber,f.b.orgNumber);
+  assert.equal(issued.document.seller.vatNumber,'SE559900100201');
+  assert.equal(issued.document.seller.address,'Testgatan 1, 411 01 Teststad');
+  assert.doesNotMatch(JSON.stringify(issued.document.seller),/Rolands|Rollands|556406-5059|EJ ANGIVET|Adress ej angiven/i);
+
+  assert.ok(Db.invoiceById(f.db,f.b.id,issued.invoice.id));
+  assert.equal(Db.invoiceById(f.db,f.a.id,issued.invoice.id),null);
+  assert.ok(Accounting.entryBySource(f.db,f.b.id,'customer-invoice',issued.invoice.id));
+  assert.equal(Accounting.entryBySource(f.db,f.a.id,'customer-invoice',issued.invoice.id),null);
+
+  const pdfB=await fetch(f.base+'/api/v1/customer-invoices/'+issued.invoice.id+'/pdf',{headers:headersB});
+  const pdfBytes=Buffer.from(await pdfB.arrayBuffer());
+  assert.equal(pdfB.status,200);
+  assert.equal(pdfBytes.subarray(0,5).toString('ascii'),'%PDF-');
+  assert.match(String(pdfB.headers.get('x-document-sha256')||''),/^[a-f0-9]{64}$/);
+
+  const [detailB,detailA,pdfA]=await Promise.all([
+    fetch(f.base+'/api/v1/customer-invoices/'+issued.invoice.id,{headers:headersB}),
+    fetch(f.base+'/api/v1/customer-invoices/'+issued.invoice.id,{headers:headersA}),
+    fetch(f.base+'/api/v1/customer-invoices/'+issued.invoice.id+'/pdf',{headers:headersA})
+  ]);
+  assert.equal(detailB.status,200);
+  assert.equal(detailA.status,404);
+  assert.equal(pdfA.status,404);
+
+  const listedA=await (await fetch(f.base+'/api/v1/customer-invoices',{headers:headersA})).json();
+  const listedB=await (await fetch(f.base+'/api/v1/customer-invoices',{headers:headersB})).json();
+  assert.equal(listedA.invoices.some(row=>row.id===issued.invoice.id),false);
+  assert.equal(listedB.invoices.some(row=>row.id===issued.invoice.id),true);
 }));

@@ -105,7 +105,7 @@ const Settings=require('../apps/api/company-invoice-settings.js');
     await page.getByRole('button',{name:'Spara utkast',exact:true}).click();
     assert.equal(await blockedIssueButton.isDisabled(),true);
     checks.push('Blocked customer invoice issue action stays disabled after editor actions');
-    Settings.setInvoiceSettings(f.db,{companyId:f.a.id,bankgiro:'123-4567',taxStatus:'Testunderlag',updatedBy:f.admin.id});
+    Settings.setInvoiceSettings(f.db,{companyId:f.a.id,bankgiro:'123-4567',taxStatus:'Testunderlag',vatNumber:'SE559900100101',updatedBy:f.admin.id});
     await page.goto(f.base+'/portal/invoices.html');
     await page.locator(`[data-preview="${f.issued.invoice.id}"]`).click();
     const [pdfTab]=await Promise.all([

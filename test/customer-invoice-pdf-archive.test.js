@@ -21,7 +21,7 @@ async function withApi(callback){
   const password='Sakert pdfarkiv testlosenord 2026!';
   const user=Db.createUser(db,{username:'pdf.test',displayName:'PDF Test',passwordHash:Auth.hashPassword(password),mfaSecretEncrypted:Auth.encryptSecret(MFA,KEY)});
   Db.addMembership(db,{companyId:co1.id,userId:user.id});
-  InvoiceSettings.setInvoiceSettings(db,{companyId:co1.id,bankgiro:'123-4567',taxStatus:'Godkänd för F-skatt',updatedBy:user.id});
+  InvoiceSettings.setInvoiceSettings(db,{companyId:co1.id,bankgiro:'123-4567',taxStatus:'Godkänd för F-skatt',vatNumber:'SE559100000101',updatedBy:user.id});
   Db.createCustomer(db,{companyId:co1.id,customerNumber:'K-100',name:'Kund Ett AB',orgNumber:'559200-0001',email:'kund@example.se',address:{full:'Kundgatan 2, Göteborg'},customerType:'business'});
   Db.createCustomer(db,{companyId:co2.id,customerNumber:'K-200',name:'Kund Två AB',address:{full:'Annan gata 1'},customerType:'business'});
   Db.createInvoice(db,{companyId:co1.id,customerId:Db.listCustomers(db,co1.id)[0].id,invoiceNumber:'310100',ocr:'310100',invoiceDate:'2026-08-01',postingDate:'2026-08-01',dueDate:'2026-08-31',totalOre:125000,remainingOre:125000,vatOre:25000,status:'Bokförd'});
