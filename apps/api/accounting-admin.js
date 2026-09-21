@@ -66,6 +66,11 @@ function importOpeningBalance(db,{companyId,year,postingDate,lines,createdBy}){
   const expectedDate=`${fiscalYear}-01-01`;
   if(text(postingDate)!==expectedDate)throw accountingAdminError(`Ingående balans för ${fiscalYear} måste bokföras ${expectedDate}.`,'INVALID_OPENING_BALANCE_DATE',409);
   const normalized=validateOpeningBalanceLines(lines);
+  const existing=openingBalanceByYear(db,companyId,fiscalYear);
+  if(!existing){
+    const later=db.prepare(`SELECT id FROM accounting_entries WHERE company_id=? AND fiscal_year=? LIMIT 1`).get(companyId,fiscalYear);
+    if(later)throw accountingAdminError('Ingående balans måste importeras innan årets övriga verifikationer skapas.','OPENING_BALANCE_REQUIRES_EMPTY_YEAR',409);
+  }
   return Accounting.postEntry(db,{
     companyId,
     postingDate:expectedDate,
