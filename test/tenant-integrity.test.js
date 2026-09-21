@@ -328,6 +328,7 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
       [`/documents/${documentA.id}/links`,{entityType:'supplier-invoice',entityId:supplierInvoiceB.id,label:'cross tenant supplier invoice'}],
       [`/payables/payments/${supplierPaymentB.id}/release`,{}],
       [`/payables/payments/${supplierPaymentB.id}/confirm-post`,{confirmationReference:'CROSS-TENANT-REF',postingDate:'2026-09-25'}],
+      [`/payables/payments/${supplierPaymentB.id}/correct`,{requestId:'cross-tenant-payment-correction-0001',correctionDate:'2026-09-26',reason:'cross tenant correction'}],
       [`/suppliers/changes/${supplierChangeB.id}/approve`,{}],
       [`/suppliers/changes/${supplierChangeB.id}/reject`,{reason:'cross tenant'}],
       [`/accounting/unlock-requests/${unlockRequestB.id}/approve`,{reason:'cross tenant'}],
