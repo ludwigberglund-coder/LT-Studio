@@ -6,10 +6,21 @@ const crypto=require('node:crypto');
 
 const DEFAULT_MIN_FREE_BYTES=256*1024*1024;
 const DEFAULT_BACKUP_MAX_AGE_MS=26*60*60*1000;
+const DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS=26*60*60*1000;
 const DEFAULT_RESTORE_DRILL_MAX_AGE_MS=30*24*60*60*1000;
 const DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS=7*24*60*60*1000;
 
-function sha256File(filename){return crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex')}
+function sha256File(filename){
+  const hash=crypto.createHash('sha256'),fd=fs.openSync(filename,'r'),buffer=Buffer.allocUnsafe(1024*1024);
+  try{
+    let read;
+    do{
+      read=fs.readSync(fd,buffer,0,buffer.length,null);
+      if(read)hash.update(buffer.subarray(0,read));
+    }while(read);
+  }finally{fs.closeSync(fd)}
+  return hash.digest('hex');
+}
 function latestBackup(backupPath){
   if(!backupPath||!fs.existsSync(backupPath)||!fs.statSync(backupPath).isDirectory())return null;
   const rows=fs.readdirSync(backupPath,{withFileTypes:true})
@@ -24,6 +35,50 @@ function verifyBackup(candidate){
   if(!fs.existsSync(checksumFile))return false;
   const expected=fs.readFileSync(checksumFile,'utf8').trim().split(/\s+/)[0].toLowerCase();
   return /^[a-f0-9]{64}$/.test(expected)&&expected===sha256File(candidate.file);
+}
+function latestEncryptedBackup(backupPath){
+  if(!backupPath||!fs.existsSync(backupPath)||!fs.statSync(backupPath).isDirectory())return null;
+  const rows=fs.readdirSync(backupPath,{withFileTypes:true})
+    .filter(entry=>entry.isFile()&&/^rollands-[0-9A-Za-z._-]+\.sqlite\.enc$/.test(entry.name))
+    .map(entry=>{const file=path.join(backupPath,entry.name);return{file,name:entry.name,mtimeMs:fs.statSync(file).mtimeMs}})
+    .sort((a,b)=>b.mtimeMs-a.mtimeMs||a.name.localeCompare(b.name));
+  return rows[0]||null;
+}
+function verifiedEncryptedBackup(candidate){
+  try{
+    if(!candidate)return{ok:false,sha256:null,sizeBytes:null};
+    const checksumFile=`${candidate.file}.sha256`;
+    if(!fs.existsSync(checksumFile)||!fs.statSync(checksumFile).isFile())return{ok:false,sha256:null,sizeBytes:null};
+    const line=fs.readFileSync(checksumFile,'utf8').trim();
+    const match=line.match(/^([a-f0-9]{64})\s+([^\s]+)$/i);
+    if(!match||match[2]!==candidate.name)return{ok:false,sha256:null,sizeBytes:null};
+    const expected=match[1].toLowerCase(),actual=sha256File(candidate.file);
+    if(actual!==expected)return{ok:false,sha256:null,sizeBytes:null};
+    const sizeBytes=fs.statSync(candidate.file).size;
+    if(!Number.isSafeInteger(sizeBytes)||sizeBytes<1)return{ok:false,sha256:null,sizeBytes:null};
+    return{ok:true,sha256:actual,sizeBytes};
+  }catch{return{ok:false,sha256:null,sizeBytes:null}}
+}
+function offsiteBackupEvidence(filename,{backupPath='',now=Date.now(),maxAgeMs=DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS}={}){
+  try{
+    if(!filename||!fs.existsSync(filename)||!fs.statSync(filename).isFile())return{ok:false,ageMs:null};
+    const value=JSON.parse(fs.readFileSync(filename,'utf8'));
+    if(value.schemaVersion!==1||value.provider!=='r2'||value.jurisdiction!=='eu'||value.remoteEncryptedVerified!==true||value.remoteChecksumVerified!==true)return{ok:false,ageMs:null};
+    const bucket=String(value.bucket||''),encryptedFile=String(value.encryptedFile||''),digest=String(value.encryptedSha256||'').toLowerCase();
+    const sizeBytes=Number(value.encryptedSizeBytes);
+    if(bucket.length<3||bucket.length>63||!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(bucket))return{ok:false,ageMs:null};
+    if(!/^rollands-[0-9A-Za-z._-]+\.sqlite\.enc$/.test(encryptedFile)||!/^[a-f0-9]{64}$/.test(digest)||!Number.isSafeInteger(sizeBytes)||sizeBytes<1)return{ok:false,ageMs:null};
+    const expectedStorageKey=`encrypted-sqlite-backups/${digest}/${encryptedFile}`;
+    if(value.encryptedStorageKey!==expectedStorageKey||value.checksumStorageKey!==expectedStorageKey+'.sha256')return{ok:false,ageMs:null};
+
+    const latest=latestEncryptedBackup(backupPath),local=verifiedEncryptedBackup(latest);
+    if(!latest||latest.name!==encryptedFile||!local.ok||local.sha256!==digest||local.sizeBytes!==sizeBytes)return{ok:false,ageMs:null};
+
+    const verifiedAt=Date.parse(String(value.verifiedAt||''));
+    if(!Number.isFinite(verifiedAt)||verifiedAt>now+5*60*1000)return{ok:false,ageMs:null};
+    const ageMs=Math.max(0,now-verifiedAt);
+    return{ok:ageMs<=maxAgeMs,ageMs};
+  }catch{return{ok:false,ageMs:null}}
 }
 function diskFreeBytes(databasePath){
   if(!databasePath||databasePath===':memory:')return Infinity;
@@ -77,7 +132,7 @@ function monitoringEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_MONITORING
   }catch{return{ok:false,ageMs:null,alertAgeMs:null}}
 }
 
-function readinessReport({db,databasePath=':memory:',backupPath='',restoreEvidencePath='',monitoringEvidencePath='',now=Date.now(),minFreeBytes=DEFAULT_MIN_FREE_BYTES,backupMaxAgeMs=DEFAULT_BACKUP_MAX_AGE_MS,restoreDrillMaxAgeMs=DEFAULT_RESTORE_DRILL_MAX_AGE_MS,monitoringEvidenceMaxAgeMs=DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,requireBackup=false,requireRestoreEvidence=false,requireMonitoringEvidence=false}){
+function readinessReport({db,databasePath=':memory:',backupPath='',restoreEvidencePath='',monitoringEvidencePath='',offsiteBackupEvidencePath='',now=Date.now(),minFreeBytes=DEFAULT_MIN_FREE_BYTES,backupMaxAgeMs=DEFAULT_BACKUP_MAX_AGE_MS,offsiteBackupMaxAgeMs=DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS,restoreDrillMaxAgeMs=DEFAULT_RESTORE_DRILL_MAX_AGE_MS,monitoringEvidenceMaxAgeMs=DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,requireBackup=false,requireOffsiteBackupEvidence=false,requireRestoreEvidence=false,requireMonitoringEvidence=false}){
   const databaseRead=databaseReadOk(db);
   const databaseWrite=databaseWriteOk(db);
   let freeBytes=0,diskSpace=true;
@@ -93,11 +148,16 @@ function readinessReport({db,databasePath=':memory:',backupPath='',restoreEviden
     const evidence=restoreDrillEvidence(restoreEvidencePath,{now,maxAgeMs:restoreDrillMaxAgeMs});
     restoreDrill=evidence.ok;restoreDrillAgeMs=evidence.ageMs;
   }
+  let offsiteBackup=true,offsiteBackupAgeMs=null;
+  if(requireOffsiteBackupEvidence){
+    const evidence=offsiteBackupEvidence(offsiteBackupEvidencePath,{backupPath,now,maxAgeMs:offsiteBackupMaxAgeMs});
+    offsiteBackup=evidence.ok;offsiteBackupAgeMs=evidence.ageMs;
+  }
   let monitoring=true,monitoringAgeMs=null,alertAgeMs=null;
   if(requireMonitoringEvidence){
     const evidence=monitoringEvidence(monitoringEvidencePath,{now,maxAgeMs:monitoringEvidenceMaxAgeMs});
     monitoring=evidence.ok;monitoringAgeMs=evidence.ageMs;alertAgeMs=evidence.alertAgeMs;
   }
-  return Object.freeze({ok:databaseRead&&databaseWrite&&diskSpace&&backup&&restoreDrill&&monitoring,checks:{databaseRead,databaseWrite,diskSpace,backup,restoreDrill,monitoring},freeBytes:Number.isFinite(freeBytes)?freeBytes:null,backupAgeMs,restoreDrillAgeMs,monitoringAgeMs,alertAgeMs});
+  return Object.freeze({ok:databaseRead&&databaseWrite&&diskSpace&&backup&&offsiteBackup&&restoreDrill&&monitoring,checks:{databaseRead,databaseWrite,diskSpace,backup,offsiteBackup,restoreDrill,monitoring},freeBytes:Number.isFinite(freeBytes)?freeBytes:null,backupAgeMs,offsiteBackupAgeMs,restoreDrillAgeMs,monitoringAgeMs,alertAgeMs});
 }
-module.exports=Object.freeze({DEFAULT_MIN_FREE_BYTES,DEFAULT_BACKUP_MAX_AGE_MS,DEFAULT_RESTORE_DRILL_MAX_AGE_MS,DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,latestBackup,verifyBackup,diskFreeBytes,databaseReadOk,databaseWriteOk,restoreDrillEvidence,monitoringEvidence,readinessReport});
+module.exports=Object.freeze({DEFAULT_MIN_FREE_BYTES,DEFAULT_BACKUP_MAX_AGE_MS,DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS,DEFAULT_RESTORE_DRILL_MAX_AGE_MS,DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,latestBackup,verifyBackup,latestEncryptedBackup,verifiedEncryptedBackup,offsiteBackupEvidence,diskFreeBytes,databaseReadOk,databaseWriteOk,restoreDrillEvidence,monitoringEvidence,readinessReport});
