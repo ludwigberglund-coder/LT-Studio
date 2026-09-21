@@ -24,6 +24,21 @@ test('inleverans, försäljning och svinn ger korrekt lagersaldo i tusendelar',(
   }finally{db.close()}
 });
 
+test('manuell lagerrörelse återanvänds vid retry och konfliktar om samma request-id ändras',()=>{
+  const {db,company,counter,item}=seed();try{
+    const input={companyId:company.id,requestId:'inventory-retry-0001',itemId:item.id,movementDate:'2026-09-16',type:'receipt',quantityMilli:10000,note:'Retry test',actorId:counter.id};
+    const first=Inventory.createMovement(db,input);
+    const retry=Inventory.createMovement(db,input);
+    assert.equal(first.duplicate,false);
+    assert.equal(retry.duplicate,true);
+    assert.equal(retry.movement.id,first.movement.id);
+    assert.equal(Inventory.balanceMilli(db,company.id,item.id),10000);
+    assert.equal(Inventory.listMovements(db,company.id).length,1);
+    assert.throws(()=>Inventory.createMovement(db,{...input,quantityMilli:11000}),e=>e.code==='INVENTORY_IDEMPOTENCY_CONFLICT'&&e.statusCode===409);
+    assert.equal(Inventory.balanceMilli(db,company.id,item.id),10000);
+  }finally{db.close()}
+});
+
 test('lagret får inte bli negativt',()=>{
   const {db,company,counter,item}=seed();try{
     assert.throws(()=>Inventory.addMovement(db,{companyId:company.id,itemId:item.id,movementDate:'2026-09-16',type:'waste',quantityMilli:-1000,actorId:counter.id}),e=>e.code==='NEGATIVE_STOCK');
