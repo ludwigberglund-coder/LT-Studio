@@ -38,14 +38,24 @@ test('riktiga HTTP-rutter genomför leverantörsfakturans bokföringsflöde utan
   try{
     let result=await request(base,'/api/v1/payables/suppliers',accountantSession,{method:'POST',body:{supplierNumber:'L-144',name:'Billdal Kyla & Service AB',orgNumber:'559100-1449',bankgiro:'333-4411',defaultCostAccount:'4010'}});
     assert.equal(result.response.status,201);const supplier=result.data.supplier;
-    result=await request(base,'/api/v1/payables/invoices',accountantSession,{method:'POST',body:{supplierId:supplier.id,supplierInvoiceNumber:'BKS-771',invoiceDate:'2026-09-08',dueDate:'2026-09-17',totalOre:125000,vatOre:25000,currency:'SEK'}});
-    assert.equal(result.response.status,201);const invoice=result.data.invoice;
+    result=await request(base,'/api/v1/payables/invoices',accountantSession,{method:'POST',body:{supplierId:supplier.id,supplierInvoiceNumber:'BKS-MISSING-VAT-TYPE',invoiceDate:'2026-09-08',dueDate:'2026-09-17',totalOre:125000,vatOre:25000,currency:'SEK'}});
+    assert.equal(result.response.status,422);assert.equal(result.data.code,'UNSUPPORTED_SUPPLIER_VAT_TREATMENT');
+    result=await request(base,'/api/v1/payables/invoices',accountantSession,{method:'POST',body:{supplierId:supplier.id,supplierInvoiceNumber:'BKS-EU',invoiceDate:'2026-09-08',dueDate:'2026-09-17',totalOre:125000,vatOre:0,currency:'SEK',vatTreatment:'eu-goods'}});
+    assert.equal(result.response.status,422);assert.equal(result.data.code,'UNSUPPORTED_SUPPLIER_VAT_TREATMENT');
+    result=await request(base,'/api/v1/payables/invoices',accountantSession,{method:'POST',body:{supplierId:supplier.id,supplierInvoiceNumber:'BKS-ZERO',invoiceDate:'2026-09-08',dueDate:'2026-09-17',totalOre:125000,vatOre:0,currency:'SEK',vatTreatment:'se-domestic-full-input-vat'}});
+    assert.equal(result.response.status,422);assert.equal(result.data.code,'UNSUPPORTED_SUPPLIER_VAT_TREATMENT');
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM supplier_invoices WHERE company_id=?').get(company.id).n,0);
+    result=await request(base,'/api/v1/payables/invoices',accountantSession,{method:'POST',body:{supplierId:supplier.id,supplierInvoiceNumber:'BKS-771',invoiceDate:'2026-09-08',dueDate:'2026-09-17',totalOre:125000,vatOre:25000,currency:'SEK',vatTreatment:'se-domestic-full-input-vat'}});
+    assert.equal(result.response.status,201);assert.equal(result.data.vatTreatment,'se-domestic-full-input-vat');assert.equal(result.data.invoice.vatTreatment,'se-domestic-full-input-vat');const invoice=result.data.invoice;
     result=await request(base,`/api/v1/payables/invoices/${invoice.id}/document`,accountantSession,{method:'PUT',body:Buffer.from('%PDF-1.4\n% BKS-771 HTTP test\n'),headers:{'Content-Type':'application/pdf','X-Document-Name':'BKS-771.pdf'}});assert.equal(result.response.status,201);
     const lines=[{account:'4010',debitOre:100000,creditOre:0,text:'Servicekostnad',vatCode:'INPUT_VAT'},{account:'2641',debitOre:25000,creditOre:0,text:'Ingående moms',vatCode:'INPUT_VAT'},{account:'2440',debitOre:0,creditOre:125000,text:'Leverantörsskuld',vatCode:''}];
     result=await request(base,`/api/v1/payables/invoices/${invoice.id}/coding`,accountantSession,{method:'PUT',body:{lines}});assert.equal(result.response.status,200);const reviewed=result.data.invoice;
     result=await request(base,`/api/v1/payables/invoices/${invoice.id}/approve`,approverSession,{method:'POST',body:{}});assert.equal(result.response.status,428);assert.equal(result.data.code,'APPROVAL_PRECONDITION_REQUIRED');
     result=await request(base,`/api/v1/payables/invoices/${invoice.id}/approve`,approverSession,{method:'POST',body:{expectedCodingSha256:reviewed.codingSha256,expectedDocumentSha256:reviewed.documentSha256}});assert.equal(result.response.status,200);
 
+    db.prepare('UPDATE supplier_invoices SET vat_treatment=NULL WHERE company_id=? AND id=?').run(company.id,invoice.id);
+    result=await request(base,`/api/v1/payables/invoices/${invoice.id}/post`,approverSession,{method:'POST',body:{}});assert.equal(result.response.status,409);assert.equal(result.data.code,'SUPPLIER_VAT_TREATMENT_REQUIRED');assert.equal(Accounting.entryBySource(db,company.id,'supplier-invoice',invoice.id),null);
+    db.prepare('UPDATE supplier_invoices SET vat_treatment=? WHERE company_id=? AND id=?').run('se-domestic-full-input-vat',company.id,invoice.id);
     result=await request(base,`/api/v1/payables/invoices/${invoice.id}/post`,approverSession,{method:'POST',body:{}});assert.equal(result.response.status,200);assert.equal(result.data.duplicate,false);
     result=await request(base,`/api/v1/payables/invoices/${invoice.id}/post`,accountantSession,{method:'POST',body:{}});assert.equal(result.response.status,200);const invoiceEntry=result.data.entry;assert.deepEqual(invoiceEntry.lines.map(line=>[line.account,line.debitOre,line.creditOre]),[['4010',100000,0],['2641',25000,0],['2440',0,125000]]);
     result=await request(base,`/api/v1/payables/invoices/${invoice.id}/post`,accountantSession,{method:'POST',body:{}});assert.equal(result.response.status,200);assert.equal(result.data.duplicate,true);assert.equal(result.data.entry.id,invoiceEntry.id);
