@@ -19,6 +19,9 @@ const server=http.createServer((req,res)=>{const u=new URL(req.url,'http://local
   await page.goto(base+'portal/dashboard.html?demo=1',{waitUntil:'networkidle'});
   await page.locator('.shared-user-menu').waitFor({timeout:15000});
   assert.equal(await page.locator('.shared-user-menu').count(),1);
+  await page.evaluate(async()=>{await Promise.all([RollandsNavigation.mountUserMenu(),RollandsNavigation.mountUserMenu(),RollandsNavigation.mountUserMenu()]);});
+  assert.equal(await page.locator('.shared-user-menu').count(),1,'samtidiga monteringar får aldrig skapa dubbla profilmenyer');
+  assert.equal(await page.locator('.user-chip').count(),0,'modulens äldre profilchip ska tas bort när den gemensamma menyn monteras');
   assert.equal((await page.locator('.shared-user-label strong').innerText()).trim(),'Demoanvändare');
   assert.equal((await page.locator('.shared-user-avatar').innerText()).trim(),'D');
   await page.locator('.shared-user-trigger').click();
