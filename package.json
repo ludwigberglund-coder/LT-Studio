@@ -47,7 +47,9 @@
     "staging:preflight": "node scripts/staging-preflight.js",
     "staging:evidence:verify": "node scripts/staging-evidence-verify.js",
     "pilot:restore:r2-drill": "node scripts/pilot-restore-drill-r2.js",
-    "staging:monitoring:evidence": "node scripts/staging-monitoring-evidence.js"
+    "staging:monitoring:evidence": "node scripts/staging-monitoring-evidence.js",
+    "staging:uat:verify": "node scripts/pilot-uat-evidence.js",
+    "staging:signoff": "node scripts/staging-signoff.js"
   },
   "engines": {
     "node": ">=24"

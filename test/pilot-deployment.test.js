@@ -11,8 +11,59 @@ const Documents=require('../apps/api/documents.js');
 const Payables=require('../apps/api/payables.js');
 const CustomerInvoicing=require('../apps/api/customer-invoicing.js');
 const {validateConfig}=require('../scripts/pilot-preflight.js');
+const {sha256File}=require('../scripts/staging-signoff-format.js');
 
 const root=path.resolve(__dirname,'..');
+
+const RELEASE_COMMIT='a'.repeat(40);
+
+function writePilotSignoffFixture(dir){
+  const sourcePaths={};
+  for(const [key,name] of [
+    ['uat','uat-evidence.json'],
+    ['r2Audit','r2-audit.json'],
+    ['offsiteBackup','offsite-backup.json'],
+    ['restoreDrill','restore-drill.json'],
+    ['r2RestoreDrill','r2-restore-drill.json'],
+    ['monitoring','monitoring.json']
+  ]){
+    const filename=path.join(dir,name);
+    fs.writeFileSync(filename,JSON.stringify({fixture:key}));
+    sourcePaths[key]=filename;
+  }
+  const signoffPath=path.join(dir,'staging-signoff.json');
+  fs.writeFileSync(signoffPath,JSON.stringify({
+    schemaVersion:1,
+    environment:'staging',
+    createdAt:'2026-09-20T15:00:00.000Z',
+    releaseCommit:RELEASE_COMMIT,
+    readyForPilotDecision:true,
+    uatCompletedAt:'2026-09-20T14:00:00.000Z',
+    checks:{
+      preflight:true,r2Audit:true,offsiteBackup:true,restoreDrill:true,
+      r2RestoreDrill:true,monitoring:true,sameBackupArtifact:true
+    },
+    evidence:{backupSha256:'b'.repeat(64)},
+    sourceEvidenceSha256:Object.fromEntries(
+      Object.entries(sourcePaths).map(([key,filename])=>[key,sha256File(filename)])
+    )
+  }));
+  return{
+    sourcePaths,
+    signoffPath,
+    signoffSha256:sha256File(signoffPath),
+    env:{
+      ROLLANDS_RELEASE_COMMIT:RELEASE_COMMIT,
+      ROLLANDS_STAGING_SIGNOFF_PATH:signoffPath,
+      ROLLANDS_UAT_EVIDENCE_PATH:sourcePaths.uat,
+      R2_STAGING_AUDIT_EVIDENCE_PATH:sourcePaths.r2Audit,
+      ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH:sourcePaths.offsiteBackup,
+      ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH:sourcePaths.restoreDrill,
+      ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH:sourcePaths.r2RestoreDrill,
+      ROLLANDS_MONITORING_EVIDENCE_PATH:sourcePaths.monitoring
+    }
+  };
+}
 
 test('pilot preflight stoppar demo, placeholders och databas i repositoryt',()=>{
   const result=validateConfig({
@@ -30,24 +81,33 @@ test('pilot preflight stoppar demo, placeholders och databas i repositoryt',()=>
   assert.ok(result.fail.some(item=>item.includes('ROLLANDS_API_SECURE_COOKIE')));
 });
 
-test('pilot preflight godkänner en säker serverkonfiguration utan att kräva demo',()=>{
+test('pilot preflight godkänner bara en säker serverkonfiguration bunden till staging-signoff',()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-preflight-'));
   const dbDir=path.join(dir,'db'),backupDir=path.join(dir,'backup'),operationsPath=path.join(dir,'pilot-operations.json');
   fs.mkdirSync(dbDir,{mode:0o700});fs.mkdirSync(backupDir,{mode:0o700});
+  const approval=writePilotSignoffFixture(dir);
   fs.writeFileSync(operationsPath,JSON.stringify({
     schemaVersion:1,technicalOwner:'Tekniskt ansvar',accountingOwner:'Redovisningsansvar',dataProtectionOwner:'Dataskyddsansvar',
     backupOwner:'Backupansvar',monitoringOwner:'Övervakningsansvar',incidentContact:'incident@example.test',supportChannel:'support@example.test',
     pilotStopAuthority:'Pilotansvarig',rollbackDecisionProcess:'Dokumenterat incidentbeslut krävs före rollback.',
-    offsiteBackupDestination:'Extern krypterad backupdestination',logRetentionDays:30,backupRetentionDays:90,approvedForPilot:true,approvedAt:'2026-09-20'
+    offsiteBackupDestination:'Extern krypterad backupdestination',logRetentionDays:30,backupRetentionDays:90,
+    approvedForPilot:true,approvedAt:'2026-09-20',approvedReleaseCommit:RELEASE_COMMIT,stagingSignoffSha256:approval.signoffSha256
   }));
   try{
-    const result=validateConfig({
+    const baseEnv={
       NODE_ENV:'production',ROLLANDS_ENV:'pilot',ROLLANDS_DEMO_DATA:'0',
       ROLLANDS_DATABASE_PATH:path.join(dbDir,'platform.sqlite'),ROLLANDS_BACKUP_PATH:backupDir,ROLLANDS_PILOT_OPERATIONS_PATH:operationsPath,
       ROLLANDS_AUTH_ENCRYPTION_KEY:'v7r2M9xQ4pL8sT1nW6kD3yH5cF0bJ2zR',ROLLANDS_BACKUP_ENCRYPTION_KEY:'Backup-Key-v7r2M9xQ4pL8sT1nW6kD3yH5cF0bJ2zR',
-      ROLLANDS_API_SECURE_COOKIE:'1',ROLLANDS_API_HOST:'127.0.0.1',ROLLANDS_ALLOWED_HOSTS:'pilot.rollands.internal'
-    });
+      ROLLANDS_API_SECURE_COOKIE:'1',ROLLANDS_API_HOST:'127.0.0.1',ROLLANDS_ALLOWED_HOSTS:'pilot.rollands.internal',
+      ...approval.env
+    };
+    let result=validateConfig(baseEnv);
     assert.deepEqual(result.fail,[]);
+    assert.ok(result.pass.includes('Pilot approval bound to staging signoff and release commit'));
+
+    fs.writeFileSync(approval.sourcePaths.monitoring,JSON.stringify({fixture:'changed-after-signoff'}));
+    result=validateConfig(baseEnv);
+    assert.ok(result.fail.some(item=>item.includes('monitoring')&&item.includes('ändrats')));
   }finally{fs.rmSync(dir,{recursive:true,force:true})}
 });
 

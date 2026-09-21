@@ -5,6 +5,22 @@
 
 Detta dokument är en manuell kontrollista inför en kontrollerad första pilot hos Rolands. Den ska kunna följas av en person utan kodkunskap.
 
+## Maskinellt UAT-bevis
+
+Själva bedömningen är fortfarande mänsklig, men resultatet ska registreras i en **privat UAT-evidensfil utanför GitHub**. Kopiera `config/pilot-uat-evidence.example.json` till den privata driftmiljön och fyll i den först när respektive scenario faktiskt är genomfört.
+
+När alla scenarier är godkända:
+
+```bash
+export ROLLANDS_UAT_EVIDENCE_PATH=/srv/rollands-ops/pilot-uat-evidence.json
+export ROLLANDS_RELEASE_COMMIT=<full 40-teckens commit som körs i staging>
+npm run staging:uat:verify
+```
+
+Verifieringen kräver bland annat att alla sju scenarier nedan är godkända, att kund nummer två har verifierats, att inga blockerande UAT-avvikelser återstår, att endast test-/avidentifierade data användes och att UAT:n gäller exakt samma commit som ska godkännas. UAT-evidensen får vara högst sju dagar gammal när staging-signoff skapas.
+
+Efter grön driftkedja och grön UAT skapas ett gemensamt signoffbevis med `npm run staging:signoff`. Det kommandot binder UAT, R2-audit, offsite-backup, lokal restore, R2-restore och monitorering till samma release-commit med SHA-256 för varje privat evidensfil.
+
 ## Förutsättningar
 
 - Använd endast test- eller pilotdata tills ansvarig har godkänt produktionsstart.
@@ -98,6 +114,15 @@ Manuell pilotkontroll:
 3. Verifiera att `npm run pilot:check` har passerat company-isolation-testet.
 
 **Godkänt när:** testet visar att ett företag inte kan läsa kund-, leverantörs-, faktura-, bokförings- eller dokumentdata från ett annat företag.
+
+## Pilotbeslut efter staging-signoff
+
+När `npm run staging:signoff` är grönt skriver kommandot ut två värden som måste sparas i den **privata** operationsfilen innan `approvedForPilot` sätts till `true`:
+
+- `approvedReleaseCommit` = exakt release-commit från staging-signoff,
+- `stagingSignoffSha256` = SHA-256 för staging-signofffilen.
+
+`approvedAt` får inte ligga före staging-signoffens datum. Vid nästa pilotpreflight läser systemet tillbaka samtliga privata evidensfiler och stoppar starten om någon fil har ändrats efter signoff eller om operationsfilen godkänner en annan commit/signoff.
 
 ## Slutlig pilotbedömning
 

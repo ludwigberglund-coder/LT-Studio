@@ -31,7 +31,9 @@ function operationsFile(dir,days=30){
     logRetentionDays:30,
     backupRetentionDays:days,
     approvedForPilot:true,
-    approvedAt:'2026-09-20'
+    approvedAt:'2026-09-20',
+    approvedReleaseCommit:'a'.repeat(40),
+    stagingSignoffSha256:'b'.repeat(64)
   }));
   return filename;
 }
