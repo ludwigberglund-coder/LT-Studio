@@ -190,3 +190,29 @@ test('betalningsförsök och historiska bankreferenser kan inte skrivas om efter
     assert.throws(()=>ctx.db.prepare(`DELETE FROM supplier_payment_confirmation_refs WHERE company_id=? AND confirmation_reference='BANK-HISTORY-1'`).run(ctx.company.id),/HISTORY_IMMUTABLE/);
   }finally{ctx.db.close()}
 });
+
+
+test('historisk bankreferens kan återanvändas av samma rättade betalning men inte flyttas till en annan betalning',()=>{
+  const ctx=seed({number:'BKS-REF-OWNER'});try{
+    SupplierAccounting.postSupplierInvoice(ctx.db,{companyId:ctx.company.id,invoiceId:ctx.invoice.id,actorId:ctx.accountant.id});
+    const payment=Payables.preparePayment(ctx.db,{companyId:ctx.company.id,invoiceId:ctx.invoice.id,paymentDate:'2026-09-17',amountOre:125000,account:'1930',preparedBy:ctx.accountant.id});
+    Release.releasePayment(ctx.db,{companyId:ctx.company.id,paymentId:payment.id,releasedBy:ctx.approver.id});
+    SupplierAccounting.confirmSupplierPayment(ctx.db,{companyId:ctx.company.id,paymentId:payment.id,confirmationReference:'BANK-OWNED-REF',postingDate:'2026-09-17',actorId:ctx.accountant.id});
+    SupplierAccounting.correctSupplierPayment(ctx.db,{companyId:ctx.company.id,paymentId:payment.id,requestId:'supplier-ref-owner-correction-01',correctionDate:'2026-09-18',reason:'Rättelse för referensägarprov.',actorId:ctx.accountant.id});
+
+    const second=Payables.createSupplierInvoice(ctx.db,{companyId:ctx.company.id,supplierId:ctx.supplier.id,supplierInvoiceNumber:'BKS-REF-SECOND',invoiceDate:'2026-09-08',dueDate:'2026-09-20',totalOre:125000,vatOre:25000,registeredBy:ctx.registrar.id});
+    Payables.storeDocument(ctx.db,{companyId:ctx.company.id,invoiceId:second.id,name:'second.pdf',bytes:Buffer.from('%PDF-1.4\nsecond payment ref owner\n')});
+    Payables.saveCoding(ctx.db,{companyId:ctx.company.id,invoiceId:second.id,lines:Domain.buildCoding({totalOre:125000,vatOre:25000,costAccount:'4010'}).lines});
+    approveCurrent(ctx.db,ctx.company.id,second.id,ctx.approver.id);
+    SupplierAccounting.postSupplierInvoice(ctx.db,{companyId:ctx.company.id,invoiceId:second.id,actorId:ctx.accountant.id});
+    const secondPayment=Payables.preparePayment(ctx.db,{companyId:ctx.company.id,invoiceId:second.id,paymentDate:'2026-09-20',amountOre:125000,account:'1930',preparedBy:ctx.accountant.id});
+    Release.releasePayment(ctx.db,{companyId:ctx.company.id,paymentId:secondPayment.id,releasedBy:ctx.approver.id});
+    assert.throws(()=>SupplierAccounting.confirmSupplierPayment(ctx.db,{companyId:ctx.company.id,paymentId:secondPayment.id,confirmationReference:'BANK-OWNED-REF',postingDate:'2026-09-20',actorId:ctx.accountant.id}),e=>e.code==='DUPLICATE_CONFIRMATION_REFERENCE'&&e.statusCode===409);
+    assert.equal(SupplierAccounting.paymentForConfirmation(ctx.db,ctx.company.id,secondPayment.id).status,'released');
+    assert.equal(Accounting.entryBySource(ctx.db,ctx.company.id,'supplier-payment',secondPayment.id),null);
+
+    const repost=SupplierAccounting.confirmSupplierPayment(ctx.db,{companyId:ctx.company.id,paymentId:payment.id,confirmationReference:'BANK-OWNED-REF',postingDate:'2026-09-20',actorId:ctx.accountant.id});
+    assert.equal(repost.attempt.attemptNumber,2);
+    assert.equal(repost.payment.status,'paid');
+  }finally{ctx.db.close()}
+});
