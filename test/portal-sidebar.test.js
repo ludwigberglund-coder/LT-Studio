@@ -24,7 +24,7 @@ test('alla privata portalsidor monterar samma delade sidomeny',()=>{
 test('sidomenyn ligger kvar vid vertikal scroll och har egen scroll vid behov',()=>{
   const css=fs.readFileSync(path.join(portal,'styles.css'),'utf8');
   assert.match(css,/\.sidebar\{[^}]*position:sticky;[^}]*top:0;[^}]*height:100vh;[^}]*overflow-y:auto;/);
-  assert.match(css,/@media\(max-width:1000px\)\{\.portal,\.dash-shell\{grid-template-columns:220px minmax\(0,1fr\)\}/);
+  assert.match(css,/@media\(max-width:1000px\)\{\.portal,\.dash-shell\{grid-template-columns:76px minmax\(0,1fr\)\}/);
   assert.match(css,/@media\(max-width:720px\)[\s\S]*?\.portal,\.dash-shell\{grid-template-columns:1fr\}\.sidebar\{display:none\}/);
 });
 
@@ -75,6 +75,6 @@ test('alla portalmoduler får samma centrala workspace-layout',()=>{
   assert.match(js,/workspace\.classList\.add\('shared-workspace-shell'\)/);
   assert.match(js,/workspaceMain\.classList\.add\('shared-workspace-main'\)/);
   assert.match(css,/\.shared-workspace-shell\.shared-workspace-shell\{display:grid;grid-template-columns:var\(--sidebar-width\) minmax\(0,1fr\);min-height:100vh\}/);
-  assert.match(css,/@media\(max-width:1000px\)\{\.shared-workspace-shell\.shared-workspace-shell\{grid-template-columns:76px minmax\(0,1fr\)\}\}/);
+  assert.match(css,/@media\(max-width:1000px\)\{\.shared-workspace-shell\.shared-workspace-shell\{grid-template-columns:220px minmax\(0,1fr\)\}\}/);
   assert.match(css,/@media\(max-width:720px\)\{\.shared-workspace-shell\.shared-workspace-shell\{grid-template-columns:1fr\}\.shared-workspace-shell \.shared-sidebar\{display:none\}\}/);
 });
