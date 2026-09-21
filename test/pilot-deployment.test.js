@@ -26,13 +26,14 @@ test('pilot preflight stoppar demo, placeholders och databas i repositoryt',()=>
   assert.ok(result.fail.some(item=>item.includes('ROLLANDS_DEMO_DATA')));
   assert.ok(result.fail.some(item=>item.includes('ROLLANDS_DATABASE_PATH')));
   assert.ok(result.fail.some(item=>item.includes('ROLLANDS_BACKUP_PATH')));
+  assert.ok(result.fail.some(item=>item.includes('ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH')));
   assert.ok(result.fail.some(item=>item.includes('ROLLANDS_AUTH_ENCRYPTION_KEY')));
   assert.ok(result.fail.some(item=>item.includes('ROLLANDS_API_SECURE_COOKIE')));
 });
 
 test('pilot preflight godkänner en säker serverkonfiguration utan att kräva demo',()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-preflight-'));
-  const dbDir=path.join(dir,'db'),backupDir=path.join(dir,'backup'),operationsPath=path.join(dir,'pilot-operations.json');
+  const dbDir=path.join(dir,'db'),backupDir=path.join(dir,'backup'),operationsPath=path.join(dir,'pilot-operations.json'),offsiteEvidencePath=path.join(dir,'offsite-backup-evidence.json');
   fs.mkdirSync(dbDir,{mode:0o700});fs.mkdirSync(backupDir,{mode:0o700});
   fs.writeFileSync(operationsPath,JSON.stringify({
     schemaVersion:1,technicalOwner:'Tekniskt ansvar',accountingOwner:'Redovisningsansvar',dataProtectionOwner:'Dataskyddsansvar',
@@ -44,16 +45,18 @@ test('pilot preflight godkänner en säker serverkonfiguration utan att kräva d
     const result=validateConfig({
       NODE_ENV:'production',ROLLANDS_ENV:'pilot',ROLLANDS_DEMO_DATA:'0',
       ROLLANDS_DATABASE_PATH:path.join(dbDir,'platform.sqlite'),ROLLANDS_BACKUP_PATH:backupDir,ROLLANDS_PILOT_OPERATIONS_PATH:operationsPath,
+      ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH:offsiteEvidencePath,
       ROLLANDS_AUTH_ENCRYPTION_KEY:'v7r2M9xQ4pL8sT1nW6kD3yH5cF0bJ2zR',ROLLANDS_BACKUP_ENCRYPTION_KEY:'Backup-Key-v7r2M9xQ4pL8sT1nW6kD3yH5cF0bJ2zR',
       ROLLANDS_API_SECURE_COOKIE:'1',ROLLANDS_API_HOST:'127.0.0.1',ROLLANDS_ALLOWED_HOSTS:'pilot.rollands.internal'
     });
     assert.deepEqual(result.fail,[]);
+    assert.ok(result.pass.includes('Offsite backup evidence path'));
   }finally{fs.rmSync(dir,{recursive:true,force:true})}
 });
 
 test('staging preflight kan köras före slutligt pilotgodkännande men pilot kan inte det',()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-staging-preflight-'));
-  const dbDir=path.join(dir,'db'),backupDir=path.join(dir,'backup'),operationsPath=path.join(dir,'pilot-operations.json');
+  const dbDir=path.join(dir,'db'),backupDir=path.join(dir,'backup'),operationsPath=path.join(dir,'pilot-operations.json'),offsiteEvidencePath=path.join(dir,'offsite-backup-evidence.json');
   fs.mkdirSync(dbDir,{mode:0o700});fs.mkdirSync(backupDir,{mode:0o700});
   fs.writeFileSync(operationsPath,JSON.stringify({
     schemaVersion:1,
@@ -79,6 +82,7 @@ test('staging preflight kan köras före slutligt pilotgodkännande men pilot ka
     ROLLANDS_DATABASE_PATH:path.join(dbDir,'platform.sqlite'),
     ROLLANDS_BACKUP_PATH:backupDir,
     ROLLANDS_PILOT_OPERATIONS_PATH:operationsPath,
+    ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH:offsiteEvidencePath,
     ROLLANDS_AUTH_ENCRYPTION_KEY:'staging-auth-key-v7r2M9xQ4pL8sT1nW6kD3yH5',
     ROLLANDS_BACKUP_ENCRYPTION_KEY:'staging-backup-key-v7r2M9xQ4pL8sT1nW6kD3yH5',
     ROLLANDS_API_SECURE_COOKIE:'1',
@@ -89,6 +93,7 @@ test('staging preflight kan köras före slutligt pilotgodkännande men pilot ka
     const staging=validateConfig(env);
     assert.deepEqual(staging.fail,[]);
     assert.ok(staging.pass.includes('Staging operations responsibilities'));
+    assert.ok(staging.pass.includes('Offsite backup evidence path'));
     assert.ok(staging.warn.some(item=>item.includes('approvedForPilot')));
 
     const pilot=validateConfig({...env,ROLLANDS_ENV:'pilot'});
