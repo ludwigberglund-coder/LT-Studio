@@ -166,3 +166,49 @@ test('privat omföringsroute kräver CSRF och håller företag åtskilda',async(
     await new Promise(resolve=>runtime.close(resolve));
   }
 });
+
+
+test('omföring till faktura med annat restbelopp blockeras utan sidoeffekter',()=>{
+  const db=Db.openDatabase(':memory:');try{
+    const ctx=seed(db,{prefix:'mismatch'});
+    const wrongCustomer=Db.createCustomer(db,{companyId:ctx.company.id,customerNumber:'MISMATCH-C',name:'Fel belopp AB'});
+    const wrong=createPostedInvoice(db,{company:ctx.company,user:ctx.user,customer:wrongCustomer,invoiceNumber:'MISMATCH-C',amountOre:100000});
+    assert.throws(()=>CustomerPayment.reclassifyCustomerPayment(db,{
+      companyId:ctx.company.id,proposalId:ctx.proposal.id,targetInvoiceId:wrong.invoice.id,
+      requestId:'customer-reclass-mismatch-0001',correctionDate:'2026-09-21',reason:'Försök till felbeloppsomföring.',actorId:ctx.user.id
+    }),e=>e.code==='CUSTOMER_PAYMENT_AMOUNT_MISMATCH'&&e.statusCode===409);
+    assert.equal(Db.invoiceById(db,ctx.company.id,ctx.source.invoice.id).remainingOre,0);
+    assert.equal(Db.invoiceById(db,ctx.company.id,wrong.invoice.id).remainingOre,100000);
+    assert.equal(Bank.byId(db,ctx.company.id,ctx.bank.id).status,'posted');
+    assert.equal(CustomerPayment.reclassificationsForBankPayment(db,ctx.company.id,ctx.bank.id).length,0);
+  }finally{db.close()}
+});
+
+test('kundbetalningshistoriken migrerar från exekveringsschema utan statuskolumn',()=>{
+  const db=Db.openDatabase(':memory:');try{
+    Queues.initializeQueues(db);Bank.initializeBankPayments(db);Accounting.initializeAccountingStore(db);
+    db.exec(`
+      CREATE TABLE customer_payment_executions(
+        company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+        proposal_id TEXT NOT NULL REFERENCES automation_proposals(id) ON DELETE RESTRICT,
+        bank_payment_id TEXT NOT NULL REFERENCES bank_payments(id) ON DELETE RESTRICT,
+        invoice_id TEXT NOT NULL REFERENCES invoices(id) ON DELETE RESTRICT,
+        accounting_entry_id TEXT NOT NULL REFERENCES accounting_entries(id) ON DELETE RESTRICT,
+        invoice_transaction_id TEXT NOT NULL REFERENCES invoice_transactions(id) ON DELETE RESTRICT,
+        amount_ore INTEGER NOT NULL CHECK(amount_ore>0),
+        posting_date TEXT NOT NULL,
+        executed_by TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+        executed_at TEXT NOT NULL,
+        PRIMARY KEY(company_id,proposal_id),
+        UNIQUE(company_id,bank_payment_id),
+        UNIQUE(company_id,accounting_entry_id),
+        UNIQUE(company_id,invoice_transaction_id)
+      ) STRICT;
+    `);
+    CustomerPayment.initializeCustomerPaymentPosting(db);
+    assert.ok(db.prepare('PRAGMA table_info(customer_payment_executions)').all().some(row=>row.name==='invoice_status_before'));
+    assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='customer_payment_reclassifications'").get());
+    CustomerPayment.initializeCustomerPaymentPosting(db);
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name='customer_payment_reclassifications'").get().n,1);
+  }finally{db.close()}
+});
