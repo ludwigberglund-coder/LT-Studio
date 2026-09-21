@@ -114,7 +114,7 @@ function offsiteBackupEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_OFFSITE
     const verifiedAt=Date.parse(String(value.verifiedAt||''));
     if(!Number.isFinite(verifiedAt)||verifiedAt>now+5*60*1000)return{ok:false,ageMs:null};
     const ageMs=Math.max(0,now-verifiedAt);
-    return{ok:ageMs<=maxAgeMs,ageMs,sha256:sha,encryptedFile,bucket:String(value.bucket||'').trim(),sizeBytes};
+    return{ok:ageMs<=maxAgeMs,ageMs,sha256:sha,encryptedFile,bucket:String(value.bucket||'').trim(),sizeBytes,encryptedStorageKey:encryptedKey,checksumStorageKey:checksumKey};
   }catch{return{ok:false,ageMs:null}}
 }
 function offsiteRestoreEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_OFFSITE_RESTORE_MAX_AGE_MS}={}){
