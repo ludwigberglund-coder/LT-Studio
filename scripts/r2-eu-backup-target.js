@@ -339,7 +339,53 @@ function createR2EuBackupTarget({env=process.env,config,fetchImpl=globalThis.fet
     return Object.freeze({storageKey,verified:true,alreadyExisted,sha256,sizeBytes});
   }
 
-  return Object.freeze({putAndVerify});
+  async function downloadToFile({storageKey,filename,expectedSha256='',expectedSizeBytes=null}={}){
+    const targetPath=path.resolve(String(filename||''));
+    if(!filename)throw backupError('Målsökväg krävs för R2-download.','R2_BACKUP_DOWNLOAD_PATH_REQUIRED');
+    if(fs.existsSync(targetPath))throw backupError('R2-download vägrar skriva över en befintlig fil.','R2_BACKUP_DOWNLOAD_TARGET_EXISTS');
+    const expectedHash=String(expectedSha256||'').trim().toLowerCase();
+    if(expectedHash&&!/^[a-f0-9]{64}$/.test(expectedHash))throw backupError('Förväntad SHA-256 för R2-download är ogiltig.','R2_BACKUP_DOWNLOAD_SHA256_INVALID');
+    if(expectedSizeBytes!==null&&(!Number.isSafeInteger(Number(expectedSizeBytes))||Number(expectedSizeBytes)<1))throw backupError('Förväntad filstorlek för R2-download är ogiltig.','R2_BACKUP_DOWNLOAD_SIZE_INVALID');
+
+    fs.mkdirSync(path.dirname(targetPath),{recursive:true,mode:0o700});
+    const response=await signedFetch({method:'GET',storageKey});
+    if(!response?.ok)throw backupError('R2 restore-download misslyckades.','R2_BACKUP_GET_FAILED',{statusCode:Number(response?.status)||0});
+
+    const hash=crypto.createHash('sha256');
+    let sizeBytes=0,fd;
+    try{
+      fd=fs.openSync(targetPath,'wx',0o600);
+      if(response.body&&typeof response.body[Symbol.asyncIterator]==='function'){
+        for await(const chunk of response.body){
+          const bytes=Buffer.from(chunk);
+          fs.writeSync(fd,bytes);
+          hash.update(bytes);
+          sizeBytes+=bytes.length;
+        }
+      }else if(typeof response.arrayBuffer==='function'){
+        const bytes=Buffer.from(await response.arrayBuffer());
+        fs.writeSync(fd,bytes);
+        hash.update(bytes);
+        sizeBytes=bytes.length;
+      }else{
+        throw backupError('R2 restore-download saknar läsbart svar.','R2_BACKUP_RESPONSE_BODY_REQUIRED');
+      }
+      fs.closeSync(fd);fd=null;
+      const contentLength=response.headers?.get?.('content-length');
+      if(contentLength!=null&&contentLength!==''&&Number(contentLength)!==sizeBytes)throw backupError('R2 restore-download har fel Content-Length.','R2_BACKUP_CONTENT_LENGTH_MISMATCH');
+      const sha256=hash.digest('hex');
+      if(expectedHash&&sha256!==expectedHash)throw backupError('R2 restore-download matchar inte förväntad SHA-256.','R2_BACKUP_REMOTE_INTEGRITY_MISMATCH');
+      if(expectedSizeBytes!==null&&sizeBytes!==Number(expectedSizeBytes))throw backupError('R2 restore-download matchar inte förväntad filstorlek.','R2_BACKUP_REMOTE_INTEGRITY_MISMATCH');
+      fs.chmodSync(targetPath,0o600);
+      return Object.freeze({filename:targetPath,storageKey,sha256,sizeBytes});
+    }catch(error){
+      if(fd!==undefined&&fd!==null){try{fs.closeSync(fd)}catch{}}
+      fs.rmSync(targetPath,{force:true});
+      throw error;
+    }
+  }
+
+  return Object.freeze({putAndVerify,downloadToFile});
 }
 
 async function uploadEncryptedBackup({artifact,target}={}){
