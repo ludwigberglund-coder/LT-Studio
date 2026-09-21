@@ -2,6 +2,8 @@
 
 const test=require('node:test');
 const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
 const crypto=require('node:crypto');
 const Db=require('../apps/api/database.js');
 const Ledger=require('../apps/api/private-object-copy-ledger.js');
@@ -99,4 +101,11 @@ test('samma objekt-id i två företag får separata externa nycklar och separata
     assert.equal(Ledger.copiesForCompany(db,'company_a').length,1);
     assert.equal(Ledger.copiesForCompany(db,'company_b').length,1);
   }finally{db.close()}
+});
+
+
+test('API-start initierar kopieringsledgern innan requests accepteras',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'..','apps','api','server.js'),'utf8');
+  assert.match(source,/require\('\.\/private-object-copy-ledger\.js'\)/);
+  assert.match(source,/PrivateObjectCopyLedger\.initializePrivateObjectCopyLedger\(db\)/);
 });
