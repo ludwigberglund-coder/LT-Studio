@@ -19,7 +19,7 @@ npm run staging:uat:verify
 
 Verifieringen kräver bland annat att alla sju scenarier nedan är godkända, att kund nummer två har verifierats, att inga blockerande UAT-avvikelser återstår, att endast test-/avidentifierade data användes och att UAT:n gäller exakt samma commit som ska godkännas. UAT-evidensen får vara högst sju dagar gammal när staging-signoff skapas.
 
-Efter grön driftkedja och grön UAT skapas ett gemensamt signoffbevis med `npm run staging:signoff`. Det kommandot binder UAT, R2-audit, offsite-backup, lokal restore, R2-restore och monitorering till samma release-commit med SHA-256 för varje privat evidensfil.
+Efter grön driftkedja och grön UAT skapas ett gemensamt signoffbevis med `npm run staging:signoff`. Signoff-formatet är schema 2 och kräver även ett färskt, R2-read-back-verifierat auditankare som fortfarande matchar den aktuella databashistoriken. Det kommandot binder UAT, R2-audit, offsite-backup, lokal restore, R2-restore och monitorering till samma release-commit med SHA-256 för varje privat evidensfil.
 
 ## Förutsättningar
 
