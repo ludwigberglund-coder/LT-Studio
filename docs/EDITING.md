@@ -24,9 +24,9 @@ Projektadmin på GitHub Pages innehåller också ett formulär för webbplatsens
 
 ## Direktlänkar
 
-- Webbplatstexter: <https://github.com/ludwigberglund-coder/Rollands/edit/main/content/site.json>
-- Företagsuppgifter: <https://github.com/ludwigberglund-coder/Rollands/edit/main/content/company.json>
-- Admininnehåll: <https://github.com/ludwigberglund-coder/Rollands/edit/main/content/admin.json>
+- Webbplatstexter: <https://github.com/ludwigberglund-coder/LT-Studio/edit/main/content/site.json>
+- Företagsuppgifter: <https://github.com/ludwigberglund-coder/LT-Studio/edit/main/content/company.json>
+- Admininnehåll: <https://github.com/ludwigberglund-coder/LT-Studio/edit/main/content/admin.json>
 
 ## När ni inte vill redigera filer
 
