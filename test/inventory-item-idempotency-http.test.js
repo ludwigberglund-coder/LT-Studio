@@ -1,5 +1,7 @@
 'use strict';
 
+// CI sync marker: verify inventory retry behavior against the latest main base.
+
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {fixture}=require('./private-workflows-fixture.cjs');
