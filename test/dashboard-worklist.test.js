@@ -26,3 +26,20 @@ test('dashboarden prioriterar konkreta uppgifter före modulkatalogen',()=>{
   assert.match(source,/Förslag väntar på granskning/);
   assert.match(source,/Alla områden/);
 });
+
+
+test('dashboarden markerar misslyckade områden som Ej tillgängligt i stället för noll',()=>{
+  assert.match(source,/availability/);
+  assert.match(source,/Ej tillgängligt/);
+  assert.match(source,/data-unavailable="true"/);
+  assert.match(source,/Området kunde inte läsas/);
+  assert.match(source,/m\.availability\?\.receivables!==false/);
+  assert.match(source,/m\.availability\?\.payables!==false/);
+  assert.match(source,/m\.availability\?\.bank!==false/);
+});
+
+test('dashboarden hämtar faktiska lager-, löne- och CMS-värden i privat drift',()=>{
+  for(const route of ['/inventory/items','/payroll/runs','/website/cms'])assert.ok(source.includes(route),route);
+  assert.match(source,/accountingEntries:false/);
+  assert.match(source,/accountingUnlocks:false/);
+});
