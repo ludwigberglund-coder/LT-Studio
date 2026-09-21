@@ -5,6 +5,7 @@ const Db=require('./database.js');
 const Accounting=require('./accounting-store.js');
 const Invoice=require('../../packages/invoicing/invoice.js');
 const InvoiceSettings=require('./company-invoice-settings.js');
+const AccountingSettings=require('./accounting-settings.js');
 const Pdf=require('../../packages/invoicing/pdf.js');
 const PrivateObject=require('./private-object-contract.js');
 const StoreFactory=require('./private-object-store-factory.js');
@@ -15,6 +16,7 @@ function text(value){return String(value??'').trim()}
 function initializeCustomerInvoicing(db){
   Accounting.initializeAccountingStore(db);
   InvoiceSettings.initializeInvoiceSettings(db);
+  AccountingSettings.initializeAccountingSettings(db);
   db.exec(`
     CREATE TABLE IF NOT EXISTS customer_invoice_documents(
       invoice_id TEXT PRIMARY KEY REFERENCES invoices(id) ON DELETE RESTRICT,
@@ -77,6 +79,21 @@ function initializeCustomerInvoicing(db){
       UNIQUE(company_id,original_invoice_id),
       UNIQUE(company_id,credit_invoice_id)
     ) STRICT;
+    CREATE TABLE IF NOT EXISTS customer_credit_refund_liabilities(
+      credit_invoice_id TEXT PRIMARY KEY REFERENCES invoices(id) ON DELETE RESTRICT,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      original_invoice_id TEXT NOT NULL REFERENCES invoices(id) ON DELETE RESTRICT,
+      liability_account TEXT NOT NULL,
+      amount_ore INTEGER NOT NULL CHECK(amount_ore>0),
+      decision_reference TEXT NOT NULL,
+      created_by TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+      created_at TEXT NOT NULL,
+      UNIQUE(company_id,original_invoice_id)
+    ) STRICT;
+    CREATE TRIGGER IF NOT EXISTS tenant_customer_credit_refund_liability_insert BEFORE INSERT ON customer_credit_refund_liabilities
+      WHEN NOT EXISTS(SELECT 1 FROM invoices WHERE id=NEW.original_invoice_id AND company_id=NEW.company_id)
+        OR NOT EXISTS(SELECT 1 FROM invoices WHERE id=NEW.credit_invoice_id AND company_id=NEW.company_id)
+      BEGIN SELECT RAISE(ABORT,'TENANT_RELATION_VIOLATION'); END;
     CREATE INDEX IF NOT EXISTS idx_customer_invoice_documents_company ON customer_invoice_documents(company_id,created_at);
     CREATE INDEX IF NOT EXISTS idx_customer_invoice_pdf_archives_company ON customer_invoice_pdf_archives(company_id,created_at);
     CREATE INDEX IF NOT EXISTS idx_customer_invoice_reservations_status ON customer_invoice_number_reservations(company_id,status,created_at);
@@ -90,6 +107,7 @@ function initializeCustomerInvoicing(db){
   protectAppendOnly(db,'customer_invoice_pdf_archives');
   protectAppendOnly(db,'customer_invoice_issue_requests');
   protectAppendOnly(db,'customer_invoice_credits');
+  protectAppendOnly(db,'customer_credit_refund_liabilities');
   db.exec(`CREATE TRIGGER IF NOT EXISTS history_invoice_reservation_identity BEFORE UPDATE ON customer_invoice_number_reservations
     WHEN NEW.company_id IS NOT OLD.company_id OR NEW.request_id IS NOT OLD.request_id OR NEW.purpose IS NOT OLD.purpose
       OR NEW.invoice_number IS NOT OLD.invoice_number OR NEW.payload_sha256 IS NOT OLD.payload_sha256
@@ -389,13 +407,16 @@ function validateCreditSource(db,{companyId,invoiceId,payload}){
   const original=Db.invoiceById(db,companyId,invoiceId);if(!original)throw invoiceError('Fakturan hittades inte i det inloggade företaget.','INVOICE_NOT_FOUND',404);if(original.totalOre<=0)throw invoiceError('En kreditfaktura kan inte krediteras med detta flöde.','CREDIT_SOURCE_INVALID',409);
   const existingCredit=db.prepare('SELECT credit_invoice_id AS creditInvoiceId FROM customer_invoice_credits WHERE company_id=? AND original_invoice_id=?').get(companyId,invoiceId);if(existingCredit)throw invoiceError('Fakturan är redan krediterad.','INVOICE_ALREADY_CREDITED',409);
   const settlement=creditSettlementState(db,companyId,original);
-  if(settlement.settledOre>0)throw invoiceError('Fakturan har mottagna betalningar som inte är återförda. Helkredit skulle skapa en skuld till kunden, men något verifierat återbetalnings-/skuldkonto är ännu inte beslutat i systemets kontoplan. Krediteringen stoppades.','CREDIT_AFTER_PAYMENT_REQUIRES_REFUND_ACCOUNT',409);
+  const accountingSettings=AccountingSettings.getAccountingSettings(db,companyId);
+  const refundLiabilityAccount=accountingSettings?.customerRefundLiabilityAccount||null;
+  const refundDecisionReference=accountingSettings?.customerRefundDecisionReference||null;
+  if(settlement.settledOre>0&&!refundLiabilityAccount)throw invoiceError('Fakturan har mottagna betalningar som inte är återförda. Helkredit skulle skapa en skuld till kunden, men något verifierat återbetalnings-/skuldkonto är ännu inte beslutat i systemets kontoplan. Krediteringen stoppades.','CREDIT_AFTER_PAYMENT_REQUIRES_REFUND_ACCOUNT',409);
   const reason=text(payload?.reason);if(reason.length<5||reason.length>500)throw invoiceError('Ange en tydlig orsak på 5–500 tecken.','CREDIT_REASON_REQUIRED',422);
   const creditDate=assertCreditDate(payload?.creditDate),periodRow=db.prepare('SELECT status FROM accounting_periods WHERE company_id=? AND period=?').get(companyId,creditDate.slice(0,7));if(periodRow?.status==='locked')throw invoiceError(`Bokföringsperioden ${creditDate.slice(0,7)} är låst.`,'PERIOD_LOCKED',409);
   const stored=documentForInvoice(db,companyId,invoiceId);if(!stored)throw invoiceError('Fakturans arkiverade originalunderlag saknas. Krediteringen stoppades.','INVOICE_DOCUMENT_REQUIRED',409);if(!pdfArchiveMetadata(db,companyId,invoiceId))throw invoiceError('Fakturans exakt arkiverade PDF saknas. Krediteringen stoppades.','INVOICE_PDF_ARCHIVE_REQUIRED',409);
   const originalEntry=Accounting.entryBySource(db,companyId,'customer-invoice',invoiceId);if(!originalEntry)throw invoiceError('Fakturans ursprungsverifikation saknas. Krediteringen stoppades.','INVOICE_ACCOUNTING_ENTRY_REQUIRED',409);
   const receivableLines=originalEntry.lines.filter(line=>line.account==='1510'),bookedReceivableOre=receivableLines.reduce((sum,line)=>sum+Number(line.debitOre||0)-Number(line.creditOre||0),0);if(!receivableLines.length||bookedReceivableOre!==original.totalOre)throw invoiceError('Fakturans kundfordringspost kan inte verifieras. Krediteringen stoppades.','INVOICE_ACCOUNTING_MISMATCH',409);
-  return{original,reason,creditDate,stored,originalEntry,settlement};
+  return{original,reason,creditDate,stored,originalEntry,settlement,refundLiabilityAccount,refundDecisionReference};
 }
 function prepareCreditIssuance(db,{companyId,userId,invoiceId,payload}){
   const requestId=validateRequestId(payload?.requestId),prior=db.prepare('SELECT original_invoice_id AS originalInvoiceId,credit_invoice_id AS creditInvoiceId FROM customer_invoice_credits WHERE company_id=? AND request_id=?').get(companyId,requestId);
@@ -403,19 +424,27 @@ function prepareCreditIssuance(db,{companyId,userId,invoiceId,payload}){
   const source=validateCreditSource(db,{companyId,invoiceId,payload});let reservation=reservationByRequest(db,companyId,requestId);const invoiceNumber=reservation?.invoiceNumber||nextInvoiceNumber(db,companyId);const document=creditDocumentFrom(source.stored.document,invoiceNumber,source.creditDate,source.reason),payloadSha256=requestDigest('credit',{payload,document},invoiceId);
   if(reservation)assertReservationMatch(reservation,{purpose:'credit',payloadSha256,sourceInvoiceId:invoiceId});else reservation=reserveInvoiceNumber(db,{companyId,requestId,purpose:'credit',payloadSha256,sourceInvoiceId:invoiceId});
   if(reservation.invoiceNumber!==invoiceNumber)throw invoiceError('Kreditfakturans nummerreservation ändrades under förberedelsen.','INVOICE_RESERVATION_STATE_ERROR',409);
-  return{duplicate:false,requestId,payloadSha256,invoiceNumber,invoiceId,reason:source.reason,creditDate:source.creditDate,document,userId};
+  return{duplicate:false,requestId,payloadSha256,invoiceNumber,invoiceId,reason:source.reason,creditDate:source.creditDate,document,userId,refundLiabilityAccount:source.refundLiabilityAccount||null,refundDecisionReference:source.refundDecisionReference||null,settledOre:source.settlement.settledOre};
 }
 function finalizeCreditIssuance(db,{companyId,userId,prepared,pdfBytes}){
   const prior=db.prepare('SELECT original_invoice_id AS originalInvoiceId,credit_invoice_id AS creditInvoiceId FROM customer_invoice_credits WHERE company_id=? AND request_id=?').get(companyId,prepared.requestId);if(prior){const existing=invoiceBundle(db,companyId,prior.creditInvoiceId);if(!existing?.pdfArchive)throw invoiceError('Tidigare kreditfaktura saknar exakt PDF-arkiv.','INVOICE_PDF_ARCHIVE_NOT_FOUND',409);return{...existing,duplicate:true,original:Db.invoiceById(db,companyId,prior.originalInvoiceId)}}
   const reservation=reservationByRequest(db,companyId,prepared.requestId);if(!reservation)throw invoiceError('Kreditfakturans nummerreservation saknas.','INVOICE_RESERVATION_NOT_FOUND',409);assertReservationMatch(reservation,{purpose:'credit',payloadSha256:prepared.payloadSha256,sourceInvoiceId:prepared.invoiceId});if(reservation.status!=='reserved'||reservation.invoiceNumber!==prepared.invoiceNumber)throw invoiceError('Kreditfakturans nummerreservation är inte i rätt läge.','INVOICE_RESERVATION_STATE_ERROR',409);
   const source=validateCreditSource(db,{companyId,invoiceId:prepared.invoiceId,payload:{reason:prepared.reason,creditDate:prepared.creditDate}}),original=source.original,originalEntry=source.originalEntry,document=prepared.document,invoiceNumber=prepared.invoiceNumber;
+  if((prepared.refundLiabilityAccount||null)!==(source.refundLiabilityAccount||null)||(prepared.refundDecisionReference||null)!==(source.refundDecisionReference||null)||Number(prepared.settledOre||0)!==source.settlement.settledOre)throw invoiceError('Kundåterbetalningsinställningen eller fakturans betalningsläge ändrades under krediteringen. Förbered krediten på nytt.','CREDIT_REFUND_CONFIGURATION_CHANGED',409);
   const creditInvoice=Db.createInvoice(db,{companyId,customerId:original.customerId,invoiceNumber,ocr:invoiceNumber,invoiceDate:prepared.creditDate,postingDate:prepared.creditDate,dueDate:prepared.creditDate,totalOre:-original.totalOre,remainingOre:0,vatOre:-original.vatOre,status:'Kreditfaktura',paymentMethod:original.paymentMethod,paymentAccount:original.paymentAccount,invoiceAccount:'1510'});
-  const posted=Accounting.postEntry(db,{companyId,postingDate:prepared.creditDate,description:`Kreditfaktura ${invoiceNumber} av ${original.invoiceNumber}`.slice(0,240),sourceType:'customer-credit-note',sourceId:creditInvoice.id,createdBy:userId,series:'F',lines:originalEntry.lines.map(line=>({account:line.account,text:`Kreditering av ${original.invoiceNumber}: ${line.text||originalEntry.description}`,debitOre:line.creditOre,creditOre:line.debitOre}))});
-  const createdAt=new Date().toISOString();db.prepare('UPDATE invoices SET remaining_ore=0,status=?,updated_at=? WHERE company_id=? AND id=?').run('Krediterad',createdAt,companyId,original.id);db.prepare('UPDATE invoices SET journal_number=?,updated_at=? WHERE company_id=? AND id=?').run(posted.entry.number,createdAt,companyId,creditInvoice.id);
+  const creditLines=originalEntry.lines.filter(line=>line.account!=='1510').map(line=>({account:line.account,text:`Kreditering av ${original.invoiceNumber}: ${line.text||originalEntry.description}`,debitOre:line.creditOre,creditOre:line.debitOre}));
+  if(original.remainingOre>0)creditLines.push({account:'1510',text:`Stänger öppen kundfordran ${original.invoiceNumber}`,debitOre:0,creditOre:original.remainingOre});
+  if(source.settlement.settledOre>0)creditLines.push({account:source.refundLiabilityAccount,text:`Skuld till kund efter kredit ${original.invoiceNumber}`,debitOre:0,creditOre:source.settlement.settledOre});
+  const posted=Accounting.postEntry(db,{companyId,postingDate:prepared.creditDate,description:`Kreditfaktura ${invoiceNumber} av ${original.invoiceNumber}`.slice(0,240),sourceType:'customer-credit-note',sourceId:creditInvoice.id,createdBy:userId,series:'F',lines:creditLines});
+  let creditTransaction=null;
+  if(original.remainingOre>0)creditTransaction=Db.addInvoiceTransaction(db,{companyId,invoiceId:original.id,transactionType:'credit',postingDate:prepared.creditDate,amountOre:-original.remainingOre,approved:true,account:'1510',journalNumber:posted.entry.number,bankReference:`credit-note:${creditInvoice.id}`});
+  const createdAt=new Date().toISOString();db.prepare('UPDATE invoices SET remaining_ore=0,status=?,updated_at=? WHERE company_id=? AND id=? AND remaining_ore=?').run('Krediterad',createdAt,companyId,original.id,original.remainingOre);db.prepare('UPDATE invoices SET journal_number=?,updated_at=? WHERE company_id=? AND id=?').run(posted.entry.number,createdAt,companyId,creditInvoice.id);
+  if(source.settlement.settledOre>0)db.prepare('INSERT INTO customer_credit_refund_liabilities(credit_invoice_id,company_id,original_invoice_id,liability_account,amount_ore,decision_reference,created_by,created_at) VALUES(?,?,?,?,?,?,?,?)').run(creditInvoice.id,companyId,original.id,source.refundLiabilityAccount,source.settlement.settledOre,source.refundDecisionReference,userId,createdAt);
   const documentJson=JSON.stringify(document),documentSha256=crypto.createHash('sha256').update(documentJson).digest('hex');db.prepare('INSERT INTO customer_invoice_documents(invoice_id,company_id,document_json,document_sha256,created_at) VALUES(?,?,?,?,?)').run(creditInvoice.id,companyId,documentJson,documentSha256,createdAt);
   const pdfArchive=storePdfArchive(db,{companyId,invoiceId:creditInvoice.id,invoiceNumber,documentType:'KREDITFAKTURA',pdfBytes});db.prepare('INSERT INTO customer_invoice_credits(company_id,request_id,original_invoice_id,credit_invoice_id,reason,created_by,created_at) VALUES(?,?,?,?,?,?,?)').run(companyId,prepared.requestId,original.id,creditInvoice.id,prepared.reason,userId,createdAt);markReservationIssued(db,{companyId,requestId:prepared.requestId,invoiceId:creditInvoice.id});
-  Db.appendAudit(db,{companyId,userId,action:'CUSTOMER_INVOICE_CREDITED',entityType:'invoice',entityId:original.id,details:{originalInvoiceNumber:original.invoiceNumber,creditInvoiceId:creditInvoice.id,creditInvoiceNumber:invoiceNumber,journalNumber:posted.entry.number,reason:prepared.reason,documentSha256,pdfSha256:pdfArchive.pdfSha256,pdfSizeBytes:pdfArchive.sizeBytes}});
+  Db.appendAudit(db,{companyId,userId,action:'CUSTOMER_INVOICE_CREDITED',entityType:'invoice',entityId:original.id,details:{originalInvoiceNumber:original.invoiceNumber,creditInvoiceId:creditInvoice.id,creditInvoiceNumber:invoiceNumber,journalNumber:posted.entry.number,reason:prepared.reason,documentSha256,pdfSha256:pdfArchive.pdfSha256,pdfSizeBytes:pdfArchive.sizeBytes,refundLiabilityAccount:source.refundLiabilityAccount||null,refundLiabilityOre:source.settlement.settledOre,creditTransactionId:creditTransaction?.id||null}});
   return{...invoiceBundle(db,companyId,creditInvoice.id),duplicate:false,original:Db.invoiceById(db,companyId,original.id)};
 }
 
-module.exports=Object.freeze({initializeCustomerInvoicing,customerByNumber,nextInvoiceNumber,profileStatus,resolvedProfile,listCustomerInvoices,documentForInvoice,pdfArchiveMetadata,pdfArchivePrivateObjectMetadata,pdfArchiveForInvoice,invoiceBundle,getCustomerInvoiceDraft,saveCustomerInvoiceDraft,clearCustomerInvoiceDraft,prepareInvoiceIssuance,finalizeInvoiceIssuance,prepareCreditIssuance,finalizeCreditIssuance,renderInvoicePdf,creditDocumentFrom,creditSettlementState,validateCreditSource,validateRequestId,reservationByRequest});
+function creditRefundLiability(db,companyId,creditInvoiceId){return db.prepare(`SELECT credit_invoice_id AS creditInvoiceId,company_id AS companyId,original_invoice_id AS originalInvoiceId,liability_account AS liabilityAccount,amount_ore AS amountOre,decision_reference AS decisionReference,created_by AS createdBy,created_at AS createdAt FROM customer_credit_refund_liabilities WHERE company_id=? AND credit_invoice_id=?`).get(companyId,creditInvoiceId)||null}
+module.exports=Object.freeze({initializeCustomerInvoicing,customerByNumber,nextInvoiceNumber,profileStatus,resolvedProfile,listCustomerInvoices,documentForInvoice,pdfArchiveMetadata,pdfArchivePrivateObjectMetadata,pdfArchiveForInvoice,invoiceBundle,getCustomerInvoiceDraft,saveCustomerInvoiceDraft,clearCustomerInvoiceDraft,prepareInvoiceIssuance,finalizeInvoiceIssuance,prepareCreditIssuance,finalizeCreditIssuance,renderInvoicePdf,creditDocumentFrom,creditSettlementState,creditRefundLiability,validateCreditSource,validateRequestId,reservationByRequest});
