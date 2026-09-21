@@ -26,6 +26,14 @@ function seed(){
   return{db,company,user};
 }
 
+test('betalningsstatus skiljer tydligt på bokförd inbetalning och utbetalningens steg',()=>{
+  assert.equal(Overview.paymentStatusLabel('in','unmatched'),'Ej matchad');
+  assert.equal(Overview.paymentStatusLabel('in','posted'),'Bokförd inbetalning');
+  assert.equal(Overview.paymentStatusLabel('out','prepared'),'Förberedd – ej frisläppt');
+  assert.equal(Overview.paymentStatusLabel('out','released'),'Frisläppt – väntar bankbekräftelse');
+  assert.equal(Overview.paymentStatusLabel('out','paid'),'Betald & bokförd');
+});
+
 test('periodgränser för vecka, månad och kvartal är deterministiska',()=>{
   assert.deepEqual(Overview.periodBounds({mode:'week',date:'2026-09-09'}),{from:'2026-09-07',to:'2026-09-13',label:'2026-09-07 – 2026-09-13',mode:'week'});
   assert.deepEqual(Overview.periodBounds({mode:'month',date:'2026-09-09'}),{from:'2026-09-01',to:'2026-09-30',label:'2026-09',mode:'month'});
@@ -40,6 +48,8 @@ test('betalningsöversikt summerar in och ut utan data från andra företag',()=
     assert.equal(report.summary.outgoingOre,12500);
     assert.equal(report.summary.netOre,7500);
     assert.equal(report.rows.some(row=>row.amountOre===999999),false);
+    assert.equal(report.rows.find(row=>row.direction==='in').statusLabel,'Ej matchad');
+    assert.equal(report.rows.find(row=>row.direction==='out').statusLabel,'Betald & bokförd');
     const incomingOnly=Overview.paymentOverview(db,company.id,{mode:'week',date:'2026-09-09',direction:'in'});
     assert.equal(incomingOnly.rows.length,1);assert.equal(incomingOnly.summary.outgoingOre,0);
   }finally{db.close()}
@@ -78,6 +88,6 @@ test('HTTP betalningsöversikt kräver personlig session',async()=>{
   try{
     assert.equal((await fetch(base+'/api/v1/reports/payments-overview?mode=day&date=2026-09-20')).status,401);
     const response=await fetch(base+'/api/v1/reports/payments-overview?mode=day&date=2026-09-20',{headers:{Cookie:`rollands_session=${token}`}});
-    assert.equal(response.status,200);const body=await response.json();assert.equal(body.summary.incomingOre,45000);assert.equal(body.summary.count,1);
+    assert.equal(response.status,200);const body=await response.json();assert.equal(body.summary.incomingOre,45000);assert.equal(body.summary.count,1);assert.equal(body.rows[0].statusLabel,'Ej matchad');
   }finally{await new Promise(resolve=>runtime.close(resolve))}
 });
