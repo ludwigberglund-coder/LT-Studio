@@ -102,7 +102,7 @@ function initializeCustomerInvoicing(db){
       AND (${fields.map(field=>`NEW.${field} IS NOT OLD.${field}`).join(' OR ')})
     BEGIN SELECT RAISE(ABORT,'ISSUED_INVOICE_IMMUTABLE'); END;`);
 }
-function customerByNumber(db,companyId,customerNumber){return Db.listCustomers(db,companyId).find(row=>row.customerNumber===text(customerNumber))||null}
+function customerByNumber(db,companyId,customerNumber){return Db.listCustomers(db,companyId,{includeArchived:false}).find(row=>row.customerNumber===text(customerNumber))||null}
 function nextInvoiceNumber(db,companyId){
   const row=db.prepare(`SELECT MAX(number) AS maxNumber FROM (
       SELECT CAST(invoice_number AS INTEGER) AS number FROM invoices
