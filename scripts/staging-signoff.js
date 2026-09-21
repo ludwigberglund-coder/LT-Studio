@@ -97,7 +97,7 @@ function createStagingSignoff(env=process.env,{now=Date.now(),cwd=repositoryRoot
   }
 
   const signoff=Object.freeze({
-    schemaVersion:1,
+    schemaVersion:2,
     environment:'staging',
     createdAt:new Date(now).toISOString(),
     releaseCommit,
