@@ -36,7 +36,8 @@
     "platform:recover-account": "node scripts/recover-account.js",
     "pilot:release:verify": "node scripts/pilot-release-verify.js",
     "pilot:rollback:verify": "node scripts/pilot-rollback-verify.js",
-    "storage:inventory": "node scripts/private-object-inventory.js"
+    "storage:inventory": "node scripts/private-object-inventory.js",
+    "storage:plan-copies": "node scripts/private-object-copy-plan.js"
   },
   "engines": {
     "node": ">=24"
