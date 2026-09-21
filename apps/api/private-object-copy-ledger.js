@@ -133,29 +133,16 @@ function planPrivateObjectCopy(db,{metadata,provider,createdAt=nowIso()}={}){
   const normalized=PrivateObject.createPrivateObjectMetadata(metadata);
   const target=normalizeTargetProvider(provider);
   const storageKey=externalStorageKey(normalized);
-  const existing=copyByIdentity(db,{
+  const identity={
     companyId:normalized.companyId,
     kind:normalized.kind,
     objectId:normalized.objectId,
     sha256:normalized.sha256,
     provider:target
-  });
-
-  if(existing){
-    const matches=
-      existing.logicalKey===normalized.objectKey&&
-      existing.storageKey===storageKey&&
-      existing.mimeType===normalized.mimeType&&
-      existing.sizeBytes===normalized.sizeBytes&&
-      existing.sourceCreatedAt===normalized.createdAt;
-    if(!matches){
-      throw copyError('Befintlig kopieringsplan matchar inte objektets metadata.','PRIVATE_OBJECT_COPY_CONFLICT');
-    }
-    return existing;
-  }
-
+  };
   const created=normalizeTimestamp(createdAt,'Skapad tid');
-  db.prepare(`INSERT INTO private_object_copies(
+
+  db.prepare(`INSERT OR IGNORE INTO private_object_copies(
     company_id,kind,object_id,sha256,provider,logical_key,storage_key,mime_type,size_bytes,
     source_created_at,status,attempt_count,last_error,verified_at,created_at,updated_at
   ) VALUES(?,?,?,?,?,?,?,?,?,?,'pending',0,NULL,NULL,?,?)`).run(
@@ -173,13 +160,24 @@ function planPrivateObjectCopy(db,{metadata,provider,createdAt=nowIso()}={}){
     created
   );
 
-  return copyByIdentity(db,{
-    companyId:normalized.companyId,
-    kind:normalized.kind,
-    objectId:normalized.objectId,
-    sha256:normalized.sha256,
-    provider:target
-  });
+  const copy=copyByIdentity(db,identity);
+  if(!copy){
+    throw copyError(
+      'Objektets externa lagringsnyckel kolliderar med en annan kopieringsplan.',
+      'PRIVATE_OBJECT_COPY_STORAGE_KEY_CONFLICT'
+    );
+  }
+
+  const matches=
+    copy.logicalKey===normalized.objectKey&&
+    copy.storageKey===storageKey&&
+    copy.mimeType===normalized.mimeType&&
+    copy.sizeBytes===normalized.sizeBytes&&
+    copy.sourceCreatedAt===normalized.createdAt;
+  if(!matches){
+    throw copyError('Befintlig kopieringsplan matchar inte objektets metadata.','PRIVATE_OBJECT_COPY_CONFLICT');
+  }
+  return copy;
 }
 
 function requireCopy(db,identity){
