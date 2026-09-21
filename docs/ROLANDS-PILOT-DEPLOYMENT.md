@@ -56,7 +56,7 @@ Den avsedda ordningen är:
 1. sätt `NODE_ENV=production` och `ROLLANDS_ENV=staging`,
 2. fyll den privata operationsfilen med riktiga ansvar, kontaktvägar, offsite-destination och retention, men låt `approvedForPilot` vara `false` och `approvedAt` vara tomt/null,
 3. kör `npm run pilot:preflight`; staging omfattas av samma privata runtimekrav som pilot/produktion,
-4. genomför backup → restore drill, extern monitoring/larmtest och Rolands UAT med fiktiva eller avidentifierade data,
+4. genomför backup → restore drill, extern monitoring/larmtest och Rolands UAT med enbart syntetiska/fiktiva data; ingen Rolands-data eller avidentifierad kunddata får användas,
 5. dokumentera resultat och fatta därefter ett uttryckligt pilotbeslut,
 6. sätt `approvedForPilot:true` och ett verkligt `approvedAt` i den privata operationsfilen,
 7. byt till `ROLLANDS_ENV=pilot` och kör `npm run pilot:preflight` igen före första riktiga pilotdata.
@@ -85,7 +85,7 @@ Exempel:
 ```bash
 sudo mkdir -p /opt/rollands
 sudo chown rollands:rollands /opt/rollands
-sudo -u rollands git clone https://github.com/ludwigberglund-coder/Rollands.git /opt/rollands/current
+sudo -u rollands git clone https://github.com/ludwigberglund-coder/LT-Studio.git /opt/rollands/current
 cd /opt/rollands/current
 npm ci --omit=dev --ignore-scripts
 ```
@@ -351,12 +351,12 @@ För piloten bör loggar behållas enligt en beslutad retention och skyddas frå
 När tjänsten är startad:
 
 ```bash
-curl -fsS https://<pilot-hostname>/api/v1/health
+curl -fsS https://<pilot-hostname>/api/v1/readiness/core
 ```
 
 Förväntat svar innehåller `ok: true` och `service: rollands-api-v1`.
 
-En extern monitor bör kontrollera endpointen minst var 1–5 minut. Health check visar att processen svarar; den ersätter inte backup-, disk- eller UAT-kontroller.
+En extern monitor bör kontrollera endpointen minst var 1–5 minut. Core readiness visar de tekniska readiness-kontroller som kan verifieras utan monitoreringsbeviset självt; den ersätter inte full staging-signoff eller UAT.
 
 ## 15. Preflight före start/release
 
