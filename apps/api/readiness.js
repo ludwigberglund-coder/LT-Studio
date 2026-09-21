@@ -8,6 +8,7 @@ const DEFAULT_MIN_FREE_BYTES=256*1024*1024;
 const DEFAULT_BACKUP_MAX_AGE_MS=26*60*60*1000;
 const DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS=26*60*60*1000;
 const DEFAULT_RESTORE_DRILL_MAX_AGE_MS=30*24*60*60*1000;
+const DEFAULT_OFFSITE_RESTORE_MAX_AGE_MS=30*24*60*60*1000;
 const DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS=7*24*60*60*1000;
 
 function sha256File(filename){return crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex')}
@@ -82,6 +83,38 @@ function offsiteBackupEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_OFFSITE
     return{ok:ageMs<=maxAgeMs,ageMs};
   }catch{return{ok:false,ageMs:null}}
 }
+function offsiteRestoreEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_OFFSITE_RESTORE_MAX_AGE_MS}={}){
+  try{
+    if(!filename||!fs.existsSync(filename)||!fs.statSync(filename).isFile())return{ok:false,ageMs:null};
+    const value=JSON.parse(fs.readFileSync(filename,'utf8'));
+    const sha=String(value.sourceEncryptedSha256||'').trim().toLowerCase();
+    const encryptedKey=String(value.encryptedStorageKey||'').trim();
+    const checksumKey=String(value.checksumStorageKey||'').trim();
+    const sizeBytes=Number(value.sourceSizeBytes);
+    if(value.schemaVersion!==1||value.provider!=='r2'||value.jurisdiction!=='eu'||value.remoteDownloadVerified!==true)return{ok:false,ageMs:null};
+    if(value.sqliteIntegrity!==true||value.foreignKeys!==true||value.productionDatabaseTouched!==false||value.restoreCopyRemoved!==true||value.downloadedCopiesRemoved!==true)return{ok:false,ageMs:null};
+    if(value.privateObjectsVerified!==true||value.privateObjectSchemaComplete!==true||value.privateObjectIssueCount!==0)return{ok:false,ageMs:null};
+    if(!/^[a-f0-9]{64}$/.test(sha)||!Number.isSafeInteger(sizeBytes)||sizeBytes<1)return{ok:false,ageMs:null};
+    const prefix=`encrypted-sqlite-backups/${sha}/`;
+    if(!encryptedKey.startsWith(prefix)||!/\/rollands-[0-9A-Za-z._-]+\.sqlite\.enc$/.test('/'+encryptedKey)||checksumKey!==encryptedKey+'.sha256')return{ok:false,ageMs:null};
+    const objectCount=Number(value.privateObjectCount),verifiedCount=Number(value.verifiedPrivateObjectCount),objectBytes=Number(value.privateObjectBytes);
+    if(!Number.isSafeInteger(objectCount)||objectCount<0||verifiedCount!==objectCount||!Number.isSafeInteger(objectBytes)||objectBytes<0)return{ok:false,ageMs:null};
+    const byKind=value.privateObjectsByKind;
+    if(!byKind||typeof byKind!=='object')return{ok:false,ageMs:null};
+    const requiredKinds=['document','supplier-invoice','customer-invoice-pdf'];
+    let countedObjects=0,countedVerified=0,countedBytes=0;
+    for(const kind of requiredKinds){
+      const row=byKind[kind];
+      if(!row||!Number.isSafeInteger(Number(row.objects))||Number(row.objects)<0||!Number.isSafeInteger(Number(row.verified))||Number(row.verified)<0||!Number.isSafeInteger(Number(row.bytes))||Number(row.bytes)<0)return{ok:false,ageMs:null};
+      countedObjects+=Number(row.objects);countedVerified+=Number(row.verified);countedBytes+=Number(row.bytes);
+    }
+    if(countedObjects!==objectCount||countedVerified!==verifiedCount||countedBytes!==objectBytes)return{ok:false,ageMs:null};
+    const verifiedAt=Date.parse(String(value.verifiedAt||''));
+    if(!Number.isFinite(verifiedAt)||verifiedAt>now+5*60*1000)return{ok:false,ageMs:null};
+    const ageMs=Math.max(0,now-verifiedAt);
+    return{ok:ageMs<=maxAgeMs,ageMs};
+  }catch{return{ok:false,ageMs:null}}
+}
 function monitoringEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS}={}){
   try{
     if(!filename||!fs.existsSync(filename)||!fs.statSync(filename).isFile())return{ok:false,ageMs:null,alertAgeMs:null};
@@ -99,7 +132,7 @@ function monitoringEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_MONITORING
   }catch{return{ok:false,ageMs:null,alertAgeMs:null}}
 }
 
-function readinessReport({db,databasePath=':memory:',backupPath='',offsiteBackupEvidencePath='',restoreEvidencePath='',monitoringEvidencePath='',now=Date.now(),minFreeBytes=DEFAULT_MIN_FREE_BYTES,backupMaxAgeMs=DEFAULT_BACKUP_MAX_AGE_MS,offsiteBackupMaxAgeMs=DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS,restoreDrillMaxAgeMs=DEFAULT_RESTORE_DRILL_MAX_AGE_MS,monitoringEvidenceMaxAgeMs=DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,requireBackup=false,requireOffsiteBackupEvidence=false,requireRestoreEvidence=false,requireMonitoringEvidence=false}){
+function readinessReport({db,databasePath=':memory:',backupPath='',offsiteBackupEvidencePath='',restoreEvidencePath='',offsiteRestoreEvidencePath='',monitoringEvidencePath='',now=Date.now(),minFreeBytes=DEFAULT_MIN_FREE_BYTES,backupMaxAgeMs=DEFAULT_BACKUP_MAX_AGE_MS,offsiteBackupMaxAgeMs=DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS,restoreDrillMaxAgeMs=DEFAULT_RESTORE_DRILL_MAX_AGE_MS,offsiteRestoreMaxAgeMs=DEFAULT_OFFSITE_RESTORE_MAX_AGE_MS,monitoringEvidenceMaxAgeMs=DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,requireBackup=false,requireOffsiteBackupEvidence=false,requireRestoreEvidence=false,requireOffsiteRestoreEvidence=false,requireMonitoringEvidence=false}){
   const databaseRead=databaseReadOk(db);
   const databaseWrite=databaseWriteOk(db);
   let freeBytes=0,diskSpace=true;
@@ -120,11 +153,16 @@ function readinessReport({db,databasePath=':memory:',backupPath='',offsiteBackup
     const evidence=restoreDrillEvidence(restoreEvidencePath,{now,maxAgeMs:restoreDrillMaxAgeMs});
     restoreDrill=evidence.ok;restoreDrillAgeMs=evidence.ageMs;
   }
+  let offsiteRestore=true,offsiteRestoreAgeMs=null;
+  if(requireOffsiteRestoreEvidence){
+    const evidence=offsiteRestoreEvidence(offsiteRestoreEvidencePath,{now,maxAgeMs:offsiteRestoreMaxAgeMs});
+    offsiteRestore=evidence.ok;offsiteRestoreAgeMs=evidence.ageMs;
+  }
   let monitoring=true,monitoringAgeMs=null,alertAgeMs=null;
   if(requireMonitoringEvidence){
     const evidence=monitoringEvidence(monitoringEvidencePath,{now,maxAgeMs:monitoringEvidenceMaxAgeMs});
     monitoring=evidence.ok;monitoringAgeMs=evidence.ageMs;alertAgeMs=evidence.alertAgeMs;
   }
-  return Object.freeze({ok:databaseRead&&databaseWrite&&diskSpace&&backup&&offsiteBackup&&restoreDrill&&monitoring,checks:{databaseRead,databaseWrite,diskSpace,backup,offsiteBackup,restoreDrill,monitoring},freeBytes:Number.isFinite(freeBytes)?freeBytes:null,backupAgeMs,offsiteBackupAgeMs,restoreDrillAgeMs,monitoringAgeMs,alertAgeMs});
+  return Object.freeze({ok:databaseRead&&databaseWrite&&diskSpace&&backup&&offsiteBackup&&restoreDrill&&offsiteRestore&&monitoring,checks:{databaseRead,databaseWrite,diskSpace,backup,offsiteBackup,restoreDrill,offsiteRestore,monitoring},freeBytes:Number.isFinite(freeBytes)?freeBytes:null,backupAgeMs,offsiteBackupAgeMs,restoreDrillAgeMs,offsiteRestoreAgeMs,monitoringAgeMs,alertAgeMs});
 }
-module.exports=Object.freeze({DEFAULT_MIN_FREE_BYTES,DEFAULT_BACKUP_MAX_AGE_MS,DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS,DEFAULT_RESTORE_DRILL_MAX_AGE_MS,DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,latestBackup,verifyBackup,diskFreeBytes,databaseReadOk,databaseWriteOk,offsiteBackupEvidence,restoreDrillEvidence,monitoringEvidence,readinessReport});
+module.exports=Object.freeze({DEFAULT_MIN_FREE_BYTES,DEFAULT_BACKUP_MAX_AGE_MS,DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS,DEFAULT_RESTORE_DRILL_MAX_AGE_MS,DEFAULT_OFFSITE_RESTORE_MAX_AGE_MS,DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,latestBackup,verifyBackup,diskFreeBytes,databaseReadOk,databaseWriteOk,offsiteBackupEvidence,restoreDrillEvidence,offsiteRestoreEvidence,monitoringEvidence,readinessReport});
