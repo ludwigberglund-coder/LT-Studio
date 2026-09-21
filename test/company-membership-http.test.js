@@ -4,9 +4,9 @@ const assert=require('node:assert/strict');
 const {fixture}=require('./private-workflows-fixture.cjs');
 const Db=require('../apps/api/database.js');
 const Auth=require('../apps/api/auth.js');
-const lists=['/receivables','/customers','/customer-invoices','/payables/invoices','/suppliers','/bank/payments','/documents','/accounting/entries','/payroll/runs','/inventory/items','/automation/proposals','/website/cms','/reports/trial-balance?from=2026-09-01&to=2026-09-30','/audit'];
+const lists=['/receivables','/customers','/customer-invoices','/payables/invoices','/suppliers','/bank/payments','/documents','/accounting/entries','/payroll/runs','/inventory/items','/automation/proposals','/website/cms','/reports/trial-balance?from=2026-09-01&to=2026-09-30','/reports/sales?from=2026-09-01&to=2026-09-30','/audit'];
 async function run(fn){const f=await fixture();try{await fn(f)}finally{await f.close()}}
-test('två personliga medlemmar har samma åtkomst i alla 14 API-familjer',()=>run(async f=>{
+test('två personliga medlemmar har samma åtkomst i alla 15 API-familjer',()=>run(async f=>{
   for(const username of [f.admin.username,f.auditor.username]){
     const headers=await f.login(username);
     const session=await (await fetch(f.base+'/api/v1/session',{headers})).json();

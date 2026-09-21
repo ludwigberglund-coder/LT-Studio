@@ -30,6 +30,53 @@ function profitLoss(db,companyId,{from,to}){
   const rows=db.prepare(`SELECT l.account,SUM(l.credit_ore-l.debit_ore) AS amountOre FROM accounting_entry_lines l JOIN accounting_entries e ON e.id=l.entry_id WHERE e.company_id=? AND e.posting_date BETWEEN ? AND ? AND CAST(l.account AS INTEGER) BETWEEN 3000 AND 8999 GROUP BY l.account ORDER BY l.account`).all(companyId,from,to).map(r=>({account:r.account,amountOre:Number(r.amountOre||0)}));
   return{from,to,rows,resultOre:rows.reduce((s,r)=>s+r.amountOre,0)};
 }
+function salesReport(db,companyId,{from,to}){
+  validateRange(from,to);
+  const normalize=row=>({
+    ...row,
+    invoiceCount:Number(row.invoiceCount||0),
+    netOre:Number(row.netOre||0),
+    vatOre:Number(row.vatOre||0),
+    grossOre:Number(row.grossOre||0),
+    paidOre:Number(row.paidOre||0),
+    outstandingOre:Number(row.outstandingOre||0)
+  });
+  const rows=db.prepare(`SELECT invoice_date AS invoiceDate,COUNT(*) AS invoiceCount,
+    COALESCE(SUM(total_ore-vat_ore),0) AS netOre,
+    COALESCE(SUM(vat_ore),0) AS vatOre,
+    COALESCE(SUM(total_ore),0) AS grossOre,
+    COALESCE(SUM(total_ore-remaining_ore),0) AS paidOre,
+    COALESCE(SUM(remaining_ore),0) AS outstandingOre
+    FROM invoices
+    WHERE company_id=? AND invoice_date BETWEEN ? AND ?
+    GROUP BY invoice_date
+    ORDER BY invoice_date`).all(companyId,from,to).map(normalize);
+  const customers=db.prepare(`SELECT c.customer_number AS customerNumber,c.name AS customerName,COUNT(*) AS invoiceCount,
+    COALESCE(SUM(i.total_ore-i.vat_ore),0) AS netOre,
+    COALESCE(SUM(i.vat_ore),0) AS vatOre,
+    COALESCE(SUM(i.total_ore),0) AS grossOre,
+    COALESCE(SUM(i.total_ore-i.remaining_ore),0) AS paidOre,
+    COALESCE(SUM(i.remaining_ore),0) AS outstandingOre
+    FROM invoices i
+    JOIN customers c ON c.id=i.customer_id AND c.company_id=i.company_id
+    WHERE i.company_id=? AND i.invoice_date BETWEEN ? AND ?
+    GROUP BY c.id,c.customer_number,c.name
+    ORDER BY grossOre DESC,c.name`).all(companyId,from,to).map(normalize);
+  const totals=rows.reduce((sum,row)=>({
+    invoiceCount:sum.invoiceCount+row.invoiceCount,
+    netOre:sum.netOre+row.netOre,
+    vatOre:sum.vatOre+row.vatOre,
+    grossOre:sum.grossOre+row.grossOre,
+    paidOre:sum.paidOre+row.paidOre,
+    outstandingOre:sum.outstandingOre+row.outstandingOre
+  }),{invoiceCount:0,netOre:0,vatOre:0,grossOre:0,paidOre:0,outstandingOre:0});
+  totals.averageInvoiceOre=totals.invoiceCount?Math.round(totals.grossOre/totals.invoiceCount):0;
+  return{
+    basis:'customer-invoice-operational',
+    from,to,rows,customers,totals,
+    warning:'Försäljningsrapporten bygger på kundfakturornas fakturadatum och visar operativ försäljning. Bokföringsmässig omsättning och periodisering följs i Resultatrapporten.'
+  };
+}
 const OUTPUT_VAT_ACCOUNTS=Object.freeze({'2611':25,'2621':12,'2631':6});
 const INPUT_VAT_ACCOUNTS=Object.freeze(new Set(['2641']));
 const VAT_SETTLEMENT_ACCOUNTS=Object.freeze(new Set(['2650']));
@@ -229,4 +276,4 @@ function payablesControl(db,companyId){
 
 function reportSummary(db,companyId,{from,to,period}){const trial=trialBalance(db,companyId,{from,to}),pl=profitLoss(db,companyId,{from,to}),vat=vatControl(db,companyId,{period});return{from,to,trialTotals:trial.totals,profitLoss:pl.resultOre,vat}}
 
-module.exports=Object.freeze({validDate,validPeriod,periodBounds,trialBalance,generalLedger,profitLoss,vatLedgerRows,customerVatSourceChecks,supplierVatSourceChecks,vatControl,receivablesControl,payablesControl,reportSummary,OUTPUT_VAT_ACCOUNTS});
+module.exports=Object.freeze({validDate,validPeriod,periodBounds,trialBalance,generalLedger,profitLoss,salesReport,vatLedgerRows,customerVatSourceChecks,supplierVatSourceChecks,vatControl,receivablesControl,payablesControl,reportSummary,OUTPUT_VAT_ACCOUNTS});

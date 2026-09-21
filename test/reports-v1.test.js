@@ -28,6 +28,29 @@ test('huvudbok kan filtreras på konto',()=>{const {db,company}=seed();try{const
 
 test('resultatrapport summerar konton 3000-8999',()=>{const {db,company}=seed();try{const r=Reports.profitLoss(db,company.id,{from:'2026-09-01',to:'2026-09-30'});assert.equal(r.rows.find(x=>x.account==='3010').amountOre,100000);assert.equal(r.rows.find(x=>x.account==='4010').amountOre,-50000);assert.equal(r.resultOre,50000);}finally{db.close()}});
 
+test('försäljningsrapport summerar fakturadatum och isolerar andra företag',()=>{const {db,company}=seed();try{
+  const customer2=Db.createCustomer(db,{companyId:company.id,customerNumber:'K-2',name:'Kund Två AB'});
+  Db.createInvoice(db,{companyId:company.id,customerId:customer2.id,invoiceNumber:'1002',invoiceDate:'2026-09-20',postingDate:'2026-09-20',dueDate:'2026-10-20',totalOre:212000,vatOre:12000,remainingOre:120000,status:'Bokförd'});
+  const other=Db.createCompany(db,{legalName:'Annat Rapportbolag AB',displayName:'Annat Rapportbolag',orgNumber:'559900-6060'});
+  const otherCustomer=Db.createCustomer(db,{companyId:other.id,customerNumber:'X-1',name:'Annan Kund AB'});
+  Db.createInvoice(db,{companyId:other.id,customerId:otherCustomer.id,invoiceNumber:'X-SECRET',invoiceDate:'2026-09-15',postingDate:'2026-09-15',dueDate:'2026-10-15',totalOre:999999,vatOre:199999,remainingOre:999999,status:'Bokförd'});
+
+  const r=Reports.salesReport(db,company.id,{from:'2026-09-01',to:'2026-09-30'});
+  assert.equal(r.basis,'customer-invoice-operational');
+  assert.equal(r.totals.invoiceCount,2);
+  assert.equal(r.totals.netOre,300000);
+  assert.equal(r.totals.vatOre,37000);
+  assert.equal(r.totals.grossOre,337000);
+  assert.equal(r.totals.paidOre,92000);
+  assert.equal(r.totals.outstandingOre,245000);
+  assert.equal(r.totals.averageInvoiceOre,168500);
+  assert.equal(r.rows.length,2);
+  assert.equal(r.customers.length,2);
+  assert.equal(r.customers[0].customerNumber,'K-2');
+  assert.doesNotMatch(JSON.stringify(r),/X-SECRET|Annan Kund AB|999999/);
+  assert.match(r.warning,/operativ försäljning/i);
+}finally{db.close()}});
+
 test('momsavstämning bygger beloppen från huvudbokens momskonton och stämmer av fakturakällorna',()=>{const {db,company}=seed();try{
   const r=Reports.vatControl(db,company.id,{period:'2026-09'});
   assert.equal(r.basis,'booked-ledger-control');

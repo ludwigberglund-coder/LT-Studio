@@ -113,6 +113,15 @@ function ledger(db,companyId,{from,to,account=''}={}){
     ['description','Beskrivning'],['debitOre','Debet öre'],['creditOre','Kredit öre'],['sourceType','Källtyp'],['sourceId','Käll-ID']
   ]};
 }
+function sales(db,companyId,{from='',to=''}={}){
+  if(!from||!to)throw exportError('Försäljningsexport kräver från- och tilldatum.','EXPORT_RANGE_REQUIRED');
+  const report=Reports.salesReport(db,companyId,{from,to});
+  return {filename:'forsaljningsrapport.csv',rows:report.customers,columns:[
+    ['customerNumber','Kundnummer'],['customerName','Kund'],['invoiceCount','Antal fakturor'],
+    ['netOre','Netto öre'],['vatOre','Moms öre'],['grossOre','Brutto öre'],
+    ['paidOre','Betalt öre'],['outstandingOre','Utestående öre']
+  ]};
+}
 function vat(db,companyId,{period}={}){
   if(!period)throw exportError('Momsexport kräver period ÅÅÅÅ-MM.','EXPORT_PERIOD_REQUIRED');
   const report=Reports.vatControl(db,companyId,{period});
@@ -134,7 +143,8 @@ function select(db,companyId,type,filters){
   if(type==='payments-overview')return paymentOverview(db,companyId,filters);
   if(type==='journal')return journal(db,companyId,filters);
   if(type==='ledger')return ledger(db,companyId,filters);
+  if(type==='sales')return sales(db,companyId,filters);
   if(type==='vat')return vat(db,companyId,filters);
   throw exportError('Exporttypen stöds inte.','EXPORT_NOT_FOUND',404);
 }
-module.exports=Object.freeze({safeText,csvCell,toCsv,receivables,receipts,payables,payments,paymentOverview,journal,ledger,vat,buildCsv,select,validateRange});
+module.exports=Object.freeze({safeText,csvCell,toCsv,receivables,receipts,payables,payments,paymentOverview,journal,ledger,sales,vat,buildCsv,select,validateRange});
