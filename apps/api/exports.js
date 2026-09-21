@@ -78,7 +78,7 @@ function paymentOverview(db,companyId,filters={}){
     direction:row.direction==='in'?'Inbetalning':'Utbetalning',
     counterparty:row.counterparty||'',
     invoiceNumber:row.invoiceNumber||'',
-    status:row.status||'',
+    status:row.statusLabel||row.status||'',
     reference:row.reference||'',
     paymentAccount:row.paymentAccount||'',
     counterpartyAccount:row.counterpartyAccount||'',
