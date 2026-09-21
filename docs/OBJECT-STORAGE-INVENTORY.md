@@ -1,6 +1,6 @@
 # Inventering – privat dokumentlagring
 
-Datum: 2026-09-20
+Datum: 2026-09-21
 
 ## Syfte
 
@@ -13,19 +13,30 @@ Målet är att dokumentera exakt vad som måste bevaras innan vi senare kan flyt
 
 ## Aktuell status efter inventeringen
 
-Förberedelsen har nu gått ett steg längre utan att någon data har flyttats.
+Förberedelsen har nu gått från inventering till ett gemensamt internt lagringskontrakt utan att någon data har flyttats.
 
-Alla tre privata filflöden har varsin SQLite-baserad intern lagringsadapter:
+Gemensamma kontrakt:
+
+- `apps/api/private-object-contract.js` definierar provider-neutral objektidentitet och metadata,
+- `apps/api/private-object-store-contract.js` definierar ett gemensamt `put`/`get`/`exists`-gränssnitt och verifierar storlek samt SHA-256 innan skrivning.
+
+Alla tre privata filflöden har dessutom varsin SQLite-providerbrygga:
+
+- `apps/api/sqlite-document-private-object-provider.js`,
+- `apps/api/sqlite-supplier-invoice-private-object-provider.js`,
+- `apps/api/sqlite-customer-invoice-private-object-provider.js`.
+
+Runtime för dokumentarkiv, leverantörsfakturans PDF och kundfakturans arkiverade PDF går nu genom det gemensamma provider-kontraktet. Bryggorna använder fortfarande de befintliga SQLite-adaptrarna bakom kontraktet.
+
+De underliggande SQLite-adaptrarna är fortsatt:
 
 - `apps/api/document-content-store.js`,
 - `apps/api/supplier-invoice-document-store.js`,
 - `apps/api/customer-invoice-pdf-archive-store.js`.
 
-Adaptrarna kapslar binär läsning/skrivning bakom `put`, `get` och `exists` och kräver företagskontext.
+`test/storage-seam-contract.test.js` fungerar som arkitekturspärr i CI. Den stoppar direkt runtime-åtkomst till privata BLOB-fält och verifierar dessutom att de tre affärsflödena inte kringgår provider-kontraktet.
 
-`test/storage-seam-contract.test.js` fungerar som arkitekturspärr i CI. Runtime-koden får inte börja läsa eller skriva `content_blob`, `document_blob` eller `pdf_blob` direkt utanför de godkända lagringsadaptrarna.
-
-**Viktigt:** innehållet ligger fortfarande i SQLite. Detta är endast en teknisk gräns som gör ett framtida byte mindre riskfyllt.
+**Viktigt:** allt binärt innehåll ligger fortfarande i SQLite. Ingen extern objektlagring är aktiverad och ingen kunddata har migrerats.
 
 ## Filer som idag ligger direkt i SQLite
 
@@ -205,16 +216,17 @@ Därför ska framtida migration vara verifierbar och återkörbar, och gammalt i
 
 Nästa etapp ska fortfarande inte flytta några filer.
 
-De tre lagringsgränserna och CI-spärren finns nu. Nästa lämpliga steg är att definiera en **provider-neutral objektidentitet och metadataform** som kan användas av en framtida extern adapter utan att ändra affärsreglerna.
+Metadataformen, provider-kontraktet, de tre SQLite-bryggorna och runtime-kopplingen finns nu.
 
-Den etappen bör endast bestämma exempelvis:
+Nästa lämpliga steg är en liten **provider-factory/konfigurationsgräns** som väljer aktiv implementation centralt i stället för att varje affärsmodul själv skapa sin SQLite-provider.
 
-- servergenererad objektnyckel,
-- `company_id`,
-- objekt-/dokument-id,
-- MIME-typ,
-- storlek,
-- SHA-256,
-- lagringsstatus.
+Den etappen ska:
 
-SQLite-BLOB ska fortsatt vara den enda aktiva implementationen tills detta kontrakt är testat. Ingen extern lagring ska kopplas in i samma ändring.
+- ha SQLite som enda tillåtna och förvalda provider,
+- inte innehålla S3-, R2- eller annan extern implementation,
+- inte ändra databasstruktur eller API,
+- inte flytta några filer,
+- göra ett framtida providerbyte möjligt på ett enda kontrollerat ställe,
+- fail-closed om en okänd provider anges.
+
+Först efter att den gränsen är testad bör en separat etapp utvärdera en extern objektlagringsprovider.
