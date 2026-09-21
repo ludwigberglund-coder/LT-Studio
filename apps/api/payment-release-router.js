@@ -27,8 +27,6 @@ function createPaymentReleaseRouter(options){
       const s=requireSession(req);csrf(req,s);permission(s,'payment.release');
       const payment=Release.paymentById(db,s.companyId,match[1]);
       if(!payment)throw err('Betalningen hittades inte.','PAYMENT_NOT_FOUND',404);
-      const workflow=Access.evaluateWorkflowAction(model,s.actor,'payment-release',{preparedBy:payment.preparedBy,releasedBy:s.userId});
-      if(!workflow.allowed)throw err(workflow.reason,workflow.code,409);
       const released=Db.transaction(db,()=>{const value=Release.releasePayment(db,{companyId:s.companyId,paymentId:payment.id,releasedBy:s.userId});Db.appendAudit(db,{companyId:s.companyId,userId:s.userId,action:'SUPPLIER_PAYMENT_RELEASED',entityType:'supplier-payment',entityId:value.id,details:{invoiceId:value.supplierInvoiceId,amountOre:value.amountOre,paymentDate:value.paymentDate,bankExecutionStatus:'not-sent'}});return value});
       send(res,200,{payment:released,bankExecutionStatus:'not-sent',message:'Betalningen är frisläppt för ett senare banksteg men har inte skickats till banken.'});return true;
     }catch(error){const status=Number(error.statusCode||500);if(status>=500)console.error(error);send(res,status,{error:status>=500?'Ett internt serverfel uppstod.':String(error.message||'Begäran misslyckades.'),code:error.code||'INTERNAL_ERROR'});return true}
