@@ -44,5 +44,18 @@ function importRun(db,input){const result=importRunIdempotent(db,input);if(resul
 function runById(db,companyId,runId){const row=db.prepare(`SELECT id,company_id AS companyId,period,pay_date AS payDate,source_name AS sourceName,gross_salary_ore AS grossSalaryOre,withheld_tax_ore AS withheldTaxOre,employer_contributions_ore AS employerContributionsOre,net_pay_ore AS netPayOre,vacation_liability_change_ore AS vacationLiabilityChangeOre,lines_json AS linesJson,journal_sha256 AS journalSha256,status,imported_by AS importedBy,imported_at AS importedAt,posted_by AS postedBy,posted_at AS postedAt,accounting_entry_id AS accountingEntryId FROM payroll_runs WHERE company_id=? AND id=?`).get(companyId,runId);return row?{...row,lines:JSON.parse(row.linesJson)}:null}
 function listRuns(db,companyId,{period=''}={}){const rows=period?db.prepare(`SELECT id FROM payroll_runs WHERE company_id=? AND period=? ORDER BY imported_at DESC`).all(companyId,period):db.prepare(`SELECT id FROM payroll_runs WHERE company_id=? ORDER BY period DESC,imported_at DESC`).all(companyId);return rows.map(row=>runById(db,companyId,row.id))}
 function postRun(db,{companyId,runId,postedBy}){const run=runById(db,companyId,runId);if(!run)throw payrollError('Lönekörningen hittades inte.','PAYROLL_RUN_NOT_FOUND',404);if(run.status==='posted')throw payrollError('Lönejournalen är redan bokförd.','PAYROLL_ALREADY_POSTED',409);if(run.status!=='validated')throw payrollError('Endast validerad lönejournal kan bokföras.','INVALID_PAYROLL_STATUS',409);const result=Accounting.postEntry(db,{companyId,postingDate:run.payDate,description:`Lönejournal ${run.period} – ${run.sourceName}`,sourceType:'payroll-run',sourceId:run.id,createdBy:postedBy,series:'L',lines:run.lines});if(result.duplicate)throw payrollError('Lönejournalen har redan en bokföringspost.','PAYROLL_ALREADY_POSTED',409);const postedAt=nowIso();db.prepare(`UPDATE payroll_runs SET status='posted',posted_by=?,posted_at=?,accounting_entry_id=? WHERE company_id=? AND id=? AND status='validated'`).run(postedBy,postedAt,result.entry.id,companyId,runId);return{run:runById(db,companyId,runId),entry:result.entry}}
+function postRunIdempotent(db,input){
+  try{return{...postRun(db,input),duplicate:false}}
+  catch(error){
+    if(error?.code!=='PAYROLL_ALREADY_POSTED')throw error;
+    const run=runById(db,input.companyId,input.runId);
+    if(run?.status==='posted'&&run.postedBy===input.postedBy&&run.accountingEntryId){
+      const entry=Accounting.entryBySource(db,input.companyId,'payroll-run',run.id);
+      if(!entry||entry.id!==run.accountingEntryId)throw payrollError('Den bokförda lönekörningen saknar en entydig bokföringspost.','PAYROLL_POSTING_INTEGRITY_ERROR',409);
+      return{run,entry,duplicate:true};
+    }
+    throw error;
+  }
+}
 
-module.exports=Object.freeze({initializePayroll,normalizeLines,hashLines,normalizedImport,importRunIdempotent,importRun,runById,listRuns,postRun,validPeriod});
+module.exports=Object.freeze({initializePayroll,normalizeLines,hashLines,normalizedImport,importRunIdempotent,importRun,runById,listRuns,postRun,postRunIdempotent,validPeriod});
