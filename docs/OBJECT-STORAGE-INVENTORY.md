@@ -332,3 +332,58 @@ En redan `ready`-markerad kopia ger ett idempotent resultat utan nya externa anr
 **Fortfarande inte aktiverat:** ingen R2/S3-SDK, inga credentials, ingen riktig bucket, ingen extern läsning i runtime och ingen borttagning av SQLite-BLOB.
 
 Nästa säkra etapp är därför en **R2-staging-adapter i en isolerad testmiljö**, med EU-jurisdiktion, privat bucket och minimala credentials. Den ska endast användas av staging-workern. Ordinarie systemtrafik ska fortsatt läsa och skriva SQLite tills stagingkopiering, restore och rollback har verifierats end-to-end.
+
+
+## R2 EU-stagingadapter
+
+En första riktig nätverksadapter finns nu för **Cloudflare R2 i EU-jurisdiktion**, men den är fortfarande isolerad från ordinarie runtime.
+
+Adaptern använder R2:s S3-kompatibla API med AWS Signature Version 4 och Node:s inbyggda HTTP-stack. Inga nya runtime-dependencies behövs.
+
+Den är fail-closed:
+
+- `ROLLANDS_ENV` måste vara exakt `staging`,
+- `R2_STAGING_ENABLED` måste vara exakt `1`,
+- jurisdiction måste vara `eu`,
+- endpoint genereras av servern som `https://<ACCOUNT_ID>.eu.r2.cloudflarestorage.com`,
+- bucketnamn och account-id valideras,
+- endpoint kan inte matas in fritt av klient eller miljövariabel,
+- credentials hålls utanför GitHub och är icke-enumererbara i konfigurationsobjektet,
+- varje PUT använder `If-None-Match: *` så en befintlig innehållsversion inte skrivs över,
+- all trafik signeras med SigV4,
+- redirects till annan host tillåts inte.
+
+Cloudflare-källor som styr implementationen:
+
+- R2 S3 API: https://developers.cloudflare.com/r2/get-started/s3/
+- EU-jurisdiktion: https://developers.cloudflare.com/r2/reference/data-location/
+- R2 API tokens: https://developers.cloudflare.com/r2/api/tokens/
+- S3-kompatibilitet och conditional PUT: https://developers.cloudflare.com/r2/api/s3/api/
+
+Signeringsalgoritmen testas i CI mot AWS officiella S3 SigV4-testvektor, inte bara mot lokala mocks.
+
+### Credentials för staging
+
+Följande ska sättas som hemligheter i stagingmiljön, aldrig committas:
+
+```text
+ROLLANDS_ENV=staging
+R2_STAGING_ENABLED=1
+R2_STAGING_JURISDICTION=eu
+R2_STAGING_ACCOUNT_ID=<cloudflare-account-id>
+R2_STAGING_BUCKET=<privat-eu-staging-bucket>
+R2_STAGING_ACCESS_KEY_ID=<bucket-scoped-access-key>
+R2_STAGING_SECRET_ACCESS_KEY=<bucket-scoped-secret>
+```
+
+Token ska ha **Object Read & Write** och begränsas till just staging-bucketen.
+
+När en ledger-rad redan har planerats kan exakt ett objekt stagingkopieras med:
+
+```bash
+npm run storage:copy-one-r2 -- <companyId> <kind> <objectId> <sha256>
+```
+
+Kommandot visar endast identitet, status och verifieringsresultat. Det skriver inte ut credentials eller filbytes.
+
+**Ingen automatisk batchkörning och ingen runtime-cutover är aktiverad.** Nästa steg efter riktig stagingkonfiguration är ett kontrollerat integrationstest mot en tom privat EU-bucket med fiktiv kunddata, därefter restore/rollback-test.
