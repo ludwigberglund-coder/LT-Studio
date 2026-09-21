@@ -77,6 +77,17 @@ test('complete API startup guards supplier and document relationships as well', 
     assert.ok(report.checkedRelations>=10,JSON.stringify(report));
   } finally {f.db.close();}
 });
+test('plattformssäkerhetshändelser är uttryckligen globalt scope och bryter inte tenant-kontraktet',()=>{
+  const db=Db.openDatabase(':memory:');
+  try{
+    const coverage=Guards.inspectTenantCoverage(db);
+    assert.equal(coverage.ok,true);
+    assert.ok(coverage.rootTables.includes('security_events'));
+    const event=Db.appendSecurityEvent(db,{kind:'TEST_SECURITY_SIGNAL',severity:'info',fingerprintHash:'a'.repeat(64),details:{test:true}});
+    assert.equal(Db.securityEvents(db)[0].id,event.id);
+  }finally{db.close()}
+});
+
 test('repeated initialization is safe and does not prohibit multi-company memberships', () => {
   const f=fixture();try {
     Db.addMembership(f.db,{companyId:f.a.id,userId:f.user.id});
