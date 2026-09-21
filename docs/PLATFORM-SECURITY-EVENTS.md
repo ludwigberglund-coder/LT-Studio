@@ -33,6 +33,10 @@ Fingeravtrycket bygger på serverns befintliga hashade kombination av anslutning
 
 Det är viktigt: en kundanvändare ska inte kunna se andra kunders eller plattformens säkerhetssignaler.
 
+## Strukturerad driftlogg
+
+När tröskeln nås speglas även en redigerad `security_event` med koden `LOGIN_FAILURE_THRESHOLD` till serverns strukturerade JSONL-logg. Fingeravtryck, användarnamn, rå IP-adress och inloggningsinnehåll följer inte med. Se [strukturerad driftloggning](OPERATIONAL-LOGGING.md).
+
 ## Nästa steg
 
-Den framtida LT Studio-adminportalen kan läsa ett redigerat, read-only operatörs-API ovanpå dessa händelser. Det API:t ska få separat operatörsautentisering och får inte återanvända vanliga kundsessioner som administratörsbehörighet.
+LT Studio-adminportalen kan läsa det befintliga redigerade, read-only operatörs-API:t ovanpå dessa händelser. Extern central logginsamling måste fortfarande konfigureras och verifieras i den faktiska hostingmiljön.
