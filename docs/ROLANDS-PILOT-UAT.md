@@ -32,7 +32,7 @@ Efter grön driftkedja och grön UAT skapas ett gemensamt signoffbevis med `npm 
 ## Scenario A – leverantörsfaktura
 
 1. Skapa eller välj en leverantör.
-2. Registrera en leverantörsfaktura med belopp, moms, datum och PDF-underlag.
+2. Registrera en leverantörsfaktura med belopp, moms, datum, PDF-underlag och den verifierade momsbehandling som ska användas för bokföringen.
 3. Kontrollera att fakturabelopp, moms, fakturadatum och förfallodatum stämmer mot originalunderlaget. Om en redan bokförd men obetald leverantörsfaktura har fel faktura- eller förfallodatum ska rättelseflödet **Rätta datum** användas; ändra aldrig SQLite-raden manuellt. Flödet ska bevara originalverifikationen, skapa motverifikation på det tidigare bokföringsdatumet och en ersättningsverifikation på det korrekta fakturadatumet. Om betalning redan har förberetts ska datumrättelsen blockeras tills betalningsflödet har rättats.
 4. Kontera fakturan och spara konteringen.
 5. Attestera med en annan behörig användare där fyrögonprincip gäller.
@@ -48,7 +48,7 @@ Efter grön driftkedja och grön UAT skapas ett gemensamt signoffbevis med `npm 
 15. Kontrollera att den sammanlagda påverkan på 2440 för faktura + betalning är 0.
 16. Kontrollera huvudbok och relevanta rapporter mot samma verifikationer.
 
-**Godkänt när:** exakt en fakturaverifikation och exakt en betalningsverifikation finns, båda är balanserade, reskontran är korrekt och originalhistoriken finns kvar.
+**Godkänt när:** leverantörsfakturans bokföringskedja är balanserad och spårbar. Utan datumrättelse finns en fakturaverifikation; med datumrättelse finns originalverifikation, motverifikation och ersättningsverifikation. Exakt en betalningsverifikation för den genomförda betalningen finns, reskontran är korrekt och originalhistoriken finns kvar.
 
 ## Scenario B – kundfaktura
 
