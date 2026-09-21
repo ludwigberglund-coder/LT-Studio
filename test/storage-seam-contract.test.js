@@ -63,12 +63,13 @@ test('alla tre privata filflöden har en explicit SQLite-lagringsadapter',()=>{
 });
 
 
-test('leverantörsfakturans runtime använder det gemensamma provider-kontraktet',()=>{
+test('leverantörsfakturans runtime använder den centrala provider-factoryn',()=>{
   const source=fs.readFileSync(path.join(API_DIR,'payables.js'),'utf8');
-  assert.match(source,/require\('\.\/private-object-store-contract\.js'\)/);
-  assert.match(source,/require\('\.\/sqlite-supplier-invoice-private-object-provider\.js'\)/);
+  assert.match(source,/require\('\.\/private-object-store-factory\.js'\)/);
+  assert.doesNotMatch(source,/require\('\.\/private-object-store-contract\.js'\)/);
+  assert.doesNotMatch(source,/require\('\.\/sqlite-supplier-invoice-private-object-provider\.js'\)/);
   assert.doesNotMatch(source,/require\('\.\/supplier-invoice-document-store\.js'\)/);
-  assert.match(source,/createContractedPrivateObjectStore/);
+  assert.match(source,/createPrivateObjectStore/);
 });
 
 
