@@ -285,3 +285,28 @@ Tillstånden är `pending`, `failed` och `ready`. En `ready`-rad är slutgiltig 
 Runtime-factoryn tillåter fortfarande endast `sqlite`. `r2` och `s3` förekommer endast som planerade migrationstargets i ledgern och kan inte användas för ordinarie filåtkomst.
 
 Nästa implementation ska vara en separat staging-worker som kan kopiera ett verifierat manifestobjekt till en extern testbucket, läsa tillbaka det, verifiera SHA-256 och först därefter markera ledger-raden `ready`. SQLite-BLOB ska ligga kvar under hela staging- och rollback-fasen.
+
+
+## Idempotent kopieringsplan
+
+`apps/api/private-object-copy-planner.js` binder nu ihop det verifierade SQLite-manifestet med kopieringsledgern.
+
+Planeraren:
+
+1. bygger om hela källinventeringen,
+2. stoppar direkt om ett enda källobjekt inte kan verifieras,
+3. skapar ledger-rader i en SQLite-savepoint,
+4. återanvänder redan planerade rader vid omkörning,
+5. gör inga nätverksanrop och flyttar inga bytes.
+
+Kommandot:
+
+```bash
+npm run storage:plan-copies -- r2
+```
+
+skapar endast planeringsmetadata för R2. `s3` kan anges som alternativ migrationstarget. Ett ogiltigt target stoppas fail-closed.
+
+Detta innebär att vi nu kan inventera källan och skapa en reproducerbar migrationsplan utan att exponera eller flytta kunddata.
+
+Nästa steg är en separat staging-adapter/worker. Den ska ta **en redan planerad pending-rad**, ladda upp motsvarande verifierade källobjekt, läsa tillbaka objektet, kontrollera SHA-256 och först därefter markera raden `ready`.
