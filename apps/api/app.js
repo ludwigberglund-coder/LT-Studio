@@ -168,6 +168,8 @@ function createApiApp(options) {
     throw new Error('Sessionstiderna måste vara heltal och absolut maxgräns måste vara minst lika lång som inaktivitetsgränsen.');
   }
   const authEncryptionKey = options.authEncryptionKey || '';
+  const operationalLogger=options.operationalLogger||null;
+  const operationalRuntimeId=String(options.operationalRuntimeId||'');
   WebsiteCms.initializeWebsiteCms(db);
   const fixedCompanyProfile = options.companyProfile || null;
   const companyProfileFor = typeof options.companyProfileFor === 'function'
@@ -182,7 +184,7 @@ function createApiApp(options) {
 
   function noteLoginFailure(req,username) {
     const keyHash=loginKey(req,username);
-    let state;
+    let state,thresholdReached=false;
     Db.transaction(db,()=>{
       state=Db.noteLoginFailure(db,{keyHash,windowMinutes:15});
       if(state.failureCount===5) {
@@ -192,7 +194,14 @@ function createApiApp(options) {
           fingerprintHash:keyHash,
           details:{failureCount:state.failureCount,windowMinutes:15,retryAfterSeconds:900}
         });
+        thresholdReached=true;
       }
+    });
+    if(thresholdReached&&operationalLogger?.emit)operationalLogger.emit({
+      level:'warning',
+      event:'security_event',
+      runtimeId:operationalRuntimeId,
+      code:'LOGIN_FAILURE_THRESHOLD'
     });
     return state;
   }
@@ -301,7 +310,7 @@ function createApiApp(options) {
   }
 
   async function handle(req,res) {
-    const requestId=crypto.randomUUID();
+    const requestId=String(res.getHeader('X-Request-Id')||crypto.randomUUID());
     res.setHeader('X-Request-Id',requestId);
     let url;
     try { url=new URL(req.url,'http://localhost'); }
