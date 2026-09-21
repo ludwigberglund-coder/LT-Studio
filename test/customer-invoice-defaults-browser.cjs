@@ -89,7 +89,10 @@ async function close(server){
     await page.locator('select[name="customerNumber"]').selectOption('K-1001');
     await page.locator('input[name="ourReference"]').waitFor();
 
-    assert.equal(await page.locator('input[aria-readonly="true"]').filter({has:undefined}).count()>0,true);
+    assert.equal(await page.getByLabel('Företagsnamn - kund').inputValue(),'Återanvänd Kund AB');
+    assert.equal(await page.getByLabel('Organisationsnummer - kund').inputValue(),'559944-2001');
+    assert.equal(await page.getByLabel('Fakturaadress, postnummer och ort - kund').inputValue(),'Kundgatan 14, 111 22 Stockholm');
+    assert.equal(await page.getByLabel('Mottagarens e-post - kund').inputValue(),'faktura@ateranvand.test');
     assert.equal(await page.locator('input[name="paymentTermsDays"]').inputValue(),'14');
     assert.equal(await page.locator('input[name="ourReference"]').inputValue(),'Anna Sälj');
     assert.equal(await page.locator('input[name="yourReference"]').inputValue(),'PO-4477');
