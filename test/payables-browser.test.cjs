@@ -70,7 +70,7 @@ function net2440(entries){return entries.flatMap(entry=>entry.lines||[]).filter(
     const rejectedApproval=Payables.invoiceById(db,company.id,db.prepare("SELECT id FROM supplier_invoices WHERE company_id=? AND supplier_invoice_number='BKS-771'").get(company.id).id);assert.equal(rejectedApproval.status,'coded');assert.equal(rejectedApproval.coding[0].account,'4010');
     await page.reload({waitUntil:'networkidle'});await page.getByText('BKS-771',{exact:true}).first().click();assert.equal(await page.locator('[data-line="0"][data-field="account"]').inputValue(),'4010');
     await page.getByRole('button',{name:'Attestera faktura'}).click();await page.getByRole('button',{name:'Bokför leverantörsskuld'}).waitFor({timeout:10000});
-    await setSession(accountantSession);await page.getByText('BKS-771',{exact:true}).first().click();await page.getByRole('button',{name:'Bokför leverantörsskuld'}).click();
+    await setSession(accountantSession);await page.getByText('BKS-771',{exact:true}).first().click();await page.getByRole('button',{name:'Bokför leverantörsskuld'}).click();await page.getByRole('button',{name:'Rätta datum'}).waitFor({timeout:10000});
     db.prepare('UPDATE suppliers SET bankgiro=NULL WHERE company_id=? AND id=?').run(company.id,supplier.id);
     await page.getByRole('button',{name:'Förbered betalning idag'}).click();
     const blockedPayment=page.getByRole('alert');await blockedPayment.getByText('Betalning stoppad',{exact:true}).waitFor({timeout:10000});await blockedPayment.getByText('Leverantören saknar godkända betalningsuppgifter.',{exact:true}).waitFor({timeout:10000});assert.equal(await blockedPayment.evaluate(node=>node.classList.contains('payment-alert')),true);
