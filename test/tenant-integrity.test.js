@@ -137,6 +137,11 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
     grossSalaryOre:100000,withheldTaxOre:30000,employerContributionsOre:31420,netPayOre:70000,vacationLiabilityChangeOre:0,
     importedBy:f.user.id,lines:payrollLines
   });
+  const cmsASeed=Cms.state(f.db,f.a.id);
+  const cmsACompany=structuredClone(cmsASeed.draft.company);
+  cmsACompany.address={street:'Tenantgatan 1',postalCode:'111 11',city:'Teststad',full:'Tenantgatan 1, 111 11 Teststad'};
+  cmsACompany.contact={phone:'031-00 00 00',phoneHref:'+4631000000',email:'tenant-a@example.invalid'};
+  Cms.saveDraft(f.db,{companyId:f.a.id,site:cmsASeed.draft.site,company:cmsACompany,userId:f.user.id});
   const cmsABefore=Cms.state(f.db,f.a.id);
   const cmsBBefore=Cms.state(f.db,f.b.id);
   const runtime=createServer({db:f.db,port:4180,secureCookies:false});
