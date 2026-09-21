@@ -6,6 +6,8 @@ const fs=require('node:fs');
 const os=require('node:os');
 const path=require('node:path');
 const {validateEvidenceChain}=require('../scripts/staging-evidence-verify.js');
+const Db=require('../apps/api/database.js');
+const AuditAnchor=require('../scripts/audit-anchor.js');
 
 function write(filename,value){
   fs.mkdirSync(path.dirname(filename),{recursive:true,mode:0o700});
@@ -38,6 +40,7 @@ function fixture(){
   const now=Date.UTC(2026,8,21,15,0,0);
   const objectBucket='rollands-private-staging';
   const backupBucket='rollands-backup-staging';
+  const auditBucket='rollands-audit-staging';
   const backupSha='d'.repeat(64);
   const backupFile='rollands-20260921T140000.sqlite.enc';
   const r2Path=path.join(opsDir,'r2-audit.json');
@@ -45,6 +48,33 @@ function fixture(){
   const restorePath=path.join(opsDir,'restore-drill.json');
   const r2RestorePath=path.join(opsDir,'r2-restore-drill.json');
   const monitorPath=path.join(opsDir,'monitoring.json');
+  const auditAnchorPath=path.join(opsDir,'audit-anchor.json');
+  const auditAnchorEvidencePath=path.join(opsDir,'audit-anchor-r2.json');
+  const databasePath=path.join(dbDir,'platform.sqlite');
+
+  const auditDb=Db.openDatabase(databasePath);
+  const auditCompany=Db.createCompany(auditDb,{legalName:'Staging Evidence AB',displayName:'Staging Evidence',orgNumber:'559999-5511'});
+  const auditUser=Db.createUser(auditDb,{username:'staging-evidence',displayName:'Staging Evidence',passwordHash:'test-password-hash'});
+  Db.addMembership(auditDb,{companyId:auditCompany.id,userId:auditUser.id});
+  Db.appendAudit(auditDb,{companyId:auditCompany.id,userId:auditUser.id,action:'STAGING_EVIDENCE_FIXTURE',entityType:'fixture',entityId:'one',details:{ok:true}});
+  Db.appendSecurityEvent(auditDb,{kind:'staging-fixture',severity:'info',fingerprintHash:'a'.repeat(64),details:{ok:true}});
+  const auditOperator=Db.createPlatformOperator(auditDb,{username:'staging-operator',displayName:'Staging Operator',passwordHash:'test-password-hash',mfaSecretEncrypted:'test-encrypted-secret'});
+  Db.appendPlatformOperatorAudit(auditDb,{operatorId:auditOperator.id,action:'STAGING_EVIDENCE_FIXTURE',details:{ok:true}});
+  auditDb.close();
+  const auditAnchor=AuditAnchor.createAuditAnchorFromDatabase(databasePath,{now:now-15*60*1000});
+  const writtenAuditAnchor=AuditAnchor.writeAnchor(auditAnchorPath,auditAnchor);
+  write(auditAnchorEvidencePath,{
+    schemaVersion:1,
+    verifiedAt:new Date(now-10*60*1000).toISOString(),
+    provider:'r2',
+    jurisdiction:'eu',
+    bucket:auditBucket,
+    storageKey:`audit-anchors/v1/${auditAnchor.rootSha256}.json`,
+    rootSha256:auditAnchor.rootSha256,
+    anchorSha256:writtenAuditAnchor.sha256,
+    anchorSizeBytes:writtenAuditAnchor.sizeBytes,
+    remoteReadbackVerified:true
+  });
 
   write(r2Path,{
     schemaVersion:1,
@@ -160,7 +190,7 @@ function fixture(){
     NODE_ENV:'production',
     ROLLANDS_ENV:'staging',
     ROLLANDS_DEMO_DATA:'0',
-    ROLLANDS_DATABASE_PATH:path.join(dbDir,'platform.sqlite'),
+    ROLLANDS_DATABASE_PATH:databasePath,
     ROLLANDS_BACKUP_PATH:backupDir,
     ROLLANDS_PILOT_OPERATIONS_PATH:operationsPath,
     ROLLANDS_AUTH_ENCRYPTION_KEY:'staging-auth-key-v7r2M9xQ4pL8sT1nW6kD3yH5',
@@ -180,14 +210,22 @@ function fixture(){
     R2_BACKUP_BUCKET:backupBucket,
     R2_BACKUP_ACCESS_KEY_ID:'backup-access-key',
     R2_BACKUP_SECRET_ACCESS_KEY:'backup-secret-key-1234567890',
+    R2_AUDIT_ENABLED:'1',
+    R2_AUDIT_JURISDICTION:'eu',
+    R2_AUDIT_ACCOUNT_ID:'c'.repeat(32),
+    R2_AUDIT_BUCKET:auditBucket,
+    R2_AUDIT_ACCESS_KEY_ID:'audit-access-key',
+    R2_AUDIT_SECRET_ACCESS_KEY:'audit-secret-key-1234567890',
     R2_STAGING_AUDIT_EVIDENCE_PATH:r2Path,
     ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH:offsitePath,
     ROLLANDS_RESTORE_DRILL_PATH:path.join(dir,'restore'),
     ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH:restorePath,
     ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH:r2RestorePath,
-    ROLLANDS_MONITORING_EVIDENCE_PATH:monitorPath
+    ROLLANDS_MONITORING_EVIDENCE_PATH:monitorPath,
+    ROLLANDS_AUDIT_ANCHOR_PATH:auditAnchorPath,
+    ROLLANDS_AUDIT_ANCHOR_EVIDENCE_PATH:auditAnchorEvidencePath
   };
-  return{dir,env,now,paths:{r2Path,offsitePath,restorePath,r2RestorePath,monitorPath},backupSha,backupFile};
+  return{dir,env,now,paths:{r2Path,offsitePath,restorePath,r2RestorePath,monitorPath,auditAnchorPath,auditAnchorEvidencePath,databasePath},backupSha,backupFile};
 }
 
 test('staging evidence chain passes only when all fresh proofs agree',()=>{
@@ -197,7 +235,9 @@ test('staging evidence chain passes only when all fresh proofs agree',()=>{
     assert.equal(result.ok,true);
     assert.deepEqual(result.fail,[]);
     assert.equal(result.checks.sameBackupArtifact,true);
+    assert.equal(result.checks.auditAnchor,true);
     assert.equal(result.evidence.backupSha256,f.backupSha);
+    assert.match(result.evidence.auditAnchorRootSha256,/^[a-f0-9]{64}$/);
   }finally{fs.rmSync(f.dir,{recursive:true,force:true})}
 });
 
@@ -255,5 +295,40 @@ test('staging evidence chain rejects R2 restore proof for another backup',()=>{
     assert.equal(result.checks.r2RestoreDrill,true);
     assert.equal(result.checks.sameBackupArtifact,false);
     assert.ok(result.fail.some(item=>item.includes('R2 restore-drillen gäller inte samma krypterade backup-SHA')));
+  }finally{fs.rmSync(f.dir,{recursive:true,force:true})}
+});
+
+
+test('staging evidence chain rejects changed history after audit anchor',()=>{
+  const f=fixture();
+  const db=Db.openDatabase(f.paths.databasePath);
+  try{
+    db.exec('DROP TRIGGER history_audit_events_update');
+    db.exec("UPDATE audit_events SET action='TAMPERED'");
+  }finally{db.close()}
+  try{
+    const result=validateEvidenceChain(f.env,{now:f.now});
+    assert.equal(result.ok,false);
+    assert.equal(result.checks.auditAnchor,false);
+    assert.ok(result.fail.some(item=>item.includes('Audit-ankaret')));
+  }finally{fs.rmSync(f.dir,{recursive:true,force:true})}
+});
+
+test('staging evidence chain rejects audit evidence from wrong or stale audit bucket proof',()=>{
+  const f=fixture();
+  try{
+    const evidence=JSON.parse(fs.readFileSync(f.paths.auditAnchorEvidencePath,'utf8'));
+    evidence.bucket='other-audit-bucket';
+    write(f.paths.auditAnchorEvidencePath,evidence);
+    let result=validateEvidenceChain(f.env,{now:f.now});
+    assert.equal(result.ok,false);
+    assert.equal(result.checks.auditAnchor,false);
+
+    evidence.bucket=f.env.R2_AUDIT_BUCKET;
+    evidence.verifiedAt=new Date(f.now-25*60*60*1000).toISOString();
+    write(f.paths.auditAnchorEvidencePath,evidence);
+    result=validateEvidenceChain(f.env,{now:f.now});
+    assert.equal(result.ok,false);
+    assert.equal(result.checks.auditAnchor,false);
   }finally{fs.rmSync(f.dir,{recursive:true,force:true})}
 });
