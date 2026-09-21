@@ -274,6 +274,148 @@ function payablesControl(db,companyId){
   };
 }
 
+
+function dateDayNumber(value){
+  if(!validDate(value))throw reportError('Rapportdatumet är ogiltigt.','INVALID_AGING_DATE');
+  const [year,month,day]=String(value).split('-').map(Number);
+  return Math.floor(Date.UTC(year,month-1,day)/86400000);
+}
+function agingBucket(dueDate,asOf){
+  const days=dateDayNumber(asOf)-dateDayNumber(dueDate);
+  if(days<0)return'notDue';
+  if(days===0)return'dueToday';
+  if(days<=30)return'overdue1to30';
+  if(days<=60)return'overdue31to60';
+  if(days<=90)return'overdue61to90';
+  return'overdue91Plus';
+}
+function emptyAgingTotals(){
+  return{openOre:0,notDueOre:0,dueTodayOre:0,overdue1to30Ore:0,overdue31to60Ore:0,overdue61to90Ore:0,overdue91PlusOre:0,creditOre:0};
+}
+function addAgingAmount(target,amountOre,bucket){
+  const amount=Number(amountOre||0);
+  target.openOre+=amount;
+  if(amount<0){target.creditOre+=amount;return}
+  const key={
+    notDue:'notDueOre',dueToday:'dueTodayOre',overdue1to30:'overdue1to30Ore',
+    overdue31to60:'overdue31to60Ore',overdue61to90:'overdue61to90Ore',overdue91Plus:'overdue91PlusOre'
+  }[bucket];
+  if(key)target[key]+=amount;
+}
+function receivablesAging(db,companyId,{asOf}){
+  dateDayNumber(asOf);
+  const invoices=db.prepare(`SELECT i.id AS invoiceId,i.invoice_number AS invoiceNumber,i.invoice_date AS invoiceDate,
+    i.due_date AS dueDate,i.remaining_ore AS openOre,i.total_ore AS totalOre,i.status,
+    c.customer_number AS customerNumber,c.name AS customerName
+    FROM invoices i
+    JOIN customers c ON c.id=i.customer_id AND c.company_id=i.company_id
+    WHERE i.company_id=? AND i.remaining_ore<>0
+    ORDER BY c.name,c.customer_number,i.due_date,i.invoice_number`).all(companyId)
+    .map(row=>{
+      const openOre=Number(row.openOre||0);
+      return{...row,openOre,totalOre:Number(row.totalOre||0),bucket:openOre<0?'credit':agingBucket(row.dueDate,asOf)};
+    });
+  const customers=new Map();
+  const totals=emptyAgingTotals();
+  for(const invoice of invoices){
+    const key=invoice.customerNumber;
+    if(!customers.has(key))customers.set(key,{customerNumber:invoice.customerNumber,customerName:invoice.customerName,invoiceCount:0,...emptyAgingTotals()});
+    const row=customers.get(key);
+    row.invoiceCount+=1;
+    addAgingAmount(row,invoice.openOre,invoice.bucket);
+    addAgingAmount(totals,invoice.openOre,invoice.bucket);
+  }
+  return{
+    basis:'current-open-receivables-aging',
+    asOf,
+    customers:[...customers.values()].sort((a,b)=>Math.abs(b.openOre)-Math.abs(a.openOre)||a.customerName.localeCompare(b.customerName,'sv')),
+    invoices,
+    totals:{invoiceCount:invoices.length,...totals},
+    warning:'Rapporten visar nuvarande öppna kundfordringar grupperade efter förfallodatum mot valt rapportdatum. Ett äldre rapportdatum återskapar inte historiska restbelopp.'
+  };
+}
+function payablesAging(db,companyId,{asOf}){
+  dateDayNumber(asOf);
+  const invoices=db.prepare(`SELECT i.id AS invoiceId,i.supplier_invoice_number AS invoiceNumber,i.invoice_date AS invoiceDate,
+    i.due_date AS dueDate,i.open_amount_ore AS openOre,i.total_ore AS totalOre,i.status,
+    CASE WHEN i.liability_accounting_entry_id IS NULL THEN 0 ELSE 1 END AS posted,
+    s.supplier_number AS supplierNumber,s.name AS supplierName
+    FROM supplier_invoices i
+    JOIN suppliers s ON s.id=i.supplier_id AND s.company_id=i.company_id
+    WHERE i.company_id=? AND i.status<>'rejected' AND i.open_amount_ore<>0
+    ORDER BY s.name,s.supplier_number,i.due_date,i.supplier_invoice_number`).all(companyId)
+    .map(row=>({
+      ...row,
+      openOre:Number(row.openOre||0),
+      totalOre:Number(row.totalOre||0),
+      posted:Boolean(row.posted),
+      bucket:Number(row.openOre||0)<0?'credit':agingBucket(row.dueDate,asOf)
+    }));
+  const suppliers=new Map();
+  const totals=emptyAgingTotals();
+  let postedOpenOre=0,unpostedOpenOre=0;
+  for(const invoice of invoices){
+    const key=invoice.supplierNumber;
+    if(!suppliers.has(key))suppliers.set(key,{supplierNumber:invoice.supplierNumber,supplierName:invoice.supplierName,invoiceCount:0,postedOpenOre:0,unpostedOpenOre:0,...emptyAgingTotals()});
+    const row=suppliers.get(key);
+    row.invoiceCount+=1;
+    if(invoice.posted){row.postedOpenOre+=invoice.openOre;postedOpenOre+=invoice.openOre}else{row.unpostedOpenOre+=invoice.openOre;unpostedOpenOre+=invoice.openOre}
+    addAgingAmount(row,invoice.openOre,invoice.bucket);
+    addAgingAmount(totals,invoice.openOre,invoice.bucket);
+  }
+  return{
+    basis:'current-open-payables-aging',
+    asOf,
+    suppliers:[...suppliers.values()].sort((a,b)=>Math.abs(b.openOre)-Math.abs(a.openOre)||a.supplierName.localeCompare(b.supplierName,'sv')),
+    invoices,
+    totals:{invoiceCount:invoices.length,postedOpenOre,unpostedOpenOre,...totals},
+    warning:'Rapporten visar nuvarande öppna leverantörsfakturor grupperade efter förfallodatum mot valt rapportdatum. Ej bokförda öppna fakturor särredovisas och ett äldre rapportdatum återskapar inte historiska restbelopp.'
+  };
+}
+function supplierPurchasesReport(db,companyId,{from,to}){
+  validateRange(from,to);
+  const normalize=row=>({
+    ...row,
+    invoiceCount:Number(row.invoiceCount||0),
+    netOre:Number(row.netOre||0),
+    vatOre:Number(row.vatOre||0),
+    grossOre:Number(row.grossOre||0),
+    openOre:Number(row.openOre||0)
+  });
+  const rows=db.prepare(`SELECT invoice_date AS invoiceDate,COUNT(*) AS invoiceCount,
+    COALESCE(SUM(total_ore-vat_ore),0) AS netOre,
+    COALESCE(SUM(vat_ore),0) AS vatOre,
+    COALESCE(SUM(total_ore),0) AS grossOre,
+    COALESCE(SUM(open_amount_ore),0) AS openOre
+    FROM supplier_invoices
+    WHERE company_id=? AND status<>'rejected' AND invoice_date BETWEEN ? AND ?
+    GROUP BY invoice_date
+    ORDER BY invoice_date`).all(companyId,from,to).map(normalize);
+  const suppliers=db.prepare(`SELECT s.supplier_number AS supplierNumber,s.name AS supplierName,COUNT(*) AS invoiceCount,
+    COALESCE(SUM(i.total_ore-i.vat_ore),0) AS netOre,
+    COALESCE(SUM(i.vat_ore),0) AS vatOre,
+    COALESCE(SUM(i.total_ore),0) AS grossOre,
+    COALESCE(SUM(i.open_amount_ore),0) AS openOre
+    FROM supplier_invoices i
+    JOIN suppliers s ON s.id=i.supplier_id AND s.company_id=i.company_id
+    WHERE i.company_id=? AND i.status<>'rejected' AND i.invoice_date BETWEEN ? AND ?
+    GROUP BY s.id,s.supplier_number,s.name
+    ORDER BY grossOre DESC,s.name`).all(companyId,from,to).map(normalize);
+  const totals=rows.reduce((sum,row)=>({
+    invoiceCount:sum.invoiceCount+row.invoiceCount,
+    netOre:sum.netOre+row.netOre,
+    vatOre:sum.vatOre+row.vatOre,
+    grossOre:sum.grossOre+row.grossOre,
+    openOre:sum.openOre+row.openOre
+  }),{invoiceCount:0,netOre:0,vatOre:0,grossOre:0,openOre:0});
+  totals.averageInvoiceOre=totals.invoiceCount?Math.round(totals.grossOre/totals.invoiceCount):0;
+  return{
+    basis:'supplier-invoice-operational',
+    from,to,rows,suppliers,totals,
+    warning:'Inköpsrapporten bygger på registrerade leverantörsfakturors fakturadatum. Bokföringsmässiga kostnader och periodisering följs i Resultatrapporten.'
+  };
+}
+
 function reportSummary(db,companyId,{from,to,period}){const trial=trialBalance(db,companyId,{from,to}),pl=profitLoss(db,companyId,{from,to}),vat=vatControl(db,companyId,{period});return{from,to,trialTotals:trial.totals,profitLoss:pl.resultOre,vat}}
 
-module.exports=Object.freeze({validDate,validPeriod,periodBounds,trialBalance,generalLedger,profitLoss,salesReport,vatLedgerRows,customerVatSourceChecks,supplierVatSourceChecks,vatControl,receivablesControl,payablesControl,reportSummary,OUTPUT_VAT_ACCOUNTS});
+module.exports=Object.freeze({validDate,validPeriod,periodBounds,trialBalance,generalLedger,profitLoss,salesReport,receivablesAging,payablesAging,supplierPurchasesReport,agingBucket,vatLedgerRows,customerVatSourceChecks,supplierVatSourceChecks,vatControl,receivablesControl,payablesControl,reportSummary,OUTPUT_VAT_ACCOUNTS});
