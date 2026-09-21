@@ -62,3 +62,14 @@ test('supplier-masterdata init migrerar äldre schema med request-key idempotent
   Master.initializeSupplierMasterdata(db);
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='index' AND name='idx_supplier_change_requests_company_key'").get().n,1);
 }finally{db.close()}});
+
+
+test('godkänd betalningsändring kan inte godkännas eller avvisas en andra gång',()=>{const {db,company,requester,approver,supplier}=seed();try{
+  const request=Master.requestChange(db,{companyId:company.id,supplierId:supplier.id,kind:'payment-details',changes:{bankgiro:'555-6666'},requestedBy:requester.id});
+  const approved=Master.approvePaymentChange(db,{companyId:company.id,requestId:request.id,approvedBy:approver.id});
+  assert.equal(approved.request.status,'approved');
+  assert.throws(()=>Master.approvePaymentChange(db,{companyId:company.id,requestId:request.id,approvedBy:approver.id}),e=>e.code==='INVALID_CHANGE_STATUS'&&e.statusCode===409);
+  assert.throws(()=>Master.rejectPaymentChange(db,{companyId:company.id,requestId:request.id,rejectedBy:approver.id,reason:'Retry'}),e=>e.code==='INVALID_CHANGE_STATUS'&&e.statusCode===409);
+  assert.equal(Master.history(db,company.id,supplier.id).filter(h=>h.requestId===request.id).length,1);
+  assert.equal(Payables.supplierById(db,company.id,supplier.id).bankgiro,'555-6666');
+}finally{db.close()}});
