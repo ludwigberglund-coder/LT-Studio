@@ -85,9 +85,14 @@ function initializeSupplierAccounting(db){
         OR OLD.corrected_at IS NOT NULL OR NEW.corrected_at IS NULL
       BEGIN SELECT RAISE(ABORT,'PAYMENT_ATTEMPT_HISTORY_IMMUTABLE'); END;
   `);
-  db.exec(`INSERT OR IGNORE INTO supplier_payment_confirmation_refs(company_id,confirmation_reference,payment_id,first_seen_at)
-    SELECT company_id,confirmation_reference,id,COALESCE(paid_at,updated_at,created_at)
-    FROM supplier_payments WHERE confirmation_reference IS NOT NULL`);
+  db.exec(`INSERT INTO supplier_payment_confirmation_refs(company_id,confirmation_reference,payment_id,first_seen_at)
+    SELECT p.company_id,p.confirmation_reference,p.id,COALESCE(p.paid_at,p.updated_at,p.created_at)
+    FROM supplier_payments p
+    WHERE p.confirmation_reference IS NOT NULL
+      AND NOT EXISTS(
+        SELECT 1 FROM supplier_payment_confirmation_refs r
+        WHERE r.company_id=p.company_id AND r.confirmation_reference=p.confirmation_reference
+      )`);
   protectAppendOnly(db,'supplier_payment_confirmation_refs');
 }
 
