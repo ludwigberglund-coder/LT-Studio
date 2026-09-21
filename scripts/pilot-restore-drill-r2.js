@@ -37,9 +37,12 @@ function assertSeparateEvidencePaths(sourceEvidencePath,evidencePath){
     throw new Error('ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH och ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH måste vara olika filer.');
   }
 }
-async function runR2RestoreDrill({target,source,drillDir,evidencePath,backupKey,now=new Date()}={}){
+async function runR2RestoreDrill({target,source,drillDir,evidencePath,backupKey,now=new Date(),monotonicNow=()=>Number(process.hrtime.bigint()/1000000n)}={}){
   if(!target||typeof target.getToFile!=='function')throw new Error('R2 restore-target med getToFile() krävs.');
   if(!source||source.ok!==true)throw new Error('Verifierat offsite-backupbevis krävs för R2 restore-drill.');
+  const offsiteBackupAgeAtDrillMs=Number(source.ageMs);
+  if(!Number.isSafeInteger(offsiteBackupAgeAtDrillMs)||offsiteBackupAgeAtDrillMs<0)throw new Error('R2 restore-källans offsite-ålder saknas eller är ogiltig.');
+  const drillStartedAtMs=monotonicNow();
   const selectedDir=String(drillDir||'').trim();
   if(!selectedDir)throw new Error('Restore drill-katalog saknas.');
   const root=path.resolve(selectedDir);
@@ -73,9 +76,12 @@ async function runR2RestoreDrill({target,source,drillDir,evidencePath,backupKey,
     fs.rmSync(downloaded,{force:true});
   }
 
+  const restoreDurationMs=Math.max(0,monotonicNow()-drillStartedAtMs);
   const evidence=Object.freeze({
     schemaVersion:1,
     verifiedAt:now.toISOString(),
+    offsiteBackupAgeAtDrillMs,
+    restoreDurationMs,
     sourceProvider:'r2',
     provider:'r2',
     jurisdiction:'eu',
