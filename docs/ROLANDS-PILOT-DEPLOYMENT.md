@@ -56,7 +56,7 @@ Den avsedda ordningen är:
 1. sätt `NODE_ENV=production` och `ROLLANDS_ENV=staging`,
 2. fyll den privata operationsfilen med riktiga ansvar, kontaktvägar, offsite-destination och retention, men låt `approvedForPilot` vara `false` och `approvedAt` vara tomt/null,
 3. kör `npm run pilot:preflight`; staging omfattas av samma privata runtimekrav som pilot/produktion,
-4. genomför backup → restore drill, extern monitoring/larmtest och Rolands UAT med fiktiva eller avidentifierade data,
+4. genomför lokal backup → verifierad R2-upload → restore drill direkt från de faktiska R2-objekten, extern monitoring/larmtest och Rolands UAT med fiktiva eller avidentifierade data,
 5. dokumentera resultat och fatta därefter ett uttryckligt pilotbeslut,
 6. sätt `approvedForPilot:true` och ett verkligt `approvedAt` i den privata operationsfilen,
 7. byt till `ROLLANDS_ENV=pilot` och kör `npm run pilot:preflight` igen före första riktiga pilotdata.
@@ -110,6 +110,7 @@ ROLLANDS_API_SECURE_COOKIE=1
 ROLLANDS_DATABASE_PATH=/srv/rollands-data/platform.sqlite
 ROLLANDS_BACKUP_PATH=/srv/rollands-backups
 ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH=/srv/rollands-ops/offsite-backup-evidence.json
+ROLLANDS_OFFSITE_RESTORE_EVIDENCE_PATH=/srv/rollands-ops/offsite-restore-evidence.json
 ROLLANDS_PILOT_OPERATIONS_PATH=/etc/rollands/pilot-operations.json
 ROLLANDS_BACKUP_ENCRYPTION_KEY=<separat stark backupnyckel>
 ROLLANDS_AUTH_ENCRYPTION_KEY=<stark slumpmässig hemlighet>
@@ -331,6 +332,20 @@ Scriptet vägrar:
 - godkänna en fil som inte klarar SQLite integrity check.
 
 Starta sedan en separat testinstans mot restore-filen och genomför Scenario F i `ROLANDS-PILOT-UAT.md`. Produktionsfilen ersätts endast efter ett dokumenterat incidentbeslut, med processen stoppad och en kopia av den skadade databasen bevarad.
+
+### Restore-drill från faktisk R2-kopia
+
+När `npm run pilot:backup:offsite-r2` har skapat ett verifierat privat upload-bevis ska även katastrofvägen testas direkt från R2:
+
+```bash
+export ROLLANDS_RESTORE_DRILL_PATH=/srv/rollands-restore-drill
+export ROLLANDS_OFFSITE_RESTORE_EVIDENCE_PATH=/srv/rollands-ops/offsite-restore-evidence.json
+npm run pilot:restore:offsite-r2
+```
+
+Detta kommando hämtar backup + checksumma direkt från den konfigurerade privata R2-bucketen, verifierar dem mot upload-evidensen, dekrypterar en isolerad temporär kopia och kör full SQLite-, tenant-, journal- och privatobjektsverifiering. Alla temporära nedladdningar och restore-filer raderas innan grönt evidens skrivs. Produktionsdatabasen ändras aldrig.
+
+I staging/pilot/produktion kräver readiness ett sådant offsite-restore-bevis som är högst 30 dagar gammalt.
 
 ## 13. Loggning
 
