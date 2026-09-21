@@ -22,7 +22,9 @@ test('monitoreringsbevis kräver extern https-readiness och lyckad larmleverans'
     checkedAt:new Date(now-60*60*1000).toISOString(),
     alertTestedAt:new Date(now-2*60*60*1000).toISOString(),
     readinessProbeSucceeded:true,
-    alertDeliverySucceeded:true
+    alertDeliverySucceeded:true,
+    alertTestReference:'alert-test-monitoring-001',
+    alertObserver:'LT Studio driftansvarig'
   };
   try{
     write(file,base);
@@ -36,6 +38,12 @@ test('monitoreringsbevis kräver extern https-readiness och lyckad larmleverans'
     assert.equal(monitoringEvidence(file,{now}).ok,false,'full readiness may not be used as monitoring bootstrap evidence');
 
     write(file,{...base,alertDeliverySucceeded:false});
+    assert.equal(monitoringEvidence(file,{now}).ok,false);
+
+    write(file,{...base,alertTestReference:''});
+    assert.equal(monitoringEvidence(file,{now}).ok,false);
+
+    write(file,{...base,alertObserver:'REPLACE_WITH_OBSERVER'});
     assert.equal(monitoringEvidence(file,{now}).ok,false);
 
     write(file,{...base,alertTestedAt:new Date(now-8*24*60*60*1000).toISOString()});
@@ -61,7 +69,9 @@ test('readiness blir röd utan färskt externt monitoreringsbevis',()=>{
       checkedAt:new Date(now-30*60*1000).toISOString(),
       alertTestedAt:new Date(now-60*60*1000).toISOString(),
       readinessProbeSucceeded:true,
-      alertDeliverySucceeded:true
+      alertDeliverySucceeded:true,
+      alertTestReference:'alert-test-readiness-001',
+      alertObserver:'LT Studio driftansvarig'
     });
     report=readinessReport({db,databasePath:':memory:',requireMonitoringEvidence:true,monitoringEvidencePath:file,now});
     assert.equal(report.ok,true);
