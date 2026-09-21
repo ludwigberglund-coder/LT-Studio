@@ -122,7 +122,7 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
   const inventoryAdjustmentB=Inventory.createAdjustment(f.db,{companyId:f.b.id,itemId:inventoryItemB.id,adjustmentDate:'2026-09-20',countedQuantityMilli:4000,reason:'Tenant matrix',countedBy:f.user.id});
   const automationProposalB=Queues.saveAutomationProposal(f.db,Automation.createProposal({
     companyId:f.b.id,type:'booking-account-suggestion',sourceId:'tenant-b-automation',confidence:.91,deterministic:false,
-    reason:'Tenant B automation proposal',evidence:[],suggestion:{amountOre:10000,debitAccount:'4010',creditAccount:'2440'},
+    reason:'Tenant B automation proposal',evidence:[{kind:'tenant-matrix',label:'Underlag',value:'Tenant B',sourceId:'tenant-b-automation'}],suggestion:{amountOre:10000,debitAccount:'4010',creditAccount:'2440'},
     engine:{kind:'rules',name:'tenant-matrix',version:'1'},createdAt:'2026-09-20T08:00:00.000Z'
   }),{idempotencyKey:'tenant-b-automation:v1'}).proposal;
   const payrollLines=[
