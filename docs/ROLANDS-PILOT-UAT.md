@@ -41,7 +41,7 @@ Efter grön driftkedja och grön UAT skapas ett gemensamt signoffbevis med `npm 
 8. Kontrollera leverantörsreskontran: öppet belopp ska motsvara fakturans obetalda belopp.
 9. Kontrollera att leverantören har korrekta betalningsuppgifter. Betalningsuppgifter sparas direkt av en behörig användare och ska synas i ändringshistoriken; separat godkännande av en andra person krävs inte för denna masterdataändring.
 10. Förbered betalningen.
-11. Frisläpp betalningen med korrekt behörighet.
+11. Frisläpp betalningen med korrekt behörighet. Samma person får förbereda och frisläppa betalningen; separat andra godkännare krävs inte för detta steg.
 12. Registrera bankbekräftelse och bokför betalningen.
 13. Kontrollera att betalningsverifikationen debiterar 2440 och krediterar valt bankkonto, normalt 1930.
 14. Kontrollera att öppet reskontrabelopp är 0 efter full betalning.
