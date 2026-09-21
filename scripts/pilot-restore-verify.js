@@ -10,6 +10,7 @@ const {magicMatches}=require('../apps/api/documents.js');
 const BackupCrypto=require('./backup-crypto.js');
 const PrivateObject=require('../apps/api/private-object-contract.js');
 const PrivateObjectInventory=require('../apps/api/private-object-inventory.js');
+const {assertSyntheticStagingDatabase}=require('../apps/api/staging-data-policy.js');
 
 function required(name){const value=String(process.env[name]||'').trim();if(!value)throw new Error(`${name} must be supplied.`);return value}
 function sha256(filename){return crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex')}
@@ -18,7 +19,7 @@ function sameExistingFile(left,right){
   const a=fs.statSync(left),b=fs.statSync(right);
   return a.dev===b.dev&&a.ino===b.ino;
 }
-function verifyDatabase(filename,{requirePrivateObjectSchema=false}={}){
+function verifyDatabase(filename,{requirePrivateObjectSchema=false,requireSyntheticStaging=false}={}){
   // Never run application migrations against a backup being verified.
   const db=new DatabaseSync(filename,{readOnly:true});
   try{
@@ -29,6 +30,7 @@ function verifyDatabase(filename,{requirePrivateObjectSchema=false}={}){
     for(const table of ['companies','users','memberships','audit_events'])if(!present.has(table))throw new Error(`RESTORE_SCHEMA_INCOMPLETE: missing ${table}.`);
     const tenants=inspectTenantRelations(db);
     if(!tenants.ok)throw new Error('RESTORE_TENANT_FAILED: cross-company references found.');
+    if(requireSyntheticStaging)assertSyntheticStagingDatabase(db,{ROLLANDS_ENV:'staging'});
 
     const privateObjectTables=['documents','supplier_invoices','customer_invoice_pdf_archives'];
     const missingPrivateObjectTables=privateObjectTables.filter(table=>!present.has(table));
@@ -117,6 +119,7 @@ function main(){
   if(!/^[a-f0-9]{64}$/i.test(expected)||expected.toLowerCase()!==sha256(source))throw new Error('RESTORE_CHECKSUM_FAILED: backup checksum does not match.');
   fs.mkdirSync(path.dirname(target),{recursive:true,mode:0o700});
   const encrypted=source.endsWith('.enc');
+  const requireSyntheticStaging=String(process.env.ROLLANDS_ENV||'').trim().toLowerCase()==='staging';
   const working=encrypted?`${target}.decrypting-${crypto.randomUUID()}`:source;
   let verified;
   try{
@@ -124,14 +127,14 @@ function main(){
       const key=required('ROLLANDS_BACKUP_ENCRYPTION_KEY');
       BackupCrypto.decryptFile(source,working,key);
       fs.chmodSync(working,0o600);
-      verified=verifyDatabase(working,{requirePrivateObjectSchema:true});
+      verified=verifyDatabase(working,{requirePrivateObjectSchema:true,requireSyntheticStaging});
       fs.renameSync(working,target);
     }else{
-      verifyDatabase(source,{requirePrivateObjectSchema:true});
+      verifyDatabase(source,{requirePrivateObjectSchema:true,requireSyntheticStaging});
       fs.copyFileSync(source,target,fs.constants.COPYFILE_EXCL);
       fs.chmodSync(target,0o600);
       if(sha256(target)!==expected.toLowerCase())throw new Error('RESTORE_COPY_FAILED: source changed during copy.');
-      verified=verifyDatabase(target,{requirePrivateObjectSchema:true});
+      verified=verifyDatabase(target,{requirePrivateObjectSchema:true,requireSyntheticStaging});
     }
   }catch(error){fs.rmSync(working,{force:true});fs.rmSync(target,{force:true});throw error}
   console.log(JSON.stringify({verified:true,target,sourceEncrypted:encrypted,sha256:sha256(target),...verified}));
