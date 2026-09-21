@@ -23,17 +23,18 @@ function createOpeningMigrationImportRouter(options){
 
   async function handle(req,res){
     let url;try{url=new URL(req.url,'http://localhost')}catch{return false}
-    if(!url.pathname.startsWith('/api/v1/accounting/opening-migration/'))return false;
+    const read=url.pathname.match(/^\/api\/v1\/accounting\/opening-migration\/imports\/((?:19|20|21)\d{2})$/);
+    const importing=url.pathname==='/api/v1/accounting/opening-migration/import';
+    if(!read&&!importing)return false;
     try{
       const s=requireSession(req);
-      const read=url.pathname.match(/^\/api\/v1\/accounting\/opening-migration\/imports\/((?:19|20|21)\d{2})$/);
       if(read&&req.method==='GET'){
         permission(s,'accounting.view');
         const result=OpeningMigration.verifyImportIntegrity(db,s.companyId,read[1]);
         if(!result)throw routeError('Systembytesimporten hittades inte.','OPENING_MIGRATION_NOT_FOUND',404);
         return send(res,200,result),true;
       }
-      if(url.pathname==='/api/v1/accounting/opening-migration/import'&&req.method==='POST'){
+      if(importing&&req.method==='POST'){
         csrf(req,s);permission(s,'accounting.correct');
         const body=await readJson(req,res);if(!body)return true;
         if(body.confirmImport!==true)throw routeError('Systembytesimport kräver en uttrycklig bekräftelse. Ingen data importerades.','OPENING_MIGRATION_CONFIRMATION_REQUIRED',422);
