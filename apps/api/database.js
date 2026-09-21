@@ -277,6 +277,8 @@ function initializeSchema(db) {
   if (!hasColumn(db,'invoice_reminders','interest_start_evidence_source')) db.exec("ALTER TABLE invoice_reminders ADD COLUMN interest_start_evidence_source TEXT NOT NULL DEFAULT ''");
   if (!hasColumn(db,'invoice_reminders','interest_start_verified_at')) db.exec("ALTER TABLE invoice_reminders ADD COLUMN interest_start_verified_at TEXT NOT NULL DEFAULT ''");
   db.exec("UPDATE invoice_reminders SET reminder_date=substr(sent_at,1,10) WHERE reminder_date IS NULL OR reminder_date=''");
+  if (!hasColumn(db,'customers','archived_at')) db.exec('ALTER TABLE customers ADD COLUMN archived_at TEXT');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_customers_company_archived ON customers(company_id,archived_at,customer_number)');
   const {protectAppendOnly}=require('./history-guards.js');
   protectAppendOnly(db,'audit_events');
   protectAppendOnly(db,'security_events');
