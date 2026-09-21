@@ -13,7 +13,7 @@ Den privata företagsportalen använder en gemensam ytterlayout. Syftet är att 
 - säker utloggning mot `POST /api/v1/auth/logout`
 - normalisering av portalens workspace-klasser
 
-`apps/portal/styles.css` äger portalramens gemensamma visuella regler.
+`apps/portal/shared-nav.css` äger portalramens gemensamma visuella regler och laddas sist på alla workspaces. Därför är den filen den auktoritativa layoutkällan.
 
 Affärsmoduler som Bokföring, Rapporter, Lager, Leverantörer och Kundfakturor äger sitt eget innehåll, men ska inte skapa en egen säkerhets- eller användarmeny.
 
@@ -32,11 +32,11 @@ Det gör att samma grundlayout kan tillämpas även om äldre moduler fortfarand
 
 Den gemensamma portalramen använder:
 
-- över 1000 px: ordinarie sidomeny med `--sidebar-width` (248 px)
-- 721–1000 px: smalare men fortfarande textläsbar sidomeny på 220 px
-- 720 px och mindre: enkolumnslayout där sidomenyn döljs
+- över 760 px: gemensam textbaserad sidomeny på 276 px
+- 760 px och mindre: enkolumnslayout där den gemensamma navigationen ligger över innehållet och förblir åtkomlig
+- 420 px och mindre: navigationslänkarna går över till en kolumn
 
-Modulspecifik CSS får styra innehållet inne i respektive modul, men ska inte ändra dessa grundläggande portalbrytpunkter.
+Modulspecifik CSS får styra innehållet inne i respektive modul, men ska inte försöka överstyra den gemensamma workspace-layouten. `shared-nav.css` laddas sist just för att samma navigation ska vinna över äldre modulregler.
 
 ## Utloggning
 
