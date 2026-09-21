@@ -278,7 +278,7 @@ function createApiApp(options) {
   }
 
   async function handle(req,res) {
-    const requestId=crypto.randomUUID();
+    const requestId=String(res.getHeader('X-Request-Id')||crypto.randomUUID());
     res.setHeader('X-Request-Id',requestId);
     let url;
     try { url=new URL(req.url,'http://localhost'); }
