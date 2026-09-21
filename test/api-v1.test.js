@@ -205,10 +205,32 @@ test('skyddat kundregister listar, skapar och isolerar kunder per företag', asy
   const missingCsrf=await fetch(`${base}/api/v1/customers`,{method:'POST',headers:{Cookie:signed.cookie,'Content-Type':'application/json'},body:JSON.stringify({name:'Ny Kund AB'})});
   assert.equal(missingCsrf.status,403);
 
-  const created=await fetch(`${base}/api/v1/customers`,{method:'POST',headers:{Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken},body:JSON.stringify({name:'Ny Kund AB',orgNumber:'559999-0001',email:'faktura@example.se',address:'Testgatan 1, Göteborg'})});
+  const headers={Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken};
+  const missingRequestId=await fetch(`${base}/api/v1/customers`,{method:'POST',headers,body:JSON.stringify({name:'Ny Kund AB'})});
+  assert.equal(missingRequestId.status,422);
+  assert.equal((await missingRequestId.json()).code,'CUSTOMER_REQUEST_ID_REQUIRED');
+
+  const request={requestId:'customer-create-request-0001',name:'Ny Kund AB',orgNumber:'559999-0001',email:'faktura@example.se',address:'Testgatan 1, Göteborg'};
+  const created=await fetch(`${base}/api/v1/customers`,{method:'POST',headers,body:JSON.stringify(request)});
   const data=await created.json();
   assert.equal(created.status,201);
+  assert.equal(data.duplicate,false);
   assert.equal(data.customer.customerNumber,'K-1001');
   assert.equal(data.customer.name,'Ny Kund AB');
-  assert.ok(Db.auditForCompany(db,co1.id).some(event=>event.action==='CUSTOMER_CREATED'&&event.entityId===data.customer.id));
+
+  const retry=await fetch(`${base}/api/v1/customers`,{method:'POST',headers,body:JSON.stringify(request)});
+  const retryData=await retry.json();
+  assert.equal(retry.status,200);
+  assert.equal(retryData.duplicate,true);
+  assert.equal(retryData.customer.id,data.customer.id);
+  assert.equal(retryData.customer.customerNumber,data.customer.customerNumber);
+
+  const conflict=await fetch(`${base}/api/v1/customers`,{method:'POST',headers,body:JSON.stringify({...request,name:'Annan Kund AB'})});
+  assert.equal(conflict.status,409);
+  assert.equal((await conflict.json()).code,'CUSTOMER_IDEMPOTENCY_CONFLICT');
+
+  const after=Db.listCustomers(db,co1.id);
+  assert.equal(after.length,2);
+  assert.equal(after.filter(customer=>customer.id===data.customer.id).length,1);
+  assert.equal(Db.auditForCompany(db,co1.id).filter(event=>event.action==='CUSTOMER_CREATED'&&event.entityId===data.customer.id).length,1);
 }));
