@@ -18,6 +18,45 @@ function writeBackup(dir,name='rollands-test.sqlite',ageMs=0,corruptChecksum=fal
   if(ageMs){const when=new Date(Date.now()-ageMs);fs.utimesSync(file,when,when);}
   return file;
 }
+function r2RestoreEvidence(verifiedAt){
+  const sha='c'.repeat(64);
+  const checksumSha='d'.repeat(64);
+  const sourceFile='rollands-2026-09-21T10-00-00.sqlite.enc';
+  const sourceStorageKey=`encrypted-sqlite-backups/${sha}/${sourceFile}`;
+  return {
+    schemaVersion:1,
+    verifiedAt,
+    sourceProvider:'r2',
+    provider:'r2',
+    jurisdiction:'eu',
+    bucket:'private-backups',
+    sourceFile,
+    sourceEncryptedSha256:sha,
+    sourceSizeBytes:8192,
+    sourceStorageKey,
+    sourceChecksumStorageKey:sourceStorageKey+'.sha256',
+    sourceChecksumSha256:checksumSha,
+    sourceChecksumSizeBytes:92,
+    remoteDownloadVerified:true,
+    remoteChecksumDownloadVerified:true,
+    sqliteIntegrity:true,
+    foreignKeys:true,
+    privateObjectsVerified:true,
+    privateObjectSchemaComplete:true,
+    privateObjectCount:3,
+    verifiedPrivateObjectCount:3,
+    privateObjectBytes:600,
+    privateObjectIssueCount:0,
+    privateObjectsByKind:{
+      document:{objects:1,verified:1,bytes:100},
+      'supplier-invoice':{objects:1,verified:1,bytes:200},
+      'customer-invoice-pdf':{objects:1,verified:1,bytes:300}
+    },
+    productionDatabaseTouched:false,
+    remoteDownloadRemoved:true,
+    restoreCopyRemoved:true
+  };
+}
 function restoreEvidence(verifiedAt){
   return {
     schemaVersion:2,
@@ -46,7 +85,7 @@ test('readiness kräver läsbar och skrivbar databas',()=>{
   try{
     const report=readinessReport({db,databasePath:':memory:',minFreeBytes:1});
     assert.equal(report.ok,true);
-    assert.deepEqual(report.checks,{databaseRead:true,databaseWrite:true,diskSpace:true,backup:true,offsiteBackup:true,restoreDrill:true,monitoring:true});
+    assert.deepEqual(report.checks,{databaseRead:true,databaseWrite:true,diskSpace:true,backup:true,offsiteBackup:true,restoreDrill:true,r2RestoreDrill:true,monitoring:true});
   }finally{db.close()}
 });
 
@@ -89,6 +128,8 @@ test('readiness kräver färskt verifierat R2-offsitebevis i skyddad drift',()=>
     encryptedSizeBytes:4096,
     encryptedStorageKey:`encrypted-sqlite-backups/${sha}/${encryptedFile}`,
     checksumStorageKey:`encrypted-sqlite-backups/${sha}/${encryptedFile}.sha256`,
+    checksumSha256:'c'.repeat(64),
+    checksumSizeBytes:92,
     remoteEncryptedVerified:true,
     remoteChecksumVerified:true
   };
@@ -187,5 +228,33 @@ test('readiness blir röd när restore-bevis saknas, är gammalt eller saknar pr
     fs.writeFileSync(evidencePath,JSON.stringify({...valid,privateObjectIssueCount:1}));
     report=readinessReport({db,databasePath:':memory:',requireRestoreEvidence:true,restoreEvidencePath:evidencePath,now});
     assert.equal(report.ok,false);assert.equal(report.checks.restoreDrill,false);
+  }finally{db.close();fs.rmSync(dir,{recursive:true,force:true})}
+});
+
+
+test('readiness kräver färsk verifierad restore från R2 i skyddad drift',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-readiness-r2-restore-'));
+  const evidencePath=path.join(dir,'r2-restore-evidence.json');
+  const db=Db.openDatabase(':memory:');
+  const now=Date.UTC(2026,8,21,12,0,0);
+  try{
+    let report=readinessReport({db,databasePath:':memory:',requireR2RestoreEvidence:true,r2RestoreEvidencePath:evidencePath,now});
+    assert.equal(report.ok,false);
+    assert.equal(report.checks.r2RestoreDrill,false);
+
+    const valid=r2RestoreEvidence(new Date(now-2*24*60*60*1000).toISOString());
+    fs.writeFileSync(evidencePath,JSON.stringify(valid));
+    report=readinessReport({db,databasePath:':memory:',requireR2RestoreEvidence:true,r2RestoreEvidencePath:evidencePath,now});
+    assert.equal(report.ok,true);
+    assert.equal(report.checks.r2RestoreDrill,true);
+    assert.equal(report.r2RestoreDrillAgeMs,2*24*60*60*1000);
+
+    fs.writeFileSync(evidencePath,JSON.stringify({...valid,remoteChecksumDownloadVerified:false}));
+    report=readinessReport({db,databasePath:':memory:',requireR2RestoreEvidence:true,r2RestoreEvidencePath:evidencePath,now});
+    assert.equal(report.ok,false);
+
+    fs.writeFileSync(evidencePath,JSON.stringify({...valid,verifiedAt:new Date(now-31*24*60*60*1000).toISOString()}));
+    report=readinessReport({db,databasePath:':memory:',requireR2RestoreEvidence:true,r2RestoreEvidencePath:evidencePath,now});
+    assert.equal(report.ok,false);
   }finally{db.close();fs.rmSync(dir,{recursive:true,force:true})}
 });
