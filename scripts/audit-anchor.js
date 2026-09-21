@@ -5,6 +5,25 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {DatabaseSync}=require('node:sqlite');
 
+const repositoryRoot=path.resolve(__dirname,'..');
+
+function resolvedStoragePath(filename){
+  const absolute=path.resolve(filename);
+  let parent=absolute;
+  const tail=[];
+  while(!fs.existsSync(parent)){
+    const next=path.dirname(parent);
+    if(next===parent)break;
+    tail.unshift(path.basename(parent));
+    parent=next;
+  }
+  return path.join(fs.realpathSync(parent),...tail);
+}
+function outsideRepository(filename){
+  const relative=path.relative(fs.realpathSync(repositoryRoot),resolvedStoragePath(filename));
+  return Boolean(relative&&(relative==='..'||relative.startsWith('..'+path.sep)||path.isAbsolute(relative)));
+}
+
 const STREAMS=Object.freeze([
   Object.freeze({
     name:'auditEvents',
@@ -178,6 +197,7 @@ function required(name){const value=String(process.env[name]||'').trim();if(!val
 function createMain(){
   const databasePath=path.resolve(required('ROLLANDS_DATABASE_PATH'));
   const anchorPath=path.resolve(required('ROLLANDS_AUDIT_ANCHOR_PATH'));
+  if(!outsideRepository(anchorPath))throw anchorError('ROLLANDS_AUDIT_ANCHOR_PATH måste ligga utanför Git-repositoryt.','AUDIT_ANCHOR_PATH_UNSAFE');
   const anchor=createAuditAnchorFromDatabase(databasePath);
   const written=writeAnchor(anchorPath,anchor);
   process.stdout.write(JSON.stringify({verified:true,rootSha256:anchor.rootSha256,anchorSha256:written.sha256,path:written.filename,streams:Object.fromEntries(Object.entries(anchor.streams).map(([key,value])=>[key,value.count]))})+'\n');
@@ -186,6 +206,7 @@ function createMain(){
 function verifyMain(){
   const databasePath=path.resolve(required('ROLLANDS_DATABASE_PATH'));
   const anchorPath=path.resolve(required('ROLLANDS_AUDIT_ANCHOR_PATH'));
+  if(!outsideRepository(anchorPath))throw anchorError('ROLLANDS_AUDIT_ANCHOR_PATH måste ligga utanför Git-repositoryt.','AUDIT_ANCHOR_PATH_UNSAFE');
   const result=verifyAuditAnchor(databasePath,readAnchor(anchorPath));
   if(!result.ok){
     for(const item of result.fail)console.error('AUDIT_ANCHOR_VERIFY_FAILED: '+item);
@@ -211,6 +232,7 @@ module.exports=Object.freeze({
   verifyAuditAnchor,
   writeAnchor,
   readAnchor,
+  outsideRepository,
   createMain,
   verifyMain
 });
