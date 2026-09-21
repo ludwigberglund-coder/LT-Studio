@@ -140,8 +140,8 @@ function executeApprovedCustomerPayment(db,{companyId,proposalId,actorId}){
     if(expectedRemaining!==invoice.remainingOre)throw paymentError('Kundreskontrans restbelopp stämmer inte med transaktionshistoriken.','CUSTOMER_RECEIVABLE_INTEGRITY_ERROR',409);
 
     const amountOre=Number(suggestion.amountOre);
-    if(!Number.isSafeInteger(amountOre)||amountOre<=0||amountOre!==bankPayment.amountOre||amountOre!==invoice.remainingOre){
-      throw paymentError('Bankbeloppet måste exakt motsvara fakturans aktuella restbelopp.','CUSTOMER_PAYMENT_AMOUNT_MISMATCH',409);
+    if(!Number.isSafeInteger(amountOre)||amountOre<=0||amountOre!==bankPayment.amountOre||amountOre>invoice.remainingOre){
+      throw paymentError('Bankbeloppet måste vara positivt och får inte överstiga fakturans aktuella restbelopp.','CUSTOMER_PAYMENT_AMOUNT_MISMATCH',409);
     }
     approvedAccountingLines(proposal,amountOre);
 
@@ -178,15 +178,19 @@ function executeApprovedCustomerPayment(db,{companyId,proposalId,actorId}){
     });
 
     const updatedAt=nowIso();
-    const invoiceUpdate=db.prepare(`UPDATE invoices SET remaining_ore=0,status='Betald',updated_at=? WHERE company_id=? AND id=? AND remaining_ore=? AND total_ore>0`).run(updatedAt,companyId,invoice.id,amountOre);
-    if(invoiceUpdate.changes!==1)throw paymentError('Fakturans restbelopp ändrades under bokföringen. Hela operationen återställdes.','CUSTOMER_PAYMENT_INVOICE_CONFLICT',409);
+    const remainingAfter=invoice.remainingOre-amountOre;
+    const statusAfter=remainingAfter===0?'Betald':invoice.status;
+    const invoiceUpdate=db.prepare(`UPDATE invoices SET remaining_ore=?,status=?,updated_at=? WHERE company_id=? AND id=? AND remaining_ore=? AND status=? AND total_ore>0`).run(
+      remainingAfter,statusAfter,updatedAt,companyId,invoice.id,invoice.remainingOre,invoice.status
+    );
+    if(invoiceUpdate.changes!==1)throw paymentError('Fakturans restbelopp eller status ändrades under bokföringen. Hela operationen återställdes.','CUSTOMER_PAYMENT_INVOICE_CONFLICT',409);
     const bankUpdate=db.prepare(`UPDATE bank_payments SET status='posted',updated_at=? WHERE company_id=? AND id=? AND status IN ('proposal-created','reviewed')`).run(updatedAt,companyId,bankPayment.id);
     if(bankUpdate.changes!==1)throw paymentError('Bankhändelsens status ändrades under bokföringen. Hela operationen återställdes.','CUSTOMER_PAYMENT_BANK_CONFLICT',409);
 
     db.prepare(`INSERT INTO customer_payment_executions(company_id,proposal_id,bank_payment_id,invoice_id,accounting_entry_id,invoice_transaction_id,amount_ore,posting_date,invoice_status_before,executed_by,executed_at)
       VALUES(?,?,?,?,?,?,?,?,?,?,?)`).run(companyId,proposal.id,bankPayment.id,invoice.id,posted.entry.id,transaction.id,amountOre,bankPayment.bookingDate,invoice.status,actorId,updatedAt);
     Db.appendAudit(db,{companyId,userId:actorId,action:'CUSTOMER_PAYMENT_POSTED_FROM_APPROVED_MATCH',entityType:'bank-payment',entityId:bankPayment.id,details:{
-      proposalId:proposal.id,invoiceId:invoice.id,invoiceNumber:invoice.invoiceNumber,amountOre,accountingEntryId:posted.entry.id,accountingNumber:posted.entry.number,invoiceTransactionId:transaction.id,approvedBy:proposal.approvedBy,approvedAt:proposal.approvedAt
+      proposalId:proposal.id,invoiceId:invoice.id,invoiceNumber:invoice.invoiceNumber,amountOre,remainingBeforeOre:invoice.remainingOre,remainingAfterOre:remainingAfter,partialPayment:remainingAfter>0,accountingEntryId:posted.entry.id,accountingNumber:posted.entry.number,invoiceTransactionId:transaction.id,approvedBy:proposal.approvedBy,approvedAt:proposal.approvedAt
     }});
 
     const execution=executionByProposal(db,companyId,proposal.id);
@@ -274,7 +278,7 @@ function reclassifyCustomerPayment(db,{companyId,proposalId,targetInvoiceId,requ
     const sourceInvoice=Db.invoiceById(db,companyId,allocation.invoiceId);
     const targetInvoice=Db.invoiceById(db,companyId,targetId);
     if(!sourceInvoice||!targetInvoice)throw paymentError('Käll- eller målfakturan hittades inte i företaget.','TARGET_INVOICE_NOT_FOUND',404);
-    if(sourceInvoice.remainingOre!==0||sourceInvoice.status!=='Betald')throw paymentError('Den nuvarande fakturan är inte längre fullt reglerad av betalningen.','CUSTOMER_PAYMENT_RECLASS_SOURCE_CHANGED',409);
+    if(sourceInvoice.remainingOre!==0||sourceInvoice.status!=='Betald')throw paymentError('Delbetalningar kan ännu inte omföras automatiskt. Betalningen måste ha reglerat den aktuella fakturan helt.','CUSTOMER_PAYMENT_RECLASS_PARTIAL_UNSUPPORTED',409);
     assertReceivableIntegrity(db,companyId,sourceInvoice);
     assertReceivableIntegrity(db,companyId,targetInvoice,{requireOpenAmount:execution.amountOre});
 
