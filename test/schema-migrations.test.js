@@ -92,7 +92,7 @@ test('avbruten legacy-migration rullar tillbaka schemaändringar och migrationsp
       const reminder=migrated.prepare('SELECT reminder_date AS reminderDate FROM invoice_reminders WHERE id=?').get('legacy-reminder');
       assert.equal(reminder.reminderDate,'2026-09-01');
       const migration=migrated.prepare('SELECT id FROM schema_migrations WHERE id=?').get(Db.CORE_SCHEMA_MIGRATION_ID);
-      assert.deepEqual(migration,{id:Db.CORE_SCHEMA_MIGRATION_ID});
+      assert.equal(migration.id,Db.CORE_SCHEMA_MIGRATION_ID);
       assert.equal(migrated.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
     }finally{
       migrated.close();
