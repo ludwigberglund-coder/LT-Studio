@@ -249,14 +249,16 @@ function reclassifyCustomerPayment(db,{companyId,proposalId,targetInvoiceId,requ
       if(priorByRequest.originalProposalId!==proposalId||priorByRequest.targetInvoiceId!==targetId||priorByRequest.correctionDate!==date||priorByRequest.reason!==cleanReason||priorByRequest.correctedBy!==actorId){
         throw paymentError('Request-id är redan använt för en annan kundbetalningsomföring.','CUSTOMER_PAYMENT_RECLASS_IDEMPOTENCY_CONFLICT',409);
       }
-      return{
-        reclassification:priorByRequest,
-        entry:Accounting.entryById(db,companyId,priorByRequest.accountingEntryId),
-        sourceInvoice:Db.invoiceById(db,companyId,priorByRequest.sourceInvoiceId),
-        targetInvoice:Db.invoiceById(db,companyId,priorByRequest.targetInvoiceId),
-        bankPayment:Bank.byId(db,companyId,priorByRequest.bankPaymentId),
-        duplicate:true
-      };
+      const entry=Accounting.entryById(db,companyId,priorByRequest.accountingEntryId);
+      const sourceInvoice=Db.invoiceById(db,companyId,priorByRequest.sourceInvoiceId);
+      const targetInvoice=Db.invoiceById(db,companyId,priorByRequest.targetInvoiceId);
+      const bankPayment=Bank.byId(db,companyId,priorByRequest.bankPaymentId);
+      const sourceTx=Db.transactionById(db,companyId,priorByRequest.sourceReversalTransactionId);
+      const targetTx=Db.transactionById(db,companyId,priorByRequest.targetPaymentTransactionId);
+      if(!entry||!sourceInvoice||!targetInvoice||!bankPayment||!sourceTx||!targetTx||sourceTx.amountOre!==priorByRequest.amountOre||targetTx.amountOre!==-priorByRequest.amountOre){
+        throw paymentError('Den tidigare omföringens bokförings- eller reskontrahistorik är ofullständig.','CUSTOMER_PAYMENT_RECLASS_INTEGRITY_ERROR',500);
+      }
+      return{reclassification:priorByRequest,entry,sourceInvoice,targetInvoice,bankPayment,duplicate:true};
     }
 
     const execution=executionByProposal(db,companyId,proposalId);
