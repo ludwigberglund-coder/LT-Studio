@@ -47,6 +47,7 @@ function openingBalancePanel(){
     <form class="accounting-form" id="opening-balance-form">
       <div class="opening-meta"><label>Bokföringsdatum<input value="${esc(openingYear)}-01-01" disabled></label><span>Importen måste göras innan andra verifikationer finns i året.</span></div>
       <div class="opening-lines" id="opening-lines">${openingLineRow(0)}${openingLineRow(1)}</div>
+      <label class="opening-confirm"><input type="checkbox" name="confirm" required> Jag har kontrollerat underlaget och att debet och kredit balanserar. Importen skapar en spårbar IB-verifikation.</label>
       <div class="toolbar"><button class="button ghost" data-action="add-opening-line" type="button">Lägg till rad</button><button class="button" type="submit">Importera ingående balans</button></div>
       <p class="form-error"></p>
     </form>
@@ -68,6 +69,120 @@ function periodList(){return `<div class="period-list">${periods.map(p=>`<div cl
 function unlockList(){const pending=unlockRequests.filter(r=>r.status==='pending');return `<div class="entry-detail"><span class="eyebrow">Upplåsningskö</span><h2>Väntande beslut</h2>${pending.map(r=>`<div class="period-row"><div><b>${esc(r.period)}</b><br><small>${esc(r.reason)}</small></div><span class="status-pill pending">Väntar beslut</span>${isDemo?`<button class="button ghost small" type="button" data-action="approve-unlock" data-id="${esc(r.id)}">Godkänn demo</button>`:'<span></span>'}</div>`).join('')||'<p class="empty-state">Ingen väntande begäran.</p>'}</div>`}
 async function loadApi(){const s=await api('/session');if(!s.authenticated){location.href='./index.html';return false}session=s;const entryData=await api('/accounting/entries');entries=entryData.entries||[];const detailed=[];for(const entry of entries.slice(0,200)){try{detailed.push((await api(`/accounting/entries/${encodeURIComponent(entry.id)}`)).entry)}catch{detailed.push(entry)}}entries=detailed;selectedEntry=entries[0]||null;periods=(await api('/accounting/periods')).periods||[];unlockRequests=(await api('/accounting/unlock-requests?status=all')).requests||[];await loadOpeningBalance();return true}
 function setError(form,message){const el=form.querySelector('.form-error');if(el)el.textContent=message||''}
-function bind(){document.querySelectorAll('[data-entry]').forEach(row=>row.addEventListener('click',()=>{selectedEntry=entries.find(e=>e.id===row.dataset.entry)||null;render()}));document.querySelector('[data-action="lock-current"]')?.addEventListener('click',async()=>{const period=currentPeriod();try{if(isDemo){Demo.patch(state=>{const existing=state.accountingPeriods.find(p=>p.period===period);if(existing){existing.status='locked';existing.lockedAt=new Date().toISOString();existing.lockedBy='demo-user'}else state.accountingPeriods.push({period,status:'locked',lockedBy:'demo-user',lockedAt:new Date().toISOString()})});syncDemo();return render()}await api(`/accounting/periods/${period}/lock`,{method:'POST'});await loadApi();render()}catch(e){alert(e.message)}});document.getElementById('unlock-form')?.addEventListener('submit',async event=>{event.preventDefault();const form=event.currentTarget,reason=String(new FormData(form).get('reason')||'');try{if(isDemo){Demo.patch(state=>state.accountingUnlockRequests.push({id:`u-${Date.now()}`,period:currentPeriod(),reason,status:'pending',requestedBy:'demo-user',requestedAt:new Date().toISOString()}));syncDemo();return render()}await api(`/accounting/periods/${currentPeriod()}/unlock-request`,{method:'POST',body:{reason}});await loadApi();render()}catch(e){setError(form,e.message)}});document.getElementById('correction-form')?.addEventListener('submit',async event=>{event.preventDefault();const form=event.currentTarget,data=new FormData(form),original=selectedEntry;try{if(isDemo){const reversal={id:`demo-c-${Date.now()}`,number:`${original.number}R`,postingDate:String(data.get('postingDate')),description:`Motverifikation ${original.number} – ${String(data.get('reason'))}`,sourceType:'accounting-correction-reversal',sourceId:original.id,lines:original.lines.map(l=>({...l,debitOre:l.creditOre,creditOre:l.debitOre}))};Demo.patch(state=>state.accountingEntries.unshift(reversal));syncDemo(reversal.id);return render()}await api(`/accounting/entries/${encodeURIComponent(original.id)}/correct`,{method:'POST',body:{postingDate:data.get('postingDate'),reason:data.get('reason')}});await loadApi();render()}catch(e){setError(form,e.message)}});document.querySelectorAll('[data-action="approve-unlock"]').forEach(button=>button.addEventListener('click',()=>{if(!isDemo)return;Demo.patch(state=>{const request=state.accountingUnlockRequests.find(r=>r.id===button.dataset.id);if(request){request.status='approved';const period=state.accountingPeriods.find(p=>p.period===request.period);if(period){period.status='open';period.lockedAt=null;period.lockedBy=null}}});syncDemo();render()}))}
+function bind(){
+  document.querySelectorAll('[data-entry]').forEach(row=>row.addEventListener('click',()=>{
+    selectedEntry=entries.find(e=>e.id===row.dataset.entry)||null;
+    render();
+  }));
+
+  document.querySelector('[data-action="lock-current"]')?.addEventListener('click',async()=>{
+    const period=currentPeriod();
+    try{
+      if(isDemo){
+        Demo.patch(state=>{
+          const existing=state.accountingPeriods.find(p=>p.period===period);
+          if(existing){existing.status='locked';existing.lockedAt=new Date().toISOString();existing.lockedBy='demo-user'}
+          else state.accountingPeriods.push({period,status:'locked',lockedBy:'demo-user',lockedAt:new Date().toISOString()});
+        });
+        syncDemo();return render();
+      }
+      await api(`/accounting/periods/${period}/lock`,{method:'POST'});
+      await loadApi();render();
+    }catch(e){alert(e.message)}
+  });
+
+  document.getElementById('unlock-form')?.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const form=event.currentTarget,reason=String(new FormData(form).get('reason')||'');
+    try{
+      if(isDemo){
+        Demo.patch(state=>state.accountingUnlockRequests.push({id:`u-${Date.now()}`,period:currentPeriod(),reason,status:'pending',requestedBy:'demo-user',requestedAt:new Date().toISOString()}));
+        syncDemo();return render();
+      }
+      await api(`/accounting/periods/${currentPeriod()}/unlock-request`,{method:'POST',body:{reason}});
+      await loadApi();render();
+    }catch(e){setError(form,e.message)}
+  });
+
+  document.getElementById('correction-form')?.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const form=event.currentTarget,data=new FormData(form),original=selectedEntry;
+    try{
+      if(isDemo){
+        const reversal={id:`demo-c-${Date.now()}`,number:`${original.number}R`,postingDate:String(data.get('postingDate')),description:`Motverifikation ${original.number} – ${String(data.get('reason'))}`,sourceType:'accounting-correction-reversal',sourceId:original.id,lines:original.lines.map(l=>({...l,debitOre:l.creditOre,creditOre:l.debitOre}))};
+        Demo.patch(state=>state.accountingEntries.unshift(reversal));syncDemo(reversal.id);return render();
+      }
+      await api(`/accounting/entries/${encodeURIComponent(original.id)}/correct`,{method:'POST',body:{postingDate:data.get('postingDate'),reason:data.get('reason')}});
+      await loadApi();render();
+    }catch(e){setError(form,e.message)}
+  });
+
+  document.querySelectorAll('[data-action="approve-unlock"]').forEach(button=>button.addEventListener('click',()=>{
+    if(!isDemo)return;
+    Demo.patch(state=>{
+      const request=state.accountingUnlockRequests.find(r=>r.id===button.dataset.id);
+      if(request){
+        request.status='approved';
+        const period=state.accountingPeriods.find(p=>p.period===request.period);
+        if(period){period.status='open';period.lockedAt=null;period.lockedBy=null}
+      }
+    });
+    syncDemo();render();
+  }));
+
+  document.getElementById('opening-year-form')?.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const form=event.currentTarget;
+    const year=String(new FormData(form).get('year')||'').trim();
+    if(!/^(19|20|21)\d{2}$/.test(year)){setError(form,'Året måste anges med fyra siffror.');return}
+    openingYear=year;openingMessage='';
+    try{await loadOpeningBalance();render()}catch(e){openingMessage=e.message;render()}
+  });
+
+  document.querySelector('[data-action="add-opening-line"]')?.addEventListener('click',()=>{
+    const container=document.getElementById('opening-lines');
+    if(!container)return;
+    container.insertAdjacentHTML('beforeend',openingLineRow(container.querySelectorAll('.opening-line-row').length));
+    bindOpeningRemoveButtons();
+  });
+
+  function bindOpeningRemoveButtons(){
+    document.querySelectorAll('.opening-remove').forEach(button=>{
+      button.onclick=()=>{
+        const rows=document.querySelectorAll('.opening-line-row');
+        if(rows.length<=2){const form=document.getElementById('opening-balance-form');if(form)setError(form,'Ingående balans måste innehålla minst två rader.');return}
+        button.closest('.opening-line-row')?.remove();
+      };
+    });
+  }
+  bindOpeningRemoveButtons();
+
+  document.getElementById('opening-balance-form')?.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const form=event.currentTarget;
+    setError(form,'');
+    try{
+      const rows=[...form.querySelectorAll('.opening-line-row')];
+      if(rows.length<2)throw new Error('Ingående balans måste innehålla minst två rader.');
+      const lines=rows.map((row,index)=>{
+        const account=String(row.querySelector('[data-opening="account"]')?.value||'').trim();
+        const text=String(row.querySelector('[data-opening="text"]')?.value||'').trim();
+        const debitOre=amountToOre(row.querySelector('[data-opening="debit"]')?.value);
+        const creditOre=amountToOre(row.querySelector('[data-opening="credit"]')?.value);
+        if(!/^[12]\d{3}$/.test(account))throw new Error(`Rad ${index+1}: konto måste vara ett balanskonto i klass 1–2.`);
+        if(account==='1510'||account==='2440')throw new Error(`Rad ${index+1}: konto ${account} kräver reskontraunderlag och kan inte importeras här.`);
+        if((debitOre>0)===(creditOre>0))throw new Error(`Rad ${index+1}: ange belopp i antingen debet eller kredit.`);
+        return{account,text,debitOre,creditOre};
+      });
+      const debit=lines.reduce((sum,line)=>sum+line.debitOre,0);
+      const credit=lines.reduce((sum,line)=>sum+line.creditOre,0);
+      if(!Number.isSafeInteger(debit)||!Number.isSafeInteger(credit)||debit<=0||debit!==credit)throw new Error(`Debet och kredit måste balansera exakt. Debet ${ore(debit)}, kredit ${ore(credit)}.`);
+      await api(`/accounting/opening-balances/${encodeURIComponent(openingYear)}`,{method:'POST',body:{postingDate:`${openingYear}-01-01`,lines}});
+      openingMessage='';
+      await loadApi();
+      render();
+    }catch(e){setError(form,e.message)}
+  });
+}
 async function init(){if(isDemo){if(!Demo)throw new Error('Det gemensamma demoscenariot kunde inte laddas.');session={user:{displayName:'Demoanvändare'},company:{name:'Rollands Frukt o Grönt AB'}};syncDemo();return render()}if(await loadApi())render()}
 init().catch(error=>{app.innerHTML=`<main class="boot"><strong>Bokföringen kunde inte laddas</strong><span>${esc(error.message)}</span></main>`});
