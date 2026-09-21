@@ -162,7 +162,7 @@ function monitoringEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_MONITORING
     if(provider.length<2||alertRoute.length<3)return{ok:false,ageMs:null,alertAgeMs:null};
     let parsed;try{parsed=new URL(endpoint)}catch{return{ok:false,ageMs:null,alertAgeMs:null}}
     if(parsed.protocol!=='https:'||parsed.hostname==='localhost'||parsed.hostname==='127.0.0.1'||parsed.hostname==='::1')return{ok:false,ageMs:null,alertAgeMs:null};
-    if(!parsed.pathname.endsWith('/api/v1/readiness'))return{ok:false,ageMs:null,alertAgeMs:null};
+    if(parsed.pathname!=='/api/v1/readiness/core')return{ok:false,ageMs:null,alertAgeMs:null};
     const checkedAt=Date.parse(String(value.checkedAt||'')),alertTestedAt=Date.parse(String(value.alertTestedAt||''));
     if(!Number.isFinite(checkedAt)||!Number.isFinite(alertTestedAt)||checkedAt>now+5*60*1000||alertTestedAt>now+5*60*1000)return{ok:false,ageMs:null,alertAgeMs:null};
     const ageMs=Math.max(0,now-checkedAt),alertAgeMs=Math.max(0,now-alertTestedAt);
@@ -170,7 +170,7 @@ function monitoringEvidence(filename,{now=Date.now(),maxAgeMs=DEFAULT_MONITORING
   }catch{return{ok:false,ageMs:null,alertAgeMs:null}}
 }
 
-function readinessReport({db,databasePath=':memory:',backupPath='',offsiteBackupEvidencePath='',restoreEvidencePath='',monitoringEvidencePath='',now=Date.now(),minFreeBytes=DEFAULT_MIN_FREE_BYTES,backupMaxAgeMs=DEFAULT_BACKUP_MAX_AGE_MS,offsiteBackupMaxAgeMs=DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS,restoreDrillMaxAgeMs=DEFAULT_RESTORE_DRILL_MAX_AGE_MS,monitoringEvidenceMaxAgeMs=DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,requireBackup=false,requireOffsiteBackupEvidence=false,requireRestoreEvidence=false,requireMonitoringEvidence=false}){
+function readinessReport({db,databasePath=':memory:',backupPath='',offsiteBackupEvidencePath='',r2StagingAuditEvidencePath='',restoreEvidencePath='',r2RestoreEvidencePath='',monitoringEvidencePath='',now=Date.now(),minFreeBytes=DEFAULT_MIN_FREE_BYTES,backupMaxAgeMs=DEFAULT_BACKUP_MAX_AGE_MS,offsiteBackupMaxAgeMs=DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS,r2StagingAuditMaxAgeMs=DEFAULT_R2_STAGING_AUDIT_MAX_AGE_MS,restoreDrillMaxAgeMs=DEFAULT_RESTORE_DRILL_MAX_AGE_MS,monitoringEvidenceMaxAgeMs=DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,requireBackup=false,requireOffsiteBackupEvidence=false,requireR2StagingAuditEvidence=false,requireRestoreEvidence=false,requireR2RestoreEvidence=false,requireMonitoringEvidence=false}){
   const databaseRead=databaseReadOk(db);
   const databaseWrite=databaseWriteOk(db);
   let freeBytes=0,diskSpace=true;
@@ -186,16 +186,26 @@ function readinessReport({db,databasePath=':memory:',backupPath='',offsiteBackup
     const evidence=offsiteBackupEvidence(offsiteBackupEvidencePath,{now,maxAgeMs:offsiteBackupMaxAgeMs});
     offsiteBackup=evidence.ok;offsiteBackupAgeMs=evidence.ageMs;
   }
+  let r2StagingAudit=true,r2StagingAuditAgeMs=null;
+  if(requireR2StagingAuditEvidence){
+    const evidence=r2StagingAuditEvidence(r2StagingAuditEvidencePath,{now,maxAgeMs:r2StagingAuditMaxAgeMs});
+    r2StagingAudit=evidence.ok;r2StagingAuditAgeMs=evidence.ageMs;
+  }
   let restoreDrill=true,restoreDrillAgeMs=null;
   if(requireRestoreEvidence){
     const evidence=restoreDrillEvidence(restoreEvidencePath,{now,maxAgeMs:restoreDrillMaxAgeMs});
     restoreDrill=evidence.ok;restoreDrillAgeMs=evidence.ageMs;
+  }
+  let r2RestoreDrill=true,r2RestoreDrillAgeMs=null;
+  if(requireR2RestoreEvidence){
+    const evidence=r2RestoreDrillEvidence(r2RestoreEvidencePath,{now,maxAgeMs:restoreDrillMaxAgeMs});
+    r2RestoreDrill=evidence.ok;r2RestoreDrillAgeMs=evidence.ageMs;
   }
   let monitoring=true,monitoringAgeMs=null,alertAgeMs=null;
   if(requireMonitoringEvidence){
     const evidence=monitoringEvidence(monitoringEvidencePath,{now,maxAgeMs:monitoringEvidenceMaxAgeMs});
     monitoring=evidence.ok;monitoringAgeMs=evidence.ageMs;alertAgeMs=evidence.alertAgeMs;
   }
-  return Object.freeze({ok:databaseRead&&databaseWrite&&diskSpace&&backup&&offsiteBackup&&restoreDrill&&monitoring,checks:{databaseRead,databaseWrite,diskSpace,backup,offsiteBackup,restoreDrill,monitoring},freeBytes:Number.isFinite(freeBytes)?freeBytes:null,backupAgeMs,offsiteBackupAgeMs,restoreDrillAgeMs,monitoringAgeMs,alertAgeMs});
+  return Object.freeze({ok:databaseRead&&databaseWrite&&diskSpace&&backup&&offsiteBackup&&r2StagingAudit&&restoreDrill&&r2RestoreDrill&&monitoring,checks:{databaseRead,databaseWrite,diskSpace,backup,offsiteBackup,r2StagingAudit,restoreDrill,r2RestoreDrill,monitoring},freeBytes:Number.isFinite(freeBytes)?freeBytes:null,backupAgeMs,offsiteBackupAgeMs,r2StagingAuditAgeMs,restoreDrillAgeMs,r2RestoreDrillAgeMs,monitoringAgeMs,alertAgeMs});
 }
 module.exports=Object.freeze({DEFAULT_MIN_FREE_BYTES,DEFAULT_BACKUP_MAX_AGE_MS,DEFAULT_OFFSITE_BACKUP_MAX_AGE_MS,DEFAULT_R2_STAGING_AUDIT_MAX_AGE_MS,DEFAULT_RESTORE_DRILL_MAX_AGE_MS,DEFAULT_MONITORING_EVIDENCE_MAX_AGE_MS,latestBackup,verifyBackup,diskFreeBytes,databaseReadOk,databaseWriteOk,r2StagingAuditEvidence,offsiteBackupEvidence,restoreDrillEvidence,r2RestoreDrillEvidence,monitoringEvidence,readinessReport});

@@ -46,7 +46,7 @@ test('readiness kräver läsbar och skrivbar databas',()=>{
   try{
     const report=readinessReport({db,databasePath:':memory:',minFreeBytes:1});
     assert.equal(report.ok,true);
-    assert.deepEqual(report.checks,{databaseRead:true,databaseWrite:true,diskSpace:true,backup:true,offsiteBackup:true,restoreDrill:true,monitoring:true});
+    assert.deepEqual(report.checks,{databaseRead:true,databaseWrite:true,diskSpace:true,backup:true,offsiteBackup:true,r2StagingAudit:true,restoreDrill:true,r2RestoreDrill:true,monitoring:true});
   }finally{db.close()}
 });
 
@@ -124,6 +124,12 @@ test('HTTP readiness svarar utan autentisering men lämnar inte ut lagringssökv
     const body=await response.json();
     assert.equal(body.ok,true);assert.equal(body.service,'rollands-api-v1');
     assert.equal(JSON.stringify(body).includes('/tmp/'),false);
+
+    const coreResponse=await fetch(`http://127.0.0.1:${address.port}/api/v1/readiness/core`);
+    assert.equal(coreResponse.status,200);
+    const core=await coreResponse.json();
+    assert.equal(core.ok,true);assert.equal(core.service,'rollands-api-v1');
+    assert.equal(JSON.stringify(core).includes('/tmp/'),false);
   }finally{await new Promise(resolve=>runtime.close(resolve))}
 });
 
@@ -187,5 +193,99 @@ test('readiness blir röd när restore-bevis saknas, är gammalt eller saknar pr
     fs.writeFileSync(evidencePath,JSON.stringify({...valid,privateObjectIssueCount:1}));
     report=readinessReport({db,databasePath:':memory:',requireRestoreEvidence:true,restoreEvidencePath:evidencePath,now});
     assert.equal(report.ok,false);assert.equal(report.checks.restoreDrill,false);
+  }finally{db.close();fs.rmSync(dir,{recursive:true,force:true})}
+});
+
+
+test('staging readiness kräver färsk R2-audit och verifierad R2-restore',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-readiness-r2-staging-'));
+  const auditPath=path.join(dir,'r2-audit.json');
+  const restorePath=path.join(dir,'r2-restore.json');
+  const db=Db.openDatabase(':memory:');
+  const now=Date.UTC(2026,8,21,16,0,0);
+  const backupSha='d'.repeat(64);
+  const backupFile='rollands-2026-09-21T15-00-00.sqlite.enc';
+  const audit={
+    schemaVersion:1,
+    auditedAt:new Date(now-60*60*1000).toISOString(),
+    sourceProvider:'sqlite',
+    targetProvider:'r2',
+    sourceManifestSha256:'c'.repeat(64),
+    ok:true,
+    sourceOk:true,
+    sourceObjectCount:3,
+    sourceTotalBytes:600,
+    readyCount:3,
+    verifiedExternalCount:3,
+    missingReadyCount:0,
+    issueCount:0,
+    countsByKind:{
+      document:{objects:1,ready:1,verified:1,bytes:100},
+      'supplier-invoice':{objects:1,ready:1,verified:1,bytes:200},
+      'customer-invoice-pdf':{objects:1,ready:1,verified:1,bytes:300}
+    },
+    issues:[],
+    target:{provider:'r2',jurisdiction:'eu',bucket:'private-staging'}
+  };
+  const restore={
+    schemaVersion:1,
+    verifiedAt:new Date(now-60*60*1000).toISOString(),
+    sourceProvider:'r2',
+    provider:'r2',
+    jurisdiction:'eu',
+    bucket:'private-backups',
+    sourceFile:backupFile,
+    sourceEncryptedSha256:backupSha,
+    sourceSizeBytes:4096,
+    sourceStorageKey:`encrypted-sqlite-backups/${backupSha}/${backupFile}`,
+    remoteDownloadVerified:true,
+    sqliteIntegrity:true,
+    foreignKeys:true,
+    privateObjectsVerified:true,
+    privateObjectSchemaComplete:true,
+    privateObjectCount:3,
+    verifiedPrivateObjectCount:3,
+    privateObjectBytes:600,
+    privateObjectIssueCount:0,
+    privateObjectsByKind:{
+      document:{objects:1,verified:1,bytes:100},
+      'supplier-invoice':{objects:1,verified:1,bytes:200},
+      'customer-invoice-pdf':{objects:1,verified:1,bytes:300}
+    },
+    productionDatabaseTouched:false,
+    remoteDownloadRemoved:true,
+    restoreCopyRemoved:true
+  };
+  try{
+    let report=readinessReport({
+      db,databasePath:':memory:',now,
+      requireR2StagingAuditEvidence:true,r2StagingAuditEvidencePath:auditPath,
+      requireR2RestoreEvidence:true,r2RestoreEvidencePath:restorePath
+    });
+    assert.equal(report.ok,false);
+    assert.equal(report.checks.r2StagingAudit,false);
+    assert.equal(report.checks.r2RestoreDrill,false);
+
+    fs.writeFileSync(auditPath,JSON.stringify(audit));
+    fs.writeFileSync(restorePath,JSON.stringify(restore));
+    report=readinessReport({
+      db,databasePath:':memory:',now,
+      requireR2StagingAuditEvidence:true,r2StagingAuditEvidencePath:auditPath,
+      requireR2RestoreEvidence:true,r2RestoreEvidencePath:restorePath
+    });
+    assert.equal(report.ok,true);
+    assert.equal(report.checks.r2StagingAudit,true);
+    assert.equal(report.checks.r2RestoreDrill,true);
+    assert.equal(report.r2StagingAuditAgeMs,60*60*1000);
+    assert.equal(report.r2RestoreDrillAgeMs,60*60*1000);
+
+    fs.writeFileSync(auditPath,JSON.stringify({...audit,auditedAt:new Date(now-27*60*60*1000).toISOString()}));
+    report=readinessReport({
+      db,databasePath:':memory:',now,
+      requireR2StagingAuditEvidence:true,r2StagingAuditEvidencePath:auditPath,
+      requireR2RestoreEvidence:true,r2RestoreEvidencePath:restorePath
+    });
+    assert.equal(report.ok,false);
+    assert.equal(report.checks.r2StagingAudit,false);
   }finally{db.close();fs.rmSync(dir,{recursive:true,force:true})}
 });
