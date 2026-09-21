@@ -74,6 +74,7 @@ test('portalen släpper bara bankgirokravet för PDF-utkast, inte för skapa och
 test('kundfaktura kan bara ställas ut med uttryckligt knappklick, aldrig via Enter eller form-submit',()=>{
   assert.match(source,/type="button" data-action="issue-invoice"/);
   assert.match(source,/if\(action==='issue-invoice'\)\{await issueInvoice\(\);return;\}/);
+  assert.match(source,/form\?\.reportValidity\(\)/);
   assert.match(source,/event\.key!=='Enter'/);
   assert.match(source,/Enter ställer inte ut fakturan/);
   assert.match(source,/button\.dataset\.action==='issue-invoice'[\s\S]*!issueReady/);
