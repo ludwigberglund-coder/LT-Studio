@@ -102,3 +102,17 @@ test('staging preflight refuses missing or non-EU R2 staging credentials',()=>{
     assert.ok(result.fail.some(item=>item.includes('R2 offsite backup')));
   }finally{fs.rmSync(dir,{recursive:true,force:true})}
 });
+
+
+test('staging preflight refuses evidence paths that point to the same file',()=>{
+  const {dir,env}=fixture();
+  try{
+    env.ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH=env.ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH;
+    const result=validateStaging(env);
+    assert.ok(result.fail.some(item=>
+      item.includes('ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH')&&
+      item.includes('ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH')&&
+      item.includes('separata evidensfiler')
+    ));
+  }finally{fs.rmSync(dir,{recursive:true,force:true})}
+});
