@@ -1,6 +1,7 @@
 'use strict';
 
 // Cross-company document access is verified through the authenticated HTTP boundary.
+// CI synchronize marker: document IDOR regression must run on the current main base.
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {fixture}=require('./private-workflows-fixture.cjs');
