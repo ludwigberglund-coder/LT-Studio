@@ -78,6 +78,8 @@ jobs:
         run: npm run test:browser:payables
       - name: Run payment overview browser filters
         run: npm run test:browser:payments
+      - name: Run dashboard worklist browser states
+        run: node test/dashboard-worklist-browser.cjs
       - name: Run report CSV export browser flows
         run: node test/reports-exports-browser.cjs
       - name: Run complete navigation and invoice browser flow
