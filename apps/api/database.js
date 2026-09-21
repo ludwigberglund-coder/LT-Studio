@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const {DatabaseSync} = require('node:sqlite');
+const SchemaMigrations = require('./schema-migrations.js');
 
 function databaseError(message, code = 'DATABASE_ERROR', statusCode = 500) {
   const error = new Error(message);
@@ -26,6 +27,7 @@ function openDatabase(filename = ':memory:') {
         db.exec('DELETE FROM sessions');
       });
     }
+    SchemaMigrations.initialize(db);
     require('./tenant-integrity.js').installTenantGuards(db);
     return db;
   } catch (error) {
@@ -266,6 +268,10 @@ function initializeSchema(db) {
   if (!hasColumn(db,'invoice_reminders','interest_start_verified_at')) db.exec("ALTER TABLE invoice_reminders ADD COLUMN interest_start_verified_at TEXT NOT NULL DEFAULT ''");
   db.exec("UPDATE invoice_reminders SET reminder_date=substr(sent_at,1,10) WHERE reminder_date IS NULL OR reminder_date=''");
   require('./history-guards.js').protectAppendOnly(db, 'audit_events');
+}
+
+function schemaMigrationStatus(db) {
+  return SchemaMigrations.status(db);
 }
 
 function hasColumn(db, tableName, columnName) {
@@ -685,6 +691,7 @@ function auditForCompany(db,companyId,limit=200) {
 module.exports = Object.freeze({
   openDatabase,
   initializeSchema,
+  schemaMigrationStatus,
   transaction,
   createCompany,
   companyById,
