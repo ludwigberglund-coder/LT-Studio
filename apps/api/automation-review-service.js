@@ -28,7 +28,9 @@ function enrichProposal(db,proposal){
       const allocation=CustomerPayment.currentAllocation(db,execution);
       const allocatedInvoice=customerInvoice(db,p.companyId,allocation.invoiceId);
       p.currentAllocation=allocatedInvoice?{invoiceId:allocatedInvoice.id,invoiceNumber:allocatedInvoice.invoiceNumber,customerName:allocatedInvoice.customerName,remainingOre:allocatedInvoice.remainingOre}:null;
-      if(p.context)p.context.invoiceOptions=exactCustomerInvoices(db,p.companyId,execution.amountOre).filter(row=>row.id!==allocation.invoiceId);
+      p.partialPayment=Boolean(allocatedInvoice&&allocatedInvoice.remainingOre>0);
+      p.reclassificationAllowed=Boolean(allocatedInvoice&&allocatedInvoice.remainingOre===0);
+      if(p.context)p.context.invoiceOptions=p.reclassificationAllowed?exactCustomerInvoices(db,p.companyId,execution.amountOre).filter(row=>row.id!==allocation.invoiceId):[];
     }
   }
   if(p.type==='supplier-invoice-coding'){
