@@ -61,4 +61,4 @@ function defaultWriter(env=process.env){
   return null;
 }
 
-module.exports=Object.freeze({SAFE_LEVELS,SAFE_EVENTS,routeClass,requestId,record,createOperationalLogger,defaultWriter});
+module.exports=Object.freeze({SAFE_LEVELS,SAFE_EVENTS,routeClass,requestId,safeCode,record,createOperationalLogger,defaultWriter});
