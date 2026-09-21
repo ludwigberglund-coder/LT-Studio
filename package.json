@@ -42,7 +42,8 @@
     "platform:bootstrap-operator": "node scripts/bootstrap-operator.js",
     "test:browser:operator": "node test/operator-admin-browser.cjs",
     "test:browser:opening-balance": "node test/opening-balance-browser.cjs",
-    "storage:audit-r2": "node scripts/private-object-r2-audit.js"
+    "storage:audit-r2": "node scripts/private-object-r2-audit.js",
+    "pilot:backup:offsite-r2": "node scripts/pilot-backup-offsite-r2.js"
   },
   "engines": {
     "node": ">=24"
