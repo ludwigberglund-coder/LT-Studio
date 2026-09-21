@@ -41,7 +41,10 @@ test('fel intäktskonto för härledd momssats stoppas',()=>{
 });
 
 test('framtida fakturadatum utanför verifierad momsperiod spärras fail closed',()=>{
-  assert.throws(()=>Invoice.vatTreatmentRate('se-food','2027-01-01'),/endast verifierade till och med 2026-12-31/i);
+  assert.equal(Invoice.vatTreatmentRate('se-food','2027-12-31'),6);
+  assert.equal(Invoice.vatTreatmentRate('se-restaurant-12','2027-12-31'),12);
+  assert.equal(Invoice.vatTreatmentRate('se-standard-25','2027-12-31'),25);
+  assert.throws(()=>Invoice.vatTreatmentRate('se-food','2028-01-01'),/endast verifierade till och med 2027-12-31/i);
 });
 
 

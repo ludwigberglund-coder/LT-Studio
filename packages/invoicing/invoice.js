@@ -18,12 +18,12 @@
   ];
   const VAT_ACCOUNTS={25:'2611',12:'2621',6:'2631'};
   const VAT_TREATMENTS=Object.freeze({
-    'se-standard-25':Object.freeze({label:'Övrig vara/tjänst · 25 %',periods:Object.freeze([{from:'2025-01-01',to:'2026-12-31',rate:25}])}),
-    'se-food':Object.freeze({label:'Livsmedel',periods:Object.freeze([{from:'2025-01-01',to:'2026-03-31',rate:12},{from:'2026-04-01',to:'2026-12-31',rate:6}])}),
-    'se-restaurant-12':Object.freeze({label:'Restaurang-/cateringtjänst · 12 %',periods:Object.freeze([{from:'2025-01-01',to:'2026-12-31',rate:12}])})
+    'se-standard-25':Object.freeze({label:'Övrig vara/tjänst · 25 %',periods:Object.freeze([{from:'2025-01-01',to:'2027-12-31',rate:25}])}),
+    'se-food':Object.freeze({label:'Livsmedel',periods:Object.freeze([{from:'2025-01-01',to:'2026-03-31',rate:12},{from:'2026-04-01',to:'2027-12-31',rate:6}])}),
+    'se-restaurant-12':Object.freeze({label:'Restaurang-/cateringtjänst · 12 %',periods:Object.freeze([{from:'2025-01-01',to:'2027-12-31',rate:12}])})
   });
-  const VAT_RULES_VERIFIED_AT='2026-09-18';
-  const VAT_RULES_VERIFIED_THROUGH='2026-12-31';
+  const VAT_RULES_VERIFIED_AT='2026-09-21';
+  const VAT_RULES_VERIFIED_THROUGH='2027-12-31';
   const INTEREST_TEXT='Efter förfallodagen debiteras dröjsmålsränta enligt räntelagen med referensränta + 8 %enheter.';
   const clone=value=>JSON.parse(JSON.stringify(value));
   function text(value,label,max=500,required=false){

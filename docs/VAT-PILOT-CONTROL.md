@@ -60,7 +60,7 @@ För den nu verifierade pilotavgränsningen finns:
 
 Backend kräver klassificeringen när en verklig kundfaktura utfärdas. Om den angivna momssatsen motsäger klassificeringen, eller intäktskontot inte passar den härledda momssatsen, stoppas bokföringen.
 
-Reglerna i programmet är medvetet verifierade till och med 2026-12-31. Fakturor efter det datumet blockeras tills regelverket har kontrollerats på nytt. Det är striktare än att gissa att en tillfällig eller ändrad regel fortfarande gäller.
+Reglerna i programmet är verifierade till och med 2027-12-31. Livsmedel använder 6 procent under resten av 2026 och hela 2027 enligt den verifierade regelperioden. Fakturor från 2028-01-01 blockeras tills regelverket har kontrollerats på nytt. Det är striktare än att gissa att en tillfällig eller ändrad regel fortfarande gäller.
 
 Detta täcker inte momsfri omsättning, EU-handel, export, import, omvänd betalningsskyldighet eller andra specialfall. Sådana fall ska fortfarande hanteras utanför det automatiska pilotflödet tills de uttryckligen stöds och testas.
 
@@ -78,3 +78,23 @@ Automatiska regressionstester verifierar nu följande gränsfall:
 - konton för ännu ej stödda specialfall, exempelvis 2614 och 2645, klassificeras inte som vanlig svensk 25/12/6-procentsmoms utan gör kontrollen ofullständig.
 
 Detta innebär inte att EU-handel, import eller omvänd betalningsskyldighet är implementerade för automatisk momsdeklaration. Tvärtom är verifieringen till för att bevisa att systemet inte gissar i dessa fall.
+
+
+## Leverantörsfakturans momsbehandling
+
+Det privata leverantörsfakturaflödet är nu fail-closed för moms.
+
+Den automatiska pilotvägen accepterar endast den uttryckliga klassningen `se-domestic-full-input-vat`, vilket betyder en svensk leverantörsfaktura i SEK där hela det angivna positiva momsbeloppet bedöms vara avdragsgillt i det här verifierade normalflödet.
+
+Klassningen:
+
+- väljs uttryckligen i registreringsvyn,
+- valideras igen i API:t,
+- sparas på leverantörsfakturan,
+- sparas i registreringens auditdetaljer,
+- visas i leverantörsfakturans arbetsyta,
+- krävs igen innan leverantörsskulden får bokföras genom det privata API:t.
+
+Saknad eller annan klassning, noll moms, EU-fall, import, omvänd betalningsskyldighet, momsfritt och begränsad avdragsrätt stoppas innan automatisk registrering/bokföring. Dessa fall ska hanteras utanför pilotens automatiska leverantörsflöde tills separata regler och tester finns.
+
+Detta är en säkerhetsavgränsning, inte ett påstående om att alla svenska leverantörsfakturor har full avdragsrätt.
