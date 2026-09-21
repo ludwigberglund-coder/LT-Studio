@@ -5,6 +5,8 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const {DatabaseSync} = require('node:sqlite');
 
+const CORE_SCHEMA_MIGRATION_ID='core-schema-2026-09-21-v1';
+
 function databaseError(message, code = 'DATABASE_ERROR', statusCode = 500) {
   const error = new Error(message);
   error.code = code;
@@ -35,7 +37,13 @@ function openDatabase(filename = ':memory:') {
 }
 
 function initializeSchema(db) {
-  db.exec(`
+  transaction(db, () => {
+    db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      id TEXT PRIMARY KEY,
+      applied_at TEXT NOT NULL
+    ) STRICT;
+
     CREATE TABLE IF NOT EXISTS companies (
       id TEXT PRIMARY KEY,
       legal_name TEXT NOT NULL,
@@ -266,6 +274,9 @@ function initializeSchema(db) {
   if (!hasColumn(db,'invoice_reminders','interest_start_verified_at')) db.exec("ALTER TABLE invoice_reminders ADD COLUMN interest_start_verified_at TEXT NOT NULL DEFAULT ''");
   db.exec("UPDATE invoice_reminders SET reminder_date=substr(sent_at,1,10) WHERE reminder_date IS NULL OR reminder_date=''");
   require('./history-guards.js').protectAppendOnly(db, 'audit_events');
+  db.prepare('INSERT INTO schema_migrations(id,applied_at) VALUES(?,?) ON CONFLICT(id) DO NOTHING')
+    .run(CORE_SCHEMA_MIGRATION_ID,nowIso());
+  });
 }
 
 function hasColumn(db, tableName, columnName) {
@@ -683,6 +694,7 @@ function auditForCompany(db,companyId,limit=200) {
 }
 
 module.exports = Object.freeze({
+  CORE_SCHEMA_MIGRATION_ID,
   openDatabase,
   initializeSchema,
   transaction,
