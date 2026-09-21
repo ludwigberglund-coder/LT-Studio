@@ -31,12 +31,18 @@ function writeEvidence(filename,value){
 async function runR2RestoreDrill({target,source,drillDir,evidencePath,backupKey,now=new Date()}={}){
   if(!target||typeof target.getToFile!=='function')throw new Error('R2 restore-target med getToFile() krävs.');
   if(!source||source.ok!==true)throw new Error('Verifierat offsite-backupbevis krävs för R2 restore-drill.');
-  const root=path.resolve(String(drillDir||''));
-  if(!root)throw new Error('Restore drill-katalog saknas.');
+  const selectedDir=String(drillDir||'').trim();
+  if(!selectedDir)throw new Error('Restore drill-katalog saknas.');
+  const root=path.resolve(selectedDir);
   fs.mkdirSync(root,{recursive:true,mode:0o700});
 
-  const storageKey=`encrypted-sqlite-backups/${source.sha256}/${source.encryptedFile}`;
-  const downloaded=path.join(root,`r2-download-${crypto.randomUUID()}-${source.encryptedFile}`);
+  const sourceFile=BackupTarget.encryptedBackupBasename(source.encryptedFile);
+  const sourceSha=String(source.sha256||'').trim().toLowerCase();
+  const sourceSize=Number(source.sizeBytes);
+  if(!/^[a-f0-9]{64}$/.test(sourceSha))throw new Error('R2 restore-källans SHA-256 är ogiltig.');
+  if(!Number.isSafeInteger(sourceSize)||sourceSize<1)throw new Error('R2 restore-källans storlek är ogiltig.');
+  const storageKey=BackupTarget.backupStorageKeys({sha256:sourceSha,basename:sourceFile}).encrypted;
+  const downloaded=path.join(root,`r2-download-${crypto.randomUUID()}-${sourceFile}`);
   const restored=path.join(root,`r2-restore-${crypto.randomUUID()}.sqlite`);
   let verified;
 
@@ -44,10 +50,10 @@ async function runR2RestoreDrill({target,source,drillDir,evidencePath,backupKey,
     const remote=await target.getToFile({
       storageKey,
       filename:downloaded,
-      sha256:source.sha256,
-      sizeBytes:source.sizeBytes
+      sha256:sourceSha,
+      sizeBytes:sourceSize
     });
-    if(remote.verified!==true||remote.sha256!==source.sha256||remote.sizeBytes!==source.sizeBytes){
+    if(remote.verified!==true||remote.sha256!==sourceSha||remote.sizeBytes!==sourceSize){
       throw new Error('R2 restore-download kunde inte verifieras.');
     }
     BackupCrypto.decryptFile(downloaded,restored,backupKey);
@@ -65,9 +71,9 @@ async function runR2RestoreDrill({target,source,drillDir,evidencePath,backupKey,
     provider:'r2',
     jurisdiction:'eu',
     bucket:source.bucket,
-    sourceFile:source.encryptedFile,
-    sourceEncryptedSha256:source.sha256,
-    sourceSizeBytes:source.sizeBytes,
+    sourceFile,
+    sourceEncryptedSha256:sourceSha,
+    sourceSizeBytes:sourceSize,
     sourceStorageKey:storageKey,
     remoteDownloadVerified:true,
     sqliteIntegrity:Boolean(verified.sqliteIntegrity),
