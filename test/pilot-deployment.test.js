@@ -35,7 +35,7 @@ function writePilotSignoffFixture(dir){
   }
   const signoffPath=path.join(dir,'staging-signoff.json');
   fs.writeFileSync(signoffPath,JSON.stringify({
-    schemaVersion:1,
+    schemaVersion:2,
     environment:'staging',
     createdAt:'2026-09-20T15:00:00.000Z',
     releaseCommit:RELEASE_COMMIT,
