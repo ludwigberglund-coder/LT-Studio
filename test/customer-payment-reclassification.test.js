@@ -9,6 +9,7 @@ const Bank=require('../apps/api/bank-payments.js');
 const Queues=require('../apps/api/queues.js');
 const Matcher=require('../packages/automation/bank-payment-matcher.js');
 const CustomerPayment=require('../apps/api/customer-payment-posting.js');
+const Receivables=require('../packages/receivables/customer-receivables.js');
 const {createServer}=require('../apps/api/server.js');
 
 const MFA_SECRET='GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
@@ -72,6 +73,10 @@ test('kundbetalning kan omföras A till B och tillbaka utan att bankbokningen ä
     const targetTx=Db.transactionsForInvoice(db,ctx.company.id,ctx.target.invoice.id);
     assert.deepEqual(sourceTx.map(row=>[row.transactionType,row.amountOre]),[['payment',-125000],['payment-reversal',125000]]);
     assert.deepEqual(targetTx.map(row=>[row.transactionType,row.amountOre]),[['payment',-125000]]);
+    const sourceReceivable=Db.listReceivables(db,ctx.company.id).find(row=>row.id===ctx.source.invoice.id);
+    const targetReceivable=Db.listReceivables(db,ctx.company.id).find(row=>row.id===ctx.target.invoice.id);
+    assert.equal(Receivables.interestBalanceHistory(sourceReceivable,'2026-09-22').balanceOre,125000);
+    assert.equal(Receivables.interestBalanceHistory(targetReceivable,'2026-09-22').balanceOre,0);
 
     const retry=CustomerPayment.reclassifyCustomerPayment(db,{
       companyId:ctx.company.id,proposalId:ctx.proposal.id,targetInvoiceId:ctx.target.invoice.id,
@@ -93,6 +98,10 @@ test('kundbetalning kan omföras A till B och tillbaka utan att bankbokningen ä
     assert.equal(second.targetInvoice.remainingOre,0);
     assert.equal(CustomerPayment.reclassificationsForBankPayment(db,ctx.company.id,ctx.bank.id).length,2);
     assert.equal(Bank.byId(db,ctx.company.id,ctx.bank.id).status,'posted');
+    const sourceAfterSecond=Db.listReceivables(db,ctx.company.id).find(row=>row.id===ctx.source.invoice.id);
+    const targetAfterSecond=Db.listReceivables(db,ctx.company.id).find(row=>row.id===ctx.target.invoice.id);
+    assert.equal(Receivables.interestBalanceHistory(sourceAfterSecond,'2026-09-23').balanceOre,0);
+    assert.equal(Receivables.interestBalanceHistory(targetAfterSecond,'2026-09-23').balanceOre,125000);
     const all=Accounting.listEntries(db,ctx.company.id).map(row=>Accounting.entryById(db,ctx.company.id,row.id));
     assert.equal(accountNet(all,'1930'),125000);
     assert.equal(accountNet(all,'1510'),125000);
