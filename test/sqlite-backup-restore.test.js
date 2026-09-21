@@ -107,7 +107,7 @@ test('SQLite-backup återställer ekonomi och verifierar alla tre privata filfl�
       ['1510',125000,0],['3001',0,100000],['2611',0,25000]
     ]);
     assert.equal(Accounting.listEntries(restored,company.id).length,1);
-    assert.equal(Db.listReceivables(restored,company.id)[0].remainingOre,125000);
+    assert.equal(Db.listReceivables(restored,company.id).find(row=>row.id===invoice.id)?.remainingOre,125000);
     assert.ok(Db.auditForCompany(restored,company.id).some(event=>event.action==='BACKUP_TEST_CREATED'));
     assert.deepEqual(Buffer.from(Documents.content(restored,company.id,pendingDocument.id).bytes),documentBytes);
     assert.deepEqual(Buffer.from(Payables.document(restored,company.id,supplierInvoice.id).bytes),supplierPdfBytes);
