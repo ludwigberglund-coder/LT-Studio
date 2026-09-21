@@ -20,7 +20,9 @@ test('history secret scanner ignores explicit placeholders and test-only fixture
     'ROLLANDS_AUTH_ENCRYPTION_KEY=REPLACE_WITH_AT_LEAST_32_RANDOM_CHARACTERS',
     'token=ghp_placeholderplaceholderplaceholder',
     "passwordHash:'test-only'",
-    'host=example.invalid'
+    'host=example.invalid',
+    "export R2_BACKUP_SECRET_ACCESS_KEY='<secret-key>'",
+    'ROLLANDS_BACKUP_ENCRYPTION_KEY=<stark slumpmässig hemlighet>'
   ].join('\n');
   assert.deepEqual(findingsInText(sample),[]);
 });
