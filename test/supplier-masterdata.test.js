@@ -18,3 +18,60 @@ test('betalningsuppgifter kräver separat godkännare',()=>{const {db,company,re
 test('endast en väntande betalningsändring tillåts per leverantör',()=>{const {db,company,requester,supplier}=seed();try{Master.requestChange(db,{companyId:company.id,supplierId:supplier.id,kind:'payment-details',changes:{bankgiro:'222-3333'},requestedBy:requester.id});assert.throws(()=>Master.requestChange(db,{companyId:company.id,supplierId:supplier.id,kind:'payment-details',changes:{bankgiro:'333-4444'},requestedBy:requester.id}),e=>e.code==='PAYMENT_CHANGE_PENDING');}finally{db.close()}});
 
 test('förberedd betalning behåller mottagaruppgifterna även efter senare leverantörsändring',()=>{const {db,company,requester,approver,supplier}=seed();try{const invoice=approvedInvoice(db,company,requester,approver,supplier);SupplierAccounting.postSupplierInvoice(db,{companyId:company.id,invoiceId:invoice.id,actorId:requester.id});const payment=Payables.preparePayment(db,{companyId:company.id,invoiceId:invoice.id,paymentDate:'2026-09-16',amountOre:100000,account:'1930',preparedBy:requester.id});assert.equal(payment.bankgiro,'111-2222');const change=Master.requestChange(db,{companyId:company.id,supplierId:supplier.id,kind:'payment-details',changes:{bankgiro:'777-6666'},requestedBy:requester.id});Master.approvePaymentChange(db,{companyId:company.id,requestId:change.id,approvedBy:approver.id});assert.equal(Payables.supplierById(db,company.id,supplier.id).bankgiro,'777-6666');assert.equal(Payables.paymentById(db,company.id,payment.id).bankgiro,'111-2222');}finally{db.close()}});
+
+
+test('leverantörsprofil kan återförsökas med samma request-id utan dubbla historikrader',()=>{const {db,company,requester,supplier}=seed();try{
+  const input={companyId:company.id,supplierId:supplier.id,kind:'profile',changes:{name:'Retry Leverantör AB',defaultCostAccount:'5460'},requestedBy:requester.id,requestKey:'supplier-profile-0001'};
+  const first=Master.requestChangeIdempotent(db,input);
+  const retry=Master.requestChangeIdempotent(db,input);
+  const retryWithNewKey=Master.requestChangeIdempotent(db,{...input,requestKey:'supplier-profile-0002'});
+  assert.equal(first.duplicate,false);assert.equal(retry.duplicate,true);assert.equal(retry.request.id,first.request.id);
+  assert.equal(retryWithNewKey.duplicate,true);assert.equal(retryWithNewKey.request.id,first.request.id);
+  assert.equal(Master.history(db,company.id,supplier.id).length,1);
+  assert.equal(Payables.supplierById(db,company.id,supplier.id).name,'Retry Leverantör AB');
+  assert.throws(()=>Master.requestChangeIdempotent(db,{...input,changes:{name:'Annat namn AB',defaultCostAccount:'5460'}}),e=>e.code==='SUPPLIER_IDEMPOTENCY_CONFLICT'&&e.statusCode===409);
+  assert.equal(Master.history(db,company.id,supplier.id).length,1);
+}finally{db.close()}});
+
+test('betalningsändring kan återförsökas med samma request-id men nytt innehåll blockeras',()=>{const {db,company,requester,supplier}=seed();try{
+  const input={companyId:company.id,supplierId:supplier.id,kind:'payment-details',changes:{bankgiro:'222-3333'},requestedBy:requester.id,requestKey:'supplier-payment-0001'};
+  const first=Master.requestChangeIdempotent(db,input);
+  const retry=Master.requestChangeIdempotent(db,input);
+  assert.equal(first.duplicate,false);assert.equal(retry.duplicate,true);assert.equal(retry.request.id,first.request.id);
+  assert.equal(Master.listPending(db,company.id).length,1);
+  assert.throws(()=>Master.requestChangeIdempotent(db,{...input,changes:{bankgiro:'333-4444'}}),e=>e.code==='SUPPLIER_IDEMPOTENCY_CONFLICT'&&e.statusCode===409);
+  assert.equal(Master.listPending(db,company.id).length,1);
+}finally{db.close()}});
+
+test('supplier-masterdata init migrerar äldre schema med request-key idempotent',()=>{const db=Db.openDatabase(':memory:');try{
+  Payables.initializePayables(db);
+  db.exec(`
+    CREATE TABLE supplier_change_requests(
+      id TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      supplier_id TEXT NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,status TEXT NOT NULL,changes_json TEXT NOT NULL,
+      requested_by TEXT NOT NULL REFERENCES users(id),requested_at TEXT NOT NULL,
+      approved_by TEXT,approved_at TEXT,rejected_by TEXT,rejected_at TEXT,decision_reason TEXT
+    ) STRICT;
+    CREATE TABLE supplier_change_history(
+      id TEXT PRIMARY KEY,company_id TEXT NOT NULL REFERENCES companies(id),supplier_id TEXT NOT NULL REFERENCES suppliers(id),
+      request_id TEXT,change_type TEXT NOT NULL,before_json TEXT NOT NULL,after_json TEXT NOT NULL,changed_by TEXT NOT NULL,changed_at TEXT NOT NULL
+    ) STRICT;
+  `);
+  Master.initializeSupplierMasterdata(db);
+  assert.ok(db.prepare('PRAGMA table_info(supplier_change_requests)').all().some(row=>row.name==='request_key'));
+  Master.initializeSupplierMasterdata(db);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='index' AND name='idx_supplier_change_requests_company_key'").get().n,1);
+}finally{db.close()}});
+
+
+test('godkänd betalningsändring kan inte godkännas eller avvisas en andra gång',()=>{const {db,company,requester,approver,supplier}=seed();try{
+  const request=Master.requestChange(db,{companyId:company.id,supplierId:supplier.id,kind:'payment-details',changes:{bankgiro:'555-6666'},requestedBy:requester.id});
+  const approved=Master.approvePaymentChange(db,{companyId:company.id,requestId:request.id,approvedBy:approver.id});
+  assert.equal(approved.request.status,'approved');
+  assert.throws(()=>Master.approvePaymentChange(db,{companyId:company.id,requestId:request.id,approvedBy:approver.id}),e=>e.code==='INVALID_CHANGE_STATUS'&&e.statusCode===409);
+  assert.throws(()=>Master.rejectPaymentChange(db,{companyId:company.id,requestId:request.id,rejectedBy:approver.id,reason:'Retry'}),e=>e.code==='INVALID_CHANGE_STATUS'&&e.statusCode===409);
+  assert.equal(Master.history(db,company.id,supplier.id).filter(h=>h.requestId===request.id).length,1);
+  assert.equal(Payables.supplierById(db,company.id,supplier.id).bankgiro,'555-6666');
+}finally{db.close()}});

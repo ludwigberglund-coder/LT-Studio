@@ -80,3 +80,18 @@ test('företagsisolering gäller för verifikationer och periodbegäran',()=>{
     assert.equal(Admin.unlockRequestById(db,company2.id,request.id),null);
   }finally{db.close()}
 });
+
+
+test('periodupplåsning kan inte beslutas två gånger',()=>{
+  const {db,company,maker,controller}=seed();
+  try{
+    Admin.lockPeriod(db,{companyId:company.id,period:'2026-10',lockedBy:maker.id});
+    const request=Admin.requestUnlock(db,{companyId:company.id,period:'2026-10',reason:'Retry-test av periodbeslut',requestedBy:maker.id});
+    const first=Admin.decideUnlock(db,{companyId:company.id,requestId:request.id,decidedBy:controller.id,decision:'approved',decisionReason:'Godkänd rättelse'});
+    assert.equal(first.request.status,'approved');assert.equal(first.period.status,'open');
+    assert.throws(()=>Admin.decideUnlock(db,{companyId:company.id,requestId:request.id,decidedBy:controller.id,decision:'approved',decisionReason:'Godkänd rättelse'}),e=>e.code==='UNLOCK_ALREADY_DECIDED'&&e.statusCode===409);
+    assert.equal(Admin.listUnlockRequests(db,company.id,{status:'all'}).filter(x=>x.id===request.id).length,1);
+    assert.equal(Admin.unlockRequestById(db,company.id,request.id).status,'approved');
+    assert.equal(Admin.periodStatus(db,company.id,'2026-10').status,'open');
+  }finally{db.close()}
+});

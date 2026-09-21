@@ -107,3 +107,32 @@ test('känt id från annat företag ger 404 i stället för informationsläckage
   assert.equal(response.status,404);
   assert.equal((await response.json()).code,'PROPOSAL_NOT_FOUND');
 }));
+
+
+test('automationsbeslut kan inte återköras med extra audit-historik',async()=>withApi(async({db,base,password,company,saved})=>{
+  const signed=await login(base,password);
+  const headers={Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken};
+  const first=await fetch(`${base}/api/v1/automation/proposals/${saved.id}/approve`,{method:'POST',headers,body:'{}'});
+  assert.equal(first.status,200);
+  const retry=await fetch(`${base}/api/v1/automation/proposals/${saved.id}/approve`,{method:'POST',headers,body:'{}'});
+  assert.equal(retry.status,409);assert.equal((await retry.json()).code,'INVALID_PROPOSAL_STATUS');
+  const audit=Db.auditForCompany(db,company.id).filter(event=>event.action==='AUTOMATION_PROPOSAL_APPROVED'&&event.entityId===saved.id);
+  assert.equal(audit.length,1);
+  assert.equal(Queues.automationProposalById(db,company.id,saved.id).status,'approved');
+}));
+
+test('automationsavslag kan inte återköras eller bytas till godkännande',async()=>withApi(async({db,base,password,company,saved})=>{
+  const signed=await login(base,password);
+  const headers={Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken};
+  const body=JSON.stringify({reason:'Retry-test av avslag.'});
+  const first=await fetch(`${base}/api/v1/automation/proposals/${saved.id}/reject`,{method:'POST',headers,body});
+  assert.equal(first.status,200);
+  const retry=await fetch(`${base}/api/v1/automation/proposals/${saved.id}/reject`,{method:'POST',headers,body});
+  assert.equal(retry.status,409);assert.equal((await retry.json()).code,'INVALID_PROPOSAL_STATUS');
+  const opposite=await fetch(`${base}/api/v1/automation/proposals/${saved.id}/approve`,{method:'POST',headers,body:'{}'});
+  assert.equal(opposite.status,409);
+  const audit=Db.auditForCompany(db,company.id);
+  assert.equal(audit.filter(event=>event.action==='AUTOMATION_PROPOSAL_REJECTED'&&event.entityId===saved.id).length,1);
+  assert.equal(audit.filter(event=>event.action==='AUTOMATION_PROPOSAL_APPROVED'&&event.entityId===saved.id).length,0);
+  assert.equal(Queues.automationProposalById(db,company.id,saved.id).status,'rejected');
+}));
