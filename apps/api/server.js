@@ -170,7 +170,7 @@ function createServer(options = {}) {
       if (serveStatic(req,res)) return;
       res.writeHead(404,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}); return res.end(JSON.stringify({error:'Hittades inte.',code:'NOT_FOUND'}));
     }
-    if (await automationReview.handle(req,res)) return; if (await bank.handle(req,res)) return; if (await supplierMasterdata.handle(req,res)) return; if (await paymentRelease.handle(req,res)) return; if (await paymentConfirmation.handle(req,res)) return; if (await inventory.handle(req,res)) return; if (await reports.handle(req,res)) return; if (await exportsRouter.handle(req,res)) return; if (await payroll.handle(req,res)) return; if (await documents.handle(req,res)) return; if (await accounting.handle(req,res)) return; if (await websiteCms.handle(req,res)) return; if (await payables.handle(req,res)) return; api.handle(req,res);
+    if (await automationReview.handle(req,res)) return; if (await bank.handle(req,res)) return; if (await supplierMasterdata.handle(req,res)) return; if (await paymentRelease.handle(req,res)) return; if (await paymentConfirmation.handle(req,res)) return; if (await inventory.handle(req,res)) return; if (await reports.handle(req,res)) return; if (await exportsRouter.handle(req,res)) return; if (await payroll.handle(req,res)) return; if (await documents.handle(req,res)) return; if (await accounting.handle(req,res)) return; if (await websiteCms.handle(req,res)) return; if (await payables.handle(req,res)) return; return await api.handle(req,res);
     }catch(error){
       operationalCode=OperationalLog.safeCode?OperationalLog.safeCode(error?.code):'REQUEST_HANDLER_ERROR';
       operationalLogger.emit({
