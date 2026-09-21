@@ -54,7 +54,8 @@ function config(folder,{mode='pilot',approvedForPilot=true}={}){
   }));
   return{NODE_ENV:'production',ROLLANDS_ENV:mode,ROLLANDS_DATABASE_PATH:path.join(folder,'db.sqlite'),ROLLANDS_BACKUP_PATH:folder,
     ROLLANDS_PILOT_OPERATIONS_PATH:operationsPath,ROLLANDS_API_HOST:'127.0.0.1',ROLLANDS_API_SECURE_COOKIE:'1',
-    ROLLANDS_AUTH_ENCRYPTION_KEY:'test-only-runtime-key-123456789-ABCDEFGHIJKLMNOPQRSTUVWXYZ',ROLLANDS_BACKUP_ENCRYPTION_KEY:'test-only-backup-key-987654321-ZYXWVUTSRQPONMLKJIHGFEDCBA',ROLLANDS_ALLOWED_HOSTS:'pilot.rollands.internal',ROLLANDS_DEMO_DATA:'0'};
+    ROLLANDS_AUTH_ENCRYPTION_KEY:'test-only-runtime-key-123456789-ABCDEFGHIJKLMNOPQRSTUVWXYZ',ROLLANDS_BACKUP_ENCRYPTION_KEY:'test-only-backup-key-987654321-ZYXWVUTSRQPONMLKJIHGFEDCBA',ROLLANDS_ALLOWED_HOSTS:'pilot.rollands.internal',ROLLANDS_DEMO_DATA:'0',
+    ROLLANDS_DATA_CLASSIFICATION:mode==='staging'?'synthetic':'',ROLLANDS_REAL_DATA_ALLOWED:mode==='staging'?'0':''};
 }
 function settings(env){return {databasePath:env.ROLLANDS_DATABASE_PATH,host:env.ROLLANDS_API_HOST,secureCookies:env.ROLLANDS_API_SECURE_COOKIE==='1',authEncryptionKey:env.ROLLANDS_AUTH_ENCRYPTION_KEY,allowedHosts:env.ROLLANDS_ALLOWED_HOSTS.split(',')}}
 test('validated private start creates a 0600 database file and rejects all nonzero demo flags',()=>{
