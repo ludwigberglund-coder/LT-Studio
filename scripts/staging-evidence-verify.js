@@ -3,6 +3,7 @@
 const path=require('node:path');
 const {validateStaging}=require('./staging-preflight.js');
 const Readiness=require('../apps/api/readiness.js');
+const AuditAnchorR2=require('./audit-anchor-r2.js');
 
 function requiredPath(env,name){
   const value=String(env?.[name]||'').trim();
@@ -37,14 +38,26 @@ function validateEvidenceChain(env=process.env,{now=Date.now()}={}){
     {now}
   );
 
+  const auditAnchor=AuditAnchorR2.auditAnchorEvidence(
+    String(env.ROLLANDS_AUDIT_ANCHOR_EVIDENCE_PATH||''),
+    {
+      now,
+      expectedBucket:String(env.R2_AUDIT_BUCKET||''),
+      anchorPath:String(env.ROLLANDS_AUDIT_ANCHOR_PATH||''),
+      databasePath:String(env.ROLLANDS_DATABASE_PATH||'')
+    }
+  );
+
   if(!r2.ok)fail.push('R2 staging-audit saknas, är ogiltig eller för gammal.');
   if(!offsite.ok)fail.push('Offsite-backupbevis saknas, är ogiltigt eller för gammalt.');
   if(!restore.ok)fail.push('Restore-drillbevis saknas, är ogiltigt eller för gammalt.');
   if(!r2Restore.ok)fail.push('R2 restore-drillbevis saknas, är ogiltigt eller för gammalt.');
   if(!monitoring.ok)fail.push('Monitorerings-/larmbevis saknas, är ogiltigt eller för gammalt.');
+  if(!auditAnchor.ok)fail.push('Audit-ankaret saknas, är ogiltigt, för gammalt eller matchar inte nuvarande audit-historik.');
 
   const configuredObjectBucket=String(env.R2_STAGING_BUCKET||'').trim();
   const configuredBackupBucket=String(env.R2_BACKUP_BUCKET||'').trim();
+  const configuredAuditBucket=String(env.R2_AUDIT_BUCKET||'').trim();
   if(r2.ok&&r2.bucket!==configuredObjectBucket){
     fail.push('R2 staging-auditen gäller inte den nu konfigurerade stagingbucketen.');
   }
@@ -84,6 +97,7 @@ function validateEvidenceChain(env=process.env,{now=Date.now()}={}){
     restoreDrill:restore.ok,
     r2RestoreDrill:r2Restore.ok&&r2Restore.bucket===configuredBackupBucket,
     monitoring:monitoring.ok,
+    auditAnchor:auditAnchor.ok&&auditAnchor.bucket===configuredAuditBucket,
     sameBackupArtifact:
       offsite.ok&&restore.ok&&r2Restore.ok&&
       offsite.sha256===restore.sha256&&offsite.encryptedFile===restore.sourceFile&&offsite.sizeBytes===restore.sourceSizeBytes&&
@@ -104,7 +118,9 @@ function validateEvidenceChain(env=process.env,{now=Date.now()}={}){
       restoreDrillAgeMs:restore.ageMs,
       r2RestoreDrillAgeMs:r2Restore.ageMs,
       monitoringAgeMs:monitoring.ageMs,
-      alertAgeMs:monitoring.alertAgeMs
+      alertAgeMs:monitoring.alertAgeMs,
+      auditAnchorAgeMs:auditAnchor.ageMs,
+      auditAnchorRootSha256:auditAnchor.rootSha256||null
     })
   });
 }
@@ -116,7 +132,9 @@ function main(){
       'ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH',
       'ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH',
       'ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH',
-      'ROLLANDS_MONITORING_EVIDENCE_PATH'
+      'ROLLANDS_MONITORING_EVIDENCE_PATH',
+      'ROLLANDS_AUDIT_ANCHOR_PATH',
+      'ROLLANDS_AUDIT_ANCHOR_EVIDENCE_PATH'
     ])requiredPath(process.env,name);
     const result=validateEvidenceChain(process.env);
     process.stdout.write(JSON.stringify(result,null,2)+'\n');
