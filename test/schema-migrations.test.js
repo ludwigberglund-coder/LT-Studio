@@ -14,16 +14,131 @@ function columns(db,table){
 function hasTable(db,name){
   return Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name));
 }
+function dropMigrationGuards(db){
+  db.exec(`
+    DROP TRIGGER IF EXISTS history_schema_migrations_update;
+    DROP TRIGGER IF EXISTS history_schema_migrations_delete;
+    DROP TRIGGER IF EXISTS history_schema_migrations_replace;
+  `);
+}
 
-test('ny databas registrerar den verifierade core-schema-migrationen',()=>{
+test('ny databas registrerar verifierbar append-only schemahistorik',()=>{
   const db=Db.openDatabase(':memory:');
   try{
-    const row=db.prepare('SELECT id,applied_at AS appliedAt FROM schema_migrations WHERE id=?').get(Db.CORE_SCHEMA_MIGRATION_ID);
-    assert.ok(row);
-    assert.equal(row.id,Db.CORE_SCHEMA_MIGRATION_ID);
-    assert.ok(Number.isFinite(Date.parse(row.appliedAt)));
+    const status=Db.schemaMigrationStatus(db);
+    assert.equal(status.ok,true);
+    assert.equal(status.currentVersion,1);
+    assert.equal(status.latestKnownVersion,1);
+    assert.equal(status.rows.length,1);
+    assert.equal(status.rows[0].id,Db.CORE_SCHEMA_MIGRATION_ID);
+    assert.equal(status.rows[0].name,'core-sqlite-baseline-2026-09-21');
+    assert.match(status.rows[0].checksumSha256,/^[a-f0-9]{64}$/);
+    assert.ok(Number.isFinite(Date.parse(status.rows[0].appliedAt)));
+    assert.throws(()=>db.prepare("UPDATE schema_migrations SET name='changed' WHERE version=1").run(),/HISTORY_IMMUTABLE/);
+    assert.throws(()=>db.prepare('DELETE FROM schema_migrations WHERE version=1').run(),/HISTORY_IMMUTABLE/);
   }finally{
     db.close();
+  }
+});
+
+test('befintlig tvåkolumners migrationsledger uppgraderas utan att affärsdata försvinner',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'lt-schema-ledger-upgrade-'));
+  const filename=path.join(dir,'platform.sqlite');
+  let db;
+  try{
+    db=Db.openDatabase(filename);
+    const company=Db.createCompany(db,{legalName:'Ledger Upgrade AB',displayName:'Ledger Upgrade',orgNumber:'559999-2101'});
+    db.close();db=null;
+
+    const raw=new DatabaseSync(filename);
+    try{
+      dropMigrationGuards(raw);
+      raw.exec('DROP INDEX IF EXISTS idx_schema_migrations_version; DROP INDEX IF EXISTS idx_schema_migrations_name; DROP TABLE schema_migrations;');
+      raw.exec('CREATE TABLE schema_migrations(id TEXT PRIMARY KEY,applied_at TEXT NOT NULL) STRICT');
+      raw.prepare('INSERT INTO schema_migrations(id,applied_at) VALUES(?,?)')
+        .run(Db.CORE_SCHEMA_MIGRATION_ID,'2026-09-21T12:00:00.000Z');
+    }finally{raw.close()}
+
+    db=Db.openDatabase(filename);
+    assert.equal(Db.companyById(db,company.id).orgNumber,'559999-2101');
+    assert.deepEqual(columns(db,'schema_migrations'),['id','applied_at','version','name','checksum_sha256']);
+    const status=Db.schemaMigrationStatus(db);
+    assert.equal(status.ok,true);
+    assert.equal(status.currentVersion,1);
+    assert.equal(status.rows[0].id,Db.CORE_SCHEMA_MIGRATION_ID);
+    assert.equal(status.rows[0].appliedAt,'2026-09-21T12:00:00.000Z');
+    assert.match(status.rows[0].checksumSha256,/^[a-f0-9]{64}$/);
+    assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
+  }finally{
+    try{db?.close()}catch{}
+    fs.rmSync(dir,{recursive:true,force:true});
+  }
+});
+
+test('okänd framtida schema-version stoppar äldre programversion fail-closed',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'lt-schema-future-'));
+  const filename=path.join(dir,'platform.sqlite');
+  let db;
+  try{
+    db=Db.openDatabase(filename);
+    db.close();db=null;
+
+    const raw=new DatabaseSync(filename);
+    try{
+      dropMigrationGuards(raw);
+      raw.prepare('INSERT INTO schema_migrations(id,version,name,checksum_sha256,applied_at) VALUES(?,?,?,?,?)')
+        .run('future-schema-v999',999,'future-version','f'.repeat(64),new Date().toISOString());
+    }finally{raw.close()}
+
+    assert.throws(()=>Db.openDatabase(filename),error=>error?.code==='SCHEMA_VERSION_TOO_NEW');
+  }finally{
+    try{db?.close()}catch{}
+    fs.rmSync(dir,{recursive:true,force:true});
+  }
+});
+
+test('ändrad migrationschecksumma upptäcks vid nästa databasstart',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'lt-schema-tamper-'));
+  const filename=path.join(dir,'platform.sqlite');
+  let db;
+  try{
+    db=Db.openDatabase(filename);
+    db.close();db=null;
+
+    const raw=new DatabaseSync(filename);
+    try{
+      raw.exec('DROP TRIGGER IF EXISTS history_schema_migrations_update');
+      raw.prepare('UPDATE schema_migrations SET checksum_sha256=? WHERE version=1').run('0'.repeat(64));
+    }finally{raw.close()}
+
+    assert.throws(()=>Db.openDatabase(filename),error=>error?.code==='SCHEMA_MIGRATION_MISMATCH');
+  }finally{
+    try{db?.close()}catch{}
+    fs.rmSync(dir,{recursive:true,force:true});
+  }
+});
+
+test('okänd post i äldre tvåkolumners ledger stoppas i stället för att gissas',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'lt-schema-unknown-legacy-'));
+  const filename=path.join(dir,'platform.sqlite');
+  let db;
+  try{
+    db=Db.openDatabase(filename);
+    db.close();db=null;
+
+    const raw=new DatabaseSync(filename);
+    try{
+      dropMigrationGuards(raw);
+      raw.exec('DROP INDEX IF EXISTS idx_schema_migrations_version; DROP INDEX IF EXISTS idx_schema_migrations_name; DROP TABLE schema_migrations;');
+      raw.exec('CREATE TABLE schema_migrations(id TEXT PRIMARY KEY,applied_at TEXT NOT NULL) STRICT');
+      raw.prepare('INSERT INTO schema_migrations(id,applied_at) VALUES(?,?)')
+        .run('unknown-old-migration','2026-09-21T12:00:00.000Z');
+    }finally{raw.close()}
+
+    assert.throws(()=>Db.openDatabase(filename),error=>error?.code==='SCHEMA_MIGRATION_UNKNOWN_LEGACY');
+  }finally{
+    try{db?.close()}catch{}
+    fs.rmSync(dir,{recursive:true,force:true});
   }
 });
 
@@ -91,8 +206,10 @@ test('avbruten legacy-migration rullar tillbaka schemaändringar och migrationsp
       ])assert.equal(upgraded.includes(name),true,'saknad migrerad kolumn: '+name);
       const reminder=migrated.prepare('SELECT reminder_date AS reminderDate FROM invoice_reminders WHERE id=?').get('legacy-reminder');
       assert.equal(reminder.reminderDate,'2026-09-01');
-      const migration=migrated.prepare('SELECT id FROM schema_migrations WHERE id=?').get(Db.CORE_SCHEMA_MIGRATION_ID);
-      assert.equal(migration.id,Db.CORE_SCHEMA_MIGRATION_ID);
+      const status=Db.schemaMigrationStatus(migrated);
+      assert.equal(status.ok,true);
+      assert.equal(status.currentVersion,1);
+      assert.equal(status.rows[0].id,Db.CORE_SCHEMA_MIGRATION_ID);
       assert.equal(migrated.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
     }finally{
       migrated.close();
