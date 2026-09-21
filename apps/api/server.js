@@ -89,11 +89,14 @@ function createServer(options = {}) {
       restoreEvidencePath:process.env.ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH||'',
       r2RestoreEvidencePath:process.env.ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH||'',
       monitoringEvidencePath:process.env.ROLLANDS_MONITORING_EVIDENCE_PATH||'',
+      expectedR2StagingBucket:process.env.R2_STAGING_BUCKET||'',
+      expectedR2BackupBucket:process.env.R2_BACKUP_BUCKET||'',
       requireBackup:protectedMode,
       requireOffsiteBackupEvidence:protectedMode,
       requireR2StagingAuditEvidence:stagingMode,
       requireRestoreEvidence:protectedMode,
       requireR2RestoreEvidence:stagingMode,
+      requireStagingEvidenceConsistency:stagingMode,
       requireMonitoringEvidence:protectedMode&&includeMonitoring
     });
     return {
