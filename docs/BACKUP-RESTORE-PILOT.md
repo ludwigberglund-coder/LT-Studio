@@ -12,6 +12,20 @@ För nuvarande nativa verifikationsserier förväntas startnummer 1 per företag
 
 SHA-256 är ett digitalt fingeravtryck, inte kryptering eller en signatur. Någon som kan skriva om både filen och fingeravtrycket kan förfalska jämförelsen. Separat åtkomstskydd och extern skyddad historik behövs.
 
+## Krypterad offsite-upload
+
+Den lokala krypterade artefakten kan nu skickas till en separat privat R2 EU-bucket med:
+
+```bash
+npm run pilot:backup:offsite-r2
+```
+
+Adaptern accepterar endast servergenererade `.sqlite.enc`-filer med korrekt lokal `.sha256`, använder immutable innehållsspecifika nycklar och gör full remote GET/read-back med SHA-256 innan privat evidens skrivs.
+
+Se [offsite-backupens säkerhets- och driftkontrakt](OFFSITE-BACKUP-R2.md).
+
+**Kodstöd är inte driftbevis.** Checklistan förblir delvis klar tills detta har körts återkommande i avsedd miljö med separat backup-bucket, begränsade credentials, retention/raderingsskydd, larm och verifierad restore från den faktiska offsite-kopian.
+
 ## Plan att godkänna och införa före pilot
 
 Detta är föreslagna driftmål, inte redan aktiverade tjänster:
