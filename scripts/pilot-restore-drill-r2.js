@@ -32,6 +32,11 @@ function removeSqliteArtifacts(filename){
   for(const suffix of ['', '-wal', '-shm', '-journal'])fs.rmSync(filename+suffix,{force:true});
   return ['', '-wal', '-shm', '-journal'].every(suffix=>!fs.existsSync(filename+suffix));
 }
+function assertSeparateEvidencePaths(sourceEvidencePath,evidencePath){
+  if(path.resolve(sourceEvidencePath)===path.resolve(evidencePath)){
+    throw new Error('ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH och ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH måste vara olika filer.');
+  }
+}
 async function runR2RestoreDrill({target,source,drillDir,evidencePath,backupKey,now=new Date()}={}){
   if(!target||typeof target.getToFile!=='function')throw new Error('R2 restore-target med getToFile() krävs.');
   if(!source||source.ok!==true)throw new Error('Verifierat offsite-backupbevis krävs för R2 restore-drill.');
@@ -108,6 +113,7 @@ async function main(){
   const evidencePath=path.resolve(required('ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH'));
   const drillDir=path.resolve(required('ROLLANDS_RESTORE_DRILL_PATH'));
   const backupKey=required('ROLLANDS_BACKUP_ENCRYPTION_KEY');
+  assertSeparateEvidencePaths(sourceEvidencePath,evidencePath);
 
   for(const selected of [sourceEvidencePath,evidencePath,drillDir]){
     if(!outsideRepository(selected))throw new Error('R2 restore-drillens filer måste ligga utanför Git-repositoryt.');
@@ -142,4 +148,4 @@ if(require.main===module){
   });
 }
 
-module.exports=Object.freeze({required,writeEvidence,removeSqliteArtifacts,runR2RestoreDrill,main});
+module.exports=Object.freeze({required,writeEvidence,removeSqliteArtifacts,assertSeparateEvidencePaths,runR2RestoreDrill,main});
