@@ -35,7 +35,8 @@
     "platform:rotate-auth-key": "node scripts/rotate-auth-encryption-key.js",
     "platform:recover-account": "node scripts/recover-account.js",
     "pilot:release:verify": "node scripts/pilot-release-verify.js",
-    "pilot:rollback:verify": "node scripts/pilot-rollback-verify.js"
+    "pilot:rollback:verify": "node scripts/pilot-rollback-verify.js",
+    "storage:inventory": "node scripts/private-object-inventory.js"
   },
   "engines": {
     "node": ">=24"
