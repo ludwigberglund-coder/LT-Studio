@@ -123,6 +123,9 @@ async function main(){
     const databasePath=path.resolve(requiredEnv('ROLLANDS_DATABASE_PATH'));
     const anchorPath=path.resolve(requiredEnv('ROLLANDS_AUDIT_ANCHOR_PATH'));
     const evidencePath=path.resolve(requiredEnv('ROLLANDS_AUDIT_ANCHOR_EVIDENCE_PATH'));
+    if(!AuditAnchor.outsideRepository(anchorPath)||!AuditAnchor.outsideRepository(evidencePath)){
+      throw auditError('Audit-ankare och R2-evidens måste ligga utanför Git-repositoryt.','R2_AUDIT_LOCAL_PATH_UNSAFE');
+    }
     const anchor=AuditAnchor.createAuditAnchorFromDatabase(databasePath);
     const local=AuditAnchor.writeAnchor(anchorPath,anchor);
     const target=await createR2AuditTarget();
