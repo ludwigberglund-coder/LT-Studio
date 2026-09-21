@@ -33,6 +33,7 @@ const AccountingAdmin = require('./accounting-admin.js');
 const WebsiteCms = require('./website-cms.js');
 const PrivateObjectStoreFactory = require('./private-object-store-factory.js');
 const PrivateObjectCopyLedger = require('./private-object-copy-ledger.js');
+const {assertSyntheticStagingDatabase}=require('./staging-data-policy.js');
 
 const repositoryRoot = path.resolve(__dirname,'..','..');
 const {validateRuntime,protectedRuntimeMode,demoRequest,resolveStaticRequest,serveStatic} = require('./private-runtime.js');
@@ -75,6 +76,12 @@ function createServer(options = {}) {
   PrivateObjectStoreFactory.providerFromEnvironment(process.env);
   if (databasePath !== ':memory:') fs.mkdirSync(path.dirname(path.resolve(databasePath)),{recursive:true,mode:0o700});
   const db = options.db || Db.openDatabase(databasePath);
+  try{
+    assertSyntheticStagingDatabase(db,process.env);
+  }catch(error){
+    try{db.close()}catch{}
+    throw error;
+  }
   PrivateObjectCopyLedger.initializePrivateObjectCopyLedger(db);
   Queues.initializeQueues(db); ReminderOutbox.initializeReminderOutbox(db); Bank.initializeBankPayments(db); Payables.initializePayables(db); SupplierMasterdata.initializeSupplierMasterdata(db); PaymentConfirmation.initializePaymentConfirmation(db); Inventory.initializeInventory(db); Payroll.initializePayroll(db); Documents.initializeDocuments(db); AccountingAdmin.initializeAccountingAdmin(db); WebsiteCms.initializeWebsiteCms(db);
   const api = createApiApp({db,secureCookies,authEncryptionKey,operationalLogger,operationalRuntimeId:runtimeId});
