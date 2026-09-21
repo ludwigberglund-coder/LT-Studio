@@ -1,7 +1,7 @@
 const app=document.getElementById('accounting-app');
 const isDemo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
-const Demo=globalThis.RollandsDemoScenario;
+let Demo=globalThis.RollandsDemoScenario;
 let session=null,entries=[],periods=[],unlockRequests=[],selectedEntry=null,openingYear=today().slice(0,4),openingBalance=null,openingMessage='';
 function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function ore(v){return new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK',minimumFractionDigits:2}).format(Number(v||0)/100)}
@@ -34,7 +34,7 @@ function entryTotal(entry){return (entry.lines||[]).reduce((sum,line)=>sum+Numbe
 function syncDemo(selectedId){const state=Demo.state();entries=structuredClone(state.accountingEntries);periods=structuredClone(state.accountingPeriods);unlockRequests=structuredClone(state.accountingUnlockRequests);selectedEntry=entries.find(e=>e.id===(selectedId||selectedEntry?.id))||entries[0]||null}
 function openingBalancePanel(){
   if(isDemo)return `<article class="panel opening-panel"><span class="eyebrow">Ingående balans</span><h2>Startsaldo vid systembyte</h2><p>Import av ingående balans är avstängd i den publika demon och används bara i den skyddade företagsmiljön.</p><div class="notice-box">Kundfordringar och leverantörsskulder importeras inte som totalsummor. De måste senare tas in tillsammans med sina öppna fakturor.</div></article>`;
-  const selector=`<form class="opening-year-form" id="opening-year-form"><label>Räkenskapsår<input name="year" type="number" min="1900" max="2199" value="${esc(openingYear)}" required></label><button class="button ghost" type="submit">Visa år</button></form>`;
+  const selector=`<form class="opening-year-form" id="opening-year-form"><label>Räkenskapsår<input name="year" type="number" min="1900" max="2199" value="${esc(openingYear)}" required></label><button class="button ghost" type="submit">Visa år</button><p class="form-error"></p></form>`;
   if(openingBalance){
     return `<article class="panel opening-panel"><div class="section-head"><div><span class="eyebrow">Ingående balans</span><h2>${esc(openingBalance.number)} · ${esc(openingYear)}</h2><p>Importerad ${esc(openingBalance.postingDate)}. Originalet bevaras som en särskild IB-verifikation.</p></div>${selector}</div>
       <div class="entry-lines">${(openingBalance.lines||[]).map(line=>`<div class="entry-line"><b>${esc(line.account)}</b><span>${esc(line.text||'')}</span><span class="money">Debet ${line.debitOre?ore(line.debitOre):'—'}</span><span class="money">Kredit ${line.creditOre?ore(line.creditOre):'—'}</span></div>`).join('')}</div>
@@ -184,5 +184,15 @@ function bind(){
     }catch(e){setError(form,e.message)}
   });
 }
-async function init(){if(isDemo){if(!Demo)throw new Error('Det gemensamma demoscenariot kunde inte laddas.');session={user:{displayName:'Demoanvändare'},company:{name:'Rollands Frukt o Grönt AB'}};syncDemo();return render()}if(await loadApi())render()}
+async function ensureDemoScenario(){
+  if(!isDemo||Demo)return;
+  await new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src='./demo-scenario.js';
+    script.onload=()=>{Demo=globalThis.RollandsDemoScenario;resolve()};
+    script.onerror=()=>reject(new Error('Det gemensamma demoscenariot kunde inte laddas.'));
+    document.head.appendChild(script);
+  });
+}
+async function init(){if(isDemo){await ensureDemoScenario();if(!Demo)throw new Error('Det gemensamma demoscenariot kunde inte laddas.');session={user:{displayName:'Demoanvändare'},company:{name:'Rollands Frukt o Grönt AB'}};syncDemo();return render()}if(await loadApi())render()}
 init().catch(error=>{app.innerHTML=`<main class="boot"><strong>Bokföringen kunde inte laddas</strong><span>${esc(error.message)}</span></main>`});
