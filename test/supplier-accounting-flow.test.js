@@ -108,3 +108,85 @@ test('låst betalningsperiod rullar tillbaka betalningsbokföringen och lämnar 
     assert.equal(Accounting.entryBySource(ctx.db,ctx.company.id,'supplier-payment',payment.id),null);
   }finally{ctx.db.close()}
 });
+
+
+test('bokförd leverantörsbetalning kan rättas atomiskt och bokföras på nytt utan att originalhistoriken försvinner',()=>{
+  const ctx=seed({number:'BKS-CORR-1'});try{
+    const invoicePost=SupplierAccounting.postSupplierInvoice(ctx.db,{companyId:ctx.company.id,invoiceId:ctx.invoice.id,actorId:ctx.accountant.id});
+    const payment=Payables.preparePayment(ctx.db,{companyId:ctx.company.id,invoiceId:ctx.invoice.id,paymentDate:'2026-09-17',amountOre:125000,account:'1930',preparedBy:ctx.accountant.id});
+    Release.releasePayment(ctx.db,{companyId:ctx.company.id,paymentId:payment.id,releasedBy:ctx.approver.id});
+    const paid=SupplierAccounting.confirmSupplierPayment(ctx.db,{companyId:ctx.company.id,paymentId:payment.id,confirmationReference:'BANK-CORR-1',postingDate:'2026-09-17',actorId:ctx.accountant.id});
+
+    const correctionInput={companyId:ctx.company.id,paymentId:payment.id,requestId:'supplier-correction-0001',correctionDate:'2026-09-18',reason:'Felaktig betalningsbokföring ska återföras.',actorId:ctx.accountant.id};
+    const corrected=SupplierAccounting.correctSupplierPayment(ctx.db,correctionInput);
+    assert.equal(corrected.duplicate,false);
+    assert.deepEqual(corrected.reversal.lines.map(line=>[line.account,line.debitOre,line.creditOre]),[['2440',0,125000],['1930',125000,0]]);
+    assert.equal(corrected.payment.status,'released');
+    assert.equal(corrected.payment.confirmationReference,null);
+    assert.equal(corrected.payment.accountingEntryId,null);
+    assert.equal(corrected.invoice.status,'payment-prepared');
+    assert.equal(corrected.invoice.accountingStatus,'posted');
+    assert.equal(corrected.invoice.openAmountOre,125000);
+    const attemptsAfterCorrection=SupplierAccounting.paymentAttempts(ctx.db,ctx.company.id,payment.id);
+    assert.equal(attemptsAfterCorrection.length,1);
+    assert.equal(attemptsAfterCorrection[0].status,'reversed');
+    assert.equal(attemptsAfterCorrection[0].reversalEntryId,corrected.reversal.id);
+    assert.equal(accountNet([invoicePost.entry,paid.entry,corrected.reversal],'2440'),-125000);
+
+    const retry=SupplierAccounting.correctSupplierPayment(ctx.db,correctionInput);
+    assert.equal(retry.duplicate,true);
+    assert.equal(retry.reversal.id,corrected.reversal.id);
+    assert.equal(Accounting.listEntries(ctx.db,ctx.company.id).filter(entry=>entry.sourceType==='supplier-payment-reversal').length,1);
+    assert.equal(Db.auditForCompany(ctx.db,ctx.company.id).filter(event=>event.action==='SUPPLIER_PAYMENT_CORRECTED').length,1);
+
+    const repaid=SupplierAccounting.confirmSupplierPayment(ctx.db,{companyId:ctx.company.id,paymentId:payment.id,confirmationReference:'BANK-CORR-1',postingDate:'2026-09-19',actorId:ctx.accountant.id});
+    assert.equal(repaid.duplicate,false);
+    assert.equal(repaid.attempt.attemptNumber,2);
+    assert.equal(repaid.entry.sourceType,'supplier-payment-repost');
+    assert.equal(Payables.invoiceById(ctx.db,ctx.company.id,ctx.invoice.id).openAmountOre,0);
+    assert.equal(SupplierAccounting.paymentForConfirmation(ctx.db,ctx.company.id,payment.id).status,'paid');
+    const attempts=SupplierAccounting.paymentAttempts(ctx.db,ctx.company.id,payment.id);
+    assert.deepEqual(attempts.map(row=>[row.attemptNumber,row.status]),[[1,'reversed'],[2,'posted']]);
+    assert.equal(accountNet([invoicePost.entry,paid.entry,corrected.reversal,repaid.entry],'2440'),0);
+  }finally{ctx.db.close()}
+});
+
+test('betalningsrättelse är fail-closed vid låst period eller auditfel och lämnar betalning och reskontra orörda',()=>{
+  for(const mode of ['locked','audit']){
+    const ctx=seed({number:`BKS-CORR-${mode}`});try{
+      SupplierAccounting.postSupplierInvoice(ctx.db,{companyId:ctx.company.id,invoiceId:ctx.invoice.id,actorId:ctx.accountant.id});
+      const payment=Payables.preparePayment(ctx.db,{companyId:ctx.company.id,invoiceId:ctx.invoice.id,paymentDate:'2026-09-17',amountOre:125000,account:'1930',preparedBy:ctx.accountant.id});
+      Release.releasePayment(ctx.db,{companyId:ctx.company.id,paymentId:payment.id,releasedBy:ctx.approver.id});
+      const paid=SupplierAccounting.confirmSupplierPayment(ctx.db,{companyId:ctx.company.id,paymentId:payment.id,confirmationReference:`BANK-CORR-${mode}`,postingDate:'2026-09-17',actorId:ctx.accountant.id});
+      if(mode==='locked')ctx.db.prepare(`INSERT INTO accounting_periods(company_id,period,status) VALUES(?,?,'locked')`).run(ctx.company.id,'2026-10');
+      else ctx.db.exec(`CREATE TRIGGER fail_payment_correction_audit BEFORE INSERT ON audit_events WHEN NEW.action='SUPPLIER_PAYMENT_CORRECTED' BEGIN SELECT RAISE(ABORT,'audit fail'); END;`);
+
+      assert.throws(()=>SupplierAccounting.correctSupplierPayment(ctx.db,{companyId:ctx.company.id,paymentId:payment.id,requestId:`supplier-correction-${mode}-0001`,correctionDate:mode==='locked'?'2026-10-01':'2026-09-18',reason:'Kontrollerat felprov av betalningsrättelse.',actorId:ctx.accountant.id}),mode==='locked'?e=>e.code==='PERIOD_LOCKED':/audit fail/);
+      const storedPayment=SupplierAccounting.paymentForConfirmation(ctx.db,ctx.company.id,payment.id);
+      const invoice=Payables.invoiceById(ctx.db,ctx.company.id,ctx.invoice.id);
+      assert.equal(storedPayment.status,'paid');
+      assert.equal(storedPayment.accountingEntryId,paid.entry.id);
+      assert.equal(invoice.status,'paid');
+      assert.equal(invoice.openAmountOre,0);
+      assert.equal(SupplierAccounting.paymentAttempts(ctx.db,ctx.company.id,payment.id).filter(row=>row.status==='posted').length,1);
+      assert.equal(Accounting.listEntries(ctx.db,ctx.company.id).filter(entry=>entry.sourceType==='supplier-payment-reversal').length,0);
+      assert.equal(Db.auditForCompany(ctx.db,ctx.company.id).filter(event=>event.action==='SUPPLIER_PAYMENT_CORRECTED').length,0);
+    }finally{ctx.db.close()}
+  }
+});
+
+test('betalningsförsök och historiska bankreferenser kan inte skrivas om efteråt',()=>{
+  const ctx=seed({number:'BKS-CORR-HISTORY'});try{
+    SupplierAccounting.initializeSupplierAccounting(ctx.db);
+    SupplierAccounting.postSupplierInvoice(ctx.db,{companyId:ctx.company.id,invoiceId:ctx.invoice.id,actorId:ctx.accountant.id});
+    const payment=Payables.preparePayment(ctx.db,{companyId:ctx.company.id,invoiceId:ctx.invoice.id,paymentDate:'2026-09-17',amountOre:125000,account:'1930',preparedBy:ctx.accountant.id});
+    Release.releasePayment(ctx.db,{companyId:ctx.company.id,paymentId:payment.id,releasedBy:ctx.approver.id});
+    SupplierAccounting.confirmSupplierPayment(ctx.db,{companyId:ctx.company.id,paymentId:payment.id,confirmationReference:'BANK-HISTORY-1',postingDate:'2026-09-17',actorId:ctx.accountant.id});
+    SupplierAccounting.initializeSupplierAccounting(ctx.db);
+    const attempt=SupplierAccounting.paymentAttempts(ctx.db,ctx.company.id,payment.id)[0];
+    assert.throws(()=>ctx.db.prepare(`UPDATE supplier_payment_attempts SET confirmation_reference='CHANGED' WHERE id=?`).run(attempt.id),/PAYMENT_ATTEMPT_HISTORY_IMMUTABLE/);
+    assert.throws(()=>ctx.db.prepare(`DELETE FROM supplier_payment_attempts WHERE id=?`).run(attempt.id),/HISTORY_IMMUTABLE/);
+    assert.throws(()=>ctx.db.prepare(`UPDATE supplier_payment_confirmation_refs SET confirmation_reference='CHANGED' WHERE company_id=? AND confirmation_reference='BANK-HISTORY-1'`).run(ctx.company.id),/HISTORY_IMMUTABLE/);
+    assert.throws(()=>ctx.db.prepare(`DELETE FROM supplier_payment_confirmation_refs WHERE company_id=? AND confirmation_reference='BANK-HISTORY-1'`).run(ctx.company.id),/HISTORY_IMMUTABLE/);
+  }finally{ctx.db.close()}
+});
