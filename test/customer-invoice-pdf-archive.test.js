@@ -21,6 +21,7 @@ const PROFILE={legalName:'Testbutiken AB',displayName:'Testbutiken',orgNumber:'5
 
 async function withApi(callback){
   const db=Db.openDatabase(':memory:');
+  CustomerPayment.initializeCustomerPaymentPosting(db);
   const co1=Db.createCompany(db,{legalName:'Testbutiken AB',displayName:'Testbutiken',orgNumber:'559100-0001'});
   const co2=Db.createCompany(db,{legalName:'Annat Bolag AB',displayName:'Annat',orgNumber:'559100-0002'});
   const password='Sakert pdfarkiv testlosenord 2026!';
