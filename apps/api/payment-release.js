@@ -13,4 +13,13 @@ function releasePayment(db,{companyId,paymentId,releasedBy}){
   if(result.changes!==1)throw paymentError('Betalningen ändrades av någon annan och kunde inte frisläppas.','PAYMENT_RELEASE_CONFLICT',409);
   return paymentById(db,companyId,paymentId);
 }
-module.exports=Object.freeze({paymentById,releasePayment});
+function releasePaymentIdempotent(db,input){
+  try{return{payment:releasePayment(db,input),duplicate:false}}
+  catch(error){
+    if(error?.code!=='INVALID_PAYMENT_STATUS')throw error;
+    const payment=paymentById(db,input.companyId,input.paymentId);
+    if(payment&&['released','paid'].includes(payment.status)&&payment.releasedBy===input.releasedBy)return{payment,duplicate:true};
+    throw error;
+  }
+}
+module.exports=Object.freeze({paymentById,releasePayment,releasePaymentIdempotent});
