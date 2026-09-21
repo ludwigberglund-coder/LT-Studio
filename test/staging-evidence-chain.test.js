@@ -232,7 +232,7 @@ test('staging evidence chain passes only when all fresh proofs agree',()=>{
   const f=fixture();
   try{
     const result=validateEvidenceChain(f.env,{now:f.now});
-    assert.equal(result.ok,true);
+    assert.equal(result.ok,true,JSON.stringify({fail:result.fail,checks:result.checks,evidence:result.evidence}));
     assert.deepEqual(result.fail,[]);
     assert.equal(result.checks.sameBackupArtifact,true);
     assert.equal(result.checks.auditAnchor,true);
