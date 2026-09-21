@@ -54,3 +54,19 @@ Upload använder `If-None-Match: *` och följs alltid av full GET/read-back där
 - ankaret bör köras återkommande och före/efter känsliga driftmoment,
 - ett externt ankare ersätter inte backup, journalförsegling, UAT eller incidentloggning,
 - kodtesterna bevisar mekanismen men inte att den externa bucketen eller credential-separationen faktiskt är driftsatt.
+
+
+## Koppling till staging-signoff
+
+I staging är auditankaret nu ett obligatoriskt driftbevis. Körningen ska ske i denna ordning:
+
+```bash
+R2_AUDIT_ENABLED=1 npm run audit:anchor:r2
+npm run staging:evidence:verify
+npm run staging:uat:verify
+npm run staging:signoff
+```
+
+`staging:evidence:verify` kontrollerar inte bara evidensfilens metadata. Den läser även det lokala ankaret, verifierar dess SHA-256 och byteantal mot R2-evidensen och kontrollerar att den nuvarande databasen fortfarande har exakt samma ankrade auditprefix. Auditbucketen måste matcha aktuell `R2_AUDIT_BUCKET`.
+
+Staging-signoff använder schema 2 och binder både `ROLLANDS_AUDIT_ANCHOR_PATH` och `ROLLANDS_AUDIT_ANCHOR_EVIDENCE_PATH` med SHA-256. Äldre schema-1-signoff måste därför skapas om före pilotbeslut.
