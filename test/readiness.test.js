@@ -46,7 +46,7 @@ test('readiness kräver läsbar och skrivbar databas',()=>{
   try{
     const report=readinessReport({db,databasePath:':memory:',minFreeBytes:1});
     assert.equal(report.ok,true);
-    assert.deepEqual(report.checks,{databaseRead:true,databaseWrite:true,diskSpace:true,backup:true,offsiteBackup:true,r2StagingAudit:true,restoreDrill:true,r2RestoreDrill:true,monitoring:true});
+    assert.deepEqual(report.checks,{databaseRead:true,databaseWrite:true,diskSpace:true,backup:true,offsiteBackup:true,r2StagingAudit:true,restoreDrill:true,r2RestoreDrill:true,stagingEvidenceConsistent:true,monitoring:true});
   }finally{db.close()}
 });
 
@@ -287,5 +287,139 @@ test('staging readiness kräver färsk R2-audit och verifierad R2-restore',()=>{
     });
     assert.equal(report.ok,false);
     assert.equal(report.checks.r2StagingAudit,false);
+  }finally{db.close();fs.rmSync(dir,{recursive:true,force:true})}
+});
+
+
+test('staging readiness binder ihop rätt buckets och exakt samma backup-artifakt',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-readiness-consistency-'));
+  const auditPath=path.join(dir,'r2-audit.json');
+  const offsitePath=path.join(dir,'offsite.json');
+  const restorePath=path.join(dir,'restore.json');
+  const r2RestorePath=path.join(dir,'r2-restore.json');
+  const db=Db.openDatabase(':memory:');
+  const now=Date.UTC(2026,8,21,17,0,0);
+  const sha='e'.repeat(64);
+  const file='rollands-2026-09-21T16-00-00.sqlite.enc';
+  const size=8192;
+  const byKind={
+    document:{objects:1,verified:1,bytes:100},
+    'supplier-invoice':{objects:1,verified:1,bytes:200},
+    'customer-invoice-pdf':{objects:1,verified:1,bytes:300}
+  };
+  const audit={
+    schemaVersion:1,
+    auditedAt:new Date(now-30*60*1000).toISOString(),
+    sourceProvider:'sqlite',
+    targetProvider:'r2',
+    sourceManifestSha256:'f'.repeat(64),
+    ok:true,
+    sourceOk:true,
+    sourceObjectCount:3,
+    sourceTotalBytes:600,
+    readyCount:3,
+    verifiedExternalCount:3,
+    missingReadyCount:0,
+    issueCount:0,
+    countsByKind:{
+      document:{objects:1,ready:1,verified:1,bytes:100},
+      'supplier-invoice':{objects:1,ready:1,verified:1,bytes:200},
+      'customer-invoice-pdf':{objects:1,ready:1,verified:1,bytes:300}
+    },
+    issues:[],
+    target:{provider:'r2',jurisdiction:'eu',bucket:'private-staging'}
+  };
+  const offsite={
+    schemaVersion:1,
+    verifiedAt:new Date(now-25*60*1000).toISOString(),
+    provider:'r2',
+    jurisdiction:'eu',
+    bucket:'private-backups',
+    encryptedFile:file,
+    encryptedSha256:sha,
+    encryptedSizeBytes:size,
+    encryptedStorageKey:`encrypted-sqlite-backups/${sha}/${file}`,
+    checksumStorageKey:`encrypted-sqlite-backups/${sha}/${file}.sha256`,
+    remoteEncryptedVerified:true,
+    remoteChecksumVerified:true
+  };
+  const restore={
+    schemaVersion:2,
+    verifiedAt:new Date(now-20*60*1000).toISOString(),
+    sourceFile:file,
+    sourceEncryptedSha256:sha,
+    sourceSizeBytes:size,
+    sqliteIntegrity:true,
+    foreignKeys:true,
+    privateObjectsVerified:true,
+    privateObjectSchemaComplete:true,
+    privateObjectCount:3,
+    verifiedPrivateObjectCount:3,
+    privateObjectBytes:600,
+    privateObjectIssueCount:0,
+    privateObjectsByKind:byKind,
+    productionDatabaseTouched:false,
+    restoreCopyRemoved:true
+  };
+  const r2Restore={
+    schemaVersion:1,
+    verifiedAt:new Date(now-15*60*1000).toISOString(),
+    sourceProvider:'r2',
+    provider:'r2',
+    jurisdiction:'eu',
+    bucket:'private-backups',
+    sourceFile:file,
+    sourceEncryptedSha256:sha,
+    sourceSizeBytes:size,
+    sourceStorageKey:`encrypted-sqlite-backups/${sha}/${file}`,
+    remoteDownloadVerified:true,
+    sqliteIntegrity:true,
+    foreignKeys:true,
+    privateObjectsVerified:true,
+    privateObjectSchemaComplete:true,
+    privateObjectCount:3,
+    verifiedPrivateObjectCount:3,
+    privateObjectBytes:600,
+    privateObjectIssueCount:0,
+    privateObjectsByKind:byKind,
+    productionDatabaseTouched:false,
+    remoteDownloadRemoved:true,
+    restoreCopyRemoved:true
+  };
+  const report=()=>readinessReport({
+    db,databasePath:':memory:',now,
+    offsiteBackupEvidencePath:offsitePath,
+    r2StagingAuditEvidencePath:auditPath,
+    restoreEvidencePath:restorePath,
+    r2RestoreEvidencePath:r2RestorePath,
+    expectedR2StagingBucket:'private-staging',
+    expectedR2BackupBucket:'private-backups',
+    requireStagingEvidenceConsistency:true
+  });
+  try{
+    fs.writeFileSync(auditPath,JSON.stringify(audit));
+    fs.writeFileSync(offsitePath,JSON.stringify(offsite));
+    fs.writeFileSync(restorePath,JSON.stringify(restore));
+    fs.writeFileSync(r2RestorePath,JSON.stringify(r2Restore));
+
+    let result=report();
+    assert.equal(result.ok,true);
+    assert.equal(result.checks.stagingEvidenceConsistent,true);
+
+    fs.writeFileSync(auditPath,JSON.stringify({...audit,target:{...audit.target,bucket:'wrong-staging'}}));
+    result=report();
+    assert.equal(result.ok,false);
+    assert.equal(result.checks.stagingEvidenceConsistent,false);
+
+    fs.writeFileSync(auditPath,JSON.stringify(audit));
+    fs.writeFileSync(restorePath,JSON.stringify({...restore,sourceEncryptedSha256:'a'.repeat(64)}));
+    result=report();
+    assert.equal(result.ok,false);
+    assert.equal(result.checks.stagingEvidenceConsistent,false);
+
+    fs.writeFileSync(restorePath,JSON.stringify({...restore,sourceSizeBytes:size+1}));
+    result=report();
+    assert.equal(result.ok,false);
+    assert.equal(result.checks.stagingEvidenceConsistent,false);
   }finally{db.close();fs.rmSync(dir,{recursive:true,force:true})}
 });
