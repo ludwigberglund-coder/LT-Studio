@@ -95,3 +95,67 @@ test('periodupplåsning kan inte beslutas två gånger',()=>{
     assert.equal(Admin.periodStatus(db,company.id,'2026-10').status,'open');
   }finally{db.close()}
 });
+
+
+test('ingående balans bokas en gång, är retry-säker och använder bara balanskonton',()=>{
+  const {db,company,maker}=seed();
+  try{
+    const input={companyId:company.id,year:'2026',postingDate:'2026-01-01',createdBy:maker.id,lines:[
+      {account:'1930',text:'Bank',debitOre:250000,creditOre:0},
+      {account:'2091',text:'Balanserat eget kapital',debitOre:0,creditOre:250000}
+    ]};
+    const first=Admin.importOpeningBalance(db,input);
+    const retry=Admin.importOpeningBalance(db,input);
+    assert.equal(first.duplicate,false);
+    assert.equal(retry.duplicate,true);
+    assert.equal(retry.entry.id,first.entry.id);
+    assert.equal(first.entry.series,'IB');
+    assert.equal(first.entry.number,'IB1');
+    assert.equal(first.entry.sourceType,'opening-balance');
+    assert.equal(first.entry.sourceId,'2026');
+    assert.equal(first.entry.postingDate,'2026-01-01');
+    assert.equal(Admin.openingBalanceByYear(db,company.id,'2026').id,first.entry.id);
+    assert.equal(Accounting.listEntries(db,company.id).length,1);
+    assert.throws(()=>Admin.importOpeningBalance(db,{...input,lines:[
+      {account:'1930',text:'Bank',debitOre:240000,creditOre:0},
+      {account:'2091',text:'Balanserat eget kapital',debitOre:0,creditOre:240000}
+    ]}),e=>e.code==='IDEMPOTENCY_CONFLICT'&&e.statusCode===409);
+    assert.equal(Accounting.listEntries(db,company.id).length,1);
+  }finally{db.close()}
+});
+
+test('ingående balans blockerar reskontrakonton, resultatkonton och fel datum',()=>{
+  const {db,company,maker}=seed();
+  try{
+    const base={companyId:company.id,year:'2026',postingDate:'2026-01-01',createdBy:maker.id};
+    for(const account of ['1510','2440']){
+      assert.throws(()=>Admin.importOpeningBalance(db,{...base,lines:[
+        {account,debitOre:10000,creditOre:0},
+        {account:'2091',debitOre:0,creditOre:10000}
+      ]}),e=>e.code==='OPENING_BALANCE_SUBLEDGER_REQUIRED'&&e.statusCode===409);
+    }
+    assert.throws(()=>Admin.importOpeningBalance(db,{...base,lines:[
+      {account:'1930',debitOre:10000,creditOre:0},
+      {account:'3010',debitOre:0,creditOre:10000}
+    ]}),e=>e.code==='OPENING_BALANCE_ACCOUNT_NOT_ALLOWED'&&e.statusCode===409);
+    assert.throws(()=>Admin.importOpeningBalance(db,{...base,postingDate:'2026-01-02',lines:[
+      {account:'1930',debitOre:10000,creditOre:0},
+      {account:'2091',debitOre:0,creditOre:10000}
+    ]}),e=>e.code==='INVALID_OPENING_BALANCE_DATE'&&e.statusCode===409);
+    assert.equal(Accounting.listEntries(db,company.id).length,0);
+  }finally{db.close()}
+});
+
+test('ingående balans är företagsisolerad och kan inte rättas som fristående manuell verifikation',()=>{
+  const {db,company,company2,maker}=seed();
+  try{
+    const imported=Admin.importOpeningBalance(db,{companyId:company.id,year:'2026',postingDate:'2026-01-01',createdBy:maker.id,lines:[
+      {account:'1930',debitOre:50000,creditOre:0},
+      {account:'2091',debitOre:0,creditOre:50000}
+    ]});
+    assert.equal(Admin.openingBalanceByYear(db,company2.id,'2026'),null);
+    assert.equal(Admin.correctionPolicy(db,company.id,imported.entry.id).allowed,false);
+    assert.throws(()=>Admin.correctEntry(db,{companyId:company.id,entryId:imported.entry.id,postingDate:'2026-01-02',reason:'Försök till fristående rättelse',createdBy:maker.id}),e=>e.code==='SOURCE_CORRECTION_REQUIRED'&&e.statusCode===409);
+    assert.equal(Accounting.listEntries(db,company.id).length,1);
+  }finally{db.close()}
+});
