@@ -23,7 +23,7 @@ function validCommit(value){return /^[a-f0-9]{40}$/.test(String(value||'').trim(
 function validateStagingSignoff(value,{expectedCommit='',sourcePaths={},now=Date.now()}={}){
   const fail=[];
   if(!value||typeof value!=='object'||Array.isArray(value))return{ok:false,fail:['Staging-signoff måste vara ett JSON-objekt.']};
-  if(value.schemaVersion!==1)fail.push('schemaVersion måste vara 1.');
+  if(value.schemaVersion!==2)fail.push('schemaVersion måste vara 2. Äldre staging-signoff måste skapas om med auditankare.');
   if(value.environment!=='staging')fail.push('environment måste vara staging.');
   if(value.readyForPilotDecision!==true)fail.push('readyForPilotDecision måste vara true.');
   const commit=String(value.releaseCommit||'').trim().toLowerCase();
