@@ -277,6 +277,8 @@ function initializeSchema(db) {
   if (!hasColumn(db,'invoice_reminders','interest_start_evidence_source')) db.exec("ALTER TABLE invoice_reminders ADD COLUMN interest_start_evidence_source TEXT NOT NULL DEFAULT ''");
   if (!hasColumn(db,'invoice_reminders','interest_start_verified_at')) db.exec("ALTER TABLE invoice_reminders ADD COLUMN interest_start_verified_at TEXT NOT NULL DEFAULT ''");
   db.exec("UPDATE invoice_reminders SET reminder_date=substr(sent_at,1,10) WHERE reminder_date IS NULL OR reminder_date=''");
+  if (!hasColumn(db,'customers','archived_at')) db.exec('ALTER TABLE customers ADD COLUMN archived_at TEXT');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_customers_company_archived ON customers(company_id,archived_at,customer_number)');
   const {protectAppendOnly}=require('./history-guards.js');
   protectAppendOnly(db,'audit_events');
   protectAppendOnly(db,'security_events');
@@ -541,9 +543,10 @@ function createCustomer(db, input) {
 
 function customerById(db, companyId, customerId) {
   const row = db.prepare(`SELECT id,company_id AS companyId,customer_number AS customerNumber,name,org_number AS orgNumber,email,address_json AS addressJson,
-    customer_type AS customerType,reminder_fee_agreed AS reminderFeeAgreed,created_at AS createdAt,updated_at AS updatedAt
+    customer_type AS customerType,reminder_fee_agreed AS reminderFeeAgreed,archived_at AS archivedAt,created_at AS createdAt,updated_at AS updatedAt,
+    (SELECT COUNT(*) FROM invoices i WHERE i.company_id=customers.company_id AND i.customer_id=customers.id) AS invoiceCount
     FROM customers WHERE company_id=? AND id=?`).get(companyId,customerId);
-  return row ? {...row,address:jsonParse(row.addressJson,{}),reminderFeeAgreed:Boolean(row.reminderFeeAgreed)} : null;
+  return row ? {...row,address:jsonParse(row.addressJson,{}),reminderFeeAgreed:Boolean(row.reminderFeeAgreed),invoiceCount:Number(row.invoiceCount||0)} : null;
 }
 
 function updateCustomer(db,input) {
@@ -558,11 +561,29 @@ function updateCustomer(db,input) {
   return customerById(db,input.companyId,input.id);
 }
 
-function listCustomers(db,companyId) {
-  return db.prepare(`SELECT id,company_id AS companyId,customer_number AS customerNumber,name,org_number AS orgNumber,email,address_json AS addressJson,
-    customer_type AS customerType,reminder_fee_agreed AS reminderFeeAgreed,created_at AS createdAt,updated_at AS updatedAt
-    FROM customers WHERE company_id=? ORDER BY customer_number,name`).all(companyId)
-    .map(row => ({...row,address:jsonParse(row.addressJson,{}),reminderFeeAgreed:Boolean(row.reminderFeeAgreed)}));
+function listCustomers(db,companyId,{includeArchived=true}={}) {
+  const rows=db.prepare(`SELECT id,company_id AS companyId,customer_number AS customerNumber,name,org_number AS orgNumber,email,address_json AS addressJson,
+    customer_type AS customerType,reminder_fee_agreed AS reminderFeeAgreed,archived_at AS archivedAt,created_at AS createdAt,updated_at AS updatedAt,
+    (SELECT COUNT(*) FROM invoices i WHERE i.company_id=customers.company_id AND i.customer_id=customers.id) AS invoiceCount
+    FROM customers WHERE company_id=? ${includeArchived?'':'AND archived_at IS NULL '}ORDER BY customer_number,name`).all(companyId);
+  return rows.map(row => ({...row,address:jsonParse(row.addressJson,{}),reminderFeeAgreed:Boolean(row.reminderFeeAgreed),invoiceCount:Number(row.invoiceCount||0)}));
+}
+
+function archiveCustomer(db,{companyId,id:customerId,archived=true}) {
+  const existing=customerById(db,companyId,customerId);
+  if(!existing)return null;
+  const archivedAt=archived?nowIso():null,updatedAt=nowIso();
+  db.prepare('UPDATE customers SET archived_at=?,updated_at=? WHERE company_id=? AND id=?')
+    .run(archivedAt,updatedAt,companyId,customerId);
+  return customerById(db,companyId,customerId);
+}
+
+function deleteCustomer(db,{companyId,id:customerId}) {
+  const existing=customerById(db,companyId,customerId);
+  if(!existing)return{deleted:false,customer:null,reason:'not-found'};
+  if(existing.invoiceCount>0)return{deleted:false,customer:existing,reason:'has-invoices'};
+  const result=db.prepare('DELETE FROM customers WHERE company_id=? AND id=?').run(companyId,customerId);
+  return{deleted:Number(result.changes||0)>0,customer:existing,reason:Number(result.changes||0)>0?'deleted':'not-found'};
 }
 
 function nextCustomerNumber(db,companyId) {
@@ -741,6 +762,8 @@ module.exports = Object.freeze({
   customerById,
   updateCustomer,
   listCustomers,
+  archiveCustomer,
+  deleteCustomer,
   nextCustomerNumber,
   createInvoice,
   invoiceById,

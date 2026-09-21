@@ -344,7 +344,8 @@ function createApiApp(options) {
 
       if(req.method==='GET' && url.pathname==='/api/v1/customers') {
         requirePermission(session,'customer-invoice.view');
-        return send(res,200,{customers:Db.listCustomers(db,session.companyId)});
+        const includeArchived=url.searchParams.get('includeArchived')==='1';
+        return send(res,200,{customers:Db.listCustomers(db,session.companyId,{includeArchived})});
       }
 
       if(req.method==='POST' && url.pathname==='/api/v1/customers') {
@@ -389,6 +390,38 @@ function createApiApp(options) {
             before.reminderFeeAgreed!==customer.reminderFeeAgreed?'reminderFeeAgreed':null
           ].filter(Boolean);
           Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'CUSTOMER_UPDATED',entityType:'customer',entityId:customer.id,details:{customerNumber:customer.customerNumber,changedFields}});
+        });
+        return send(res,200,{customer});
+      }
+
+      if(customerMatch && req.method==='DELETE') {
+        requirePermission(session,'customer-invoice.create');
+        const customerId=customerMatch[1];
+        const result=Db.transaction(db,()=>{
+          const before=Db.customerById(db,session.companyId,customerId);
+          if(!before) throw apiError('Kunden hittades inte i det inloggade företaget.','CUSTOMER_NOT_FOUND',404);
+          const deleted=Db.deleteCustomer(db,{companyId:session.companyId,id:customerId});
+          if(deleted.reason==='has-invoices'){
+            const customer=Db.archiveCustomer(db,{companyId:session.companyId,id:customerId,archived:true});
+            Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'CUSTOMER_ARCHIVED',entityType:'customer',entityId:customer.id,details:{customerNumber:customer.customerNumber,invoiceCount:customer.invoiceCount}});
+            return{deleted:false,archived:true,customer};
+          }
+          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'CUSTOMER_DELETED',entityType:'customer',entityId:before.id,details:{customerNumber:before.customerNumber,invoiceCount:0}});
+          return{deleted:true,archived:false,customer:before};
+        });
+        return send(res,200,result);
+      }
+
+      const restoreCustomerMatch=url.pathname.match(/^\/api\/v1\/customers\/([^/]+)\/restore$/);
+      if(restoreCustomerMatch && req.method==='POST') {
+        requirePermission(session,'customer-invoice.create');
+        const customerId=restoreCustomerMatch[1];
+        const customer=Db.transaction(db,()=>{
+          const before=Db.customerById(db,session.companyId,customerId);
+          if(!before) throw apiError('Kunden hittades inte i det inloggade företaget.','CUSTOMER_NOT_FOUND',404);
+          const restored=Db.archiveCustomer(db,{companyId:session.companyId,id:customerId,archived:false});
+          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'CUSTOMER_RESTORED',entityType:'customer',entityId:restored.id,details:{customerNumber:restored.customerNumber}});
+          return restored;
         });
         return send(res,200,{customer});
       }
