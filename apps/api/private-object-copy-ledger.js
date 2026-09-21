@@ -25,6 +25,14 @@ function nowIso(){
   return new Date().toISOString();
 }
 
+function normalizeTimestamp(value,label){
+  const timestamp=String(value??'').trim();
+  if(!timestamp||Number.isNaN(Date.parse(timestamp))){
+    throw copyError(`${label} måste vara en giltig tidsstämpel.`,'PRIVATE_OBJECT_COPY_INVALID_TIMESTAMP');
+  }
+  return timestamp;
+}
+
 function initializePrivateObjectCopyLedger(db){
   if(!db)throw copyError('Databas krävs för objektkopieringsledger.','PRIVATE_OBJECT_COPY_DB_REQUIRED');
   db.exec(`
@@ -146,7 +154,7 @@ function planPrivateObjectCopy(db,{metadata,provider,createdAt=nowIso()}={}){
     return existing;
   }
 
-  const created=String(createdAt);
+  const created=normalizeTimestamp(createdAt,'Skapad tid');
   db.prepare(`INSERT INTO private_object_copies(
     company_id,kind,object_id,sha256,provider,logical_key,storage_key,mime_type,size_bytes,
     source_created_at,status,attempt_count,last_error,verified_at,created_at,updated_at
@@ -186,7 +194,7 @@ function startCopyAttempt(db,identity,{updatedAt=nowIso()}={}){
   db.prepare(`UPDATE private_object_copies
     SET status='pending',attempt_count=attempt_count+1,last_error=NULL,verified_at=NULL,updated_at=?
     WHERE company_id=? AND kind=? AND object_id=? AND sha256=? AND provider=?`).run(
-    String(updatedAt),
+    normalizeTimestamp(updatedAt,'Uppdaterad tid'),
     current.companyId,current.kind,current.objectId,current.sha256,current.provider
   );
   return requireCopy(db,identity);
@@ -202,7 +210,7 @@ function markCopyFailed(db,identity,{message,updatedAt=nowIso()}={}){
   db.prepare(`UPDATE private_object_copies
     SET status='failed',last_error=?,verified_at=NULL,updated_at=?
     WHERE company_id=? AND kind=? AND object_id=? AND sha256=? AND provider=?`).run(
-    errorMessage,String(updatedAt),
+    errorMessage,normalizeTimestamp(updatedAt,'Uppdaterad tid'),
     current.companyId,current.kind,current.objectId,current.sha256,current.provider
   );
   return requireCopy(db,identity);
@@ -211,7 +219,7 @@ function markCopyFailed(db,identity,{message,updatedAt=nowIso()}={}){
 function markCopyReady(db,identity,{verifiedAt=nowIso()}={}){
   const current=requireCopy(db,identity);
   if(current.status==='ready')return current;
-  const verified=String(verifiedAt);
+  const verified=normalizeTimestamp(verifiedAt,'Verifierad tid');
   db.prepare(`UPDATE private_object_copies
     SET status='ready',last_error=NULL,verified_at=?,updated_at=?
     WHERE company_id=? AND kind=? AND object_id=? AND sha256=? AND provider=?`).run(
