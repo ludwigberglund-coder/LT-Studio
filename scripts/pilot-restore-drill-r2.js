@@ -45,8 +45,16 @@ async function runR2RestoreDrill({target,source,drillDir,evidencePath,backupKey,
   const sourceSize=Number(source.sizeBytes);
   if(!/^[a-f0-9]{64}$/.test(sourceSha))throw new Error('R2 restore-källans SHA-256 är ogiltig.');
   if(!Number.isSafeInteger(sourceSize)||sourceSize<1)throw new Error('R2 restore-källans storlek är ogiltig.');
-  const storageKey=BackupTarget.backupStorageKeys({sha256:sourceSha,basename:sourceFile}).encrypted;
+  const keys=BackupTarget.backupStorageKeys({sha256:sourceSha,basename:sourceFile});
+  const storageKey=keys.encrypted;
+  const checksumStorageKey=String(source.checksumStorageKey||'').trim();
+  const checksumSha256=String(source.checksumSha256||'').trim().toLowerCase();
+  const checksumSizeBytes=Number(source.checksumSizeBytes);
+  if(checksumStorageKey!==keys.checksum)throw new Error('R2 restore-källans checksum-nyckel matchar inte backupidentiteten.');
+  if(!/^[a-f0-9]{64}$/.test(checksumSha256))throw new Error('R2 restore-källans checksum-SHA-256 är ogiltig.');
+  if(!Number.isSafeInteger(checksumSizeBytes)||checksumSizeBytes<1)throw new Error('R2 restore-källans checksum-storlek är ogiltig.');
   const downloaded=path.join(root,`r2-download-${crypto.randomUUID()}-${sourceFile}`);
+  const downloadedChecksum=downloaded+'.sha256';
   const restored=path.join(root,`r2-restore-${crypto.randomUUID()}.sqlite`);
   let verified;
 
@@ -60,12 +68,26 @@ async function runR2RestoreDrill({target,source,drillDir,evidencePath,backupKey,
     if(remote.verified!==true||remote.sha256!==sourceSha||remote.sizeBytes!==sourceSize){
       throw new Error('R2 restore-download kunde inte verifieras.');
     }
+    const remoteChecksum=await target.getToFile({
+      storageKey:checksumStorageKey,
+      filename:downloadedChecksum,
+      sha256:checksumSha256,
+      sizeBytes:checksumSizeBytes
+    });
+    if(remoteChecksum.verified!==true||remoteChecksum.sha256!==checksumSha256||remoteChecksum.sizeBytes!==checksumSizeBytes){
+      throw new Error('R2 checksum-download kunde inte verifieras.');
+    }
+    const checksum=BackupTarget.checksumRecord(downloadedChecksum);
+    if(checksum.sha256!==sourceSha||checksum.basename!==sourceFile){
+      throw new Error('R2 checksumobjektet matchar inte backupobjektets identitet.');
+    }
     BackupCrypto.decryptFile(downloaded,restored,backupKey);
     fs.chmodSync(restored,0o600);
     verified=verifyDatabase(restored,{requirePrivateObjectSchema:true});
   }finally{
     if(!removeSqliteArtifacts(restored))throw new Error('R2 restore-drill kunde inte rensa SQLite-testfiler.');
     fs.rmSync(downloaded,{force:true});
+    fs.rmSync(downloadedChecksum,{force:true});
   }
 
   const evidence=Object.freeze({
@@ -79,7 +101,11 @@ async function runR2RestoreDrill({target,source,drillDir,evidencePath,backupKey,
     sourceEncryptedSha256:sourceSha,
     sourceSizeBytes:sourceSize,
     sourceStorageKey:storageKey,
+    sourceChecksumStorageKey:checksumStorageKey,
+    sourceChecksumSha256:checksumSha256,
+    sourceChecksumSizeBytes:checksumSizeBytes,
     remoteDownloadVerified:true,
+    remoteChecksumDownloadVerified:true,
     sqliteIntegrity:Boolean(verified.sqliteIntegrity),
     foreignKeys:Boolean(verified.foreignKeys),
     tenantRelations:Number(verified.tenantRelations||0),
