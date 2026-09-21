@@ -162,3 +162,55 @@ test('HTTP-export isoleras av sessionens företag även när flera företag har 
     assert.doesNotMatch(textB,/A-ONLY-1001/);
   }finally{await new Promise(resolve=>runtime.close(resolve))}
 });
+
+
+test('ålders- och inköpsexporter återanvänder rapporternas företagsisolerade underlag',()=>{
+  const {db,company,user}=seed();
+  try{
+    const customer2=Db.createCustomer(db,{companyId:company.id,customerNumber:'K-2',name:'Export Aging Kund'});
+    Db.createInvoice(db,{companyId:company.id,customerId:customer2.id,invoiceNumber:'330001',invoiceDate:'2026-08-01',postingDate:'2026-08-01',dueDate:'2026-09-01',totalOre:30000,remainingOre:30000,vatOre:6000,status:'Bokförd'});
+    const supplier2=Payables.createSupplier(db,{companyId:company.id,supplierNumber:'L-2',name:'Export Inköp AB',orgNumber:'559990-2003',bankgiro:'555-0000'});
+    Payables.createSupplierInvoice(db,{companyId:company.id,supplierId:supplier2.id,supplierInvoiceNumber:'EXP-S-2',invoiceDate:'2026-09-20',dueDate:'2026-11-20',totalOre:120000,vatOre:20000,registeredBy:user.id});
+
+    const receivables=Exports.receivablesAging(db,company.id,{asOf:'2026-10-20'});
+    assert.equal(receivables.filename,'kundfordringar-alder-2026-10-20.csv');
+    assert.ok(receivables.rows.some(row=>row.customerNumber==='K-2'&&row.overdue31to60Ore===30000));
+
+    const payables=Exports.payablesAging(db,company.id,{asOf:'2026-10-20'});
+    assert.equal(payables.filename,'leverantorsskulder-alder-2026-10-20.csv');
+    assert.ok(payables.rows.some(row=>row.supplierNumber==='L-2'&&row.unpostedOpenOre===120000));
+
+    const purchases=Exports.supplierPurchases(db,company.id,{from:'2026-09-01',to:'2026-09-30'});
+    assert.equal(purchases.filename,'inkop-per-leverantor.csv');
+    assert.ok(purchases.rows.some(row=>row.supplierNumber==='L-2'&&row.grossOre===120000));
+
+    const csv=Exports.buildCsv(purchases);
+    assert.match(csv,/Export Inköp AB/);
+    assert.match(csv,/120000/);
+  }finally{db.close()}
+});
+
+test('HTTP-export för åldersanalys är låst till sessionens företag',async()=>{
+  const runtime=createServer({databasePath:':memory:',db:Db.openDatabase(':memory:'),secureCookies:false});
+  const companyA=Db.createCompany(runtime.db,{legalName:'Aging A AB',displayName:'Aging A',orgNumber:'559990-5001'});
+  const companyB=Db.createCompany(runtime.db,{legalName:'Aging B AB',displayName:'Aging B',orgNumber:'559990-5002'});
+  const userA=Db.createUser(runtime.db,{username:'aging.a',displayName:'Aging A User',passwordHash:'test-only-a'});
+  const userB=Db.createUser(runtime.db,{username:'aging.b',displayName:'Aging B User',passwordHash:'test-only-b'});
+  Db.addMembership(runtime.db,{companyId:companyA.id,userId:userA.id});
+  Db.addMembership(runtime.db,{companyId:companyB.id,userId:userB.id});
+  const customerA=Db.createCustomer(runtime.db,{companyId:companyA.id,customerNumber:'A-K',name:'A Kund'});
+  const customerB=Db.createCustomer(runtime.db,{companyId:companyB.id,customerNumber:'B-K',name:'B Hemlig Kund'});
+  Db.createInvoice(runtime.db,{companyId:companyA.id,customerId:customerA.id,invoiceNumber:'A-AGING',invoiceDate:'2026-08-01',postingDate:'2026-08-01',dueDate:'2026-09-01',totalOre:10000,remainingOre:10000,vatOre:2000,status:'Bokförd'});
+  Db.createInvoice(runtime.db,{companyId:companyB.id,customerId:customerB.id,invoiceNumber:'B-SECRET-AGING',invoiceDate:'2026-08-01',postingDate:'2026-08-01',dueDate:'2026-09-01',totalOre:90000,remainingOre:90000,vatOre:18000,status:'Bokförd'});
+  const tokenA=Auth.randomToken(32),csrfA=Auth.randomToken(24);
+  Db.createSession(runtime.db,{tokenHash:Auth.hashToken(tokenA),csrfHash:Auth.hashToken(csrfA),userId:userA.id,companyId:companyA.id,expiresAt:new Date(Date.now()+60000).toISOString()});
+  await new Promise(resolve=>runtime.server.listen(0,'127.0.0.1',resolve));
+  const base=`http://127.0.0.1:${runtime.server.address().port}`;
+  try{
+    const response=await fetch(base+'/api/v1/exports/receivables-aging?asOf=2026-10-20',{headers:{Cookie:`rollands_session=${tokenA}`}});
+    const body=await response.text();
+    assert.equal(response.status,200);
+    assert.match(body,/A Kund/);
+    assert.doesNotMatch(body,/B Hemlig Kund|B-SECRET-AGING|90000/);
+  }finally{await new Promise(resolve=>runtime.close(resolve))}
+});

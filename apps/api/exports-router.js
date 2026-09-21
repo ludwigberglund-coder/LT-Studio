@@ -27,6 +27,7 @@ function createExportsRouter(options){
       const filters={
         from:String(url.searchParams.get('from')||''),
         to:String(url.searchParams.get('to')||''),
+        asOf:String(url.searchParams.get('asOf')||''),
         status:String(url.searchParams.get('status')||''),
         account:String(url.searchParams.get('account')||''),
         period:String(url.searchParams.get('period')||''),
