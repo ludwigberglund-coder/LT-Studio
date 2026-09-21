@@ -53,7 +53,8 @@ test('R2 restore-drill laddar ned, dekrypterar, verifierar och städar isolerad 
       bucket:'rollands-backup-staging',
       encryptedFile:path.basename(f.encrypted),
       sha256:f.result.sha256,
-      sizeBytes:f.result.sizeBytes
+      sizeBytes:f.result.sizeBytes,
+      ageMs:45*60*1000
     };
     const before=BackupCrypto.sha256File(f.source);
     const evidence=await runR2RestoreDrill({
@@ -67,6 +68,9 @@ test('R2 restore-drill laddar ned, dekrypterar, verifierar och städar isolerad 
 
     assert.equal(evidence.sourceProvider,'r2');
     assert.equal(evidence.remoteDownloadVerified,true);
+    assert.equal(evidence.offsiteBackupAgeAtDrillMs,45*60*1000);
+    assert.ok(Number.isSafeInteger(evidence.restoreDurationMs));
+    assert.ok(evidence.restoreDurationMs>=0);
     assert.equal(evidence.sqliteIntegrity,true);
     assert.equal(evidence.foreignKeys,true);
     assert.equal(evidence.privateObjectsVerified,true);
@@ -91,7 +95,8 @@ test('R2 restore-drill lämnar inget bevis eller testdatabas vid fel backupnycke
       bucket:'rollands-backup-staging',
       encryptedFile:path.basename(f.encrypted),
       sha256:f.result.sha256,
-      sizeBytes:f.result.sizeBytes
+      sizeBytes:f.result.sizeBytes,
+      ageMs:45*60*1000
     };
     await assert.rejects(
       ()=>runR2RestoreDrill({
@@ -125,4 +130,28 @@ test('R2 restore-drill refuses to overwrite the offsite upload evidence file',()
   }finally{
     fs.rmSync(dir,{recursive:true,force:true});
   }
+});
+
+
+test('R2 restore-drill kräver mätbar offsite-backupålder',async()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-r2-restore-age-'));
+  try{
+    const f=encryptedFixture(dir);
+    const source={
+      ok:true,
+      bucket:'rollands-backup-staging',
+      encryptedFile:path.basename(f.encrypted),
+      sha256:f.result.sha256,
+      sizeBytes:f.result.sizeBytes
+    };
+    await assert.rejects(
+      ()=>runR2RestoreDrill({
+        target:fakeDownloadTarget(f.encrypted),
+        source,
+        drillDir:path.join(dir,'drill'),
+        backupKey:KEY
+      }),
+      /offsite-ålder saknas eller är ogiltig/
+    );
+  }finally{fs.rmSync(dir,{recursive:true,force:true})}
 });
