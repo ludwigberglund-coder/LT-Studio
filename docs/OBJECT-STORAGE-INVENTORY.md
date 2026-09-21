@@ -221,23 +221,48 @@ Exempel:
 
 Därför ska framtida migration vara verifierbar och återkörbar, och gammalt innehåll får inte tas bort förrän det nya objektet har verifierats.
 
-## Nästa lilla steg
+## Migreringsinventering
 
-Nästa etapp ska fortfarande inte flytta några filer.
+Det finns nu ett läsande verifieringssteg innan någon extern objektlagring får kopplas in.
 
-Metadataformen, provider-kontraktet, de tre SQLite-bryggorna, den centrala factoryn och runtime-kopplingen finns nu.
+`apps/api/private-object-inventory.js` bygger ett provider-neutralt manifest över de tre privata filflödena och verifierar varje objekt mot det gemensamma kontraktet:
 
-Nästa lämpliga steg är **fail-fast validering av lagringskonfiguration vid API-start**.
+- serverstyrd objektnyckel med `company_id`,
+- objekttyp och internt objekt-id,
+- MIME-typ,
+- storlek,
+- SHA-256,
+- skapad tid,
+- om objektets binära innehåll fortfarande kan verifieras.
 
-Den etappen ska:
+Manifestet innehåller aldrig själva filbytesen.
 
-- validera `PRIVATE_OBJECT_STORAGE_PROVIDER` när API:t startar,
-- använda `sqlite` som standard om variabeln saknas,
-- stoppa uppstart direkt om en okänd provider anges,
-- inte ändra databasstruktur eller API,
-- inte flytta några filer,
-- inte införa S3-, R2- eller annan extern implementation.
+Kommandot:
 
-Det gör att en felaktig produktionskonfiguration upptäcks vid start i stället för först när någon försöker läsa eller skriva en privat fil.
+```bash
+npm run storage:inventory
+```
 
-Först efter den kontrollen bör en separat etapp utvärdera en extern objektlagringsprovider.
+öppnar SQLite-databasen read-only och returnerar JSON. Om ett objekt saknas eller inte längre matchar sitt SHA-256 markeras rapporten som `ok: false` och kommandot avslutas med felkod.
+
+Detta är migrationsbevis, inte migrering: inget objekt kopieras, raderas eller ändras.
+
+## Nästa steg
+
+Fail-fast-valideringen av `PRIVATE_OBJECT_STORAGE_PROVIDER` sker nu vid API-start, och migrationsinventeringen kan verifiera nuvarande SQLite-källa innan en flytt.
+
+Nästa säkra etapp är att designa ett **asynkront och återställningsbart skrivprotokoll** för extern objektlagring innan R2, S3 eller annan nätverksprovider aktiveras.
+
+Det behövs eftersom dagens SQLite-provider är synkron och kan delta i lokala savepoints, medan riktig objektlagring sker över nätverk och inte kan vara atomisk i samma databastransaktion.
+
+Den kommande etappen ska därför definiera:
+
+- tillstånd som `pending-upload`, `ready` och `failed`,
+- verifiering av storlek och SHA-256 efter uppladdning,
+- återkörbara/idempotenta uppladdningar,
+- hur databasmetadata och objekt hålls synkroniserade vid avbrott,
+- dual-read/rollback under migration,
+- att gammal SQLite-BLOB inte tas bort förrän extern kopia är verifierad,
+- backup och restore för både databas och objektlagring.
+
+Ingen extern provider ska aktiveras innan detta är testat.
