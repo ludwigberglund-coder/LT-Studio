@@ -17,7 +17,7 @@ test('monitoreringsbevis kräver extern https-readiness och lyckad larmleverans'
   const base={
     schemaVersion:1,
     provider:'Extern monitor',
-    endpoint:'https://pilot.example.se/api/v1/readiness',
+    endpoint:'https://pilot.example.se/api/v1/readiness/core',
     alertRoute:'driftjour',
     checkedAt:new Date(now-60*60*1000).toISOString(),
     alertTestedAt:new Date(now-2*60*60*1000).toISOString(),
@@ -29,8 +29,11 @@ test('monitoreringsbevis kräver extern https-readiness och lyckad larmleverans'
     let result=monitoringEvidence(file,{now,maxAgeMs:7*24*60*60*1000});
     assert.equal(result.ok,true);
 
-    write(file,{...base,endpoint:'http://127.0.0.1:4180/api/v1/readiness'});
+    write(file,{...base,endpoint:'http://127.0.0.1:4180/api/v1/readiness/core'});
     assert.equal(monitoringEvidence(file,{now}).ok,false);
+
+    write(file,{...base,endpoint:'https://pilot.example.se/api/v1/readiness'});
+    assert.equal(monitoringEvidence(file,{now}).ok,false,'full readiness may not be used as monitoring bootstrap evidence');
 
     write(file,{...base,alertDeliverySucceeded:false});
     assert.equal(monitoringEvidence(file,{now}).ok,false);
@@ -53,7 +56,7 @@ test('readiness blir röd utan färskt externt monitoreringsbevis',()=>{
     write(file,{
       schemaVersion:1,
       provider:'Extern monitor',
-      endpoint:'https://pilot.example.se/api/v1/readiness',
+      endpoint:'https://pilot.example.se/api/v1/readiness/core',
       alertRoute:'driftjour',
       checkedAt:new Date(now-30*60*1000).toISOString(),
       alertTestedAt:new Date(now-60*60*1000).toISOString(),
