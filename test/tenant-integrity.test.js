@@ -91,7 +91,7 @@ test('real HTTP API refuses anonymous requests and other-company invoice IDs', a
   await new Promise(resolve=>runtime.server.listen(0,'127.0.0.1',resolve));
   const base=`http://127.0.0.1:${runtime.server.address().port}/api/v1`;
   try {
-    const routes=['/receivables','/customers','/customer-invoices','/payables/invoices','/suppliers','/bank/payments','/documents','/accounting/entries','/payroll/runs','/inventory/items','/automation/proposals','/website/cms','/reports/trial-balance?from=2026-09-01&to=2026-09-30','/audit'];
+    const routes=['/receivables','/customers','/customer-invoices','/payables/invoices','/suppliers','/bank/payments','/documents','/accounting/entries','/payroll/runs','/inventory/items','/automation/proposals','/website/cms','/reports/trial-balance?from=2026-09-01&to=2026-09-30','/exports/journal?from=2026-09-01&to=2026-09-30','/audit'];
     for (const route of routes) assert.equal((await fetch(base+route)).status,401,route);
     Db.addMembership(f.db,{companyId:f.a.id,userId:f.user.id});
     const token=Auth.randomToken(),csrf=Auth.randomToken();
@@ -182,7 +182,8 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
       `/payables/invoices/${supplierInvoiceB.id}/document`,
       `/accounting/entries/${entryB.id}`,
       `/documents/${pendingB.id}`,
-      `/documents/${pendingB.id}/content`
+      `/documents/${pendingB.id}/content`,
+      `/invoices/${f.invoiceB.id}/reminders`
     ];
     for(const route of getRoutes)assert.equal((await fetch(base+route,{headers})).status,404,route);
 
@@ -230,6 +231,20 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
     assert.equal(unlockRequests.status,200);
     assert.equal((await unlockRequests.json()).requests.some(row=>row.id===unlockRequestB.id),false);
 
+    const generalLedger=await fetch(base+'/reports/general-ledger?from=2026-09-01&to=2026-09-30',{headers});
+    assert.equal(generalLedger.status,200);
+    assert.equal(JSON.stringify(await generalLedger.json()).includes('Tenant B'),false);
+
+    const journalExport=await fetch(base+'/exports/journal?from=2026-09-01&to=2026-09-30',{headers});
+    assert.equal(journalExport.status,200);
+    assert.equal((await journalExport.text()).includes('Tenant B'),false);
+
+    const payablesExport=await fetch(base+'/exports/payables?from=2026-09-01&to=2026-10-31',{headers});
+    assert.equal(payablesExport.status,200);
+    const payablesCsv=await payablesExport.text();
+    assert.equal(payablesCsv.includes('Supplier B Obj'),false);
+    assert.equal(payablesCsv.includes('B-OBJ-1'),false);
+
     const cmsRead=await fetch(base+'/website/cms',{headers});
     assert.equal(cmsRead.status,200);
     const cmsReadBody=await cmsRead.json();
@@ -252,6 +267,35 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
     });
     assert.equal(foreignSupplierPaymentDetails.status,404);
 
+    const foreignCustomerUpdate=await fetch(base+`/customers/${f.customerB.id}`,{
+      method:'PUT',headers:mutationHeaders,
+      body:JSON.stringify({name:'Cross tenant customer edit',email:'cross-tenant@example.invalid',address:'Tenantgatan 99'})
+    });
+    assert.equal(foreignCustomerUpdate.status,404);
+
+    const foreignSupplierInvoiceDocument=await fetch(base+`/payables/invoices/${supplierInvoiceB.id}/document`,{
+      method:'PUT',
+      headers:{...headers,'Content-Type':'application/pdf','X-CSRF-Token':csrf,'X-Document-Name':'cross-tenant.pdf'},
+      body:Buffer.from('%PDF-1.4\nforbidden cross tenant replacement\n')
+    });
+    assert.equal(foreignSupplierInvoiceDocument.status,404);
+
+    const foreignSupplierInvoiceCoding=await fetch(base+`/payables/invoices/${supplierInvoiceB.id}/coding`,{
+      method:'PUT',headers:mutationHeaders,
+      body:JSON.stringify({lines:[
+        {account:'4010',text:'X',debitOre:100000,creditOre:0},
+        {account:'2641',text:'Moms',debitOre:25000,creditOre:0},
+        {account:'2440',text:'Skuld',debitOre:0,creditOre:125000}
+      ]})
+    });
+    assert.equal(foreignSupplierInvoiceCoding.status,404);
+
+    const foreignParentInvoice=await fetch(base+'/payables/invoices',{
+      method:'POST',headers:mutationHeaders,
+      body:JSON.stringify({supplierId:supplierB.id,supplierInvoiceNumber:'CROSS-TENANT-PARENT',invoiceDate:'2026-09-20',dueDate:'2026-10-20',totalOre:125000,vatOre:25000})
+    });
+    assert.equal(foreignParentInvoice.status,404);
+
     const mutations=[
       [`/invoices/${f.invoiceB.id}/comments`,{text:'cross tenant'}],
       [`/customer-invoices/${f.invoiceB.id}/credit`,{requestId:'cross-tenant-credit-0001',reason:'cross tenant'}],
@@ -263,6 +307,12 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
       [`/automation/proposals/${automationProposalB.id}/approve`,{}],
       [`/automation/proposals/${automationProposalB.id}/reject`,{reason:'cross tenant'}],
       [`/payroll/runs/${payrollRunB.id}/post`,{}],
+      [`/invoices/${f.invoiceB.id}/reminders/preview`,{sentDate:'2026-10-20'}],
+      [`/invoices/${f.invoiceB.id}/reminders`,{sentDate:'2026-10-20',kind:'reminder'}],
+      [`/payables/invoices/${supplierInvoiceB.id}/coding-suggestion`,{}],
+      [`/payables/invoices/${supplierInvoiceB.id}/approve`,{expectedCodingSha256:'0'.repeat(64),expectedDocumentSha256:'0'.repeat(64)}],
+      [`/payables/invoices/${supplierInvoiceB.id}/post`,{}],
+      [`/payables/invoices/${supplierInvoiceB.id}/prepare-payment`,{paymentDate:'2026-09-25',account:'1930'}],
       [`/documents/${documentA.id}/links`,{entityType:'customer-invoice',entityId:f.invoiceB.id,label:'cross tenant customer invoice'}],
       [`/documents/${documentA.id}/links`,{entityType:'supplier-invoice',entityId:supplierInvoiceB.id,label:'cross tenant supplier invoice'}],
       [`/payables/payments/${supplierPaymentB.id}/release`,{}],
@@ -271,7 +321,6 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
       [`/suppliers/changes/${supplierChangeB.id}/reject`,{reason:'cross tenant'}],
       [`/accounting/unlock-requests/${unlockRequestB.id}/approve`,{reason:'cross tenant'}],
       [`/accounting/unlock-requests/${unlockRequestB.id}/reject`,{reason:'cross tenant'}],
-      [`/payables/invoices/${supplierInvoiceB.id}/coding`,{lines:[{account:'4010',text:'X',debitOre:100000,creditOre:0},{account:'2641',text:'Moms',debitOre:25000,creditOre:0},{account:'2440',text:'Skuld',debitOre:0,creditOre:125000}]}],
       [`/accounting/entries/${entryB.id}/correct`,{postingDate:'2026-09-19',reason:'cross tenant correction'}]
     ];
     for(const [route,body] of mutations)assert.equal((await fetch(base+route,{method:'POST',headers:mutationHeaders,body:JSON.stringify(body)})).status,404,route);
