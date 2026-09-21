@@ -24,7 +24,9 @@ test('leverantörsprofil kan återförsökas med samma request-id utan dubbla hi
   const input={companyId:company.id,supplierId:supplier.id,kind:'profile',changes:{name:'Retry Leverantör AB',defaultCostAccount:'5460'},requestedBy:requester.id,requestKey:'supplier-profile-0001'};
   const first=Master.requestChangeIdempotent(db,input);
   const retry=Master.requestChangeIdempotent(db,input);
+  const retryWithNewKey=Master.requestChangeIdempotent(db,{...input,requestKey:'supplier-profile-0002'});
   assert.equal(first.duplicate,false);assert.equal(retry.duplicate,true);assert.equal(retry.request.id,first.request.id);
+  assert.equal(retryWithNewKey.duplicate,true);assert.equal(retryWithNewKey.request.id,first.request.id);
   assert.equal(Master.history(db,company.id,supplier.id).length,1);
   assert.equal(Payables.supplierById(db,company.id,supplier.id).name,'Retry Leverantör AB');
   assert.throws(()=>Master.requestChangeIdempotent(db,{...input,changes:{name:'Annat namn AB',defaultCostAccount:'5460'}}),e=>e.code==='SUPPLIER_IDEMPOTENCY_CONFLICT'&&e.statusCode===409);
