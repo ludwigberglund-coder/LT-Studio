@@ -122,6 +122,35 @@ function sales(db,companyId,{from='',to=''}={}){
     ['paidOre','Betalt öre'],['outstandingOre','Utestående öre']
   ]};
 }
+function receivablesAging(db,companyId,{asOf='',to=''}={}){
+  const date=asOf||to;
+  if(!date)throw exportError('Åldersanalysen kräver rapportdatum.','EXPORT_AGING_DATE_REQUIRED');
+  const report=Reports.receivablesAging(db,companyId,{asOf:date});
+  return {filename:`kundfordringar-alder-${date}.csv`,rows:report.customers,columns:[
+    ['customerNumber','Kundnummer'],['customerName','Kund'],['invoiceCount','Öppna fakturor'],['openOre','Netto öppet öre'],
+    ['notDueOre','Ej förfallet öre'],['dueTodayOre','Förfaller idag öre'],['overdue1to30Ore','1-30 dagar öre'],
+    ['overdue31to60Ore','31-60 dagar öre'],['overdue61to90Ore','61-90 dagar öre'],['overdue91PlusOre','91+ dagar öre'],['creditOre','Kreditsaldo öre']
+  ]};
+}
+function payablesAging(db,companyId,{asOf='',to=''}={}){
+  const date=asOf||to;
+  if(!date)throw exportError('Åldersanalysen kräver rapportdatum.','EXPORT_AGING_DATE_REQUIRED');
+  const report=Reports.payablesAging(db,companyId,{asOf:date});
+  return {filename:`leverantorsskulder-alder-${date}.csv`,rows:report.suppliers,columns:[
+    ['supplierNumber','Leverantörsnummer'],['supplierName','Leverantör'],['invoiceCount','Öppna fakturor'],['openOre','Netto öppet öre'],
+    ['postedOpenOre','Bokfört öppet öre'],['unpostedOpenOre','Ej bokfört öppet öre'],['notDueOre','Ej förfallet öre'],
+    ['dueTodayOre','Förfaller idag öre'],['overdue1to30Ore','1-30 dagar öre'],['overdue31to60Ore','31-60 dagar öre'],
+    ['overdue61to90Ore','61-90 dagar öre'],['overdue91PlusOre','91+ dagar öre'],['creditOre','Kreditsaldo öre']
+  ]};
+}
+function supplierPurchases(db,companyId,{from='',to=''}={}){
+  if(!from||!to)throw exportError('Inköpsexport kräver från- och tilldatum.','EXPORT_RANGE_REQUIRED');
+  const report=Reports.supplierPurchasesReport(db,companyId,{from,to});
+  return {filename:'inkop-per-leverantor.csv',rows:report.suppliers,columns:[
+    ['supplierNumber','Leverantörsnummer'],['supplierName','Leverantör'],['invoiceCount','Antal fakturor'],
+    ['netOre','Netto öre'],['vatOre','Moms öre'],['grossOre','Brutto öre'],['openOre','Utestående öre']
+  ]};
+}
 function vat(db,companyId,{period}={}){
   if(!period)throw exportError('Momsexport kräver period ÅÅÅÅ-MM.','EXPORT_PERIOD_REQUIRED');
   const report=Reports.vatControl(db,companyId,{period});
@@ -144,7 +173,10 @@ function select(db,companyId,type,filters){
   if(type==='journal')return journal(db,companyId,filters);
   if(type==='ledger')return ledger(db,companyId,filters);
   if(type==='sales')return sales(db,companyId,filters);
+  if(type==='receivables-aging')return receivablesAging(db,companyId,filters);
+  if(type==='payables-aging')return payablesAging(db,companyId,filters);
+  if(type==='supplier-purchases')return supplierPurchases(db,companyId,filters);
   if(type==='vat')return vat(db,companyId,filters);
   throw exportError('Exporttypen stöds inte.','EXPORT_NOT_FOUND',404);
 }
-module.exports=Object.freeze({safeText,csvCell,toCsv,receivables,receipts,payables,payments,paymentOverview,journal,ledger,sales,vat,buildCsv,select,validateRange});
+module.exports=Object.freeze({safeText,csvCell,toCsv,receivables,receipts,payables,payments,paymentOverview,journal,ledger,sales,receivablesAging,payablesAging,supplierPurchases,vat,buildCsv,select,validateRange});
