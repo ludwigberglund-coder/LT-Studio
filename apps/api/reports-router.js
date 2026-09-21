@@ -31,6 +31,9 @@ function createReportsRouter(options){
       if(url.pathname==='/api/v1/reports/general-ledger')return send(res,200,Reports.generalLedger(db,s.companyId,{from,to,account:String(url.searchParams.get('account')||'')})),true;
       if(url.pathname==='/api/v1/reports/profit-loss')return send(res,200,Reports.profitLoss(db,s.companyId,{from,to})),true;
       if(url.pathname==='/api/v1/reports/sales')return send(res,200,Reports.salesReport(db,s.companyId,{from,to})),true;
+      if(url.pathname==='/api/v1/reports/receivables-aging')return send(res,200,Reports.receivablesAging(db,s.companyId,{asOf:String(url.searchParams.get('asOf')||to)})),true;
+      if(url.pathname==='/api/v1/reports/payables-aging')return send(res,200,Reports.payablesAging(db,s.companyId,{asOf:String(url.searchParams.get('asOf')||to)})),true;
+      if(url.pathname==='/api/v1/reports/supplier-purchases')return send(res,200,Reports.supplierPurchasesReport(db,s.companyId,{from,to})),true;
       if(url.pathname==='/api/v1/reports/vat-control')return send(res,200,Reports.vatControl(db,s.companyId,{period})),true;
       if(url.pathname==='/api/v1/reports/receivables-control')return send(res,200,Reports.receivablesControl(db,s.companyId)),true;
       if(url.pathname==='/api/v1/reports/payments-overview')return send(res,200,PaymentOverview.paymentOverview(db,s.companyId,{mode:String(url.searchParams.get('mode')||'month'),date:String(url.searchParams.get('date')||''),status:String(url.searchParams.get('status')||''),direction:String(url.searchParams.get('direction')||''),query:String(url.searchParams.get('query')||''),account:String(url.searchParams.get('account')||''),sort:String(url.searchParams.get('sort')||'date'),order:String(url.searchParams.get('order')||'asc')})),true;
