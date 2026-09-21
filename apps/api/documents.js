@@ -68,16 +68,41 @@ function initializeDocuments(db){db.exec(`
 `)}
 function sanitizeName(value){const name=text(value).replace(/[\r\n\\/]+/g,'_').slice(0,180);if(!name)throw documentError('Filnamn krävs.','INVALID_DOCUMENT_NAME');return name}
 function validateMeta(input){const title=text(input.title).slice(0,180),category=text(input.category||'other').toLowerCase();if(title.length<2)throw documentError('Dokumentets titel måste vara minst två tecken.','INVALID_DOCUMENT_TITLE');if(!/^[a-z0-9-]{2,40}$/.test(category))throw documentError('Dokumentkategorin är ogiltig.','INVALID_DOCUMENT_CATEGORY');return{title,category,note:text(input.note).slice(0,1000),fileName:sanitizeName(input.fileName||'underlag.pdf'),mimeType:text(input.mimeType||'application/pdf').toLowerCase()}}
+function documentRequestId(value){const requestId=text(value);if(!/^[A-Za-z0-9][A-Za-z0-9._:-]{7,199}$/.test(requestId))throw documentError('Ett giltigt request-id krävs när dokument registreras. Ladda om formuläret och försök igen.','DOCUMENT_REQUEST_ID_REQUIRED',422);return requestId}
+function documentIdForRequest(companyId,requestId){return 'doc_req_'+crypto.createHash('sha256').update(text(companyId)+'|'+documentRequestId(requestId)).digest('hex')}
+function samePendingRegistration(document,input,uploadedBy){
+  if(!document)return false;
+  const meta=validateMeta(input);
+  const expectedType=text(input.entityType).toLowerCase(),expectedId=text(input.entityId),expectedLabel=text(input.linkLabel).slice(0,180);
+  const links=Array.isArray(document.links)?document.links:[];
+  const linkMatches=expectedType&&expectedId
+    ? links.length===1&&links[0].entityType===expectedType&&links[0].entityId===expectedId&&String(links[0].label||'')===expectedLabel
+    : links.length===0;
+  return document.fileName===meta.fileName&&document.mimeType===meta.mimeType&&document.category===meta.category&&document.title===meta.title&&String(document.note||'')===meta.note&&document.uploadedBy===uploadedBy&&linkMatches;
+}
+function createPendingIdempotent(db,{companyId,uploadedBy,requestId,...input}){
+  const documentId=documentIdForRequest(companyId,requestId);
+  const existing=documentById(db,companyId,documentId);
+  if(existing){
+    if(!samePendingRegistration(existing,input,uploadedBy))throw documentError('Request-id är redan använt för en annan dokumentregistrering. Ingen ny post skapades.','DOCUMENT_IDEMPOTENCY_CONFLICT',409);
+    return{document:existing,duplicate:true};
+  }
+  return{document:createPending(db,{id:documentId,companyId,uploadedBy,...input}),duplicate:false};
+}
 function createPending(db,{companyId,uploadedBy,...input}){const meta=validateMeta(input);if(!ALLOWED_MIME.includes(meta.mimeType))throw documentError('Endast PDF, JPEG och PNG stöds i dokumentarkivet.','UNSUPPORTED_DOCUMENT_TYPE',415);if(input.entityType&&input.entityId)assertLinkTarget(db,companyId,input.entityType,input.entityId);const documentId=input.id||id('doc'),createdAt=nowIso();db.prepare(`INSERT INTO documents(id,company_id,file_name,mime_type,category,title,note,status,uploaded_by,created_at) VALUES(?,?,?,?,?,?,?,'pending',?,?)`).run(documentId,companyId,meta.fileName,meta.mimeType,meta.category,meta.title,meta.note||null,uploadedBy,createdAt);if(input.entityType&&input.entityId)linkDocument(db,{companyId,documentId,entityType:input.entityType,entityId:input.entityId,label:input.linkLabel||''});return documentById(db,companyId,documentId)}
 function magicMatches(mime,bytes){if(mime==='application/pdf')return bytes.length>=5&&bytes.subarray(0,5).toString('ascii')==='%PDF-';if(mime==='image/jpeg')return bytes.length>=3&&bytes[0]===0xff&&bytes[1]===0xd8&&bytes[2]===0xff;if(mime==='image/png')return bytes.length>=8&&bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]));return false}
 function storeContent(db,{companyId,documentId,bytes}){
   const doc=documentById(db,companyId,documentId);
   if(!doc)throw documentError('Dokumentet hittades inte.','DOCUMENT_NOT_FOUND',404);
-  if(doc.status==='ready')throw documentError('Ett färdigställt originaldokument kan inte ersättas.','DOCUMENT_IMMUTABLE',409);
   if(!Buffer.isBuffer(bytes)||!bytes.length)throw documentError('Dokumentinnehåll saknas.','MISSING_DOCUMENT_CONTENT');
   if(bytes.length>MAX_BYTES)throw documentError('Dokumentet får vara högst 15 MB.','DOCUMENT_TOO_LARGE',413);
   if(!magicMatches(doc.mimeType,bytes))throw documentError('Filens innehåll stämmer inte med angiven filtyp.','DOCUMENT_MAGIC_MISMATCH',415);
   const sha256=crypto.createHash('sha256').update(bytes).digest('hex');
+  if(doc.status==='ready'){
+    const existing=content(db,companyId,documentId);
+    if(existing.sha256===sha256&&Number(existing.sizeBytes)===bytes.length)return documentById(db,companyId,documentId);
+    throw documentError('Ett färdigställt originaldokument kan inte ersättas.','DOCUMENT_IMMUTABLE',409);
+  }
   const duplicate=db.prepare(`SELECT id,title FROM documents WHERE company_id=? AND sha256=? AND id<>?`).get(companyId,sha256,documentId);
   if(duplicate)throw documentError(`Samma originalfil finns redan i dokumentarkivet (${duplicate.title}).`,'DUPLICATE_DOCUMENT',409);
   const completedAt=nowIso();
@@ -109,6 +134,19 @@ function storeContent(db,{companyId,documentId,bytes}){
   return documentById(db,companyId,documentId);
 }
 function linkDocument(db,{companyId,documentId,entityType,entityId,label=''}){const doc=documentById(db,companyId,documentId);if(!doc)throw documentError('Dokumentet hittades inte.','DOCUMENT_NOT_FOUND',404);const type=text(entityType).toLowerCase(),entity=text(entityId);if(!/^[a-z0-9-]{1,80}$/.test(type)||!entity||entity.length>160)throw documentError('Dokumentlänken är ogiltig.','INVALID_DOCUMENT_LINK');assertLinkTarget(db,companyId,type,entity);db.prepare(`INSERT OR IGNORE INTO document_links(document_id,company_id,entity_type,entity_id,label,created_at) VALUES(?,?,?,?,?,?)`).run(documentId,companyId,type,entity,text(label).slice(0,180)||null,nowIso());return linksForDocument(db,companyId,documentId)}
+function linkDocumentIdempotent(db,{companyId,documentId,entityType,entityId,label=''}){
+  const doc=documentById(db,companyId,documentId);
+  if(!doc)throw documentError('Dokumentet hittades inte.','DOCUMENT_NOT_FOUND',404);
+  const type=text(entityType).toLowerCase(),entity=text(entityId),cleanLabel=text(label).slice(0,180);
+  if(!/^[a-z0-9-]{1,80}$/.test(type)||!entity||entity.length>160)throw documentError('Dokumentlänken är ogiltig.','INVALID_DOCUMENT_LINK');
+  assertLinkTarget(db,companyId,type,entity);
+  const existing=(doc.links||[]).find(row=>row.entityType===type&&row.entityId===entity);
+  if(existing){
+    if(String(existing.label||'')!==cleanLabel)throw documentError('Dokumentet är redan kopplat till objektet med en annan etikett. Ingen ändring gjordes.','DOCUMENT_LINK_IDEMPOTENCY_CONFLICT',409);
+    return{links:doc.links,duplicate:true};
+  }
+  return{links:linkDocument(db,{companyId,documentId,entityType:type,entityId:entity,label:cleanLabel}),duplicate:false};
+}
 function linksForDocument(db,companyId,documentId){return db.prepare(`SELECT entity_type AS entityType,entity_id AS entityId,label,created_at AS createdAt FROM document_links WHERE company_id=? AND document_id=? ORDER BY created_at`).all(companyId,documentId)}
 function documentById(db,companyId,documentId){const row=db.prepare(`SELECT id,company_id AS companyId,file_name AS fileName,mime_type AS mimeType,category,title,note,sha256,size_bytes AS sizeBytes,status,uploaded_by AS uploadedBy,created_at AS createdAt,completed_at AS completedAt FROM documents WHERE company_id=? AND id=?`).get(companyId,documentId);return row?{...row,links:linksForDocument(db,companyId,row.id)}:null}
 function verifyContent(row){if(!row||row.status!=='ready'||!row.bytes)throw documentError('Dokumentinnehållet hittades inte.','DOCUMENT_CONTENT_NOT_FOUND',404);const bytes=Buffer.from(row.bytes);const expected=text(row.sha256).toLowerCase();const actual=crypto.createHash('sha256').update(bytes).digest('hex');if(!/^[a-f0-9]{64}$/.test(expected)||!Number.isSafeInteger(Number(row.sizeBytes))||Number(row.sizeBytes)!==bytes.length||expected!==actual||!magicMatches(row.mimeType,bytes))throw documentError('Dokumentets integritetskontroll misslyckades.','DOCUMENT_INTEGRITY_ERROR',409);return{...row,bytes}}
@@ -139,4 +177,4 @@ function privateObjectMetadata(db,companyId,documentId){
 }
 function listDocuments(db,companyId,{category='',entityType='',entityId='',limit=200}={}){const safe=Math.max(1,Math.min(1000,Number(limit)||200));if(entityType&&entityId){return db.prepare(`SELECT d.id FROM documents d JOIN document_links l ON l.document_id=d.id AND l.company_id=d.company_id WHERE d.company_id=? AND l.entity_type=? AND l.entity_id=? AND d.status='ready' ORDER BY d.created_at DESC LIMIT ?`).all(companyId,text(entityType).toLowerCase(),text(entityId),safe).map(r=>documentById(db,companyId,r.id))}if(category){return db.prepare(`SELECT id FROM documents WHERE company_id=? AND category=? AND status='ready' ORDER BY created_at DESC LIMIT ?`).all(companyId,text(category).toLowerCase(),safe).map(r=>documentById(db,companyId,r.id))}return db.prepare(`SELECT id FROM documents WHERE company_id=? AND status='ready' ORDER BY created_at DESC LIMIT ?`).all(companyId,safe).map(r=>documentById(db,companyId,r.id))}
 
-module.exports=Object.freeze({ALLOWED_MIME,MAX_BYTES,initializeDocuments,createPending,storeContent,linkDocument,linksForDocument,documentById,content,privateObjectMetadata,listDocuments,magicMatches,verifyContent});
+module.exports=Object.freeze({ALLOWED_MIME,MAX_BYTES,initializeDocuments,createPending,createPendingIdempotent,documentRequestId,documentIdForRequest,samePendingRegistration,storeContent,linkDocument,linkDocumentIdempotent,linksForDocument,documentById,content,privateObjectMetadata,listDocuments,magicMatches,verifyContent});
