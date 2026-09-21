@@ -51,7 +51,7 @@ function runDrill({backupDir,drillDir,evidencePath,backupKey,now=new Date(),mono
   try{
     BackupCrypto.decryptFile(source.file,target,backupKey);
     fs.chmodSync(target,0o600);
-    verified=verifyDatabase(target,{requirePrivateObjectSchema:true});
+    verified=verifyDatabase(target,{requirePrivateObjectSchema:true,requireSyntheticStaging:String(process.env.ROLLANDS_ENV||'').trim().toLowerCase()==='staging'});
   }finally{
     if(!removeSqliteArtifacts(target))throw new Error('Restore drill kunde inte rensa SQLite-testfiler.');
   }

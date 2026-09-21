@@ -87,6 +87,8 @@ Staging restore drills must restore only backups that were created from the synt
 
 Never use a Rolands/pilot/production backup as a convenient restore-test source.
 
+Restore verification now enforces this rule in code when `ROLLANDS_ENV=staging`: both local restore verification/drills and the R2 restore drill require the restored database to match the approved synthetic staging identities and bootstrap audit provenance. A backup from Rolands or any other customer is rejected before it can become a valid staging restore result.
+
 ## UAT
 
 Rolands users may test workflows in staging, but all records they work with must remain fictitious or generated specifically for testing.
