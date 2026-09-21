@@ -121,6 +121,7 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
     const mutationHeaders={...headers,'Content-Type':'application/json','X-CSRF-Token':csrf};
     const getRoutes=[
       `/customer-invoices/${f.invoiceB.id}`,
+      `/customer-invoices/${f.invoiceB.id}/pdf`,
       `/payables/invoices/${supplierInvoiceB.id}`,
       `/payables/invoices/${supplierInvoiceB.id}/document`,
       `/accounting/entries/${entryB.id}`,
@@ -130,6 +131,7 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
     for(const route of getRoutes)assert.equal((await fetch(base+route,{headers})).status,404,route);
     const mutations=[
       [`/invoices/${f.invoiceB.id}/comments`,{text:'cross tenant'}],
+      [`/customer-invoices/${f.invoiceB.id}/credit`,{requestId:'cross-tenant-credit-0001',reason:'cross tenant'}],
       [`/payables/invoices/${supplierInvoiceB.id}/coding`,{lines:[{account:'4010',text:'X',debitOre:100000,creditOre:0},{account:'2641',text:'Moms',debitOre:25000,creditOre:0},{account:'2440',text:'Skuld',debitOre:0,creditOre:125000}]}],
       [`/accounting/entries/${entryB.id}/correct`,{postingDate:'2026-09-19',reason:'cross tenant correction'}]
     ];
