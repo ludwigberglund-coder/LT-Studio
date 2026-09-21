@@ -39,13 +39,14 @@ Efter grön driftkedja och grön UAT skapas ett gemensamt signoffbevis med `npm 
 6. Bokför leverantörsskulden.
 7. Kontrollera att verifikationen är balanserad och att 2440 krediterats med hela fakturabeloppet.
 8. Kontrollera leverantörsreskontran: öppet belopp ska motsvara fakturans obetalda belopp.
-9. Förbered betalningen.
-10. Frisläpp betalningen med korrekt behörighet.
-11. Registrera bankbekräftelse och bokför betalningen.
-12. Kontrollera att betalningsverifikationen debiterar 2440 och krediterar valt bankkonto, normalt 1930.
-13. Kontrollera att öppet reskontrabelopp är 0 efter full betalning.
-14. Kontrollera att den sammanlagda påverkan på 2440 för faktura + betalning är 0.
-15. Kontrollera huvudbok och relevanta rapporter mot samma verifikationer.
+9. Kontrollera att leverantören har korrekta betalningsuppgifter. Betalningsuppgifter sparas direkt av en behörig användare och ska synas i ändringshistoriken; separat godkännande av en andra person krävs inte för denna masterdataändring.
+10. Förbered betalningen.
+11. Frisläpp betalningen med korrekt behörighet.
+12. Registrera bankbekräftelse och bokför betalningen.
+13. Kontrollera att betalningsverifikationen debiterar 2440 och krediterar valt bankkonto, normalt 1930.
+14. Kontrollera att öppet reskontrabelopp är 0 efter full betalning.
+15. Kontrollera att den sammanlagda påverkan på 2440 för faktura + betalning är 0.
+16. Kontrollera huvudbok och relevanta rapporter mot samma verifikationer.
 
 **Godkänt när:** exakt en fakturaverifikation och exakt en betalningsverifikation finns, båda är balanserade, reskontran är korrekt och originalhistoriken finns kvar.
 
