@@ -23,7 +23,7 @@ test('plattformsoverview listar företag och aggregerad säkerhet utan affärsde
     Db.appendAudit(db,{companyId:a.id,userId:user.id,action:'TEST_ACTIVITY',entityType:'test',details:{}});
     Db.appendSecurityEvent(db,{kind:'LOGIN_FAILURE_THRESHOLD',severity:'warning',fingerprintHash:'b'.repeat(64),details:{privateTechnicalDetail:'do-not-expose'}});
 
-    const result=platformOverview(db,{nowMs:Date.parse('2026-09-21T12:00:00.000Z')});
+    const result=platformOverview(db,{nowMs:Date.now()});
     assert.equal(result.runtimeModel,'shared-saas');
     assert.equal(result.companyCount,2);
     assert.equal(result.activeSessionCount,1);
