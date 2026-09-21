@@ -109,6 +109,7 @@ ROLLANDS_ALLOWED_HOSTS=<pilotens riktiga hostname>
 ROLLANDS_API_SECURE_COOKIE=1
 ROLLANDS_DATABASE_PATH=/srv/rollands-data/platform.sqlite
 ROLLANDS_BACKUP_PATH=/srv/rollands-backups
+ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH=/srv/rollands-ops/offsite-backup-evidence.json
 ROLLANDS_PILOT_OPERATIONS_PATH=/etc/rollands/pilot-operations.json
 ROLLANDS_BACKUP_ENCRYPTION_KEY=<separat stark backupnyckel>
 ROLLANDS_AUTH_ENCRYPTION_KEY=<stark slumpmässig hemlighet>
@@ -449,6 +450,12 @@ Retention använder `backupRetentionDays` från den godkända privata operations
 
 Sätt `ROLLANDS_RESTORE_DRILL_PATH` och `ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH` till privata sökvägar utanför repositoryt. Kör `npm run pilot:restore:drill`. Kommandot väljer senaste krypterade backup, verifierar dess checksumma, dekrypterar en unik testkopia, kör SQLite-, foreign-key-, tenant-, journal- och dokumentintegritetskontroller, raderar testkopian och skriver därefter ett `0600`-skyddat JSON-evidensbevis. Produktionsdatabasen ersätts eller öppnas aldrig av drill-kommandot. Misslyckad restore ska inte uppdatera ett tidigare lyckat evidensbevis.
 
+
+### Readiness efter offsite-backup
+
+I staging, pilot och produktion kräver `/api/v1/readiness` ett giltigt `ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH`. Evidensfilen skrivs av `npm run pilot:backup:offsite-r2` först efter att den krypterade backupen och checksumobjektet har lästs tillbaka från R2 och verifierats. Beviset får vara högst 26 timmar gammalt. Saknat, manipulerat eller äldre bevis gör readiness röd (`503`).
+
+Detta gör att en lokal backup på samma server inte längre räcker för grön readiness i skyddad drift. En verklig verifierad extern kopia måste också finnas.
 
 ### Readiness efter restore drill
 
