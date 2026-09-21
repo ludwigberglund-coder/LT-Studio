@@ -50,6 +50,6 @@ Before starting the service, run the staging preflight and create the database o
 
 ## Important
 
-Do not weaken systemd hardening just to make startup succeed. If the service needs a new writable path, document the reason and add only that specific path to `ReadWritePaths`.
+Do not weaken systemd hardening just to make startup succeed. If the service needs a new writable path, document the reason and add only that specific path to `ReadWritePaths`. Do not enable `MemoryDenyWriteExecute` for this Node.js service without a separate compatibility test; V8 may require executable JIT memory.
 
 Do not point the service at a pilot or production database, backup directory or secret file.
