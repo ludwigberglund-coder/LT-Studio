@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "environment": "staging",
+  "approved": false,
+  "testDataOnly": true,
+  "stagingCommit": "REPLACE_WITH_FULL_40_CHARACTER_GIT_SHA",
+  "completedAt": "REPLACE_WITH_ISO_TIMESTAMP",
+  "tester": "REPLACE_WITH_TESTER",
+  "accountingReviewer": "REPLACE_WITH_ACCOUNTING_REVIEWER",
+  "technicalReviewer": "REPLACE_WITH_TECHNICAL_REVIEWER",
+  "secondTenantVerified": false,
+  "blockingIssues": [
+    "REMOVE_WHEN_ALL_BLOCKING_ISSUES_ARE_RESOLVED"
+  ],
+  "scenarios": {
+    "supplier-invoice": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    },
+    "customer-invoice": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    },
+    "correction": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    },
+    "period-lock": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    },
+    "idempotency": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    },
+    "backup-restore": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    },
+    "tenant-isolation": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    }
+  }
+}

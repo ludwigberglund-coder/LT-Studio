@@ -13,5 +13,7 @@
   "logRetentionDays": 30,
   "backupRetentionDays": 90,
   "approvedForPilot": false,
-  "approvedAt": null
+  "approvedAt": null,
+  "approvedReleaseCommit": null,
+  "stagingSignoffSha256": null
 }

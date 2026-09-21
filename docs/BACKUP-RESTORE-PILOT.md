@@ -45,6 +45,8 @@ När de fyra privata evidensfilerna finns ska hela kedjan verifieras med:
 
 ```bash
 npm run staging:evidence:verify
+npm run staging:uat:verify
+npm run staging:signoff
 ```
 
 Kedjeverifieringen kräver färsk godkänd R2-audit, verifierad offsite-backup, godkänd lokal restore-drill, godkänd **R2 restore-drill** och fungerande extern HTTPS-monitorering/larm.

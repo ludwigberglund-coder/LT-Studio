@@ -58,6 +58,9 @@ function validateEvidenceChain(env=process.env,{now=Date.now()}={}){
     if(offsite.encryptedFile!==restore.sourceFile){
       fail.push('Restore-drillen gäller inte samma krypterade backupfil som verifierades från R2.');
     }
+    if(offsite.sizeBytes!==restore.sourceSizeBytes){
+      fail.push('Restore-drillen gäller inte samma krypterade backupstorlek som verifierades från R2.');
+    }
   }
   if(r2Restore.ok&&r2Restore.bucket!==configuredBackupBucket){
     fail.push('R2 restore-drillen gäller inte den nu konfigurerade backupbucketen.');
@@ -68,6 +71,9 @@ function validateEvidenceChain(env=process.env,{now=Date.now()}={}){
     }
     if(offsite.encryptedFile!==r2Restore.sourceFile){
       fail.push('R2 restore-drillen gäller inte samma krypterade backupfil som offsite-readback verifierade.');
+    }
+    if(offsite.sizeBytes!==r2Restore.sizeBytes){
+      fail.push('R2 restore-drillen gäller inte samma krypterade backupstorlek som offsite-readback verifierade.');
     }
   }
 
@@ -80,8 +86,8 @@ function validateEvidenceChain(env=process.env,{now=Date.now()}={}){
     monitoring:monitoring.ok,
     sameBackupArtifact:
       offsite.ok&&restore.ok&&r2Restore.ok&&
-      offsite.sha256===restore.sha256&&offsite.encryptedFile===restore.sourceFile&&
-      offsite.sha256===r2Restore.sha256&&offsite.encryptedFile===r2Restore.sourceFile
+      offsite.sha256===restore.sha256&&offsite.encryptedFile===restore.sourceFile&&offsite.sizeBytes===restore.sourceSizeBytes&&
+      offsite.sha256===r2Restore.sha256&&offsite.encryptedFile===r2Restore.sourceFile&&offsite.sizeBytes===r2Restore.sizeBytes
   });
 
   return Object.freeze({

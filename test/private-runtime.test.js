@@ -60,7 +60,7 @@ function settings(env){return {databasePath:env.ROLLANDS_DATABASE_PATH,host:env.
 test('validated private start creates a 0600 database file and rejects all nonzero demo flags',()=>{
   const folder=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-private-mode-'));
   try{
-    const env=config(folder);env.ROLLANDS_BACKUP_PATH=path.join(folder,'backup');fs.mkdirSync(env.ROLLANDS_BACKUP_PATH);
+    const env=config(folder,{mode:'staging',approvedForPilot:false});env.ROLLANDS_BACKUP_PATH=path.join(folder,'backup');fs.mkdirSync(env.ROLLANDS_BACKUP_PATH);
     for(const flag of ['1','true','yes'])assert.ok(validateConfig({...env,ROLLANDS_DEMO_DATA:flag}).fail.some(v=>v.includes('ROLLANDS_DEMO_DATA')));
     assert.throws(()=>validateRuntime({...env,ROLLANDS_ENV:'demo'},settings(env)),{code:'UNSAFE_RUNTIME_CONFIGURATION'});
     assert.throws(()=>validateRuntime(env,{...settings(env),db:{}}),{code:'UNSAFE_RUNTIME_CONFIGURATION'});

@@ -30,7 +30,17 @@ function validateOperations(value,{requireApproval=true}={}){
   if(requireApproval&&!approved)fail.push('approvedForPilot måste vara true efter ett uttryckligt pilotbeslut.');
   if(approved&&!/^\d{4}-\d{2}-\d{2}$/.test(approvedAt))fail.push('approvedAt måste vara ett datum på formen ÅÅÅÅ-MM-DD när piloten är godkänd.');
   if(!approved&&approvedAt&&!/^\d{4}-\d{2}-\d{2}$/.test(approvedAt))fail.push('approvedAt måste vara tomt eller ett riktigt datum när piloten ännu inte är godkänd.');
-  return{ok:fail.length===0,fail};
+
+  const approvedReleaseCommit=String(value.approvedReleaseCommit||'').trim().toLowerCase();
+  const stagingSignoffSha256=String(value.stagingSignoffSha256||'').trim().toLowerCase();
+  if(approved){
+    if(!/^[a-f0-9]{40}$/.test(approvedReleaseCommit))fail.push('approvedReleaseCommit måste vara den fullständiga 40-teckens commit som pilotbeslutet avser.');
+    if(!/^[a-f0-9]{64}$/.test(stagingSignoffSha256))fail.push('stagingSignoffSha256 måste vara SHA-256 för staging-signofffilen som pilotbeslutet avser.');
+  }else{
+    if(approvedReleaseCommit&& !/^[a-f0-9]{40}$/.test(approvedReleaseCommit))fail.push('approvedReleaseCommit måste vara tom eller en fullständig 40-teckens Git-SHA.');
+    if(stagingSignoffSha256&& !/^[a-f0-9]{64}$/.test(stagingSignoffSha256))fail.push('stagingSignoffSha256 måste vara tom eller en giltig SHA-256.');
+  }
+  return{ok:fail.length===0,fail,value};
 }
 function validateOperationsFile(filename,options={}){
   const absolute=path.resolve(String(filename||''));
