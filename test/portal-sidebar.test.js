@@ -74,7 +74,7 @@ test('alla portalmoduler får samma centrala workspace-layout',()=>{
   const css=fs.readFileSync(path.join(portal,'styles.css'),'utf8');
   assert.match(js,/workspace\.classList\.add\('shared-workspace-shell'\)/);
   assert.match(js,/workspaceMain\.classList\.add\('shared-workspace-main'\)/);
-  assert.match(css,/\.shared-workspace-shell\.shared-workspace-shell\{display:grid;grid-template-columns:var\(--sidebar-width\) minmax\(0,1fr\);min-height:100vh\}/);
-  assert.match(css,/@media\(max-width:1000px\)\{\.shared-workspace-shell\.shared-workspace-shell\{grid-template-columns:220px minmax\(0,1fr\)\}\}/);
+  assert.match(css,/\.shared-workspace-shell\.shared-workspace-shell\{display:grid;grid-template-columns:minmax\(0,var\(--sidebar-width\)\) minmax\(0,1fr\);min-height:100vh\}/);
+  assert.match(css,/@media\(max-width:1000px\)\{\.shared-workspace-shell\.shared-workspace-shell\{grid-template-columns:minmax\(0,220px\) minmax\(0,1fr\)\}\}/);
   assert.match(css,/@media\(max-width:720px\)\{\.shared-workspace-shell\.shared-workspace-shell\{grid-template-columns:1fr\}\.shared-workspace-shell \.shared-sidebar\{display:none\}\}/);
 });
