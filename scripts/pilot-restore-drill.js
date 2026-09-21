@@ -43,7 +43,7 @@ function runDrill({backupDir,drillDir,evidencePath,backupKey,now=new Date(),mono
   const nowMs=now.getTime();
   if(!Number.isFinite(nowMs))throw new Error('Restore drill-tiden är ogiltig.');
   if(source.mtimeMs>nowMs+5*60*1000)throw new Error('RESTORE_DRILL_BACKUP_TIME_INVALID: backupfilens tid ligger i framtiden.');
-  const backupAgeAtDrillMs=Math.max(0,nowMs-source.mtimeMs);
+  const backupAgeAtDrillMs=Math.max(0,Math.ceil(nowMs-source.mtimeMs));
   const encryptedSha256=verifyTransportChecksum(source.file);
   fs.mkdirSync(drillDir,{recursive:true,mode:0o700});
   const target=path.join(drillDir,`restore-drill-${crypto.randomUUID()}.sqlite`);
