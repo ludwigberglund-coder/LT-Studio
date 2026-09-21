@@ -117,6 +117,22 @@ test('ofullständig eller komplex saldohistorik blockeras hellre än att ränta 
     remainingOre:50_000,
     transactions:[{id:'c1',transactionType:'credit',postingDate:'2026-09-10',amountOre:-50_000,approved:true}]
   }),{sentDate:'2026-09-18'},legalRates),error=>error.code==='UNSUPPORTED_BALANCE_HISTORY');
+  assert.throws(()=>Receivables.reminderPreview(verifiedInvoice({
+    remainingOre:100_000,
+    transactions:[{id:'a1',transactionType:'manual-adjustment',postingDate:'2026-09-10',amountOre:5_000,approved:true}]
+  }),{sentDate:'2026-09-18'},legalRates),error=>error.code==='UNSUPPORTED_BALANCE_HISTORY');
+  assert.throws(()=>Receivables.reminderPreview(verifiedInvoice({
+    remainingOre:90_000,
+    transactions:[{id:'cn1',transactionType:'credit-note',postingDate:'2026-09-10',amountOre:-10_000,approved:true,sourceType:'customer-credit-note',sourceId:'credit-invoice-1'}]
+  }),{sentDate:'2026-09-18'},legalRates),error=>error.code==='UNSUPPORTED_BALANCE_HISTORY');
+});
+
+test('helkrediterad faktura med noll restbelopp kan inte få ny betalningspåminnelse', () => {
+  assert.throws(()=>Receivables.reminderPreview(verifiedInvoice({
+    remainingOre:0,
+    status:'Krediterad',
+    transactions:[]
+  }),{sentDate:'2026-09-18',includeInterest:true},legalRates),error=>error.code==='NOT_OUTSTANDING');
 });
 
 test('restbelopp måste stämma med betalningshistoriken innan ränta får beräknas', () => {

@@ -203,6 +203,7 @@ function initializeSchema(db) {
       invoice_id TEXT NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
       kind TEXT NOT NULL CHECK(kind IN ('payment-reminder','escalation')),
+      request_fingerprint TEXT NOT NULL DEFAULT '',
       sent_at TEXT NOT NULL,
       reminder_date TEXT,
       delivery_status TEXT NOT NULL DEFAULT 'not-sent' CHECK(delivery_status IN ('not-sent','queued','sent','failed')),
@@ -253,6 +254,8 @@ function initializeSchema(db) {
     db.exec("UPDATE sessions SET absolute_expires_at=expires_at WHERE absolute_expires_at=''");
   }
   db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_absolute_expiry ON sessions(absolute_expires_at)');
+  if (!hasColumn(db,'invoice_reminders','request_fingerprint')) db.exec("ALTER TABLE invoice_reminders ADD COLUMN request_fingerprint TEXT NOT NULL DEFAULT ''");
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_reminders_request_fingerprint ON invoice_reminders(company_id,invoice_id,request_fingerprint) WHERE request_fingerprint<>''");
   if (!hasColumn(db,'invoice_reminders','reminder_date')) db.exec('ALTER TABLE invoice_reminders ADD COLUMN reminder_date TEXT');
   if (!hasColumn(db,'invoice_reminders','delivery_status')) db.exec("ALTER TABLE invoice_reminders ADD COLUMN delivery_status TEXT NOT NULL DEFAULT 'not-sent'");
   if (!hasColumn(db,'invoice_reminders','delivered_at')) db.exec('ALTER TABLE invoice_reminders ADD COLUMN delivered_at TEXT');
@@ -630,9 +633,9 @@ function commentsForInvoice(db, companyId, invoiceId) {
 }
 
 function addReminder(db, reminder) {
-  db.prepare(`INSERT INTO invoice_reminders(id,company_id,invoice_id,user_id,kind,sent_at,reminder_date,delivery_status,delivered_at,rate_config_version,rate_verified_at,principal_ore,reminder_fee_ore,interest_ore,business_compensation_ore,total_due_ore,annual_rate_basis_points,interest_start_basis,interest_start_evidence_source,interest_start_verified_at,interest_segments_json,note,created_at)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
-      reminder.id,reminder.companyId,reminder.invoiceId,reminder.createdBy,reminder.kind,reminder.sentAt,
+  db.prepare(`INSERT INTO invoice_reminders(id,company_id,invoice_id,user_id,kind,request_fingerprint,sent_at,reminder_date,delivery_status,delivered_at,rate_config_version,rate_verified_at,principal_ore,reminder_fee_ore,interest_ore,business_compensation_ore,total_due_ore,annual_rate_basis_points,interest_start_basis,interest_start_evidence_source,interest_start_verified_at,interest_segments_json,note,created_at)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+      reminder.id,reminder.companyId,reminder.invoiceId,reminder.createdBy,reminder.kind,reminder.requestFingerprint||'',reminder.sentAt,
       reminder.reminderDate || String(reminder.sentAt || '').slice(0,10),reminder.deliveryStatus || 'not-sent',reminder.deliveredAt || null,
       reminder.rateConfigVersion || '',reminder.rateVerifiedAt || '',reminder.principalOre,reminder.reminderFeeOre,reminder.interestOre,
       reminder.businessLatePaymentCompensationOre,reminder.totalDueOre,reminder.annualRateBasisPoints,
@@ -643,13 +646,26 @@ function addReminder(db, reminder) {
 }
 
 function remindersForInvoice(db, companyId, invoiceId) {
-  return db.prepare(`SELECT id,kind,reminder_date AS reminderDate,delivery_status AS deliveryStatus,delivered_at AS deliveredAt,
+  return db.prepare(`SELECT id,kind,request_fingerprint AS requestFingerprint,sent_at AS sentAt,reminder_date AS reminderDate,delivery_status AS deliveryStatus,delivered_at AS deliveredAt,
     rate_config_version AS rateConfigVersion,rate_verified_at AS rateVerifiedAt,principal_ore AS principalOre,reminder_fee_ore AS reminderFeeOre,interest_ore AS interestOre,
     business_compensation_ore AS businessLatePaymentCompensationOre,total_due_ore AS totalDueOre,annual_rate_basis_points AS annualRateBasisPoints,
     interest_start_basis AS interestStartBasis,interest_start_evidence_source AS interestStartEvidenceSource,interest_start_verified_at AS interestStartVerifiedAt,
     interest_segments_json AS interestSegmentsJson,note,created_at AS createdAt,user_id AS createdBy
     FROM invoice_reminders WHERE company_id=? AND invoice_id=? ORDER BY sent_at,id`).all(companyId,invoiceId)
     .map(row => ({...row,interestSegments:jsonParse(row.interestSegmentsJson,[])}));
+}
+
+function reminderByFingerprint(db,companyId,invoiceId,requestFingerprint) {
+  const fingerprint=String(requestFingerprint||'').trim().toLowerCase();
+  if(!/^[a-f0-9]{64}$/.test(fingerprint)) return null;
+  const row=db.prepare(`SELECT id,kind,request_fingerprint AS requestFingerprint,sent_at AS sentAt,reminder_date AS reminderDate,
+    delivery_status AS deliveryStatus,delivered_at AS deliveredAt,rate_config_version AS rateConfigVersion,rate_verified_at AS rateVerifiedAt,
+    principal_ore AS principalOre,reminder_fee_ore AS reminderFeeOre,interest_ore AS interestOre,business_compensation_ore AS businessLatePaymentCompensationOre,
+    total_due_ore AS totalDueOre,annual_rate_basis_points AS annualRateBasisPoints,interest_start_basis AS interestStartBasis,
+    interest_start_evidence_source AS interestStartEvidenceSource,interest_start_verified_at AS interestStartVerifiedAt,
+    interest_segments_json AS interestSegmentsJson,note,created_at AS createdAt,user_id AS createdBy
+    FROM invoice_reminders WHERE company_id=? AND invoice_id=? AND request_fingerprint=?`).get(companyId,invoiceId,fingerprint);
+  return row?{...row,interestSegments:jsonParse(row.interestSegmentsJson,[])}:null;
 }
 
 function appendAudit(db,{companyId=null,userId=null,action,entityType,entityId=null,details={}}) {
@@ -713,6 +729,7 @@ module.exports = Object.freeze({
   commentsForInvoice,
   addReminder,
   remindersForInvoice,
+  reminderByFingerprint,
   appendAudit,
   auditForCompany,
   databaseError

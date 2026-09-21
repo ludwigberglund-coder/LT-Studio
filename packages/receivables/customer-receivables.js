@@ -171,8 +171,11 @@
       const supportedPayment = type === 'payment' && amountOre < 0;
       const supportedReversal = type === 'payment-reversal' && amountOre > 0;
       if (!supportedPayment && !supportedReversal) {
-        if (amountOre < 0 || type === 'payment-reversal') throw domainError('Ränteberäkningen innehåller en kredit eller betalningsåterföring med ogiltigt tecken.', 'UNSUPPORTED_BALANCE_HISTORY', 409);
-        continue;
+        throw domainError(
+          'Ränteberäkningen innehåller en kredit, justering eller annan saldoändring som inte har ett verifierat automatiskt historikflöde. Ränta blockeras tills händelsen kan härledas säkert.',
+          'UNSUPPORTED_BALANCE_HISTORY',
+          409
+        );
       }
       events.push({
         date:transactionDate(transaction),

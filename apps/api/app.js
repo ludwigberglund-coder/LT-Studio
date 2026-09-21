@@ -63,6 +63,26 @@ function verifiedInterestStartEvidence(invoice,stored) {
   });
 }
 
+function reminderRequestFingerprint(reminder) {
+  const canonical={
+    invoiceId:String(reminder?.invoiceId||''),
+    kind:String(reminder?.kind||''),
+    reminderDate:String(reminder?.reminderDate||''),
+    principalOre:Number(reminder?.principalOre||0),
+    reminderFeeOre:Number(reminder?.reminderFeeOre||0),
+    interestOre:Number(reminder?.interestOre||0),
+    businessLatePaymentCompensationOre:Number(reminder?.businessLatePaymentCompensationOre||0),
+    totalDueOre:Number(reminder?.totalDueOre||0),
+    annualRateBasisPoints:Number(reminder?.annualRateBasisPoints||0),
+    rateConfigVersion:String(reminder?.rateConfigVersion||''),
+    interestStartBasis:String(reminder?.interestStartBasis||''),
+    interestStartEvidenceSource:String(reminder?.interestStartEvidenceSource||''),
+    interestStartVerifiedAt:String(reminder?.interestStartVerifiedAt||''),
+    interestSegments:Array.isArray(reminder?.interestSegments)?reminder.interestSegments:[]
+  };
+  return crypto.createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
+}
+
 function validatedCustomerInput(payload={}) {
   const name=String(payload.name||'').trim();
   if(!name || name.length>160) throw apiError('Kundnamn måste anges och vara högst 160 tecken.','INVALID_CUSTOMER_NAME',422);
@@ -491,11 +511,16 @@ function createApiApp(options) {
           },
           config:legalRates
         });
-        Db.transaction(db,()=>{
-          Db.addReminder(db,reminder);
-          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'PAYMENT_REMINDER_CREATED',entityType:'invoice',entityId:invoice.id,details:{reminderId:reminder.id,totalDueOre:reminder.totalDueOre,deliveryStatus:'not-sent',interestStartBasis:reminder.interestStartBasis,interestStartEvidenceSource:reminder.interestStartEvidenceSource}});
+        const requestFingerprint=reminderRequestFingerprint(reminder);
+        const result=Db.transaction(db,()=>{
+          const prior=Db.reminderByFingerprint(db,session.companyId,invoice.id,requestFingerprint);
+          if(prior)return{reminder:prior,duplicate:true};
+          const storedReminder={...reminder,requestFingerprint};
+          Db.addReminder(db,storedReminder);
+          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'PAYMENT_REMINDER_CREATED',entityType:'invoice',entityId:invoice.id,details:{reminderId:reminder.id,requestFingerprint,totalDueOre:reminder.totalDueOre,deliveryStatus:'not-sent',interestStartBasis:reminder.interestStartBasis,interestStartEvidenceSource:reminder.interestStartEvidenceSource}});
+          return{reminder:storedReminder,duplicate:false};
         });
-        return send(res,201,{reminder,deliveryStatus:'not-sent'});
+        return send(res,result.duplicate?200:201,{reminder:result.reminder,deliveryStatus:result.reminder.deliveryStatus||'not-sent',duplicate:result.duplicate});
       }
 
       return send(res,404,{error:'Hittades inte.',code:'NOT_FOUND'});
@@ -510,4 +535,4 @@ function createApiApp(options) {
   return Object.freeze({handle,accessModel,legalRates});
 }
 
-module.exports=Object.freeze({createApiApp,readJson,securityHeaders,verifiedInterestStartEvidence});
+module.exports=Object.freeze({createApiApp,readJson,securityHeaders,verifiedInterestStartEvidence,reminderRequestFingerprint});
