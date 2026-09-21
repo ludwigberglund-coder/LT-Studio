@@ -27,8 +27,8 @@ test('private server rejects demo flags for every method and never serves demo h
   assert.match(html,/invoices.js/);
 }));
 test('private assets include the pinned PDF runtime but not arbitrary configuration or repository files',()=>withServer(async base=>{
-  for(const file of ['/shared/vendor/pdf-lib.min.js','/shared/invoicing/pdf.js','/portal/payables.html','/config/accounting-accounts.json'])assert.equal((await fetch(base+file)).status,200,file);
-  for(const file of ['/config/rolands-business-decisions.json','/content/company.json','/legacy/index.html','/admin/index.html','/package.json','/.env','/portal/%2e%2e%2f../package.json'])assert.equal((await fetch(base+file)).status,404,file);
+  for(const file of ['/shared/vendor/pdf-lib.min.js','/shared/invoicing/pdf.js','/portal/payables.html','/operator/index.html','/operator/app.js','/operator/styles.css','/config/accounting-accounts.json'])assert.equal((await fetch(base+file)).status,200,file);
+  for(const file of ['/config/rolands-business-decisions.json','/content/company.json','/legacy/index.html','/admin/index.html','/package.json','/.env','/portal/%2e%2e%2f../package.json','/operator/../package.json','/operator/.env','/operator/nested/file.js'])assert.equal((await fetch(base+file)).status,404,file);
   const response=await fetch(base+'/portal/invoices.html',{method:'HEAD'});
   assert.equal(response.status,200);assert.equal(await response.text(),'');
   assert.match(response.headers.get('content-security-policy'),/script-src 'self';/);
