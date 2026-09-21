@@ -25,13 +25,18 @@ function encryptedFixture(dir){
 
   const encrypted=path.join(dir,'rollands-r2-restore-test.sqlite.enc');
   const result=BackupCrypto.encryptFile(source,encrypted,KEY);
-  return{source,encrypted,result};
+  const checksumFile=encrypted+'.sha256';
+  fs.writeFileSync(checksumFile,result.sha256+'  '+path.basename(encrypted)+'\n',{mode:0o600});
+  const checksumSha256=BackupCrypto.sha256File(checksumFile);
+  const checksumSizeBytes=fs.statSync(checksumFile).size;
+  return{source,encrypted,checksumFile,result,checksumSha256,checksumSizeBytes};
 }
 
-function fakeDownloadTarget(remoteFile){
+function fakeDownloadTarget(remoteFile,remoteChecksumFile=remoteFile+'.sha256'){
   return{
     async getToFile({storageKey,filename,sha256,sizeBytes}){
-      const bytes=fs.readFileSync(remoteFile);
+      const selected=String(storageKey).endsWith('.sha256')?remoteChecksumFile:remoteFile;
+      const bytes=fs.readFileSync(selected);
       fs.writeFileSync(filename,bytes,{mode:0o600,flag:'wx'});
       const actual=BackupCrypto.sha256File(filename);
       if(actual!==sha256||bytes.length!==sizeBytes){
@@ -53,7 +58,10 @@ test('R2 restore-drill laddar ned, dekrypterar, verifierar och städar isolerad 
       bucket:'rollands-backup-staging',
       encryptedFile:path.basename(f.encrypted),
       sha256:f.result.sha256,
-      sizeBytes:f.result.sizeBytes
+      sizeBytes:f.result.sizeBytes,
+      checksumStorageKey:`encrypted-sqlite-backups/${f.result.sha256}/${path.basename(f.encrypted)}.sha256`,
+      checksumSha256:f.checksumSha256,
+      checksumSizeBytes:f.checksumSizeBytes
     };
     const before=BackupCrypto.sha256File(f.source);
     const evidence=await runR2RestoreDrill({
@@ -67,6 +75,9 @@ test('R2 restore-drill laddar ned, dekrypterar, verifierar och städar isolerad 
 
     assert.equal(evidence.sourceProvider,'r2');
     assert.equal(evidence.remoteDownloadVerified,true);
+    assert.equal(evidence.remoteChecksumDownloadVerified,true);
+    assert.equal(evidence.sourceChecksumSha256,f.checksumSha256);
+    assert.equal(evidence.sourceChecksumSizeBytes,f.checksumSizeBytes);
     assert.equal(evidence.sqliteIntegrity,true);
     assert.equal(evidence.foreignKeys,true);
     assert.equal(evidence.privateObjectsVerified,true);
