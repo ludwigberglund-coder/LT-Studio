@@ -156,6 +156,34 @@ test('fel lösenord avslöjar inte om användaren finns', async () => withApi(as
   assert.equal(body.error,'Användarnamn eller lösenord är fel.');
 }));
 
+test('upprepade felinloggningar skapar en pseudonymiserad plattformssäkerhetshändelse', async () => withApi(async ({base,db}) => {
+  const password='felaktigt testlosenord 2026!';
+  for(let attempt=1;attempt<=5;attempt+=1){
+    const response=await fetch(`${base}/api/v1/auth/login`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username:'sara.test',password})
+    });
+    assert.equal(response.status,401);
+  }
+
+  const blocked=await fetch(`${base}/api/v1/auth/login`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:'sara.test',password})
+  });
+  assert.equal(blocked.status,429);
+
+  const events=Db.securityEvents(db);
+  assert.equal(events.length,1);
+  assert.equal(events[0].kind,'LOGIN_FAILURE_THRESHOLD');
+  assert.equal(events[0].severity,'warning');
+  assert.match(events[0].fingerprintHash,/^[a-f0-9]{64}$/);
+  assert.deepEqual(events[0].details,{failureCount:5,windowMinutes:15,retryAfterSeconds:900});
+  const serialized=JSON.stringify(events[0]);
+  assert.doesNotMatch(serialized,/sara\.test|127\.0\.0\.1|felaktigt testlosenord/i);
+}));
+
 test('skyddat kundregister listar, skapar och isolerar kunder per företag', async () => withApi(async ({base,password,db,co1,co2}) => {
   const signed=await login(base,password);
   const listed=await fetch(`${base}/api/v1/customers`,{headers:{Cookie:signed.cookie}});

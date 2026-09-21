@@ -86,6 +86,15 @@ function initializeSchema(db) {
       updated_at TEXT NOT NULL
     ) STRICT;
 
+    CREATE TABLE IF NOT EXISTS security_events (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      severity TEXT NOT NULL CHECK(severity IN ('info','warning','critical')),
+      fingerprint_hash TEXT NOT NULL,
+      details_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    ) STRICT;
+
     CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY,
       company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -194,6 +203,8 @@ function initializeSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
     CREATE INDEX IF NOT EXISTS idx_mfa_used_steps_used_at ON mfa_used_steps(used_at);
     CREATE INDEX IF NOT EXISTS idx_login_attempts_reset ON login_attempts(reset_at);
+    CREATE INDEX IF NOT EXISTS idx_security_events_created ON security_events(created_at);
+    CREATE INDEX IF NOT EXISTS idx_security_events_fingerprint_created ON security_events(fingerprint_hash,created_at);
   `);
   if (!hasColumn(db,'sessions','absolute_expires_at')) {
     db.exec("ALTER TABLE sessions ADD COLUMN absolute_expires_at TEXT NOT NULL DEFAULT ''");
@@ -344,6 +355,26 @@ function clearLoginAttempts(db,keyHash) {
 
 function deleteSession(db, tokenHash) {
   db.prepare('DELETE FROM sessions WHERE token_hash=?').run(tokenHash);
+}
+
+function appendSecurityEvent(db,{kind,severity='warning',fingerprintHash,details={}}) {
+  const safeKind=String(kind||'').trim();
+  const safeSeverity=String(severity||'').trim();
+  const safeFingerprint=String(fingerprintHash||'').toLowerCase();
+  if(!safeKind) throw databaseError('Säkerhetshändelsen saknar typ.','INVALID_SECURITY_EVENT_KIND',500);
+  if(!['info','warning','critical'].includes(safeSeverity)) throw databaseError('Ogiltig allvarlighetsgrad för säkerhetshändelse.','INVALID_SECURITY_EVENT_SEVERITY',500);
+  if(!/^[a-f0-9]{64}$/.test(safeFingerprint)) throw databaseError('Ogiltigt säkerhetsfingeravtryck.','INVALID_SECURITY_FINGERPRINT',500);
+  const record={id:id('security'),kind:safeKind,severity:safeSeverity,fingerprintHash:safeFingerprint,details,createdAt:nowIso()};
+  db.prepare('INSERT INTO security_events(id,kind,severity,fingerprint_hash,details_json,created_at) VALUES(?,?,?,?,?,?)')
+    .run(record.id,record.kind,record.severity,record.fingerprintHash,JSON.stringify(details||{}),record.createdAt);
+  return record;
+}
+
+function securityEvents(db,{limit=100}={}) {
+  const safeLimit=Math.max(1,Math.min(1000,Number(limit)||100));
+  return db.prepare(`SELECT id,kind,severity,fingerprint_hash AS fingerprintHash,details_json AS detailsJson,created_at AS createdAt
+    FROM security_events ORDER BY created_at DESC,id DESC LIMIT ?`).all(safeLimit)
+    .map(row=>({...row,details:jsonParse(row.detailsJson,{})}));
 }
 
 function createCustomer(db, input) {
@@ -523,6 +554,8 @@ module.exports = Object.freeze({
   loginAttemptState,
   clearLoginAttempts,
   deleteSession,
+  appendSecurityEvent,
+  securityEvents,
   createCustomer,
   customerById,
   updateCustomer,
