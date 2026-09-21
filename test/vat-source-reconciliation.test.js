@@ -144,3 +144,29 @@ test('EU/import och omvänd moms på ännu ej stödda momskonton gör perioden f
     assert.match(report.warning,/inte.*deklarationsklar/i);
   }finally{db.close()}
 });
+
+
+test('aktivitet på konto 2650 gör momsperioden fail-closed efter omföring',()=>{
+  const {db,company,user,customer}=base();
+  try{
+    const invoice=Db.createInvoice(db,{companyId:company.id,customerId:customer.id,invoiceNumber:'M-SETTLE-1',invoiceDate:'2026-09-10',postingDate:'2026-09-10',dueDate:'2026-10-10',totalOre:12500,vatOre:2500,status:'Bokförd'});
+    Accounting.postEntry(db,{companyId:company.id,postingDate:'2026-09-10',description:'Försäljning före momsavräkning',sourceType:'customer-invoice',sourceId:invoice.id,createdBy:user.id,series:'F',lines:[
+      {account:'1510',text:'Kundfordran',debitOre:12500,creditOre:0},
+      {account:'3051',text:'Försäljning 25 procent',debitOre:0,creditOre:10000},
+      {account:'2611',text:'Utgående moms',debitOre:0,creditOre:2500}
+    ]});
+    Accounting.postEntry(db,{companyId:company.id,postingDate:'2026-09-30',description:'Omföring till momsredovisningskonto',sourceType:'manual',sourceId:'vat-settlement-2026-09',createdBy:user.id,series:'M',lines:[
+      {account:'2611',text:'Nollställ utgående moms',debitOre:2500,creditOre:0},
+      {account:'2650',text:'Redovisningskonto för moms',debitOre:0,creditOre:2500}
+    ]});
+    const report=Reports.vatControl(db,company.id,{period:'2026-09'});
+    assert.equal(report.sourceReconciliation.mismatches.length,0);
+    assert.equal(report.outputVatByRate['25'],0);
+    assert.equal(report.integrityOk,false);
+    assert.equal(report.declarationReady,false);
+    assert.equal(report.settlementActivity.length,1);
+    assert.equal(report.settlementActivity[0].account,'2650');
+    assert.equal(report.settlementActivity[0].creditOre,2500);
+    assert.match(report.warning,/2650|momsredovisningskonto/i);
+  }finally{db.close()}
+});
