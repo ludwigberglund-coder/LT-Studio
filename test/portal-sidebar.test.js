@@ -67,3 +67,14 @@ test('gemensam användarmeny monteras om när en moduls render ersätter toppbar
   assert.match(js,/Promise\.all\(\[mount\(\),mountUserMenu\(\)\]\)/);
   assert.match(js,/new MutationObserver\(schedule\)/);
 });
+
+
+test('alla portalmoduler får samma centrala workspace-layout',()=>{
+  const js=fs.readFileSync(path.join(portal,'portal-nav.js'),'utf8');
+  const css=fs.readFileSync(path.join(portal,'styles.css'),'utf8');
+  assert.match(js,/workspace\.classList\.add\('shared-workspace-shell'\)/);
+  assert.match(js,/workspaceMain\.classList\.add\('shared-workspace-main'\)/);
+  assert.match(css,/\.shared-workspace-shell\.shared-workspace-shell\{display:grid;grid-template-columns:minmax\(0,var\(--sidebar-width\)\) minmax\(0,1fr\);min-height:100vh\}/);
+  assert.match(css,/@media\(max-width:1000px\)\{\.shared-workspace-shell\.shared-workspace-shell\{grid-template-columns:minmax\(0,220px\) minmax\(0,1fr\)\}\}/);
+  assert.match(css,/@media\(max-width:720px\)\{\.shared-workspace-shell\.shared-workspace-shell\{grid-template-columns:1fr\}\.shared-workspace-shell \.shared-sidebar\{display:none\}\}/);
+});
