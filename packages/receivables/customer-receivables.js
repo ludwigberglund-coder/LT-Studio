@@ -168,19 +168,28 @@
       const amountOre = assertOre(transaction?.amountOre, 'Transaktionsbelopp');
       if (amountOre === 0) continue;
       const type = String(transaction?.transactionType || transaction?.type || '').trim().toLowerCase();
-      if (type !== 'payment' || amountOre > 0) {
-        if (amountOre < 0) throw domainError('Ränteberäkningen innehåller en kredit eller annan saldoförändring som ännu inte stöds säkert.', 'UNSUPPORTED_BALANCE_HISTORY', 409);
+      const supportedPayment = type === 'payment' && amountOre < 0;
+      const supportedReversal = type === 'payment-reversal' && amountOre > 0;
+      if (!supportedPayment && !supportedReversal) {
+        if (amountOre < 0 || type === 'payment-reversal') throw domainError('Ränteberäkningen innehåller en kredit eller betalningsåterföring med ogiltigt tecken.', 'UNSUPPORTED_BALANCE_HISTORY', 409);
         continue;
       }
-      events.push({date:transactionDate(transaction), reductionOre:Math.abs(amountOre), transactionId:String(transaction.id || '')});
+      events.push({
+        date:transactionDate(transaction),
+        balanceDeltaOre:amountOre,
+        reductionOre:amountOre<0?Math.abs(amountOre):0,
+        increaseOre:amountOre>0?amountOre:0,
+        transactionId:String(transaction.id || ''),
+        transactionType:type
+      });
     }
     events.sort((a,b) => a.date.localeCompare(b.date) || a.transactionId.localeCompare(b.transactionId));
 
     let principalOre = totalOre;
     for (const event of events) {
       if (event.date > toDate) continue;
-      principalOre -= event.reductionOre;
-      if (principalOre < 0) throw domainError('Betalningshistoriken ger ett negativt fakturasaldo och måste granskas manuellt.', 'INVALID_BALANCE_HISTORY', 409);
+      principalOre += event.balanceDeltaOre;
+      if (principalOre < 0 || principalOre > totalOre) throw domainError('Betalningshistoriken ger ett ogiltigt fakturasaldo och måste granskas manuellt.', 'INVALID_BALANCE_HISTORY', 409);
     }
     const storedRemainingOre = assertOre(invoice?.remainingOre, 'Restbelopp');
     const hasLaterPayment = events.some(event => event.date > toDate);
@@ -198,11 +207,11 @@
     const eventsByDate = new Map();
     for (const event of history.events) {
       if (event.date > toDate) continue;
-      eventsByDate.set(event.date,(eventsByDate.get(event.date)||0)+event.reductionOre);
+      eventsByDate.set(event.date,(eventsByDate.get(event.date)||0)+event.balanceDeltaOre);
     }
-    for (const [date,reductionOre] of [...eventsByDate.entries()].filter(([date]) => date <= history.dueDate)) {
-      principalOre -= reductionOre;
-      if (principalOre < 0) throw domainError('Betalningshistoriken ger ett negativt saldo före förfallodagen.', 'INVALID_BALANCE_HISTORY', 409);
+    for (const [date,balanceDeltaOre] of [...eventsByDate.entries()].filter(([date]) => date <= history.dueDate)) {
+      principalOre += balanceDeltaOre;
+      if (principalOre < 0 || principalOre > history.totalOre) throw domainError('Betalningshistoriken ger ett ogiltigt saldo före förfallodagen.', 'INVALID_BALANCE_HISTORY', 409);
     }
 
     let cursor = history.dueDate;
@@ -219,8 +228,8 @@
         for (const segment of part.segments) segments.push(Object.freeze({...segment,principalOre}));
       }
       if (eventsByDate.has(boundary)) {
-        principalOre -= eventsByDate.get(boundary);
-        if (principalOre < 0) throw domainError('Betalningshistoriken ger ett negativt fakturasaldo.', 'INVALID_BALANCE_HISTORY', 409);
+        principalOre += eventsByDate.get(boundary);
+        if (principalOre < 0 || principalOre > history.totalOre) throw domainError('Betalningshistoriken ger ett ogiltigt fakturasaldo.', 'INVALID_BALANCE_HISTORY', 409);
       }
       cursor = boundary;
     }
