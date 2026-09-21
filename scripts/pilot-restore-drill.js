@@ -33,6 +33,10 @@ function writeEvidence(filename,value){
     fs.chmodSync(filename,0o600);
   }catch(error){fs.rmSync(temp,{force:true});throw error}
 }
+function removeSqliteArtifacts(filename){
+  for(const suffix of ['', '-wal', '-shm', '-journal'])fs.rmSync(filename+suffix,{force:true});
+  return ['', '-wal', '-shm', '-journal'].every(suffix=>!fs.existsSync(filename+suffix));
+}
 function runDrill({backupDir,drillDir,evidencePath,backupKey,now=new Date()}){
   const source=latestEncryptedBackup(backupDir);
   const encryptedSha256=verifyTransportChecksum(source.file);
@@ -44,7 +48,7 @@ function runDrill({backupDir,drillDir,evidencePath,backupKey,now=new Date()}){
     fs.chmodSync(target,0o600);
     verified=verifyDatabase(target,{requirePrivateObjectSchema:true});
   }finally{
-    fs.rmSync(target,{force:true});
+    if(!removeSqliteArtifacts(target))throw new Error('Restore drill kunde inte rensa SQLite-testfiler.');
   }
   const evidence=Object.freeze({
     schemaVersion:2,
@@ -83,4 +87,4 @@ function main(){
   console.log(JSON.stringify({verified:true,evidencePath,...evidence}));
 }
 if(require.main===module){try{main()}catch(error){console.error(error.message);process.exitCode=1}}
-module.exports=Object.freeze({latestEncryptedBackup,verifyTransportChecksum,writeEvidence,runDrill,main});
+module.exports=Object.freeze({latestEncryptedBackup,verifyTransportChecksum,writeEvidence,removeSqliteArtifacts,runDrill,main});
