@@ -6,6 +6,7 @@ const fs=require('node:fs');
 const os=require('node:os');
 const path=require('node:path');
 const {DatabaseSync}=require('node:sqlite');
+const {spawnSync}=require('node:child_process');
 const {bootstrapSyntheticStaging,SYNTHETIC_TENANTS}=require('../scripts/bootstrap-staging-synthetic.js');
 
 const root=path.resolve(__dirname,'..');
@@ -89,7 +90,7 @@ test('synthetic staging bootstrap refuses to touch an existing database',()=>{
   }finally{fs.rmSync(dir,{recursive:true,force:true})}
 });
 
-test('synthetic staging bootstrap cleans up a newly created database after credential validation failure',()=>{
+test('synthetic staging bootstrap validates credentials before creating the database',()=>{
   const {dir,env}=fixture();
   try{
     env.ROLLANDS_STAGING_BETA_PASSWORD=env.ROLLANDS_STAGING_ALPHA_PASSWORD;
@@ -100,5 +101,34 @@ test('synthetic staging bootstrap cleans up a newly created database after crede
     assert.equal(fs.existsSync(env.ROLLANDS_DATABASE_PATH),false);
     assert.equal(fs.existsSync(env.ROLLANDS_DATABASE_PATH+'-wal'),false);
     assert.equal(fs.existsSync(env.ROLLANDS_DATABASE_PATH+'-shm'),false);
+  }finally{fs.rmSync(dir,{recursive:true,force:true})}
+});
+
+
+test('generic platform bootstrap is blocked in staging before it can create a database',()=>{
+  const {dir,env}=fixture();
+  try{
+    const result=spawnSync(process.execPath,['scripts/bootstrap-platform.js','--apply'],{
+      cwd:root,
+      encoding:'utf8',
+      env:{...process.env,...env}
+    });
+    assert.notEqual(result.status,0);
+    assert.match(result.stderr,/Generisk bootstrap är blockerad i staging/);
+    assert.equal(fs.existsSync(env.ROLLANDS_DATABASE_PATH),false);
+  }finally{fs.rmSync(dir,{recursive:true,force:true})}
+});
+
+test('synthetic staging bootstrap rejects a path whose real parent resolves inside the repository',()=>{
+  const {dir,env}=fixture();
+  const link=path.join(dir,'repo-link');
+  try{
+    fs.symlinkSync(root,link,'dir');
+    env.ROLLANDS_DATABASE_PATH=path.join(link,'should-never-exist.sqlite');
+    assert.throws(
+      ()=>bootstrapSyntheticStaging({env,root}),
+      /utanför Git-repositoryt/
+    );
+    assert.equal(fs.existsSync(path.join(root,'should-never-exist.sqlite')),false);
   }finally{fs.rmSync(dir,{recursive:true,force:true})}
 });
