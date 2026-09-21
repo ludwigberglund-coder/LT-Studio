@@ -83,7 +83,7 @@ function json(route,status,body){
     assert.equal((await bankMetric.innerText()).includes('Ej tillgängligt'),false);
 
     const receivablesCard=page.locator('.module-card').filter({hasText:'Kundreskontra'});
-    assert.match(await receivablesCard.innerText(),/Data kunde inte läsas/);
+    assert.match(await receivablesCard.innerText(),/Data kunde inte läsas/i);
     assert.match(await receivablesCard.innerText(),/Ej tillgängligt/);
 
     const inventoryCard=page.locator('.module-card').filter({hasText:'Lager'});
