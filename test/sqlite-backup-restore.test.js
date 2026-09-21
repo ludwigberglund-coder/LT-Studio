@@ -9,6 +9,8 @@ const {DatabaseSync}=require('node:sqlite');
 const Db=require('../apps/api/database.js');
 const Accounting=require('../apps/api/accounting-store.js');
 const Documents=require('../apps/api/documents.js');
+const Payables=require('../apps/api/payables.js');
+const CustomerInvoicing=require('../apps/api/customer-invoicing.js');
 const {verifyDatabase}=require('../scripts/pilot-restore-verify.js');
 
 function sqlLiteral(value){return `'${String(value).replaceAll("'","''")}'`}
@@ -22,6 +24,8 @@ test('SQLite-backup kan integritetskontrolleras och återställas med ekonomi oc
     source=Db.openDatabase(sourcePath);
     Accounting.initializeAccountingStore(source);
     Documents.initializeDocuments(source);
+    Payables.initializePayables(source);
+    CustomerInvoicing.initializeCustomerInvoicing(source);
     const company=Db.createCompany(source,{legalName:'Pilot Backup AB',displayName:'Pilot Backup',orgNumber:'559999-1001'});
     const user=Db.createUser(source,{username:'backup-test',displayName:'Backup Test',passwordHash:'test-only-hash'});
     Db.addMembership(source,{companyId:company.id,userId:user.id});
@@ -37,7 +41,13 @@ test('SQLite-backup kan integritetskontrolleras och återställas med ekonomi oc
     assert.equal(sourceIntegrity.integrity_check,'ok');
     source.exec(`VACUUM INTO ${sqlLiteral(backupPath)}`);
     assert.ok(fs.statSync(backupPath).size>0);
-    assert.equal(verifyDatabase(backupPath).archivedDocuments,1);
+    const verifiedBackup=verifyDatabase(backupPath);
+    assert.equal(verifiedBackup.archivedDocuments,1);
+    assert.equal(verifiedBackup.privateObjectsVerified,true);
+    assert.equal(verifiedBackup.privateObjectCount,1);
+    assert.equal(verifiedBackup.privateObjectsByKind.document.objects,1);
+    assert.equal(verifiedBackup.privateObjectsByKind['supplier-invoice'].objects,0);
+    assert.equal(verifiedBackup.privateObjectsByKind['customer-invoice-pdf'].objects,0);
     source.close();source=null;
 
     restored=Db.openDatabase(backupPath);
