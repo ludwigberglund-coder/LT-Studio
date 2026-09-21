@@ -64,10 +64,27 @@ test('PDF-utkast kan valideras utan bankgiro men skarp fakturavalidering kräver
 
 test('portalen släpper bara bankgirokravet för PDF-utkast, inte för skapa och bokför',()=>{
   assert.match(source,/draftDocument\(\)[\s\S]*requireSellerBankgiro:false/);
+  const issueStart=source.indexOf('async function issueInvoice()');
+  const issueEnd=source.indexOf('function refreshAccounts',issueStart);
+  const issueSource=source.slice(issueStart,issueEnd);
+  assert.match(issueSource,/if\(!issueReady\)throw new Error/);
+  assert.doesNotMatch(issueSource,/requireSellerBankgiro:false/);
+});
+
+test('kundfaktura kan bara ställas ut med uttryckligt knappklick, aldrig via Enter eller form-submit',()=>{
+  assert.match(source,/type="button" data-action="issue-invoice"/);
+  assert.match(source,/if\(action==='issue-invoice'\)\{await issueInvoice\(\);return;\}/);
+  assert.match(source,/event\.key!=='Enter'/);
+  assert.match(source,/Enter ställer inte ut fakturan/);
   const submitStart=source.indexOf("document.addEventListener('submit'");
-  const submitSource=source.slice(submitStart);
-  assert.match(submitSource,/if\(!issueReady\)throw new Error/);
-  assert.doesNotMatch(submitSource,/requireSellerBankgiro:false/);
+  const submitEnd=source.indexOf('async function refreshPrivateCustomers',submitStart);
+  const submitSource=source.slice(submitStart,submitEnd);
+  assert.match(submitSource,/event\.preventDefault\(\)/);
+  assert.doesNotMatch(submitSource,/api\('\/customer-invoices'/);
+});
+
+test('kreditknappen beskriver att originalfakturan både krediteras och kvittas',()=>{
+  assert.match(source,/Kreditera & kvitta/);
 });
 
 
