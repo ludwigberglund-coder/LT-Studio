@@ -9,6 +9,8 @@ const Accounting=require('../apps/api/accounting-store.js');
 const Invoicing=require('../apps/api/customer-invoicing.js');
 const Reports=require('../apps/api/reports.js');
 const InvoiceSettings=require('../apps/api/company-invoice-settings.js');
+const AccountingSettings=require('../apps/api/accounting-settings.js');
+const Receivables=require('../packages/receivables/customer-receivables.js');
 const {createApiApp}=require('../apps/api/app.js');
 
 const MFA='GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
@@ -278,4 +280,114 @@ test('helkreditering stoppar delbetald faktura och lämnar originalet oförändr
   const original=Invoicing.invoiceBundle(db,co1.id,issued.invoice.id);
   assert.equal(original.invoice.remainingOre,100000);
   assert.equal(Accounting.listEntries(db,co1.id).filter(row=>row.sourceType==='customer-credit-note').length,0);
+}));
+
+
+test('konfigurerat kundskuldkonto möjliggör säker helkredit efter delbetalning',async()=>withApi(async({base,password,db,co1,user})=>{
+  const signed=await login(base,password),headers={Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken};
+  AccountingSettings.setCustomerRefundLiabilityAccount(db,{
+    companyId:co1.id,
+    account:'2890',
+    decisionReference:'Testbeslut: verifierat kortfristigt kundskuldkonto för integrationstest.',
+    updatedBy:user.id
+  });
+
+  const issuedResponse=await fetch(base+'/api/v1/customer-invoices',{method:'POST',headers,body:JSON.stringify(invoicePayload('invoice-request-credit-paid-liability-01'))});
+  const issued=await issuedResponse.json();
+  assert.equal(issuedResponse.status,201);
+  assert.equal(issued.invoice.totalOre,125000);
+
+  Accounting.postEntry(db,{
+    companyId:co1.id,
+    postingDate:'2026-09-19',
+    description:'Testbetalning före kredit',
+    sourceType:'customer-payment',
+    sourceId:'paid-credit-test-bank-01',
+    createdBy:user.id,
+    series:'A',
+    lines:[
+      {account:'1930',text:'Bankinbetalning',debitOre:25000,creditOre:0},
+      {account:'1510',text:'Delbetalning kundfaktura',debitOre:0,creditOre:25000}
+    ]
+  });
+  Db.addInvoiceTransaction(db,{
+    companyId:co1.id,
+    invoiceId:issued.invoice.id,
+    transactionType:'payment',
+    paymentMethod:'Bankgiro',
+    paymentDate:'2026-09-19',
+    postingDate:'2026-09-19',
+    amountOre:-25000,
+    approved:true,
+    account:'1930',
+    bankReference:'paid-credit-liability-test-01'
+  });
+  db.prepare('UPDATE invoices SET remaining_ore=?,updated_at=? WHERE company_id=? AND id=?').run(100000,new Date().toISOString(),co1.id,issued.invoice.id);
+
+  const before=Db.invoiceById(db,co1.id,issued.invoice.id);
+  assert.equal(Invoicing.creditSettlementState(db,co1.id,before).settledOre,25000);
+
+  const creditResponse=await fetch(base+`/api/v1/customer-invoices/${issued.invoice.id}/credit`,{
+    method:'POST',headers,
+    body:JSON.stringify({requestId:'credit-request-paid-liability-01',creditDate:'2026-09-20',reason:'Helkredit efter verifierad delbetalning.'})
+  });
+  const credit=await creditResponse.json();
+  assert.equal(creditResponse.status,201);
+  assert.equal(credit.invoice.totalOre,-125000);
+  assert.equal(credit.original.remainingOre,0);
+  assert.equal(credit.original.status,'Krediterad');
+
+  const creditEntry=Accounting.entryBySource(db,co1.id,'customer-credit-note',credit.invoice.id);
+  assert.ok(creditEntry);
+  const net=(account)=>creditEntry.lines.filter(row=>row.account===account).reduce((sum,row)=>sum+row.debitOre-row.creditOre,0);
+  assert.equal(net('3051'),100000);
+  assert.equal(net('2611'),25000);
+  assert.equal(net('1510'),-100000);
+  assert.equal(net('2890'),-25000);
+  assert.equal(creditEntry.lines.reduce((sum,row)=>sum+row.debitOre-row.creditOre,0),0);
+
+  const liability=Invoicing.creditRefundLiability(db,co1.id,credit.invoice.id);
+  assert.ok(liability);
+  assert.equal(liability.originalInvoiceId,issued.invoice.id);
+  assert.equal(liability.liabilityAccount,'2890');
+  assert.equal(liability.amountOre,25000);
+  assert.match(liability.decisionReference,/Testbeslut/);
+
+  const tx=Db.transactionsForInvoice(db,co1.id,issued.invoice.id);
+  assert.deepEqual(tx.map(row=>[row.transactionType,row.amountOre]),[['payment',-25000],['credit',-100000]]);
+  const receivable=Db.listReceivables(db,co1.id).find(row=>row.id===issued.invoice.id);
+  assert.equal(Receivables.interestBalanceHistory(receivable,'2026-09-21').balanceOre,0);
+
+  const allEntries=Accounting.listEntries(db,co1.id).map(row=>Accounting.entryById(db,co1.id,row.id));
+  const total1510=allEntries.flatMap(entry=>entry.lines).filter(row=>row.account==='1510').reduce((sum,row)=>sum+row.debitOre-row.creditOre,0);
+  assert.equal(total1510,0);
+  const vatChecks=Reports.customerVatSourceChecks(db,co1.id,{from:'2026-09-01',to:'2026-09-30'});
+  const sourceRows=vatChecks.filter(row=>row.invoiceId===issued.invoice.id||row.invoiceId===credit.invoice.id);
+  assert.equal(sourceRows.length,2);
+  assert.ok(sourceRows.every(row=>row.differenceOre===0));
+
+  assert.throws(()=>db.prepare('UPDATE customer_credit_refund_liabilities SET amount_ore=? WHERE credit_invoice_id=?').run(1,credit.invoice.id),/HISTORY_IMMUTABLE/);
+}));
+
+test('ändrat kundskuldkonto mellan förberedelse och slutförande stoppar krediten atomiskt',async()=>withApi(async({db,co1,user})=>{
+  AccountingSettings.setCustomerRefundLiabilityAccount(db,{companyId:co1.id,account:'2890',decisionReference:'Första verifierade testbeslutet.',updatedBy:user.id});
+  const payload=invoicePayload('invoice-request-credit-config-race-01');
+  const preparedInvoice=Db.transaction(db,()=>Invoicing.prepareInvoiceIssuance(db,{companyId:co1.id,userId:user.id,payload,profile:PROFILE}));
+  const pdf=await Invoicing.renderInvoicePdf(preparedInvoice.document);
+  const issued=Db.transaction(db,()=>Invoicing.finalizeInvoiceIssuance(db,{companyId:co1.id,userId:user.id,prepared:preparedInvoice,pdfBytes:pdf}));
+
+  Accounting.postEntry(db,{companyId:co1.id,postingDate:'2026-09-19',description:'Delbetalning före race-test',sourceType:'customer-payment',sourceId:'config-race-bank',createdBy:user.id,series:'A',lines:[
+    {account:'1930',debitOre:25000,creditOre:0},{account:'1510',debitOre:0,creditOre:25000}
+  ]});
+  Db.addInvoiceTransaction(db,{companyId:co1.id,invoiceId:issued.invoice.id,transactionType:'payment',paymentDate:'2026-09-19',postingDate:'2026-09-19',amountOre:-25000,approved:true,account:'1930',bankReference:'config-race-payment'});
+  db.prepare('UPDATE invoices SET remaining_ore=? WHERE company_id=? AND id=?').run(100000,co1.id,issued.invoice.id);
+
+  const creditPrepared=Db.transaction(db,()=>Invoicing.prepareCreditIssuance(db,{companyId:co1.id,userId:user.id,invoiceId:issued.invoice.id,payload:{requestId:'credit-config-race-0001',creditDate:'2026-09-20',reason:'Konfigurationsrace för test.'}}));
+  const creditPdf=await Invoicing.renderInvoicePdf(creditPrepared.document);
+  AccountingSettings.setCustomerRefundLiabilityAccount(db,{companyId:co1.id,account:'2880',decisionReference:'Andra verifierade testbeslutet.',updatedBy:user.id});
+
+  assert.throws(()=>Db.transaction(db,()=>Invoicing.finalizeCreditIssuance(db,{companyId:co1.id,userId:user.id,prepared:creditPrepared,pdfBytes:creditPdf})),e=>e.code==='CREDIT_REFUND_CONFIGURATION_CHANGED'&&e.statusCode===409);
+  assert.equal(Accounting.listEntries(db,co1.id).filter(row=>row.sourceType==='customer-credit-note').length,0);
+  assert.equal(Invoicing.listCustomerInvoices(db,co1.id).filter(row=>row.totalOre<0).length,0);
+  assert.equal(Db.invoiceById(db,co1.id,issued.invoice.id).remainingOre,100000);
 }));
