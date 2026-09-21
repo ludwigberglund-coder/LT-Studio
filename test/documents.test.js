@@ -13,7 +13,20 @@ function pdf(text='test'){return Buffer.from(`%PDF-1.4\n% ${text}\n`,'ascii')}
 
 test('originaldokument sparas med SHA-256 och affärslänk',()=>{const {db,company,user}=seed();try{Payables.initializePayables(db);const supplier=Payables.createSupplier(db,{companyId:company.id,supplierNumber:'L-DOC-1',name:'Dokumentleverantör AB'});const invoice=Payables.createSupplierInvoice(db,{companyId:company.id,supplierId:supplier.id,supplierInvoiceNumber:'DOC-123',invoiceDate:'2026-09-01',dueDate:'2026-09-30',totalOre:125000,vatOre:25000,registeredBy:user.id});const pending=Documents.createPending(db,{companyId:company.id,uploadedBy:user.id,title:'Leverantörsfaktura 123',category:'supplier-invoice',fileName:'faktura-123.pdf',mimeType:'application/pdf',entityType:'supplier-invoice',entityId:invoice.id,linkLabel:'Original'});assert.equal(pending.status,'pending');const bytes=pdf('invoice');const ready=Documents.storeContent(db,{companyId:company.id,documentId:pending.id,bytes});assert.equal(ready.status,'ready');assert.equal(ready.sha256,crypto.createHash('sha256').update(bytes).digest('hex'));assert.equal(ready.links[0].entityId,invoice.id);assert.deepEqual(Buffer.from(Documents.content(db,company.id,pending.id).bytes),bytes);}finally{db.close()}});
 
-test('färdigställt original kan inte ersättas',()=>{const {db,company,user}=seed();try{const doc=Documents.createPending(db,{companyId:company.id,uploadedBy:user.id,title:'Kvitto september',category:'receipt',fileName:'kvitto.pdf',mimeType:'application/pdf'});Documents.storeContent(db,{companyId:company.id,documentId:doc.id,bytes:pdf('one')});assert.throws(()=>Documents.storeContent(db,{companyId:company.id,documentId:doc.id,bytes:pdf('two')}),e=>e.code==='DOCUMENT_IMMUTABLE');}finally{db.close()}});
+test('identiskt filretry återanvänder färdigt original men andra bytes kan inte ersätta det',()=>{const {db,company,user}=seed();try{const doc=Documents.createPending(db,{companyId:company.id,uploadedBy:user.id,title:'Kvitto september',category:'receipt',fileName:'kvitto.pdf',mimeType:'application/pdf'});const bytes=pdf('one'),ready=Documents.storeContent(db,{companyId:company.id,documentId:doc.id,bytes});const retry=Documents.storeContent(db,{companyId:company.id,documentId:doc.id,bytes});assert.equal(retry.id,ready.id);assert.equal(retry.sha256,ready.sha256);assert.throws(()=>Documents.storeContent(db,{companyId:company.id,documentId:doc.id,bytes:pdf('two')}),e=>e.code==='DOCUMENT_IMMUTABLE');}finally{db.close()}});
+
+test('dokumentregistrering återanvänder requestId och blockerar ändrad metadata',()=>{const {db,company,user}=seed();try{
+  const input={companyId:company.id,uploadedBy:user.id,requestId:'document-create-request-0001',title:'Retry-underlag',category:'other',fileName:'retry.pdf',mimeType:'application/pdf'};
+  const first=Documents.createPendingIdempotent(db,input);
+  assert.equal(first.duplicate,false);
+  assert.equal(first.document.status,'pending');
+  const retry=Documents.createPendingIdempotent(db,input);
+  assert.equal(retry.duplicate,true);
+  assert.equal(retry.document.id,first.document.id);
+  assert.equal(Documents.documentIdForRequest(company.id,input.requestId),first.document.id);
+  assert.throws(()=>Documents.createPendingIdempotent(db,{...input,title:'Ändrad titel'}),e=>e.code==='DOCUMENT_IDEMPOTENCY_CONFLICT'&&e.statusCode===409);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM documents WHERE company_id=?').get(company.id).n,1);
+}finally{db.close()}});
 
 test('samma originalfil kan inte registreras två gånger i samma företag',()=>{const {db,company,user}=seed();try{const bytes=pdf('same');const one=Documents.createPending(db,{companyId:company.id,uploadedBy:user.id,title:'Underlag ett',category:'other',fileName:'one.pdf',mimeType:'application/pdf'});Documents.storeContent(db,{companyId:company.id,documentId:one.id,bytes});const two=Documents.createPending(db,{companyId:company.id,uploadedBy:user.id,title:'Underlag två',category:'other',fileName:'two.pdf',mimeType:'application/pdf'});assert.throws(()=>Documents.storeContent(db,{companyId:company.id,documentId:two.id,bytes}),e=>e.code==='DUPLICATE_DOCUMENT');}finally{db.close()}});
 
