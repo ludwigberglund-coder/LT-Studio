@@ -8,6 +8,11 @@ const Db=require('../apps/api/database.js');
 const Invoicing=require('../apps/api/customer-invoicing.js');
 const PdfArchiveStore=require('../apps/api/customer-invoice-pdf-archive-store.js');
 const InvoiceSettings=require('../apps/api/company-invoice-settings.js');
+const Accounting=require('../apps/api/accounting-store.js');
+const Bank=require('../apps/api/bank-payments.js');
+const Queues=require('../apps/api/queues.js');
+const Matcher=require('../packages/automation/bank-payment-matcher.js');
+const CustomerPayment=require('../apps/api/customer-payment-posting.js');
 const {createApiApp}=require('../apps/api/app.js');
 
 const MFA='GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
@@ -16,6 +21,7 @@ const PROFILE={legalName:'Testbutiken AB',displayName:'Testbutiken',orgNumber:'5
 
 async function withApi(callback){
   const db=Db.openDatabase(':memory:');
+  CustomerPayment.initializeCustomerPaymentPosting(db);
   const co1=Db.createCompany(db,{legalName:'Testbutiken AB',displayName:'Testbutiken',orgNumber:'559100-0001'});
   const co2=Db.createCompany(db,{legalName:'Annat Bolag AB',displayName:'Annat',orgNumber:'559100-0002'});
   const password='Sakert pdfarkiv testlosenord 2026!';
@@ -100,4 +106,70 @@ test('kreditfaktura får ett eget oföränderligt PDF-arkiv',async()=>withApi(as
   const bytes=Buffer.from(await pdf.arrayBuffer());
   assert.equal(pdf.status,200);assert.equal(bytes.subarray(0,5).toString('ascii'),'%PDF-');
   assert.equal(pdf.headers.get('x-document-sha256'),credit.pdfArchive.pdfSha256);
+}));
+
+
+test('delbetald kundfaktura kan inte helkrediteras innan återbetalningskonto är beslutat',async()=>withApi(async({base,password,db,co1,user})=>{
+  const signed=await login(base,password),headers={Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken};
+  const issuedResponse=await fetch(base+'/api/v1/customer-invoices',{method:'POST',headers,body:JSON.stringify(payload('invoice-request-partial-credit-src-01'))});
+  const issued=await issuedResponse.json();
+  assert.equal(issuedResponse.status,201);
+
+  const bank=Bank.create(db,{companyId:co1.id,externalId:'BANK-PARTIAL-CREDIT-1',bookingDate:'2026-09-19',amountOre:40000,reference:issued.invoice.invoiceNumber,payerName:issued.invoice.customerName,createdBy:user.id}).payment;
+  const analysis=Matcher.analyzeIncomingPayment(bank,Db.listReceivables(db,co1.id));
+  assert.equal(analysis.status,'proposal');
+  const proposal=Queues.saveAutomationProposal(db,Matcher.createMatchProposal(bank,analysis,{createdBy:user.id}),{idempotencyKey:`partial-credit-bank-match:${bank.id}:v1`}).proposal;
+  Bank.setStatus(db,co1.id,bank.id,'proposal-created');
+  Queues.approveAutomationProposal(db,{companyId:co1.id,proposalId:proposal.id,userId:user.id});
+  const paid=CustomerPayment.executeApprovedCustomerPayment(db,{companyId:co1.id,proposalId:proposal.id,actorId:user.id});
+  assert.equal(paid.invoice.remainingOre,85000);
+
+  const creditRequestId='credit-after-partial-payment-01';
+  const creditResponse=await fetch(base+`/api/v1/customer-invoices/${issued.invoice.id}/credit`,{method:'POST',headers,body:JSON.stringify({requestId:creditRequestId,creditDate:'2026-09-20',reason:'Försök till helkredit efter delbetalning.'})});
+  const credit=await creditResponse.json();
+  assert.equal(creditResponse.status,409);
+  assert.equal(credit.code,'CREDIT_AFTER_PAYMENT_REQUIRES_REFUND_ACCOUNT');
+  assert.equal(Invoicing.reservationByRequest(db,co1.id,creditRequestId),null);
+  assert.equal(Invoicing.listCustomerInvoices(db,co1.id).filter(row=>row.totalOre<0).length,0);
+  assert.equal(Accounting.listEntries(db,co1.id).filter(entry=>entry.sourceType==='customer-credit-note').length,0);
+  const original=Db.invoiceById(db,co1.id,issued.invoice.id);
+  assert.equal(original.remainingOre,85000);
+  assert.equal(original.status,'Bokförd');
+  const invoiceEntry=Accounting.entryBySource(db,co1.id,'customer-invoice',issued.invoice.id);
+  const paymentEntry=Accounting.entryBySource(db,co1.id,'customer-payment',bank.id);
+  const net1510=[invoiceEntry,paymentEntry].flatMap(entry=>entry.lines).filter(line=>line.account==='1510').reduce((sum,line)=>sum+line.debitOre-line.creditOre,0);
+  assert.equal(net1510,85000);
+}));
+
+test('faktura med helt återförd betalning kan helkrediteras utan negativ kundfordran',async()=>withApi(async({base,password,db,co1,user})=>{
+  const signed=await login(base,password),headers={Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken};
+  const source=(await (await fetch(base+'/api/v1/customer-invoices',{method:'POST',headers,body:JSON.stringify(payload('invoice-request-reversed-credit-src-01'))})).json());
+  const targetPayload=payload('invoice-request-reversed-credit-target-01');targetPayload.customerNumber='K-100';targetPayload.notes='Målfaktura för återförd betalning';
+  const target=(await (await fetch(base+'/api/v1/customer-invoices',{method:'POST',headers,body:JSON.stringify(targetPayload)})).json());
+
+  const bank=Bank.create(db,{companyId:co1.id,externalId:'BANK-REVERSED-CREDIT-1',bookingDate:'2026-09-19',amountOre:source.invoice.totalOre,reference:source.invoice.invoiceNumber,payerName:source.invoice.customerName,createdBy:user.id}).payment;
+  const analysis=Matcher.analyzeIncomingPayment(bank,Db.listReceivables(db,co1.id));
+  const proposal=Queues.saveAutomationProposal(db,Matcher.createMatchProposal(bank,analysis,{createdBy:user.id}),{idempotencyKey:`reversed-credit-bank-match:${bank.id}:v1`}).proposal;
+  Bank.setStatus(db,co1.id,bank.id,'proposal-created');
+  Queues.approveAutomationProposal(db,{companyId:co1.id,proposalId:proposal.id,userId:user.id});
+  CustomerPayment.executeApprovedCustomerPayment(db,{companyId:co1.id,proposalId:proposal.id,actorId:user.id});
+  CustomerPayment.reclassifyCustomerPayment(db,{companyId:co1.id,proposalId:proposal.id,targetInvoiceId:target.invoice.id,requestId:'reversed-credit-reclass-0001',correctionDate:'2026-09-20',reason:'Betalningen hör till den andra fakturan.',actorId:user.id});
+
+  const reopened=Db.invoiceById(db,co1.id,source.invoice.id);
+  assert.equal(reopened.remainingOre,source.invoice.totalOre);
+  const settlement=Invoicing.creditSettlementState(db,co1.id,reopened);
+  assert.equal(settlement.settledOre,0);
+  assert.equal(settlement.grossPaymentsOre,source.invoice.totalOre);
+  assert.equal(settlement.reversedPaymentsOre,source.invoice.totalOre);
+
+  const creditResponse=await fetch(base+`/api/v1/customer-invoices/${source.invoice.id}/credit`,{method:'POST',headers,body:JSON.stringify({requestId:'credit-after-reversed-payment-01',creditDate:'2026-09-21',reason:'Helkredit efter att fel betalning har omförts.'})});
+  const credit=await creditResponse.json();
+  assert.equal(creditResponse.status,201);
+  assert.equal(credit.invoice.totalOre,-source.invoice.totalOre);
+  assert.equal(credit.original.status,'Krediterad');
+  assert.equal(credit.original.remainingOre,0);
+
+  const relevant=Accounting.listEntries(db,co1.id).map(row=>Accounting.entryById(db,co1.id,row.id));
+  const net1510=relevant.flatMap(entry=>entry.lines).filter(line=>line.account==='1510').reduce((sum,line)=>sum+line.debitOre-line.creditOre,0);
+  assert.equal(net1510,target.invoice.totalOre-source.invoice.totalOre);
 }));

@@ -274,7 +274,7 @@ test('helkreditering stoppar delbetald faktura och lämnar originalet oförändr
   const response=await fetch(base+`/api/v1/customer-invoices/${issued.invoice.id}/credit`,{method:'POST',headers,body:JSON.stringify({requestId:'credit-request-partial-0001',creditDate:'2026-09-18',reason:'Försök att kreditera delbetald faktura.'})});
   const body=await response.json();
   assert.equal(response.status,409);
-  assert.equal(body.code,'CREDIT_REQUIRES_UNPAID_INVOICE');
+  assert.equal(body.code,'CREDIT_AFTER_PAYMENT_REQUIRES_REFUND_ACCOUNT');
   const original=Invoicing.invoiceBundle(db,co1.id,issued.invoice.id);
   assert.equal(original.invoice.remainingOre,100000);
   assert.equal(Accounting.listEntries(db,co1.id).filter(row=>row.sourceType==='customer-credit-note').length,0);
