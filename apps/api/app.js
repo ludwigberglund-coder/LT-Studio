@@ -344,7 +344,8 @@ function createApiApp(options) {
 
       if(req.method==='GET' && url.pathname==='/api/v1/customers') {
         requirePermission(session,'customer-invoice.view');
-        return send(res,200,{customers:Db.listCustomers(db,session.companyId)});
+        const includeArchived=url.searchParams.get('includeArchived')==='1';
+        return send(res,200,{customers:Db.listCustomers(db,session.companyId,{includeArchived})});
       }
 
       if(req.method==='POST' && url.pathname==='/api/v1/customers') {
