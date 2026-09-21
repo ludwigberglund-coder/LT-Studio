@@ -61,11 +61,20 @@ function fixture(){
     R2_BACKUP_ACCESS_KEY_ID:'backup-access-key',
     R2_BACKUP_SECRET_ACCESS_KEY:'backup-secret-key-1234567890',
 
+    R2_AUDIT_ENABLED:'1',
+    R2_AUDIT_JURISDICTION:'eu',
+    R2_AUDIT_ACCOUNT_ID:'c'.repeat(32),
+    R2_AUDIT_BUCKET:'rollands-audit-staging',
+    R2_AUDIT_ACCESS_KEY_ID:'audit-access-key',
+    R2_AUDIT_SECRET_ACCESS_KEY:'audit-secret-key-1234567890',
+
     R2_STAGING_AUDIT_EVIDENCE_PATH:path.join(opsDir,'r2-audit.json'),
     ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH:path.join(opsDir,'offsite-backup.json'),
     ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH:path.join(opsDir,'restore-drill.json'),
     ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH:path.join(opsDir,'r2-restore-drill.json'),
-    ROLLANDS_MONITORING_EVIDENCE_PATH:path.join(opsDir,'monitoring.json')
+    ROLLANDS_MONITORING_EVIDENCE_PATH:path.join(opsDir,'monitoring.json'),
+    ROLLANDS_AUDIT_ANCHOR_PATH:path.join(opsDir,'audit-anchor.json'),
+    ROLLANDS_AUDIT_ANCHOR_EVIDENCE_PATH:path.join(opsDir,'audit-anchor-evidence.json')
   };
   return{dir,env};
 }
@@ -77,7 +86,10 @@ test('staging preflight accepts isolated EU R2 object and backup configuration',
     assert.deepEqual(result.fail,[]);
     assert.ok(result.pass.includes('R2 private-object staging configuration'));
     assert.ok(result.pass.includes('R2 offsite-backup configuration'));
+    assert.ok(result.pass.includes('R2 audit-anchor configuration'));
     assert.ok(result.pass.includes('Separate R2 object and backup buckets'));
+    assert.ok(result.pass.includes('Separate R2 audit-anchor bucket'));
+    assert.ok(result.pass.includes('Separate R2 audit-anchor credential scope'));
   }finally{fs.rmSync(dir,{recursive:true,force:true})}
 });
 
@@ -114,5 +126,20 @@ test('staging preflight refuses evidence paths that point to the same file',()=>
       item.includes('ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH')&&
       item.includes('separata evidensfiler')
     ));
+  }finally{fs.rmSync(dir,{recursive:true,force:true})}
+});
+
+
+test('staging preflight refuses audit bucket or credentials reused from other R2 roles',()=>{
+  const {dir,env}=fixture();
+  try{
+    env.R2_AUDIT_BUCKET=env.R2_BACKUP_BUCKET;
+    let result=validateStaging(env);
+    assert.ok(result.fail.some(item=>item.includes('R2 audit anchor')&&item.includes('separat bucket')));
+
+    env.R2_AUDIT_BUCKET='rollands-audit-staging';
+    env.R2_AUDIT_ACCESS_KEY_ID=env.R2_STAGING_ACCESS_KEY_ID;
+    result=validateStaging(env);
+    assert.ok(result.fail.some(item=>item.includes('R2 audit anchor')&&item.includes('separat credential-scope')));
   }finally{fs.rmSync(dir,{recursive:true,force:true})}
 });

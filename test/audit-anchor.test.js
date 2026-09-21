@@ -171,3 +171,56 @@ test('R2 audit target fails closed when remote readback is corrupted',async()=>{
     await assert.rejects(()=>target.putAndVerify(anchor),error=>error.code==='R2_AUDIT_REMOTE_INTEGRITY_MISMATCH');
   }finally{db.close();fs.rmSync(dir,{recursive:true,force:true})}
 });
+
+
+test('audit anchor evidence validator binds local anchor, database and configured bucket',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'lt-audit-anchor-evidence-'));
+  const filename=path.join(dir,'platform.sqlite');
+  const anchorPath=path.join(dir,'ops','anchor.json');
+  const evidencePath=path.join(dir,'ops','anchor-evidence.json');
+  const {db}=seed(filename);
+  try{
+    const now=Date.parse('2026-09-21T18:30:00Z');
+    const anchor=Anchor.createAuditAnchorFromDatabase(filename,{now:now-10*60*1000});
+    const written=Anchor.writeAnchor(anchorPath,anchor);
+    fs.writeFileSync(evidencePath,JSON.stringify({
+      schemaVersion:1,
+      verifiedAt:new Date(now-5*60*1000).toISOString(),
+      provider:'r2',
+      jurisdiction:'eu',
+      bucket:'lt-studio-audit-anchor',
+      storageKey:R2Anchor.storageKey(anchor.rootSha256),
+      rootSha256:anchor.rootSha256,
+      anchorSha256:written.sha256,
+      anchorSizeBytes:written.sizeBytes,
+      remoteReadbackVerified:true
+    }));
+    let result=R2Anchor.auditAnchorEvidence(evidencePath,{
+      now,
+      expectedBucket:'lt-studio-audit-anchor',
+      anchorPath,
+      databasePath:filename
+    });
+    assert.equal(result.ok,true);
+    assert.equal(result.rootSha256,anchor.rootSha256);
+
+    result=R2Anchor.auditAnchorEvidence(evidencePath,{
+      now,
+      expectedBucket:'wrong-audit-bucket',
+      anchorPath,
+      databasePath:filename
+    });
+    assert.equal(result.ok,false);
+
+    const evidence=JSON.parse(fs.readFileSync(evidencePath,'utf8'));
+    evidence.verifiedAt=new Date(Date.parse(anchor.anchoredAt)-1000).toISOString();
+    fs.writeFileSync(evidencePath,JSON.stringify(evidence));
+    result=R2Anchor.auditAnchorEvidence(evidencePath,{
+      now,
+      expectedBucket:'lt-studio-audit-anchor',
+      anchorPath,
+      databasePath:filename
+    });
+    assert.equal(result.ok,false);
+  }finally{db.close();fs.rmSync(dir,{recursive:true,force:true})}
+});

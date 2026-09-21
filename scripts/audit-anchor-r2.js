@@ -106,6 +106,53 @@ async function createR2AuditTarget({env=process.env,config,fetchImpl=globalThis.
   });
 }
 
+const DEFAULT_AUDIT_ANCHOR_EVIDENCE_MAX_AGE_MS=24*60*60*1000;
+
+function auditAnchorEvidence(filename,{
+  now=Date.now(),
+  maxAgeMs=DEFAULT_AUDIT_ANCHOR_EVIDENCE_MAX_AGE_MS,
+  expectedBucket='',
+  anchorPath='',
+  databasePath=''
+}={}){
+  try{
+    const evidenceFile=path.resolve(String(filename||''));
+    if(!filename||!AuditAnchor.outsideRepository(evidenceFile)||!fs.existsSync(evidenceFile)||!fs.statSync(evidenceFile).isFile())return{ok:false,ageMs:null};
+    const value=JSON.parse(fs.readFileSync(evidenceFile,'utf8'));
+    const verifiedAt=Date.parse(String(value.verifiedAt||''));
+    if(value.schemaVersion!==1||value.provider!=='r2'||value.jurisdiction!=='eu'||value.remoteReadbackVerified!==true)return{ok:false,ageMs:null};
+    if(!Number.isFinite(verifiedAt)||verifiedAt>now+5*60*1000)return{ok:false,ageMs:null};
+    const ageMs=Math.max(0,now-verifiedAt);
+    if(ageMs>maxAgeMs)return{ok:false,ageMs};
+    const bucket=String(value.bucket||'').trim();
+    const configured=String(expectedBucket||'').trim();
+    if(!bucket||configured&&bucket!==configured)return{ok:false,ageMs,bucket};
+    const rootSha256=String(value.rootSha256||'').trim().toLowerCase();
+    const anchorSha256=String(value.anchorSha256||'').trim().toLowerCase();
+    const anchorSizeBytes=Number(value.anchorSizeBytes);
+    const storageKeyValue=String(value.storageKey||'').trim();
+    if(!/^[a-f0-9]{64}$/.test(rootSha256)||!/^[a-f0-9]{64}$/.test(anchorSha256))return{ok:false,ageMs,bucket};
+    if(!Number.isSafeInteger(anchorSizeBytes)||anchorSizeBytes<1)return{ok:false,ageMs,bucket};
+    if(storageKeyValue!==storageKey(rootSha256))return{ok:false,ageMs,bucket};
+
+    const resolvedAnchor=path.resolve(String(anchorPath||''));
+    const resolvedDatabase=path.resolve(String(databasePath||''));
+    if(!anchorPath||!AuditAnchor.outsideRepository(resolvedAnchor)||!fs.existsSync(resolvedAnchor)||!fs.statSync(resolvedAnchor).isFile())return{ok:false,ageMs,bucket};
+    if(!databasePath||!fs.existsSync(resolvedDatabase)||!fs.statSync(resolvedDatabase).isFile())return{ok:false,ageMs,bucket};
+    const anchorBytes=fs.readFileSync(resolvedAnchor);
+    if(anchorBytes.length!==anchorSizeBytes||AuditAnchor.sha256Bytes(anchorBytes)!==anchorSha256)return{ok:false,ageMs,bucket};
+    const anchor=AuditAnchor.readAnchor(resolvedAnchor);
+    if(anchor.rootSha256!==rootSha256)return{ok:false,ageMs,bucket};
+    const anchoredAt=Date.parse(String(anchor.anchoredAt||''));
+    if(!Number.isFinite(anchoredAt)||verifiedAt<anchoredAt)return{ok:false,ageMs,bucket};
+    const history=AuditAnchor.verifyAuditAnchor(resolvedDatabase,anchor);
+    if(!history.ok)return{ok:false,ageMs,bucket,historyFail:history.fail};
+    return Object.freeze({ok:true,ageMs,bucket,rootSha256,anchorSha256,anchorSizeBytes,storageKey:storageKeyValue});
+  }catch{
+    return{ok:false,ageMs:null};
+  }
+}
+
 function writeEvidence(filename,value){
   const resolved=path.resolve(String(filename||''));
   fs.mkdirSync(path.dirname(resolved),{recursive:true,mode:0o700});
@@ -157,6 +204,8 @@ module.exports=Object.freeze({
   storageKey,
   objectUrl,
   createR2AuditTarget,
+  DEFAULT_AUDIT_ANCHOR_EVIDENCE_MAX_AGE_MS,
+  auditAnchorEvidence,
   writeEvidence,
   main
 });
