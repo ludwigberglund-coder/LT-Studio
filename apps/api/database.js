@@ -95,6 +95,41 @@ function initializeSchema(db) {
       created_at TEXT NOT NULL
     ) STRICT;
 
+    CREATE TABLE IF NOT EXISTS platform_operators (
+      id TEXT PRIMARY KEY,
+      username TEXT NOT NULL UNIQUE,
+      display_name TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      mfa_secret_encrypted TEXT NOT NULL,
+      disabled INTEGER NOT NULL DEFAULT 0 CHECK(disabled IN (0,1)),
+      created_at TEXT NOT NULL
+    ) STRICT;
+
+    CREATE TABLE IF NOT EXISTS platform_operator_sessions (
+      token_hash TEXT PRIMARY KEY,
+      csrf_hash TEXT NOT NULL,
+      operator_id TEXT NOT NULL REFERENCES platform_operators(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      absolute_expires_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL
+    ) STRICT;
+
+    CREATE TABLE IF NOT EXISTS platform_operator_mfa_used_steps (
+      operator_id TEXT NOT NULL REFERENCES platform_operators(id) ON DELETE CASCADE,
+      totp_counter INTEGER NOT NULL,
+      used_at TEXT NOT NULL,
+      PRIMARY KEY(operator_id,totp_counter)
+    ) STRICT;
+
+    CREATE TABLE IF NOT EXISTS platform_operator_audit_events (
+      id TEXT PRIMARY KEY,
+      operator_id TEXT REFERENCES platform_operators(id) ON DELETE SET NULL,
+      action TEXT NOT NULL,
+      details_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    ) STRICT;
+
     CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY,
       company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -205,6 +240,10 @@ function initializeSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_login_attempts_reset ON login_attempts(reset_at);
     CREATE INDEX IF NOT EXISTS idx_security_events_created ON security_events(created_at);
     CREATE INDEX IF NOT EXISTS idx_security_events_fingerprint_created ON security_events(fingerprint_hash,created_at);
+    CREATE INDEX IF NOT EXISTS idx_platform_operator_sessions_expiry ON platform_operator_sessions(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_platform_operator_sessions_absolute_expiry ON platform_operator_sessions(absolute_expires_at);
+    CREATE INDEX IF NOT EXISTS idx_platform_operator_mfa_used_steps_used_at ON platform_operator_mfa_used_steps(used_at);
+    CREATE INDEX IF NOT EXISTS idx_platform_operator_audit_created ON platform_operator_audit_events(created_at);
   `);
   if (!hasColumn(db,'sessions','absolute_expires_at')) {
     db.exec("ALTER TABLE sessions ADD COLUMN absolute_expires_at TEXT NOT NULL DEFAULT ''");
@@ -374,6 +413,88 @@ function securityEvents(db,{limit=100}={}) {
   const safeLimit=Math.max(1,Math.min(1000,Number(limit)||100));
   return db.prepare(`SELECT id,kind,severity,fingerprint_hash AS fingerprintHash,details_json AS detailsJson,created_at AS createdAt
     FROM security_events ORDER BY created_at DESC,id DESC LIMIT ?`).all(safeLimit)
+    .map(row=>({...row,details:jsonParse(row.detailsJson,{})}));
+}
+
+function createPlatformOperator(db,{id:operatorId=id('operator'),username,displayName,passwordHash,mfaSecretEncrypted,disabled=false}) {
+  const normalizedUsername=String(username||'').trim().toLocaleLowerCase('sv');
+  const normalizedDisplayName=String(displayName||'').trim();
+  if(!normalizedUsername||!normalizedDisplayName||!passwordHash||!mfaSecretEncrypted) throw databaseError('Operatörsuppgifterna är ofullständiga.','INVALID_PLATFORM_OPERATOR',422);
+  const createdAt=nowIso();
+  db.prepare('INSERT INTO platform_operators(id,username,display_name,password_hash,mfa_secret_encrypted,disabled,created_at) VALUES(?,?,?,?,?,?,?)')
+    .run(operatorId,normalizedUsername,normalizedDisplayName,passwordHash,mfaSecretEncrypted,disabled?1:0,createdAt);
+  return platformOperatorById(db,operatorId);
+}
+
+function platformOperatorById(db,operatorId) {
+  return db.prepare(`SELECT id,username,display_name AS displayName,password_hash AS passwordHash,
+    mfa_secret_encrypted AS mfaSecretEncrypted,disabled,created_at AS createdAt
+    FROM platform_operators WHERE id=?`).get(operatorId)||null;
+}
+
+function platformOperatorByUsername(db,username) {
+  return db.prepare(`SELECT id,username,display_name AS displayName,password_hash AS passwordHash,
+    mfa_secret_encrypted AS mfaSecretEncrypted,disabled,created_at AS createdAt
+    FROM platform_operators WHERE username=?`).get(String(username||'').trim().toLocaleLowerCase('sv'))||null;
+}
+
+function createPlatformOperatorSession(db,{tokenHash,csrfHash,operatorId,expiresAt,absoluteExpiresAt=expiresAt}) {
+  const now=nowIso();
+  if(!absoluteExpiresAt||absoluteExpiresAt<expiresAt) throw databaseError('Operatörssessionens absoluta sluttid måste vara minst lika sen som inaktivitetsgränsen.','INVALID_OPERATOR_SESSION_EXPIRY',500);
+  db.prepare('DELETE FROM platform_operator_sessions WHERE expires_at<=? OR absolute_expires_at<=?').run(now,now);
+  db.prepare(`INSERT INTO platform_operator_sessions(token_hash,csrf_hash,operator_id,created_at,expires_at,absolute_expires_at,last_seen_at)
+    VALUES(?,?,?,?,?,?,?)`).run(tokenHash,csrfHash,operatorId,now,expiresAt,absoluteExpiresAt,now);
+}
+
+function platformOperatorSessionByTokenHash(db,tokenHash) {
+  const now=nowIso();
+  return db.prepare(`SELECT s.token_hash AS tokenHash,s.csrf_hash AS csrfHash,s.operator_id AS operatorId,
+    s.expires_at AS expiresAt,s.absolute_expires_at AS absoluteExpiresAt,s.created_at AS createdAt,s.last_seen_at AS lastSeenAt,
+    o.username,o.display_name AS displayName,o.disabled
+    FROM platform_operator_sessions s JOIN platform_operators o ON o.id=s.operator_id
+    WHERE s.token_hash=? AND s.expires_at>? AND s.absolute_expires_at>?`).get(tokenHash,now,now)||null;
+}
+
+function touchPlatformOperatorSession(db,tokenHash,requestedExpiresAt) {
+  const now=nowIso();
+  db.prepare(`UPDATE platform_operator_sessions
+    SET last_seen_at=?,
+        expires_at=CASE WHEN absolute_expires_at<? THEN absolute_expires_at ELSE ? END
+    WHERE token_hash=? AND expires_at>? AND absolute_expires_at>?`)
+    .run(now,requestedExpiresAt,requestedExpiresAt,tokenHash,now,now);
+}
+
+function deletePlatformOperatorSession(db,tokenHash) {
+  db.prepare('DELETE FROM platform_operator_sessions WHERE token_hash=?').run(tokenHash);
+}
+
+function consumePlatformOperatorMfaStep(db,{operatorId,totpCounter}) {
+  if(!operatorId||!Number.isSafeInteger(totpCounter)||totpCounter<0) throw databaseError('Ogiltig operatörs-MFA-tidslucka.','INVALID_OPERATOR_MFA_COUNTER',500);
+  const now=nowIso();
+  db.prepare("DELETE FROM platform_operator_mfa_used_steps WHERE used_at < strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 days')").run();
+  try{
+    db.prepare('INSERT INTO platform_operator_mfa_used_steps(operator_id,totp_counter,used_at) VALUES(?,?,?)').run(operatorId,totpCounter,now);
+  }catch(error){
+    const detail=`${error.code||''} ${error.message||''} ${error.errstr||''}`;
+    if(/CONSTRAINT|UNIQUE constraint failed|constraint failed/i.test(detail)) throw databaseError('Operatörens MFA-kod har redan använts.','OPERATOR_MFA_CODE_REPLAYED',409);
+    throw error;
+  }
+  return{operatorId,totpCounter,usedAt:now};
+}
+
+function appendPlatformOperatorAudit(db,{operatorId=null,action,details={}}) {
+  const safeAction=String(action||'').trim();
+  if(!safeAction) throw databaseError('Operatörsaudit saknar åtgärd.','INVALID_OPERATOR_AUDIT_ACTION',500);
+  const record={id:id('operator_audit'),operatorId,action:safeAction,details,createdAt:nowIso()};
+  db.prepare('INSERT INTO platform_operator_audit_events(id,operator_id,action,details_json,created_at) VALUES(?,?,?,?,?)')
+    .run(record.id,record.operatorId,record.action,JSON.stringify(details||{}),record.createdAt);
+  return record;
+}
+
+function platformOperatorAudit(db,{limit=200}={}) {
+  const safeLimit=Math.max(1,Math.min(1000,Number(limit)||200));
+  return db.prepare(`SELECT id,operator_id AS operatorId,action,details_json AS detailsJson,created_at AS createdAt
+    FROM platform_operator_audit_events ORDER BY created_at DESC,id DESC LIMIT ?`).all(safeLimit)
     .map(row=>({...row,details:jsonParse(row.detailsJson,{})}));
 }
 
@@ -556,6 +677,16 @@ module.exports = Object.freeze({
   deleteSession,
   appendSecurityEvent,
   securityEvents,
+  createPlatformOperator,
+  platformOperatorById,
+  platformOperatorByUsername,
+  createPlatformOperatorSession,
+  platformOperatorSessionByTokenHash,
+  touchPlatformOperatorSession,
+  deletePlatformOperatorSession,
+  consumePlatformOperatorMfaStep,
+  appendPlatformOperatorAudit,
+  platformOperatorAudit,
   createCustomer,
   customerById,
   updateCustomer,
