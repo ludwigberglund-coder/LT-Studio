@@ -42,6 +42,7 @@ function fixture(){
   const backupFile='rollands-20260921T140000.sqlite.enc';
   const r2Path=path.join(opsDir,'r2-audit.json');
   const offsitePath=path.join(opsDir,'offsite-backup.json');
+  const offsiteRestorePath=path.join(opsDir,'offsite-restore.json');
   const restorePath=path.join(opsDir,'restore-drill.json');
   const monitorPath=path.join(opsDir,'monitoring.json');
 
@@ -81,6 +82,37 @@ function fixture(){
     checksumStorageKey:`encrypted-sqlite-backups/${backupSha}/${backupFile}.sha256`,
     remoteEncryptedVerified:true,
     remoteChecksumVerified:true
+  });
+
+  write(offsiteRestorePath,{
+    schemaVersion:1,
+    verifiedAt:new Date(now-25*60*1000).toISOString(),
+    provider:'r2',
+    jurisdiction:'eu',
+    sourceEncryptedSha256:backupSha,
+    sourceSizeBytes:500,
+    encryptedStorageKey:`encrypted-sqlite-backups/${backupSha}/${backupFile}`,
+    checksumStorageKey:`encrypted-sqlite-backups/${backupSha}/${backupFile}.sha256`,
+    remoteDownloadVerified:true,
+    sqliteIntegrity:true,
+    foreignKeys:true,
+    tenantRelations:0,
+    journalEntries:1,
+    archivedDocuments:3,
+    privateObjectsVerified:true,
+    privateObjectSchemaComplete:true,
+    privateObjectCount:3,
+    verifiedPrivateObjectCount:3,
+    privateObjectBytes:60,
+    privateObjectIssueCount:0,
+    privateObjectsByKind:{
+      document:{objects:1,verified:1,bytes:10},
+      'supplier-invoice':{objects:1,verified:1,bytes:20},
+      'customer-invoice-pdf':{objects:1,verified:1,bytes:30}
+    },
+    productionDatabaseTouched:false,
+    restoreCopyRemoved:true,
+    downloadedCopiesRemoved:true
   });
 
   write(restorePath,{
@@ -146,11 +178,12 @@ function fixture(){
     R2_BACKUP_SECRET_ACCESS_KEY:'backup-secret-key-1234567890',
     R2_STAGING_AUDIT_EVIDENCE_PATH:r2Path,
     ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH:offsitePath,
+    ROLLANDS_OFFSITE_RESTORE_EVIDENCE_PATH:offsiteRestorePath,
     ROLLANDS_RESTORE_DRILL_PATH:path.join(dir,'restore'),
     ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH:restorePath,
     ROLLANDS_MONITORING_EVIDENCE_PATH:monitorPath
   };
-  return{dir,env,now,paths:{r2Path,offsitePath,restorePath,monitorPath},backupSha,backupFile};
+  return{dir,env,now,paths:{r2Path,offsitePath,offsiteRestorePath,restorePath,monitorPath},backupSha,backupFile};
 }
 
 test('staging evidence chain passes only when all fresh proofs agree',()=>{
@@ -159,8 +192,10 @@ test('staging evidence chain passes only when all fresh proofs agree',()=>{
     const result=validateEvidenceChain(f.env,{now:f.now});
     assert.equal(result.ok,true);
     assert.deepEqual(result.fail,[]);
+    assert.equal(result.checks.offsiteRestore,true);
     assert.equal(result.checks.sameBackupArtifact,true);
     assert.equal(result.evidence.backupSha256,f.backupSha);
+    assert.equal(result.evidence.offsiteRestoreAgeMs,25*60*1000);
   }finally{fs.rmSync(f.dir,{recursive:true,force:true})}
 });
 
@@ -174,6 +209,20 @@ test('staging evidence chain rejects restore proof for another backup',()=>{
     assert.equal(result.ok,false);
     assert.equal(result.checks.sameBackupArtifact,false);
     assert.ok(result.fail.some(item=>item.includes('samma krypterade backup-SHA')));
+  }finally{fs.rmSync(f.dir,{recursive:true,force:true})}
+});
+
+test('staging evidence chain rejects offsite restore proof for other R2 objects',()=>{
+  const f=fixture();
+  try{
+    const remote=JSON.parse(fs.readFileSync(f.paths.offsiteRestorePath,'utf8'));
+    remote.encryptedStorageKey=`encrypted-sqlite-backups/${f.backupSha}/rollands-other.sqlite.enc`;
+    remote.checksumStorageKey=remote.encryptedStorageKey+'.sha256';
+    write(f.paths.offsiteRestorePath,remote);
+    const result=validateEvidenceChain(f.env,{now:f.now});
+    assert.equal(result.ok,false);
+    assert.equal(result.checks.sameBackupArtifact,false);
+    assert.ok(result.fail.some(item=>item.includes('samma R2-objektnycklar')));
   }finally{fs.rmSync(f.dir,{recursive:true,force:true})}
 });
 
