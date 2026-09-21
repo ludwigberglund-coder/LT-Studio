@@ -9,10 +9,12 @@ const SOURCE_ENV=Object.freeze({
   offsiteBackup:'ROLLANDS_OFFSITE_BACKUP_EVIDENCE_PATH',
   restoreDrill:'ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH',
   r2RestoreDrill:'ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH',
-  monitoring:'ROLLANDS_MONITORING_EVIDENCE_PATH'
+  monitoring:'ROLLANDS_MONITORING_EVIDENCE_PATH',
+  auditAnchor:'ROLLANDS_AUDIT_ANCHOR_PATH',
+  auditAnchorEvidence:'ROLLANDS_AUDIT_ANCHOR_EVIDENCE_PATH'
 });
 const REQUIRED_CHECKS=Object.freeze([
-  'preflight','r2Audit','offsiteBackup','restoreDrill','r2RestoreDrill','monitoring','sameBackupArtifact'
+  'preflight','r2Audit','offsiteBackup','restoreDrill','r2RestoreDrill','monitoring','auditAnchor','sameBackupArtifact'
 ]);
 
 function sha256File(filename){return crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex')}
