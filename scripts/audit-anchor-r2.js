@@ -117,7 +117,7 @@ function auditAnchorEvidence(filename,{
 }={}){
   try{
     const evidenceFile=path.resolve(String(filename||''));
-    if(!filename||!fs.existsSync(evidenceFile)||!fs.statSync(evidenceFile).isFile())return{ok:false,ageMs:null};
+    if(!filename||!AuditAnchor.outsideRepository(evidenceFile)||!fs.existsSync(evidenceFile)||!fs.statSync(evidenceFile).isFile())return{ok:false,ageMs:null};
     const value=JSON.parse(fs.readFileSync(evidenceFile,'utf8'));
     const verifiedAt=Date.parse(String(value.verifiedAt||''));
     if(value.schemaVersion!==1||value.provider!=='r2'||value.jurisdiction!=='eu'||value.remoteReadbackVerified!==true)return{ok:false,ageMs:null};
@@ -137,12 +137,14 @@ function auditAnchorEvidence(filename,{
 
     const resolvedAnchor=path.resolve(String(anchorPath||''));
     const resolvedDatabase=path.resolve(String(databasePath||''));
-    if(!anchorPath||!fs.existsSync(resolvedAnchor)||!fs.statSync(resolvedAnchor).isFile())return{ok:false,ageMs,bucket};
+    if(!anchorPath||!AuditAnchor.outsideRepository(resolvedAnchor)||!fs.existsSync(resolvedAnchor)||!fs.statSync(resolvedAnchor).isFile())return{ok:false,ageMs,bucket};
     if(!databasePath||!fs.existsSync(resolvedDatabase)||!fs.statSync(resolvedDatabase).isFile())return{ok:false,ageMs,bucket};
     const anchorBytes=fs.readFileSync(resolvedAnchor);
     if(anchorBytes.length!==anchorSizeBytes||AuditAnchor.sha256Bytes(anchorBytes)!==anchorSha256)return{ok:false,ageMs,bucket};
     const anchor=AuditAnchor.readAnchor(resolvedAnchor);
     if(anchor.rootSha256!==rootSha256)return{ok:false,ageMs,bucket};
+    const anchoredAt=Date.parse(String(anchor.anchoredAt||''));
+    if(!Number.isFinite(anchoredAt)||verifiedAt<anchoredAt)return{ok:false,ageMs,bucket};
     const history=AuditAnchor.verifyAuditAnchor(resolvedDatabase,anchor);
     if(!history.ok)return{ok:false,ageMs,bucket,historyFail:history.fail};
     return Object.freeze({ok:true,ageMs,bucket,rootSha256,anchorSha256,anchorSizeBytes,storageKey:storageKeyValue});
