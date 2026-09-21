@@ -380,3 +380,43 @@ npm run storage:copy-one-r2 -- <companyId> <kind> <objectId> <sha256>
 Kommandot visar endast identitet, status och verifieringsresultat. Det skriver inte ut credentials eller filbytes.
 
 **Ingen automatisk batchkörning och ingen runtime-cutover är aktiverad.** Nästa steg efter riktig stagingkonfiguration är ett kontrollerat integrationstest mot en tom privat EU-bucket med fiktiv kunddata, därefter restore/rollback-test.
+
+
+## Read-only audit av extern R2-staging
+
+Efter att enskilda objekt har kopierats och markerats `ready` finns nu ett separat verifieringssteg som **inte skriver något** till SQLite eller R2.
+
+Kommandot:
+
+```bash
+export R2_STAGING_AUDIT_EVIDENCE_PATH=/privat/ops/r2-staging-audit.json
+npm run storage:audit-r2
+```
+
+kräver samma fail-closed stagingkonfiguration som R2-adaptern:
+
+```text
+ROLLANDS_ENV=staging
+R2_STAGING_ENABLED=1
+R2_STAGING_JURISDICTION=eu
+R2_STAGING_ACCOUNT_ID=...
+R2_STAGING_BUCKET=...
+R2_STAGING_ACCESS_KEY_ID=...
+R2_STAGING_SECRET_ACCESS_KEY=...
+```
+
+Auditverktyget:
+
+1. öppnar databasen read-only,
+2. bygger om hela den aktuella privata SQLite-inventeringen,
+3. stoppar om källan inte längre verifieras,
+4. kräver en `ready` ledger-rad för varje **aktuellt** privat objekt och dess nuvarande SHA-256,
+5. läser tillbaka varje motsvarande objekt från R2,
+6. verifierar bytes mot central storleks- och SHA-256-kontroll,
+7. skriver ett privat evidensdokument utanför Git-repositoryt.
+
+Evidensen innehåller endast teknisk identitet, summeringar, felkoder och ett SHA-256-fingeravtryck av den aktuella källinventeringen. Filbytes och credentials skrivs aldrig till evidensen eller stdout.
+
+En äldre immutable extern version får finnas kvar. Auditens krav är att **varje nuvarande SQLite-objekt** har en verifierbar extern `ready`-kopia.
+
+Detta är fortfarande inte runtime-cutover eller katastrofåterställning från R2. Nästa driftsteg är att köra kommandot mot den riktiga privata EU-stagingbucketen med fiktiva/avidentifierade data och spara evidensen privat.

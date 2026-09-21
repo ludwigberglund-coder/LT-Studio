@@ -114,3 +114,21 @@ När R2-staging införs ska minst följande vara obligatoriskt:
 - andra fiktiva kunden är verifierad,
 - Rolands UAT är genomförd,
 - rollback utan dataförlust är dokumenterad och testad.
+
+
+## Oberoende staging-audit före cutover
+
+En kopiering som en gång markerats `ready` får inte ensam betraktas som långsiktigt restore-bevis.
+
+Före någon framtida cutover ska `storage:audit-r2` köras mot aktuell stagingdatabas. Auditverktyget jämför hela den aktuella SQLite-inventeringen mot ledgern och läser sedan tillbaka varje nuvarande `ready`-objekt från R2 för ny storleks- och SHA-256-verifiering.
+
+Godkänd audit kräver att:
+
+- SQLite-källan själv är intakt,
+- varje aktuellt privat objekt har en `ready` R2-rad med exakt samma SHA,
+- ledgerns logiska/fysiska nycklar och metadata fortfarande matchar,
+- varje R2-objekt kan läsas tillbaka,
+- återlästa bytes fortfarande matchar lagrad storlek och SHA-256,
+- evidensfilen ligger privat utanför repositoryt.
+
+Detta ersätter inte ett senare riktigt restore-test från extern objektlagring till en isolerad återställningsmiljö.
