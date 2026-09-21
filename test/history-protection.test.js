@@ -81,6 +81,33 @@ test('audit history accepts new events but rejects rewriting, removal and replac
     assert.equal(Db.auditForCompany(db,company.id).length,2);
   }finally{db.close();}
 });
+test('security and operator audit streams are append-only too',()=>{
+  const {db}=seed();
+  try{
+    Db.appendSecurityEvent(db,{kind:'login-alert',severity:'warning',fingerprintHash:'a'.repeat(64),details:{attempts:3}});
+    const operator=Db.createPlatformOperator(db,{
+      username:'audit-operator',
+      displayName:'Audit Operator',
+      passwordHash:'test-password-hash',
+      mfaSecretEncrypted:'test-encrypted-secret'
+    });
+    Db.appendPlatformOperatorAudit(db,{operatorId:operator.id,action:'READINESS_VIEW',details:{ok:true}});
+
+    for(const sql of [
+      "UPDATE security_events SET severity='info'",
+      'DELETE FROM security_events',
+      'INSERT OR REPLACE INTO security_events SELECT * FROM security_events',
+      "UPDATE platform_operator_audit_events SET action='CHANGED'",
+      'DELETE FROM platform_operator_audit_events',
+      'INSERT OR REPLACE INTO platform_operator_audit_events SELECT * FROM platform_operator_audit_events'
+    ])assert.throws(()=>db.exec(sql),/IMMUTABLE/);
+
+    Db.appendSecurityEvent(db,{kind:'second-alert',severity:'info',fingerprintHash:'b'.repeat(64),details:{}});
+    Db.appendPlatformOperatorAudit(db,{operatorId:operator.id,action:'SECOND_VIEW',details:{}});
+    assert.equal(Db.securityEvents(db).length,2);
+    assert.equal(Db.platformOperatorAudit(db).length,2);
+  }finally{db.close();}
+});
 test('invoice document is append-only and mismatched hash stops its reader',()=>{
   const {db,company}=seed();
   try {
