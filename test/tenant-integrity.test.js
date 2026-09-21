@@ -300,7 +300,7 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
       [`/invoices/${f.invoiceB.id}/comments`,{text:'cross tenant'}],
       [`/customer-invoices/${f.invoiceB.id}/credit`,{requestId:'cross-tenant-credit-0001',reason:'cross tenant'}],
       [`/bank/payments/${bankPaymentB.id}/match`,{}],
-      ['/inventory/movements',{itemId:inventoryItemB.id,movementDate:'2026-09-20',type:'sale',quantityMilli:-1000}],
+      ['/inventory/movements',{requestId:'cross-tenant-inventory-0001',itemId:inventoryItemB.id,movementDate:'2026-09-20',type:'sale',quantityMilli:-1000}],
       ['/inventory/adjustments',{itemId:inventoryItemB.id,adjustmentDate:'2026-09-20',countedQuantityMilli:3000,reason:'cross tenant'}],
       [`/inventory/adjustments/${inventoryAdjustmentB.id}/approve`,{}],
       [`/inventory/adjustments/${inventoryAdjustmentB.id}/reject`,{}],
