@@ -59,6 +59,20 @@ Modulen stoppar bland annat:
 - rader utan positiv kvantitet,
 - heltal som ligger utanför JavaScripts säkra heltalsintervall.
 
+## Databasnivå i nuvarande SQLite-runtime
+
+API-validering räcker inte ensam som skydd. SQLite kan annars lagra ett decimalvärde i en kolumn som är deklarerad som `INTEGER` om värdet går runt applikationslagret.
+
+Startup-integriteten installerar därför databastriggers för varje persistent kolumn vars namn slutar på `_ore`. En sådan kolumn får endast innehålla:
+
+- `NULL` om kolumnens schema tillåter det, eller
+- ett verkligt SQLite-`integer`,
+- inom JavaScripts säkra heltalsintervall `±9 007 199 254 740 991`.
+
+Ett decimalvärde, textvärde eller heltal utanför detta intervall stoppas med `MONEY_STORAGE_SAFE_INTEGER_REQUIRED`. Om en äldre databas redan innehåller ett sådant värde stoppar startup med `MONEY_STORAGE_INTEGRITY_ERROR`; historiken skrivs inte om automatiskt.
+
+Detta är ett extra integritetsskydd för nuvarande SQLite-runtime. Det ersätter inte den planerade PostgreSQL-migreringen eller separat migrations-/restore-verifiering.
+
 ## Migrering från tidigare system
 
 Den äldre demon lagrar flera belopp som hela kronor. Funktionen `legacyKronorToOre()` får endast användas när källvärdet uttryckligen är ett heltal i kronor. Decimalvärden stoppas i stället för att gissas.
