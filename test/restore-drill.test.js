@@ -118,6 +118,7 @@ test('restore drill verifierar alla privata objekt och skriver evidens först ef
     assert.equal(evidence.sqliteIntegrity,true);
     assert.equal(evidence.foreignKeys,true);
     assert.equal(evidence.privateObjectsVerified,true);
+    assert.equal(evidence.privateObjectSchemaComplete,true);
     assert.equal(evidence.privateObjectCount,3);
     assert.equal(evidence.verifiedPrivateObjectCount,3);
     assert.equal(evidence.privateObjectIssueCount,0);
