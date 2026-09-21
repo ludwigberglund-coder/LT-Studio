@@ -12,6 +12,33 @@ För nuvarande nativa verifikationsserier förväntas startnummer 1 per företag
 
 SHA-256 är ett digitalt fingeravtryck, inte kryptering eller en signatur. Någon som kan skriva om både filen och fingeravtrycket kan förfalska jämförelsen. Separat åtkomstskydd och extern skyddad historik behövs.
 
+## Staging-gate före verkliga driftbevis
+
+Innan R2-audit, offsite-backup eller restore-drill körs i den riktiga stagingmiljön ska:
+
+```bash
+npm run staging:preflight
+```
+
+passera utan blockerande fel. Gaten verifierar den serverkonfiguration som går att bevisa lokalt utan att skriva affärsdata:
+
+- `ROLLANDS_ENV=staging`, `NODE_ENV=production`, demo avstängt och secure cookies,
+- persistent databas, backupkatalog och operationsfil utanför Git-repositoryt,
+- privat R2 EU-konfiguration för stagingobjekt,
+- separat privat R2 EU-konfiguration för krypterad offsite-backup,
+- olika buckets för privata runtimeobjekt och katastrofbackup,
+- evidensfiler för R2-audit, offsite-backup, restore-drill och monitorering utanför Git-repositoryt.
+
+Kommandot gör **inga nätverksanrop till R2** och bevisar därför inte att credentials fungerar eller att objekten finns. Det är en fail-closed konfigurationskontroll som ska köras först. När den är grön fortsätter driftbeviset i denna ordning:
+
+1. skapa/verifiera stagingdatabasen,
+2. inventera och planera privata objekt,
+3. kopiera testobjekt till R2,
+4. köra `npm run storage:audit-r2`,
+5. skapa krypterad backup och köra `npm run pilot:backup:offsite-r2`,
+6. genomföra separat restore-drill,
+7. genomföra verkligt monitorerings-/larmtest.
+
 ## Krypterad offsite-upload
 
 Den lokala krypterade artefakten kan nu skickas till en separat privat R2 EU-bucket med:
