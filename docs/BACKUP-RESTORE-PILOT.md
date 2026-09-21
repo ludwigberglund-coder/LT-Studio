@@ -83,8 +83,8 @@ Detta är föreslagna driftmål, inte redan aktiverade tjänster:
 | Skydd? | Kryptering vid överföring/lagring, separat nyckelhantering, minsta behörighet och versionsskydd. | Återläsning med nycklar samt nekad otillåten åtkomst/radering. |
 | Hur länge? | Exempel: 48 timkopior, 35 dygnskopior och 12 månadskopior. Fastställ efter kapacitet och verksamhetskrav. | Retentionkonfiguration och avtal. Detta ersätter inte lagstadgat långtidsarkiv. |
 | Vem återställer? | Utsedd driftansvarig; byte till produktionskopia kräver dokumenterat separat godkännande. | Personligt konto, logg och ansvarig ersättare. |
-| Tillåten förlust? | Föreslaget mål högst 1 timmes dataförlust. | Mät hur aktuell senast återställbar kopia faktiskt är. |
-| Avbrottstid? | Föreslaget mål återställning inom 4 timmar. | Tidtagning i verklig separat driftmiljö; detta är inte ett uppmätt resultat. |
+| Tillåten förlust? | Föreslaget mål högst 1 timmes dataförlust. | Restore-evidensen mäter nu backupens faktiska ålder vid övningen (`backupAgeAtDrillMs` / `offsiteBackupAgeAtDrillMs`). Målet är fortfarande ett verksamhetsbeslut, inte en hårdkodad gate. |
+| Avbrottstid? | Föreslaget mål återställning inom 4 timmar. | Restore-evidensen mäter nu faktisk verifieringstid (`restoreDurationMs`). Målet är fortfarande ett verksamhetsbeslut och ska jämföras mot verklig stagingkörning. |
 
 ## Genomför ett test
 
@@ -101,7 +101,7 @@ export ROLLANDS_RESTORE_TARGET=/srv/rollands-restore/NY-TESTKOPIA.sqlite
 npm run pilot:restore:verify
 ```
 
-Fortsätt bara vid exitkod 0 och `verified:true`. Ett lyckat `pilot:restore:drill` skriver evidensformat **schemaVersion 2** med antal verifierade privata objekt, bytes och uppdelning per objekttyp. Pilot-readiness accepterar inte äldre schema-1-bevis eller evidens där privatobjektantal, verifierat antal eller summerade bytes inte går ihop. Det betyder att de implementerade tekniska kontrollerna passerat, inte att alla bokföringsregler är granskade.
+Fortsätt bara vid exitkod 0 och `verified:true`. Ett lyckat `pilot:restore:drill` skriver evidensformat **schemaVersion 2** med antal verifierade privata objekt, bytes och uppdelning per objekttyp. Evidensen innehåller nu även `sourceModifiedAt`, `backupAgeAtDrillMs` och `restoreDurationMs`. R2-drillen sparar motsvarande `offsiteBackupAgeAtDrillMs` och `restoreDurationMs`, där offsite-åldern kommer från det verifierade R2-upload/readback-bevis som restore-källan bygger på. Pilot-readiness accepterar inte äldre schema-1-bevis eller evidens där privatobjektantal, verifierat antal eller summerade bytes inte går ihop. Det betyder att de implementerade tekniska kontrollerna passerat, inte att alla bokföringsregler är granskade.
 
 Därefter ska ansvarig, i separat isolerad miljö med utgående bank/e-post avstängt, prova inloggning, kund-/leverantörsreskontra, huvudbok, momsavstämning, dokumentöppning och revisionshistorik. Jämför förväntade antal, saldon och dokumentfingeravtryck. Dokumentera faktisk tid, backupens ålder, exakt kodversion och granskarens godkännande. Använd inte skarpa integrationsnycklar för testet.
 
