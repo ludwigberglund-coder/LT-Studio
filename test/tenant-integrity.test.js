@@ -316,6 +316,7 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
       [`/inventory/adjustments/${inventoryAdjustmentB.id}/approve`,{}],
       [`/inventory/adjustments/${inventoryAdjustmentB.id}/reject`,{}],
       [`/automation/proposals/${automationProposalB.id}/approve`,{}],
+      [`/automation/proposals/${automationProposalB.id}/execute`,{}],
       [`/automation/proposals/${automationProposalB.id}/reject`,{reason:'cross tenant'}],
       [`/payroll/runs/${payrollRunB.id}/post`,{}],
       [`/invoices/${f.invoiceB.id}/reminders/preview`,{sentDate:'2026-10-20'}],
