@@ -126,6 +126,24 @@ function createAutomationReviewRouter(options) {
         return send(res,result.duplicate?200:201,{...result,executionStatus:'executed',message:result.duplicate?'Kundbetalningen var redan bokförd.':'Kundbetalningen är bokförd mot 1930/1510 och fakturan är reglerad.'}), true;
       }
 
+      const reclassifyMatch = url.pathname.match(/^\/api\/v1\/automation\/proposals\/([^/]+)\/reclassify$/);
+      if (reclassifyMatch && req.method === 'POST') {
+        requirePermission(session,'bank.reconcile');
+        requirePermission(session,'accounting.correct');
+        requireProposal(session,reclassifyMatch[1]);
+        const payload=await readJson(req,res);if(!payload)return true;
+        const result=CustomerPayment.reclassifyCustomerPayment(db,{
+          companyId:session.companyId,
+          proposalId:reclassifyMatch[1],
+          targetInvoiceId:payload.targetInvoiceId,
+          requestId:payload.requestId,
+          correctionDate:payload.correctionDate,
+          reason:payload.reason,
+          actorId:session.userId
+        });
+        return send(res,result.duplicate?200:201,{...result,executionStatus:'reclassified',message:result.duplicate?'Omföringen var redan bokförd.':'Kundbetalningen har omförts till den valda kundfakturan utan att bankinbetalningen ändrats.'}), true;
+      }
+
       const rejectMatch = url.pathname.match(/^\/api\/v1\/automation\/proposals\/([^/]+)\/reject$/);
       if (rejectMatch && req.method === 'POST') {
         requirePermission(session,'accounting.post');
