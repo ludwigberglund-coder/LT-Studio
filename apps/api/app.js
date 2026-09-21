@@ -146,6 +146,7 @@ function createApiApp(options) {
   }
   const authEncryptionKey = options.authEncryptionKey || '';
   const operationalLogger=options.operationalLogger||null;
+  const operationalRuntimeId=String(options.operationalRuntimeId||'');
   WebsiteCms.initializeWebsiteCms(db);
   const fixedCompanyProfile = options.companyProfile || null;
   const companyProfileFor = typeof options.companyProfileFor === 'function'
@@ -176,6 +177,7 @@ function createApiApp(options) {
     if(thresholdReached&&operationalLogger?.emit)operationalLogger.emit({
       level:'warning',
       event:'security_event',
+      runtimeId:operationalRuntimeId,
       code:'LOGIN_FAILURE_THRESHOLD'
     });
     return state;
