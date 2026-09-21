@@ -77,7 +77,7 @@ function createServer(options = {}) {
   const db = options.db || Db.openDatabase(databasePath);
   PrivateObjectCopyLedger.initializePrivateObjectCopyLedger(db);
   Queues.initializeQueues(db); ReminderOutbox.initializeReminderOutbox(db); Bank.initializeBankPayments(db); Payables.initializePayables(db); SupplierMasterdata.initializeSupplierMasterdata(db); PaymentConfirmation.initializePaymentConfirmation(db); Inventory.initializeInventory(db); Payroll.initializePayroll(db); Documents.initializeDocuments(db); AccountingAdmin.initializeAccountingAdmin(db); WebsiteCms.initializeWebsiteCms(db);
-  const api = createApiApp({db,secureCookies,authEncryptionKey});
+  const api = createApiApp({db,secureCookies,authEncryptionKey,operationalLogger});
   const automationReview = createAutomationReviewRouter({db}); const bank = createBankRouter({db}); const payables = createPayablesRouter({db}); const supplierMasterdata = createSupplierMasterdataRouter({db}); const paymentRelease = createPaymentReleaseRouter({db}); const paymentConfirmation = createPaymentConfirmationRouter({db}); const inventory = createInventoryRouter({db}); const reports = createReportsRouter({db}); const exportsRouter=createExportsRouter({db}); const payroll = createPayrollRouter({db}); const documents = createDocumentsRouter({db}); const accounting = createAccountingAdminRouter({db}); const websiteCms = createWebsiteCmsRouter({db});
   const protectedMode=protectedRuntimeMode(process.env);
   const stagingMode=String(process.env.ROLLANDS_ENV||'').trim()==='staging';
