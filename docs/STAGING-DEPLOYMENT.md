@@ -21,6 +21,17 @@ The code also enforces this policy:
 - staging restore flows reject non-synthetic databases,
 - staging backup flows are intended to operate only on the approved synthetic database.
 
+## Deployment templates
+
+The repository contains safe reference files in `deploy/staging/`:
+
+- `staging.env.example`,
+- `lt-studio-staging.service`,
+- `Caddyfile.example`,
+- installation notes in `deploy/staging/README.md`.
+
+Copy and fill these only on the private staging server. The committed versions must remain placeholders without real secrets or customer data.
+
 ## 1. Infrastructure
 
 Use a private Linux VM/server or equivalent with:
