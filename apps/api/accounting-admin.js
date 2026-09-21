@@ -43,7 +43,25 @@ function entryById(db,companyId,entryId){return Accounting.entryById(db,companyI
 function periodStatus(db,companyId,period){if(!validPeriod(period))throw accountingAdminError('Perioden måste anges som ÅÅÅÅ-MM.','INVALID_PERIOD');return db.prepare(`SELECT period,status,locked_by AS lockedBy,locked_at AS lockedAt FROM accounting_periods WHERE company_id=? AND period=?`).get(companyId,period)||{period,status:'open',lockedBy:null,lockedAt:null}}
 function listPeriods(db,companyId,{year=''}={}){const pattern=/^\d{4}$/.test(text(year))?`${year}-%`:'%';return db.prepare(`SELECT period,status,locked_by AS lockedBy,locked_at AS lockedAt FROM accounting_periods WHERE company_id=? AND period LIKE ? ORDER BY period DESC`).all(companyId,pattern)}
 function lockPeriod(db,{companyId,period,lockedBy}){const current=periodStatus(db,companyId,period);if(current.status==='locked')throw accountingAdminError('Perioden är redan låst.','PERIOD_ALREADY_LOCKED',409);const lockedAt=now();db.prepare(`INSERT INTO accounting_periods(company_id,period,status,locked_by,locked_at) VALUES(?,?,'locked',?,?) ON CONFLICT(company_id,period) DO UPDATE SET status='locked',locked_by=excluded.locked_by,locked_at=excluded.locked_at`).run(companyId,period,lockedBy,lockedAt);return periodStatus(db,companyId,period)}
+function lockPeriodIdempotent(db,input){
+  const current=periodStatus(db,input.companyId,input.period);
+  if(current.status==='locked'){
+    if(current.lockedBy===input.lockedBy)return{period:current,duplicate:true};
+    throw accountingAdminError('Perioden är redan låst av en annan användare.','PERIOD_ALREADY_LOCKED',409);
+  }
+  return{period:lockPeriod(db,input),duplicate:false};
+}
 function requestUnlock(db,{companyId,period,reason,requestedBy}){if(periodStatus(db,companyId,period).status!=='locked')throw accountingAdminError('Endast en låst period kan begäras upplåst.','PERIOD_NOT_LOCKED',409);const clean=text(reason);if(clean.length<5||clean.length>500)throw accountingAdminError('En tydlig orsak på 5–500 tecken krävs.','UNLOCK_REASON_REQUIRED');if(db.prepare(`SELECT 1 FROM period_unlock_requests WHERE company_id=? AND period=? AND status='pending'`).get(companyId,period))throw accountingAdminError('Det finns redan en väntande upplåsningsbegäran.','UNLOCK_ALREADY_PENDING',409);const requestId=id('unlock'),requestedAt=now();db.prepare(`INSERT INTO period_unlock_requests(id,company_id,period,reason,status,requested_by,requested_at) VALUES(?,?,?,?,'pending',?,?)`).run(requestId,companyId,period,clean,requestedBy,requestedAt);return unlockRequestById(db,companyId,requestId)}
+function requestUnlockIdempotent(db,input){
+  try{return{request:requestUnlock(db,input),duplicate:false}}
+  catch(error){
+    if(error?.code!=='UNLOCK_ALREADY_PENDING')throw error;
+    const clean=text(input.reason);
+    const pending=listUnlockRequests(db,input.companyId,{status:'pending'}).find(row=>row.period===text(input.period));
+    if(pending&&pending.requestedBy===input.requestedBy&&pending.reason===clean)return{request:unlockRequestById(db,input.companyId,pending.id),duplicate:true};
+    throw error;
+  }
+}
 function unlockRequestById(db,companyId,requestId){return db.prepare(`SELECT id,company_id AS companyId,period,reason,status,requested_by AS requestedBy,requested_at AS requestedAt,decided_by AS decidedBy,decided_at AS decidedAt,decision_reason AS decisionReason FROM period_unlock_requests WHERE company_id=? AND id=?`).get(companyId,requestId)||null}
 function listUnlockRequests(db,companyId,{status='pending'}={}){const filter=['pending','approved','rejected','all'].includes(status)?status:'pending';const sql=`SELECT id,period,reason,status,requested_by AS requestedBy,requested_at AS requestedAt,decided_by AS decidedBy,decided_at AS decidedAt,decision_reason AS decisionReason FROM period_unlock_requests WHERE company_id=?${filter==='all'?'':' AND status=?'} ORDER BY requested_at DESC`;return filter==='all'?db.prepare(sql).all(companyId):db.prepare(sql).all(companyId,filter)}
 function decideUnlock(db,{companyId,requestId,decidedBy,decision,decisionReason=''}){const req=unlockRequestById(db,companyId,requestId);if(!req)throw accountingAdminError('Upplåsningsbegäran hittades inte.','UNLOCK_REQUEST_NOT_FOUND',404);if(req.status!=='pending')throw accountingAdminError('Begäran är redan behandlad.','UNLOCK_ALREADY_DECIDED',409);if(req.requestedBy===decidedBy)throw accountingAdminError('Den som begärde upplåsningen får inte godkänna den själv.','SEPARATION_OF_DUTIES_FAILED',409);if(!['approved','rejected'].includes(decision))throw accountingAdminError('Beslutet är ogiltigt.','INVALID_UNLOCK_DECISION');const decidedAt=now();if(decision==='approved')db.prepare(`UPDATE accounting_periods SET status='open',locked_by=NULL,locked_at=NULL WHERE company_id=? AND period=? AND status='locked'`).run(companyId,req.period);db.prepare(`UPDATE period_unlock_requests SET status=?,decided_by=?,decided_at=?,decision_reason=? WHERE company_id=? AND id=? AND status='pending'`).run(decision,decidedBy,decidedAt,text(decisionReason).slice(0,500)||null,companyId,requestId);return{request:unlockRequestById(db,companyId,requestId),period:periodStatus(db,companyId,req.period)}}
@@ -141,4 +159,4 @@ function correctEntry(db, {companyId,entryId,postingDate,reason,replacementLines
     throw error;
   }
 }
-module.exports=Object.freeze({initializeAccountingAdmin,entryById,periodStatus,listPeriods,lockPeriod,requestUnlock,unlockRequestById,listUnlockRequests,decideUnlock,openingBalanceByYear,importOpeningBalance,validateOpeningBalanceLines,correctionByOriginal,listCorrections,correctEntry,correctionPolicy,validPeriod,validOpeningYear});
+module.exports=Object.freeze({initializeAccountingAdmin,entryById,periodStatus,listPeriods,lockPeriod,lockPeriodIdempotent,requestUnlock,requestUnlockIdempotent,unlockRequestById,listUnlockRequests,decideUnlock,openingBalanceByYear,importOpeningBalance,validateOpeningBalanceLines,correctionByOriginal,listCorrections,correctEntry,correctionPolicy,validPeriod,validOpeningYear});
