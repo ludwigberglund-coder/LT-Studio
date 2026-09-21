@@ -33,7 +33,7 @@ Det gör att samma grundlayout kan tillämpas även om äldre moduler fortfarand
 Den gemensamma portalramen använder:
 
 - över 1000 px: ordinarie sidomeny med `--sidebar-width` (248 px)
-- 721–1000 px: kompakt sidomeny på 76 px
+- 721–1000 px: smalare men fortfarande textläsbar sidomeny på 220 px
 - 720 px och mindre: enkolumnslayout där sidomenyn döljs
 
 Modulspecifik CSS får styra innehållet inne i respektive modul, men ska inte ändra dessa grundläggande portalbrytpunkter.
