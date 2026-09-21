@@ -339,7 +339,66 @@ function createR2EuBackupTarget({env=process.env,config,fetchImpl=globalThis.fet
     return Object.freeze({storageKey,verified:true,alreadyExisted,sha256,sizeBytes});
   }
 
-  return Object.freeze({putAndVerify});
+  async function getToFile({storageKey,filename,sha256,sizeBytes}={}){
+    const targetFile=path.resolve(String(filename||''));
+    const expectedSha=String(sha256||'').trim().toLowerCase();
+    if(!targetFile||filename==null)throw backupError('Restore-destination saknas.','R2_BACKUP_DOWNLOAD_TARGET_REQUIRED');
+    if(!/^[a-f0-9]{64}$/.test(expectedSha))throw backupError('Restore-SHA-256 är ogiltig.','R2_BACKUP_DOWNLOAD_SHA256_INVALID');
+    if(!Number.isSafeInteger(sizeBytes)||sizeBytes<1)throw backupError('Restore-storleken är ogiltig.','R2_BACKUP_DOWNLOAD_SIZE_INVALID');
+    if(fs.existsSync(targetFile))throw backupError('Restore-destinationen finns redan.','R2_BACKUP_DOWNLOAD_TARGET_EXISTS');
+
+    const response=await signedFetch({method:'GET',storageKey});
+    if(!response?.ok){
+      throw backupError(
+        'R2 offsite-download misslyckades.',
+        'R2_BACKUP_GET_FAILED',
+        {statusCode:Number(response?.status)||0}
+      );
+    }
+
+    fs.mkdirSync(path.dirname(targetFile),{recursive:true,mode:0o700});
+    const temp=targetFile+'.tmp-'+crypto.randomUUID();
+    const hash=crypto.createHash('sha256');
+    let actualSize=0,fd;
+    try{
+      fd=fs.openSync(temp,'wx',0o600);
+      const writeChunk=chunk=>{
+        const bytes=Buffer.from(chunk);
+        let offset=0;
+        while(offset<bytes.length)offset+=fs.writeSync(fd,bytes,offset,bytes.length-offset);
+        actualSize+=bytes.length;
+        hash.update(bytes);
+      };
+      if(response.body&&typeof response.body[Symbol.asyncIterator]==='function'){
+        for await(const chunk of response.body)writeChunk(chunk);
+      }else if(typeof response.arrayBuffer==='function'){
+        writeChunk(Buffer.from(await response.arrayBuffer()));
+      }else{
+        throw backupError('R2 offsite-download saknar läsbart svar.','R2_BACKUP_RESPONSE_BODY_REQUIRED');
+      }
+      fs.fsyncSync(fd);
+      fs.closeSync(fd);fd=null;
+
+      const contentLength=response.headers?.get?.('content-length');
+      if(contentLength!=null&&contentLength!==''&&Number(contentLength)!==actualSize){
+        throw backupError('R2 offsite-download har fel Content-Length.','R2_BACKUP_CONTENT_LENGTH_MISMATCH');
+      }
+      const actualSha=hash.digest('hex');
+      if(actualSha!==expectedSha||actualSize!==sizeBytes){
+        throw backupError('Nedladdad R2-backup matchar inte förväntad SHA-256 och storlek.','R2_BACKUP_REMOTE_INTEGRITY_MISMATCH');
+      }
+      fs.renameSync(temp,targetFile);
+      fs.chmodSync(targetFile,0o600);
+      return Object.freeze({storageKey,filename:targetFile,sha256:actualSha,sizeBytes:actualSize,verified:true});
+    }catch(error){
+      try{if(fd!=null)fs.closeSync(fd)}catch{}
+      fs.rmSync(temp,{force:true});
+      fs.rmSync(targetFile,{force:true});
+      throw error;
+    }
+  }
+
+  return Object.freeze({putAndVerify,getToFile});
 }
 
 async function uploadEncryptedBackup({artifact,target}={}){
