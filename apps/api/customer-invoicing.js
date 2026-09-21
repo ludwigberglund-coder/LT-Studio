@@ -71,7 +71,6 @@ function initializeCustomerInvoicing(db){
       payment_terms_days INTEGER NOT NULL DEFAULT 30 CHECK(payment_terms_days BETWEEN 0 AND 365),
       our_reference TEXT NOT NULL DEFAULT '',
       your_reference TEXT NOT NULL DEFAULT '',
-      updated_by TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
       updated_at TEXT NOT NULL,
       PRIMARY KEY(company_id,customer_id)
     ) STRICT;
@@ -120,24 +119,22 @@ function initializeCustomerInvoicing(db){
     BEGIN SELECT RAISE(ABORT,'ISSUED_INVOICE_IMMUTABLE'); END;`);
 }
 function customerInvoicePreferences(db,companyId,customerId){
-  const row=db.prepare(`SELECT payment_terms_days AS paymentTermsDays,our_reference AS ourReference,your_reference AS yourReference,
-    updated_by AS updatedBy,updated_at AS updatedAt
+  const row=db.prepare(`SELECT payment_terms_days AS paymentTermsDays,our_reference AS ourReference,your_reference AS yourReference
     FROM customer_invoice_customer_preferences WHERE company_id=? AND customer_id=?`).get(companyId,customerId);
-  return row||{paymentTermsDays:30,ourReference:'',yourReference:'',updatedBy:null,updatedAt:null};
+  return row||{paymentTermsDays:30,ourReference:'',yourReference:''};
 }
-function setCustomerInvoicePreferences(db,{companyId,customerId,paymentTermsDays=30,ourReference='',yourReference='',updatedBy}){
+function setCustomerInvoicePreferences(db,{companyId,customerId,paymentTermsDays=30,ourReference='',yourReference=''}){
   const days=Number(paymentTermsDays);
   if(!Number.isInteger(days)||days<0||days>365)throw invoiceError('Betalningsvillkor måste vara ett helt antal dagar mellan 0 och 365.','INVALID_CUSTOMER_PAYMENT_TERMS',422);
   const own=text(ourReference),their=text(yourReference);
   if(own.length>120||their.length>120)throw invoiceError('Fakturareferens får vara högst 120 tecken.','INVALID_CUSTOMER_INVOICE_REFERENCE',422);
-  if(!updatedBy)throw invoiceError('Användare krävs för att uppdatera kundens faktureringsstandarder.','CUSTOMER_PREFERENCE_USER_REQUIRED',422);
   const now=new Date().toISOString();
-  db.prepare(`INSERT INTO customer_invoice_customer_preferences(company_id,customer_id,payment_terms_days,our_reference,your_reference,updated_by,updated_at)
-    VALUES(?,?,?,?,?,?,?)
+  db.prepare(`INSERT INTO customer_invoice_customer_preferences(company_id,customer_id,payment_terms_days,our_reference,your_reference,updated_at)
+    VALUES(?,?,?,?,?,?)
     ON CONFLICT(company_id,customer_id) DO UPDATE SET
       payment_terms_days=excluded.payment_terms_days,our_reference=excluded.our_reference,your_reference=excluded.your_reference,
-      updated_by=excluded.updated_by,updated_at=excluded.updated_at`)
-    .run(companyId,customerId,days,own,their,updatedBy,now);
+      updated_at=excluded.updated_at`)
+    .run(companyId,customerId,days,own,their,now);
   return customerInvoicePreferences(db,companyId,customerId);
 }
 function customersWithInvoicePreferences(db,companyId){
