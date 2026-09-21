@@ -159,3 +159,17 @@ test('ingående balans är företagsisolerad och kan inte rättas som friståend
     assert.equal(Accounting.listEntries(db,company.id).length,1);
   }finally{db.close()}
 });
+
+
+test('första ingående balans måste importeras innan årets övriga verifikationer',()=>{
+  const {db,company,maker}=seed();
+  try{
+    post(db,company,maker,'already-started','2026-01-02');
+    assert.throws(()=>Admin.importOpeningBalance(db,{companyId:company.id,year:'2026',postingDate:'2026-01-01',createdBy:maker.id,lines:[
+      {account:'1930',debitOre:10000,creditOre:0},
+      {account:'2091',debitOre:0,creditOre:10000}
+    ]}),e=>e.code==='OPENING_BALANCE_REQUIRES_EMPTY_YEAR'&&e.statusCode===409);
+    assert.equal(Accounting.listEntries(db,company.id).length,1);
+    assert.equal(Admin.openingBalanceByYear(db,company.id,'2026'),null);
+  }finally{db.close()}
+});
