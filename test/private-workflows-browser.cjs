@@ -110,6 +110,16 @@ const Settings=require('../apps/api/company-invoice-settings.js');
     checks.push('Blocked customer invoice issue action stays disabled after editor actions');
     Settings.setInvoiceSettings(f.db,{companyId:f.a.id,bankgiro:'123-4567',taxStatus:'Testunderlag',vatNumber:'SE559900100101',updatedBy:f.admin.id});
     await page.goto(f.base+'/portal/invoices.html');
+    await page.getByRole('button',{name:'+ Ny kundfaktura',exact:true}).click();
+    await page.locator('#invoice-form').waitFor();
+    const invoiceCountBeforeEnter=f.db.prepare('SELECT COUNT(*) AS n FROM invoices WHERE company_id=?').get(f.a.id).n;
+    await page.locator('#invoice-form [name=customerNumber]').selectOption(f.customer.customerNumber);
+    await page.locator('#invoice-form [name=invoiceDate]').press('Enter');
+    await page.waitForTimeout(150);
+    assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM invoices WHERE company_id=?').get(f.a.id).n,invoiceCountBeforeEnter);
+    assert.match(await page.locator('#invoice-alert').innerText(),/Enter ställer inte ut fakturan/);
+    checks.push('Enter cannot issue a customer invoice; explicit issue button is required');
+    await page.goto(f.base+'/portal/invoices.html');
     await page.locator(`[data-preview="${f.issued.invoice.id}"]`).click();
     const [pdfTab]=await Promise.all([
       page.waitForEvent('popup'),
@@ -124,7 +134,7 @@ const Settings=require('../apps/api/company-invoice-settings.js');
     assert.deepEqual(await page.evaluate(()=>window.__cspFailures),[]);checks.push('Customer PDF button uses real API invoice and local pinned PDF library');
     page.removeAllListeners('dialog');
     page.on('dialog',dialog=>dialog.type()==='prompt'?dialog.accept('Felaktig testfaktura ska krediteras.'):dialog.accept());
-    await page.getByRole('button',{name:'Kreditera faktura',exact:true}).click();
+    await page.getByRole('button',{name:'Kreditera & kvitta',exact:true}).click();
     await page.getByRole('heading',{name:/Kreditfaktura /}).waitFor({timeout:30000});
     const creditedOriginal=Db.invoiceById(f.db,f.a.id,f.issued.invoice.id);
     assert.equal(creditedOriginal.status,'Krediterad');
