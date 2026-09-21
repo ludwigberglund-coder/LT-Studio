@@ -4,7 +4,6 @@ const fs=require('node:fs');
 const path=require('node:path');
 const Auth=require('../apps/api/auth.js');
 const Db=require('../apps/api/database.js');
-const {assertOutsideRepository}=require('./bootstrap-platform.js');
 
 const SYNTHETIC_TENANTS=Object.freeze([
   Object.freeze({
@@ -46,11 +45,24 @@ function cleanupDatabaseFiles(filename){
   }
 }
 
+function assertFreshDatabasePath(root,filename){
+  if(!path.isAbsolute(filename))throw new Error('ROLLANDS_DATABASE_PATH måste vara en absolut sökväg i staging.');
+  const resolved=path.resolve(filename);
+  const parent=path.dirname(resolved);
+  if(!fs.existsSync(parent)||!fs.statSync(parent).isDirectory())throw new Error('Katalogen för ROLLANDS_DATABASE_PATH måste finnas innan staging-bootstrap körs.');
+  const rootReal=fs.realpathSync(root);
+  const parentReal=fs.realpathSync(parent);
+  const relative=path.relative(rootReal,parentReal);
+  if(!relative||(!relative.startsWith('..')&&!path.isAbsolute(relative)))throw new Error('ROLLANDS_DATABASE_PATH måste ligga utanför Git-repositoryt.');
+  const realTarget=path.join(parentReal,path.basename(resolved));
+  if(fs.existsSync(realTarget))throw new Error('Synthetic staging-bootstrap kräver en helt ny databasfil. Befintlig databas får inte återanvändas.');
+  return realTarget;
+}
+
 function bootstrapSyntheticStaging({env=process.env,root=path.resolve(__dirname,'..')}={}){
   assertSyntheticStaging(env);
 
-  const databasePath=assertOutsideRepository(root,required(env,'ROLLANDS_DATABASE_PATH'));
-  if(fs.existsSync(databasePath))throw new Error('Synthetic staging-bootstrap kräver en helt ny databasfil. Befintlig databas får inte återanvändas.');
+  const databasePath=assertFreshDatabasePath(root,required(env,'ROLLANDS_DATABASE_PATH'));
 
   const encryptionKey=required(env,'ROLLANDS_AUTH_ENCRYPTION_KEY');
   if(encryptionKey.length<32)throw new Error('ROLLANDS_AUTH_ENCRYPTION_KEY måste vara minst 32 tecken.');
@@ -127,4 +139,4 @@ if(require.main===module){
   try{main()}catch(error){console.error(error.message);process.exitCode=1}
 }
 
-module.exports={SYNTHETIC_TENANTS,assertSyntheticStaging,bootstrapSyntheticStaging,cleanupDatabaseFiles};
+module.exports={SYNTHETIC_TENANTS,assertSyntheticStaging,assertFreshDatabasePath,bootstrapSyntheticStaging,cleanupDatabaseFiles};
