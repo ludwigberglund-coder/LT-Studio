@@ -12,7 +12,8 @@ function serviceError(message,code='AUTOMATION_REVIEW_ERROR',statusCode=422){con
 function text(v){return String(v??'').trim()}
 function accountExists(number){return ACCOUNTS.some(row=>row.number===text(number))}
 function customerInvoice(db,companyId,invoiceId){return db.prepare(`SELECT i.id,i.invoice_number AS invoiceNumber,i.remaining_ore AS remainingOre,i.total_ore AS totalOre,i.due_date AS dueDate,c.name AS customerName FROM invoices i JOIN customers c ON c.id=i.customer_id AND c.company_id=i.company_id WHERE i.company_id=? AND i.id=?`).get(companyId,invoiceId)||null}
-function matchingCustomerInvoices(db,companyId,amountOre){return db.prepare(`SELECT i.id,i.invoice_number AS invoiceNumber,i.remaining_ore AS remainingOre,i.due_date AS dueDate,c.name AS customerName FROM invoices i JOIN customers c ON c.id=i.customer_id AND c.company_id=i.company_id WHERE i.company_id=? AND i.remaining_ore=? AND i.remaining_ore>0 ORDER BY i.due_date,i.invoice_number`).all(companyId,Number(amountOre||0))}
+function matchingCustomerInvoices(db,companyId,amountOre){return db.prepare(`SELECT i.id,i.invoice_number AS invoiceNumber,i.remaining_ore AS remainingOre,i.due_date AS dueDate,c.name AS customerName FROM invoices i JOIN customers c ON c.id=i.customer_id AND c.company_id=i.company_id WHERE i.company_id=? AND i.remaining_ore>=? AND i.remaining_ore>0 ORDER BY i.due_date,i.invoice_number`).all(companyId,Number(amountOre||0))}
+function exactCustomerInvoices(db,companyId,amountOre){return db.prepare(`SELECT i.id,i.invoice_number AS invoiceNumber,i.remaining_ore AS remainingOre,i.due_date AS dueDate,c.name AS customerName FROM invoices i JOIN customers c ON c.id=i.customer_id AND c.company_id=i.company_id WHERE i.company_id=? AND i.remaining_ore=? AND i.remaining_ore>0 ORDER BY i.due_date,i.invoice_number`).all(companyId,Number(amountOre||0))}
 function supplierInvoice(db,companyId,invoiceId){try{return db.prepare(`SELECT i.id,i.supplier_invoice_number AS invoiceNumber,i.total_ore AS totalOre,i.vat_ore AS vatOre,s.name AS supplierName FROM supplier_invoices i JOIN suppliers s ON s.id=i.supplier_id AND s.company_id=i.company_id WHERE i.company_id=? AND i.id=?`).get(companyId,invoiceId)||null}catch{return null}}
 function bankPayment(db,companyId,paymentId){try{return db.prepare(`SELECT id,booking_date AS bookingDate,amount_ore AS amountOre,reference,message,payer_name AS payerName FROM bank_payments WHERE company_id=? AND id=?`).get(companyId,paymentId)||null}catch{return null}}
 function enrichProposal(db,proposal){
@@ -27,7 +28,7 @@ function enrichProposal(db,proposal){
       const allocation=CustomerPayment.currentAllocation(db,execution);
       const allocatedInvoice=customerInvoice(db,p.companyId,allocation.invoiceId);
       p.currentAllocation=allocatedInvoice?{invoiceId:allocatedInvoice.id,invoiceNumber:allocatedInvoice.invoiceNumber,customerName:allocatedInvoice.customerName,remainingOre:allocatedInvoice.remainingOre}:null;
-      if(p.context)p.context.invoiceOptions=(p.context.invoiceOptions||[]).filter(row=>row.id!==allocation.invoiceId);
+      if(p.context)p.context.invoiceOptions=exactCustomerInvoices(db,p.companyId,execution.amountOre).filter(row=>row.id!==allocation.invoiceId);
     }
   }
   if(p.type==='supplier-invoice-coding'){
@@ -42,10 +43,10 @@ function saveReviewEdits(db,{companyId,proposalId,editedBy,input}){
   const proposal=Queues.automationProposalById(db,companyId,proposalId);if(!proposal)throw serviceError('Automationsförslaget hittades inte.','PROPOSAL_NOT_FOUND',404);
   const enriched=enrichProposal(db,proposal);const normalized=Review.validateEditedSuggestion(enriched,input);
   if(Array.isArray(normalized.accountingLines))validateAccounts(normalized.accountingLines,enriched.review?.accountingLines||[]);
-  if(proposal.type==='bank-payment-match'&&normalized.invoiceId){const target=customerInvoice(db,companyId,normalized.invoiceId);if(!target)throw serviceError('Den valda kundfakturan hittades inte i företaget.','TARGET_INVOICE_NOT_FOUND',404);const payment=bankPayment(db,companyId,normalized.bankPaymentId||proposal.sourceId);if(payment&&Number(target.remainingOre)!==Number(payment.amountOre))throw serviceError('I den här versionen måste den valda fakturans restbelopp exakt motsvara inbetalningen.','TARGET_AMOUNT_MISMATCH',409);normalized.invoiceNumber=target.invoiceNumber;normalized.customerName=target.customerName}
+  if(proposal.type==='bank-payment-match'&&normalized.invoiceId){const target=customerInvoice(db,companyId,normalized.invoiceId);if(!target)throw serviceError('Den valda kundfakturan hittades inte i företaget.','TARGET_INVOICE_NOT_FOUND',404);const payment=bankPayment(db,companyId,normalized.bankPaymentId||proposal.sourceId);if(payment&&Number(target.remainingOre)<Number(payment.amountOre))throw serviceError('Den valda fakturans restbelopp får inte vara lägre än inbetalningen.','TARGET_AMOUNT_MISMATCH',409);normalized.invoiceNumber=target.invoiceNumber;normalized.customerName=target.customerName}
   const updatedAt=new Date().toISOString();
   const result=db.prepare(`UPDATE automation_proposals SET suggestion_json=?,status='manual-review',deterministic=0,ambiguous=1,decision_reason=? WHERE company_id=? AND id=? AND status IN ('manual-review','ready-for-approval')`).run(JSON.stringify(normalized),'Förslaget har ändrats manuellt och kräver därför ny mänsklig granskning före godkännande.',companyId,proposalId);
   if(result.changes!==1)throw serviceError('Förslaget kan inte ändras i nuvarande status.','INVALID_PROPOSAL_STATUS',409);
   return{proposal:byIdForReview(db,companyId,proposalId),editedBy,editedAt:updatedAt};
 }
-module.exports=Object.freeze({ACCOUNTS,accountExists,customerInvoice,matchingCustomerInvoices,supplierInvoice,bankPayment,enrichProposal,listForReview,byIdForReview,saveReviewEdits});
+module.exports=Object.freeze({ACCOUNTS,accountExists,customerInvoice,matchingCustomerInvoices,exactCustomerInvoices,supplierInvoice,bankPayment,enrichProposal,listForReview,byIdForReview,saveReviewEdits});
