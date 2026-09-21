@@ -198,9 +198,9 @@ function correctSupplierInvoiceDates(db,{companyId,invoiceId,requestId,newInvoic
 
     let invoice=supplierInvoiceWithAccountingStatus(db,companyId,invoiceId);
     if(!invoice)throw flowError('Leverantörsfakturan hittades inte.','INVOICE_NOT_FOUND',404);
+    if(Payables.paymentByInvoice(db,companyId,invoiceId))throw flowError('Datumet kan inte rättas efter att en betalning har förberetts. Rätta betalningsflödet först.','SUPPLIER_INVOICE_CORRECTION_PAYMENT_EXISTS',409);
     if(invoice.status!=='approved'||invoice.accountingStatus!=='posted'||!invoice.liabilityAccountingEntryId)throw flowError('Endast en bokförd och obetald leverantörsfaktura kan få datumet rättat i detta flöde.','SUPPLIER_INVOICE_DATE_CORRECTION_NOT_ALLOWED',409);
     if(invoice.openAmountOre!==invoice.totalOre)throw flowError('Fakturans öppna reskontrabelopp måste motsvara hela fakturabeloppet innan datumet kan rättas.','SUPPLIER_INVOICE_CORRECTION_OPEN_AMOUNT_MISMATCH',409);
-    if(Payables.paymentByInvoice(db,companyId,invoiceId))throw flowError('Datumet kan inte rättas efter att en betalning har förberetts. Rätta betalningsflödet först.','SUPPLIER_INVOICE_CORRECTION_PAYMENT_EXISTS',409);
     if(invoice.invoiceDate===invoiceDate&&invoice.dueDate===dueDate)throw flowError('De nya datumen är identiska med fakturans nuvarande datum.','SUPPLIER_INVOICE_CORRECTION_NOOP',409);
 
     const validated=assertSupplierInvoiceCoding(invoice);
