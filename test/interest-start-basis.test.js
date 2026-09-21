@@ -4,9 +4,12 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
+const http=require('node:http');
+const crypto=require('node:crypto');
 const Db=require('../apps/api/database.js');
+const Auth=require('../apps/api/auth.js');
 const Receivables=require('../packages/receivables/customer-receivables.js');
-const {verifiedInterestStartEvidence}=require('../apps/api/app.js');
+const {createApiApp,verifiedInterestStartEvidence}=require('../apps/api/app.js');
 
 const legalRates=JSON.parse(fs.readFileSync(path.join(__dirname,'..','config','legal-rates.json'),'utf8'));
 
@@ -115,4 +118,50 @@ test('påminnelse utan ränta fungerar när startgrunden saknas',()=>{
   assert.equal(preview.interestOre,0);
   assert.equal(preview.interestStartBasis,'none');
   assert.equal(preview.totalDueOre,invoice.remainingOre);
+});
+
+
+test('API härleder verifierad räntegrund från det integritetskontrollerade fakturaunderlaget',async()=>{
+  const db=Db.openDatabase(':memory:');
+  let server;
+  try{
+    const company=Db.createCompany(db,{legalName:'API Ränteprov AB',displayName:'API Ränteprov',orgNumber:'559900-6501'});
+    const user=Db.createUser(db,{username:'interest.api',displayName:'Interest API',passwordHash:'test-hash'});
+    Db.addMembership(db,{companyId:company.id,userId:user.id});
+    const customer=Db.createCustomer(db,{companyId:company.id,customerNumber:'K-1',name:'Kund AB',customerType:'business'});
+    const invoice=Db.createInvoice(db,{
+      companyId:company.id,customerId:customer.id,invoiceNumber:'310001',invoiceDate:'2026-09-01',postingDate:'2026-09-01',
+      dueDate:'2026-10-01',totalOre:125000,remainingOre:125000,vatOre:25000,status:'Bokförd'
+    });
+    const api=createApiApp({db,secureCookies:false});
+    const document={invoiceNumber:'310001',invoiceDate:'2026-09-01',postingDate:'2026-09-01',dueDate:'2026-10-01',paymentTermsDays:30};
+    const documentJson=JSON.stringify(document);
+    const documentSha256=crypto.createHash('sha256').update(documentJson).digest('hex');
+    db.prepare('INSERT INTO customer_invoice_documents(invoice_id,company_id,document_json,document_sha256,created_at) VALUES(?,?,?,?,?)')
+      .run(invoice.id,company.id,documentJson,documentSha256,'2026-09-01T10:00:00.000Z');
+
+    const token='interest-session-token',csrf='interest-csrf-token';
+    Db.createSession(db,{
+      tokenHash:Auth.hashToken(token),csrfHash:Auth.hashToken(csrf),userId:user.id,companyId:company.id,
+      expiresAt:'2099-01-01T00:00:00.000Z',absoluteExpiresAt:'2099-01-01T00:00:00.000Z'
+    });
+
+    server=http.createServer((req,res)=>api.handle(req,res));
+    await new Promise((resolve,reject)=>server.listen(0,'127.0.0.1',error=>error?reject(error):resolve()));
+    const base='http://127.0.0.1:'+server.address().port;
+    const response=await fetch(base+'/api/v1/invoices/'+invoice.id+'/reminders/preview',{
+      method:'POST',
+      headers:{Cookie:'rollands_session='+token,'Content-Type':'application/json','X-CSRF-Token':csrf},
+      body:JSON.stringify({sentDate:'2026-10-20',includeInterest:true})
+    });
+    const body=await response.json();
+    assert.equal(response.status,200);
+    assert.ok(body.preview.interestOre>0);
+    assert.equal(body.preview.interestStartBasis,'predetermined-due-date');
+    assert.equal(body.preview.interestStartEvidenceSource,'issued-invoice-document');
+    assert.equal(body.preview.interestStartVerifiedAt,'2026-09-01T10:00:00.000Z');
+  }finally{
+    if(server)await new Promise(resolve=>server.close(resolve));
+    db.close();
+  }
 });
