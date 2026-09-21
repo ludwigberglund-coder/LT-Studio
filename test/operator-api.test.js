@@ -75,7 +75,9 @@ test('operator-API kräver separat operatörssession och läcker inte kundernas 
   assert.ok([200,503].includes(readiness.status));
   const readinessBody=await readiness.json();
   assert.equal(readinessBody.service,'rollands-api-v1');
-  assert.ok(Array.isArray(readinessBody.checks));
+  assert.equal(typeof readinessBody.checks,'object');
+  assert.equal(typeof readinessBody.checks.databaseRead,'boolean');
+  assert.equal(typeof readinessBody.checks.databaseWrite,'boolean');
 }));
 
 test('operator-session använder MFA, CSRF och server-side logout',()=>withOperatorApi(async({runtime,base,operator})=>{
