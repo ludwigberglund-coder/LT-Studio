@@ -4,6 +4,7 @@ const path=require('node:path');
 const {validateStaging}=require('./staging-preflight.js');
 const Readiness=require('../apps/api/readiness.js');
 const AuditAnchorR2=require('./audit-anchor-r2.js');
+const LoggingEvidence=require('./staging-logging-evidence.js');
 
 function requiredPath(env,name){
   const value=String(env?.[name]||'').trim();
@@ -37,6 +38,12 @@ function validateEvidenceChain(env=process.env,{now=Date.now()}={}){
     String(env.ROLLANDS_MONITORING_EVIDENCE_PATH||''),
     {now}
   );
+  let expectedLoggingRetention=null;
+  try{expectedLoggingRetention=LoggingEvidence.operationsRetention(env)}catch{}
+  const logging=LoggingEvidence.validateLoggingEvidence(
+    String(env.ROLLANDS_LOGGING_EVIDENCE_PATH||''),
+    {now,expectedRetentionDays:expectedLoggingRetention}
+  );
 
   const auditAnchor=AuditAnchorR2.auditAnchorEvidence(
     String(env.ROLLANDS_AUDIT_ANCHOR_EVIDENCE_PATH||''),
@@ -53,6 +60,7 @@ function validateEvidenceChain(env=process.env,{now=Date.now()}={}){
   if(!restore.ok)fail.push('Restore-drillbevis saknas, är ogiltigt eller för gammalt.');
   if(!r2Restore.ok)fail.push('R2 restore-drillbevis saknas, är ogiltigt eller för gammalt.');
   if(!monitoring.ok)fail.push('Monitorerings-/larmbevis saknas, är ogiltigt eller för gammalt.');
+  if(!logging.ok)fail.push('Central loggtransport saknar färskt verifierat request-id-bevis eller matchande retention.');
   if(!auditAnchor.ok)fail.push('Audit-ankaret saknas, är ogiltigt, för gammalt eller matchar inte nuvarande audit-historik.');
 
   const configuredObjectBucket=String(env.R2_STAGING_BUCKET||'').trim();
@@ -97,6 +105,7 @@ function validateEvidenceChain(env=process.env,{now=Date.now()}={}){
     restoreDrill:restore.ok,
     r2RestoreDrill:r2Restore.ok&&r2Restore.bucket===configuredBackupBucket,
     monitoring:monitoring.ok,
+    logging:logging.ok,
     auditAnchor:auditAnchor.ok&&auditAnchor.bucket===configuredAuditBucket,
     sameBackupArtifact:
       offsite.ok&&restore.ok&&r2Restore.ok&&
@@ -119,6 +128,9 @@ function validateEvidenceChain(env=process.env,{now=Date.now()}={}){
       r2RestoreDrillAgeMs:r2Restore.ageMs,
       monitoringAgeMs:monitoring.ageMs,
       alertAgeMs:monitoring.alertAgeMs,
+      loggingAgeMs:logging.ageMs,
+      loggingRetentionDays:logging.retentionDays,
+      loggingTestRequestId:logging.testRequestId,
       auditAnchorAgeMs:auditAnchor.ageMs,
       auditAnchorRootSha256:auditAnchor.rootSha256||null
     })
@@ -133,6 +145,7 @@ function main(){
       'ROLLANDS_RESTORE_DRILL_EVIDENCE_PATH',
       'ROLLANDS_R2_RESTORE_DRILL_EVIDENCE_PATH',
       'ROLLANDS_MONITORING_EVIDENCE_PATH',
+      'ROLLANDS_LOGGING_EVIDENCE_PATH',
       'ROLLANDS_AUDIT_ANCHOR_PATH',
       'ROLLANDS_AUDIT_ANCHOR_EVIDENCE_PATH'
     ])requiredPath(process.env,name);
