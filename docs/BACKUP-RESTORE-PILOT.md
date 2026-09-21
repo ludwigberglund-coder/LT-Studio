@@ -38,7 +38,8 @@ Kommandot gör **inga nätverksanrop till R2** och bevisar därför inte att cre
 5. skapa krypterad backup och köra `npm run pilot:backup:offsite-r2`,
 6. genomföra separat lokal restore-drill,
 7. köra `npm run pilot:restore:r2-drill` så backupen hämtas tillbaka från R2 och verifieras i isolerad miljö,
-8. genomföra verkligt monitorerings-/larmtest.
+8. konfigurera extern HTTPS-monitorering mot `/api/v1/readiness/core`, utlösa ett verkligt testlarm hos monitoreringsleverantören och bekräfta att larmet nådde avsedd väg,
+9. registrera det verifierade probe-/larmbeviset med `npm run staging:monitoring:evidence`.
 
 När de fyra privata evidensfilerna finns ska hela kedjan verifieras med:
 
@@ -47,6 +48,10 @@ npm run staging:evidence:verify
 ```
 
 Kedjeverifieringen kräver färsk godkänd R2-audit, verifierad offsite-backup, godkänd lokal restore-drill, godkänd **R2 restore-drill** och fungerande extern HTTPS-monitorering/larm.
+
+Den externa monitorn ska kontrollera **`/api/v1/readiness/core`**, inte full `/api/v1/readiness`.
+
+`staging:monitoring:evidence` utlöser inte larmet åt monitoreringsleverantören. Testlarmet ska först skickas via leverantörens riktiga test-/incidentflöde och faktiskt tas emot. Därefter anges leverantör, larmväg, testtid, en referens till testlarmet och vem/funktionen som observerade leveransen i den privata driftmiljön. Kommandot gör sedan själv en ny extern HTTPS-probe mot core-readiness och skriver evidensfilen med filrättighet 0600 utanför Git-repositoryt. Placeholder-värden, gammal testtid, utebliven leveransbekräftelse, HTTP/localhost eller fel readiness-path nekas.
 
 Den externa monitorn ska kontrollera **`/api/v1/readiness/core`**, inte full `/api/v1/readiness`. Core-endpointen innehåller alla tekniska readiness-kontroller som kan bevisas utan monitoreringsbeviset självt. När extern HTTPS-probe och ett avsiktligt testlarm har lyckats skrivs monitoreringsevidensen; därefter kan full `/api/v1/readiness` bli grön. Detta undviker att en ny stagingmiljö kräver ett monitoreringsbevis för att kunna skapa sitt första monitoreringsbevis. Både den lokala restore-drillen och R2 restore-drillen måste avse **exakt samma krypterade backupfil och SHA-256** som offsite-uploaden läste tillbaka från R2. R2 restore-drillen laddar ned den krypterade filen från den privata backupbucketen, verifierar SHA-256 och storlek, dekrypterar en isolerad kopia, kör full SQLite/tenant/journal/privatobjekt-verifiering och raderar därefter både download och restore-kopia. Serverns `/api/v1/readiness/core` gör samma identitetskontroll i staging, så en gammal evidensfil från en annan bucket eller en restore av en annan backup kan inte ge grön server-readiness. Ett grönt resultat är fortfarande ett stagingbevis, inte ett produktionscutover-beslut.
 
