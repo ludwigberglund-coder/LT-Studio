@@ -10,7 +10,9 @@ const RULES=Object.freeze([
   {id:'github-token',regex:/\bgh(?:p|o|u|s|r)_[A-Za-z0-9]{20,}\b/},
   {id:'slack-token',regex:/\bxox(?:b|p|a|r|s)-[A-Za-z0-9-]{20,}\b/},
   {id:'openai-key',regex:/\bsk-[A-Za-z0-9_-]{20,}\b/},
-  {id:'stripe-secret',regex:/\bsk_(?:live|test)_[A-Za-z0-9]{20,}\b/}
+  {id:'stripe-secret',regex:/\bsk_(?:live|test)_[A-Za-z0-9]{20,}\b/},
+  {id:'rollands-runtime-secret',regex:/\b(?:ROLLANDS_AUTH_ENCRYPTION_KEY|ROLLANDS_BACKUP_ENCRYPTION_KEY|ROLLANDS_BOOTSTRAP_PASSWORD|ROLLANDS_BOOTSTRAP_MFA_SECRET|R2_STAGING_ACCESS_KEY_ID|R2_STAGING_SECRET_ACCESS_KEY|R2_STAGING_SESSION_TOKEN|R2_BACKUP_ACCESS_KEY_ID|R2_BACKUP_SECRET_ACCESS_KEY|R2_BACKUP_SESSION_TOKEN)\s*=\s*[^\s#]{8,}/},
+  {id:'database-url-password',regex:/\b(?:DATABASE_URL|POSTGRES_URL|POSTGRESQL_URL|MONGODB_URI|MYSQL_URL)\s*=\s*(?:postgres(?:ql)?|mongodb(?:\+srv)?|mysql):\/\/[^\s:@]+:[^\s@]+@[^\s]+/i}
 ]);
 const PLACEHOLDER=/REPLACE_WITH|example\.invalid|placeholder|changeme|test-only|not-a-login-hash/i;
 
