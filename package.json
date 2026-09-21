@@ -38,7 +38,8 @@
     "pilot:rollback:verify": "node scripts/pilot-rollback-verify.js",
     "storage:inventory": "node scripts/private-object-inventory.js",
     "storage:plan-copies": "node scripts/private-object-copy-plan.js",
-    "storage:copy-one-r2": "node scripts/private-object-r2-copy-one.js"
+    "storage:copy-one-r2": "node scripts/private-object-r2-copy-one.js",
+    "platform:bootstrap-operator": "node scripts/bootstrap-operator.js"
   },
   "engines": {
     "node": ">=24"
