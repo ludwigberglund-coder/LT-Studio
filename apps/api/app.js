@@ -78,8 +78,7 @@ function reminderRequestFingerprint(reminder) {
     interestStartBasis:String(reminder?.interestStartBasis||''),
     interestStartEvidenceSource:String(reminder?.interestStartEvidenceSource||''),
     interestStartVerifiedAt:String(reminder?.interestStartVerifiedAt||''),
-    interestSegments:Array.isArray(reminder?.interestSegments)?reminder.interestSegments:[],
-    note:String(reminder?.note||'')
+    interestSegments:Array.isArray(reminder?.interestSegments)?reminder.interestSegments:[]
   };
   return crypto.createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
 }
