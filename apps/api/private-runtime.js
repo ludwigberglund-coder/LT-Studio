@@ -18,10 +18,11 @@ const files = new Map([
 ]);
 
 function runtimeError(message) { const e = new Error(message); e.code='UNSAFE_RUNTIME_CONFIGURATION'; return e; }
+function protectedRuntimeMode(env={}) { const mode=String(env.ROLLANDS_ENV||'').trim(); return env.NODE_ENV==='production'||['staging','pilot','production'].includes(mode); }
 function validateRuntime(env, settings) {
   const mode = String(env.ROLLANDS_ENV || '').trim();
   if (mode && !['development','test','staging','pilot','production'].includes(mode)) throw runtimeError('API-servern till\u00e5ter inte demo som driftmilj\u00f6. Anv\u00e4nd den separata statiska demon.');
-  const protectedMode = env.NODE_ENV === 'production' || ['staging','pilot','production'].includes(mode);
+  const protectedMode = protectedRuntimeMode(env);
   if (!protectedMode) return;
   if (settings.db) throw runtimeError('Staging/pilot/produktion kr\u00e4ver en uttryckligt konfigurerad permanent databas.');
   const effective = {...env, ROLLANDS_DATABASE_PATH:settings.databasePath,
@@ -87,4 +88,4 @@ function serveStatic(req,res) {
   }
   return true;
 }
-module.exports=Object.freeze({validateRuntime,demoRequest,resolveStaticRequest,serveStatic,staticHeaders});
+module.exports=Object.freeze({protectedRuntimeMode,validateRuntime,demoRequest,resolveStaticRequest,serveStatic,staticHeaders});
