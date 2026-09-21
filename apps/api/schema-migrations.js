@@ -11,6 +11,13 @@ const MIGRATIONS=Object.freeze([
     name:'core-sqlite-baseline-2026-09-21',
     description:'Adopt the verified LT Studio private SQLite core schema as the versioned migration baseline.',
     sql:''
+  }),
+  Object.freeze({
+    version:2,
+    id:'customer-archive-2026-09-21-v2',
+    name:'customer-archive-and-safe-removal-2026-09-21',
+    description:'Add non-destructive customer archival state so invoice history can be preserved while archived customers are excluded from new invoicing.',
+    sql:'ALTER TABLE customers ADD COLUMN archived_at TEXT; CREATE INDEX IF NOT EXISTS idx_customers_company_archived ON customers(company_id,archived_at,customer_number);'
   })
 ]);
 
@@ -93,16 +100,18 @@ function initialize(db){
   }
 
   let rows=readRows(db);
-  if(rows.length===0){
-    const insert=db.prepare('INSERT INTO schema_migrations(id,version,name,checksum_sha256,applied_at) VALUES(?,?,?,?,?)');
-    for(const migration of expectedRows()){
-      if(migration.sql)db.exec(migration.sql);
-      insert.run(migration.id,migration.version,migration.name,migration.checksumSha256,new Date().toISOString());
+  let report=validateRows(rows);
+  const insert=db.prepare('INSERT INTO schema_migrations(id,version,name,checksum_sha256,applied_at) VALUES(?,?,?,?,?)');
+  for(const migration of expectedRows().filter(row=>row.version>report.currentVersion)){
+    const expectedNext=(rows.at(-1)?.version||0)+1;
+    if(migration.version!==expectedNext){
+      throw migrationError(`Nästa kända migration är version ${migration.version}, men version ${expectedNext} krävs först.`,'SCHEMA_MIGRATION_GAP');
     }
+    if(migration.sql)db.exec(migration.sql);
+    insert.run(migration.id,migration.version,migration.name,migration.checksumSha256,new Date().toISOString());
     rows=readRows(db);
+    report=validateRows(rows);
   }
-
-  const report=validateRows(rows);
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_schema_migrations_version ON schema_migrations(version); CREATE UNIQUE INDEX IF NOT EXISTS idx_schema_migrations_name ON schema_migrations(name);');
   protectAppendOnly(db,'schema_migrations');
   return Object.freeze(report);
