@@ -75,9 +75,22 @@ function validateLines(lines) {
   return {lines: normalized, debitOre: Number(debit), creditOre: Number(credit)};
 }
 
-// A nested savepoint never commits a caller's transaction. On a failed write,
-// both the sequence and every line are rolled back, even without an outer transaction.
+// Standalone posting takes SQLite's write lock before reading the sequence.
+// When a caller already owns a transaction, a savepoint preserves the caller's
+// commit/rollback boundary instead of committing unrelated business work.
 function atomicPosting(db, callback) {
+  if (db.isTransaction !== true) {
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      const result = callback();
+      db.exec('COMMIT');
+      return result;
+    } catch (error) {
+      try { db.exec('ROLLBACK'); } catch {}
+      throw error;
+    }
+  }
+
   const savepoint = `accounting_post_${crypto.randomBytes(12).toString('hex')}`;
   db.exec(`SAVEPOINT ${savepoint}`);
   try {
