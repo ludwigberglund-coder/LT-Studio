@@ -75,6 +75,14 @@ async function auditExternalPrivateObjects(db,{
   }
 
   const issues=[];
+  for(const object of inventory.objects){
+    const row=countsByKind[object.kind];
+    if(row){
+      row.objects+=1;
+      row.bytes+=Number(object.sizeBytes)||0;
+    }
+  }
+
   if(!inventory.ok){
     for(const object of inventory.objects){
       for(const sourceIssue of object.issues){
@@ -108,8 +116,6 @@ async function auditExternalPrivateObjects(db,{
 
   for(const object of inventory.objects){
     const row=countsByKind[object.kind];
-    row.objects+=1;
-    row.bytes+=Number(object.sizeBytes)||0;
 
     const metadata=metadataFromInventoryObject(object);
     const copy=Ledger.copyByIdentity(db,{
