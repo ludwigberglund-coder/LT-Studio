@@ -46,7 +46,8 @@ function createOperationalLogger({writer}={}){
   function emit(input){
     if(!selected)return null;
     const value=record(input);
-    selected(JSON.stringify(value)+'\n');
+    try{selected(JSON.stringify(value)+'\n');}
+    catch{return null}
     return value;
   }
   return Object.freeze({emit,enabled:Boolean(selected)});
