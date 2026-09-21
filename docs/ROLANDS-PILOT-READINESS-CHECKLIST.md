@@ -28,7 +28,7 @@ Senast granskad: 2026-09-21. Företag: Rolands Frukt o Grönt Aktiebolag, 556406
 | Lokalt tekniskt backup-/restore-verktyg | 🟡 Delvis klar | PR 64/66/94 verifierar SQLite, journal och dokumentintegritet. PR 116 kan återställa direkt från krypterad backup. PR 119 lägger restore-drill med privat evidens som readiness kan kräva. Verkligt återställningsprov i avsedd driftmiljö återstår. |
 | Krypterad extern backup, retention och larm | 🟡 Delvis klar | PR 116 skapar autentiserat krypterad `.sqlite.enc`. PR 117 ger dry-run-first retention med explicit `--apply`. PR 119 kräver färskt restore-drill-bevis och PR 122 kräver färskt externt monitorerings-/larmbevis i readiness. Faktisk extern lagring, körd retention och verkligt larmtest återstår. |
 | Arkivering av original och långsiktig läsbarhet | 🟡 Delvis klar | Exakt utfärdad kund-/kredit-PDF och dokumentintegritet är skyddade. PR 200 inventerar och SHA-verifierar alla tre privata filflöden, PR 202/204/208 ger recoverable ledger, idempotent planering och verifierad async copy-worker, och PR 213 ger en fail-closed R2 EU-stagingadapter. Ordinarie runtime läser fortfarande SQLite; verklig stagingmigrering, restore av extern objektlagring, retention och produktions-cutover återstår. |
-| Health/readiness, driftlogg och fungerande larm | 🟡 Delvis klar | PR 95 kontrollerar DB, skrivbarhet, disk och backup. PR 119 lägger färskt restore-drill-bevis och PR 122 kräver extern HTTPS-monitorering med nyligen lyckad readiness-probe och verifierad larmleverans. Central logginsamling och verkligt driftbevis återstår. |
+| Health/readiness, driftlogg och fungerande larm | 🟡 Delvis klar | PR 95 kontrollerar DB, skrivbarhet, disk och backup. PR 119 lägger färskt restore-drill-bevis och PR 122 kräver extern HTTPS-monitorering med nyligen lyckad readiness-probe och verifierad larmleverans. LT Studio har nu dessutom en separat read-only `/operator/`-admin med MFA, egen operatörssession, detaljerade readiness-kontroller och redigerade säkerhetsvarningar. Central logginsamling och verkligt driftbevis återstår. |
 | Secrets-hantering och historikskanning | 🟡 Delvis klar | PR 112 skannar full Git-historik i CI. PR 116 kräver separat backupkrypteringsnyckel och PR 124 ger atomisk rotation av `ROLLANDS_AUTH_ENCRYPTION_KEY` för lagrade MFA-hemligheter med fail-closed förkontroll. Verklig secret manager, genomförd rotation i drift och nyckelretention återstår. |
 | Miljöspärr och separation demo/pilot/produktion | 🟡 Delvis klar | PR 67: bindande startkontroll, privata lagringssökvägar, servernekat demo-query och inga demo-/legacyhjälpfiler. Granskning av befintliga data och verklig drift återstår. |
 | Betalningsöversikt dag/vecka/månad/kvartal | 🟡 Delvis klar | PR 106 samlar in-/utbetalningar i privat vy med dag, ISO-vecka, månad och kvartal samt in/ut/netto-summor. Fler detaljfilter, sortering och browser-UAT återstår. |
@@ -89,9 +89,15 @@ Den tekniska basen har flyttats tydligt framåt sedan checklistans tidigare 2026
 - IDOR-/tenant-matrisen och polymorfa dokumentrelationer har stärkts,
 - finansiella, lager- och leverantörsrelaterade retries har stärkts,
 - kund nummer två kan i CI ställa ut egen faktura med verifierad företagsidentitet, PDF och bokföring utan korsläsning,
-- pseudonymiserade plattformssäkerhetshändelser finns som grund för framtida operatörsövervakning,
+- separat LT Studio-operatörsautentisering, isolerat operator-API och read-only `/operator/`-admin är mergade med MFA, egen session/audit, företagsöversikt, detaljerade readiness-kontroller och redigerade säkerhetsvarningar,
 - en operativ försäljningsrapport med tenant-isolerad export är mergad.
 
 Detta ändrar **inte** det samlade pilotbeslutet. **NO-GO kvarstår** tills minst verklig staging/restore/monitorering, GitHub branch protection/ruleset enligt BLOCKER #226, nödvändiga driftuppgifter och signerat Rolands-UAT är verifierade.
 
 Öppna PR:er räknas inte som färdigt bevis förrän de är mergade och deras CI-resultat är godkänt.
+
+### Utvecklingsbedömning efter LT Studio-admin
+
+Som arbetsbedömning är den tekniska plattformen nu ungefär **80 % av vägen till en kontrollerad första Rolands-pilot**. Detta är inte en formell revisionspoäng eller ett pilotgodkännande. Bedömningen väger in att kärnflöden, tenant-isolering, säker inloggning, bokföringsskydd, rapporter och central read-only driftadmin är långt utvecklade, medan verklig staging, extern backup/restore/monitorering, GitHub-skydd och signerat Rolands-UAT fortfarande är blockerande återstående arbete.
+
+**NO-GO kvarstår** tills dessa drift- och UAT-bevis är verifierade.
