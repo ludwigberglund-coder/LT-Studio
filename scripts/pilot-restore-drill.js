@@ -42,7 +42,7 @@ function runDrill({backupDir,drillDir,evidencePath,backupKey,now=new Date()}){
   try{
     BackupCrypto.decryptFile(source.file,target,backupKey);
     fs.chmodSync(target,0o600);
-    verified=verifyDatabase(target);
+    verified=verifyDatabase(target,{requirePrivateObjectSchema:true});
   }finally{
     fs.rmSync(target,{force:true});
   }
@@ -58,6 +58,7 @@ function runDrill({backupDir,drillDir,evidencePath,backupKey,now=new Date()}){
     journalEntries:Number(verified.journalEntries||0),
     archivedDocuments:Number(verified.archivedDocuments||0),
     privateObjectsVerified:verified.privateObjectsVerified===true,
+    privateObjectSchemaComplete:verified.privateObjectSchemaComplete===true,
     privateObjectCount:Number(verified.privateObjectCount||0),
     verifiedPrivateObjectCount:Number(verified.verifiedPrivateObjectCount||0),
     privateObjectBytes:Number(verified.privateObjectBytes||0),
