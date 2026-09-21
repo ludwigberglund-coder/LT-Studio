@@ -68,6 +68,7 @@ function readinessChecks(){
     ['restoreDrill','Lokal restore-test'],
     ['r2RestoreDrill','R2 · restore-test'],
     ['stagingEvidenceConsistent','Stagingbevis · samma miljö'],
+    ['auditAnchor','Audit · externt ankare'],
     ['monitoring','Extern monitoring']
   ];
   return rows.map(([key,label])=>{
@@ -80,6 +81,7 @@ function readinessChecks(){
     if(key==='r2StagingAudit'&&readiness?.r2StagingAuditAgeMinutes!==null&&readiness?.r2StagingAuditAgeMinutes!==undefined)detail=`${readiness.r2StagingAuditAgeMinutes} min sedan`;
     if(key==='restoreDrill'&&readiness?.restoreDrillAgeMinutes!==null&&readiness?.restoreDrillAgeMinutes!==undefined)detail=`${Math.round(readiness.restoreDrillAgeMinutes/60)} h sedan`;
     if(key==='r2RestoreDrill'&&readiness?.r2RestoreDrillAgeMinutes!==null&&readiness?.r2RestoreDrillAgeMinutes!==undefined)detail=`${Math.round(readiness.r2RestoreDrillAgeMinutes/60)} h sedan`;
+    if(key==='auditAnchor'&&readiness?.auditAnchorAgeMinutes!==null&&readiness?.auditAnchorAgeMinutes!==undefined)detail=`${readiness.auditAnchorAgeMinutes} min sedan`;
     if(key==='monitoring'&&readiness?.monitoringAgeMinutes!==null&&readiness?.monitoringAgeMinutes!==undefined)detail=`${Math.round(readiness.monitoringAgeMinutes/60)} h sedan`;
     return `<div class="health-row"><strong>${esc(label)}</strong><span>${esc(detail||'')}</span><span class="status-pill"><span class="dot ${kind}"></span>${state}</span></div>`;
   }).join('');
@@ -92,7 +94,7 @@ function dashboard(){
   <section class="status-grid">
     <article class="metric"><span>Företag</span><strong>${overview?.companyCount??'—'}</strong><small>miljöer i plattformen</small></article>
     <article class="metric"><span>Aktiva sessioner</span><strong>${overview?.activeSessionCount??'—'}</strong><small>kundsessioner just nu</small></article>
-    <article class="metric"><span>Readiness</span><strong class="${ready.kind}">${ready.label}</strong><small>backup, R2, restore, monitoring och databas</small></article>
+    <article class="metric"><span>Readiness</span><strong class="${ready.kind}">${ready.label}</strong><small>backup, R2, audit, restore, monitoring och databas</small></article>
     <article class="metric"><span>Säkerhet 24 h</span><strong class="${sec.kind}">${sec.label}</strong><small>${overview?.security?.total??0} händelser totalt</small></article>
   </section>
   <section class="panel"><div class="panel-head"><div><h2>Kundmiljöer</h2><p>Teknisk metadata för varje företag.</p></div><button class="button secondary" data-action="refresh">Uppdatera</button></div><div class="table-wrap"><table><thead><tr><th>Företag</th><th>Org.nr</th><th>Åtkomst</th><th>Sessioner</th><th>Fakturaposter</th><th>Senaste aktivitet</th></tr></thead><tbody>${companyRows()}</tbody></table></div></section>
