@@ -68,3 +68,69 @@ test('artiklar är isolerade per företag',()=>{
     assert.equal(Inventory.listItems(db,company.id).length,1);
   }finally{db.close()}
 });
+
+
+test('manuell lagerrörelse är idempotent med request-id och ändrad retry ger konflikt',()=>{
+  const {db,company,counter,item}=seed();try{
+    const input={companyId:company.id,itemId:item.id,movementDate:'2026-09-16',type:'receipt',quantityMilli:10000,note:'Retry-safe leverans',actorId:counter.id,requestId:'inventory-move-0001'};
+    const first=Inventory.addMovementIdempotent(db,input);
+    const retry=Inventory.addMovementIdempotent(db,input);
+    assert.equal(first.duplicate,false);assert.equal(retry.duplicate,true);
+    assert.equal(retry.movement.id,first.movement.id);
+    assert.equal(Inventory.balanceMilli(db,company.id,item.id),10000);
+    assert.equal(Inventory.listMovements(db,company.id,{itemId:item.id}).length,1);
+    assert.throws(()=>Inventory.addMovementIdempotent(db,{...input,quantityMilli:11000}),e=>e.code==='INVENTORY_IDEMPOTENCY_CONFLICT'&&e.statusCode===409);
+    assert.equal(Inventory.balanceMilli(db,company.id,item.id),10000);
+  }finally{db.close()}
+});
+
+test('inventeringsbegäran är idempotent och skapar inte dubbla väntande justeringar',()=>{
+  const {db,company,counter,item}=seed();try{
+    Inventory.addMovement(db,{companyId:company.id,itemId:item.id,movementDate:'2026-09-16',type:'receipt',quantityMilli:10000,actorId:counter.id});
+    const input={companyId:company.id,itemId:item.id,adjustmentDate:'2026-09-16',countedQuantityMilli:9000,reason:'Retry-safe inventering',countedBy:counter.id,requestId:'inventory-adjust-0001'};
+    const first=Inventory.createAdjustmentIdempotent(db,input);
+    const retry=Inventory.createAdjustmentIdempotent(db,input);
+    assert.equal(first.duplicate,false);assert.equal(retry.duplicate,true);
+    assert.equal(retry.adjustment.id,first.adjustment.id);
+    assert.equal(Inventory.listAdjustments(db,company.id,{status:'pending'}).length,1);
+    assert.throws(()=>Inventory.createAdjustmentIdempotent(db,{...input,countedQuantityMilli:8500}),e=>e.code==='INVENTORY_IDEMPOTENCY_CONFLICT'&&e.statusCode===409);
+    assert.equal(Inventory.listAdjustments(db,company.id,{status:'pending'}).length,1);
+  }finally{db.close()}
+});
+
+test('inventory-init migrerar äldre tabeller med request-id utan att ändra gamla rader',()=>{
+  const db=Db.openDatabase(':memory:');
+  try{
+    db.exec(`
+      CREATE TABLE inventory_items(
+        id TEXT PRIMARY KEY,
+        company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+        sku TEXT NOT NULL,name TEXT NOT NULL,unit TEXT NOT NULL,
+        purchase_account TEXT NOT NULL,inventory_account TEXT NOT NULL,
+        active INTEGER NOT NULL DEFAULT 1,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,
+        UNIQUE(company_id,sku)
+      ) STRICT;
+      CREATE TABLE inventory_movements(
+        id TEXT PRIMARY KEY,
+        company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+        item_id TEXT NOT NULL REFERENCES inventory_items(id) ON DELETE RESTRICT,
+        movement_date TEXT NOT NULL,type TEXT NOT NULL,quantity_milli INTEGER NOT NULL,
+        unit_cost_ore INTEGER,reference_type TEXT,reference_id TEXT,note TEXT,
+        actor_id TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,created_at TEXT NOT NULL
+      ) STRICT;
+      CREATE TABLE inventory_adjustments(
+        id TEXT PRIMARY KEY,
+        company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+        item_id TEXT NOT NULL REFERENCES inventory_items(id) ON DELETE RESTRICT,
+        adjustment_date TEXT NOT NULL,current_quantity_milli INTEGER NOT NULL,counted_quantity_milli INTEGER NOT NULL,difference_milli INTEGER NOT NULL,
+        reason TEXT NOT NULL,status TEXT NOT NULL,counted_by TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+        approved_by TEXT REFERENCES users(id),approved_at TEXT,rejected_by TEXT REFERENCES users(id),rejected_at TEXT,created_at TEXT NOT NULL
+      ) STRICT;
+    `);
+    Inventory.initializeInventory(db);
+    assert.ok(db.prepare('PRAGMA table_info(inventory_movements)').all().some(row=>row.name==='request_id'));
+    assert.ok(db.prepare('PRAGMA table_info(inventory_adjustments)').all().some(row=>row.name==='request_id'));
+    Inventory.initializeInventory(db);
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='index' AND name IN ('idx_inventory_movement_company_request','idx_inventory_adjustment_company_request')").get().n,2);
+  }finally{db.close()}
+});

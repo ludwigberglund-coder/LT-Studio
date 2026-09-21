@@ -2,6 +2,7 @@ const app=document.getElementById('inventory-app');
 const isDemo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 let session=null,items=[],movements=[],adjustments=[],selectedId='',message='';
+let movementRequestId='',adjustmentRequestId='',movementInFlight=false,adjustmentInFlight=false;
 
 const demoItems=[
   {id:'item-apple',sku:'APPLE-SE',name:'Svenska äpplen',unit:'kg',purchaseAccount:'4010',inventoryAccount:'1460',quantityMilli:18500,active:true},
@@ -18,6 +19,7 @@ function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt
 function today(){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
 function qty(value,unit){const n=Number(value||0)/1000;return `${new Intl.NumberFormat('sv-SE',{maximumFractionDigits:3}).format(n)} ${unit}`}
 function parseQty(value){const raw=String(value||'').trim().replace(/\s/g,'').replace(',','.');const n=Number(raw);if(!Number.isFinite(n)||n<0)throw new Error('Kvantiteten är ogiltig.');const milli=Math.round(n*1000);if(!Number.isSafeInteger(milli))throw new Error('Kvantiteten är för stor.');return milli}
+function newRequestId(prefix){return `${prefix}-${crypto.randomUUID()}`}
 async function api(path,options={}){const headers={'Accept':'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})};if(options.method&&options.method!=='GET'&&csrfToken)headers['X-CSRF-Token']=csrfToken;const r=await fetch(`/api/v1${path}`,{credentials:'same-origin',...options,headers,body:options.body?JSON.stringify(options.body):undefined});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||'Begäran misslyckades.');return data}
 function selected(){return items.find(i=>i.id===selectedId)||items[0]||null}
 function sidebar(){const suffix=isDemo?'?demo=1':'';return `<aside class="sidebar inventory-nav"><div class="logo"><strong>${esc(isDemo?'Rollands':session?.company?.name||'Företaget')}</strong><small>LT STUDIO</small></div><div class="company-pill">${esc(session?.company?.name||(isDemo?'Rollands Frukt o Grönt AB':'Företaget'))}<br>${isDemo?'Demoföretag':'Personlig session'}</div><div class="side-group"><span>Arbetsyta</span><a class="side-link" href="./dashboard.html${suffix}">Översikt</a></div><div class="side-group"><span>Ekonomi</span><a class="side-link" href="./payables.html${suffix}">Leverantörsfakturor</a><a class="side-link" href="./bank.html${suffix}">Bank & avstämning</a><a class="side-link" href="./suppliers.html${suffix}">Leverantörer</a><a class="side-link active" href="./inventory.html${suffix}">Lager</a><a class="side-link" href="./automation.html${suffix}">Automationskö</a></div><div class="sidebar-footer">Saldo i tusendelar · svinn och inventering spåras separat.</div></aside>`}
@@ -30,5 +32,49 @@ function render(){app.innerHTML=`<div class="inventory-shell">${sidebar()}<secti
 async function load(){if(isDemo){session={user:{displayName:'Demo Lager'}};items=structuredClone(demoItems);movements=structuredClone(demoMovements);adjustments=structuredClone(demoAdjustments);selectedId=items[0].id;render();return}const s=await api('/session');if(!s.authenticated){location.href='./index.html';return}session=s;items=(await api('/inventory/items')).items||[];movements=(await api('/inventory/movements')).movements||[];adjustments=(await api('/inventory/adjustments?status=all')).adjustments||[];selectedId=items[0]?.id||'';render()}
 function recalcDemo(){for(const item of items)item.quantityMilli=demoMovements.filter(m=>m.itemId===item.id).reduce((s,m)=>s+Number(m.quantityMilli||0),0)}
 document.addEventListener('click',async e=>{const row=e.target.closest('[data-item-id]');if(row){selectedId=row.dataset.itemId;render();return}const b=e.target.closest('[data-action]');if(!b)return;try{if(isDemo){const a=adjustments.find(x=>x.id===b.dataset.id);if(!a)throw new Error('Justeringen hittades inte.');if(b.dataset.action==='approve'){a.status='approved';demoMovements.unshift({id:`m-${Date.now()}`,itemId:a.itemId,movementDate:a.adjustmentDate,type:'adjustment',quantityMilli:a.differenceMilli,note:a.reason,referenceType:'inventory-adjustment'});recalcDemo();message='Lagerjusteringen godkändes i demon.'}else{a.status='rejected';message='Lagerjusteringen avvisades i demon.'}}else{await api(`/inventory/adjustments/${encodeURIComponent(b.dataset.id)}/${b.dataset.action}`,{method:'POST',body:{}});message=b.dataset.action==='approve'?'Lagerjusteringen godkändes.':'Lagerjusteringen avvisades.';items=(await api('/inventory/items')).items||[];movements=(await api('/inventory/movements')).movements||[];adjustments=(await api('/inventory/adjustments?status=all')).adjustments||[]}render()}catch(err){message=err.message;render()}});
-document.addEventListener('submit',async e=>{const form=e.target;if(!form.matches('[data-form]'))return;e.preventDefault();try{const item=selected();if(!item)throw new Error('Välj en artikel.');const data=new FormData(form);if(form.dataset.form==='movement'){const type=String(data.get('type'));const q=parseQty(data.get('quantity'));const signed=type==='receipt'?q:-q;if(isDemo){demoMovements.unshift({id:`m-${Date.now()}`,itemId:item.id,movementDate:String(data.get('date')),type,quantityMilli:signed,note:String(data.get('note')||'')});recalcDemo();message='Lagerrörelsen registrerades i demon.'}else{await api('/inventory/movements',{method:'POST',body:{itemId:item.id,movementDate:String(data.get('date')),type,quantityMilli:signed,note:String(data.get('note')||'')}});items=(await api('/inventory/items')).items||[];movements=(await api('/inventory/movements')).movements||[];message='Lagerrörelsen registrerades.'}}else{const counted=parseQty(data.get('counted'));if(isDemo){const current=item.quantityMilli,difference=counted-current;if(!difference)throw new Error('Ingen inventeringsdifferens finns.');adjustments.unshift({id:`adj-${Date.now()}`,itemId:item.id,name:item.name,unit:item.unit,adjustmentDate:String(data.get('date')),currentQuantityMilli:current,countedQuantityMilli:counted,differenceMilli:difference,reason:String(data.get('reason')||'Inventering'),status:'pending'});message='Inventeringsdifferensen väntar nu på en annan persons godkännande.'}else{await api('/inventory/adjustments',{method:'POST',body:{itemId:item.id,adjustmentDate:String(data.get('date')),countedQuantityMilli:counted,reason:String(data.get('reason')||'Inventering')}});adjustments=(await api('/inventory/adjustments?status=all')).adjustments||[];message='Inventeringsdifferensen skapades och väntar på godkännande.'}}render()}catch(err){message=err.message;render()}});
+document.addEventListener('input',e=>{
+  const form=e.target.closest('[data-form]');if(!form)return;
+  if(form.dataset.form==='movement'&&!movementInFlight)movementRequestId='';
+  if(form.dataset.form==='count'&&!adjustmentInFlight)adjustmentRequestId='';
+});
+document.addEventListener('submit',async e=>{
+  const form=e.target;if(!form.matches('[data-form]'))return;e.preventDefault();
+  const kind=form.dataset.form;
+  if(kind==='movement'&&movementInFlight)return;
+  if(kind==='count'&&adjustmentInFlight)return;
+  if(kind==='movement')movementInFlight=true;else adjustmentInFlight=true;
+  try{
+    const item=selected();if(!item)throw new Error('Välj en artikel.');
+    const data=new FormData(form);
+    if(kind==='movement'){
+      const type=String(data.get('type')),q=parseQty(data.get('quantity')),signed=type==='receipt'?q:-q;
+      if(isDemo){
+        demoMovements.unshift({id:`m-${Date.now()}`,itemId:item.id,movementDate:String(data.get('date')),type,quantityMilli:signed,note:String(data.get('note')||'')});
+        recalcDemo();message='Lagerrörelsen registrerades i demon.';
+      }else{
+        movementRequestId=movementRequestId||newRequestId('inventory-movement');
+        await api('/inventory/movements',{method:'POST',body:{requestId:movementRequestId,itemId:item.id,movementDate:String(data.get('date')),type,quantityMilli:signed,note:String(data.get('note')||'')}});
+        movementRequestId='';
+        items=(await api('/inventory/items')).items||[];
+        movements=(await api('/inventory/movements')).movements||[];
+        message='Lagerrörelsen registrerades.';
+      }
+    }else{
+      const counted=parseQty(data.get('counted'));
+      if(isDemo){
+        const current=item.quantityMilli,difference=counted-current;if(!difference)throw new Error('Ingen inventeringsdifferens finns.');
+        adjustments.unshift({id:`adj-${Date.now()}`,itemId:item.id,name:item.name,unit:item.unit,adjustmentDate:String(data.get('date')),currentQuantityMilli:current,countedQuantityMilli:counted,differenceMilli:difference,reason:String(data.get('reason')||'Inventering'),status:'pending'});
+        message='Inventeringsdifferensen väntar nu på en annan persons godkännande.';
+      }else{
+        adjustmentRequestId=adjustmentRequestId||newRequestId('inventory-adjustment');
+        await api('/inventory/adjustments',{method:'POST',body:{requestId:adjustmentRequestId,itemId:item.id,adjustmentDate:String(data.get('date')),countedQuantityMilli:counted,reason:String(data.get('reason')||'Inventering')}});
+        adjustmentRequestId='';
+        adjustments=(await api('/inventory/adjustments?status=all')).adjustments||[];
+        message='Inventeringsdifferensen skapades och väntar på godkännande.';
+      }
+    }
+    render();
+  }catch(err){message=err.message;render()}
+  finally{if(kind==='movement')movementInFlight=false;else adjustmentInFlight=false}
+});
 load().catch(err=>{app.innerHTML=`<main class="boot"><strong>Kunde inte ladda lager</strong><span>${esc(err.message)}</span></main>`});
