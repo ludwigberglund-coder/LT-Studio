@@ -7,6 +7,10 @@ const Payables = require('../apps/api/payables.js');
 const Documents = require('../apps/api/documents.js');
 const Bank = require('../apps/api/bank-payments.js');
 const Inventory = require('../apps/api/inventory.js');
+const Queues = require('../apps/api/queues.js');
+const Automation = require('../packages/automation/proposals.js');
+const Payroll = require('../apps/api/payroll.js');
+const Cms = require('../apps/api/website-cms.js');
 const {createServer} = require('../apps/api/server.js');
 const Auth = require('../apps/api/auth.js');
 function fixture() {
@@ -104,7 +108,7 @@ test('real HTTP API refuses anonymous requests and other-company invoice IDs', a
 
 test('HTTP object-ID matrix denies other-company reads and mutations with valid session and CSRF', async () => {
   const f=fixture();
-  Payables.initializePayables(f.db);Documents.initializeDocuments(f.db);Bank.initializeBankPayments(f.db);Inventory.initializeInventory(f.db);
+  Payables.initializePayables(f.db);Documents.initializeDocuments(f.db);Bank.initializeBankPayments(f.db);Inventory.initializeInventory(f.db);Queues.initializeQueues(f.db);Payroll.initializePayroll(f.db);Cms.initializeWebsiteCms(f.db);
   const Accounting=require('../apps/api/accounting-store.js');Accounting.initializeAccountingStore(f.db);
   const supplierB=Payables.createSupplier(f.db,{companyId:f.b.id,supplierNumber:'B-OBJ',name:'Supplier B Obj'});
   const supplierInvoiceB=Payables.createSupplierInvoice(f.db,{companyId:f.b.id,supplierId:supplierB.id,supplierInvoiceNumber:'B-OBJ-1',invoiceDate:'2026-09-18',dueDate:'2026-10-18',totalOre:125000,vatOre:25000,registeredBy:f.user.id});
@@ -116,6 +120,30 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
   const inventoryItemB=Inventory.createItem(f.db,{companyId:f.b.id,sku:'B-TENANT-ITEM',name:'Tenant B inventory item',unit:'kg',purchaseAccount:'4010',inventoryAccount:'1460'});
   Inventory.addMovement(f.db,{companyId:f.b.id,itemId:inventoryItemB.id,movementDate:'2026-09-20',type:'receipt',quantityMilli:5000,actorId:f.user.id});
   const inventoryAdjustmentB=Inventory.createAdjustment(f.db,{companyId:f.b.id,itemId:inventoryItemB.id,adjustmentDate:'2026-09-20',countedQuantityMilli:4000,reason:'Tenant matrix',countedBy:f.user.id});
+  const automationProposalB=Queues.saveAutomationProposal(f.db,Automation.createProposal({
+    companyId:f.b.id,type:'booking-account-suggestion',sourceId:'tenant-b-automation',confidence:.91,deterministic:false,
+    reason:'Tenant B automation proposal',evidence:[{kind:'tenant-matrix',label:'Underlag',value:'Tenant B',sourceId:'tenant-b-automation'}],suggestion:{amountOre:10000,debitAccount:'4010',creditAccount:'2440'},
+    engine:{kind:'rules',name:'tenant-matrix',version:'1'},createdAt:'2026-09-20T08:00:00.000Z'
+  }),{idempotencyKey:'tenant-b-automation:v1'}).proposal;
+  const payrollLines=[
+    {account:'7010',text:'Bruttolön',debitOre:100000,creditOre:0},
+    {account:'7510',text:'Arbetsgivaravgifter',debitOre:31420,creditOre:0},
+    {account:'2710',text:'Personalskatt',debitOre:0,creditOre:30000},
+    {account:'2731',text:'Arbetsgivaravgifter skuld',debitOre:0,creditOre:31420},
+    {account:'2910',text:'Upplupna löner',debitOre:0,creditOre:70000}
+  ];
+  const payrollRunB=Payroll.importRun(f.db,{
+    companyId:f.b.id,period:'2026-09',payDate:'2026-09-25',sourceName:'Tenant B payroll',
+    grossSalaryOre:100000,withheldTaxOre:30000,employerContributionsOre:31420,netPayOre:70000,vacationLiabilityChangeOre:0,
+    importedBy:f.user.id,lines:payrollLines
+  });
+  const cmsASeed=Cms.state(f.db,f.a.id);
+  const cmsACompany=structuredClone(cmsASeed.draft.company);
+  cmsACompany.address={street:'Tenantgatan 1',postalCode:'111 11',city:'Teststad',full:'Tenantgatan 1, 111 11 Teststad'};
+  cmsACompany.contact={phone:'031-00 00 00',phoneHref:'+4631000000',email:'tenant-a@example.invalid'};
+  Cms.saveDraft(f.db,{companyId:f.a.id,site:cmsASeed.draft.site,company:cmsACompany,userId:f.user.id});
+  const cmsABefore=Cms.state(f.db,f.a.id);
+  const cmsBBefore=Cms.state(f.db,f.b.id);
   const runtime=createServer({db:f.db,port:4180,secureCookies:false});
   await new Promise(resolve=>runtime.server.listen(0,'127.0.0.1',resolve));
   const base=`http://127.0.0.1:${runtime.server.address().port}/api/v1`;
@@ -152,6 +180,26 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
     assert.equal(inventoryAdjustments.status,200);
     assert.equal((await inventoryAdjustments.json()).adjustments.some(row=>row.id===inventoryAdjustmentB.id),false);
 
+    const automationList=await fetch(base+'/automation/proposals',{headers});
+    assert.equal(automationList.status,200);
+    assert.equal((await automationList.json()).proposals.some(row=>row.id===automationProposalB.id),false);
+
+    const payrollList=await fetch(base+'/payroll/runs',{headers});
+    assert.equal(payrollList.status,200);
+    assert.equal((await payrollList.json()).runs.some(row=>row.id===payrollRunB.id),false);
+
+    const cmsRead=await fetch(base+'/website/cms',{headers});
+    assert.equal(cmsRead.status,200);
+    const cmsReadBody=await cmsRead.json();
+    assert.equal(cmsReadBody.state.companyId,f.a.id);
+    assert.equal(cmsReadBody.state.companyId===f.b.id,false);
+
+    const foreignAutomationEdit=await fetch(base+`/automation/proposals/${automationProposalB.id}/suggestion`,{
+      method:'PUT',headers:mutationHeaders,
+      body:JSON.stringify({accountingLines:[{account:'4010',debitOre:10000,creditOre:0},{account:'2440',debitOre:0,creditOre:10000}]})
+    });
+    assert.equal(foreignAutomationEdit.status,404);
+
     const mutations=[
       [`/invoices/${f.invoiceB.id}/comments`,{text:'cross tenant'}],
       [`/customer-invoices/${f.invoiceB.id}/credit`,{requestId:'cross-tenant-credit-0001',reason:'cross tenant'}],
@@ -160,18 +208,61 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
       ['/inventory/adjustments',{itemId:inventoryItemB.id,adjustmentDate:'2026-09-20',countedQuantityMilli:3000,reason:'cross tenant'}],
       [`/inventory/adjustments/${inventoryAdjustmentB.id}/approve`,{}],
       [`/inventory/adjustments/${inventoryAdjustmentB.id}/reject`,{}],
+      [`/automation/proposals/${automationProposalB.id}/approve`,{}],
+      [`/automation/proposals/${automationProposalB.id}/reject`,{reason:'cross tenant'}],
+      [`/payroll/runs/${payrollRunB.id}/post`,{}],
       [`/payables/invoices/${supplierInvoiceB.id}/coding`,{lines:[{account:'4010',text:'X',debitOre:100000,creditOre:0},{account:'2641',text:'Moms',debitOre:25000,creditOre:0},{account:'2440',text:'Skuld',debitOre:0,creditOre:125000}]}],
       [`/accounting/entries/${entryB.id}/correct`,{postingDate:'2026-09-19',reason:'cross tenant correction'}]
     ];
     for(const [route,body] of mutations)assert.equal((await fetch(base+route,{method:'POST',headers:mutationHeaders,body:JSON.stringify(body)})).status,404,route);
+
+    const injectedPayroll=await fetch(base+'/payroll/runs',{
+      method:'POST',headers:mutationHeaders,
+      body:JSON.stringify({
+        companyId:f.b.id,period:'2026-10',payDate:'2026-10-25',sourceName:'Tenant injection attempt',
+        grossSalaryOre:100000,withheldTaxOre:30000,employerContributionsOre:31420,netPayOre:70000,vacationLiabilityChangeOre:0,
+        lines:payrollLines
+      })
+    });
+    assert.equal(injectedPayroll.status,201);
+    const injectedPayrollBody=await injectedPayroll.json();
+    assert.equal(injectedPayrollBody.run.companyId,f.a.id);
+    assert.equal(Payroll.listRuns(f.db,f.b.id).length,1);
+
+    const cmsSite=structuredClone(cmsABefore.draft.site);
+    cmsSite.hero.title='Tenant A controlled CMS update';
+    const cmsCompany=structuredClone(cmsABefore.draft.company);
+    const injectedCms=await fetch(base+'/website/cms/draft',{
+      method:'PUT',headers:mutationHeaders,
+      body:JSON.stringify({
+        companyId:f.b.id,
+        expectedRevision:cmsABefore.draft.revision,
+        site:cmsSite,
+        company:cmsCompany
+      })
+    });
+    assert.equal(injectedCms.status,200);
+    const injectedCmsBody=await injectedCms.json();
+    assert.equal(injectedCmsBody.state.companyId,f.a.id);
+    assert.equal(injectedCmsBody.state.draft.site.hero.title,'Tenant A controlled CMS update');
+    assert.deepEqual(Cms.state(f.db,f.b.id),cmsBBefore);
+
     assert.equal(Db.commentsForInvoice(f.db,f.b.id,f.invoiceB.id).length,0);
     assert.equal(Payables.invoiceById(f.db,f.b.id,supplierInvoiceB.id).coding.length,0);
     assert.equal(Accounting.listEntries(f.db,f.b.id).length,1);
     assert.equal(Bank.byId(f.db,f.b.id,bankPaymentB.id).status,'unmatched');
     assert.equal(Inventory.balanceMilli(f.db,f.b.id,inventoryItemB.id),5000);
     assert.equal(Inventory.adjustmentById(f.db,f.b.id,inventoryAdjustmentB.id).status,'pending');
+    assert.equal(Queues.automationProposalById(f.db,f.b.id,automationProposalB.id).status,automationProposalB.status);
+    assert.equal(Payroll.runById(f.db,f.b.id,payrollRunB.id).status,'validated');
     const tenantAAudit=Db.auditForCompany(f.db,f.a.id);
-    assert.equal(tenantAAudit.some(event=>event.entityId===bankPaymentB.id||event.entityId===inventoryItemB.id||event.entityId===inventoryAdjustmentB.id),false);
+    assert.equal(tenantAAudit.some(event=>
+      event.entityId===bankPaymentB.id||
+      event.entityId===inventoryItemB.id||
+      event.entityId===inventoryAdjustmentB.id||
+      event.entityId===automationProposalB.id||
+      event.entityId===payrollRunB.id
+    ),false);
   } finally {await new Promise(resolve=>runtime.close(resolve));}
 });
 
