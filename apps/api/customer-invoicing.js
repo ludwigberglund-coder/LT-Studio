@@ -130,7 +130,9 @@ function profileStatus(company,profile={}){
   const blockers=[];
   if(!company)blockers.push('Företaget hittades inte.');
   if(profile.orgNumber&&company&&text(profile.orgNumber)!==text(company.orgNumber))blockers.push('Företagsprofilens organisationsnummer matchar inte det inloggade företaget.');
-  for(const [key,label] of [['name','juridiskt namn'],['address','adress'],['orgNumber','organisationsnummer'],['vatNumber','VAT-nummer'],['bankgiro','bankgiro']])if(!seller[key])blockers.push(`Företagets ${label} saknas.`);
+  for(const [key,label] of [['name','juridiskt namn'],['address','adress'],['orgNumber','organisationsnummer'],['vatNumber','VAT-nummer'],['bankgiro','bankgiro'],['taxStatus','skattestatus']])if(!seller[key])blockers.push(`Företagets ${label} saknas.`);
+  if(/^(?:EJ\s+ANGIVET|ADRESS\s+EJ\s+ANGIVEN)$/i.test(seller.address))blockers.push('Företagets adress är fortfarande en platshållare och måste verifieras före fakturering.');
+  if(seller.vatNumber&&!InvoiceSettings.vatNumberMatchesOrgNumber(seller.vatNumber,seller.orgNumber))blockers.push('Företagets VAT-nummer är ogiltigt eller matchar inte organisationsnumret.');
   if(/^DEMO\b/i.test(seller.bankgiro)||/EJ-BETALNING/i.test(seller.bankgiro))blockers.push('Bankgiro är fortfarande markerat som demo och måste verifieras före bokföring.');
   if(/\bdemo\b/i.test(seller.taxStatus)||/verifiera/i.test(seller.taxStatus))blockers.push('Skattestatusen är fortfarande markerad för verifiering.');
   return{

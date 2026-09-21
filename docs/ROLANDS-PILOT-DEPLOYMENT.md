@@ -103,6 +103,25 @@ Lägg secrets i hostingplattformens secret store eller i en root/rollands-läsba
 
 Kopiera dessutom `config/pilot-operations.example.json` till den privata sökvägen i `ROLLANDS_PILOT_OPERATIONS_PATH`. Fyll i tekniskt ansvar, redovisningsansvar, dataskyddsansvar, backupansvar, övervakningsansvar, incidentkontakt, supportväg, vem som får stoppa piloten, rollbackbeslutsprocess, offsite-backupdestination samt logg- och backupretention. Filen får ligga utanför repositoryt och får inte innehålla placeholders. `approvedForPilot` ska bara sättas till `true` efter ett uttryckligt pilotbeslut med datum i `approvedAt`.
 
+### Privata fakturainställningar
+
+Bankgiro, skattestatus och VAT-nummer för skarp fakturering ska ligga i den privata databasen, inte i GitHub eller publik CMS-konfiguration.
+
+För den svenska pilotmodellen kräver konfigurationsverktyget att VAT-numret motsvarar företagets organisationsnummer enligt formen `SE<10 siffror>01`.
+
+Exempel på säker engångskonfiguration:
+
+```bash
+export ROLLANDS_INVOICE_SETTINGS_COMPANY_ORG_NUMBER='<organisationsnummer>'
+export ROLLANDS_INVOICE_SETTINGS_USERNAME='<personligt användarnamn>'
+export ROLLANDS_INVOICE_BANKGIRO='<verifierat bankgiro>'
+export ROLLANDS_INVOICE_TAX_STATUS='<verifierad skattestatus>'
+export ROLLANDS_INVOICE_VAT_NUMBER='<verifierat VAT-nummer>'
+npm run platform:set-invoice-settings -- --apply
+```
+
+Verktyget stoppar om VAT-numret inte matchar företagets organisationsnummer. Värdena ska tillföras från privat secret-/driftkonfiguration och får inte checkas in i repositoryt.
+
 Systemet använder inte en signerad klient-session som kräver separat `SESSION_SECRET`. Sessionsvärdet genereras kryptografiskt slumpmässigt per inloggning och endast dess hash sparas i SQLite. `ROLLANDS_AUTH_ENCRYPTION_KEY` skyddar de krypterade MFA-hemligheterna och måste därför backupas säkert separat från databasen. Om den nyckeln tappas bort kan befintliga krypterade MFA-hemligheter inte dekrypteras.
 
 ## 4. Persistent datalagring

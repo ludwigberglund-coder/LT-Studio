@@ -115,6 +115,24 @@ Det tidigare tvåkundstestet täckte främst identitet, fakturaprofil och CMS, m
 
 Detta gör definitionen av “kund nummer två” betydligt närmare ett sammanhängande blockerande CI-test i stället för en samling isolerade modultester.
 
+### 7. Kund nummer två måste ha verifierad faktureringsidentitet
+
+En ny kunds neutrala CMS-startpunkt innehåller avsiktliga platshållare tills riktiga företagsuppgifter har verifierats. Tidigare kunde ett icke-tomt platshållarvärde för VAT-nummer i teorin passera fakturans readiness-kontroll när bankgiro och skattestatus väl hade konfigurerats.
+
+**Rättat:** den privata fakturakonfigurationen lagrar nu även ett verifierat VAT-nummer. För den svenska pilotmodellen måste det vara `SE` + organisationsnumrets tio siffror + `01`. Fakturering stoppas dessutom om adressen fortfarande är en platshållare.
+
+`test/saas-second-tenant.test.js` går nu hela vägen för kund B:
+
+- publicerar kund B:s egen företagsprofil,
+- konfigurerar kund B:s privata bankgiro, skattestatus och VAT-nummer,
+- skapar kund B:s kundregisterpost,
+- utfärdar en riktig testfaktura via HTTP,
+- verifierar kund B:s PDF och bokföringspost,
+- verifierar att kund A får 404 på kund B:s faktura och PDF,
+- verifierar att kund A:s fakturalista inte innehåller kund B:s faktura.
+
+Detta är ett starkare CI-bevis för SaaS-arkitekturen, men ersätter inte staging, backup/restore och verklig UAT.
+
 ## Rolands-specifikt som ska vara kvar
 
 Följande är inte i sig fel eftersom Rolands är referenskund och har en egen publik demo:

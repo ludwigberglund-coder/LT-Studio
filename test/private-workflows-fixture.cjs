@@ -42,7 +42,7 @@ async function fixture(){
   }
   const payable=supplierInvoice(a,admin),otherPayable=supplierInvoice(b,other);
   const customer=Db.createCustomer(db,{companyId:a.id,customerNumber:'K-1001',name:'Fiktiv testkund AB',address:{full:'Kundgatan 2, Teststad'},orgNumber:'559900-1004'});
-  Settings.setInvoiceSettings(db,{companyId:a.id,bankgiro:'123-4567',taxStatus:'Testunderlag',updatedBy:admin.id});
+  Settings.setInvoiceSettings(db,{companyId:a.id,bankgiro:'123-4567',taxStatus:'Testunderlag',vatNumber:'SE559900100101',updatedBy:admin.id});
   const issuePrepared=Db.transaction(db,()=>Invoicing.prepareInvoiceIssuance(db,{companyId:a.id,userId:admin.id,payload:{...input,requestId:'private-pdf-browser-test-001'},profile:{legalName:a.legalName,orgNumber:a.orgNumber,vatNumber:'SE559900100101',address:{full:'Testgatan 1, Teststad'},contact:{email:'info@example.invalid'},invoice:{}}}));
   const issuePdf=await Invoicing.renderInvoicePdf(issuePrepared.document);
   const issued=Db.transaction(db,()=>Invoicing.finalizeInvoiceIssuance(db,{companyId:a.id,userId:admin.id,prepared:issuePrepared,pdfBytes:issuePdf}));
