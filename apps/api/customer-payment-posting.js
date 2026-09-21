@@ -98,6 +98,13 @@ function executeApprovedCustomerPayment(db,{companyId,proposalId,actorId}){
     if(!invoice)throw paymentError('Den godkända kundfakturan hittades inte i företaget.','TARGET_INVOICE_NOT_FOUND',404);
     if(invoice.totalOre<=0||invoice.remainingOre<=0)throw paymentError('Endast en öppen vanlig kundfaktura kan ta emot betalningen.','TARGET_INVOICE_NOT_OPEN',409);
     if(invoice.invoiceAccount!=='1510')throw paymentError('Fakturans kundfordringskonto är inte 1510 och kräver manuell hantering.','CUSTOMER_PAYMENT_CODING_NOT_SUPPORTED',409);
+    const invoiceEntry=Accounting.entryBySource(db,companyId,'customer-invoice',invoice.id);
+    if(!invoiceEntry)throw paymentError('Kundfordran måste vara bokförd innan bankinbetalningen kan regleras.','CUSTOMER_RECEIVABLE_NOT_POSTED',409);
+    const receivableNet=invoiceEntry.lines.filter(line=>line.account==='1510').reduce((sum,line)=>sum+line.debitOre-line.creditOre,0);
+    if(receivableNet!==invoice.totalOre)throw paymentError('Kundfakturans 1510-verifikation stämmer inte med fakturabeloppet.','CUSTOMER_RECEIVABLE_INTEGRITY_ERROR',409);
+    const transactions=Db.transactionsForInvoice(db,companyId,invoice.id).filter(row=>row.approved);
+    const expectedRemaining=invoice.totalOre+transactions.reduce((sum,row)=>sum+Number(row.amountOre||0),0);
+    if(expectedRemaining!==invoice.remainingOre)throw paymentError('Kundreskontrans restbelopp stämmer inte med transaktionshistoriken.','CUSTOMER_RECEIVABLE_INTEGRITY_ERROR',409);
 
     const amountOre=Number(suggestion.amountOre);
     if(!Number.isSafeInteger(amountOre)||amountOre<=0||amountOre!==bankPayment.amountOre||amountOre!==invoice.remainingOre){
