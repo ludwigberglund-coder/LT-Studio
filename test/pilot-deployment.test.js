@@ -7,6 +7,9 @@ const os=require('node:os');
 const path=require('node:path');
 const {spawnSync}=require('node:child_process');
 const Db=require('../apps/api/database.js');
+const Documents=require('../apps/api/documents.js');
+const Payables=require('../apps/api/payables.js');
+const CustomerInvoicing=require('../apps/api/customer-invoicing.js');
 const {validateConfig}=require('../scripts/pilot-preflight.js');
 
 const root=path.resolve(__dirname,'..');
@@ -54,6 +57,9 @@ test('pilot backup och restore-kommandon skapar och verifierar separata SQLite-f
   fs.mkdirSync(dbDir,{mode:0o700});fs.mkdirSync(backupDir,{mode:0o700});fs.mkdirSync(restoreDir,{mode:0o700});
   const databasePath=path.join(dbDir,'platform.sqlite');
   const db=Db.openDatabase(databasePath);
+  Documents.initializeDocuments(db);
+  Payables.initializePayables(db);
+  CustomerInvoicing.initializeCustomerInvoicing(db);
   Db.createCompany(db,{legalName:'Pilot Drift Test AB',displayName:'Pilot Drift Test',orgNumber:'559999-4400'});
   db.close();
   try{
@@ -80,11 +86,13 @@ test('npm start pekar på det skyddade SQLite-API:t',()=>{
 function restoreCase(mutator, expectedFailure) {
   const {DatabaseSync}=require('node:sqlite');
   const Accounting=require('../apps/api/accounting-store.js');
-  const Documents=require('../apps/api/documents.js');
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-restore-safety-'));
   const source=path.join(dir,'source.sqlite'),backupDir=path.join(dir,'backups'),target=path.join(dir,'restore','verified.sqlite');
   const db=Db.openDatabase(source);
-  Accounting.initializeAccountingStore(db);Documents.initializeDocuments(db);
+  Accounting.initializeAccountingStore(db);
+  Documents.initializeDocuments(db);
+  Payables.initializePayables(db);
+  CustomerInvoicing.initializeCustomerInvoicing(db);
   const co=Db.createCompany(db,{legalName:'Restore test',orgNumber:'RESTORE-TEST'});
   const user=Db.createUser(db,{username:'restore-test',displayName:'Restore tester',passwordHash:'not-a-login-password'});
   const entry=Accounting.postEntry(db,{companyId:co.id,createdBy:user.id,postingDate:'2026-09-18',description:'Test sale with VAT',sourceType:'restore-test',sourceId:'1',lines:[{account:'1510',debitOre:106000},{account:'3053',creditOre:100000},{account:'2631',creditOre:6000}]}).entry;
