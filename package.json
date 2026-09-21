@@ -39,7 +39,8 @@
     "storage:inventory": "node scripts/private-object-inventory.js",
     "storage:plan-copies": "node scripts/private-object-copy-plan.js",
     "storage:copy-one-r2": "node scripts/private-object-r2-copy-one.js",
-    "platform:bootstrap-operator": "node scripts/bootstrap-operator.js"
+    "platform:bootstrap-operator": "node scripts/bootstrap-operator.js",
+    "test:browser:operator": "node test/operator-admin-browser.cjs"
   },
   "engines": {
     "node": ">=24"
