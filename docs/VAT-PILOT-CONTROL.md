@@ -74,6 +74,7 @@ Automatiska regressionstester verifierar nu följande gränsfall:
 - en ny livsmedelsfaktura den 3 april 2026 använder 6 procent,
 - aprilperioden kan därför samtidigt innehålla negativ 12-procentig utgående moms från krediten och positiv 6-procentig utgående moms från ny försäljning,
 - källavstämningen kräver att kreditfakturans negativa momsbelopp exakt stämmer med den bokförda återföringen,
+- aktivitet på konto 2650 gör kontrollen fail-closed, eftersom rapporten ännu inte kan skilja transaktionsmoms från en genomförd momsavräkning utan särskild periodavslutslogik,
 - konton för ännu ej stödda specialfall, exempelvis 2614 och 2645, klassificeras inte som vanlig svensk 25/12/6-procentsmoms utan gör kontrollen ofullständig.
 
 Detta innebär inte att EU-handel, import eller omvänd betalningsskyldighet är implementerade för automatisk momsdeklaration. Tvärtom är verifieringen till för att bevisa att systemet inte gissar i dessa fall.
