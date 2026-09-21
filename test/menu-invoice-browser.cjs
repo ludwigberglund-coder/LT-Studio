@@ -16,7 +16,15 @@ const server=http.createServer((req,res)=>{const u=new URL(req.url,'http://local
   async function menu(){await page.locator('.shared-navigation').waitFor({timeout:15000});await page.waitForFunction(()=>document.querySelector('.shared-sidebar')?.dataset.sharedRoute===location.pathname+location.hash);const actual=await page.locator('.shared-navigation [data-nav-id]').evaluateAll(nodes=>nodes.map(n=>n.dataset.navId));assert.deepEqual(actual,expected,page.url());assert.equal(await page.locator('.shared-navigation').count(),1);}
   const portal=fs.readdirSync(path.join(root,'portal')).filter(f=>f.endsWith('.html')).map(f=>'portal/'+f),admin=['overview','content','money','access','journal','modules','decisions'].map(v=>'admin/?demo=1#/'+v),legacy=['overview','res-tools','batches','audit','inbox','assistant','settings'].map(v=>'legacy/?demo=1#/'+v);
   for(const route of [...portal,...admin,...legacy]){const target=new URL(route,base);target.searchParams.set('demo','1');const response=await page.goto(target.href,{waitUntil:'networkidle'});if(response)assert.equal(response.status(),200,route);await menu();checks.push({kind:'menu',route});}
-  await page.goto(base+'portal/dashboard.html?demo=1',{waitUntil:'networkidle'});for(const width of [1440,1024,768,390]){await page.setViewportSize({width,height:1000});await menu();checks.push({kind:'viewport',width});}
+  await page.goto(base+'portal/dashboard.html?demo=1',{waitUntil:'networkidle'});
+  await page.locator('.shared-user-menu').waitFor({timeout:15000});
+  assert.equal(await page.locator('.shared-user-menu').count(),1);
+  assert.equal((await page.locator('.shared-user-label strong').innerText()).trim(),'Demoanvändare');
+  assert.equal((await page.locator('.shared-user-avatar').innerText()).trim(),'D');
+  await page.locator('.shared-user-trigger').click();
+  await page.getByRole('link',{name:'Lämna demon',exact:true}).waitFor();
+  await page.locator('.shared-user-trigger').click();
+for(const width of [1440,1024,768,390]){await page.setViewportSize({width,height:1000});await menu();checks.push({kind:'viewport',width});}
   await page.setViewportSize({width:1440,height:1000});await page.locator('[data-nav-id="accounts"]').click();await page.locator('#account-form').waitFor();await page.locator('#account-form [name=number]').fill('3099');await page.locator('#account-form [name=name]').fill('Egen tjänsteintäkt 12 %');await page.locator('#account-form [name=vatRate]').selectOption('12');await page.getByRole('button',{name:'Spara intäktskonto',exact:true}).click();
   await page.locator('[data-nav-id="invoices"]').click();await page.getByRole('button',{name:'+ Ny kundfaktura',exact:true}).click();await page.locator('#invoice-form').waitFor();await menu();
   const issueButton=page.getByRole('button',{name:'Skapa och bokför faktura',exact:true});await issueButton.evaluate(button=>{button.disabled=true});const blockedStyle=await issueButton.evaluate(button=>{const style=getComputedStyle(button);return{backgroundColor:style.backgroundColor,color:style.color,opacity:style.opacity,cursor:style.cursor}});assert.deepEqual(blockedStyle,{backgroundColor:'rgb(223, 228, 223)',color:'rgb(111, 123, 116)',opacity:'1',cursor:'not-allowed'});await issueButton.evaluate(button=>{button.disabled=false});
