@@ -87,3 +87,19 @@ test('bankregistret accepterar endast positiva SEK-inbetalningar med datum',()=>
     assert.throws(()=>Bank.create(db,{companyId:co.id,externalId:'x',bookingDate:'2026-09-16',amountOre:100,currency:'EUR'}),e=>e.code==='UNSUPPORTED_CURRENCY');
   }finally{db.close()}
 });
+
+
+test('tydlig referens och lägre belopp skapar ett mänskligt granskningsbart delbetalningsförslag',()=>{
+  const analysis=Matcher.analyzeIncomingPayment(payment({amountOre:50000}),[invoice({remainingOre:125000})]);
+  assert.equal(analysis.status,'proposal');
+  assert.equal(analysis.targetInvoiceId,'inv-1');
+  assert.equal(analysis.amountOre,50000);
+  assert.equal(analysis.deterministic,false);
+  assert.match(analysis.reason,/delbetalning/i);
+  assert.ok(analysis.evidence.some(row=>row.label==='Delbetalning inom restbelopp'));
+});
+
+test('bankbelopp över fakturans restbelopp får inte matchas automatiskt',()=>{
+  const analysis=Matcher.analyzeIncomingPayment(payment({amountOre:130000}),[invoice({remainingOre:125000})]);
+  assert.equal(analysis.status,'no-match');
+});
