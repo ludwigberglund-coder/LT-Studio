@@ -28,6 +28,10 @@ function main() {
     return;
   }
 
+  if (String(process.env.ROLLANDS_ENV || '').trim() === 'staging') {
+    throw new Error('Generisk bootstrap är blockerad i staging. Använd npm run staging:bootstrap:synthetic -- --apply.');
+  }
+
   const root = path.resolve(__dirname,'..');
   const accessConfig = JSON.parse(fs.readFileSync(path.join(root,'config','access-control.json'),'utf8'));
   const accessModel = Access.createModel(accessConfig);

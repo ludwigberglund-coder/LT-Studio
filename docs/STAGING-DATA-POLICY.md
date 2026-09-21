@@ -37,6 +37,40 @@ If either condition is missing or changed, protected runtime validation fails cl
 
 These variables are a deployment safety gate. They do not replace operational discipline: the staging database itself must be created from synthetic fixtures or fictitious bootstrap data.
 
+## Safe staging bootstrap
+
+Do not use the generic `platform:bootstrap` command in staging. It is intentionally blocked there because it accepts manually supplied company identity.
+
+Create a brand-new synthetic staging database with:
+
+```bash
+npm run staging:bootstrap:synthetic -- --apply
+```
+
+The command requires separate secret values for the two synthetic test users:
+
+```text
+ROLLANDS_STAGING_ALPHA_PASSWORD
+ROLLANDS_STAGING_ALPHA_MFA_SECRET
+ROLLANDS_STAGING_BETA_PASSWORD
+ROLLANDS_STAGING_BETA_MFA_SECRET
+```
+
+The command itself supplies the company identities and usernames. It creates two clearly synthetic tenants, **Synthetic Alpha** and **Synthetic Beta**, so tenant-isolation checks can be performed without importing any customer data.
+
+Safety properties:
+
+- it runs only with `ROLLANDS_ENV=staging`,
+- it requires `ROLLANDS_DATA_CLASSIFICATION=synthetic`,
+- it requires `ROLLANDS_REAL_DATA_ALLOWED=0`,
+- it requires demo data to be disabled,
+- it refuses to touch an existing database file,
+- it places the database outside the Git repository,
+- it stores the database with mode `0600`,
+- it never prints passwords, MFA secrets or the encryption key.
+
+Do not rename these fixture companies to a real customer and do not replace their identifiers with real organisation numbers.
+
 ## Allowed test data
 
 Use clearly fictitious companies, people, customers, suppliers, invoices, products, payments and documents.

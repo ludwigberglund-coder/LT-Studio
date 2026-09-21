@@ -53,7 +53,8 @@
     "staging:signoff": "node scripts/staging-signoff.js",
     "audit:anchor:create": "node scripts/audit-anchor.js",
     "audit:anchor:verify": "node scripts/audit-anchor.js --verify",
-    "audit:anchor:r2": "node scripts/audit-anchor-r2.js"
+    "audit:anchor:r2": "node scripts/audit-anchor-r2.js",
+    "staging:bootstrap:synthetic": "node scripts/bootstrap-staging-synthetic.js"
   },
   "engines": {
     "node": ">=24"
