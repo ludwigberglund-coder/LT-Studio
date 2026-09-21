@@ -15,7 +15,8 @@ function contentType(file){
   return ext==='.html'?'text/html; charset=utf-8':ext==='.js'?'text/javascript; charset=utf-8':ext==='.css'?'text/css; charset=utf-8':'application/octet-stream';
 }
 function proxy(backendPort){
-  const root=path.resolve(__dirname,'..','apps','portal');
+  const portalRoot=path.resolve(__dirname,'..','apps','portal');
+  const sharedRoot=path.resolve(__dirname,'..','apps','shared');
   return http.createServer((req,res)=>{
     const url=new URL(req.url,'http://localhost');
     if(url.pathname.startsWith('/api/v1/')){
@@ -26,8 +27,13 @@ function proxy(backendPort){
       req.pipe(p);
       return;
     }
-    const rel=url.pathname==='/'?'customers.html':url.pathname.replace(/^\/portal\//,'').replace(/^\/+/,''),file=path.resolve(root,rel);
-    if(!file.startsWith(root)){res.writeHead(403);res.end('Forbidden');return}
+    let file;
+    if(url.pathname.startsWith('/shared/'))file=path.resolve(sharedRoot,url.pathname.slice('/shared/'.length));
+    else{
+      const rel=url.pathname==='/'?'customers.html':url.pathname.replace(/^\/portal\//,'').replace(/^\/+/, '');
+      file=path.resolve(portalRoot,rel);
+    }
+    if(!file.startsWith(portalRoot)&&!file.startsWith(sharedRoot)){res.writeHead(403);res.end('Forbidden');return}
     fs.readFile(file,(error,bytes)=>{
       if(error){res.writeHead(404);res.end('Not found');return}
       res.writeHead(200,{'Content-Type':contentType(file)});
