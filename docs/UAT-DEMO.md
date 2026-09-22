@@ -25,7 +25,7 @@ Huvudscenariot för kundinbetalning är:
 Huvudscenariot för leverantörsfakturor innehåller bland annat:
 
 - `KE-2088`, **Kustens Emballage AB**, 589,00 kr: används för att granska och ändra konteringsförslag.
-- `BKS-771`, **Billdal Kyla & Service AB**, 4 375,00 kr: attesterad faktura som kan gå vidare till betalningsflödet.
+- `BKS-771`, **Demo Kyla & Service AB**, 4 375,00 kr: attesterad faktura som kan gå vidare till betalningsflödet.
 - `GF-8821`, **Göteborg Fruktlager AB**, 846,00 kr: redan betald faktura med dokument- och bokföringsspår.
 
 För `BKS-771` är den avsedda kedjan:
