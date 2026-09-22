@@ -364,7 +364,7 @@ function sanitizeJson(value,state={depth:0,counter:{nodes:0}}){
     return value.normalize('NFC');
   }
   if(Array.isArray(value)){
-    if(value.length>500)throw securityError('En lista innehåller för många poster.','ARRAY_TOO_LARGE',422);
+    if(value.length>2000)throw securityError('En lista innehåller för många poster.','ARRAY_TOO_LARGE',422);
     return value.map(item=>sanitizeJson(item,{depth:state.depth+1,counter:state.counter}));
   }
   if(typeof value==='object'){
