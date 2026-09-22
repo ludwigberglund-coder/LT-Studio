@@ -33,6 +33,8 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Scan full Git history for high-confidence secrets
         run: npm run security:history-scan
+      - name: Scan browser source for secrets
+        run: npm run security:client-scan
       - name: Validate editable content
         run: npm run content:check
       - name: Check JavaScript syntax
@@ -52,6 +54,8 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
       - name: Build static demo
         run: npm run build:static
+      - name: Scan generated browser artifacts for secrets
+        run: npm run security:client-scan
       - name: Verify generated demo
         shell: bash
         run: |
