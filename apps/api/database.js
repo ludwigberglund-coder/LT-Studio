@@ -149,6 +149,25 @@ function initializeSchema(db) {
       updated_at TEXT NOT NULL
     ) STRICT;
 
+    CREATE TABLE IF NOT EXISTS security_alert_states (
+      fingerprint_hash TEXT PRIMARY KEY CHECK(length(fingerprint_hash)=64),
+      code TEXT NOT NULL,
+      severity TEXT NOT NULL CHECK(severity IN ('info','warning','critical')),
+      category TEXT NOT NULL,
+      title TEXT NOT NULL,
+      active INTEGER NOT NULL DEFAULT 0 CHECK(active IN (0,1)),
+      last_status TEXT NOT NULL DEFAULT 'pending' CHECK(last_status IN ('pending','delivered','failed')),
+      last_attempt_at TEXT,
+      last_delivered_at TEXT,
+      next_retry_at TEXT,
+      consecutive_failures INTEGER NOT NULL DEFAULT 0 CHECK(consecutive_failures>=0),
+      is_test INTEGER NOT NULL DEFAULT 0 CHECK(is_test IN (0,1)),
+      updated_at TEXT NOT NULL
+    ) STRICT;
+
+    CREATE INDEX IF NOT EXISTS idx_security_alert_states_active_retry
+      ON security_alert_states(is_test,active,last_status,next_retry_at);
+
     CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY,
       company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
