@@ -119,7 +119,8 @@ function createServer(options = {}) {
       requireR2RestoreEvidence:stagingMode,
       requireStagingEvidenceConsistency:stagingMode,
       requireMonitoringEvidence:protectedMode&&includeMonitoring,
-      requireAuditAnchorEvidence:protectedMode
+      requireAuditAnchorEvidence:protectedMode,
+      requirePlatformAdmin:protectedMode
     });
     return {
       ok:report.ok,
