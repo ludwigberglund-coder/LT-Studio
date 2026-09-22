@@ -98,6 +98,8 @@
     key:'<path d="M10 12C10 14.2091 8.20914 16 6 16C3.79086 16 2 14.2091 2 12C2 9.79086 3.79086 8 6 8C8.20914 8 10 9.79086 10 12ZM10 12H22V15M18 12V15"/>',
     openWindow:'<path d="M21 3H15M21 3L12 12M21 3V9M21 13V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H11"/>',
     arrowLeft:'<path d="M21 12H3M3 12L11.5 3.5M3 12L11.5 20.5"/>',
+    navArrowDown:'<path d="M6 9L12 15L18 9"/>',
+    unlock:'<path d="M11.5 12H6.6C6.26863 12 6 12.2686 6 12.6V19.4C6 19.7314 6.26863 20 6.6 20H17.4C17.7314 20 18 19.7314 18 19.4V18.5M16 12V8C16 6.66667 15.2 4 12 4C11.2532 4 10.6371 4.14525 10.1313 4.38491M16 12H17.4C17.7314 12 18 12.2686 18 12.6V13M8 8V8.5V12M3 3L21 21"/>',
     chat:'<path d="M8 10H12H16M8 14H10H12M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 13.8214 2.48697 15.5291 3.33782 17L2.5 21.5L7 20.6622C8.47087 21.513 10.1786 22 12 22Z"/>',
     send:'<path d="M22 12L3 20L6.5625 12L3 4L22 12ZM6.5 12H22"/>'
   });
@@ -140,6 +142,7 @@
     const text=[element.getAttribute?.('aria-label'),element.getAttribute?.('title'),element.textContent].filter(Boolean).join(' ').trim().toLowerCase();
     if(/logga ut/.test(text))return'logout';
     if(/stäng|avbryt/.test(text)||/^(?:×|✕|✖)$/.test(text))return'xmark';
+    if(/lås upp/.test(text))return'unlock';
     if(/kommentar/.test(text))return'chat';
     if(/kolumn/.test(text))return'stats';
     if(/påminnelse|skicka/.test(text))return'send';
@@ -151,7 +154,7 @@
     if(/sök|filtrera|hitta/.test(text))return'search';
     if(/uppdatera|försök igen|återställ|beräkna/.test(text))return'refresh';
     if(/ladda ner|ladda ned|exportera/.test(text))return'download';
-    if(/öppna|visa /.test(text))return'openWindow';
+    if(/öppna|visa |besök/.test(text))return'openWindow';
     if(/redigera|ändra/.test(text))return'edit';
     if(/profil|konto|inloggning/.test(text))return'profile';
     return'';
@@ -218,7 +221,7 @@
       const name=document.createElement('strong');name.textContent=displayName;
       const company=document.createElement('small');company.textContent=demo?'Demoläge':String(context.session?.company?.name||'Företaget');
       label.append(name,company);
-      const caret=document.createElement('span');caret.className='shared-user-caret';caret.textContent='▾';caret.setAttribute('aria-hidden','true');
+      const caret=document.createElement('span');caret.className='shared-user-caret';caret.innerHTML=iconoir('navArrowDown');caret.setAttribute('aria-hidden','true');
       button.append(avatar,label,caret);
       const menu=document.createElement('div');menu.className='shared-user-dropdown';menu.hidden=true;
       const profile=document.createElement('a');profile.href=href('portal/profile.html');profile.textContent='Min profil & inloggning';menu.append(profile);
