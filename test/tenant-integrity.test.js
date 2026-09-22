@@ -83,6 +83,7 @@ test('plattformssäkerhetshändelser är uttryckligen globalt scope och bryter i
     const coverage=Guards.inspectTenantCoverage(db);
     assert.equal(coverage.ok,true);
     assert.ok(coverage.rootTables.includes('security_events'));
+    assert.ok(coverage.rootTables.includes('security_alert_states'));
     const event=Db.appendSecurityEvent(db,{kind:'TEST_SECURITY_SIGNAL',severity:'info',fingerprintHash:'a'.repeat(64),details:{test:true}});
     assert.equal(Db.securityEvents(db)[0].id,event.id);
   }finally{db.close()}
