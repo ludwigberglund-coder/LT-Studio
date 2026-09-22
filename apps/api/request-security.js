@@ -187,7 +187,7 @@ const BODY_RULES=Object.freeze([
 ]);
 
 
-const ACCOUNTING_LINE_FIELDS=new Set(['account','text','label','debitOre','creditOre']);
+const ACCOUNTING_LINE_FIELDS=new Set(['account','text','label','vatCode','debitOre','creditOre']);
 const INVOICE_LINE_FIELDS=new Set(['articleNumber','discountPercent','description','unit','quantity','unitPrice','vatTreatment','vatRate','revenueAccount','kind']);
 const RECEIVABLE_FIELDS=new Set(['customerNumber','invoiceNumber','invoiceDate','dueDate','totalOre','remainingOre']);
 const PAYABLE_FIELDS=new Set(['supplierNumber','invoiceNumber','invoiceDate','dueDate','totalOre','remainingOre']);
@@ -256,7 +256,7 @@ function assertNestedSchema(req,payload){
 function assertPrimitiveTypes(req,payload){
   const method=String(req?.method||'GET').toUpperCase(),pathname=apiPath(req);
   if(pathname.endsWith('/auth/login')){
-    for(const field of ['username','password','totp'])if(typeof payload[field]!=='string')throw securityError(`${field} måste vara text.`,'INVALID_INPUT_TYPE',422);
+    for(const field of ['username','password','totp'])if(payload[field]!==undefined&&typeof payload[field]!=='string')throw securityError(`${field} måste vara text.`,'INVALID_INPUT_TYPE',422);
     if(payload.companyId!==undefined&&typeof payload.companyId!=='string')throw securityError('companyId måste vara text.','INVALID_INPUT_TYPE',422);
   }
   if((method==='POST'&&pathname==='/api/v1/customers')||(method==='PUT'&&/^\/api\/v1\/customers\/[^/]+$/.test(pathname))){
@@ -333,6 +333,7 @@ function validateRequestTarget(req){
     seen.add(key);
     if(key.length>80||!/^[A-Za-z][A-Za-z0-9_-]*$/.test(key))throw securityError('Ogiltigt query-fältnamn.','INVALID_QUERY_PARAMETER',422);
     if(value.length>500||/[\u0000-\u001f\u007f]/.test(value))throw securityError('Ogiltigt query-värde.','INVALID_QUERY_VALUE',422);
+    if(key.toLowerCase()==='demo')continue;
     if(url.pathname.startsWith('/api/')&&(!rule||!rule[2].has(key)))throw securityError(`Query-parametern ${key} stöds inte på den här rutten.`,'UNEXPECTED_QUERY_PARAMETER',422);
   }
   return url;
