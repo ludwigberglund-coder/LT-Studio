@@ -320,7 +320,39 @@ function createOperatorRouter(options={}){
       }
       if(req.method==='GET'&&url.pathname==='/api/operator/v1/security-events'){
         const limit=Math.max(1,Math.min(200,Number(url.searchParams.get('limit'))||50));
-        const events=Db.securityEvents(db,{limit}).map(event=>({kind:event.kind,severity:event.severity,createdAt:event.createdAt}));
+        const events=Db.securityEvents(db,{limit}).map(event=>{
+          const companyId=String(event.details?.companyId||'').trim();
+          const company=companyId?Db.companyById(db,companyId):null;
+          return {
+            kind:event.kind,
+            severity:event.severity,
+            createdAt:event.createdAt,
+            companyId:company?.id||null,
+            companyName:company?.displayName||company?.legalName||null
+          };
+        });
+        send(res,200,{events});return true;
+      }
+      if(req.method==='GET'&&url.pathname==='/api/operator/v1/operator-audit'){
+        const limit=Math.max(1,Math.min(200,Number(url.searchParams.get('limit'))||100));
+        const events=Db.platformOperatorAudit(db,{limit}).map(event=>{
+          const operator=event.operatorId?Db.platformOperatorById(db,event.operatorId):null;
+          const companyId=String(event.details?.companyId||'').trim();
+          const company=companyId?Db.companyById(db,companyId):null;
+          const userId=String(event.details?.userId||'').trim();
+          const user=userId?Db.userById(db,userId):null;
+          return {
+            action:event.action,
+            createdAt:event.createdAt,
+            operatorName:operator?.displayName||operator?.username||'Tidigare operatör',
+            companyId:company?.id||null,
+            companyName:company?.displayName||company?.legalName||null,
+            targetUserName:user?.displayName||null,
+            beforeRole:typeof event.details?.before==='string'?event.details.before:null,
+            afterRole:typeof event.details?.after==='string'?event.details.after:null,
+            role:typeof event.details?.role==='string'?event.details.role:null
+          };
+        });
         send(res,200,{events});return true;
       }
       send(res,404,{error:'Hittades inte.',code:'OPERATOR_NOT_FOUND'});return true;
