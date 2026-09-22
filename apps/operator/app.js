@@ -338,6 +338,10 @@ function companyDetailView(detail){
   </section>`,'Företagsadmin',`Inställningar, användare och statistik för ${c.displayName}.`);
 }
 function render(){if(selectedCompany)return companyDetailView(selectedCompany);if(view==='companies')return companiesView();if(view==='statistics')return statisticsView();if(view==='security')return securityView();return overviewView()}
+async function loadOperatorAudit(){
+  operatorAudit=await api('/operator-audit?limit=100').catch(err=>({events:[],unavailable:true,error:err.message,code:err.code||'',status:err.status||0}));
+  return operatorAudit;
+}
 async function loadData(){
   const [o,r,s]=await Promise.all([
     api('/overview'),
@@ -345,7 +349,7 @@ async function loadData(){
     api('/security-events?limit=100')
   ]);
   overview=o;readiness=r;security=s;
-  operatorAudit=await api('/operator-audit?limit=100').catch(err=>({events:[],unavailable:true,error:err.message,code:err.code||'',status:err.status||0}));
+  await loadOperatorAudit();
 }
 async function openCompany(id){errorMessage='';try{selectedCompany=await api('/companies/'+encodeURIComponent(id));render()}catch(error){errorMessage=error.message;selectedCompany=null;render()}}
 async function reloadSelectedCompanyOverview(){
@@ -398,7 +402,7 @@ document.addEventListener('keydown',event=>{
 document.addEventListener('click',async event=>{
   if(event.target.matches?.('[data-modal-backdrop]')){modal=null;render();return}
   const companyRow=event.target.closest('[data-company-id]');if(companyRow){await openCompany(companyRow.dataset.companyId);return}
-  const viewButton=event.target.closest('[data-view]');if(viewButton){selectedCompany=null;view=viewButton.dataset.view;render();return}
+  const viewButton=event.target.closest('[data-view]');if(viewButton){selectedCompany=null;view=viewButton.dataset.view;if(view==='security')await loadOperatorAudit();render();return}
   const button=event.target.closest('[data-action]');if(!button)return;
   const action=button.dataset.action;
   if(action==='refresh'){await refresh();return}
