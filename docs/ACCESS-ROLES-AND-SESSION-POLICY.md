@@ -47,7 +47,7 @@ Global admin aktiveras aldrig automatiskt från användarnamn eller e-post. Det 
 
 ### Readiness
 
-I skyddade runtime-lägen rapporteras systemet inte som ready om det saknas minst ett aktivt LT Studio global-admin-konto vars MFA-hemlighet kan dekrypteras och valideras med den aktuella servernyckeln. Det förhindrar ett falskt grönt läge där global admin finns i databasen men i praktiken inte går att logga in med.
+I pilot och produktion, alltså lägen där riktig kunddata kan användas, rapporteras systemet inte som ready om det saknas minst ett aktivt LT Studio global-admin-konto vars MFA-hemlighet kan dekrypteras och valideras med den aktuella servernyckeln. Staging använder syntetisk data och blockeras därför inte av denna kontroll. Det förhindrar ett falskt grönt läge där global admin finns i databasen men i praktiken inte går att logga in med.
 
 Exempel för en verifierad LT Studio-användare:
 
