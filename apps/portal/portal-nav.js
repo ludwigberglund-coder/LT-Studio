@@ -182,13 +182,45 @@
     document.querySelectorAll('.comment-badge').forEach(el=>addIcon(el,'chat'));
     document.querySelectorAll('[data-iconoir]').forEach(el=>{const name=el.dataset.iconoir;if(!name||!ICONOIR[name])return;el.replaceChildren(iconoir(name));});
     document.querySelectorAll('button,.button,.nav-item,.module-card a,.callout a,.column-picker summary,.context-menu button').forEach(button=>{if(button.matches('.metric,.stat-button,.shared-user-trigger'))return;const name=semanticButtonIcon(button);if(name)addIcon(button,name);});
+    animateEntrance();
   }
+  const entranceAnimated=new WeakSet();
+  function reducedMotion(){return matchMedia('(prefers-reduced-motion: reduce)').matches;}
   function animateTap(element){
-    if(!element||element.disabled||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+    if(!element||element.disabled||reducedMotion())return;
     element.animate(
       [{transform:'translateY(0) scale(1)'},{transform:'translateY(1px) scale(.97)'},{transform:'translateY(0) scale(1)'}],
       {duration:220,easing:'cubic-bezier(.2,.8,.2,1)'}
     );
+  }
+  // Motion.dev-inspired entrance pattern: short fade/translate with a restrained stagger.
+  // Native Web Animations keeps the private runtime CSP self-only (no third-party script dependency).
+  function animateEntrance(){
+    if(reducedMotion())return;
+    const groups=[
+      '.page-heading',
+      '.dash-hero',
+      '.metrics > .metric',
+      '.dash-metrics > .dash-metric',
+      '.sales-metric',
+      '.module-card',
+      '.task-card',
+      '.panel'
+    ];
+    let index=0;
+    document.querySelectorAll(groups.join(',')).forEach(element=>{
+      if(entranceAnimated.has(element))return;
+      entranceAnimated.add(element);
+      const delay=Math.min(index,8)*36;
+      index+=1;
+      element.animate(
+        [
+          {opacity:.72,transform:'translateY(8px)'},
+          {opacity:1,transform:'translateY(0)'}
+        ],
+        {duration:360,delay,easing:'cubic-bezier(.22,1,.36,1)',fill:'both'}
+      );
+    });
   }
   document.addEventListener('pointerdown',event=>{
     const target=event.target.closest('.button,.shared-links a,.module-card,.task-card,.sales-panel,.sales-metric,.invoice-section>summary,.shared-user-trigger,.shared-user-dropdown a,.shared-user-dropdown button,.nav-item,.clickable-card');
