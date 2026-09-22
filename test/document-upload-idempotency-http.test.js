@@ -66,6 +66,12 @@ test('dokumentuppladdning är idempotent över metadata-POST och fil-PUT',async(
     assert.equal(firstContent.status,200);
     assert.equal(firstContentBody.duplicate,false);
     assert.equal(firstContentBody.document.status,'ready');
+    const download=await fetch(f.base+'/api/v1/documents/'+firstBody.document.id+'/content',{headers});
+    assert.equal(download.status,200);
+    assert.match(download.headers.get('content-disposition')||'',/^attachment;/);
+    assert.match(download.headers.get('content-security-policy')||'',/sandbox/);
+    assert.equal(download.headers.get('content-type'),'application/pdf');
+    assert.deepEqual(Buffer.from(await download.arrayBuffer()),bytes);
 
     const retryContent=await fetch(f.base+'/api/v1/documents/'+firstBody.document.id+'/content',{
       method:'PUT',
