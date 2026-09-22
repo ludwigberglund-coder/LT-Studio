@@ -96,18 +96,37 @@ function securityEvents(){
   return events.map(event=>`<div class="event"><span class="status-pill"><span class="dot ${esc(event.severity)}"></span>${esc(({critical:'Kritisk',warning:'Varning',info:'Information'})[event.severity]||event.severity)}</span><strong>${esc(String(event.kind||'Säkerhetshändelse').replaceAll('_',' '))}</strong><time>${dateTime(event.createdAt)}</time></div>`).join('');
 }
 function overviewView(){
-  const ready=readinessState(),sec=securityState();
-  shell(`<section class="status-grid">
-    <article class="metric"><span>Företag</span><strong>${overview?.companyCount??'—'}</strong><small>kundmiljöer</small></article>
-    <article class="metric"><span>Aktiva sessioner</span><strong>${overview?.activeSessionCount??'—'}</strong><small>kundsessioner just nu</small></article>
-    <article class="metric"><span>Readiness</span><strong class="${ready.kind}">${ready.label}</strong><small>drift, backup och återställning</small></article>
-    <article class="metric"><span>Säkerhet 24 h</span><strong class="${sec.kind}">${sec.label}</strong><small>${overview?.security?.total??0} händelser totalt</small></article>
+  const totals=overview?.totals||{},companies=overview?.companies||[],ready=readinessState(),sec=securityState();
+  const configuredPct=percent(totals.configuredCompanies,overview?.companyCount||0),activePct=percent(totals.activeCompanies30d,overview?.companyCount||0),health=readinessScore();
+  const securityPenalty=Math.min(100,Number(overview?.security?.critical||0)*35+Number(overview?.security?.warning||0)*10);
+  shell(`<section class="hero-dashboard">
+    <div class="hero-copy"><span class="eyebrow">PLATTFORMSLÄGE</span><h2>Kontroll över hela kundbasen.</h2><p>En samlad bild av användning, kundaktivitet, drift och säkerhet — utan att öppna kundernas ekonomiska detaljdata.</p><div class="hero-badges"><span><i class="dot ${ready.kind}"></i> Drift: ${ready.label}</span><span><i class="dot ${sec.kind}"></i> Säkerhet: ${sec.label}</span></div></div>
+    <div class="hero-gauges">${ringGauge(health,'Drift','Godkända tekniska hälsokontroller.')}${ringGauge(configuredPct,'Aktivering','Företag med minst en användare.')}${ringGauge(100-securityPenalty,'Säkerhet','Baserat på aktuella varningar senaste 24 h.',toneForPercent(100-securityPenalty))}</div>
   </section>
-  <section class="panel"><div class="panel-head"><div><h2>Kundföretag</h2><p>Klicka på ett företag för att öppna dess adminöversikt.</p></div><button class="button secondary" data-action="refresh">Uppdatera</button></div><div class="table-wrap"><table><thead><tr><th>Företag</th><th>Org.nr</th><th>Användare</th><th>Åtkomst</th><th>Sessioner</th><th>Fakturor</th><th>Senaste aktivitet</th></tr></thead><tbody>${companyRows()}</tbody></table></div></section>
-  <section class="panel"><div class="panel-head"><div><h2>Hälsokontroller</h2><p>Teknisk status för plattformen.</p></div></div><div class="health-list">${readinessChecks()}</div></section>`,'Adminöversikt','Alla LT Studios kunder, användare, driftstatus och viktiga signaler.');
+  <section class="status-grid six">
+    ${kpiCard('Kundföretag',num(overview?.companyCount),'registrerade miljöer',totals.newCompanies30d?`+${totals.newCompanies30d} / 30d`:'')}
+    ${kpiCard('Användare',num(totals.members),'företagsmedlemskap')}
+    ${kpiCard('Aktiva sessioner',num(totals.activeSessions),'inloggade kundsessioner')}
+    ${kpiCard('Kundposter',num(totals.customers),'i kundernas register')}
+    ${kpiCard('Fakturor',num(totals.invoices),'registrerade fakturaposter')}
+    ${kpiCard('Aktiva företag 30d',num(totals.activeCompanies30d),'med registrerad aktivitet',`${activePct}%`)}
+  </section>
+  <section class="dashboard-grid">
+    <article class="panel dashboard-panel wide"><div class="panel-head"><div><span class="eyebrow">TREND</span><h2>Plattformsaktivitet</h2><p>Registrerade systemhändelser under de senaste sex månaderna.</p></div><span class="panel-stat">${num((overview?.monthly||[]).reduce((sum,item)=>sum+item.activity,0))} händelser</span></div><div class="chart-pad">${sparkline(overview?.monthly||[],'activity')}<div class="chart-axis">${(overview?.monthly||[]).map(item=>`<span>${esc(item.label)}</span>`).join('')}</div></div></article>
+    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">KUNDBAS</span><h2>Aktiveringsgrad</h2><p>Företag med minst en användare.</p></div></div><div class="instrument-pad">${ringGauge(configuredPct,'Aktiva',`${totals.configuredCompanies||0} av ${overview?.companyCount||0} företag har användare.`)}</div></article>
+    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">ROLLER</span><h2>Behörighetsfördelning</h2><p>Hur användarmedlemskap är fördelade.</p></div></div><div class="role-bars">${roleBars()}</div></article>
+  </section>
+  <section class="dashboard-grid equal">
+    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">ANVÄNDNING</span><h2>Fakturor per företag</h2><p>Visar volym, inte fakturainnehåll.</p></div></div><div class="chart-pad">${miniBars(companies,'invoiceRecordCount','fakturor')}</div></article>
+    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">KUNDREGISTER</span><h2>Kundposter per företag</h2><p>Jämför storleken på kundregistren.</p></div></div><div class="chart-pad">${miniBars(companies,'customerRecordCount','kunder')}</div></article>
+  </section>
+  <section class="panel"><div class="panel-head"><div><span class="eyebrow">KUNDMILJÖER</span><h2>Alla företag</h2><p>Klicka på ett företag för att öppna dess adminöversikt.</p></div><button class="button secondary" data-view="companies">Visa alla</button></div><div class="table-wrap"><table><thead><tr><th>Företag</th><th>Org.nr</th><th>Användare</th><th>Status</th><th>Sessioner</th><th>Fakturor</th><th>Senaste aktivitet</th></tr></thead><tbody>${companyRows()}</tbody></table></div></section>
+  <section class="panel"><div class="panel-head"><div><span class="eyebrow">DRIFT</span><h2>Hälsokontroller</h2><p>Teknisk status för plattformens viktigaste skydd och tjänster.</p></div><span class="panel-stat ${ready.kind}">${health}% godkända</span></div><div class="health-list">${readinessChecks()}</div></section>`,'Adminöversikt','Kundbas, användning, drift och säkerhet i realtid.');
 }
 function companiesView(){
-  shell(`<section class="panel"><div class="panel-head"><div><h2>Alla kunder & företag</h2><p>Öppna ett företag för användare, behörigheter och statistik.</p></div><button class="button secondary" data-action="refresh">Uppdatera</button></div><div class="table-wrap"><table><thead><tr><th>Företag</th><th>Org.nr</th><th>Användare</th><th>Åtkomst</th><th>Sessioner</th><th>Fakturor</th><th>Senaste aktivitet</th></tr></thead><tbody>${companyRows()}</tbody></table></div></section>`,'Kunder & företag','Central administration för varje kundmiljö.');
+  const totals=overview?.totals||{},configuredPct=percent(totals.configuredCompanies,overview?.companyCount||0);
+  shell(`<section class="page-intro-card"><div><span class="eyebrow">KUNDBAS</span><h2>${num(overview?.companyCount)} företag använder plattformen</h2><p>Härifrån öppnar ni varje kundmiljö och hanterar användare, behörigheter och teknisk statistik.</p></div><div class="intro-stats"><div><strong>${configuredPct}%</strong><span>aktiverade</span></div><div><strong>${num(totals.activeCompanies30d)}</strong><span>aktiva 30d</span></div><div><strong>${num(totals.members)}</strong><span>användare</span></div></div></section>
+  <section class="panel"><div class="panel-head"><div><span class="eyebrow">FÖRETAG</span><h2>Alla kunder & företag</h2><p>Öppna ett företag för användare, behörigheter och statistik.</p></div></div><div class="table-wrap"><table><thead><tr><th>Företag</th><th>Org.nr</th><th>Användare</th><th>Status</th><th>Sessioner</th><th>Fakturor</th><th>Senaste aktivitet</th></tr></thead><tbody>${companyRows()}</tbody></table></div></section>`,'Kunder & företag','Central administration för varje kundmiljö.');
 }
 function statisticsView(){
   const companies=overview?.companies||[];
