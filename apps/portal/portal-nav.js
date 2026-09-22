@@ -125,7 +125,7 @@
   function semanticButtonIcon(element){
     const text=[element.getAttribute?.('aria-label'),element.getAttribute?.('title'),element.textContent].filter(Boolean).join(' ').trim().toLowerCase();
     if(/logga ut/.test(text))return'logout';
-    if(/stäng|avbryt/.test(text))return'xmark';
+    if(/stäng|avbryt/.test(text)||/^(?:×|✕|✖)$/.test(text))return'xmark';
     if(/kommentar/.test(text))return'chat';
     if(/kolumn/.test(text))return'stats';
     if(/påminnelse|skicka/.test(text))return'send';
@@ -147,7 +147,7 @@
     document.querySelectorAll('.shared-user-dropdown a,.shared-user-dropdown button').forEach(el=>addIcon(el,semanticButtonIcon(el)||'profile'));
     document.querySelectorAll('.shared-foot>a').forEach(el=>addIcon(el,'home'));
     document.querySelectorAll('.comment-badge').forEach(el=>addIcon(el,'chat'));
-    document.querySelectorAll('.button,button[data-action],button[data-journal-action],.nav-item,.module-card a,.callout a,.column-picker summary,.context-menu button,.modal-head button,.modal-head-sales button').forEach(button=>{const name=semanticButtonIcon(button);if(name)addIcon(button,name);});
+    document.querySelectorAll('button,.button,.nav-item,.module-card a,.callout a,.column-picker summary,.context-menu button').forEach(button=>{const name=semanticButtonIcon(button);if(name)addIcon(button,name);});
   }
   function animateTap(element){
     if(!element||element.disabled||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
