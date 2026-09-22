@@ -597,3 +597,23 @@ tbody tr:hover td{background:#f7faf6}
 .security-lower-grid{align-items:start}
 @media(max-width:1000px){.security-hero-live{grid-template-columns:1fr}.security-snapshot{max-width:none}.security-toolbar{grid-template-columns:1fr 1fr}.security-filter-count{grid-column:1/-1;justify-self:start}}
 @media(max-width:620px){.security-snapshot,.security-toolbar{grid-template-columns:1fr}.security-filter-count{grid-column:auto}.security-snapshot>div{min-height:110px}}
+
+
+/* Security portal correlation + operator audit */
+.security-toolbar{grid-template-columns:minmax(150px,190px) minmax(150px,190px) minmax(180px,1fr) auto}
+.security-event{grid-template-columns:auto minmax(0,1fr) auto}
+.event-copy{display:grid;gap:3px;min-width:0}
+.event-copy strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.event-copy small{font-size:10px;color:var(--muted);font-weight:750}
+.operator-audit-panel{overflow:hidden}
+.audit-list{display:grid}
+.audit-row{display:grid;grid-template-columns:auto minmax(220px,1fr) minmax(130px,.5fr) auto;gap:14px;align-items:center;padding:15px 20px;border-bottom:1px solid var(--line-soft)}
+.audit-row:last-child{border-bottom:0}
+.audit-row:hover{background:#fafcf9}
+.audit-icon{display:grid;place-items:center;width:28px;height:28px;border-radius:9px;background:#edf2ed;border:1px solid #dfe7df;color:#4d6754;font-weight:900}
+.audit-row strong{font-size:12px;color:#263128}
+.audit-row p{margin:3px 0 0;font-size:11px;color:var(--muted)}
+.audit-detail{font-size:11px;font-weight:800;color:#536159;background:#f3f6f2;border:1px solid #e3e9e1;border-radius:999px;padding:6px 9px;justify-self:start}
+.audit-row time{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+@media(max-width:1000px){.security-toolbar{grid-template-columns:1fr 1fr}.security-toolbar label:nth-child(3){grid-column:1/-1}.audit-row{grid-template-columns:auto minmax(0,1fr) auto}.audit-detail{grid-column:2}.audit-row time{grid-column:3;grid-row:1}}
+@media(max-width:620px){.security-toolbar{grid-template-columns:1fr}.security-toolbar label:nth-child(3){grid-column:auto}.audit-row{grid-template-columns:auto minmax(0,1fr)}.audit-detail,.audit-row time{grid-column:2}.audit-row time{grid-row:auto}}
