@@ -75,3 +75,22 @@ test('bodyless action accepts empty JSON but rejects unexpected fields before au
   assert.equal(body.code,'UNEXPECTED_REQUEST_BODY');
   assert.ok(body.requestId);
 }));
+
+
+test('public origin rejects spoofed loopback Host but accepts configured host',()=>withServer({
+  host:'0.0.0.0',
+  secureCookies:true,
+  authEncryptionKey:'test-only-encryption-key-longer-than-thirty-two-chars',
+  allowedHosts:['portal.example.test']
+},async base=>{
+  const spoofed=await fetch(base+'/_runtime-version',{headers:{Host:'127.0.0.1'}});
+  const spoofedBody=await spoofed.json();
+  assert.equal(spoofed.status,421);
+  assert.equal(spoofedBody.code,'HOST_NOT_ALLOWED');
+
+  const allowed=await fetch(base+'/_runtime-version',{headers:{Host:'portal.example.test'}});
+  assert.equal(allowed.status,200);
+  const body=await allowed.json();
+  assert.equal(typeof body.runtimeId,'string');
+  assert.ok(body.runtimeId.length>10);
+}));
