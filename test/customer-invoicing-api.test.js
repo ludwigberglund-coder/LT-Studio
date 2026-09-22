@@ -269,7 +269,7 @@ test('obetald faktura kan delkrediteras flera gånger med proportionell moms och
   const firstResponse=await fetch(base+`/api/v1/customer-invoices/${issued.invoice.id}/credit`,{method:'POST',headers,body:JSON.stringify({
     requestId:'credit-request-partial-one-0001',creditDate:'2026-09-18',reason:'Prisjustering på del av leveransen.',creditAmountOre:50000
   })});
-  const first=await firstResponse.json();assert.equal(firstResponse.status,201);
+  const first=await firstResponse.json();assert.equal(firstResponse.status,201,JSON.stringify(first));
   assert.equal(first.document.creditMode,'partial');assert.equal(first.document.totalOre,-50000);
   assert.equal(first.invoice.totalOre,-50000);assert.equal(first.credit.offsetAmountOre,50000);assert.equal(first.credit.refundDueOre,0);
   assert.equal(first.original.remainingOre,75000);assert.equal(first.original.status,'Delvis krediterad');
@@ -302,7 +302,7 @@ test('delbetald faktura kan helkrediteras och överskjutande kundkredit återbet
   const response=await fetch(base+`/api/v1/customer-invoices/${issued.invoice.id}/credit`,{method:'POST',headers,body:JSON.stringify({
     requestId:'credit-request-partial-paid-0001',creditDate:'2026-09-18',reason:'Fakturan ska krediteras helt efter delbetalning.',creditAmountOre:125000
   })});
-  const credited=await response.json();assert.equal(response.status,201);
+  const credited=await response.json();assert.equal(response.status,201,JSON.stringify(credited));
   assert.equal(credited.original.remainingOre,0);assert.equal(credited.original.status,'Krediterad');
   assert.equal(credited.credit.offsetAmountOre,100000);assert.equal(credited.credit.refundDueOre,25000);assert.equal(credited.credit.refundStatus,'pending');
   const refundResponse=await fetch(base+`/api/v1/customer-invoices/${credited.invoice.id}/refund`,{method:'POST',headers,body:JSON.stringify({
@@ -332,7 +332,7 @@ test('helt betald faktura kan delkrediteras och hela kreditbeloppet blir återbe
   const response=await fetch(base+`/api/v1/customer-invoices/${issued.invoice.id}/credit`,{method:'POST',headers,body:JSON.stringify({
     requestId:'credit-request-paid-partial-01',creditDate:'2026-09-18',reason:'Delvis prisavdrag efter full betalning.',creditAmountOre:50000
   })});
-  const credited=await response.json();assert.equal(response.status,201);
+  const credited=await response.json();assert.equal(response.status,201,JSON.stringify(credited));
   assert.equal(credited.document.totalOre,-50000);assert.equal(credited.credit.offsetAmountOre,0);assert.equal(credited.credit.refundDueOre,50000);
   assert.equal(credited.original.remainingOre,0);assert.equal(credited.original.status,'Delvis krediterad');
   const refundResponse=await fetch(base+`/api/v1/customer-invoices/${credited.invoice.id}/refund`,{method:'POST',headers,body:JSON.stringify({
