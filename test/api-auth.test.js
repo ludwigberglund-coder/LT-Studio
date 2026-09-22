@@ -47,3 +47,22 @@ test('sessionscookies är HttpOnly SameSite Strict och Secure i skarp standard',
   assert.match(cookie,/Secure/);
   assert.match(Auth.clearSessionCookie(),/Max-Age=0/);
 });
+
+
+test('lösenordsverifiering avvisar manipulerade scrypt-parametrar fail-closed', () => {
+  const password='Ett mycket langt testlosenord 2026!';
+  const encoded=Auth.hashPassword(password);
+  const parts=encoded.split('$');
+
+  const expensive=[parts[0],parts[1],parts[2],'999999',parts[4],parts[5]].join('$');
+  assert.equal(Auth.verifyPassword(password,expensive),false);
+
+  const wrongN=[parts[0],'32768',parts[2],parts[3],parts[4],parts[5]].join('$');
+  assert.equal(Auth.verifyPassword(password,wrongN),false);
+
+  const shortSalt=[parts[0],parts[1],parts[2],parts[3],Buffer.from('short').toString('base64url'),parts[5]].join('$');
+  assert.equal(Auth.verifyPassword(password,shortSalt),false);
+
+  const shortHash=[parts[0],parts[1],parts[2],parts[3],parts[4],Buffer.alloc(16).toString('base64url')].join('$');
+  assert.equal(Auth.verifyPassword(password,shortHash),false);
+});
