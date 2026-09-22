@@ -39,6 +39,7 @@ const {assertSyntheticStagingDatabase}=require('./staging-data-policy.js');
 const repositoryRoot = path.resolve(__dirname,'..','..');
 const {validateRuntime,protectedRuntimeMode,demoRequest,resolveStaticRequest,serveStatic} = require('./private-runtime.js');
 const {readinessReport}=require('./readiness.js');
+const SecurityMonitor=require('./security-monitor.js');
 const OperationalLog=require('./operational-log.js');
 const RequestSecurity=require('./request-security.js');
 
@@ -140,7 +141,12 @@ function createServer(options = {}) {
       auditAnchorAgeMinutes:report.auditAnchorAgeMs===null?null:Math.floor(report.auditAnchorAgeMs/60000)
     };
   };
-  const operator=createOperatorRouter({db,secureCookies,authEncryptionKey,readinessProvider:readinessPayload,clientIp});
+  const securityMonitor=SecurityMonitor.createSecurityMonitor({
+    db,
+    readinessProvider:readinessPayload,
+    scanIntervalMs:options.securityScanIntervalMs??30_000
+  });
+  const operator=createOperatorRouter({db,secureCookies,authEncryptionKey,readinessProvider:readinessPayload,securityMonitor,clientIp});
 
   // Apply guards after every router has initialized its tables, before accepting requests.
   require('./tenant-integrity.js').installTenantGuards(db);
@@ -236,8 +242,11 @@ function createServer(options = {}) {
       res.destroy();
     }
   });
-  function close(callback) { server.close(() => { try { db.close(); } catch {} if (callback) callback(); }); }
-  return Object.freeze({server,db,api,operator,automationReview,bank,payables,supplierMasterdata,paymentRelease,paymentConfirmation,inventory,reports,exportsRouter,payroll,documents,openingMigrationImport,accounting,websiteCms,host,port,databasePath,runtimeId,close});
+  function close(callback) {
+    securityMonitor.stop();
+    server.close(() => { try { db.close(); } catch {} if (callback) callback(); });
+  }
+  return Object.freeze({server,db,api,operator,securityMonitor,automationReview,bank,payables,supplierMasterdata,paymentRelease,paymentConfirmation,inventory,reports,exportsRouter,payroll,documents,openingMigrationImport,accounting,websiteCms,host,port,databasePath,runtimeId,close});
 }
 if (require.main === module) {
   const runtime = createServer();

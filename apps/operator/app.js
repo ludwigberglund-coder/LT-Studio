@@ -1,6 +1,6 @@
 const root=document.getElementById('operator-app');
 const csrfKey='lt-operator-csrf';
-let session=null,overview=null,readiness=null,security=null,operatorAudit=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='',companyQuery='',companyStatus='all',companySort='name',securitySeverity='all',securityPeriod='24h',securityCompany='all';
+let session=null,overview=null,readiness=null,security=null,operatorAudit=null,securityMonitor=null,securityPollTimer=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='',companyQuery='',companyStatus='all',companySort='name',securitySeverity='all',securityPeriod='24h',securityCompany='all',securityIncidentStatus='all';
 
 function esc(value=''){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
 function initials(name='LT'){return String(name).trim().split(/\s+/).filter(Boolean).map(part=>part[0]).join('').slice(0,2).toUpperCase()||'LT'}
@@ -70,7 +70,37 @@ function loginView(){
   </section>`;
 }
 function readinessState(){if(!readiness)return{label:'Laddar',kind:'warning'};return readiness.ok?{label:'OK',kind:'ok'}:{label:'Varning',kind:'critical'}}
-function securityState(){const critical=Number(overview?.security?.critical||0),warning=Number(overview?.security?.warning||0);if(critical)return{label:`${critical} kritiska`,kind:'critical'};if(warning)return{label:`${warning} varningar`,kind:'warning'};return{label:'Ingen aktiv varning',kind:'ok'}}
+function securityState(){
+  const critical=Number(securityMonitor?.counts?.critical||overview?.security?.critical||0),warning=Number(securityMonitor?.counts?.warning||overview?.security?.warning||0);
+  if(critical)return{label:`${critical} kritiska`,kind:'critical'};
+  if(warning)return{label:`${warning} varningar`,kind:'warning'};
+  return{label:'Inga aktiva flaggor',kind:'ok'};
+}
+function securityBadgeMarkup(){
+  const critical=Number(securityMonitor?.counts?.critical||0),warning=Number(securityMonitor?.counts?.warning||0);
+  if(critical)return `<span class="nav-badge critical" data-security-badge aria-hidden="true">${critical}</span>`;
+  if(warning)return `<span class="nav-badge warning" data-security-badge aria-hidden="true">${warning}</span>`;
+  return '<span class="nav-badge ok" data-security-badge aria-hidden="true">aktiv</span>';
+}
+function securityAlertStrip(){
+  const counts=securityMonitor?.counts||{};
+  const critical=Number(counts.critical||0),warning=Number(counts.warning||0);
+  if(!critical&&!warning)return '';
+  const tone=critical?'critical':'warning',count=critical||warning;
+  const label=critical?`${count} kritisk${count===1?'':'a'} säkerhetsflagga${count===1?'':'r'}`:`${count} säkerhetsvarning${count===1?'':'ar'}`;
+  return `<button class="security-live-alert ${tone}" type="button" data-view="security"><span class="security-pulse" aria-hidden="true"></span><strong>${esc(label)}</strong><span>Öppna Säkerhetsportalen för detaljer</span><span aria-hidden="true">→</span></button>`;
+}
+function updateSecurityChrome(){
+  document.querySelectorAll('[data-security-badge]').forEach(node=>{
+    const holder=document.createElement('div');holder.innerHTML=securityBadgeMarkup();const next=holder.firstElementChild;if(next)node.replaceWith(next);
+  });
+  const live=document.getElementById('security-live-alert');if(live)live.innerHTML=securityAlertStrip();
+}
+function securityFindings(){
+  const findings=securityMonitor?.findings||[];
+  if(!findings.length)return '<div class="security-clear live-clear"><span class="clear-check" aria-hidden="true">✓</span><div><strong>Inga aktiva säkerhetsflaggor</strong><p>Senaste skanningen hittade inga regler som kräver åtgärd.</p></div></div>';
+  return `<div class="finding-list">${findings.map(item=>`<article class="security-finding ${esc(item.severity)}"><div class="finding-top"><span class="status-pill"><span class="dot ${esc(item.severity)}"></span>${esc(({critical:'Kritisk',warning:'Varning',info:'Information'})[item.severity]||item.severity)}</span><span class="finding-category">${esc(item.category)}</span></div><h3>${esc(item.title)}</h3><p>${esc(item.message)}</p></article>`).join('')}</div>`;
+}
 function modalMarkup(){
   if(!modal)return '';
   if(modal.kind==='password')return `<div class="modal-backdrop" data-modal-backdrop><section class="modal-card portal-modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><div><span class="eyebrow">SÄKER ÅTGÄRD</span><h2 id="modal-title">Byt lösenord</h2><p>${esc(modal.userName)}</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div><form id="reset-password-form"><label class="field"><span>Nytt tillfälligt lösenord</span><input name="password" type="password" required minlength="8" autocomplete="new-password" autofocus></label><p class="form-help">Minst 8 tecken, stor och liten bokstav samt minst en siffra eller ett specialtecken. Lösenordet gäller hela personens konto i alla företag där kontot har åtkomst, och alla tidigare sessioner avslutas efter bytet.</p><div class="modal-actions"><button class="button secondary" type="button" data-action="close-modal">Avbryt</button><button class="button" type="submit">Spara nytt lösenord</button></div></form></section></div>`;
@@ -85,13 +115,13 @@ function focusModal(){
 }
 function nav(){
   const items=[['overview','Översikt','⌂'],['companies','Kunder & företag','◇'],['statistics','Statistik','▥'],['security','Säkerhetsportal','◈']];
-  return items.map(([id,label,icon])=>`<button class="${view===id?'active':''}" data-view="${id}"><span class="nav-label"><span class="nav-icon" aria-hidden="true">${icon}</span>${label}</span></button>`).join('');
+  return items.map(([id,label,icon])=>`<button class="${view===id?'active':''}" data-view="${id}"><span class="nav-label"><span class="nav-icon" aria-hidden="true">${icon}</span>${label}</span>${id==='security'?securityBadgeMarkup():''}</button>`).join('');
 }
 function shell(body,title,subtitle){
   const operator=session?.operator||{};
   root.innerHTML=`<div class="operator-shell"><aside class="sidebar"><div><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div class="side-copy">ADMIN CONTROL CENTER</div></div><nav class="side-nav">${nav()}</nav><div class="side-spacer"></div><div class="side-status"><span class="live-dot"></span><div><strong>Operatorportal aktiv</strong><small>Separat säkerhetsgräns</small></div></div><div class="side-footer">Endast LT Studio-operatörer.<br>Alla administrativa ändringar loggas.</div></aside>
   <section class="main"><header class="topbar"><div><span class="page-kicker">LT STUDIO / ADMIN</span><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div><div class="actions"><div class="operator-user"><span class="avatar">${initials(operator.displayName)}</span><div><strong>${esc(operator.displayName||operator.username||'Operatör')}</strong><small>LT Studio-operatör</small></div></div><button class="icon-button" data-action="refresh" title="Uppdatera" aria-label="Uppdatera">↻</button><button class="button secondary" data-action="logout">Logga ut</button></div></header><nav class="mobile-nav">${nav()}</nav>
-  ${errorMessage?`<div class="notice">${esc(errorMessage)}</div>`:''}${successNotice()}${body}<footer class="portal-footer"><span>LT Studio Admin</span><span>Senast uppdaterad ${dateTime(overview?.generatedAt)}</span></footer></section></div>${modalMarkup()}`;
+  <div id="security-live-alert">${securityAlertStrip()}</div>${errorMessage?`<div class="notice">${esc(errorMessage)}</div>`:''}${successNotice()}${body}<footer class="portal-footer"><span>LT Studio Admin</span><span>Senast uppdaterad ${dateTime(overview?.generatedAt)}</span></footer></section></div>${modalMarkup()}`;
 }
 function filteredCompanies(){
   const query=companyQuery.trim().toLocaleLowerCase('sv');
@@ -180,12 +210,26 @@ function securityCompanyOptions(){
   const companies=overview?.companies||[];
   return ['<option value="all" '+(securityCompany==='all'?'selected':'')+'>Alla företag</option>','<option value="platform" '+(securityCompany==='platform'?'selected':'')+'>Plattformsnivå</option>',...companies.map(company=>`<option value="${esc(company.id)}" ${securityCompany===company.id?'selected':''}>${esc(company.displayName)}</option>`)].join('');
 }
+function incidentStatusLabel(status){
+  return ({new:'Ny',reviewed:'Granskad',investigating:'Utreds',resolved:'Åtgärdad'})[String(status||'new')]||'Ny';
+}
+function incidentStatusOptions(selected){
+  return ['new','reviewed','investigating','resolved'].map(status=>`<option value="${status}" ${selected===status?'selected':''}>${incidentStatusLabel(status)}</option>`).join('');
+}
+function incidentMeta(event){
+  const status=event.incidentStatus||'new';
+  if(status==='new')return 'Inte granskad ännu';
+  const who=event.incidentUpdatedBy?` av ${event.incidentUpdatedBy}`:'';
+  const when=event.incidentUpdatedAt?` · ${dateTime(event.incidentUpdatedAt)}`:'';
+  return `${incidentStatusLabel(status)}${who}${when}`;
+}
 function filteredSecurityEvents(){
   const events=security?.events||[];
   const hours=securityPeriod==='24h'?24:securityPeriod==='7d'?24*7:securityPeriod==='30d'?24*30:null;
   const cutoff=hours===null?null:Date.now()-hours*60*60*1000;
   return events.filter(event=>{
     if(securitySeverity!=='all'&&event.severity!==securitySeverity)return false;
+    if(securityIncidentStatus!=='all'&&(event.incidentStatus||'new')!==securityIncidentStatus)return false;
     if(securityCompany==='platform'&&event.companyId)return false;
     if(!['all','platform'].includes(securityCompany)&&event.companyId!==securityCompany)return false;
     if(cutoff===null)return true;
@@ -196,7 +240,10 @@ function filteredSecurityEvents(){
 function securityEvents(){
   const events=filteredSecurityEvents();
   if(!events.length)return '<div class="empty">Inga säkerhetshändelser matchar filtret.</div>';
-  return events.map(event=>`<div class="event security-event"><span class="status-pill"><span class="dot ${esc(event.severity)}"></span>${esc(({critical:'Kritisk',warning:'Varning',info:'Information'})[event.severity]||event.severity)}</span><div class="event-copy"><strong>${esc(securityEventLabel(event.kind))}</strong><small>${esc(event.companyName||'Plattformsnivå')}</small></div><time>${dateTime(event.createdAt)}</time></div>`).join('');
+  return events.map(event=>{
+    const incidentStatus=event.incidentStatus||'new';
+    return `<div class="event security-event" data-security-event-row="${esc(event.id)}"><span class="status-pill"><span class="dot ${esc(event.severity)}"></span>${esc(({critical:'Kritisk',warning:'Varning',info:'Information'})[event.severity]||event.severity)}</span><div class="event-copy"><strong>${esc(securityEventLabel(event.kind))}</strong><small>${esc(event.companyName||'Plattformsnivå')} · ${esc(incidentMeta(event))}</small></div><label class="incident-state-control"><span>Incidentstatus</span><select data-incident-status data-security-event-id="${esc(event.id)}">${incidentStatusOptions(incidentStatus)}</select></label><time>${dateTime(event.createdAt)}</time></div>`;
+  }).join('');
 }
 function operatorAuditLabel(action){
   return ({
@@ -206,11 +253,13 @@ function operatorAuditLabel(action){
     CUSTOMER_EXISTING_USER_ADDED:'Befintlig användare fick åtkomst',
     CUSTOMER_USER_ROLE_CHANGED:'Behörighet ändrades',
     CUSTOMER_USER_PASSWORD_RESET:'Lösenord byttes',
-    CUSTOMER_USER_REMOVED:'Åtkomst togs bort'
+    CUSTOMER_USER_REMOVED:'Åtkomst togs bort',
+    SECURITY_INCIDENT_STATUS_CHANGED:'Incidentstatus ändrades'
   })[String(action||'')]||'Administrativ åtgärd';
 }
 function operatorAuditDetail(event){
   if(event.action==='CUSTOMER_USER_ROLE_CHANGED'&&event.beforeRole&&event.afterRole)return `${roleLabel(event.beforeRole)} → ${roleLabel(event.afterRole)}`;
+  if(event.action==='SECURITY_INCIDENT_STATUS_CHANGED'&&event.beforeStatus&&event.afterStatus)return `${incidentStatusLabel(event.beforeStatus)} → ${incidentStatusLabel(event.afterStatus)}`;
   if(event.role)return roleLabel(event.role);
   return event.targetUserName||'—';
 }
@@ -281,16 +330,18 @@ function statisticsView(){
   <section class="panel"><div class="panel-head"><div><span class="eyebrow">DETALJER</span><h2>Företagsstatistik</h2><p>Operativ metadata utan fakturainnehåll eller ekonomiska belopp.</p></div></div><div class="table-wrap"><table><thead><tr><th>Företag</th><th>Användare</th><th>Kunder</th><th>Fakturor</th><th>Sessioner</th><th>Senaste aktivitet</th></tr></thead><tbody>${companies.map(c=>`<tr class="click-row" data-company-id="${esc(c.id)}" tabindex="0" role="button"><td><div class="company-cell"><span class="company-avatar">${initials(c.displayName)}</span><strong>${esc(c.displayName)}</strong></div></td><td>${c.memberCount}</td><td>${c.customerRecordCount}</td><td>${c.invoiceRecordCount}</td><td>${c.activeSessionCount}</td><td>${dateTime(c.lastActivityAt)}</td></tr>`).join('')}</tbody></table></div></section>`,'Statistik','Mätbara nyckeltal och trender för hela LT Studio-plattformen.');
 }
 function securityView(){
-  const totals=overview?.totals||{},mfaPct=percent(totals.mfaProtectedUsers,totals.activeUsers),entries=readinessEntries(),known=entries.filter(item=>item.known),okCount=known.filter(item=>item.ok).length,events=filteredSecurityEvents();
+  const totals=overview?.totals||{},mfaPct=percent(totals.mfaProtectedUsers,totals.activeUsers),entries=readinessEntries(),known=entries.filter(item=>item.known),okCount=known.filter(item=>item.ok).length,events=filteredSecurityEvents(),monitor=securityMonitor||{},counts=monitor.counts||{};
   const critical=events.filter(event=>event.severity==='critical').length,warning=events.filter(event=>event.severity==='warning').length,latest=events[0]?.createdAt||null;
-  shell(`<section class="security-hero security-hero-live"><div><span class="eyebrow">SÄKERHETSPORTAL</span><h2>Verkliga kontroller. Tydliga åtgärder.</h2><p>Samlad read-only säkerhetsöversikt för LT Studio. Statusen bygger på systemets faktiska readiness-kontroller och säkerhetshändelser — inte på ett påhittat säkerhetsbetyg.</p></div><div class="security-snapshot"><div><span>Tekniska kontroller</span><strong>${okCount}/${known.length||entries.length}</strong><small>rapporterar OK</small></div><div><span>MFA-täckning</span><strong>${mfaPct}%</strong><small>${totals.mfaProtectedUsers||0} av ${totals.activeUsers||0} aktiva användare</small></div></div></section>
+  const monitorTone=monitor.status==='critical'?'critical':monitor.status==='attention'?'warning':'ok';
+  shell(`<section class="security-hero security-hero-live active-security-hero"><div><span class="eyebrow">AKTIV SÄKERHETSÖVERVAKNING</span><h2>Systemet söker löpande efter risker och fel.</h2><p>Säkerhetsmotorn kör på servern även när den här sidan inte är öppen. Portalen hämtar nya flaggor automatiskt ungefär var ${num(monitor.scanIntervalSeconds||30)} sekund.</p><div class="monitor-live"><span class="live-dot ${monitorTone}"></span><strong>Aktiv övervakning</strong><span>Senast skannad ${dateTime(monitor.checkedAt)}</span></div></div><div class="security-snapshot"><div><span>Aktiva flaggor</span><strong class="${monitorTone}">${num(counts.total)}</strong><small>${num(counts.critical)} kritiska · ${num(counts.warning)} varningar</small></div><div><span>MFA-täckning</span><strong>${mfaPct}%</strong><small>${totals.mfaProtectedUsers||0} av ${totals.activeUsers||0} aktiva användare</small></div></div></section>
   <section class="status-grid"><article class="metric"><span>Readiness</span><strong class="${readiness?.ok?'ok':'critical'}">${readiness?.ok?'OK':'Åtgärd krävs'}</strong><small>samlad teknisk gate</small></article><article class="metric"><span>Kritiska händelser</span><strong class="critical">${num(critical)}</strong><small>i valt tidsfilter</small></article><article class="metric"><span>Varningar</span><strong class="warning">${num(warning)}</strong><small>i valt tidsfilter</small></article><article class="metric"><span>Senaste händelse</span><strong class="small-value">${esc(dateTime(latest))}</strong><small>bland senast hämtade händelser</small></article></section>
+  <section class="panel findings-panel"><div class="panel-head"><div><span class="eyebrow">AKTIVA FLAGGOR</span><h2>Det här behöver er uppmärksamhet</h2><p>Fynd från readiness, autentisering, MFA och nya säkerhetshändelser. Inga hemligheter eller råa tekniska detaljer visas.</p></div><span class="panel-stat ${monitorTone}">${monitor.active===false?'Skanning fel':'Live'}</span></div>${securityFindings()}</section>
   <section class="panel security-readiness-panel"><div class="panel-head"><div><span class="eyebrow">SKYDD & DRIFT</span><h2>Hälsokontroller och verifieringsbevis</h2><p>Databas, backup, R2, restore, monitoring, audit-ankare och global admin. Bevisålder visas där backend har verifierbar evidens.</p></div><span class="panel-stat ${readiness?.ok?'ok':'critical'}">${okCount} av ${known.length||entries.length} OK</span></div><div class="table-wrap"><table class="security-check-table"><thead><tr><th>Kontroll</th><th>Status</th><th>Senaste bevis</th><th>Rekommenderad åtgärd</th></tr></thead><tbody>${securityReadinessTable()}</tbody></table></div></section>
   <section class="dashboard-grid equal security-lower-grid">
-    <article class="panel dashboard-panel"><div class="panel-head security-events-head"><div><span class="eyebrow">INCIDENTER</span><h2>Säkerhetshändelser</h2><p>Redigerad logg utan IP-adresser, fingeravtryck eller hemliga tekniska detaljer. Filtren gäller de senast hämtade händelserna.</p></div></div><div class="security-toolbar"><label><span>Allvarlighetsgrad</span><select data-security-severity><option value="all" ${securitySeverity==='all'?'selected':''}>Alla</option><option value="critical" ${securitySeverity==='critical'?'selected':''}>Kritisk</option><option value="warning" ${securitySeverity==='warning'?'selected':''}>Varning</option><option value="info" ${securitySeverity==='info'?'selected':''}>Information</option></select></label><label><span>Tidsperiod</span><select data-security-period><option value="24h" ${securityPeriod==='24h'?'selected':''}>24 timmar</option><option value="7d" ${securityPeriod==='7d'?'selected':''}>7 dagar</option><option value="30d" ${securityPeriod==='30d'?'selected':''}>30 dagar</option><option value="all" ${securityPeriod==='all'?'selected':''}>Alla hämtade</option></select></label><label><span>Företag</span><select data-security-company>${securityCompanyOptions()}</select></label><span class="security-filter-count">${num(events.length)} händelser</span></div><div class="event-list" id="security-event-list">${securityEvents()}</div></article>
+    <article class="panel dashboard-panel"><div class="panel-head security-events-head"><div><span class="eyebrow">INCIDENTER</span><h2>Säkerhetshändelser</h2><p>Redigerad logg utan IP-adresser, fingeravtryck eller hemliga tekniska detaljer. Filtren gäller de senast hämtade händelserna.</p></div></div><div class="security-toolbar"><label><span>Allvarlighetsgrad</span><select data-security-severity><option value="all" ${securitySeverity==='all'?'selected':''}>Alla</option><option value="critical" ${securitySeverity==='critical'?'selected':''}>Kritisk</option><option value="warning" ${securitySeverity==='warning'?'selected':''}>Varning</option><option value="info" ${securitySeverity==='info'?'selected':''}>Information</option></select></label><label><span>Tidsperiod</span><select data-security-period><option value="24h" ${securityPeriod==='24h'?'selected':''}>24 timmar</option><option value="7d" ${securityPeriod==='7d'?'selected':''}>7 dagar</option><option value="30d" ${securityPeriod==='30d'?'selected':''}>30 dagar</option><option value="all" ${securityPeriod==='all'?'selected':''}>Alla hämtade</option></select></label><label><span>Företag</span><select data-security-company>${securityCompanyOptions()}</select></label><label><span>Incidentstatus</span><select data-security-incident-filter><option value="all" ${securityIncidentStatus==='all'?'selected':''}>Alla statusar</option><option value="new" ${securityIncidentStatus==='new'?'selected':''}>Ny</option><option value="reviewed" ${securityIncidentStatus==='reviewed'?'selected':''}>Granskad</option><option value="investigating" ${securityIncidentStatus==='investigating'?'selected':''}>Utreds</option><option value="resolved" ${securityIncidentStatus==='resolved'?'selected':''}>Åtgärdad</option></select></label><span class="security-filter-count">${num(events.length)} händelser</span></div><div class="event-list" id="security-event-list">${securityEvents()}</div></article>
     <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">ÅTGÄRDSLISTA</span><h2>Det som behöver uppmärksamhet</h2><p>Konkreta rekommendationer från kontroller som inte rapporterar OK.</p></div></div><div class="security-actions">${unresolvedSecurityActions()}</div><div class="security-privacy-note"><strong>Dataminimerad vy</strong><p>Säkerhetsportalen visar inte lösenord, MFA-hemligheter, IP-adresser, kundernas dokument eller ekonomiska detaljdata.</p></div></article>
   </section>
-  <section class="panel operator-audit-panel"><div class="panel-head"><div><span class="eyebrow">OPERATÖRER</span><h2>Administratörslogg</h2><p>Read-only historik över vad LT Studio-operatörer har gjort. Endast nödvändig företags-, användar- och rollmetadata visas.</p></div><span class="panel-stat ${operatorAudit?.unavailable?'warning':''}">${operatorAudit?.unavailable?'Tillfälligt otillgänglig':num(operatorAudit?.events?.length||0)+' loggposter'}</span></div><div class="audit-list">${operatorAudit?.unavailable?'<div class="empty">Administratörsloggen kunde inte läsas just nu. Övriga adminfunktioner påverkas inte.</div>':operatorAuditRows()}</div></section>`,'Säkerhetsportal','Systemhälsa, säkerhetshändelser och verifieringsbevis för hela LT Studio.');
+  <section class="panel operator-audit-panel"><div class="panel-head"><div><span class="eyebrow">OPERATÖRER</span><h2>Administratörslogg</h2><p>Read-only historik över vad LT Studio-operatörer har gjort. Endast nödvändig företags-, användar- och rollmetadata visas.</p></div><span class="panel-stat ${operatorAudit?.unavailable?'warning':''}">${operatorAudit?.unavailable?'Tillfälligt otillgänglig':num(operatorAudit?.events?.length||0)+' loggposter'}</span></div><div class="audit-list">${operatorAudit?.unavailable?'<div class="empty">Administratörsloggen kunde inte läsas just nu. Övriga adminfunktioner påverkas inte.</div>':operatorAuditRows()}</div></section>`,'Säkerhetsportal','Aktiv risk- och felövervakning för hela LT Studio-plattformen.');
 }
 function globalAdminRows(detail){
   const admins=detail.platformAdmins||[];
@@ -343,14 +394,39 @@ async function loadOperatorAudit(){
   return operatorAudit;
 }
 async function loadData(){
-  const [o,r,s]=await Promise.all([
+  const [o,r,s,m]=await Promise.all([
     api('/overview'),
     api('/readiness').catch(err=>err.data&&typeof err.data==='object'?err.data:{ok:false,error:err.message,checks:{}}),
-    api('/security-events?limit=100')
+    api('/security-events?limit=100'),
+    api('/security-monitor').catch(()=>({active:false,status:'critical',counts:{critical:1,warning:0,info:0,total:1},findings:[{code:'SECURITY_MONITOR_UNAVAILABLE',severity:'critical',category:'Övervakning',title:'Säkerhetsövervakningen är inte tillgänglig',message:'Portalen kunde inte läsa den aktiva säkerhetsmotorn.'}]}))
   ]);
-  overview=o;readiness=r;security=s;
+  overview=o;readiness=r;security=s;securityMonitor=m;
   await loadOperatorAudit();
 }
+function stopSecurityPolling(){if(securityPollTimer){clearTimeout(securityPollTimer);securityPollTimer=null}}
+async function pollSecurity(){
+  if(!session?.authenticated)return;
+  try{
+    securityMonitor=await api('/security-monitor');
+    if(view==='security'&&!selectedCompany&&!modal){
+      const [o,r,s]=await Promise.all([
+        api('/overview'),
+        api('/readiness').catch(err=>err.data&&typeof err.data==='object'?err.data:{ok:false,error:err.message,checks:{}}),
+        api('/security-events?limit=100')
+      ]);
+      overview=o;readiness=r;security=s;
+      await loadOperatorAudit();
+      render();
+    }else updateSecurityChrome();
+  }catch{}
+  finally{
+    if(session?.authenticated){
+      const delay=Math.max(5000,Math.min(60000,Number(securityMonitor?.scanIntervalSeconds||30)*1000));
+      securityPollTimer=setTimeout(pollSecurity,delay);
+    }
+  }
+}
+function startSecurityPolling(){stopSecurityPolling();if(session?.authenticated)securityPollTimer=setTimeout(pollSecurity,1000)}
 async function openCompany(id){errorMessage='';try{selectedCompany=await api('/companies/'+encodeURIComponent(id));render()}catch(error){errorMessage=error.message;selectedCompany=null;render()}}
 async function reloadSelectedCompanyOverview(){
   if(!selectedCompany)return;
@@ -371,7 +447,7 @@ document.addEventListener('input',event=>{
 document.addEventListener('submit',async event=>{
   if(event.target.id==='login-form'){
     event.preventDefault();errorMessage='';const button=event.target.querySelector('button[type="submit"]');button.disabled=true;const data=Object.fromEntries(new FormData(event.target).entries());
-    try{const signed=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});session={authenticated:true,operator:signed.operator};sessionStorage.setItem(csrfKey,signed.csrfToken||'');await loadData();render()}catch(error){errorMessage=error.message;loginView()}return;
+    try{const signed=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});session={authenticated:true,operator:signed.operator};sessionStorage.setItem(csrfKey,signed.csrfToken||'');await loadData();render();startSecurityPolling()}catch(error){errorMessage=error.message;loginView()}return;
   }
   if(event.target.id==='add-user-form'){
     event.preventDefault();const data=Object.fromEntries(new FormData(event.target).entries());const button=event.target.querySelector('button[type="submit"]');if(button)button.disabled=true;
@@ -383,9 +459,23 @@ document.addEventListener('submit',async event=>{
   }
 });
 document.addEventListener('change',async event=>{
+  if(event.target.matches?.('[data-incident-status]')){
+    const select=event.target,eventId=select.dataset.securityEventId,nextStatus=select.value;
+    select.disabled=true;errorMessage='';
+    try{
+      const result=await mutate('/security-events/'+encodeURIComponent(eventId)+'/status',{method:'PUT',body:JSON.stringify({status:nextStatus})});
+      const row=(security?.events||[]).find(item=>item.id===eventId);
+      if(row){row.incidentStatus=result.incident?.status||nextStatus;row.incidentUpdatedAt=result.incident?.updatedAt||null;row.incidentUpdatedBy=result.incident?.updatedBy||session?.operator?.displayName||null}
+      await loadOperatorAudit();
+      uiNotice=result.changed?'Incidentstatusen uppdaterades och audit-loggades.':'Incidentstatusen var redan vald.';
+      render();
+    }catch(error){errorMessage=error.message;render()}
+    return;
+  }
   if(event.target.matches?.('[data-security-severity]')){securitySeverity=event.target.value;render();return}
   if(event.target.matches?.('[data-security-period]')){securityPeriod=event.target.value;render();return}
   if(event.target.matches?.('[data-security-company]')){securityCompany=event.target.value;render();return}
+  if(event.target.matches?.('[data-security-incident-filter]')){securityIncidentStatus=event.target.value;render();return}
   if(event.target.matches?.('[data-company-filter]')){companyStatus=event.target.value;updateCompanyTable();return}
   if(event.target.matches?.('[data-company-sort]')){companySort=event.target.value;updateCompanyTable();return}
   const userId=event.target.dataset.roleUser;if(!userId||!selectedCompany)return;
@@ -417,8 +507,8 @@ document.addEventListener('click',async event=>{
   }
   if(action==='logout'){
     try{await mutate('/auth/logout',{method:'POST',body:'{}'})}catch{}
-    sessionStorage.removeItem(csrfKey);session=null;overview=null;readiness=null;security=null;operatorAudit=null;selectedCompany=null;errorMessage='';loginView();
+    stopSecurityPolling();sessionStorage.removeItem(csrfKey);session=null;overview=null;readiness=null;security=null;operatorAudit=null;securityMonitor=null;selectedCompany=null;errorMessage='';loginView();
   }
 });
-async function boot(){try{const current=await api('/session');if(!current.authenticated){loginView();return}session=current;await loadData();render()}catch(error){errorMessage=error.message;loginView()}}
+async function boot(){try{const current=await api('/session');if(!current.authenticated){loginView();return}session=current;await loadData();render();startSecurityPolling()}catch(error){errorMessage=error.message;loginView()}}
 boot();
