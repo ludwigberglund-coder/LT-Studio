@@ -9,6 +9,7 @@ const Invoicing=require('../apps/api/customer-invoicing.js');
 const PdfArchiveStore=require('../apps/api/customer-invoice-pdf-archive-store.js');
 const InvoiceSettings=require('../apps/api/company-invoice-settings.js');
 const Accounting=require('../apps/api/accounting-store.js');
+const Reports=require('../apps/api/reports.js');
 const Bank=require('../apps/api/bank-payments.js');
 const Queues=require('../apps/api/queues.js');
 const Matcher=require('../packages/automation/bank-payment-matcher.js');
