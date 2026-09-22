@@ -215,6 +215,7 @@ const BODY_RULES=Object.freeze([
 
 const EMPTY_BODY_RULES=Object.freeze([
   ['POST',/^\/api\/v1\/auth\/logout$/],
+  ['POST',/^\/api\/v1\/accounting\/periods\/\d{4}-\d{2}\/lock$/],
   ['DELETE',/^\/api\/v1\/customers\/[^/]+$/],
   ['POST',/^\/api\/v1\/customers\/[^/]+\/restore$/],
   ['DELETE',/^\/api\/v1\/customer-invoices\/draft$/],
@@ -575,12 +576,10 @@ function readEmptyJsonBody(req){
 }
 async function validateRequestBody(req){
   const policy=bodyPolicyFor(req);
-  if(policy==='json'||policy==='binary')return;
-  const hasBody=requestHasBody(req);
-  if(!hasBody)return;
+  if(policy==='json'||policy==='binary'||policy==='unknown')return;
+  if(!requestHasBody(req))return;
   if(policy==='empty-json')return await readEmptyJsonBody(req);
   req.resume?.();
-  if(policy==='unknown')throw securityError('Den här API-rutten saknar en registrerad body-policy.','UNREGISTERED_REQUEST_BODY',400);
   throw securityError('Den här request-metoden accepterar ingen body.','UNEXPECTED_REQUEST_BODY',400);
 }
 
