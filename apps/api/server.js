@@ -40,6 +40,7 @@ const repositoryRoot = path.resolve(__dirname,'..','..');
 const {validateRuntime,protectedRuntimeMode,demoRequest,resolveStaticRequest,serveStatic} = require('./private-runtime.js');
 const {readinessReport}=require('./readiness.js');
 const SecurityMonitor=require('./security-monitor.js');
+const SecurityAlerts=require('./security-alerts.js');
 const OperationalLog=require('./operational-log.js');
 const RequestSecurity=require('./request-security.js');
 
@@ -100,6 +101,12 @@ function createServer(options = {}) {
   const runtimeMode=String(process.env.ROLLANDS_ENV||'').trim();
   const stagingMode=runtimeMode==='staging';
   const customerDataMode=['pilot','production'].includes(runtimeMode);
+  const securityAlerts=SecurityAlerts.createSecurityAlertService({
+    db,
+    env:options.securityAlertEnv||process.env,
+    fetchImpl:options.securityAlertFetch||globalThis.fetch,
+    now:options.securityAlertNow||(()=>Date.now())
+  });
   const readinessPayload=({includeMonitoring=true}={})=>{
     const report=readinessReport({
       db,
@@ -126,10 +133,13 @@ function createServer(options = {}) {
       requirePlatformAdmin:customerDataMode,
       authEncryptionKey
     });
+    const alertReadiness=securityAlerts.readiness();
+    const alertRequired=protectedMode;
+    const checks={...report.checks,alertDelivery:alertRequired?alertReadiness.ok:true};
     return {
-      ok:report.ok,
+      ok:Boolean(report.ok&&checks.alertDelivery),
       service:'rollands-api-v1',
-      checks:report.checks,
+      checks,
       freeMiB:report.freeBytes===null?null:Math.floor(report.freeBytes/1048576),
       backupAgeMinutes:report.backupAgeMs===null?null:Math.floor(report.backupAgeMs/60000),
       offsiteBackupAgeMinutes:report.offsiteBackupAgeMs===null?null:Math.floor(report.offsiteBackupAgeMs/60000),
@@ -138,6 +148,9 @@ function createServer(options = {}) {
       r2RestoreDrillAgeMinutes:report.r2RestoreDrillAgeMs===null?null:Math.floor(report.r2RestoreDrillAgeMs/60000),
       monitoringAgeMinutes:report.monitoringAgeMs===null?null:Math.floor(report.monitoringAgeMs/60000),
       alertTestAgeMinutes:report.alertAgeMs===null?null:Math.floor(report.alertAgeMs/60000),
+      alertDeliveryConfigured:alertReadiness.configured,
+      alertDeliveryTestAgeMinutes:alertReadiness.testAgeMs===null?null:Math.floor(alertReadiness.testAgeMs/60000),
+      alertDeliveryLastStatus:alertReadiness.lastDeliveryStatus,
       auditAnchorAgeMinutes:report.auditAnchorAgeMs===null?null:Math.floor(report.auditAnchorAgeMs/60000)
     };
   };
@@ -146,7 +159,11 @@ function createServer(options = {}) {
     readinessProvider:readinessPayload,
     scanIntervalMs:options.securityScanIntervalMs??30_000
   });
-  const operator=createOperatorRouter({db,secureCookies,authEncryptionKey,readinessProvider:readinessPayload,securityMonitor,clientIp});
+  securityAlerts.start({
+    snapshotProvider:()=>securityMonitor.snapshot(),
+    intervalMs:options.securityAlertScanIntervalMs??30_000
+  });
+  const operator=createOperatorRouter({db,secureCookies,authEncryptionKey,readinessProvider:readinessPayload,securityMonitor,securityAlerts,clientIp});
 
   // Apply guards after every router has initialized its tables, before accepting requests.
   require('./tenant-integrity.js').installTenantGuards(db);
@@ -243,10 +260,11 @@ function createServer(options = {}) {
     }
   });
   function close(callback) {
+    securityAlerts.stop();
     securityMonitor.stop();
     server.close(() => { try { db.close(); } catch {} if (callback) callback(); });
   }
-  return Object.freeze({server,db,api,operator,securityMonitor,automationReview,bank,payables,supplierMasterdata,paymentRelease,paymentConfirmation,inventory,reports,exportsRouter,payroll,documents,openingMigrationImport,accounting,websiteCms,host,port,databasePath,runtimeId,close});
+  return Object.freeze({server,db,api,operator,securityMonitor,securityAlerts,automationReview,bank,payables,supplierMasterdata,paymentRelease,paymentConfirmation,inventory,reports,exportsRouter,payroll,documents,openingMigrationImport,accounting,websiteCms,host,port,databasePath,runtimeId,close});
 }
 if (require.main === module) {
   const runtime = createServer();
