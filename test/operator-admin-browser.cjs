@@ -25,6 +25,8 @@ const out=path.join(__dirname,'..','test-artifacts');
       mfaSecretEncrypted:Auth.encryptSecret(MFA_SECRET,ENCRYPTION_KEY)
     });
     const company=Db.createCompany(runtime.db,{legalName:'Browser Kund AB',displayName:'Browser Kund',orgNumber:'559900-9201'});
+    const customerUser=Db.createUser(runtime.db,{username:'browser.user',displayName:'Browser Användare',passwordHash:Auth.hashPassword('Browser kundlosenord 2026!')});
+    Db.addMembership(runtime.db,{companyId:company.id,userId:customerUser.id,role:'readonly'});
     const customer=Db.createCustomer(runtime.db,{companyId:company.id,customerNumber:'SECRET-BROWSER-CUSTOMER',name:'Hemlig Browserkund'});
     Db.createInvoice(runtime.db,{companyId:company.id,customerId:customer.id,invoiceNumber:'SECRET-BROWSER-INVOICE',invoiceDate:'2026-09-21',postingDate:'2026-09-21',dueDate:'2026-10-21',totalOre:333300,remainingOre:333300,vatOre:66660,status:'Bokförd'});
     Db.appendSecurityEvent(runtime.db,{kind:'LOGIN_FAILURE_THRESHOLD',severity:'warning',fingerprintHash:'c'.repeat(64),details:{private:'never-in-ui'}});
@@ -61,10 +63,24 @@ const out=path.join(__dirname,'..','test-artifacts');
     assert.match(body,/LOGIN FAILURE THRESHOLD/);
     assert.doesNotMatch(body,/Hemlig Browserkund|SECRET-BROWSER-CUSTOMER|SECRET-BROWSER-INVOICE|333300|66660|never-in-ui|cccccccc/);
     checks.push({kind:'overview',company:'Browser Kund'});
-    await page.getByText('Browser Kund',{exact:true}).first().click();
+    const companyRow=page.locator('[data-company-id="'+company.id+'"]');
+    await companyRow.focus();
+    await page.keyboard.press('Enter');
     await page.getByRole('heading',{name:'Företagsadmin',exact:true}).waitFor();
     assert.match(await page.locator('body').innerText(),/Användare & behörigheter|Lägg till användare/);
-    checks.push({kind:'company-admin',company:'Browser Kund'});
+    checks.push({kind:'company-admin-keyboard',company:'Browser Kund'});
+
+    await page.getByRole('button',{name:'Byt lösenord',exact:true}).click();
+    await page.getByRole('heading',{name:'Byt lösenord',exact:true}).waitFor();
+    assert.equal(await page.locator('.modal-card').count(),1);
+    await page.getByRole('button',{name:'Avbryt',exact:true}).click();
+    checks.push({kind:'password-modal'});
+
+    await page.getByRole('button',{name:'Ta bort åtkomst',exact:true}).click();
+    await page.getByRole('heading',{name:'Ta bort åtkomst?',exact:true}).waitFor();
+    assert.equal(await page.locator('.modal-card').count(),1);
+    await page.getByRole('button',{name:'Avbryt',exact:true}).click();
+    checks.push({kind:'remove-access-modal'});
 
     await page.getByRole('button',{name:'← Alla företag',exact:true}).click();
     await page.getByRole('heading',{name:'Kunder & företag',exact:true}).waitFor();
@@ -73,7 +89,10 @@ const out=path.join(__dirname,'..','test-artifacts');
 
     await page.setViewportSize({width:390,height:844});
     assert.equal(await page.getByRole('heading',{name:'Kunder & företag',exact:true}).count(),1);
-    checks.push({kind:'mobile-layout'});
+    const mobileNav=page.locator('.mobile-nav');
+    await mobileNav.waitFor({state:'visible'});
+    assert.equal(await mobileNav.getByRole('button',{name:'Statistik',exact:true}).count(),1);
+    checks.push({kind:'mobile-navigation'});
 
     await page.getByRole('button',{name:'Logga ut',exact:true}).click();
     await page.getByRole('heading',{name:'LT Studio-inloggning'}).waitFor();
