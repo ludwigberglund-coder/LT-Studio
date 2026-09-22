@@ -185,7 +185,6 @@ const BODY_RULES=Object.freeze([
   ['PUT',/^\/api\/v1\/profile\/security$/,new Set(['sessionDurationMinutes'])],
   ['POST',/^\/api\/operator\/v1\/auth\/login$/,new Set(['username','password','totp'])],
   ['POST',/^\/api\/operator\/v1\/companies\/[^/]+\/users$/,new Set(['username','displayName','password','role'])],
-  ['POST',/^\/api\/operator\/v1\/companies\/[^/]+\/users\/existing$/,new Set(['username','role'])],
   ['PUT',/^\/api\/operator\/v1\/companies\/[^/]+\/users\/[^/]+\/role$/,new Set(['role'])],
   ['PUT',/^\/api\/operator\/v1\/companies\/[^/]+\/users\/[^/]+\/password$/,new Set(['password'])],
   ['POST',/^\/api\/v1\/customers$/,new Set(['requestId','name','email','orgNumber','address','reminderFeeAgreed'])],
