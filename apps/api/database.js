@@ -349,18 +349,33 @@ function updateUserPasswordHash(db,{userId,passwordHash}) {
   return userById(db,idValue);
 }
 
-function addMembership(db, {companyId,userId}) {
-  db.prepare('INSERT INTO memberships(company_id,user_id,created_at) VALUES(?,?,?) ON CONFLICT(company_id,user_id) DO NOTHING')
-    .run(companyId,userId,nowIso());
+const MEMBERSHIP_ROLES=Object.freeze(['admin','accountant','approver','readonly']);
+function membershipRole(value) {
+  const role=String(value||'').trim();
+  if(!MEMBERSHIP_ROLES.includes(role)) throw databaseError('Ogiltig företagsroll.','INVALID_MEMBERSHIP_ROLE',400);
+  return role;
+}
+
+function addMembership(db, {companyId,userId,role='admin'}) {
+  const normalizedRole=membershipRole(role);
+  db.prepare('INSERT INTO memberships(company_id,user_id,role,created_at) VALUES(?,?,?,?) ON CONFLICT(company_id,user_id) DO NOTHING')
+    .run(companyId,userId,normalizedRole,nowIso());
   return membership(db, companyId, userId);
 }
 
+function setMembershipRole(db,{companyId,userId,role}) {
+  const normalizedRole=membershipRole(role);
+  const result=db.prepare('UPDATE memberships SET role=? WHERE company_id=? AND user_id=?').run(normalizedRole,companyId,userId);
+  if(Number(result.changes||0)!==1) throw databaseError('Företagsmedlemskapet hittades inte.','MEMBERSHIP_NOT_FOUND',404);
+  return membership(db,companyId,userId);
+}
+
 function membership(db, companyId, userId) {
-  return db.prepare('SELECT company_id AS companyId,user_id AS userId,created_at AS createdAt FROM memberships WHERE company_id=? AND user_id=?').get(companyId,userId) || null;
+  return db.prepare('SELECT company_id AS companyId,user_id AS userId,role,created_at AS createdAt FROM memberships WHERE company_id=? AND user_id=?').get(companyId,userId) || null;
 }
 
 function membershipsForUser(db, userId) {
-  return db.prepare(`SELECT m.company_id AS companyId,c.legal_name AS legalName,c.display_name AS displayName
+  return db.prepare(`SELECT m.company_id AS companyId,m.role,c.legal_name AS legalName,c.display_name AS displayName
     FROM memberships m JOIN companies c ON c.id=m.company_id WHERE m.user_id=? ORDER BY c.display_name`).all(userId);
 }
 
@@ -376,7 +391,7 @@ function sessionByTokenHash(db, tokenHash) {
   const now = nowIso();
   const row = db.prepare(`SELECT s.token_hash AS tokenHash,s.csrf_hash AS csrfHash,s.user_id AS userId,s.company_id AS companyId,
       s.expires_at AS expiresAt,s.absolute_expires_at AS absoluteExpiresAt,s.created_at AS createdAt,s.last_seen_at AS lastSeenAt,
-      u.username,u.display_name AS displayName,u.disabled
+      u.username,u.display_name AS displayName,u.disabled,m.role
     FROM sessions s JOIN users u ON u.id=s.user_id JOIN memberships m ON m.user_id=s.user_id AND m.company_id=s.company_id
     WHERE s.token_hash=? AND s.expires_at>? AND s.absolute_expires_at>?`).get(tokenHash,now,now);
   if (!row) return null;
@@ -752,7 +767,10 @@ module.exports = Object.freeze({
   userById,
   userByUsername,
   updateUserPasswordHash,
+  MEMBERSHIP_ROLES,
+  membershipRole,
   addMembership,
+  setMembershipRole,
   membership,
   membershipsForUser,
   createSession,
