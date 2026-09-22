@@ -154,7 +154,7 @@ function createServer(options = {}) {
     res.setHeader('Permissions-Policy','camera=(), microphone=(), geolocation=(), payment=(), usb=()');
     res.setHeader('Cross-Origin-Opener-Policy','same-origin');
     res.setHeader('Cross-Origin-Resource-Policy','same-origin');
-    res.setHeader('Strict-Transport-Security','max-age=31536000; includeSubDomains');
+    res.setHeader('Strict-Transport-Security','max-age=31536000');
     res.setHeader('Content-Security-Policy',"default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
     res.once('finish',()=>{
       const statusCode=Number(res.statusCode)||0;
