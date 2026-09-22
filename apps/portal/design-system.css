@@ -12,12 +12,18 @@
   /* Colors */
   --color-canvas: #f7f5f0;
   --color-paper: #ffffff;
-  --color-surface-alt: #fafafa;
-  --color-ink: #0a0a0a;
-  --color-ink-soft: #171717;
-  --color-mid-gray: #737373;
-  --color-hairline: #e5e5e5;
-  --color-ember: #e7000b;
+  --color-surface-alt: #f5f8f2;
+  --color-ink: #16362b;
+  --color-ink-soft: #27483d;
+  --color-mid-gray: #6c796f;
+  --color-hairline: #dde5dc;
+  --color-ember: #b4462f;
+  --color-brand: #173f32;
+  --color-brand-2: #2c624d;
+  --color-leaf: #6f8f4f;
+  --color-lime: #dce9a7;
+  --color-warm: #c5653f;
+  --color-sky: #dcefeb;
 
   /* Typography */
   --font-geist: "Geist", ui-sans-serif, system-ui, -apple-system,
@@ -86,16 +92,16 @@
   --surface-sidebar: var(--color-surface-alt);
   --surface-card: var(--color-paper);
   --surface-alt: var(--color-surface-alt);
-  --surface-input-fill: #f5f5f5;
+  --surface-input-fill: #f3f6f1;
 
   /* Compatibility aliases used by the existing portal modules. */
-  --green: var(--color-ink);
-  --green2: var(--color-ink-soft);
+  --green: var(--color-brand);
+  --green2: var(--color-brand-2);
   --line: var(--color-hairline);
   --muted: var(--color-mid-gray);
   --paper: var(--color-paper);
   --danger: var(--color-ember);
-  --warm: var(--color-mid-gray);
+  --warm: var(--color-warm);
   --shadow: var(--shadow-subtle);
 }
 
@@ -272,7 +278,7 @@ a {
 .shared-navigation .shared-links a:hover,
 .shared-navigation summary:hover {
   color: var(--color-ink) !important;
-  background: #f0f0f0 !important;
+  background: #edf4ea !important;
 }
 
 .side-link.active,
@@ -285,7 +291,7 @@ a {
 .shared-navigation .shared-links a.active,
 .shared-navigation .shared-links a[aria-current="page"] {
   color: var(--color-paper) !important;
-  background: var(--color-ink) !important;
+  background: #173f32 !important;
   font-weight: var(--font-weight-medium) !important;
 }
 
@@ -328,7 +334,7 @@ a {
 .avatar,
 .shared-user-avatar {
   color: var(--color-paper);
-  background: var(--color-ink);
+  background: #173f32;
   font-weight: var(--font-weight-semibold);
 }
 
@@ -463,13 +469,14 @@ a {
 }
 
 .dash-hero {
-  background: var(--surface-card);
+  background: #ffffff;
+  border-color: #d9e4d6;
 }
 
 .module-card,
 .task-card,
 .modules-secondary .module-card {
-  background: var(--surface-card);
+  background: #ffffff;
 }
 
 .module-card:hover,
@@ -496,8 +503,8 @@ a {
   min-height: 36px;
   padding: 8px 16px;
   color: var(--color-paper);
-  background: var(--color-ink);
-  border: 1px solid var(--color-ink);
+  background: #173f32;
+  border: 1px solid var(--color-brand);
   border-radius: var(--radius-buttons);
   box-shadow: none;
   font-size: var(--text-body);
@@ -510,8 +517,8 @@ a {
 .report-tab.active:hover,
 .automation-filter button.active:hover {
   color: var(--color-paper);
-  background: var(--color-ink-soft);
-  border-color: var(--color-ink-soft);
+  background: var(--color-brand-2);
+  border-color: var(--color-brand-2);
 }
 
 .button.ghost,
@@ -609,7 +616,7 @@ textarea:focus,
 
 input[type="checkbox"],
 input[type="radio"] {
-  accent-color: var(--color-ink);
+  accent-color: var(--color-brand-2);
 }
 
 label,
@@ -923,7 +930,7 @@ table {
 }
 
 .confidence > span {
-  background: var(--color-ink-soft);
+  background: #6f8f4f;
 }
 
 .uat-shell {
@@ -950,7 +957,7 @@ table {
 
 .login-brand {
   color: var(--color-paper);
-  background: var(--color-ink);
+  background: #173f32;
 }
 
 .login-brand h1 {
@@ -1030,4 +1037,53 @@ table {
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
+}
+
+
+/* Brand accents: a little more personality without reducing clarity. */
+:where(.metric,.dash-metric,.sales-metric,.report-summary article,.inventory-summary article,.bank-summary article,.payroll-summary article,.uat-summary article):nth-child(4n+1){
+  border-top:3px solid var(--color-leaf);
+}
+:where(.metric,.dash-metric,.sales-metric,.report-summary article,.inventory-summary article,.bank-summary article,.payroll-summary article,.uat-summary article):nth-child(4n+2){
+  border-top:3px solid var(--color-warm);
+}
+:where(.metric,.dash-metric,.sales-metric,.report-summary article,.inventory-summary article,.bank-summary article,.payroll-summary article,.uat-summary article):nth-child(4n+3){
+  border-top:3px solid #76a9a1;
+}
+:where(.metric,.dash-metric,.sales-metric,.report-summary article,.inventory-summary article,.bank-summary article,.payroll-summary article,.uat-summary article):nth-child(4n){
+  border-top:3px solid #a0b966;
+}
+:where(.panel,.module-card,.task-card,.sales-panel,.invoice-section,.report-panel,.inventory-panel,.documents-panel,.payroll-panel){
+  transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;
+}
+:where(.panel,.module-card,.task-card,.sales-panel):hover{
+  border-color:#c8d9c5;
+  box-shadow:0 12px 32px rgb(23 63 50 / .08);
+}
+.eyebrow{
+  color:var(--color-warm);
+}
+.comment-badge,
+.status-pill.approved,
+.status-pill.coded,
+.payment-status.paid,
+.payroll-status.posted,
+.adjustment-status.approved{
+  color:#315b2d;
+  background:#edf5e8;
+  border-color:#d2e4ca;
+}
+.status-pill.pending,
+.payment-status.prepared,
+.proposal-status.manual-review{
+  color:#74551f;
+  background:#fff5df;
+  border-color:#ead8ad;
+}
+.bank-status.posted,
+.bank-status.reviewed,
+.proposal-status.ready-for-approval{
+  color:#235f58;
+  background:#e8f4f1;
+  border-color:#cce4df;
 }
