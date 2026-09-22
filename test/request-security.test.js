@@ -66,6 +66,30 @@ test('nästlade faktura- och CMS-fält är allowlistade',()=>{
   assert.throws(()=>Security.validateJsonInput(cms,{expectedRevision:1,site:{...site,script:'alert(1)'},company}),{code:'UNEXPECTED_FIELDS'});
 });
 
+test('kredit och återbetalning har strikt separata inputschema',()=>{
+  const credit=request('/api/v1/customer-invoices/invoice-1/credit',{method:'POST'});
+  assert.doesNotThrow(()=>Security.validateJsonInput(credit,{
+    requestId:'credit-request-0001',creditDate:'2026-09-22',reason:'Delkredit efter prisjustering.',creditAmountOre:50000
+  }));
+  assert.throws(()=>Security.validateJsonInput(credit,{
+    requestId:'credit-request-0001',creditDate:'2026-09-22',reason:'Delkredit efter prisjustering.',creditAmountOre:-1
+  }),{code:'INVALID_INPUT_TYPE'});
+  assert.throws(()=>Security.validateJsonInput(credit,{
+    requestId:'credit-request-0001',creditDate:'2026-09-22',reason:'Delkredit efter prisjustering.',creditAmountOre:50000,refundAccount:'1930'
+  }),{code:'UNEXPECTED_FIELDS'});
+
+  const refund=request('/api/v1/customer-invoices/credit-1/refund',{method:'POST'});
+  assert.doesNotThrow(()=>Security.validateJsonInput(refund,{
+    requestId:'refund-request-0001',refundDate:'2026-09-22',refundAccount:'1930',bankReference:'BANK-REF-1001'
+  }));
+  assert.throws(()=>Security.validateJsonInput(refund,{
+    requestId:'refund-request-0001',refundDate:'2026-09-22',refundAccount:'1910',bankReference:'BANK-REF-1001'
+  }),{code:'INVALID_INPUT_FORMAT'});
+  assert.throws(()=>Security.validateJsonInput(refund,{
+    requestId:'refund-request-0001',refundDate:'2026-09-22',refundAccount:'1930',bankReference:'BANK-REF-1001',amountOre:50000
+  }),{code:'UNEXPECTED_FIELDS'});
+});
+
 test('PDF-uppladdningar har en separat strikt rate-limit-klass',()=>{
   const documentUpload=request('/api/v1/documents/doc-1/content',{method:'PUT'});
   const supplierUpload=request('/api/v1/payables/invoices/inv-1/document',{method:'PUT'});
