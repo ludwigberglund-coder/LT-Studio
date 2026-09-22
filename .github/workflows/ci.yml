@@ -36,6 +36,8 @@ jobs:
         run: npm run security:history-scan
       - name: Scan browser source for secrets
         run: npm run security:client-scan
+      - name: Block dangerous runtime code execution primitives
+        run: npm run security:runtime-code-scan
       - name: Validate editable content
         run: npm run content:check
       - name: Check JavaScript syntax
