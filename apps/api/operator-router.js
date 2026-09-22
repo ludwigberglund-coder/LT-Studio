@@ -140,14 +140,16 @@ function createOperatorRouter(options={}){
     const mfaCounter=Auth.totpMatchCounter(secret,payload.totp);
     if(mfaCounter===null){noteLoginFailure(req,username);return send(res,401,{error:'MFA-koden är felaktig eller har gått ut.',code:'OPERATOR_INVALID_MFA'})}
 
+    const upgradedPasswordHash=Auth.passwordHashNeedsUpgrade(operator.passwordHash)?Auth.hashPassword(payload.password):'';
     const now=Date.now(),sessionToken=Auth.randomToken(32),csrfToken=Auth.randomToken(24);
     Db.transaction(db,()=>{
       Db.consumePlatformOperatorMfaStep(db,{operatorId:operator.id,totpCounter:mfaCounter});
+      if(upgradedPasswordHash) Db.updatePlatformOperatorPasswordHash(db,{operatorId:operator.id,passwordHash:upgradedPasswordHash});
       Db.createPlatformOperatorSession(db,{
         tokenHash:Auth.hashToken(sessionToken),csrfHash:Auth.hashToken(csrfToken),operatorId:operator.id,
         expiresAt:expiryIso(sessionIdleMinutes,now),absoluteExpiresAt:expiryIso(sessionMaxMinutes,now)
       });
-      Db.appendPlatformOperatorAudit(db,{operatorId:operator.id,action:'OPERATOR_SESSION_LOGIN',details:{sessionIdleMinutes,sessionMaxMinutes,mfaRequired:true}});
+      Db.appendPlatformOperatorAudit(db,{operatorId:operator.id,action:'OPERATOR_SESSION_LOGIN',details:{sessionIdleMinutes,sessionMaxMinutes,mfaRequired:true,passwordHashUpgraded:Boolean(upgradedPasswordHash)}});
     });
     Db.clearLoginAttempts(db,loginKey(req,username));
     Db.clearLoginAttempts(db,loginAccountKey(username));
