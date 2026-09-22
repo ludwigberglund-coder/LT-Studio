@@ -34,7 +34,7 @@ function nav(){
 }
 function modalMarkup(){
   if(!modal)return '';
-  if(modal.kind==='password')return `<div class="modal-backdrop" data-action="close-modal"><section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="reset-password-title" data-modal-panel>
+  if(modal.kind==='password')return `<div class="modal-backdrop" data-modal-backdrop><section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="reset-password-title" data-modal-panel>
     <div class="modal-head"><div><span class="eyebrow">Kontosäkerhet</span><h2 id="reset-password-title">Byt lösenord</h2><p>${esc(modal.userName)}</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div>
     <form id="reset-password-form">
       <label class="field"><span>Nytt tillfälligt lösenord</span><input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="256" required autofocus></label>
@@ -42,7 +42,7 @@ function modalMarkup(){
       <div class="modal-actions"><button class="button secondary" type="button" data-action="close-modal">Avbryt</button><button class="button" type="submit">Spara nytt lösenord</button></div>
     </form>
   </section></div>`;
-  if(modal.kind==='remove')return `<div class="modal-backdrop" data-action="close-modal"><section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="remove-user-title" data-modal-panel>
+  if(modal.kind==='remove')return `<div class="modal-backdrop" data-modal-backdrop><section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="remove-user-title" data-modal-panel>
     <div class="modal-head"><div><span class="eyebrow">Åtkomst</span><h2 id="remove-user-title">Ta bort åtkomst?</h2><p>${esc(modal.userName)}</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div>
     <p class="modal-copy">Användaren tas bort från det här kundföretaget och aktiva sessioner avslutas. Ett konto som används i andra företag påverkas inte där.</p>
     <div class="modal-actions"><button class="button secondary" type="button" data-action="close-modal">Avbryt</button><button class="button danger solid" type="button" data-action="confirm-remove-user">Ta bort åtkomst</button></div>
@@ -148,7 +148,8 @@ document.addEventListener('submit',async event=>{
 });
 document.addEventListener('change',async event=>{
   const userId=event.target.dataset.roleUser;if(!userId||!selectedCompany)return;
-  try{await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users/'+encodeURIComponent(userId)+'/role',{method:'PUT',body:JSON.stringify({role:event.target.value})});selectedCompany=await api('/companies/'+encodeURIComponent(selectedCompany.company.id));render()}catch(error){errorMessage=error.message;render()}
+  event.target.disabled=true;
+  try{await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users/'+encodeURIComponent(userId)+'/role',{method:'PUT',body:JSON.stringify({role:event.target.value})});selectedCompany=await api('/companies/'+encodeURIComponent(selectedCompany.company.id));uiNotice='Behörigheten uppdaterades och användarens tidigare sessioner avslutades.';errorMessage='';render()}catch(error){errorMessage=error.message;render()}
 });
 document.addEventListener('keydown',async event=>{
   const row=event.target.closest?.('[data-company-id]');if(!row||!['Enter',' '].includes(event.key))return;
@@ -158,6 +159,7 @@ document.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&modal){modal=null;render();}
 });
 document.addEventListener('click',async event=>{
+  if(event.target.matches?.('[data-modal-backdrop]')){modal=null;render();return}
   const companyRow=event.target.closest('[data-company-id]');if(companyRow){await openCompany(companyRow.dataset.companyId);return}
   const viewButton=event.target.closest('[data-view]');if(viewButton){selectedCompany=null;view=viewButton.dataset.view;render();return}
   const button=event.target.closest('[data-action]');if(!button)return;
