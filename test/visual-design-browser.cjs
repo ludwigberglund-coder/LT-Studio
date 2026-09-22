@@ -160,7 +160,7 @@ function visible(element){
           assert.ok(Number.parseFloat(layout.cmsSidePaddingTop)>=16,`${viewport.id} CMS side cards lost their internal padding`);
         }
         if(surface.id==='legacy'&&layout.supplierDividerBorderTopColor){
-          assert.equal(layout.supplierDividerBorderTopColor,'rgb(229, 229, 229)',`${viewport.id} legacy supplier alert leaked the old amber divider`);
+          assert.equal(layout.supplierDividerBorderTopColor,'rgb(221, 229, 220)',`${viewport.id} legacy supplier alert does not use the current LT Studio hairline color`);
         }
 
         const file=`visual-${surface.id}-${viewport.id}.png`;
