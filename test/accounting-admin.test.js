@@ -173,3 +173,19 @@ test('första ingående balans måste importeras innan årets övriga verifikati
     assert.equal(Admin.openingBalanceByYear(db,company.id,'2026'),null);
   }finally{db.close()}
 });
+
+
+test('självupplåsning kräver explicit verifierat undantag',()=>{
+  const {db,company,maker}=seed();
+  try{
+    Admin.lockPeriod(db,{companyId:company.id,period:'2026-12',lockedBy:maker.id});
+    const request=Admin.requestUnlock(db,{companyId:company.id,period:'2026-12',reason:'Ensam användare behöver fortsätta bokföringen',requestedBy:maker.id});
+    assert.throws(
+      ()=>Admin.decideUnlock(db,{companyId:company.id,requestId:request.id,decidedBy:maker.id,decision:'approved',decisionReason:'Verifierad självupplåsning'}),
+      e=>e.code==='SEPARATION_OF_DUTIES_FAILED'
+    );
+    const decided=Admin.decideUnlock(db,{companyId:company.id,requestId:request.id,decidedBy:maker.id,decision:'approved',decisionReason:'Verifierad självupplåsning',allowSelfApproval:true});
+    assert.equal(decided.period.status,'open');
+    assert.equal(decided.request.decidedBy,maker.id);
+  }finally{db.close()}
+});
