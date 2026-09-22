@@ -36,6 +36,7 @@ function platformOverview(db,{nowMs=Date.now(),securityWindowHours=24}={}){
       c.org_number AS orgNumber,
       c.created_at AS createdAt,
       (SELECT COUNT(*) FROM memberships m WHERE m.company_id=c.id) AS memberCount,
+      (SELECT COUNT(*) FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.company_id=c.id AND u.disabled=0) AS activeMemberCount,
       (SELECT COUNT(*) FROM sessions s
         WHERE s.company_id=c.id AND s.expires_at>? AND s.absolute_expires_at>?) AS activeSessionCount,
       (SELECT COUNT(*) FROM customers customer WHERE customer.company_id=c.id) AS customerRecordCount,
@@ -50,11 +51,12 @@ function platformOverview(db,{nowMs=Date.now(),securityWindowHours=24}={}){
     orgNumber:row.orgNumber||'',
     createdAt:row.createdAt,
     memberCount:Number(row.memberCount||0),
+    activeMemberCount:Number(row.activeMemberCount||0),
     activeSessionCount:Number(row.activeSessionCount||0),
     customerRecordCount:Number(row.customerRecordCount||0),
     invoiceRecordCount:Number(row.invoiceRecordCount||0),
     lastActivityAt:row.lastActivityAt||null,
-    accessConfigured:Number(row.memberCount||0)>0
+    accessConfigured:Number(row.activeMemberCount||0)>0
   }));
 
   const totals=Object.freeze({
