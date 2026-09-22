@@ -28,7 +28,7 @@
     suppliers:[
       {id:'s1',supplierNumber:'L-100',name:'Grön Grossist AB',orgNumber:'559100-1001',email:'ekonomi@grongrossist.example',bankgiro:'555-1234',plusgiro:'',defaultCostAccount:'4010'},
       {id:'s2',supplierNumber:'L-120',name:'Kustens Emballage AB',orgNumber:'559100-1209',email:'faktura@kustemballage.example',bankgiro:'777-4400',plusgiro:'',defaultCostAccount:'5460'},
-      {id:'s3',supplierNumber:'L-144',name:'Demo Kyla & Service AB',orgNumber:'559100-1449',email:'faktura@billdalkyla.example',bankgiro:'333-4411',plusgiro:'',defaultCostAccount:'5510'},
+      {id:'s3',supplierNumber:'L-144',name:'Demo Kyla & Service AB',orgNumber:'000000-0003',email:'faktura@demo.example.invalid',bankgiro:'000-0000',plusgiro:'',defaultCostAccount:'5510'},
       {id:'s4',supplierNumber:'L-101',name:'Göteborg Fruktlager AB',orgNumber:'559100-1019',email:'ekonomi@fruktlager.example',bankgiro:'444-8821',plusgiro:'',defaultCostAccount:'4010'}
     ],
     supplierPendingChanges:[
