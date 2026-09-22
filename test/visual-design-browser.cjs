@@ -131,7 +131,8 @@ function visible(element){
             cmsSidePaddingTop:cmsSideStyle?.paddingTop||null,
             supplierDividerBorderTopColor:supplierDividerStyle?.borderTopColor||null,
             dashboardHeroGap,
-            overflowing
+            overflowing,
+            iconizedMetrics:document.querySelectorAll('.metric.ui-with-icon,.stat-button.ui-with-icon').length
           };
         });
 
@@ -140,6 +141,7 @@ function visible(element){
         assert.ok(layout.scrollWidth<=layout.innerWidth+2,`${surface.id} ${viewport.id} has page-level horizontal overflow: ${layout.scrollWidth}px > ${layout.innerWidth}px; offenders=${JSON.stringify(layout.overflowing)}`);
         assert.match(layout.fontFamily,/Geist/i,`${surface.id} ${viewport.id} is not using the shared Geist stack`);
         assert.equal(pageErrors.length,0,`${surface.id} ${viewport.id} has uncaught browser errors: ${pageErrors.join('; ')}`);
+        assert.equal(layout.iconizedMetrics,0,`${surface.id} ${viewport.id} metric cards must not be converted into inline icon buttons`);
 
         if(layout.sidebarBackground){
           assert.notEqual(layout.sidebarBackground,'rgb(20, 60, 48)',`${surface.id} ${viewport.id} leaked the old green sidebar`);
