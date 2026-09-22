@@ -1,0 +1,250 @@
+'use strict';
+
+const crypto=require('node:crypto');
+const net=require('node:net');
+const Auth=require('./auth.js');
+const OperatorAuth=require('./operator-auth.js');
+
+function securityError(message,code='REQUEST_SECURITY_ERROR',statusCode=400){
+  const error=new Error(message);
+  error.code=code;
+  error.statusCode=statusCode;
+  return error;
+}
+function intSetting(env,name,fallback,{min=1,max=100000}={}){
+  const raw=env?.[name];
+  if(raw===undefined||raw==='')return fallback;
+  const value=Number(raw);
+  if(!Number.isSafeInteger(value)||value<min||value>max)throw securityError(`${name} har ett ogiltigt värde.`,'UNSAFE_RUNTIME_CONFIGURATION',500);
+  return value;
+}
+function sha(value){return crypto.createHash('sha256').update(String(value||''),'utf8').digest('hex')}
+function cleanIp(value){
+  const raw=String(value||'').trim().replace(/^::ffff:/,'');
+  return net.isIP(raw)?raw:'';
+}
+function clientIp(req,{trustCloudflare=false}={}){
+  if(trustCloudflare){
+    const cf=cleanIp(req?.headers?.['cf-connecting-ip']);
+    if(cf)return cf;
+  }
+  return cleanIp(req?.socket?.remoteAddress)||'unknown';
+}
+function identityKey(req,db){
+  if(!db)return '';
+  try{
+    const cookies=Auth.parseCookies(req?.headers?.cookie||'');
+    const userToken=cookies.rollands_session;
+    if(userToken){
+      const session=db.prepare('SELECT user_id AS userId,disabled FROM sessions WHERE token_hash=?').get(Auth.hashToken(userToken));
+      if(session&&!session.disabled)return 'user:'+sha(session.userId);
+    }
+    const operatorToken=OperatorAuth.operatorTokenFromRequest(req);
+    if(operatorToken){
+      const session=db.prepare('SELECT operator_id AS operatorId,disabled FROM platform_operator_sessions WHERE token_hash=?').get(Auth.hashToken(operatorToken));
+      if(session&&!session.disabled)return 'operator:'+sha(session.operatorId);
+    }
+  }catch{}
+  return '';
+}
+function apiPath(req){
+  try{return new URL(req?.url||'/','http://localhost').pathname}catch{return'/'}
+}
+function routeClass(req){
+  const path=apiPath(req);
+  if(path==='/api/v1/auth/login')return'login';
+  if(path==='/api/operator/v1/auth/login')return'operator-login';
+  if(path==='/api/v1/readiness'||path==='/api/v1/readiness/core'||path==='/api/v1/health'||path==='/api/operator/v1/health'||path==='/_runtime-version')return'health';
+  if(path.startsWith('/api/operator/v1/'))return'operator-api';
+  if(path.startsWith('/api/v1/'))return'api';
+  if(path.startsWith('/website-preview/'))return'preview';
+  return'other';
+}
+function policyFor(req,env={}){
+  const kind=routeClass(req);
+  const windowMs=60000;
+  const genericIp=intSetting(env,'ROLLANDS_RATE_LIMIT_IP_PER_MINUTE',180,{min:20,max:10000});
+  const genericUser=intSetting(env,'ROLLANDS_RATE_LIMIT_USER_PER_MINUTE',300,{min:20,max:20000});
+  if(kind==='login')return{windowMs,ipLimit:intSetting(env,'ROLLANDS_RATE_LIMIT_LOGIN_IP_PER_MINUTE',20,{min:5,max:1000}),identityLimit:0};
+  if(kind==='operator-login')return{windowMs,ipLimit:intSetting(env,'ROLLANDS_RATE_LIMIT_OPERATOR_LOGIN_IP_PER_MINUTE',10,{min:3,max:500}),identityLimit:0};
+  if(kind==='health')return{windowMs,ipLimit:intSetting(env,'ROLLANDS_RATE_LIMIT_HEALTH_IP_PER_MINUTE',120,{min:10,max:5000}),identityLimit:0};
+  if(kind==='preview')return{windowMs,ipLimit:intSetting(env,'ROLLANDS_RATE_LIMIT_PREVIEW_IP_PER_MINUTE',240,{min:20,max:10000}),identityLimit:genericUser};
+  if(kind==='api'||kind==='operator-api')return{windowMs,ipLimit:genericIp,identityLimit:genericUser};
+  return null;
+}
+function createRateLimiter({env=process.env,db,trustCloudflare=env.ROLLANDS_TRUST_CLOUDFLARE==='1'}={}){
+  const buckets=new Map();
+  let operations=0;
+  function consume(key,limit,windowMs,now){
+    const windowStart=Math.floor(now/windowMs)*windowMs;
+    const current=buckets.get(key);
+    const state=current&&current.windowStart===windowStart?current:{windowStart,count:0};
+    state.count+=1;
+    buckets.set(key,state);
+    return{allowed:state.count<=limit,remaining:Math.max(0,limit-state.count),resetAt:windowStart+windowMs,limit};
+  }
+  function sweep(now){
+    operations+=1;
+    if(operations%1000!==0)return;
+    for(const[key,state]of buckets)if(state.windowStart<now-120000)buckets.delete(key);
+  }
+  function check(req){
+    const policy=policyFor(req,env);
+    if(!policy)return{allowed:true};
+    const now=Date.now();
+    sweep(now);
+    const ip=clientIp(req,{trustCloudflare});
+    const route=routeClass(req);
+    const ipResult=consume(`ip|${route}|${sha(ip)}`,policy.ipLimit,policy.windowMs,now);
+    let identityResult=null;
+    const identity=policy.identityLimit>0?identityKey(req,db):'';
+    if(identity)identityResult=consume(`identity|${route}|${identity}`,policy.identityLimit,policy.windowMs,now);
+    const blocking=!ipResult.allowed?ipResult:(identityResult&&!identityResult.allowed?identityResult:null);
+    if(!blocking)return{allowed:true,limit:Math.min(ipResult.limit,identityResult?.limit||Infinity),remaining:Math.min(ipResult.remaining,identityResult?.remaining??Infinity),resetAt:Math.min(ipResult.resetAt,identityResult?.resetAt??Infinity)};
+    return{allowed:false,limit:blocking.limit,remaining:0,resetAt:blocking.resetAt,retryAfterSeconds:Math.max(1,Math.ceil((blocking.resetAt-now)/1000))};
+  }
+  return Object.freeze({check,clientIp:req=>clientIp(req,{trustCloudflare})});
+}
+function sendRateLimited(res,result,requestId=''){
+  if(res.writableEnded)return;
+  const retry=String(result.retryAfterSeconds||60);
+  const resetSeconds=Math.max(1,Math.ceil((Number(result.resetAt||Date.now()+60000)-Date.now())/1000));
+  res.writeHead(429,{
+    'Content-Type':'application/json; charset=utf-8',
+    'Cache-Control':'no-store',
+    'X-Content-Type-Options':'nosniff',
+    'Retry-After':retry,
+    'RateLimit-Limit':String(result.limit||0),
+    'RateLimit-Remaining':'0',
+    'RateLimit-Reset':String(resetSeconds)
+  });
+  res.end(JSON.stringify({error:'För många förfrågningar. Försök igen senare.',code:'RATE_LIMITED',requestId}));
+}
+
+const QUERY_RULES=Object.freeze([
+  ['GET',/^\/api\/v1\/customers$/,new Set(['includeArchived'])],
+  ['GET',/^\/api\/v1\/automation\/proposals$/,new Set(['status'])],
+  ['GET',/^\/api\/v1\/bank\/payments$/,new Set(['status'])],
+  ['GET',/^\/api\/v1\/documents$/,new Set(['category','entityType','entityId'])],
+  ['GET',/^\/api\/v1\/inventory\/movements$/,new Set(['itemId'])],
+  ['GET',/^\/api\/v1\/inventory\/adjustments$/,new Set(['status'])],
+  ['GET',/^\/api\/v1\/payables\/payments$/,new Set(['date'])],
+  ['GET',/^\/api\/v1\/payroll\/runs$/,new Set(['period'])],
+  ['GET',/^\/api\/v1\/accounting\/entries$/,new Set(['limit'])],
+  ['GET',/^\/api\/v1\/accounting\/periods$/,new Set(['year'])],
+  ['GET',/^\/api\/v1\/accounting\/unlock-requests$/,new Set(['status'])],
+  ['GET',/^\/api\/operator\/v1\/security-events$/,new Set(['limit'])],
+  ['GET',/^\/api\/v1\/(?:reports|exports)\/[a-z-]+$/,new Set(['from','to','asOf','status','account','period','mode','date','direction','query','sort','order'])]
+]);
+const BODY_RULES=Object.freeze([
+  ['POST',/^\/api\/(?:v1|operator\/v1)\/auth\/login$/,new Set(['username','password','totp','companyId'])],
+  ['POST',/^\/api\/v1\/customers$/,new Set(['requestId','name','email','orgNumber','address','reminderFeeAgreed'])],
+  ['PUT',/^\/api\/v1\/customers\/[^/]+$/,new Set(['requestId','name','email','orgNumber','address','reminderFeeAgreed'])],
+  ['PUT',/^\/api\/v1\/customer-invoices\/draft$/,new Set(['requestId','customerNumber','invoiceDate','postingDate','dueDate','paymentTermsDays','ourReference','yourReference','notes','lines'])],
+  ['POST',/^\/api\/v1\/customer-invoices$/,new Set(['requestId','customerNumber','invoiceDate','postingDate','dueDate','paymentTermsDays','ourReference','yourReference','notes','lines'])],
+  ['POST',/^\/api\/v1\/customer-invoices\/[^/]+\/credit$/,new Set(['requestId','creditDate','reason'])],
+  ['POST',/^\/api\/v1\/invoices\/[^/]+\/comments$/,new Set(['text'])],
+  ['POST',/^\/api\/v1\/invoices\/[^/]+\/reminders\/preview$/,new Set(['sentDate','includeReminderFee','includeInterest','includeBusinessLatePaymentCompensation'])],
+  ['POST',/^\/api\/v1\/invoices\/[^/]+\/reminders$/,new Set(['sentDate','includeReminderFee','includeInterest','includeBusinessLatePaymentCompensation','kind','note'])],
+  ['PUT',/^\/api\/v1\/automation\/proposals\/[^/]+\/suggestion$/,new Set(['accountingLines','invoiceId','invoiceNumber'])],
+  ['POST',/^\/api\/v1\/automation\/proposals\/[^/]+\/reclassify$/,new Set(['targetInvoiceId','requestId','correctionDate','reason'])],
+  ['POST',/^\/api\/v1\/automation\/proposals\/[^/]+\/reject$/,new Set(['reason'])],
+  ['POST',/^\/api\/v1\/bank\/payments$/,new Set(['id','externalId','bookingDate','valueDate','amountOre','currency','reference','message','payerName','payerAccount'])],
+  ['POST',/^\/api\/v1\/documents$/,new Set(['id','requestId','title','category','note','fileName','mimeType','entityType','entityId','linkLabel'])],
+  ['POST',/^\/api\/v1\/documents\/[^/]+\/links$/,new Set(['entityType','entityId','label'])],
+  ['POST',/^\/api\/v1\/inventory\/items$/,new Set(['id','sku','name','unit','purchaseAccount','inventoryAccount'])],
+  ['POST',/^\/api\/v1\/inventory\/movements$/,new Set(['itemId','movementDate','type','quantityMilli','unitCostOre','referenceType','referenceId','note','requestId'])],
+  ['POST',/^\/api\/v1\/inventory\/adjustments$/,new Set(['itemId','adjustmentDate','countedQuantityMilli','reason','requestId'])],
+  ['POST',/^\/api\/v1\/accounting\/entries\/[^/]+\/correct$/,new Set(['postingDate','reason','replacementLines'])],
+  ['POST',/^\/api\/v1\/accounting\/opening-migration\/preview$/,new Set(['year','postingDate','lines','receivables','payables'])],
+  ['POST',/^\/api\/v1\/accounting\/opening-migration\/import$/,new Set(['confirmImport','year','postingDate','lines','receivables','payables'])],
+  ['POST',/^\/api\/v1\/accounting\/opening-balances\/(?:19|20|21)\d{2}$/,new Set(['postingDate','lines'])],
+  ['POST',/^\/api\/v1\/accounting\/periods\/\d{4}-\d{2}\/unlock-request$/,new Set(['reason'])],
+  ['POST',/^\/api\/v1\/accounting\/unlock-requests\/[^/]+\/(?:approve|reject)$/,new Set(['reason'])],
+  ['POST',/^\/api\/v1\/payables\/suppliers$/,new Set(['id','supplierNumber','name','orgNumber','email','bankgiro','plusgiro','defaultCostAccount'])],
+  ['POST',/^\/api\/v1\/payables\/invoices$/,new Set(['id','supplierId','supplierInvoiceNumber','invoiceDate','dueDate','totalOre','vatOre','currency','vatTreatment'])],
+  ['PUT',/^\/api\/v1\/payables\/invoices\/[^/]+\/coding$/,new Set(['lines'])],
+  ['POST',/^\/api\/v1\/payables\/invoices\/[^/]+\/approve$/,new Set(['expectedCodingSha256','expectedDocumentSha256'])],
+  ['POST',/^\/api\/v1\/payables\/invoices\/[^/]+\/correct-dates$/,new Set(['requestId','invoiceDate','dueDate','reason'])],
+  ['POST',/^\/api\/v1\/payables\/invoices\/[^/]+\/prepare-payment$/,new Set(['paymentDate','account'])],
+  ['POST',/^\/api\/v1\/payables\/payments\/[^/]+\/(?:confirm-post|correct)$/,new Set(['confirmationReference','postingDate','requestId','correctionDate','reason'])],
+  ['POST',/^\/api\/v1\/payroll\/runs$/,new Set(['id','period','payDate','sourceName','grossSalaryOre','withheldTaxOre','employerContributionsOre','netPayOre','vacationLiabilityChangeOre','lines'])],
+  ['PUT',/^\/api\/v1\/suppliers\/[^/]+\/profile$/,new Set(['requestId','name','orgNumber','email','defaultCostAccount'])],
+  ['POST',/^\/api\/v1\/suppliers\/[^/]+\/payment-details$/,new Set(['requestId','bankgiro','plusgiro'])],
+  ['POST',/^\/api\/v1\/suppliers\/changes\/[^/]+\/reject$/,new Set(['reason'])],
+  ['PUT',/^\/api\/v1\/website\/cms\/draft$/,new Set(['expectedRevision','expectedPublishedVersion','site','company'])],
+  ['POST',/^\/api\/v1\/website\/cms\/(?:publish|revisions\/\d+\/restore)$/,new Set(['expectedRevision','expectedPublishedVersion','site','company'])]
+]);
+
+function schemaFor(method,pathname){
+  return BODY_RULES.find(([verb,pattern])=>verb===method&&pattern.test(pathname))?.[2]||null;
+}
+function sanitizeJson(value,state={depth:0,nodes:0}){
+  state.nodes+=1;
+  if(state.nodes>10000)throw securityError('JSON-innehållet är för komplext.','JSON_TOO_COMPLEX',422);
+  if(state.depth>10)throw securityError('JSON-innehållet är för djupt nästlat.','JSON_TOO_DEEP',422);
+  if(value===null||typeof value==='boolean')return value;
+  if(typeof value==='number'){
+    if(!Number.isFinite(value)||!Number.isSafeInteger(value))throw securityError('Numeriska värden måste vara säkra heltal.','INVALID_NUMBER',422);
+    return value;
+  }
+  if(typeof value==='string'){
+    if(value.length>20000)throw securityError('Ett textfält är för långt.','STRING_TOO_LONG',422);
+    if(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value))throw securityError('Text innehåller otillåtna kontrolltecken.','INVALID_CONTROL_CHARACTER',422);
+    return value.normalize('NFC');
+  }
+  if(Array.isArray(value)){
+    if(value.length>500)throw securityError('En lista innehåller för många poster.','ARRAY_TOO_LARGE',422);
+    return value.map(item=>sanitizeJson(item,{depth:state.depth+1,nodes:state.nodes}));
+  }
+  if(typeof value==='object'){
+    const proto=Object.getPrototypeOf(value);
+    if(proto!==Object.prototype&&proto!==null)throw securityError('JSON-objektet har ogiltig struktur.','INVALID_OBJECT',422);
+    const keys=Object.keys(value);
+    if(keys.length>100)throw securityError('Ett objekt innehåller för många fält.','OBJECT_TOO_LARGE',422);
+    const clean={};
+    for(const key of keys){
+      if(key.length>80||!/^[-A-Za-z0-9_]+$/.test(key)||['__proto__','prototype','constructor'].includes(key))throw securityError('JSON innehåller ett otillåtet fältnamn.','INVALID_FIELD_NAME',422);
+      clean[key]=sanitizeJson(value[key],{depth:state.depth+1,nodes:state.nodes});
+    }
+    return clean;
+  }
+  throw securityError('JSON innehåller en otillåten datatyp.','INVALID_JSON_TYPE',422);
+}
+function validateJsonInput(req,payload){
+  const method=String(req?.method||'GET').toUpperCase();
+  const pathname=apiPath(req);
+  const allowed=schemaFor(method,pathname);
+  if(!allowed)throw securityError('Den här API-rutten saknar ett registrerat inputschema.','INPUT_SCHEMA_REQUIRED',500);
+  const clean=sanitizeJson(payload);
+  const unexpected=Object.keys(clean).filter(key=>!allowed.has(key));
+  if(unexpected.length)throw securityError(`Begäran innehåller oväntade fält: ${unexpected.slice(0,5).join(', ')}.`,'UNEXPECTED_FIELDS',422);
+  return clean;
+}
+function validateRequestTarget(req){
+  const raw=String(req?.url||'/');
+  if(raw.length>4096)throw securityError('Adressen är för lång.','URL_TOO_LONG',414);
+  if(/%2f|%5c|%00/i.test(raw))throw securityError('Adressen innehåller otillåten kodning.','INVALID_URL_ENCODING',400);
+  let url;
+  try{url=new URL(raw,'http://localhost')}catch{throw securityError('Ogiltig adress.','INVALID_URL',400)}
+  let decoded;
+  try{decoded=decodeURIComponent(url.pathname)}catch{throw securityError('Adressen innehåller ogiltig kodning.','INVALID_URL_ENCODING',400)}
+  if(decoded.length>2048||decoded.includes('\\')||/[\u0000-\u001f\u007f]/.test(decoded)||decoded.split('/').some(part=>part==='..'||part.length>240))throw securityError('Adressen innehåller en otillåten sökväg.','INVALID_PATH',400);
+  const entries=[...url.searchParams.entries()];
+  if(entries.length>20)throw securityError('För många query-parametrar.','TOO_MANY_QUERY_PARAMETERS',422);
+  const seen=new Set();
+  const rule=QUERY_RULES.find(([verb,pattern])=>verb===String(req?.method||'GET').toUpperCase()&&pattern.test(url.pathname));
+  for(const[key,value]of entries){
+    if(seen.has(key))throw securityError(`Query-parametern ${key} får bara anges en gång.`,'DUPLICATE_QUERY_PARAMETER',422);
+    seen.add(key);
+    if(key.length>80||!/^[A-Za-z][A-Za-z0-9_-]*$/.test(key))throw securityError('Ogiltigt query-fältnamn.','INVALID_QUERY_PARAMETER',422);
+    if(value.length>500||/[\u0000-\u001f\u007f]/.test(value))throw securityError('Ogiltigt query-värde.','INVALID_QUERY_VALUE',422);
+    if(!rule||!rule[2].has(key))throw securityError(`Query-parametern ${key} stöds inte på den här rutten.`,'UNEXPECTED_QUERY_PARAMETER',422);
+  }
+  return url;
+}
+
+module.exports=Object.freeze({
+  securityError,intSetting,clientIp,identityKey,routeClass,policyFor,createRateLimiter,sendRateLimited,
+  validateRequestTarget,validateJsonInput,sanitizeJson,QUERY_RULES,BODY_RULES
+});
