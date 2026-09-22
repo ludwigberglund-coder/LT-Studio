@@ -14,7 +14,7 @@ async function api(path,options={}){
 }
 function loginView(){
   root.innerHTML=`<section class="login-shell">
-    <div class="login-brand"><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div><h1>Driftadmin för hela plattformen.</h1><p>En separat operatörsyta för kundmiljöer, hälsokontroller och säkerhetsvarningar. Kundernas ekonomidata visas inte här.</p></div><small>Read-only driftvy · separat MFA-inloggning</small></div>
+    <div class="login-brand"><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div><h1>Driftadmin för hela plattformen.</h1><p>En separat operatörsyta för kundmiljöer, hälsokontroller och säkerhetsvarningar. Kundernas ekonomidata visas inte här.</p></div><small>LT Studio-administration · separat MFA-inloggning</small></div>
     <div class="login-panel"><form class="card" id="login-form"><h2>Operatörsinloggning</h2><p>Logga in med ert separata LT Studio-operatörskonto.</p>
       <label class="field"><span>Användarnamn</span><input name="username" autocomplete="username" required></label>
       <label class="field"><span>Lösenord</span><input name="password" type="password" autocomplete="current-password" required></label>
@@ -121,7 +121,7 @@ function readinessChecks(){
 }
 function dashboard(){
   const ready=readinessState(),sec=securityState(),operator=session?.operator||{};
-  root.innerHTML=`<div class="operator-shell"><aside class="sidebar"><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div class="side-copy">Central driftadmin för den gemensamma SaaS-plattformen.</div><nav class="side-nav"><button class="active">Översikt</button></nav><div class="side-footer">Read-only version. Kundernas affärsdata visas inte i driftvyn.</div></aside>
+  root.innerHTML=`<div class="operator-shell"><aside class="sidebar"><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div class="side-copy">Central admin för den gemensamma SaaS-plattformen.</div><nav class="side-nav"><button class="active">Översikt</button></nav><div class="side-footer">Kundernas affärsdata visas inte här. Konton och åtkomst hanteras av LT Studio.</div></aside>
   <section class="main"><header class="topbar"><div><h1>Plattformsöversikt</h1><p>Företag, driftstatus och säkerhetssignaler.</p></div><div class="actions"><div class="operator-user"><span class="avatar">${initials(operator.displayName)}</span><div><strong>${esc(operator.displayName||operator.username||'Operatör')}</strong><small>LT Studio-operatör</small></div></div><button class="button secondary" data-action="logout">Logga ut</button></div></header>
   ${errorMessage?`<div class="notice">${esc(errorMessage)}</div>`:''}
   <section class="status-grid">
