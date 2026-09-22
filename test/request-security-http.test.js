@@ -35,6 +35,12 @@ test('global login rate limit returns graceful 429 before application login thro
   assert.ok(Number(blocked.headers.get('retry-after'))>=1);
   assert.equal(blocked.headers.get('ratelimit-remaining'),'0');
   assert.equal(blocked.headers.get('cache-control'),'no-store');
+  assert.equal(blocked.headers.get('x-frame-options'),'DENY');
+  assert.equal(blocked.headers.get('x-content-type-options'),'nosniff');
+  assert.match(blocked.headers.get('permissions-policy')||'',/camera=\(\)/);
+  assert.equal(blocked.headers.get('cross-origin-opener-policy'),'same-origin');
+  assert.equal(blocked.headers.get('cross-origin-resource-policy'),'same-origin');
+  assert.match(blocked.headers.get('strict-transport-security')||'',/max-age=31536000/);
 }));
 
 test('Cloudflare client IP cannot be trusted on a publicly bound origin',()=>{
@@ -114,4 +120,15 @@ test('public origin rejects spoofed loopback Host but accepts configured host',(
   assert.equal(allowed.status,200);
   assert.equal(typeof allowed.body.runtimeId,'string');
   assert.ok(allowed.body.runtimeId.length>10);
+}));
+
+
+test('static portal responses use the stricter page CSP and security headers',()=>withServer({},async base=>{
+  const response=await fetch(base+'/portal/index.html');
+  assert.equal(response.status,200);
+  assert.match(response.headers.get('content-security-policy')||'',/default-src 'self'/);
+  assert.match(response.headers.get('permissions-policy')||'',/geolocation=\(\)/);
+  assert.equal(response.headers.get('cross-origin-opener-policy'),'same-origin');
+  assert.equal(response.headers.get('cross-origin-resource-policy'),'same-origin');
+  assert.match(response.headers.get('strict-transport-security')||'',/max-age=31536000/);
 }));

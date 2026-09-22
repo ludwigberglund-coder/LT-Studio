@@ -215,6 +215,7 @@ const BODY_RULES=Object.freeze([
 
 const EMPTY_BODY_RULES=Object.freeze([
   ['POST',/^\/api\/v1\/auth\/logout$/],
+  ['POST',/^\/api\/v1\/accounting\/periods\/\d{4}-\d{2}\/lock$/],
   ['DELETE',/^\/api\/v1\/customers\/[^/]+$/],
   ['POST',/^\/api\/v1\/customers\/[^/]+\/restore$/],
   ['DELETE',/^\/api\/v1\/customer-invoices\/draft$/],

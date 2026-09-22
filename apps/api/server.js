@@ -146,6 +146,16 @@ function createServer(options = {}) {
     const route=OperationalLog.routeClass(req.url||'/');
     let operationalCode='';
     res.setHeader('X-Request-Id',requestId);
+    // Baseline response hardening applies to API/error/redirect responses too.
+    // Static HTML/assets add their stricter page-specific CSP in private-runtime.js.
+    res.setHeader('X-Content-Type-Options','nosniff');
+    res.setHeader('X-Frame-Options','DENY');
+    res.setHeader('Referrer-Policy','no-referrer');
+    res.setHeader('Permissions-Policy','camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+    res.setHeader('Cross-Origin-Opener-Policy','same-origin');
+    res.setHeader('Cross-Origin-Resource-Policy','same-origin');
+    res.setHeader('Strict-Transport-Security','max-age=31536000');
+    res.setHeader('Content-Security-Policy',"default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
     res.once('finish',()=>{
       const statusCode=Number(res.statusCode)||0;
       operationalLogger.emit({
