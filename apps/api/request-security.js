@@ -153,8 +153,21 @@ const QUERY_RULES=Object.freeze([
   ['GET',/^\/api\/v1\/accounting\/periods$/,new Set(['year'])],
   ['GET',/^\/api\/v1\/accounting\/unlock-requests$/,new Set(['status'])],
   ['GET',/^\/api\/operator\/v1\/security-events$/,new Set(['limit'])],
-  ['GET',/^\/api\/v1\/(?:reports|exports)\/[a-z-]+$/,new Set(['from','to','asOf','status','account','period','mode','date','direction','query','sort','order'])]
-]);
+
+  ['GET',/^\/api\/v1\/reports\/(?:trial-balance|profit-loss|sales|supplier-purchases)$/,new Set(['from','to'])],
+  ['GET',/^\/api\/v1\/reports\/general-ledger$/,new Set(['from','to','account'])],
+  ['GET',/^\/api\/v1\/reports\/(?:receivables-aging|payables-aging)$/,new Set(['asOf','to'])],
+  ['GET',/^\/api\/v1\/reports\/vat-control$/,new Set(['period'])],
+  ['GET',/^\/api\/v1\/reports\/(?:receivables-control|payables-control)$/,new Set()],
+  ['GET',/^\/api\/v1\/reports\/payments-overview$/,new Set(['mode','date','status','direction','query','account','sort','order'])],
+
+  ['GET',/^\/api\/v1\/exports\/(?:receivables|customer-invoices|payables|supplier-invoices|payments)$/,new Set(['from','to','status'])],
+  ['GET',/^\/api\/v1\/exports\/(?:receipts|journal|sales|supplier-purchases)$/,new Set(['from','to'])],
+  ['GET',/^\/api\/v1\/exports\/ledger$/,new Set(['from','to','account'])],
+  ['GET',/^\/api\/v1\/exports\/(?:receivables-aging|payables-aging)$/,new Set(['asOf','to'])],
+  ['GET',/^\/api\/v1\/exports\/vat$/,new Set(['period'])],
+  ['GET',/^\/api\/v1\/exports\/payments-overview$/,new Set(['mode','date','status','direction','query','account','sort','order'])]
+
 const BODY_RULES=Object.freeze([
   ['POST',/^\/api\/v1\/auth\/login$/,new Set(['username','password','totp','companyId'])],
   ['POST',/^\/api\/operator\/v1\/auth\/login$/,new Set(['username','password','totp'])],
@@ -457,6 +470,26 @@ function validateJsonInput(req,payload){
   assertNestedSchema(req,clean);
   return clean;
 }
+function validateQueryValue(pathname,key,value){
+  const optionalDate=new Set(['from','to','asOf','date']);
+  if(optionalDate.has(key)&&value&&!/^\d{4}-\d{2}-\d{2}$/.test(value))throw securityError(`Query-parametern ${key} måste vara datum ÅÅÅÅ-MM-DD.`,'INVALID_QUERY_VALUE',422);
+  if(key==='period'&&value&&!/^\d{4}-\d{2}$/.test(value))throw securityError('Query-parametern period måste vara ÅÅÅÅ-MM.','INVALID_QUERY_VALUE',422);
+  if(key==='year'&&value&&!/^(?:19|20|21)\d{2}$/.test(value))throw securityError('Query-parametern year måste vara ett fyrsiffrigt år.','INVALID_QUERY_VALUE',422);
+  if(key==='includeArchived'&&!/^[01]$/.test(value))throw securityError('includeArchived måste vara 0 eller 1.','INVALID_QUERY_VALUE',422);
+  if(key==='limit'){
+    const limit=Number(value);
+    const max=pathname==='/api/operator/v1/security-events'?200:1000;
+    if(!/^\d{1,4}$/.test(value)||!Number.isSafeInteger(limit)||limit<1||limit>max)throw securityError(`limit måste vara 1–${max}.`,'INVALID_QUERY_VALUE',422);
+  }
+  if(key==='account'&&value&&!/^\d{4}$/.test(value))throw securityError('Konto måste bestå av fyra siffror.','INVALID_QUERY_VALUE',422);
+  if(key==='mode'&&value&&!['day','week','month','quarter'].includes(value))throw securityError('mode måste vara day, week, month eller quarter.','INVALID_QUERY_VALUE',422);
+  if(key==='direction'&&value&&!['in','out'].includes(value))throw securityError('direction måste vara in eller out.','INVALID_QUERY_VALUE',422);
+  if(key==='sort'&&value&&!['date','amount','counterparty'].includes(value))throw securityError('sort har ett ogiltigt värde.','INVALID_QUERY_VALUE',422);
+  if(key==='order'&&value&&!['asc','desc'].includes(value))throw securityError('order måste vara asc eller desc.','INVALID_QUERY_VALUE',422);
+  const perFieldMax={status:80,category:40,entityType:80,entityId:200,itemId:200,query:200};
+  if(perFieldMax[key]&&value.length>perFieldMax[key])throw securityError(`Query-parametern ${key} är för lång.`,'INVALID_QUERY_VALUE',422);
+}
+
 function validateRequestTarget(req){
   const raw=String(req?.url||'/');
   if(raw.length>4096)throw securityError('Adressen är för lång.','URL_TOO_LONG',414);
@@ -478,6 +511,7 @@ function validateRequestTarget(req){
     if(value.length>500||/[\u0000-\u001f\u007f]/.test(value))throw securityError('Ogiltigt query-värde.','INVALID_QUERY_VALUE',422);
     if(key.toLowerCase()==='demo')continue;
     if(url.pathname.startsWith('/api/')&&(!rule||!rule[2].has(key)))throw securityError(`Query-parametern ${key} stöds inte på den här rutten.`,'UNEXPECTED_QUERY_PARAMETER',422);
+    validateQueryValue(url.pathname,key,value);
   }
   return url;
 }
