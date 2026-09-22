@@ -69,6 +69,7 @@ function createOperatorRouter(options={}){
   const sessionMaxMinutes=Number(options.sessionMaxMinutes||120);
   const readinessProvider=typeof options.readinessProvider==='function'?options.readinessProvider:()=>({ok:false,error:'Readiness-provider saknas.'});
   const requestIp=typeof options.clientIp==='function'?options.clientIp:(req=>req.socket?.remoteAddress||'unknown');
+  const passwordVerificationFallback=Auth.dummyPasswordHash();
   if(!Number.isSafeInteger(sessionIdleMinutes)||sessionIdleMinutes<5||!Number.isSafeInteger(sessionMaxMinutes)||sessionMaxMinutes<sessionIdleMinutes||sessionMaxMinutes>24*60){
     throw new Error('Ogiltiga operatörssessionstider.');
   }
@@ -118,7 +119,8 @@ function createOperatorRouter(options={}){
     const username=Auth.normalizeUsername(payload.username);
     if(loginBlocked(req,username))return send(res,429,{error:'För många felaktiga operatörsinloggningar. Vänta 15 minuter.',code:'OPERATOR_LOGIN_RATE_LIMITED'},{'Retry-After':'900'});
     const operator=Db.platformOperatorByUsername(db,username);
-    const valid=Boolean(operator&&!operator.disabled&&Auth.verifyPassword(payload.password,operator.passwordHash));
+    const passwordValid=Auth.verifyPassword(payload.password,operator?.passwordHash||passwordVerificationFallback);
+    const valid=Boolean(operator&&!operator.disabled&&passwordValid);
     if(!valid){noteLoginFailure(req,username);return send(res,401,{error:'Användarnamn eller lösenord är fel.',code:'OPERATOR_INVALID_CREDENTIALS'})}
     if(!authEncryptionKey)return send(res,503,{error:'Operatörs-MFA kan inte verifieras eftersom serverns krypteringsnyckel saknas.',code:'OPERATOR_MFA_SERVER_NOT_CONFIGURED'});
     let secret;
@@ -127,14 +129,16 @@ function createOperatorRouter(options={}){
     const mfaCounter=Auth.totpMatchCounter(secret,payload.totp);
     if(mfaCounter===null){noteLoginFailure(req,username);return send(res,401,{error:'MFA-koden är felaktig eller har gått ut.',code:'OPERATOR_INVALID_MFA'})}
 
+    const upgradedPasswordHash=Auth.needsPasswordRehash(operator.passwordHash)?Auth.hashPassword(payload.password):'';
     const now=Date.now(),sessionToken=Auth.randomToken(32),csrfToken=Auth.randomToken(24);
     Db.transaction(db,()=>{
       Db.consumePlatformOperatorMfaStep(db,{operatorId:operator.id,totpCounter:mfaCounter});
+      if(upgradedPasswordHash)db.prepare('UPDATE platform_operators SET password_hash=? WHERE id=?').run(upgradedPasswordHash,operator.id);
       Db.createPlatformOperatorSession(db,{
         tokenHash:Auth.hashToken(sessionToken),csrfHash:Auth.hashToken(csrfToken),operatorId:operator.id,
         expiresAt:expiryIso(sessionIdleMinutes,now),absoluteExpiresAt:expiryIso(sessionMaxMinutes,now)
       });
-      Db.appendPlatformOperatorAudit(db,{operatorId:operator.id,action:'OPERATOR_SESSION_LOGIN',details:{sessionIdleMinutes,sessionMaxMinutes,mfaRequired:true}});
+      Db.appendPlatformOperatorAudit(db,{operatorId:operator.id,action:'OPERATOR_SESSION_LOGIN',details:{sessionIdleMinutes,sessionMaxMinutes,mfaRequired:true,passwordHashUpgraded:Boolean(upgradedPasswordHash)}});
     });
     Db.clearLoginAttempts(db,loginKey(req,username));
     return send(res,200,{authenticated:true,csrfToken,operator:{id:operator.id,username:operator.username,displayName:operator.displayName}},
