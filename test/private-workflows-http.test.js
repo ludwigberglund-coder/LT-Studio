@@ -15,7 +15,11 @@ test('private preview requires authentication and active company membership for 
   }
   const headers=await f.login();
   assert.equal((await fetch(f.base+'/website-preview/../../package.json',{headers})).status,404);
-  const own=await json(f.base,`/api/v1/website/cms?companyId=${f.b.id}`,headers);
+  const injected=await json(f.base,`/api/v1/website/cms?companyId=${f.b.id}`,headers);
+  assert.equal(injected.res.status,422);
+  assert.equal(injected.data.code,'UNEXPECTED_QUERY_PARAMETER');
+  const own=await json(f.base,'/api/v1/website/cms',headers);
+  assert.equal(own.res.status,200);
   assert.equal(own.data.state.companyId,f.a.id);
   assert.equal(own.data.state.draft.site.hero.title,'Privat utkast Testbutik A');
 }));

@@ -13,6 +13,10 @@ const dataDir = Store.resolveDataDir();
 const dataFile = path.join(dataDir, 'store.json');
 const port = Number(process.env.PORT || 4173);
 const host = String(process.env.ROLLANDS_HOST || '127.0.0.1').trim();
+const legacyProtectedMode = process.env.NODE_ENV === 'production' || ['staging','pilot','production'].includes(String(process.env.ROLLANDS_ENV || '').trim());
+// This server is retained only for local legacy/demo development. It must never bypass the hardened private API runtime.
+if (legacyProtectedMode) throw new Error('Legacy-servern får inte startas i staging, pilot eller produktion. Använd apps/api/server.js.');
+if (!['127.0.0.1','localhost','::1'].includes(host)) throw new Error('Legacy-servern får bara bindas lokalt. Använd apps/api/server.js för nätverksdrift.');
 const timeZone = String(process.env.ROLLANDS_TIME_ZONE || 'Europe/Stockholm').trim();
 const demoDataEnabled = process.env.ROLLANDS_DEMO_DATA === '1';
 const adminToken = String(process.env.ROLLANDS_ADMIN_TOKEN || '');

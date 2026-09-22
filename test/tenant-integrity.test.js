@@ -347,9 +347,9 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
         lines:payrollLines
       })
     });
-    assert.equal(injectedPayroll.status,201);
-    const injectedPayrollBody=await injectedPayroll.json();
-    assert.equal(injectedPayrollBody.run.companyId,f.a.id);
+    assert.equal(injectedPayroll.status,422);
+    assert.equal((await injectedPayroll.json()).code,'UNEXPECTED_FIELDS');
+    assert.equal(Payroll.listRuns(f.db,f.a.id).some(row=>row.sourceName==='Tenant injection attempt'),false);
     assert.equal(Payroll.listRuns(f.db,f.b.id).length,1);
 
     const cmsSite=structuredClone(cmsABefore.draft.site);
@@ -364,10 +364,9 @@ test('HTTP object-ID matrix denies other-company reads and mutations with valid 
         company:cmsCompany
       })
     });
-    assert.equal(injectedCms.status,200);
-    const injectedCmsBody=await injectedCms.json();
-    assert.equal(injectedCmsBody.state.companyId,f.a.id);
-    assert.equal(injectedCmsBody.state.draft.site.hero.title,'Tenant A controlled CMS update');
+    assert.equal(injectedCms.status,422);
+    assert.equal((await injectedCms.json()).code,'UNEXPECTED_FIELDS');
+    assert.deepEqual(Cms.state(f.db,f.a.id),cmsABefore);
     assert.deepEqual(Cms.state(f.db,f.b.id),cmsBBefore);
 
     assert.equal(Db.commentsForInvoice(f.db,f.b.id,f.invoiceB.id).length,0);

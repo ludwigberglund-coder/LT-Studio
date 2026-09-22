@@ -50,14 +50,14 @@ test('serverns request-id matchar strukturerad logg utan query, cookies eller pr
     const response=await fetch(base+'/api/v1/readiness?access_token=SUPERSECRET',{headers:{Cookie:'rollands_session=VERYSECRET'}});
     await response.text();
     await new Promise(resolve=>setImmediate(resolve));
-    assert.equal(response.status,200);
+    assert.equal(response.status,422);
     const requestId=response.headers.get('x-request-id');
     assert.match(requestId,/^[0-9a-f-]{36}$/i);
     const records=lines.map(line=>JSON.parse(line));
     const row=records.find(item=>item.event==='http_request'&&item.routeClass==='readiness');
     assert.ok(row);
     assert.equal(row.requestId,requestId);
-    assert.equal(row.statusCode,200);
+    assert.equal(row.statusCode,422);
     const serialized=lines.join('');
     assert.doesNotMatch(serialized,/SUPERSECRET|VERYSECRET|access_token|cookie|:memory:/i);
   }finally{

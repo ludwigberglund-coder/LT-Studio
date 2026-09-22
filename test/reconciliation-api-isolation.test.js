@@ -15,7 +15,7 @@ test('reconciliation report endpoints require authentication',()=>run(async f=>{
   }
 }));
 
-test('reconciliation report endpoints ignore companyId manipulation and stay inside the authenticated company',()=>run(async f=>{
+test('reconciliation report endpoints reject companyId manipulation and stay inside the authenticated company',()=>run(async f=>{
   const customerB=Db.createCustomer(f.db,{companyId:f.b.id,customerNumber:'KB-9001',name:'Company B Kund AB'});
   const invoiceB=Db.createInvoice(f.db,{
     companyId:f.b.id,customerId:customerB.id,invoiceNumber:'B-9001',
@@ -48,8 +48,15 @@ test('reconciliation report endpoints ignore companyId manipulation and stay ins
   const directReceivablesA=Reports.receivablesControl(f.db,f.a.id);
   const directPayablesA=Reports.payablesControl(f.db,f.a.id);
 
-  const receivablesA=await fetch(f.base+'/api/v1/reports/receivables-control?companyId='+encodeURIComponent(f.b.id),{headers:headersA});
-  const payablesA=await fetch(f.base+'/api/v1/reports/payables-control?companyId='+encodeURIComponent(f.b.id),{headers:headersA});
+  const injectedReceivables=await fetch(f.base+'/api/v1/reports/receivables-control?companyId='+encodeURIComponent(f.b.id),{headers:headersA});
+  const injectedPayables=await fetch(f.base+'/api/v1/reports/payables-control?companyId='+encodeURIComponent(f.b.id),{headers:headersA});
+  assert.equal(injectedReceivables.status,422);
+  assert.equal(injectedPayables.status,422);
+  assert.equal((await injectedReceivables.json()).code,'UNEXPECTED_QUERY_PARAMETER');
+  assert.equal((await injectedPayables.json()).code,'UNEXPECTED_QUERY_PARAMETER');
+
+  const receivablesA=await fetch(f.base+'/api/v1/reports/receivables-control',{headers:headersA});
+  const payablesA=await fetch(f.base+'/api/v1/reports/payables-control',{headers:headersA});
   assert.equal(receivablesA.status,200);
   assert.equal(payablesA.status,200);
   const receivablesBodyA=await receivablesA.json();

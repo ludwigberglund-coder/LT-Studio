@@ -9,6 +9,7 @@ const Auth = require('./auth.js');
 const Db = require('./database.js');
 const CustomerInvoicing = require('./customer-invoicing.js');
 const WebsiteCms = require('./website-cms.js');
+const RequestSecurity = require('./request-security.js');
 
 const DEFAULT_ACCESS = JSON.parse(fs.readFileSync(path.join(__dirname,'..','..','config','access-control.json'),'utf8'));
 const DEFAULT_RATES = JSON.parse(fs.readFileSync(path.join(__dirname,'..','..','config','legal-rates.json'),'utf8'));
@@ -148,7 +149,7 @@ function readJson(req,res) {
       try {
         const value = chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {};
         if (!value || typeof value !== 'object' || Array.isArray(value)) throw apiError('JSON-innehållet måste vara ett objekt.','INVALID_JSON',400);
-        resolve(value);
+        resolve(RequestSecurity.validateJsonInput(req,value));
       } catch (error) { reject(error); }
     });
     req.on('error',reject);
@@ -170,6 +171,7 @@ function createApiApp(options) {
   const authEncryptionKey = options.authEncryptionKey || '';
   const operationalLogger=options.operationalLogger||null;
   const operationalRuntimeId=String(options.operationalRuntimeId||'');
+  const requestIp=typeof options.clientIp==='function'?options.clientIp:(req=>req.socket?.remoteAddress||'unknown');
   WebsiteCms.initializeWebsiteCms(db);
   const fixedCompanyProfile = options.companyProfile || null;
   const companyProfileFor = typeof options.companyProfileFor === 'function'
@@ -178,7 +180,7 @@ function createApiApp(options) {
   CustomerInvoicing.initializeCustomerInvoicing(db);
 
   function loginKey(req,username) {
-    const identity=`${req.socket?.remoteAddress || 'unknown'}|${String(username || '').toLocaleLowerCase('sv')}`;
+    const identity=`${requestIp(req)}|${String(username || '').toLocaleLowerCase('sv')}`;
     return crypto.createHash('sha256').update('rollands-login-v1|'+identity).digest('hex');
   }
 

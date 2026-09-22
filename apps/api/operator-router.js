@@ -4,6 +4,7 @@ const crypto=require('node:crypto');
 const Auth=require('./auth.js');
 const OperatorAuth=require('./operator-auth.js');
 const Db=require('./database.js');
+const RequestSecurity=require('./request-security.js');
 const {platformOverview}=require('./platform-overview.js');
 
 const BODY_LIMIT=64*1024;
@@ -53,7 +54,7 @@ function readJson(req,res){
       try{
         const value=chunks.length?JSON.parse(Buffer.concat(chunks).toString('utf8')):{};
         if(!value||typeof value!=='object'||Array.isArray(value))throw operatorError('JSON-innehållet måste vara ett objekt.','INVALID_JSON',400);
-        resolve(value);
+        resolve(RequestSecurity.validateJsonInput(req,value));
       }catch(error){reject(error)}
     });
     req.on('error',reject);
@@ -67,13 +68,14 @@ function createOperatorRouter(options={}){
   const sessionIdleMinutes=Number(options.sessionIdleMinutes||15);
   const sessionMaxMinutes=Number(options.sessionMaxMinutes||120);
   const readinessProvider=typeof options.readinessProvider==='function'?options.readinessProvider:()=>({ok:false,error:'Readiness-provider saknas.'});
+  const requestIp=typeof options.clientIp==='function'?options.clientIp:(req=>req.socket?.remoteAddress||'unknown');
   if(!Number.isSafeInteger(sessionIdleMinutes)||sessionIdleMinutes<5||!Number.isSafeInteger(sessionMaxMinutes)||sessionMaxMinutes<sessionIdleMinutes||sessionMaxMinutes>24*60){
     throw new Error('Ogiltiga operatörssessionstider.');
   }
 
   function expiryIso(minutes,fromMs=Date.now()){return new Date(fromMs+minutes*60*1000).toISOString()}
   function loginKey(req,username){
-    const identity=`${req.socket?.remoteAddress||'unknown'}|${String(username||'').toLocaleLowerCase('sv')}`;
+    const identity=`${requestIp(req)}|${String(username||'').toLocaleLowerCase('sv')}`;
     return crypto.createHash('sha256').update('lt-operator-login-v1|'+identity).digest('hex');
   }
   function loginBlocked(req,username){
