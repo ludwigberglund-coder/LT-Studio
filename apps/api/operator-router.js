@@ -122,6 +122,7 @@ function createOperatorRouter(options={}){
   const sessionMaxMinutes=Number(options.sessionMaxMinutes||120);
   const readinessProvider=typeof options.readinessProvider==='function'?options.readinessProvider:()=>({ok:false,error:'Readiness-provider saknas.'});
   const securityMonitor=options.securityMonitor&&typeof options.securityMonitor.refresh==='function'?options.securityMonitor:null;
+  const securityAlerts=options.securityAlerts&&typeof options.securityAlerts.status==='function'&&typeof options.securityAlerts.test==='function'?options.securityAlerts:null;
   const requestIp=typeof options.clientIp==='function'?options.clientIp:(req=>req.socket?.remoteAddress||'unknown');
   if(!Number.isSafeInteger(sessionIdleMinutes)||sessionIdleMinutes<5||!Number.isSafeInteger(sessionMaxMinutes)||sessionMaxMinutes<sessionIdleMinutes||sessionMaxMinutes>24*60){
     throw new Error('Ogiltiga operatörssessionstider.');
@@ -373,6 +374,19 @@ function createOperatorRouter(options={}){
         if(!securityMonitor){send(res,503,{error:'Aktiv säkerhetsövervakning är inte tillgänglig.',code:'SECURITY_MONITOR_UNAVAILABLE'});return true}
         send(res,200,securityMonitor.refresh());return true;
       }
+      if(req.method==='GET'&&url.pathname==='/api/operator/v1/security-alerts'){
+        if(!securityAlerts){send(res,503,{error:'Extern larmkanal är inte tillgänglig.',code:'SECURITY_ALERTS_UNAVAILABLE'});return true}
+        send(res,200,securityAlerts.status());return true;
+      }
+      if(req.method==='POST'&&url.pathname==='/api/operator/v1/security-alerts/test'){
+        if(!securityAlerts){send(res,503,{error:'Extern larmkanal är inte tillgänglig.',code:'SECURITY_ALERTS_UNAVAILABLE'});return true}
+        const result=await securityAlerts.test({operatorId:session.operatorId});
+        const status=securityAlerts.status();
+        if(!result.ok){
+          send(res,502,{ok:false,error:'Testlarmet kunde inte levereras.',code:'SECURITY_ALERT_TEST_FAILED',delivery:{errorCode:result.errorCode||'WEBHOOK_DELIVERY_FAILED',httpStatus:result.httpStatus||null},status});return true;
+        }
+        send(res,200,{ok:true,status});return true;
+      }
       if(req.method==='GET'&&url.pathname==='/api/operator/v1/operator-audit'){
         const limit=Math.max(1,Math.min(200,Number(url.searchParams.get('limit'))||100));
         const events=Db.platformOperatorAudit(db,{limit}).map(event=>{
@@ -386,7 +400,7 @@ function createOperatorRouter(options={}){
           return {
             action:event.action,
             createdAt:event.createdAt,
-            operatorName:operator?.displayName||operator?.username||'Tidigare operatör',
+            operatorName:operator?.displayName||operator?.username||(String(event.action||'').startsWith('SECURITY_ALERT_')?'Säkerhetsmotor':'Tidigare operatör'),
             companyId:company?.id||null,
             companyName:company?.displayName||company?.legalName||null,
             targetUserName:user?.displayName||null,
@@ -394,7 +408,12 @@ function createOperatorRouter(options={}){
             afterRole:typeof details.after==='string'?details.after:null,
             role:typeof details.role==='string'?details.role:null,
             beforeStatus:typeof details.beforeStatus==='string'?details.beforeStatus:null,
-            afterStatus:typeof details.afterStatus==='string'?details.afterStatus:null
+            afterStatus:typeof details.afterStatus==='string'?details.afterStatus:null,
+            alertCode:typeof details.code==='string'?details.code:null,
+            alertSeverity:typeof details.severity==='string'?details.severity:null,
+            alertResult:typeof details.result==='string'?details.result:null,
+            alertTest:details.test===true,
+            alertErrorCode:typeof details.errorCode==='string'?details.errorCode:null
           };
         });
         send(res,200,{events});return true;
