@@ -290,7 +290,7 @@ function securityView(){
     <article class="panel dashboard-panel"><div class="panel-head security-events-head"><div><span class="eyebrow">INCIDENTER</span><h2>Säkerhetshändelser</h2><p>Redigerad logg utan IP-adresser, fingeravtryck eller hemliga tekniska detaljer. Filtren gäller de senast hämtade händelserna.</p></div></div><div class="security-toolbar"><label><span>Allvarlighetsgrad</span><select data-security-severity><option value="all" ${securitySeverity==='all'?'selected':''}>Alla</option><option value="critical" ${securitySeverity==='critical'?'selected':''}>Kritisk</option><option value="warning" ${securitySeverity==='warning'?'selected':''}>Varning</option><option value="info" ${securitySeverity==='info'?'selected':''}>Information</option></select></label><label><span>Tidsperiod</span><select data-security-period><option value="24h" ${securityPeriod==='24h'?'selected':''}>24 timmar</option><option value="7d" ${securityPeriod==='7d'?'selected':''}>7 dagar</option><option value="30d" ${securityPeriod==='30d'?'selected':''}>30 dagar</option><option value="all" ${securityPeriod==='all'?'selected':''}>Alla hämtade</option></select></label><label><span>Företag</span><select data-security-company>${securityCompanyOptions()}</select></label><span class="security-filter-count">${num(events.length)} händelser</span></div><div class="event-list" id="security-event-list">${securityEvents()}</div></article>
     <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">ÅTGÄRDSLISTA</span><h2>Det som behöver uppmärksamhet</h2><p>Konkreta rekommendationer från kontroller som inte rapporterar OK.</p></div></div><div class="security-actions">${unresolvedSecurityActions()}</div><div class="security-privacy-note"><strong>Dataminimerad vy</strong><p>Säkerhetsportalen visar inte lösenord, MFA-hemligheter, IP-adresser, kundernas dokument eller ekonomiska detaljdata.</p></div></article>
   </section>
-  <section class="panel operator-audit-panel"><div class="panel-head"><div><span class="eyebrow">OPERATÖRER</span><h2>Administratörslogg</h2><p>Read-only historik över vad LT Studio-operatörer har gjort. Endast nödvändig företags-, användar- och rollmetadata visas.</p></div><span class="panel-stat">${num(operatorAudit?.events?.length||0)} loggposter</span></div><div class="audit-list">${operatorAuditRows()}</div></section>`,'Säkerhetsportal','Systemhälsa, säkerhetshändelser och verifieringsbevis för hela LT Studio.');
+  <section class="panel operator-audit-panel"><div class="panel-head"><div><span class="eyebrow">OPERATÖRER</span><h2>Administratörslogg</h2><p>Read-only historik över vad LT Studio-operatörer har gjort. Endast nödvändig företags-, användar- och rollmetadata visas.</p></div><span class="panel-stat ${operatorAudit?.unavailable?'warning':''}">${operatorAudit?.unavailable?'Tillfälligt otillgänglig':num(operatorAudit?.events?.length||0)+' loggposter'}</span></div><div class="audit-list">${operatorAudit?.unavailable?'<div class="empty">Administratörsloggen kunde inte läsas just nu. Övriga adminfunktioner påverkas inte.</div>':operatorAuditRows()}</div></section>`,'Säkerhetsportal','Systemhälsa, säkerhetshändelser och verifieringsbevis för hela LT Studio.');
 }
 function globalAdminRows(detail){
   const admins=detail.platformAdmins||[];
@@ -339,7 +339,12 @@ function companyDetailView(detail){
 }
 function render(){if(selectedCompany)return companyDetailView(selectedCompany);if(view==='companies')return companiesView();if(view==='statistics')return statisticsView();if(view==='security')return securityView();return overviewView()}
 async function loadData(){
-  const [o,r,s,a]=await Promise.all([api('/overview'),api('/readiness').catch(err=>err.data&&typeof err.data==='object'?err.data:{ok:false,error:err.message,checks:{}}),api('/security-events?limit=100'),api('/operator-audit?limit=100')]);
+  const [o,r,s,a]=await Promise.all([
+    api('/overview'),
+    api('/readiness').catch(err=>err.data&&typeof err.data==='object'?err.data:{ok:false,error:err.message,checks:{}}),
+    api('/security-events?limit=100'),
+    api('/operator-audit?limit=100').catch(err=>({events:[],unavailable:true,error:err.message}))
+  ]);
   overview=o;readiness=r;security=s;operatorAudit=a;
 }
 async function openCompany(id){errorMessage='';try{selectedCompany=await api('/companies/'+encodeURIComponent(id));render()}catch(error){errorMessage=error.message;selectedCompany=null;render()}}
