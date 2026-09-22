@@ -48,7 +48,7 @@
     rgb(0 0 0 / 0.1) 0 1px 2px -1px;
 
   --forest: var(--color-brand);
-  --forest-deep: #102f26;
+  --forest-deep: #173f32;
   --leaf: var(--color-leaf);
   --lime: var(--color-lime);
   --cream: var(--color-canvas);
@@ -137,7 +137,7 @@ b {
   min-height: 36px;
   padding: 8px 16px;
   color: var(--color-paper);
-  background: linear-gradient(135deg,var(--color-brand),var(--color-brand-2));
+  background: var(--color-brand);
   border: 1px solid var(--color-brand);
   border-radius: var(--radius-buttons);
   box-shadow: none;
@@ -237,8 +237,8 @@ h3 {
 
 .hero-visual {
   min-height: 480px;
-  background: linear-gradient(145deg,#edf5df,#dce9c6);
-  border: 1px solid #cbd9bf;
+  background: #f5f8f2;
+  border: 1px solid #c8d9c5;
   border-radius: var(--radius-cards);
   box-shadow: var(--shadow-subtle);
 }
@@ -267,19 +267,19 @@ h3 {
 }
 
 .produce-orange {
-  background: #ef9842;
+  background: #c5653f;
 }
 
 .produce-green {
-  background: #a8c45d;
+  background: #a0b966;
 }
 
 .produce-red {
-  background: #bb5446;
+  background: #b4462f;
 }
 
 .leaf {
-  background: #4e7a45;
+  background: #6f8f4f;
 }
 
 .visual-note {
@@ -294,7 +294,7 @@ h3 {
 }
 
 .services {
-  background: linear-gradient(180deg,#edf3e4,#f6f8f1);
+  background: #f5f8f2;
 }
 
 .story {
@@ -335,10 +335,7 @@ h3 {
 
 .contact {
   color: var(--color-paper);
-  background:
-    radial-gradient(circle at 12% 20%,rgb(220 233 167 / .12),transparent 28%),
-    radial-gradient(circle at 88% 80%,rgb(197 101 63 / .14),transparent 32%),
-    linear-gradient(145deg,#102f26,var(--color-brand));
+  background: var(--color-brand);
 }
 
 .contact h2,
@@ -419,11 +416,11 @@ h3 {
 /* Brand polish: functional color hierarchy and restrained Motion-style depth. */
 .brand small,.eyebrow,.eyebrow.light{color:var(--color-warm)}
 .site-navigation a:hover{color:var(--color-brand-2)}
-.visual-note{background:linear-gradient(135deg,var(--color-brand),var(--color-brand-2))}
+.visual-note{background:var(--color-brand)}
 .service-number{background:var(--color-lime);color:var(--color-brand)}
 .story-list span{color:var(--color-leaf)}
 .service-card{transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
-.service-card:hover{transform:translateY(-3px);border-color:#c7d8c3;box-shadow:0 18px 42px rgb(23 63 50 / .10)}
+.service-card:hover{transform:translateY(-3px);border-color:#c8d9c5;box-shadow:0 18px 42px rgb(23 63 50 / .10)}
 .highlight strong{color:var(--color-brand)}
 .contact-card{background:rgb(255 255 255 / .07);border-color:rgb(255 255 255 / .16);backdrop-filter:blur(8px)}
 .map-link{color:var(--color-lime)!important}
