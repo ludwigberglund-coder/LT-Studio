@@ -262,6 +262,24 @@ function createOperatorRouter(options={}){
         });
         send(res,201,{created:true,linkedExisting:false,userId,username,displayName,role,mfaSecret});return true;
       }
+      const existingUserMatch=url.pathname.match(/^\/api\/operator\/v1\/companies\/([^/]+)\/users\/existing$/);
+      if(req.method==='POST'&&existingUserMatch){
+        const companyId=decodeURIComponent(existingUserMatch[1]);
+        if(!Db.companyById(db,companyId))throw operatorError('Kundföretaget hittades inte.','COMPANY_NOT_FOUND',404);
+        const payload=await readJson(req,res);if(!payload)return true;
+        const username=Auth.normalizeUsername(payload.username);
+        const user=Db.userByUsername(db,username);
+        if(!user)throw operatorError('Någon befintlig användare med det användarnamnet hittades inte.','USER_NOT_FOUND',404);
+        if(user.disabled)throw operatorError('Användarkontot är inaktiverat och kan inte kopplas till ett nytt företag.','USER_DISABLED',409);
+        if(Db.membership(db,companyId,user.id))throw operatorError('Användaren har redan åtkomst till kundföretaget.','MEMBERSHIP_EXISTS',409);
+        const role=Db.membershipRole(payload.role||'readonly');
+        const membership=Db.transaction(db,()=>{
+          const created=Db.addMembership(db,{companyId,userId:user.id,role});
+          Db.appendPlatformOperatorAudit(db,{operatorId:session.operatorId,action:'CUSTOMER_EXISTING_USER_ATTACHED',details:{companyId,userId:user.id,role}});
+          return created;
+        });
+        send(res,201,{attached:true,userId:user.id,username:user.username,role:membership.role});return true;
+      }
       const memberRoleMatch=url.pathname.match(/^\/api\/operator\/v1\/companies\/([^/]+)\/users\/([^/]+)\/role$/);
       if(req.method==='PUT'&&memberRoleMatch){
         const companyId=decodeURIComponent(memberRoleMatch[1]),userId=decodeURIComponent(memberRoleMatch[2]);
