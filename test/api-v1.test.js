@@ -11,7 +11,6 @@ const {createApiApp} = require('../apps/api/app.js');
 const TEST_MFA_SECRET='GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 const TEST_ENCRYPTION_KEY='test-only-api-encryption-key-longer-than-thirty-two-characters';
 
-
 function legacyPasswordHash(password) {
   const salt=Buffer.from('legacy-user-2026!','utf8');
   const derived=crypto.scryptSync(password,salt,64,{N:16384,r:8,p:1,maxmem:64*1024*1024});
