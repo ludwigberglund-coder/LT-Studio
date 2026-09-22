@@ -6,14 +6,14 @@ const {PDFDocument}=require('pdf-lib');
 const {invoicePdf,invoiceDocumentData}=require('../invoice-pdf.js');
 
 const business={
-  name:'Rolands Frukt o Grönt Aktiebolag',
-  orgNumber:'556406-5059',
-  vatNumber:'SE556406505901',
-  address:'Bolshedens Industriväg 22\n427 50 Billdal',
+  name:'Demo Handel AB',
+  orgNumber:'000000-0000',
+  vatNumber:'SE000000000001',
+  address:'Exempelgatan 1\n411 00 Göteborg',
   registeredOffice:'Göteborg',
   paymentAccount:'Bankgiro 123-4567',
-  phone:'031-91 32 23',
-  email:'frukt@rollands.se',
+  phone:'031-000 00 00',
+  email:'faktura@demo.example.invalid',
   invoiceContact:'Anna Andersson'
 };
 const strictBusiness={...business,strictInvoiceValidation:true};
@@ -35,8 +35,8 @@ test('fakturadatan innehåller identitet, datum, köpare, säljare, betalning, r
   assert.equal(data.deliveryDate,'2026-09-14');
   assert.equal(data.customer,'Exempelbutiken AB');
   assert.equal(data.customerAddress,'Kundgatan 1\n411 01 Göteborg');
-  assert.equal(data.sellerOrgNumber,'556406-5059');
-  assert.equal(data.sellerVatNumber,'SE556406505901');
+  assert.equal(data.sellerOrgNumber,'000000-0000');
+  assert.equal(data.sellerVatNumber,'SE000000000001');
   assert.equal(data.sellerRegisteredOffice,'Göteborg');
   assert.equal(data.paymentAccount,'Bankgiro 123-4567');
   assert.equal(data.lines[0].quantity,2);
@@ -66,7 +66,7 @@ test('detaljerad faktura genereras som giltig PDF med dokumentmetadata',async()=
   assert.ok(bytes.subarray(0,5).equals(Buffer.from('%PDF-')));
   const doc=await PDFDocument.load(bytes);
   assert.equal(doc.getTitle(),'FAKTURA 310123');
-  assert.equal(doc.getAuthor(),'Rolands Frukt o Grönt Aktiebolag');
+  assert.equal(doc.getAuthor(),'Demo Handel AB');
   assert.ok(doc.getPageCount()>=1);
 });
 
