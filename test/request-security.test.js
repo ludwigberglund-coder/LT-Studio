@@ -46,6 +46,27 @@ test('nästlade faktura- och CMS-fält är allowlistade',()=>{
   assert.throws(()=>Security.validateJsonInput(cms,{expectedRevision:1,site:{...site,script:'alert(1)'},company}),{code:'UNEXPECTED_FIELDS'});
 });
 
+test('PDF-uppladdningar har en separat strikt rate-limit-klass',()=>{
+  const documentUpload=request('/api/v1/documents/doc-1/content',{method:'PUT'});
+  const supplierUpload=request('/api/v1/payables/invoices/inv-1/document',{method:'PUT'});
+  assert.equal(Security.routeClass(documentUpload),'upload');
+  assert.equal(Security.routeClass(supplierUpload),'upload');
+  assert.equal(Security.routeClass(request('/api/v1/documents/doc-1/content',{method:'GET'})),'api');
+
+  const policy=Security.policyFor(documentUpload,{
+    ROLLANDS_RATE_LIMIT_UPLOAD_IP_PER_MINUTE:'3',
+    ROLLANDS_RATE_LIMIT_UPLOAD_USER_PER_MINUTE:'4'
+  });
+  assert.equal(policy.ipLimit,3);
+  assert.equal(policy.identityLimit,4);
+
+  const limiter=Security.createRateLimiter({
+    env:{ROLLANDS_RATE_LIMIT_UPLOAD_IP_PER_MINUTE:'3',ROLLANDS_RATE_LIMIT_UPLOAD_USER_PER_MINUTE:'4'}
+  });
+  for(let i=0;i<3;i+=1)assert.equal(limiter.check(documentUpload).allowed,true);
+  assert.equal(limiter.check(documentUpload).allowed,false);
+});
+
 test('IP-rate-limit ger block efter konfigurerad login-gräns',()=>{
   const limiter=Security.createRateLimiter({env:{ROLLANDS_RATE_LIMIT_LOGIN_IP_PER_MINUTE:'5'}});
   const req=request('/api/v1/auth/login',{method:'POST',ip:'198.51.100.9'});
