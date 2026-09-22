@@ -128,10 +128,22 @@ function readinessChecks(){
     return `<div class="health-row"><div class="health-name"><span class="health-dot ${kind}"></span><strong>${esc(label)}</strong></div><span class="health-line"></span><span class="status-pill"><span class="dot ${kind}"></span>${state}</span></div>`;
   }).join('');
 }
+function securityEventLabel(kind){
+  const key=String(kind||'');
+  const known={
+    LOGIN_FAILURE_THRESHOLD:'Många felaktiga kundinloggningar',
+    ACCOUNT_LOGIN_FAILURE_THRESHOLD:'Upprepade felaktiga inloggningar för ett kundkonto',
+    OPERATOR_LOGIN_FAILURE_THRESHOLD:'Många felaktiga LT Studio-admininloggningar',
+    OPERATOR_ACCOUNT_LOGIN_FAILURE_THRESHOLD:'Upprepade felaktiga admininloggningar för ett LT Studio-konto'
+  };
+  if(known[key])return known[key];
+  const fallback=key.replaceAll('_',' ').toLocaleLowerCase('sv')||'säkerhetshändelse';
+  return fallback.charAt(0).toLocaleUpperCase('sv')+fallback.slice(1);
+}
 function securityEvents(){
   const events=security?.events||[];
   if(!events.length)return '<div class="empty">Inga säkerhetshändelser i listan.</div>';
-  return events.map(event=>`<div class="event"><span class="status-pill"><span class="dot ${esc(event.severity)}"></span>${esc(({critical:'Kritisk',warning:'Varning',info:'Information'})[event.severity]||event.severity)}</span><strong>${esc(String(event.kind||'Säkerhetshändelse').replaceAll('_',' '))}</strong><time>${dateTime(event.createdAt)}</time></div>`).join('');
+  return events.map(event=>`<div class="event"><span class="status-pill"><span class="dot ${esc(event.severity)}"></span>${esc(({critical:'Kritisk',warning:'Varning',info:'Information'})[event.severity]||event.severity)}</span><strong>${esc(securityEventLabel(event.kind))}</strong><time>${dateTime(event.createdAt)}</time></div>`).join('');
 }
 function overviewView(){
   const totals=overview?.totals||{},companies=overview?.companies||[],ready=readinessState(),sec=securityState();
@@ -139,7 +151,7 @@ function overviewView(){
   const securityPenalty=Math.min(100,Number(overview?.security?.critical||0)*35+Number(overview?.security?.warning||0)*10);
   shell(`<section class="hero-dashboard">
     <div class="hero-copy"><span class="eyebrow">PLATTFORMSLÄGE</span><h2>Kontroll över hela kundbasen.</h2><p>En samlad bild av användning, kundaktivitet, drift och säkerhet — utan att öppna kundernas ekonomiska detaljdata.</p><div class="hero-badges"><span><i class="dot ${ready.kind}"></i> Drift: ${ready.label}</span><span><i class="dot ${sec.kind}"></i> Säkerhet 24 h: ${sec.label}</span></div></div>
-    <div class="hero-gauges">${ringGauge(health,'Drift','Godkända tekniska hälsokontroller.')}${ringGauge(configuredPct,'Aktivering','Företag med minst en användare.')}${ringGauge(100-securityPenalty,'Säkerhet','Baserat på aktuella varningar senaste 24 h.',toneForPercent(100-securityPenalty))}</div>
+    <div class="hero-gauges">${ringGauge(health,'Drift','Godkända tekniska hälsokontroller.')}${ringGauge(configuredPct,'Aktivering','Företag med minst en användare.')}${ringGauge(100-securityPenalty,'Säkerhetssignaler','Visuell 24 h-indikator från varningar och kritiska händelser — inte ett säkerhetsbetyg.',toneForPercent(100-securityPenalty))}</div>
   </section>
   <section class="status-grid six">
     ${kpiCard('Kundföretag',num(overview?.companyCount),'registrerade miljöer',totals.newCompanies30d?`+${totals.newCompanies30d} / 30d`:'')}
@@ -197,7 +209,7 @@ function statisticsView(){
 }
 function securityView(){
   const sec=overview?.security||{},risk=Math.min(100,Number(sec.critical||0)*35+Number(sec.warning||0)*10),health=readinessScore();
-  shell(`<section class="security-hero"><div><span class="eyebrow">SÄKERHETSPORTAL · NÄSTA ETAPP</span><h2>En samlad säkerhetsyta för hela LT Studio.</h2><p>Den fulla säkerhetsportalen byggs separat. Den här förhandsvyn använder redan aktuella säkerhetshändelser och tekniska hälsokontroller.</p></div><div class="hero-gauges compact">${ringGauge(health,'Drift','Tekniska kontroller')}${ringGauge(100-risk,'Risknivå','Baserat på 24 h',toneForPercent(100-risk))}</div></section>
+  shell(`<section class="security-hero"><div><span class="eyebrow">SÄKERHETSPORTAL · NÄSTA ETAPP</span><h2>En samlad säkerhetsyta för hela LT Studio.</h2><p>Den fulla säkerhetsportalen byggs separat. Den här förhandsvyn använder redan aktuella säkerhetshändelser och tekniska hälsokontroller.</p></div><div class="hero-gauges compact">${ringGauge(health,'Drift','Tekniska kontroller')}${ringGauge(100-risk,'Händelseläge','Visuell 24 h-indikator — inte ett säkerhetsbetyg.',toneForPercent(100-risk))}</div></section>
   <section class="status-grid"><article class="metric"><span>Kritiska händelser</span><strong class="critical">${num(sec.critical)}</strong><small>senaste 24 timmar</small></article><article class="metric"><span>Varningar</span><strong class="warning">${num(sec.warning)}</strong><small>senaste 24 timmar</small></article><article class="metric"><span>Information</span><strong>${num(sec.info)}</strong><small>senaste 24 timmar</small></article><article class="metric"><span>Senaste händelse</span><strong class="small-value">${esc(dateTime(sec.latestEventAt))}</strong><small>säkerhetslogg</small></article></section>
   <section class="dashboard-grid equal"><article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">SÄKERHET</span><h2>Aktuella händelser</h2><p>Redigerad vy utan känsliga tekniska detaljer.</p></div></div><div class="event-list">${securityEvents()}</div></article><article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">DRIFT</span><h2>Skydd & hälsa</h2><p>Kontroller som säkerhetsportalen kommer övervaka.</p></div></div><div class="health-list">${readinessChecks()}</div></article></section>`,'Säkerhetsportal','Förhandsvy inför den separata säkerhetsetappen.');
 }
