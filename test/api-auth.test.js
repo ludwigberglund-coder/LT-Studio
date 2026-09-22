@@ -2,12 +2,14 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const Auth = require('../apps/api/auth.js');
 
 test('personliga lösenord lagras med scrypt och fel lösenord godkänns aldrig', () => {
   const password='Ett mycket langt testlosenord 2026!';
   const encoded=Auth.hashPassword(password);
-  assert.match(encoded,/^scrypt-v1\$/);
+  assert.match(encoded,/^scrypt-v2\$16384\$8\$5\$/);
+  assert.equal(Auth.passwordHashNeedsUpgrade(encoded),false);
   assert.equal(Auth.verifyPassword(password,encoded),true);
   assert.equal(Auth.verifyPassword('helt-fel-losenord',encoded),false);
   assert.throws(()=>Auth.hashPassword('kort'),error=>error.code==='WEAK_PASSWORD');
@@ -46,4 +48,34 @@ test('sessionscookies är HttpOnly SameSite Strict och Secure i skarp standard',
   assert.match(cookie,/SameSite=Strict/);
   assert.match(cookie,/Secure/);
   assert.match(Auth.clearSessionCookie(),/Max-Age=0/);
+});
+
+
+test('lösenordsverifiering avvisar manipulerade scrypt-parametrar fail-closed', () => {
+  const password='Ett mycket langt testlosenord 2026!';
+  const encoded=Auth.hashPassword(password);
+  const parts=encoded.split('$');
+
+  const expensive=[parts[0],parts[1],parts[2],'999999',parts[4],parts[5]].join('$');
+  assert.equal(Auth.verifyPassword(password,expensive),false);
+
+  const wrongN=[parts[0],'32768',parts[2],parts[3],parts[4],parts[5]].join('$');
+  assert.equal(Auth.verifyPassword(password,wrongN),false);
+
+  const shortSalt=[parts[0],parts[1],parts[2],parts[3],Buffer.from('short').toString('base64url'),parts[5]].join('$');
+  assert.equal(Auth.verifyPassword(password,shortSalt),false);
+
+  const shortHash=[parts[0],parts[1],parts[2],parts[3],parts[4],Buffer.alloc(16).toString('base64url')].join('$');
+  assert.equal(Auth.verifyPassword(password,shortHash),false);
+});
+
+test('äldre scrypt-v1 verifieras men markeras för säker uppgradering', () => {
+  const password='Ett gammalt men giltigt testlosenord 2026!';
+  const salt=Buffer.alloc(16,7);
+  const derived=crypto.scryptSync(password,salt,64,{N:16384,r:8,p:1,maxmem:64*1024*1024});
+  const legacy=['scrypt-v1',16384,8,1,salt.toString('base64url'),derived.toString('base64url')].join('$');
+
+  assert.equal(Auth.verifyPassword(password,legacy),true);
+  assert.equal(Auth.verifyPassword('felaktigt gammalt lösenord',legacy),false);
+  assert.equal(Auth.passwordHashNeedsUpgrade(legacy),true);
 });
