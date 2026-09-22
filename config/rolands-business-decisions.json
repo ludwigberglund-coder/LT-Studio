@@ -64,5 +64,6 @@
   },
   "approvedAt": null,
   "status": "synthetic-demo-decisions",
-  "verifiedAt": null
+  "verifiedAt": null,
+  "dataClassification": "synthetic-demo"
 }
