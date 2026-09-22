@@ -36,12 +36,18 @@ function identityKey(req,db){
     const cookies=Auth.parseCookies(req?.headers?.cookie||'');
     const userToken=cookies.rollands_session;
     if(userToken){
-      const session=db.prepare('SELECT user_id AS userId,disabled FROM sessions WHERE token_hash=?').get(Auth.hashToken(userToken));
+      const now=new Date().toISOString();
+      const session=db.prepare(`SELECT s.user_id AS userId,u.disabled
+        FROM sessions s JOIN users u ON u.id=s.user_id
+        WHERE s.token_hash=? AND s.expires_at>? AND s.absolute_expires_at>?`).get(Auth.hashToken(userToken),now,now);
       if(session&&!session.disabled)return 'user:'+sha(session.userId);
     }
     const operatorToken=OperatorAuth.operatorTokenFromRequest(req);
     if(operatorToken){
-      const session=db.prepare('SELECT operator_id AS operatorId,disabled FROM platform_operator_sessions WHERE token_hash=?').get(Auth.hashToken(operatorToken));
+      const now=new Date().toISOString();
+      const session=db.prepare(`SELECT s.operator_id AS operatorId,o.disabled
+        FROM platform_operator_sessions s JOIN platform_operators o ON o.id=s.operator_id
+        WHERE s.token_hash=? AND s.expires_at>? AND s.absolute_expires_at>?`).get(Auth.hashToken(operatorToken),now,now);
       if(session&&!session.disabled)return 'operator:'+sha(session.operatorId);
     }
   }catch{}
@@ -70,7 +76,8 @@ function policyFor(req,env={}){
   if(kind==='health')return{windowMs,ipLimit:intSetting(env,'ROLLANDS_RATE_LIMIT_HEALTH_IP_PER_MINUTE',120,{min:10,max:5000}),identityLimit:0};
   if(kind==='preview')return{windowMs,ipLimit:intSetting(env,'ROLLANDS_RATE_LIMIT_PREVIEW_IP_PER_MINUTE',240,{min:20,max:10000}),identityLimit:genericUser};
   if(kind==='api'||kind==='operator-api')return{windowMs,ipLimit:genericIp,identityLimit:genericUser};
-  return null;
+  // Static/public routes also get a generous IP ceiling so no exposed endpoint is unbounded.
+  return{windowMs,ipLimit:intSetting(env,'ROLLANDS_RATE_LIMIT_PUBLIC_IP_PER_MINUTE',600,{min:60,max:30000}),identityLimit:genericUser};
 }
 function createRateLimiter({env=process.env,db,trustCloudflare=env.ROLLANDS_TRUST_CLOUDFLARE==='1'}={}){
   const buckets=new Map();
@@ -137,9 +144,10 @@ const QUERY_RULES=Object.freeze([
   ['GET',/^\/api\/v1\/(?:reports|exports)\/[a-z-]+$/,new Set(['from','to','asOf','status','account','period','mode','date','direction','query','sort','order'])]
 ]);
 const BODY_RULES=Object.freeze([
-  ['POST',/^\/api\/(?:v1|operator\/v1)\/auth\/login$/,new Set(['username','password','totp','companyId'])],
+  ['POST',/^\/api\/v1\/auth\/login$/,new Set(['username','password','totp','companyId'])],
+  ['POST',/^\/api\/operator\/v1\/auth\/login$/,new Set(['username','password','totp'])],
   ['POST',/^\/api\/v1\/customers$/,new Set(['requestId','name','email','orgNumber','address','reminderFeeAgreed'])],
-  ['PUT',/^\/api\/v1\/customers\/[^/]+$/,new Set(['requestId','name','email','orgNumber','address','reminderFeeAgreed'])],
+  ['PUT',/^\/api\/v1\/customers\/[^/]+$/,new Set(['name','email','orgNumber','address','reminderFeeAgreed'])],
   ['PUT',/^\/api\/v1\/customer-invoices\/draft$/,new Set(['requestId','customerNumber','invoiceDate','postingDate','dueDate','paymentTermsDays','ourReference','yourReference','notes','lines'])],
   ['POST',/^\/api\/v1\/customer-invoices$/,new Set(['requestId','customerNumber','invoiceDate','postingDate','dueDate','paymentTermsDays','ourReference','yourReference','notes','lines'])],
   ['POST',/^\/api\/v1\/customer-invoices\/[^/]+\/credit$/,new Set(['requestId','creditDate','reason'])],
@@ -149,10 +157,10 @@ const BODY_RULES=Object.freeze([
   ['PUT',/^\/api\/v1\/automation\/proposals\/[^/]+\/suggestion$/,new Set(['accountingLines','invoiceId','invoiceNumber'])],
   ['POST',/^\/api\/v1\/automation\/proposals\/[^/]+\/reclassify$/,new Set(['targetInvoiceId','requestId','correctionDate','reason'])],
   ['POST',/^\/api\/v1\/automation\/proposals\/[^/]+\/reject$/,new Set(['reason'])],
-  ['POST',/^\/api\/v1\/bank\/payments$/,new Set(['id','externalId','bookingDate','valueDate','amountOre','currency','reference','message','payerName','payerAccount'])],
-  ['POST',/^\/api\/v1\/documents$/,new Set(['id','requestId','title','category','note','fileName','mimeType','entityType','entityId','linkLabel'])],
+  ['POST',/^\/api\/v1\/bank\/payments$/,new Set(['externalId','bookingDate','valueDate','amountOre','currency','reference','message','payerName','payerAccount'])],
+  ['POST',/^\/api\/v1\/documents$/,new Set(['requestId','title','category','note','fileName','mimeType','entityType','entityId','linkLabel'])],
   ['POST',/^\/api\/v1\/documents\/[^/]+\/links$/,new Set(['entityType','entityId','label'])],
-  ['POST',/^\/api\/v1\/inventory\/items$/,new Set(['id','sku','name','unit','purchaseAccount','inventoryAccount'])],
+  ['POST',/^\/api\/v1\/inventory\/items$/,new Set(['sku','name','unit','purchaseAccount','inventoryAccount'])],
   ['POST',/^\/api\/v1\/inventory\/movements$/,new Set(['itemId','movementDate','type','quantityMilli','unitCostOre','referenceType','referenceId','note','requestId'])],
   ['POST',/^\/api\/v1\/inventory\/adjustments$/,new Set(['itemId','adjustmentDate','countedQuantityMilli','reason','requestId'])],
   ['POST',/^\/api\/v1\/accounting\/entries\/[^/]+\/correct$/,new Set(['postingDate','reason','replacementLines'])],
@@ -161,19 +169,21 @@ const BODY_RULES=Object.freeze([
   ['POST',/^\/api\/v1\/accounting\/opening-balances\/(?:19|20|21)\d{2}$/,new Set(['postingDate','lines'])],
   ['POST',/^\/api\/v1\/accounting\/periods\/\d{4}-\d{2}\/unlock-request$/,new Set(['reason'])],
   ['POST',/^\/api\/v1\/accounting\/unlock-requests\/[^/]+\/(?:approve|reject)$/,new Set(['reason'])],
-  ['POST',/^\/api\/v1\/payables\/suppliers$/,new Set(['id','supplierNumber','name','orgNumber','email','bankgiro','plusgiro','defaultCostAccount'])],
-  ['POST',/^\/api\/v1\/payables\/invoices$/,new Set(['id','supplierId','supplierInvoiceNumber','invoiceDate','dueDate','totalOre','vatOre','currency','vatTreatment'])],
+  ['POST',/^\/api\/v1\/payables\/suppliers$/,new Set(['supplierNumber','name','orgNumber','email','bankgiro','plusgiro','defaultCostAccount'])],
+  ['POST',/^\/api\/v1\/payables\/invoices$/,new Set(['supplierId','supplierInvoiceNumber','invoiceDate','dueDate','totalOre','vatOre','currency','vatTreatment'])],
   ['PUT',/^\/api\/v1\/payables\/invoices\/[^/]+\/coding$/,new Set(['lines'])],
   ['POST',/^\/api\/v1\/payables\/invoices\/[^/]+\/approve$/,new Set(['expectedCodingSha256','expectedDocumentSha256'])],
   ['POST',/^\/api\/v1\/payables\/invoices\/[^/]+\/correct-dates$/,new Set(['requestId','invoiceDate','dueDate','reason'])],
   ['POST',/^\/api\/v1\/payables\/invoices\/[^/]+\/prepare-payment$/,new Set(['paymentDate','account'])],
-  ['POST',/^\/api\/v1\/payables\/payments\/[^/]+\/(?:confirm-post|correct)$/,new Set(['confirmationReference','postingDate','requestId','correctionDate','reason'])],
-  ['POST',/^\/api\/v1\/payroll\/runs$/,new Set(['id','period','payDate','sourceName','grossSalaryOre','withheldTaxOre','employerContributionsOre','netPayOre','vacationLiabilityChangeOre','lines'])],
+  ['POST',/^\/api\/v1\/payables\/payments\/[^/]+\/confirm-post$/,new Set(['confirmationReference','postingDate'])],
+  ['POST',/^\/api\/v1\/payables\/payments\/[^/]+\/correct$/,new Set(['requestId','correctionDate','reason'])],
+  ['POST',/^\/api\/v1\/payroll\/runs$/,new Set(['period','payDate','sourceName','grossSalaryOre','withheldTaxOre','employerContributionsOre','netPayOre','vacationLiabilityChangeOre','lines'])],
   ['PUT',/^\/api\/v1\/suppliers\/[^/]+\/profile$/,new Set(['requestId','name','orgNumber','email','defaultCostAccount'])],
   ['POST',/^\/api\/v1\/suppliers\/[^/]+\/payment-details$/,new Set(['requestId','bankgiro','plusgiro'])],
   ['POST',/^\/api\/v1\/suppliers\/changes\/[^/]+\/reject$/,new Set(['reason'])],
-  ['PUT',/^\/api\/v1\/website\/cms\/draft$/,new Set(['expectedRevision','expectedPublishedVersion','site','company'])],
-  ['POST',/^\/api\/v1\/website\/cms\/(?:publish|revisions\/\d+\/restore)$/,new Set(['expectedRevision','expectedPublishedVersion','site','company'])]
+  ['PUT',/^\/api\/v1\/website\/cms\/draft$/,new Set(['expectedRevision','site','company'])],
+  ['POST',/^\/api\/v1\/website\/cms\/publish$/,new Set(['expectedRevision','expectedPublishedVersion'])],
+  ['POST',/^\/api\/v1\/website\/cms\/revisions\/\d+\/restore$/,new Set(['expectedRevision'])]
 ]);
 
 function schemaFor(method,pathname){
