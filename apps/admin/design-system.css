@@ -351,6 +351,99 @@ input[type="radio"] {
   accent-color: var(--color-ink);
 }
 
+/* Shared account menu injected by the static navigation shell. */
+.shared-user-menu {
+  position: relative;
+  margin-left: auto;
+}
+
+.shared-user-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  color: var(--color-ink);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-buttons);
+  cursor: pointer;
+}
+
+.shared-user-trigger:hover,
+.shared-user-trigger[aria-expanded="true"] {
+  background: #f5f5f5;
+}
+
+.shared-user-avatar {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: var(--color-paper);
+  background: var(--color-ink);
+  border-radius: 50%;
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-semibold);
+}
+
+.shared-user-label {
+  display: grid;
+  text-align: left;
+  line-height: 1.2;
+}
+
+.shared-user-label strong {
+  font-size: var(--text-caption);
+}
+
+.shared-user-label small,
+.shared-user-caret {
+  color: var(--color-mid-gray);
+  font-size: 10px;
+}
+
+.shared-user-caret {
+  font-size: var(--text-caption);
+}
+
+.shared-user-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 40;
+  min-width: 190px;
+  padding: 6px;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-xl, 14px);
+  box-shadow: var(--shadow-subtle);
+}
+
+.shared-user-dropdown a,
+.shared-user-dropdown button {
+  display: block;
+  width: 100%;
+  padding: 10px 11px;
+  color: var(--color-ink);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-nested);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.shared-user-dropdown a:hover,
+.shared-user-dropdown button:hover {
+  background: #f5f5f5;
+}
+
+.shared-user-dropdown button {
+  color: var(--color-ember);
+}
+
 .field span,
 .money-field > span,
 .money-line-head {
@@ -425,6 +518,15 @@ th {
 }
 
 @media (max-width: 820px) {
+  .top-actions {
+    width: 100%;
+    align-items: center;
+  }
+
+  .shared-user-menu {
+    margin-left: auto;
+  }
+
   .sidebar.shared-sidebar {
     border-right: 0;
     border-bottom: 1px solid var(--color-hairline);
