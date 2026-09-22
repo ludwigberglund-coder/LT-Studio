@@ -10,6 +10,7 @@ const Auth=require('../apps/api/auth.js');
 const Payables=require('../apps/api/payables.js');
 const Accounting=require('../apps/api/accounting-store.js');
 const {createServer}=require('../apps/api/server.js');
+const {safePdf}=require('./pdf-fixture.cjs');
 
 function makeSession(db,companyId,userId){
   Db.addMembership(db,{companyId,userId});
@@ -55,7 +56,7 @@ function net2440(entries){return entries.flatMap(entry=>entry.lines||[]).filter(
     await context.addCookies([{name:'rollands_session',value:accountantSession.token,url:base}]);
     await page.goto(`${base}/payables.html`,{waitUntil:'networkidle'});await page.evaluate(csrf=>sessionStorage.setItem('rollands-csrf',csrf),accountantSession.csrf);await page.reload({waitUntil:'networkidle'});
     await page.getByRole('button',{name:'Ny leverantörsfaktura'}).click();
-    const form=page.locator('#supplier-invoice-intake');await form.locator('select[name="supplierId"]').selectOption(supplier.id);await form.locator('input[name="supplierInvoiceNumber"]').fill('BKS-771');await form.locator('input[name="invoiceDate"]').fill('2026-09-08');await form.locator('input[name="dueDate"]').fill('2026-09-17');await form.locator('input[name="totalAmount"]').fill('1250,00');await form.locator('input[name="vatAmount"]').fill('250,00');await form.locator('select[name="vatTreatment"]').selectOption('unsupported');await form.locator('input[name="pdf"]').setInputFiles({name:'BKS-771.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\n% BKS-771 browser test\n')});
+    const form=page.locator('#supplier-invoice-intake');await form.locator('select[name="supplierId"]').selectOption(supplier.id);await form.locator('input[name="supplierInvoiceNumber"]').fill('BKS-771');await form.locator('input[name="invoiceDate"]').fill('2026-09-08');await form.locator('input[name="dueDate"]').fill('2026-09-17');await form.locator('input[name="totalAmount"]').fill('1250,00');await form.locator('input[name="vatAmount"]').fill('250,00');await form.locator('select[name="vatTreatment"]').selectOption('unsupported');await form.locator('input[name="pdf"]').setInputFiles({name:'BKS-771.pdf',mimeType:'application/pdf',buffer:await safePdf('BKS-771 browser test')});
     await form.getByRole('button',{name:'Registrera faktura'}).click();
     await form.locator('.intake-error').getByText(/momsfall stöds inte/i).waitFor({timeout:10000});
     assert.equal(db.prepare('SELECT COUNT(*) AS n FROM supplier_invoices WHERE company_id=?').get(company.id).n,0);

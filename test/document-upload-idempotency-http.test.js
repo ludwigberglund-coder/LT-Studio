@@ -5,6 +5,7 @@ const assert=require('node:assert/strict');
 const {fixture}=require('./private-workflows-fixture.cjs');
 const Db=require('../apps/api/database.js');
 const Documents=require('../apps/api/documents.js');
+const {safePdf}=require('./pdf-fixture.cjs');
 
 test('dokumentuppladdning är idempotent över metadata-POST och fil-PUT',async()=>{
   const f=await fixture();
@@ -55,7 +56,7 @@ test('dokumentuppladdning är idempotent över metadata-POST och fil-PUT',async(
     assert.equal(conflict.status,409);
     assert.equal((await conflict.json()).code,'DOCUMENT_IDEMPOTENCY_CONFLICT');
 
-    const bytes=Buffer.from('%PDF-1.4\n% idempotent original\n','ascii');
+    const bytes=await safePdf('idempotent original');
     const uploadHeaders={...headers,'Content-Type':'application/pdf'};
     const firstContent=await fetch(f.base+'/api/v1/documents/'+firstBody.document.id+'/content',{
       method:'PUT',
@@ -97,7 +98,7 @@ test('dokumentuppladdning är idempotent över metadata-POST och fil-PUT',async(
     const changedBytes=await fetch(f.base+'/api/v1/documents/'+firstBody.document.id+'/content',{
       method:'PUT',
       headers:uploadHeaders,
-      body:Buffer.from('%PDF-1.4\n% changed original\n','ascii')
+      body:await safePdf('changed original')
     });
     assert.equal(changedBytes.status,409);
     assert.equal((await changedBytes.json()).code,'DOCUMENT_IMMUTABLE');

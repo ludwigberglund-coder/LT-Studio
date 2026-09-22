@@ -14,5 +14,7 @@ Följande är obligatoriskt för all ny eller ändrad funktionalitet:
 8. Ändra inte säkerhetskontroller för att få ett test att passera utan att förstå varför kontrollen finns. Lägg regressionstest när en säkerhetsbugg hittas.
 9. Cloudflare är defense-in-depth, inte ersättning för serverns egna kontroller.
 10. Bevara tenant-isolering, append-only bokförings-/audithistorik, CSRF, MFA, säkra cookies och idempotens i alla relevanta flöden.
+11. Filuppladdning är PDF-only. Endast passiva PDF-underlag för fakturor/dokument får accepteras. Tillåt inte bilder, Office-filer, ZIP/arkiv, körbara filer, script, HTML/SVG/XML eller andra filtyper utan en separat uttrycklig säkerhetsdesign och godkänd PR.
+12. Alla PDF-uppladdningar ska gå genom den gemensamma PDF-säkerhetskontrollen, ha hård storleksgräns, verifierad PDF-header/slutmarkör, blockera aktivt/inbäddat innehåll och lagras/levereras så att browsern inte kan köra filinnehållet som applikationskod.
 
 Om en ny route inte passar befintligt schema eller rate-limit-klass ska säkerhetslagret uppdateras i samma PR som routen. En ny publik route får inte lämnas obegränsad eller acceptera ospecificerad input.

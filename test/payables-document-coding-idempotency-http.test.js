@@ -5,6 +5,7 @@ const assert=require('node:assert/strict');
 const {fixture}=require('./private-workflows-fixture.cjs');
 const Db=require('../apps/api/database.js');
 const Payables=require('../apps/api/payables.js');
+const {safePdf}=require('./pdf-fixture.cjs');
 
 test('leverantörsfakturans PDF och kontering återanvänds vid identiska retries utan extra audit',async()=>{
   const f=await fixture();
@@ -30,7 +31,7 @@ test('leverantörsfakturans PDF och kontering återanvänds vid identiska retrie
     assert.equal(created.status,201);
     const invoiceId=createdBody.invoice.id;
 
-    const pdf=Buffer.from('%PDF-1.4\n% idempotent supplier invoice document\n');
+    const pdf=await safePdf('idempotent supplier invoice document');
     const pdfHeaders={...headers,'Content-Type':'application/pdf','X-Document-Name':'idem-underlag.pdf'};
 
     const firstPdf=await fetch(f.base+`/api/v1/payables/invoices/${invoiceId}/document`,{
@@ -110,7 +111,7 @@ test('leverantörsfakturans PDF och kontering återanvänds vid identiska retrie
     assert.equal((await delayedCodingRetry.json()).duplicate,true);
 
     const changedPdf=await fetch(f.base+`/api/v1/payables/invoices/${invoiceId}/document`,{
-      method:'PUT',headers:pdfHeaders,body:Buffer.from('%PDF-1.4\n% changed document after approval\n')
+      method:'PUT',headers:pdfHeaders,body:await safePdf('changed document after approval')
     });
     assert.equal(changedPdf.status,409);
     assert.equal((await changedPdf.json()).code,'DOCUMENT_LOCKED');
