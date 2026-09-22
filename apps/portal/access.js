@@ -1,4 +1,5 @@
 const app=document.getElementById('access-app');
+const isDemo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 async function api(path,options={}){
@@ -15,6 +16,10 @@ function render(session,data,message=''){
   globalThis.RollandsNavigation?.mount?.();
 }
 async function load(message=''){
+  if(isDemo){
+    app.innerHTML=`<div class="portal"><aside class="sidebar"></aside><section class="main"><header class="topbar"><div><h1>Användare & behörigheter</h1><p>Demo · inga riktiga användare</p></div></header><main class="content"><div class="demo-banner"><b>Demo.</b> Roller kan endast ändras i den privata portalen av en riktig admin.</div><section class="panel" style="padding:22px"><h2>Rollmodell</h2><p>Admin · Ekonom · Attestant · Läsbehörighet</p><p>Demot gör inga konto- eller behörighetsändringar.</p></section></main></section></div>`;
+    globalThis.RollandsNavigation?.mount?.();return;
+  }
   const session=await api('/session');
   if(!session.authenticated){location.href='./index.html';return}
   if(!(session.permissions||[]).includes('users.manage'))throw new Error('Du saknar adminbehörighet för användarhantering.');
