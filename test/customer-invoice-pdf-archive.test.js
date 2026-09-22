@@ -9,6 +9,7 @@ const Invoicing=require('../apps/api/customer-invoicing.js');
 const PdfArchiveStore=require('../apps/api/customer-invoice-pdf-archive-store.js');
 const InvoiceSettings=require('../apps/api/company-invoice-settings.js');
 const Accounting=require('../apps/api/accounting-store.js');
+const Reports=require('../apps/api/reports.js');
 const Bank=require('../apps/api/bank-payments.js');
 const Queues=require('../apps/api/queues.js');
 const Matcher=require('../packages/automation/bank-payment-matcher.js');
@@ -109,7 +110,7 @@ test('kreditfaktura får ett eget oföränderligt PDF-arkiv',async()=>withApi(as
 }));
 
 
-test('delbetald kundfaktura kan inte helkrediteras innan återbetalningskonto är beslutat',async()=>withApi(async({base,password,db,co1,user})=>{
+test('delbetald kundfaktura kan helkrediteras med verifierad kundkredit som väntar på återbetalning',async()=>withApi(async({base,password,db,co1,user})=>{
   const signed=await login(base,password),headers={Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken};
   const issuedResponse=await fetch(base+'/api/v1/customer-invoices',{method:'POST',headers,body:JSON.stringify(payload('invoice-request-partial-credit-src-01'))});
   const issued=await issuedResponse.json();
@@ -124,21 +125,27 @@ test('delbetald kundfaktura kan inte helkrediteras innan återbetalningskonto ä
   const paid=CustomerPayment.executeApprovedCustomerPayment(db,{companyId:co1.id,proposalId:proposal.id,actorId:user.id});
   assert.equal(paid.invoice.remainingOre,85000);
 
+  const beforeCreditControl=Reports.receivablesControl(db,co1.id);
   const creditRequestId='credit-after-partial-payment-01';
-  const creditResponse=await fetch(base+`/api/v1/customer-invoices/${issued.invoice.id}/credit`,{method:'POST',headers,body:JSON.stringify({requestId:creditRequestId,creditDate:'2026-09-20',reason:'Försök till helkredit efter delbetalning.'})});
+  const creditResponse=await fetch(base+`/api/v1/customer-invoices/${issued.invoice.id}/credit`,{method:'POST',headers,body:JSON.stringify({requestId:creditRequestId,creditDate:'2026-09-20',reason:'Helkredit efter delbetalning.'})});
   const credit=await creditResponse.json();
-  assert.equal(creditResponse.status,409);
-  assert.equal(credit.code,'CREDIT_AFTER_PAYMENT_REQUIRES_REFUND_ACCOUNT');
-  assert.equal(Invoicing.reservationByRequest(db,co1.id,creditRequestId),null);
-  assert.equal(Invoicing.listCustomerInvoices(db,co1.id).filter(row=>row.totalOre<0).length,0);
-  assert.equal(Accounting.listEntries(db,co1.id).filter(entry=>entry.sourceType==='customer-credit-note').length,0);
-  const original=Db.invoiceById(db,co1.id,issued.invoice.id);
-  assert.equal(original.remainingOre,85000);
-  assert.equal(original.status,'Bokförd');
-  const invoiceEntry=Accounting.entryBySource(db,co1.id,'customer-invoice',issued.invoice.id);
-  const paymentEntry=Accounting.entryBySource(db,co1.id,'customer-payment',bank.id);
-  const net1510=[invoiceEntry,paymentEntry].flatMap(entry=>entry.lines).filter(line=>line.account==='1510').reduce((sum,line)=>sum+line.debitOre-line.creditOre,0);
-  assert.equal(net1510,85000);
+  assert.equal(creditResponse.status,201);
+  assert.equal(credit.invoice.totalOre,-125000);
+  assert.equal(credit.invoice.remainingOre,-40000);
+  assert.equal(credit.credit.offsetAmountOre,85000);
+  assert.equal(credit.credit.refundDueOre,40000);
+  assert.equal(credit.credit.refundStatus,'pending');
+  assert.equal(credit.original.remainingOre,0);
+  assert.equal(credit.original.status,'Krediterad');
+
+  const reconciliation=Reports.receivablesControl(db,co1.id);
+  assert.equal(reconciliation.differenceOre,beforeCreditControl.differenceOre,'krediteringen får inte skapa en ny differens mellan reskontra och 1510');
+  assert.equal(reconciliation.subledgerOpenOre-beforeCreditControl.subledgerOpenOre,-125000);
+  assert.equal(reconciliation.ledger1510Ore-beforeCreditControl.ledger1510Ore,-125000);
+
+  const archived=Invoicing.pdfArchiveForInvoice(db,co1.id,credit.invoice.id);
+  assert.equal(archived.bytes.subarray(0,5).toString('ascii'),'%PDF-');
+  assert.equal(archived.fileName,`Kreditfaktura-${credit.invoice.invoiceNumber}.pdf`);
 }));
 
 test('faktura med helt återförd betalning kan helkrediteras utan negativ kundfordran',async()=>withApi(async({base,password,db,co1,user})=>{

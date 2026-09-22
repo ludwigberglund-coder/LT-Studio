@@ -193,7 +193,8 @@ const BODY_RULES=Object.freeze([
   ['PUT',/^\/api\/v1\/customers\/[^/]+$/,new Set(['name','email','orgNumber','address','reminderFeeAgreed'])],
   ['PUT',/^\/api\/v1\/customer-invoices\/draft$/,new Set(['requestId','draft'])],
   ['POST',/^\/api\/v1\/customer-invoices$/,new Set(['requestId','customerNumber','invoiceDate','postingDate','dueDate','paymentTermsDays','ourReference','yourReference','notes','lines'])],
-  ['POST',/^\/api\/v1\/customer-invoices\/[^/]+\/credit$/,new Set(['requestId','creditDate','reason'])],
+  ['POST',/^\/api\/v1\/customer-invoices\/[^/]+\/credit$/,new Set(['requestId','creditDate','reason','creditAmountOre'])],
+  ['POST',/^\/api\/v1\/customer-invoices\/[^/]+\/refund$/,new Set(['requestId','refundDate','refundAccount','bankReference'])],
   ['POST',/^\/api\/v1\/invoices\/[^/]+\/comments$/,new Set(['text'])],
   ['POST',/^\/api\/v1\/invoices\/[^/]+\/reminders\/preview$/,new Set(['sentDate','includeReminderFee','includeInterest','includeBusinessLatePaymentCompensation'])],
   ['POST',/^\/api\/v1\/invoices\/[^/]+\/reminders$/,new Set(['sentDate','includeReminderFee','includeInterest','includeBusinessLatePaymentCompensation','kind','note'])],
@@ -485,6 +486,14 @@ function assertPrimitiveTypes(req,payload){
     assertTextField(payload,'requestId',100);
     assertTextField(payload,'creditDate',10,{pattern:/^\d{4}-\d{2}-\d{2}$/});
     assertTextField(payload,'reason',500);
+    if(payload.creditAmountOre!==undefined&&(!Number.isSafeInteger(payload.creditAmountOre)||payload.creditAmountOre<=0))
+      throw securityError('creditAmountOre måste vara ett positivt säkert heltal.','INVALID_INPUT_TYPE',422);
+  }
+  if(method==='POST'&&/^\/api\/v1\/customer-invoices\/[^/]+\/refund$/.test(pathname)){
+    assertTextField(payload,'requestId',100);
+    assertTextField(payload,'refundDate',10,{pattern:/^\d{4}-\d{2}-\d{2}$/});
+    assertTextField(payload,'refundAccount',4,{pattern:/^(?:1920|1930|1940)$/});
+    assertTextField(payload,'bankReference',120);
   }
   if(method==='POST'&&/^\/api\/v1\/invoices\/[^/]+\/comments$/.test(pathname))assertTextField(payload,'text',2000);
   for(const field of ['amountOre','totalOre','vatOre','quantityMilli','unitCostOre','countedQuantityMilli','paymentTermsDays','expectedRevision','expectedPublishedVersion','grossSalaryOre','withheldTaxOre','employerContributionsOre','netPayOre','vacationLiabilityChangeOre']){
