@@ -1,6 +1,6 @@
 const root=document.getElementById('operator-app');
 const csrfKey='lt-operator-csrf';
-let session=null,overview=null,readiness=null,security=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='';
+let session=null,overview=null,readiness=null,security=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='',companyQuery='',companyStatus='all',companySort='name';
 
 function esc(value=''){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
 function initials(name='LT'){return String(name).trim().split(/\s+/).filter(Boolean).map(part=>part[0]).join('').slice(0,2).toUpperCase()||'LT'}
@@ -93,9 +93,29 @@ function shell(body,title,subtitle){
   <section class="main"><header class="topbar"><div><span class="page-kicker">LT STUDIO / ADMIN</span><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div><div class="actions"><div class="operator-user"><span class="avatar">${initials(operator.displayName)}</span><div><strong>${esc(operator.displayName||operator.username||'Operatör')}</strong><small>LT Studio-operatör</small></div></div><button class="icon-button" data-action="refresh" title="Uppdatera" aria-label="Uppdatera">↻</button><button class="button secondary" data-action="logout">Logga ut</button></div></header><nav class="mobile-nav">${nav()}</nav>
   ${errorMessage?`<div class="notice">${esc(errorMessage)}</div>`:''}${successNotice()}${body}<footer class="portal-footer"><span>LT Studio Admin</span><span>Senast uppdaterad ${dateTime(overview?.generatedAt)}</span></footer></section></div>${modalMarkup()}`;
 }
-function companyRows(){
-  const rows=overview?.companies||[];
-  if(!rows.length)return '<tr><td colspan="7" class="empty">Inga företag är registrerade ännu.</td></tr>';
+function filteredCompanies(){
+  const query=companyQuery.trim().toLocaleLowerCase('sv');
+  const rows=(overview?.companies||[]).filter(company=>{
+    const matchesText=!query||[company.displayName,company.legalName,company.orgNumber].some(value=>String(value||'').toLocaleLowerCase('sv').includes(query));
+    const matchesStatus=companyStatus==='all'||(companyStatus==='active'&&company.accessConfigured)||(companyStatus==='unconfigured'&&!company.accessConfigured);
+    return matchesText&&matchesStatus;
+  });
+  return rows.sort((a,b)=>{
+    if(companySort==='users')return Number(b.memberCount||0)-Number(a.memberCount||0);
+    if(companySort==='invoices')return Number(b.invoiceRecordCount||0)-Number(a.invoiceRecordCount||0);
+    if(companySort==='activity')return String(b.lastActivityAt||'').localeCompare(String(a.lastActivityAt||''));
+    return String(a.displayName||'').localeCompare(String(b.displayName||''),'sv');
+  });
+}
+function updateCompanyTable(){
+  const tbody=document.getElementById('company-table-body'),count=document.getElementById('company-result-count');
+  const rows=filteredCompanies();
+  if(tbody)tbody.innerHTML=companyRows(rows);
+  if(count)count.textContent=`${rows.length} av ${overview?.companyCount||0} företag`;
+}
+function companyRows(source){
+  const rows=source||overview?.companies||[];
+  if(!rows.length)return '<tr><td colspan="7" class="empty">Inga företag matchar filtret.</td></tr>';
   return rows.map(company=>{
     const access=company.accessConfigured?'<span class="status-pill"><span class="dot ok"></span>Aktiv</span>':'<span class="status-pill"><span class="dot warning"></span>Saknar användare</span>';
     return `<tr class="click-row" data-company-id="${esc(company.id)}" tabindex="0" role="button"><td><div class="company-cell"><span class="company-avatar">${initials(company.displayName)}</span><div><strong>${esc(company.displayName)}</strong><small>${esc(company.legalName)}</small></div></div></td><td>${esc(company.orgNumber||'—')}</td><td>${company.memberCount}</td><td>${access}</td><td>${company.activeSessionCount}</td><td>${company.invoiceRecordCount}</td><td>${dateTime(company.lastActivityAt)}</td></tr>`;
@@ -144,7 +164,9 @@ function overviewView(){
 function companiesView(){
   const totals=overview?.totals||{},configuredPct=percent(totals.configuredCompanies,overview?.companyCount||0);
   shell(`<section class="page-intro-card"><div><span class="eyebrow">KUNDBAS</span><h2>${num(overview?.companyCount)} företag använder plattformen</h2><p>Härifrån öppnar ni varje kundmiljö och hanterar användare, behörigheter och teknisk statistik.</p></div><div class="intro-stats"><div><strong>${configuredPct}%</strong><span>aktiverade</span></div><div><strong>${num(totals.activeCompanies30d)}</strong><span>aktiva 30d</span></div><div><strong>${num(totals.members)}</strong><span>användare</span></div></div></section>
-  <section class="panel"><div class="panel-head"><div><span class="eyebrow">FÖRETAG</span><h2>Alla kunder & företag</h2><p>Öppna ett företag för användare, behörigheter och statistik.</p></div></div><div class="table-wrap"><table><thead><tr><th>Företag</th><th>Org.nr</th><th>Användare</th><th>Status</th><th>Sessioner</th><th>Fakturor</th><th>Senaste aktivitet</th></tr></thead><tbody>${companyRows()}</tbody></table></div></section>`,'Kunder & företag','Central administration för varje kundmiljö.');
+  <section class="panel"><div class="panel-head company-panel-head"><div><span class="eyebrow">FÖRETAG</span><h2>Alla kunder & företag</h2><p>Öppna ett företag för användare, behörigheter och statistik.</p></div><span class="panel-stat" id="company-result-count">${filteredCompanies().length} av ${overview?.companyCount||0} företag</span></div>
+  <div class="company-toolbar"><label class="search-field"><span class="sr-only">Sök företag</span><input data-company-search value="${esc(companyQuery)}" placeholder="Sök namn eller organisationsnummer…"></label><label><span class="sr-only">Filtrera status</span><select data-company-filter><option value="all" ${companyStatus==='all'?'selected':''}>Alla statusar</option><option value="active" ${companyStatus==='active'?'selected':''}>Aktiverade</option><option value="unconfigured" ${companyStatus==='unconfigured'?'selected':''}>Saknar användare</option></select></label><label><span class="sr-only">Sortera företag</span><select data-company-sort><option value="name" ${companySort==='name'?'selected':''}>Sortera: namn</option><option value="users" ${companySort==='users'?'selected':''}>Flest användare</option><option value="invoices" ${companySort==='invoices'?'selected':''}>Flest fakturor</option><option value="activity" ${companySort==='activity'?'selected':''}>Senast aktiva</option></select></label></div>
+  <div class="table-wrap"><table><thead><tr><th>Företag</th><th>Org.nr</th><th>Användare</th><th>Status</th><th>Sessioner</th><th>Fakturor</th><th>Senaste aktivitet</th></tr></thead><tbody id="company-table-body">${companyRows(filteredCompanies())}</tbody></table></div></section>`,'Kunder & företag','Central administration för varje kundmiljö.');
 }
 function statisticsView(){
   const companies=overview?.companies||[],totals=overview?.totals||{};
@@ -213,6 +235,10 @@ async function loadData(){
 async function openCompany(id){errorMessage='';try{selectedCompany=await api('/companies/'+encodeURIComponent(id));render()}catch(error){errorMessage=error.message;selectedCompany=null;render()}}
 async function refresh(){errorMessage='';try{await loadData();if(selectedCompany)selectedCompany=await api('/companies/'+encodeURIComponent(selectedCompany.company.id))}catch(error){errorMessage=error.message}render()}
 async function mutate(path,options){return api(path,{...options,headers:{'Content-Type':'application/json','X-CSRF-Token':csrf(),...(options?.headers||{})}})}
+document.addEventListener('input',event=>{
+  if(!event.target.matches?.('[data-company-search]'))return;
+  companyQuery=event.target.value;updateCompanyTable();
+});
 document.addEventListener('submit',async event=>{
   if(event.target.id==='login-form'){
     event.preventDefault();errorMessage='';const button=event.target.querySelector('button[type="submit"]');button.disabled=true;const data=Object.fromEntries(new FormData(event.target).entries());
@@ -228,6 +254,8 @@ document.addEventListener('submit',async event=>{
   }
 });
 document.addEventListener('change',async event=>{
+  if(event.target.matches?.('[data-company-filter]')){companyStatus=event.target.value;updateCompanyTable();return}
+  if(event.target.matches?.('[data-company-sort]')){companySort=event.target.value;updateCompanyTable();return}
   const userId=event.target.dataset.roleUser;if(!userId||!selectedCompany)return;
   event.target.disabled=true;
   try{await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users/'+encodeURIComponent(userId)+'/role',{method:'PUT',body:JSON.stringify({role:event.target.value})});selectedCompany=await api('/companies/'+encodeURIComponent(selectedCompany.company.id));uiNotice='Behörigheten uppdaterades och användarens tidigare sessioner avslutades.';errorMessage='';render()}catch(error){errorMessage=error.message;render()}
