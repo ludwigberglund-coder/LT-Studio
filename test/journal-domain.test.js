@@ -10,10 +10,10 @@ const Journal = require('../packages/accounting/journal.js');
 const accessConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'access-control.json'), 'utf8'));
 const access = AccessControl.createModel(accessConfig);
 
-const accountant = {id: 'accountant-1', companyId:'test-company',authenticated:true,membershipActive:true};
-const approver = {id: 'approver-1', companyId:'test-company',authenticated:true,membershipActive:true};
-const controller = {id: 'controller-1', companyId:'test-company',authenticated:true,membershipActive:true};
-const auditor = {id:'inactive-user',companyId:'test-company',authenticated:true,membershipActive:false};
+const accountant = {id: 'accountant-1', companyId:'test-company',role:'admin',authenticated:true,membershipActive:true};
+const approver = {id: 'approver-1', companyId:'test-company',role:'admin',authenticated:true,membershipActive:true};
+const controller = {id: 'controller-1', companyId:'test-company',role:'admin',authenticated:true,membershipActive:true};
+const auditor = {id:'inactive-user',companyId:'test-company',role:'readonly',authenticated:true,membershipActive:false};
 
 function idFactory() {
   let counter = 0;
