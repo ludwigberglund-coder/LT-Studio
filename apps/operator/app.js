@@ -123,7 +123,7 @@ function companyRows(source){
 }
 function readinessChecks(){
   const checks=readiness?.checks&&typeof readiness.checks==='object'?readiness.checks:{};
-  return [['databaseRead','Databas · läsning'],['databaseWrite','Databas · skrivning'],['backup','Lokal backup'],['offsiteBackup','Extern backup'],['r2StagingAudit','R2 · privata objekt'],['restoreDrill','Restore-test'],['auditAnchor','Audit · externt ankare'],['monitoring','Extern monitoring']].map(([key,label])=>{
+  return [['databaseRead','Databas · läsning'],['databaseWrite','Databas · skrivning'],['platformAdmin','LT Studio global admin'],['backup','Lokal backup'],['offsiteBackup','Extern backup'],['r2StagingAudit','R2 · privata objekt'],['restoreDrill','Restore-test'],['auditAnchor','Audit · externt ankare'],['monitoring','Extern monitoring']].map(([key,label])=>{
     const ok=checks[key]===true,known=typeof checks[key]==='boolean',state=known?(ok?'OK':'Problem'):'Saknas',kind=known?(ok?'ok':'critical'):'warning';
     return `<div class="health-row"><div class="health-name"><span class="health-dot ${kind}"></span><strong>${esc(label)}</strong></div><span class="health-line"></span><span class="status-pill"><span class="dot ${kind}"></span>${state}</span></div>`;
   }).join('');

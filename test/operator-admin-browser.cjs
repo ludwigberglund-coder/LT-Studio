@@ -63,6 +63,7 @@ const out=path.join(__dirname,'..','test-artifacts');
     assert.match(body,/Säkerhet 24 h/i);
     assert.match(body,/Hälsokontroller/);
     assert.match(body,/Databas · läsning/);
+    assert.match(body,/LT Studio global admin/);
     assert.match(body,/Extern monitoring/);
     assert.match(body,/Audit · externt ankare/);
     assert.doesNotMatch(body,/Hemlig Browserkund|SECRET-BROWSER-CUSTOMER|SECRET-BROWSER-INVOICE|333300|66660|never-in-ui|cccccccc/);
