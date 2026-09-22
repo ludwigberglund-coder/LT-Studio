@@ -47,6 +47,10 @@ function demoRequest(requestUrl) {
 function staticHeaders(contentType) {
   return {'Content-Type':contentType, 'Cache-Control':'no-store', 'X-Content-Type-Options':'nosniff',
     'X-Frame-Options':'DENY', 'Referrer-Policy':'same-origin',
+    'Permissions-Policy':'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+    'Cross-Origin-Opener-Policy':'same-origin',
+    'Cross-Origin-Resource-Policy':'same-origin',
+    'Strict-Transport-Security':'max-age=31536000; includeSubDomains',
     'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"};
 }
 function resolveStaticRequest(requestUrl) {
