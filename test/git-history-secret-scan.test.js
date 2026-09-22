@@ -52,7 +52,7 @@ test('history secret scanner detects Cloudflare and audit-storage credentials wi
   const sample=[
     'CLOUDFLARE_'+'API_TOKEN='+'x'.repeat(40),
     'R2_AUDIT_'+'SECRET_ACCESS_KEY='+'y'.repeat(40)
-  ].join('\\n');
+  ].join('\n');
   assert.deepEqual(findingsInText(sample).map(row=>row.rule),[
     'third-party-api-secret',
     'rollands-runtime-secret'
