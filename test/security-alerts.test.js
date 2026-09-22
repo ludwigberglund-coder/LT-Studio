@@ -5,6 +5,45 @@ const assert=require('node:assert/strict');
 const Db=require('../apps/api/database.js');
 const SecurityAlerts=require('../apps/api/security-alerts.js');
 
+test('extern webhook måste vara publik HTTPS och får inte peka mot privata nät',()=>{
+  const invalid=[
+    'http://alerts.example.test/security',
+    'https://localhost/security',
+    'https://127.0.0.1/security',
+    'https://10.1.2.3/security',
+    'https://172.16.4.5/security',
+    'https://192.168.1.2/security',
+    'https://169.254.169.254/latest/meta-data',
+    'https://100.64.1.2/security',
+    'https://[::1]/security',
+    'https://[fc00::1]/security',
+    'https://[fe80::1]/security',
+    'https://hooks.internal/security',
+    'https://alerts.local/security',
+    'https://service.home.arpa/security'
+  ];
+  for(const url of invalid){
+    const db=Db.openDatabase(':memory:');
+    try{
+      assert.throws(
+        ()=>SecurityAlerts.createSecurityAlertService({db,env:{ROLLANDS_SECURITY_ALERT_WEBHOOK_URL:url},fetchImpl:async()=>({ok:true,status:200})}),
+        error=>error.code==='SECURITY_ALERT_INVALID_WEBHOOK_URL',
+        url
+      );
+    }finally{db.close()}
+  }
+  const db=Db.openDatabase(':memory:');
+  try{
+    const service=SecurityAlerts.createSecurityAlertService({
+      db,
+      env:{ROLLANDS_SECURITY_ALERT_WEBHOOK_URL:'https://alerts.example.test/security'},
+      fetchImpl:async()=>({ok:true,status:200})
+    });
+    assert.equal(service.configured,true);
+    service.stop();
+  }finally{db.close()}
+});
+
 function fixture(fetchImpl){
   let nowMs=Date.parse('2026-09-22T16:45:00.000Z');
   const db=Db.openDatabase(':memory:');
