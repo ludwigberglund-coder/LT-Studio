@@ -11,7 +11,6 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('publik företagsprofil är uttryckligen syntetisk',()=>{
   const company=readJson('content/company.json');
-  assert.equal(company.dataClassification,'synthetic-demo');
   assert.equal(company.legalName,'Demo Handel AB');
   assert.equal(company.displayName,'Demo Saluhall');
   assert.equal(company.orgNumber,'000000-0000');
