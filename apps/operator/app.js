@@ -128,10 +128,22 @@ function readinessChecks(){
     return `<div class="health-row"><div class="health-name"><span class="health-dot ${kind}"></span><strong>${esc(label)}</strong></div><span class="health-line"></span><span class="status-pill"><span class="dot ${kind}"></span>${state}</span></div>`;
   }).join('');
 }
+function securityEventLabel(kind){
+  const key=String(kind||'');
+  const known={
+    LOGIN_FAILURE_THRESHOLD:'Många felaktiga kundinloggningar',
+    ACCOUNT_LOGIN_FAILURE_THRESHOLD:'Upprepade felaktiga inloggningar för ett kundkonto',
+    OPERATOR_LOGIN_FAILURE_THRESHOLD:'Många felaktiga LT Studio-admininloggningar',
+    OPERATOR_ACCOUNT_LOGIN_FAILURE_THRESHOLD:'Upprepade felaktiga admininloggningar för ett LT Studio-konto'
+  };
+  if(known[key])return known[key];
+  const fallback=key.replaceAll('_',' ').toLocaleLowerCase('sv')||'säkerhetshändelse';
+  return fallback.charAt(0).toLocaleUpperCase('sv')+fallback.slice(1);
+}
 function securityEvents(){
   const events=security?.events||[];
   if(!events.length)return '<div class="empty">Inga säkerhetshändelser i listan.</div>';
-  return events.map(event=>`<div class="event"><span class="status-pill"><span class="dot ${esc(event.severity)}"></span>${esc(({critical:'Kritisk',warning:'Varning',info:'Information'})[event.severity]||event.severity)}</span><strong>${esc(String(event.kind||'Säkerhetshändelse').replaceAll('_',' '))}</strong><time>${dateTime(event.createdAt)}</time></div>`).join('');
+  return events.map(event=>`<div class="event"><span class="status-pill"><span class="dot ${esc(event.severity)}"></span>${esc(({critical:'Kritisk',warning:'Varning',info:'Information'})[event.severity]||event.severity)}</span><strong>${esc(securityEventLabel(event.kind))}</strong><time>${dateTime(event.createdAt)}</time></div>`).join('');
 }
 function overviewView(){
   const totals=overview?.totals||{},companies=overview?.companies||[],ready=readinessState(),sec=securityState();
