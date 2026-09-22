@@ -19,6 +19,8 @@ test('API-query avvisar oväntade och duplicerade parametrar men bevarar statisk
   assert.throws(()=>Security.validateRequestTarget(request('/api/v1/customers?includeArchived=1&includeArchived=0')),{code:'DUPLICATE_QUERY_PARAMETER'});
   assert.doesNotThrow(()=>Security.validateRequestTarget(request('/portal/customers.html?customer=K-1001&return=invoice')));
   assert.doesNotThrow(()=>Security.validateRequestTarget(request('/api/v1/session?demo=1')));
+  assert.doesNotThrow(()=>Security.validateRequestTarget(request('/api/v1/reports/payments-overview?query=INV%2F2026')));
+  assert.throws(()=>Security.validateRequestTarget(request('/portal/%2e%2e%2fpackage.json')),{code:'INVALID_URL_ENCODING'});
 });
 
 test('JSON-schema avvisar oväntade toppnivåfält och fel typer',()=>{
