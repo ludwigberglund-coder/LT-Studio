@@ -460,7 +460,8 @@ function validateJsonInput(req,payload){
 function validateRequestTarget(req){
   const raw=String(req?.url||'/');
   if(raw.length>4096)throw securityError('Adressen är för lång.','URL_TOO_LONG',414);
-  if(/%2f|%5c|%00/i.test(raw))throw securityError('Adressen innehåller otillåten kodning.','INVALID_URL_ENCODING',400);
+  const rawPath=raw.split('?')[0];
+  if(/%2f|%5c|%00/i.test(rawPath))throw securityError('Adressen innehåller otillåten kodning.','INVALID_URL_ENCODING',400);
   let url;
   try{url=new URL(raw,'http://localhost')}catch{throw securityError('Ogiltig adress.','INVALID_URL',400)}
   let decoded;
