@@ -105,7 +105,7 @@ Det fanns redan flera tvåföretagstester, men inget sammanhållet test som säk
 
 Flera privata portalsidor hade referenskunden som laddningsnamn, sidomenynamn eller breadcrumb även när servern redan arbetade i ett annat företag. Fakturautkastet använde dessutom `https://demo.example.invalid` som reservwebbadress när ett annat företag saknade egen webbplats.
 
-**Rättat:** privata portalskal använder LT Studio som plattformsnamn och aktivt företagsnamn från session/CMS. Reservlänken till `rollands.se` är borttagen. Den uttryckliga referenskunden-demon får fortsatt visa referenskunden eftersom den representerar referenskunden.
+**Rättat:** privata portalskal använder LT Studio som plattformsnamn och aktivt företagsnamn från session/CMS. Reservlänken till `legacy customer domain` är borttagen. Den uttryckliga referenskunden-demon får fortsatt visa referenskunden eftersom den representerar referenskunden.
 
 ### 6. Kund nummer två verifieras nu över fler kärnmoduler
 
