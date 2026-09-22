@@ -54,3 +54,24 @@ test('request guards reject unexpected API query fields before route handling',(
   assert.equal(body.code,'UNEXPECTED_QUERY_PARAMETER');
   assert.ok(body.requestId);
 }));
+
+
+test('bodyless action accepts empty JSON but rejects unexpected fields before auth',()=>withServer({},async base=>{
+  const compatible=await fetch(base+'/api/v1/bank/payments/payment-1/match',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:'{}'
+  });
+  assert.equal(compatible.status,401);
+  assert.equal((await compatible.json()).code,'AUTH_REQUIRED');
+
+  const rejected=await fetch(base+'/api/v1/bank/payments/payment-1/match',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({admin:true})
+  });
+  const body=await rejected.json();
+  assert.equal(rejected.status,422);
+  assert.equal(body.code,'UNEXPECTED_REQUEST_BODY');
+  assert.ok(body.requestId);
+});
