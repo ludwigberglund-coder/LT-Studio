@@ -30,6 +30,7 @@ const portalPages=[
   'automation.html',
   'website.html',
   'profile.html',
+  'company-settings.html',
   'uat.html'
 ];
 
