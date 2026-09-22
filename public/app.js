@@ -128,7 +128,7 @@ function publicPage() {
   return `
   <div class="site-shell">
     <header class="public-nav">
-      <a class="brand" href="#/website" data-action="public">Rollands<small>SALUHALL · BILLDAL</small></a>
+      <a class="brand" href="#/website" data-action="public">LT Studio<small>SYNTETISK DEMO</small></a>
       <nav class="public-links" aria-label="Huvudmeny">
         <a href="#butiken">Butiken</a><a href="#foretagsfrukt">Företagsfrukt</a><a href="#catering">Catering</a><a href="#kontakt">Kontakt</a>
       </nav>
@@ -152,8 +152,8 @@ function publicPage() {
         <div class="service-grid"><article class="service-card"><div class="mark">◉</div><h3>Frukt på jobbet</h3><p>Välfyllda fruktleveranser som passar kontorets rytm och säsong.</p></article><article class="service-card"><div class="mark">✦</div><h3>Delibrickor</h3><p>Väl valda ostar, charkuterier och tillbehör för möten och firanden.</p></article><article class="service-card" id="catering"><div class="mark">⌁</div><h3>Catering</h3><p>Mat med bra råvaror och omsorg för små och stora tillfällen.</p></article></div>
       </div></section>
       <section class="public-section"><div class="section-inner values"><p class="quote">"Kvalitet och kunskap är våra <span>ledord.</span>"</p><ul class="check-list"><li><b>01</b>Handplockat från producenter och grossister</li><li><b>02</b>Frukt, grönt och delikatesser med kvalitet i fokus</li><li><b>03</b>Personlig hjälp – från vardagsmiddag till present</li></ul></div></section>
-      <section class="public-section contact" id="kontakt"><div class="section-inner contact-grid"><div><div class="eyebrow" style="color:#dbe59a">Välkommen förbi</div><h2>Vi ses i Billdal.</h2><p>Butiken är fylld av godsaker. Välkommen till vår värld av god smak – vi hjälper gärna till med allt från vardagsinköp till företagsleveranser.</p></div><div class="contact-details"><b>Besöksadress</b>${escapeHtml(b.address || 'Bolshedens Industriväg 22, 427 50 Billdal')}<br><br><b>Kontakt</b>${escapeHtml(b.phone || '')}<br>${escapeHtml(b.email || '')}<br><br><b>Öppettider</b>Måndag–Fredag 10.00–18.00<br>Lördag 10.00–15.00<br>Söndag stängt</div></div>
-        <footer class="footer"><span>© ${new Date().getFullYear()} ${escapeHtml(b.displayName || 'Rollands Saluhall')}</span><span>Frukt & grönt · delikatesser · catering</span></footer>
+      <section class="public-section contact" id="kontakt"><div class="section-inner contact-grid"><div><div class="eyebrow" style="color:#dbe59a">Välkommen förbi</div><h2>Detta är en syntetisk demo.</h2><p>Butiken är fylld av godsaker. Välkommen till vår värld av god smak – vi hjälper gärna till med allt från vardagsinköp till företagsleveranser.</p></div><div class="contact-details"><b>Besöksadress</b>${escapeHtml(b.address || 'Exempelgatan 1, 411 00 Göteborg')}<br><br><b>Kontakt</b>${escapeHtml(b.phone || '')}<br>${escapeHtml(b.email || '')}<br><br><b>Öppettider</b>Måndag–Fredag 10.00–18.00<br>Lördag 10.00–15.00<br>Söndag stängt</div></div>
+        <footer class="footer"><span>© ${new Date().getFullYear()} ${escapeHtml(b.displayName || 'Demo Saluhall')}</span><span>Frukt & grönt · delikatesser · catering</span></footer>
       </section>
     </main>
   </div>`;
@@ -214,9 +214,9 @@ function auditPage() {
 }
 function settingsPage() {
   state.settings ||= {};
-  state.settings.emailInbox ||= 'fakturor@rollands.se';
-  state.settings.attestResponsible ||= 'Odd Stefan Arne Svensson';
-  state.settings.attestSubstitute ||= 'Anna Åberg';
+  state.settings.emailInbox ||= 'fakturor@demo.example.invalid';
+  state.settings.attestResponsible ||= 'Demo Attestant';
+  state.settings.attestSubstitute ||= 'Demo Ersättare';
   const locked=(state.settings.lockedPeriods || []).slice().sort().reverse();
   return adminChrome(`${heading('Inställningar', 'Företagsuppgifter, attest, periodlås och integrationsprinciper.')}<section class="settings-grid"><article class="panel"><div class="panel-head"><div><h2>Attestflöde</h2><p class="hint">Ansvarig och ersättare visas i leverantörsflödet.</p></div></div><form data-form="settings"><div class="setting-field"><label>Attestansvarig</label><input name="attestResponsible" value="${escapeHtml(state.settings.attestResponsible || '')}" required></div><div class="setting-field"><label>Ersättare</label><input name="attestSubstitute" value="${escapeHtml(state.settings.attestSubstitute || '')}" required></div><div class="setting-field"><label>Fakturamejl</label><input name="emailInbox" value="${escapeHtml(state.settings.emailInbox || '')}" required></div><button class="button" type="submit">Spara kontrollinställningar</button></form></article><article class="panel"><div class="panel-head"><div><h2>Företag</h2><p class="hint">Visas på fakturor och i ekonomirapporter.</p></div></div><div class="setting-field"><label>Företagsnamn</label><input value="${escapeHtml(state.business.name)}" readonly></div><div class="setting-field"><label>Organisationsnummer</label><input value="${escapeHtml(state.business.orgNumber)}" readonly></div><div class="setting-field"><label>Momsregistreringsnummer</label><input value="${escapeHtml(state.business.vatNumber)}" readonly></div><div class="setting-field"><label>Bankkonto</label><input value="${escapeHtml(state.settings.bankAccount)}" readonly></div></article></section><section class="panel period-locks"><div class="panel-head"><div><h2>Låsta bokföringsperioder</h2><p class="hint">Nya verifikationer och betalningar blockeras i låsta perioder. Rättelser görs i en öppen period.</p></div></div><form data-form="period-lock" class="ledger-toolbar"><label>Period (ÅÅÅÅ-MM)<input name="period" type="month" required></label><button class="button" type="submit">Lås period</button></form><div class="locked-period-list">${locked.map(period=>`<span class="period-chip">${period}<button data-action="period-unlock" data-period="${period}" aria-label="Lås upp ${period}">×</button></span>`).join('') || '<span class="muted">Inga perioder är låsta.</span>'}</div></section><section class="panel automation-plan"><div class="panel-head"><div><h2>Automation och säkerhetsgränser</h2><p class="hint">Koppla bankfil och fakturamejl stegvis. Osäkra matchningar stannar för manuell kontroll.</p></div></div><div class="automation-cards"><article><span>01</span><h3>Fakturamejl → PDF</h3><p>PDF läses in, dubbletter stoppas och fakturan hamnar i attestkön.</p><b>Behöver: säker inkorg + PDF-tolkning</b></article><article><span>02</span><h3>Bankfil → avstämning</h3><p>CAMT.054 från Handelsbanken eller BAM importeras enligt schema.</p><b>Guardrail: filkontroll och dubblettspärr</b></article><article><span>03</span><h3>AI med säkerhetsgräns</h3><p>Endast entydiga referens- och beloppsträffar kan automatiseras.</p><b>Resten flaggas i priolistan</b></article><article><span>04</span><h3>Varningar & backup</h3><p>Stoppade flöden, periodlås och revisionshändelser visas här.</p><b>Schemalagd offsite-backup krävs i produktion</b></article></div></section>${integrationGuide()}`);
 }
@@ -245,8 +245,8 @@ function pageContent() { if (view === 'public') return publicPage(); if (!state)
 function render() {
   app.innerHTML = pageContent() + modal();
   const emailInput = document.querySelector('input[name="emailInbox"]');
-  if (emailInput && !emailInput.value) emailInput.value = 'fakturor@rollands.se';
-  document.title = (view==='public' ? 'Rollands Saluhall' : ({customers:'Kunder',vendors:'Leverantörer',inbox:'Fakturainkorg',receivables:'Kundreskontra',payables:'Leverantörsreskontra',overview:'Översikt'}[page] || 'Ekonomi')) + ' | Rollands';
+  if (emailInput && !emailInput.value) emailInput.value = 'fakturor@demo.example.invalid';
+  document.title = (view==='public' ? 'Demo Saluhall' : ({customers:'Kunder',vendors:'Leverantörer',inbox:'Fakturainkorg',receivables:'Kundreskontra',payables:'Leverantörsreskontra',overview:'Översikt'}[page] || 'Ekonomi')) + ' | LT Studio Demo';
   document.querySelectorAll('.field, .setting-field').forEach((el,index)=>{ const label=el.querySelector('label'), input=el.querySelector('input,select,textarea'); if(label&&input&&!input.id) { input.id='field-'+index; label.htmlFor=input.id; } });
   if (activeModal) { document.querySelector('.admin-shell')?.setAttribute('inert',''); document.querySelector('.modal button, .modal input')?.focus(); }
 }
@@ -303,5 +303,5 @@ document.addEventListener('input', event => {
   document.querySelectorAll('[data-table="invoices"] tr').forEach(row => row.hidden = !row.textContent.toLowerCase().includes(term));
 });
 
-async function boot() { try { state = await api('/api/state'); state.settings ||= {}; state.settings.emailInbox ||= 'fakturor@rollands.se'; state.settings.attestResponsible ||= 'Odd Stefan Arne Svensson'; state.settings.attestSubstitute ||= 'Anna Åberg'; render(); } catch (error) { if (window.ROLLANDS_DEMO) { demoMode = true; let saved=null; try { saved=JSON.parse(localStorage.getItem(DEMO_STORAGE_KEY)||'null'); } catch {} state = F.normalize(saved || window.ROLLANDS_DEMO); render(); toast('Demoläge: ändringar sparas i denna webbläsare.'); } else app.innerHTML = `<main style="padding:40px;font-family:Arial"><h1>Kunde inte starta plattformen</h1><p>${escapeHtml(error.message)}</p></main>`; } }
+async function boot() { try { state = await api('/api/state'); state.settings ||= {}; state.settings.emailInbox ||= 'fakturor@demo.example.invalid'; state.settings.attestResponsible ||= 'Demo Attestant'; state.settings.attestSubstitute ||= 'Demo Ersättare'; render(); } catch (error) { if (window.ROLLANDS_DEMO) { demoMode = true; let saved=null; try { saved=JSON.parse(localStorage.getItem(DEMO_STORAGE_KEY)||'null'); } catch {} state = F.normalize(saved || window.ROLLANDS_DEMO); render(); toast('Demoläge: ändringar sparas i denna webbläsare.'); } else app.innerHTML = `<main style="padding:40px;font-family:Arial"><h1>Kunde inte starta plattformen</h1><p>${escapeHtml(error.message)}</p></main>`; } }
 boot();
