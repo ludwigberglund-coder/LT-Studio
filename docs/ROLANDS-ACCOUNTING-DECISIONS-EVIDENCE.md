@@ -1,33 +1,25 @@
-# Rolands – verifiering av redovisningsbeslut
+# Redovisningsbeslut – hantering av verifieringsbevis
 
-Verifierad: 2026-09-20  
-Företag: Rolands Frukt o Grönt Aktiebolag, org.nr 556406-5059
+Det publika repositoryt innehåller inte längre verifieringsbevis eller registrerade uppgifter för en verklig kund.
 
-## Offentligt verifierat
+## Princip
 
-- Senast redovisade bokslut i granskade offentliga källor avser **2024-01-01–2024-12-31**.
-- Systemets mål om kalenderår (01-01–12-31) har därför offentligt stöd för senast tillgängliga bokslut.
-- Bolaget anges som registrerat för moms.
+Verkliga kundfakta som exempelvis:
 
-Källor:
+- organisationsnummer,
+- räkenskapsår,
+- K2/K3,
+- registrerad momsperiod,
+- skatte- och momsregistrering,
+- signerade årsredovisningar,
+- externa verifieringslänkar,
 
-- https://www.allabolag.se/foretag/rolands-frukt-o-gr%C3%B6nt-aktiebolag/billdal/livsmedel/2K0P82RI5YFWD
-- https://krafman.se/rolands-frukt-o-gront-aktiebolag/5564065059/sammanfattning
+ska verifieras i den privata kund-/driftprocessen och får inte användas som publik demoidentitet i GitHub.
 
-## Inte verifierat från granskade offentliga källor
+## Publik demo
 
-### K2 eller K3
+`config/rolands-business-decisions.json` innehåller endast syntetiska demoantaganden. Filnamnet är kvar av kompatibilitetsskäl och innebär inte att verklig kundinformation finns i filen.
 
-Konfigurationens mål är K2, men den granskade offentliga informationen var inte tillräcklig för att fastställa vilket regelverk den senaste signerade årsredovisningen faktiskt använder.
+## Produktionsspärr
 
-**Produktionsspärr:** kontrollera den senaste signerade årsredovisningen innan systemet använder K2/K3-valet som ett fast bolagsbeslut.
-
-### Momsperiod
-
-Konfigurationens mål är månadsvis momsredovisning. Offentliga källor styrker momsregistrering men inte vilken redovisningsperiod som är registrerad hos Skatteverket.
-
-**Produktionsspärr:** kontrollera företagets registrerade momsperiod hos Skatteverket innan momsrapportering eller deklarationsflöde används skarpt.
-
-## Regel för systemet
-
-Ett målbeslut och ett verifierat bolagsfaktum är två olika saker. Kod och dokumentation får inte beskriva K2 eller månadsvis moms som verifierad verklighet innan respektive produktionsspärr är stängd.
+Ett verkligt företags redovisningsval får inte betraktas som verifierat förrän motsvarande privata bevis har kontrollerats och dokumenterats i den avsedda kundmiljön.
