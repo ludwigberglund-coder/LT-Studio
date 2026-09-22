@@ -44,15 +44,18 @@ test('PDF upload security enforces the 10 MB ceiling',()=>{
   assert.throws(()=>PdfSecurity.assertSafePdf(bytes,{fileName:'stor.pdf'}),e=>e.code==='DOCUMENT_TOO_LARGE'&&e.statusCode===413);
 });
 
-test('PDF upload security rejects undersized and truncated pseudo-PDFs',()=>{
-  assert.throws(()=>PdfSecurity.assertSafePdf(Buffer.from('%PDF-1.4\n%%EOF','latin1'),{fileName:'for-liten.pdf'}),e=>e.code==='DOCUMENT_TOO_SMALL'&&e.statusCode===415);
+test('deep PDF upload security rejects undersized and truncated pseudo-PDFs',async()=>{
+  await assert.rejects(()=>PdfSecurity.assertSafePdfDeep(Buffer.from('%PDF-1.4\n%%EOF','latin1'),{fileName:'for-liten.pdf'}),e=>e.code==='DOCUMENT_TOO_SMALL'&&e.statusCode===415);
   const truncated=Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\n','latin1');
-  assert.throws(()=>PdfSecurity.assertSafePdf(truncated,{fileName:'avhuggen.pdf'}),e=>e.code==='INVALID_PDF_EOF'&&e.statusCode===415);
+  await assert.rejects(()=>PdfSecurity.assertSafePdfDeep(truncated,{fileName:'avhuggen.pdf'}),e=>e.code==='INVALID_PDF_EOF'&&e.statusCode===415);
 });
 
-test('PDF upload security accepts trailing PDF whitespace after EOF',()=>{
-  const bytes=Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\n%%EOF\n\r\t ','latin1');
-  assert.deepEqual(PdfSecurity.assertSafePdf(bytes,{fileName:'faktura.pdf'}),{sizeBytes:bytes.length});
+test('deep PDF upload security accepts trailing PDF whitespace after EOF',async()=>{
+  const document=await PDFDocument.create();
+  document.addPage([300,400]);
+  const base=Buffer.from(await document.save({useObjectStreams:false}));
+  const bytes=Buffer.concat([base,Buffer.from('\n\r\t ','latin1')]);
+  await assert.doesNotReject(()=>PdfSecurity.assertSafePdfDeep(bytes,{fileName:'faktura.pdf'}));
 });
 
 test('PDF upload security rejects deceptive executable-style filenames',()=>{
@@ -62,9 +65,9 @@ test('PDF upload security rejects deceptive executable-style filenames',()=>{
   }
 });
 
-test('PDF upload security requires a supported PDF version header',()=>{
+test('deep PDF upload security requires a supported PDF version header',async()=>{
   const bad=Buffer.from('%PDF-x.y\n1 0 obj << /Type /Catalog >> endobj\n%%EOF','latin1');
-  assert.throws(()=>PdfSecurity.assertSafePdf(bad,{fileName:'faktura.pdf'}),e=>e.code==='INVALID_PDF_SIGNATURE'&&e.statusCode===415);
+  await assert.rejects(()=>PdfSecurity.assertSafePdfDeep(bad,{fileName:'faktura.pdf'}),e=>e.code==='INVALID_PDF_SIGNATURE'&&e.statusCode===415);
 });
 
 test('deep PDF verification accepts a structurally valid passive PDF',async()=>{
