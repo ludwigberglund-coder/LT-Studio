@@ -58,9 +58,14 @@ function apiPath(req){
 }
 function routeClass(req){
   const path=apiPath(req);
+  const method=String(req?.method||'GET').toUpperCase();
   if(path==='/api/v1/auth/login')return'login';
   if(path==='/api/operator/v1/auth/login')return'operator-login';
   if(path==='/api/v1/readiness'||path==='/api/v1/readiness/core'||path==='/api/v1/health'||path==='/api/operator/v1/health'||path==='/_runtime-version')return'health';
+  if(method==='PUT'&&(
+    /^\/api\/v1\/documents\/[^/]+\/content$/.test(path)||
+    /^\/api\/v1\/payables\/invoices\/[^/]+\/document$/.test(path)
+  ))return'upload';
   if(path.startsWith('/api/operator/v1/'))return'operator-api';
   if(path.startsWith('/api/v1/'))return'api';
   if(path.startsWith('/website-preview/'))return'preview';
@@ -75,6 +80,11 @@ function policyFor(req,env={}){
   if(kind==='operator-login')return{windowMs,ipLimit:intSetting(env,'ROLLANDS_RATE_LIMIT_OPERATOR_LOGIN_IP_PER_MINUTE',10,{min:3,max:500}),identityLimit:0};
   if(kind==='health')return{windowMs,ipLimit:intSetting(env,'ROLLANDS_RATE_LIMIT_HEALTH_IP_PER_MINUTE',120,{min:10,max:5000}),identityLimit:0};
   if(kind==='preview')return{windowMs,ipLimit:intSetting(env,'ROLLANDS_RATE_LIMIT_PREVIEW_IP_PER_MINUTE',240,{min:20,max:10000}),identityLimit:genericUser};
+  if(kind==='upload')return{
+    windowMs,
+    ipLimit:intSetting(env,'ROLLANDS_RATE_LIMIT_UPLOAD_IP_PER_MINUTE',12,{min:2,max:120}),
+    identityLimit:intSetting(env,'ROLLANDS_RATE_LIMIT_UPLOAD_USER_PER_MINUTE',20,{min:2,max:240})
+  };
   if(kind==='api'||kind==='operator-api')return{windowMs,ipLimit:genericIp,identityLimit:genericUser};
   // Static/public routes also get a generous IP ceiling so no exposed endpoint is unbounded.
   return{windowMs,ipLimit:intSetting(env,'ROLLANDS_RATE_LIMIT_PUBLIC_IP_PER_MINUTE',600,{min:60,max:30000}),identityLimit:genericUser};
@@ -86,6 +96,7 @@ function createRateLimiter({env=process.env,db,trustCloudflare=env.ROLLANDS_TRUS
     {url:'/api/operator/v1/auth/login',method:'POST'},
     {url:'/api/v1/health',method:'GET'},
     {url:'/website-preview/',method:'GET'},
+    {url:'/api/v1/documents/example/content',method:'PUT'},
     {url:'/api/v1/customers',method:'GET'},
     {url:'/',method:'GET'}
   ])policyFor(sample,env);
