@@ -15,7 +15,9 @@ test('rollmatrisen följer LT Studios fyra beslutade behörighetsnivåer',()=>{
   const readNoPayroll=new Set(config.permissions.filter(permission=>permission.risk==='read'&&permission.id!=='payroll.view').map(permission=>permission.id));
 
   const admin=Access.permissionsForActor(model,member('admin-user','admin'));
-  assert.deepEqual(admin,all);
+  const customerAdminExpected=new Set([...all].filter(permission=>permission!=='users.manage'));
+  assert.deepEqual(admin,customerAdminExpected);
+  assert.equal(admin.has('users.manage'),false);
 
   const accountant=Access.permissionsForActor(model,member('economy-user','accountant'));
   for(const permission of all){
