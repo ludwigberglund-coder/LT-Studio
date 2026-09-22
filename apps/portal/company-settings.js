@@ -1,5 +1,5 @@
 const app=document.getElementById('company-settings-app');
-const isDemo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
+const isDemo=location.hostname==='github.io'||location.hostname.endsWith('.github.io')||new URLSearchParams(location.search).has('demo');
 let csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 async function api(path,options={}){
