@@ -372,6 +372,12 @@ function setUserPlatformAdmin(db,{userId,enabled}) {
   return userById(db,userId);
 }
 
+function setUserDisabled(db,{userId,disabled}) {
+  const result=db.prepare('UPDATE users SET disabled=? WHERE id=?').run(disabled?1:0,String(userId||'').trim());
+  if(Number(result.changes||0)!==1) throw databaseError('Användarkontot hittades inte.','USER_NOT_FOUND',404);
+  return userById(db,userId);
+}
+
 function deleteSessionsForUser(db,userId) {
   return Number(db.prepare('DELETE FROM sessions WHERE user_id=?').run(String(userId||'').trim()).changes||0);
 }
@@ -815,6 +821,7 @@ module.exports = Object.freeze({
   normalizeSessionDuration,
   setUserSessionDuration,
   setUserPlatformAdmin,
+  setUserDisabled,
   deleteSessionsForUser,
   updateUserPasswordHash,
   MEMBERSHIP_ROLES,
