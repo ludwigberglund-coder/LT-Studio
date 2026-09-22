@@ -155,6 +155,7 @@ function validateConfig(env=process.env){
   }else if(databasePath){warn.push('Databasfilen finns inte ännu. Det är normalt före första bootstrap, men kontrollera rättigheter efter skapandet.');}
 
   if(mode==='staging')warn.push('Staging kräver inte approvedForPilot=true. Skapa först UAT-evidens och staging-signoff, registrera därefter exakt release-commit och signoff-SHA i pilotens operationsfil och kör preflight igen efter byte till ROLLANDS_ENV=pilot.');
+  warn.push('Applikationens rate limiter är processlokal. Kör en enda API-instans i staging/pilot/produktion tills ett gemensamt/distribuerat limiterlager eller motsvarande edge-enforcement är infört.');
   warn.push('Preflight kan inte verifiera att HTTPS-certifikat, DNS, extern kopiering av den krypterade backupen, logginsamling eller extern övervakning faktiskt är konfigurerade.');
   return{pass,fail,warn};
 }
