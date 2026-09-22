@@ -15,6 +15,7 @@ const previewAssets=new Map([
   ['/website-preview/', ['apps/website/index.html','text/html; charset=utf-8']],
   ['/website-preview/app.js', ['apps/website/app.js','application/javascript; charset=utf-8']],
   ['/website-preview/styles.css', ['apps/website/styles.css','text/css; charset=utf-8']],
+  ['/website-preview/design-system.css', ['apps/website/design-system.css','text/css; charset=utf-8']],
   ['/website-preview/shared/content.js', ['packages/shared/browser/content.js','application/javascript; charset=utf-8']]
 ]);
 function routeError(message,code='WEBSITE_CMS_ROUTE_ERROR',statusCode=400){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
