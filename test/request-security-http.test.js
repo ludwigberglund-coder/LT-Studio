@@ -130,5 +130,5 @@ test('static portal responses use the stricter page CSP and security headers',()
   assert.match(response.headers.get('permissions-policy')||'',/geolocation=\(\)/);
   assert.equal(response.headers.get('cross-origin-opener-policy'),'same-origin');
   assert.equal(response.headers.get('cross-origin-resource-policy'),'same-origin');
-  assert.match(response.headers.get('strict-transport-security')||'',/includeSubDomains/);
+  assert.match(response.headers.get('strict-transport-security')||'',/max-age=31536000/);
 }));
