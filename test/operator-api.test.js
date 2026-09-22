@@ -2,19 +2,26 @@
 
 const test=require('node:test');
 const assert=require('node:assert/strict');
+const crypto=require('node:crypto');
 const {createServer}=require('../apps/api/server.js');
 const Db=require('../apps/api/database.js');
 const Auth=require('../apps/api/auth.js');
 
 const MFA_SECRET='GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 const ENCRYPTION_KEY='operator-api-test-encryption-key-longer-than-32-chars';
+const OPERATOR_PASSWORD='Operatorens starka testlosenord 2026!';
+function legacyOperatorHash(){
+  const salt=Buffer.alloc(16,13);
+  const derived=crypto.scryptSync(OPERATOR_PASSWORD,salt,64,{N:16384,r:8,p:1,maxmem:64*1024*1024});
+  return ['scrypt-v1',16384,8,1,salt.toString('base64url'),derived.toString('base64url')].join(String.fromCharCode(36));
+}
 
 async function withOperatorApi(fn){
   const runtime=createServer({databasePath:':memory:',db:Db.openDatabase(':memory:'),secureCookies:false,authEncryptionKey:ENCRYPTION_KEY,trustCloudflare:true});
   const operator=Db.createPlatformOperator(runtime.db,{
     username:'lt.operator',
     displayName:'LT Operator',
-    passwordHash:Auth.hashPassword('Operatorens starka testlosenord 2026!'),
+    passwordHash:Auth.hashPassword(OPERATOR_PASSWORD),
     mfaSecretEncrypted:Auth.encryptSecret(MFA_SECRET,ENCRYPTION_KEY)
   });
   await new Promise(resolve=>runtime.server.listen(0,'127.0.0.1',resolve));
@@ -25,7 +32,7 @@ async function login(base){
   const response=await fetch(base+'/api/operator/v1/auth/login',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({username:'lt.operator',password:'Operatorens starka testlosenord 2026!',totp:Auth.totpCode(MFA_SECRET,Date.now())})
+    body:JSON.stringify({username:'lt.operator',password:OPERATOR_PASSWORD,totp:Auth.totpCode(MFA_SECRET,Date.now())})
   });
   const body=await response.json();
   const setCookie=String(response.headers.get('set-cookie')||'');
@@ -83,7 +90,7 @@ test('operator-API kräver separat operatörssession och läcker inte kundernas 
 test('operator-session använder MFA, CSRF och server-side logout',()=>withOperatorApi(async({runtime,base,operator})=>{
   const badMfa=await fetch(base+'/api/operator/v1/auth/login',{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({username:'lt.operator',password:'Operatorens starka testlosenord 2026!',totp:'000000'})
+    body:JSON.stringify({username:'lt.operator',password:OPERATOR_PASSWORD,totp:'000000'})
   });
   assert.equal(badMfa.status,401);
 
@@ -158,4 +165,26 @@ test('operator-konto spärras även när felaktiga försök roterar Cloudflare-I
   assert.equal(events[0].severity,'critical');
   assert.equal(events[0].details.scope,'user');
   assert.doesNotMatch(JSON.stringify(events[0]),/lt\.operator|203\.0\.113/);
+}));
+
+
+test('legacy operatörshash uppgraderas först efter korrekt MFA',()=>withOperatorApi(async({runtime,base,operator})=>{
+  runtime.db.prepare('UPDATE platform_operators SET password_hash=? WHERE id=?').run(legacyOperatorHash(),operator.id);
+  assert.match(Db.platformOperatorById(runtime.db,operator.id).passwordHash,/^scrypt-v1\$/);
+
+  const badMfa=await fetch(base+'/api/operator/v1/auth/login',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:'lt.operator',password:OPERATOR_PASSWORD,totp:'000000'})
+  });
+  assert.equal(badMfa.status,401);
+  assert.match(Db.platformOperatorById(runtime.db,operator.id).passwordHash,/^scrypt-v1\$/);
+
+  const signed=await login(base);
+  assert.equal(signed.response.status,200);
+  const upgraded=Db.platformOperatorById(runtime.db,operator.id);
+  assert.match(upgraded.passwordHash,/^scrypt-v2\$16384\$8\$5\$/);
+  assert.equal(Auth.passwordHashNeedsUpgrade(upgraded.passwordHash),false);
+  const audit=Db.platformOperatorAudit(runtime.db);
+  const loginAudit=audit.find(event=>event.action==='OPERATOR_SESSION_LOGIN');
+  assert.equal(loginAudit.details.passwordHashUpgraded,true);
 }));

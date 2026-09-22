@@ -341,6 +341,14 @@ function userByUsername(db, username) {
   return db.prepare('SELECT id,username,display_name AS displayName,password_hash AS passwordHash,mfa_secret_encrypted AS mfaSecretEncrypted,disabled,created_at AS createdAt FROM users WHERE username=?').get(username) || null;
 }
 
+function updateUserPasswordHash(db,{userId,passwordHash}) {
+  const idValue=String(userId||'').trim(),hash=String(passwordHash||'').trim();
+  if(!idValue||!hash)throw databaseError('Lösenordsuppgraderingen saknar obligatoriska värden.','INVALID_PASSWORD_HASH_UPDATE',500);
+  const result=db.prepare('UPDATE users SET password_hash=? WHERE id=? AND disabled=0').run(hash,idValue);
+  if(Number(result.changes||0)!==1)throw databaseError('Användarens lösenordshash kunde inte uppdateras.','PASSWORD_HASH_UPDATE_FAILED',409);
+  return userById(db,idValue);
+}
+
 function addMembership(db, {companyId,userId}) {
   db.prepare('INSERT INTO memberships(company_id,user_id,created_at) VALUES(?,?,?) ON CONFLICT(company_id,user_id) DO NOTHING')
     .run(companyId,userId,nowIso());
@@ -468,6 +476,14 @@ function platformOperatorByUsername(db,username) {
   return db.prepare(`SELECT id,username,display_name AS displayName,password_hash AS passwordHash,
     mfa_secret_encrypted AS mfaSecretEncrypted,disabled,created_at AS createdAt
     FROM platform_operators WHERE username=?`).get(String(username||'').trim().toLocaleLowerCase('sv'))||null;
+}
+
+function updatePlatformOperatorPasswordHash(db,{operatorId,passwordHash}) {
+  const idValue=String(operatorId||'').trim(),hash=String(passwordHash||'').trim();
+  if(!idValue||!hash)throw databaseError('Operatörens lösenordsuppgradering saknar obligatoriska värden.','INVALID_OPERATOR_PASSWORD_HASH_UPDATE',500);
+  const result=db.prepare('UPDATE platform_operators SET password_hash=? WHERE id=? AND disabled=0').run(hash,idValue);
+  if(Number(result.changes||0)!==1)throw databaseError('Operatörens lösenordshash kunde inte uppdateras.','OPERATOR_PASSWORD_HASH_UPDATE_FAILED',409);
+  return platformOperatorById(db,idValue);
 }
 
 function createPlatformOperatorSession(db,{tokenHash,csrfHash,operatorId,expiresAt,absoluteExpiresAt=expiresAt}) {
@@ -735,6 +751,7 @@ module.exports = Object.freeze({
   createUser,
   userById,
   userByUsername,
+  updateUserPasswordHash,
   addMembership,
   membership,
   membershipsForUser,
@@ -751,6 +768,7 @@ module.exports = Object.freeze({
   createPlatformOperator,
   platformOperatorById,
   platformOperatorByUsername,
+  updatePlatformOperatorPasswordHash,
   createPlatformOperatorSession,
   platformOperatorSessionByTokenHash,
   touchPlatformOperatorSession,

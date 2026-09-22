@@ -307,15 +307,17 @@ function createApiApp(options) {
       }
     }
 
+    const upgradedPasswordHash=Auth.passwordHashNeedsUpgrade(user.passwordHash)?Auth.hashPassword(payload.password):'';
     const now=Date.now();
     const sessionToken=Auth.randomToken(32), csrfToken=Auth.randomToken(24);
     Db.transaction(db,()=>{
       if(mfaRequired) Db.consumeMfaStep(db,{userId:user.id,totpCounter:mfaCounter});
+      if(upgradedPasswordHash) Db.updateUserPasswordHash(db,{userId:user.id,passwordHash:upgradedPasswordHash});
       Db.createSession(db,{
         tokenHash:Auth.hashToken(sessionToken),csrfHash:Auth.hashToken(csrfToken),userId:user.id,companyId:selected.companyId,
         expiresAt:sessionExpiryIso(sessionIdleMinutes,now),absoluteExpiresAt:sessionExpiryIso(sessionMaxMinutes,now)
       });
-      Db.appendAudit(db,{companyId:selected.companyId,userId:user.id,action:'SESSION_LOGIN',entityType:'session',details:{username:user.username,mfaRequired,sessionIdleMinutes,sessionMaxMinutes}});
+      Db.appendAudit(db,{companyId:selected.companyId,userId:user.id,action:'SESSION_LOGIN',entityType:'session',details:{username:user.username,mfaRequired,sessionIdleMinutes,sessionMaxMinutes,passwordHashUpgraded:Boolean(upgradedPasswordHash)}});
     });
     Db.clearLoginAttempts(db,loginKey(req,username));
     Db.clearLoginAttempts(db,loginAccountKey(username));

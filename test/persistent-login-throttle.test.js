@@ -5,6 +5,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const os=require('node:os');
 const path=require('node:path');
+const crypto=require('node:crypto');
 const Db=require('../apps/api/database.js');
 const Auth=require('../apps/api/auth.js');
 const {createServer}=require('../apps/api/server.js');
@@ -12,6 +13,11 @@ const {createServer}=require('../apps/api/server.js');
 const KEY='Persistent-Login-Throttle-Test-Key-2026-ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const MFA='GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 const PASSWORD='Ett unikt langt testlosenord 2026!';
+function legacyPasswordHash(password){
+  const salt=Buffer.alloc(16,11);
+  const derived=crypto.scryptSync(password,salt,64,{N:16384,r:8,p:1,maxmem:64*1024*1024});
+  return ['scrypt-v1',16384,8,1,salt.toString('base64url'),derived.toString('base64url')].join(String.fromCharCode(36));
+}
 
 function seed(filename){
   const db=Db.openDatabase(filename);
@@ -111,6 +117,37 @@ test('konto-baserad spärr stoppar distribuerade försök från många Cloudflar
     assert.equal(events[0].severity,'critical');
     assert.equal(events[0].details.scope,'user');
     assert.doesNotMatch(JSON.stringify(events[0]),/throttle\.user|203\.0\.113/);
+  }finally{
+    if(runtime)await stop(runtime);
+    fs.rmSync(dir,{recursive:true,force:true});
+  }
+});
+
+
+test('legacy-hash uppgraderas först efter korrekt lösenord och MFA',async()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-password-upgrade-')),dbPath=path.join(dir,'platform.sqlite');
+  seed(dbPath);
+  const edit=Db.openDatabase(dbPath);
+  try{edit.prepare('UPDATE users SET password_hash=? WHERE username=?').run(legacyPasswordHash(PASSWORD),'throttle.user')}
+  finally{edit.close()}
+  let runtime;
+  try{
+    const started=await start(dbPath);runtime=started.runtime;
+    const before=Db.userByUsername(runtime.db,'throttle.user');
+    assert.match(before.passwordHash,/^scrypt-v1\$/);
+
+    const badMfa=await login(started.base,{totp:'000000'});
+    assert.equal(badMfa.status,401);
+    assert.match(Db.userByUsername(runtime.db,'throttle.user').passwordHash,/^scrypt-v1\$/);
+
+    const success=await login(started.base);
+    assert.equal(success.status,200);
+    const upgraded=Db.userByUsername(runtime.db,'throttle.user');
+    assert.match(upgraded.passwordHash,/^scrypt-v2\$16384\$8\$5\$/);
+    assert.equal(Auth.passwordHashNeedsUpgrade(upgraded.passwordHash),false);
+    const audit=Db.auditForCompany(runtime.db,Db.membershipsForUser(runtime.db,upgraded.id)[0].companyId);
+    const loginAudit=audit.find(event=>event.action==='SESSION_LOGIN');
+    assert.equal(loginAudit.details.passwordHashUpgraded,true);
   }finally{
     if(runtime)await stop(runtime);
     fs.rmSync(dir,{recursive:true,force:true});
