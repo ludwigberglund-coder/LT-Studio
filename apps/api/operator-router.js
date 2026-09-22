@@ -326,7 +326,7 @@ function createOperatorRouter(options={}){
       }
       if(req.method==='GET'&&url.pathname==='/api/operator/v1/security-monitor'){
         if(!securityMonitor){send(res,503,{error:'Aktiv säkerhetsövervakning är inte tillgänglig.',code:'SECURITY_MONITOR_UNAVAILABLE'});return true}
-        send(res,200,securityMonitor.snapshot());return true;
+        send(res,200,securityMonitor.refresh());return true;
       }
       send(res,404,{error:'Hittades inte.',code:'OPERATOR_NOT_FOUND'});return true;
     }catch(error){
