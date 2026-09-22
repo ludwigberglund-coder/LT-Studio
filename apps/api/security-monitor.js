@@ -15,6 +15,7 @@ const READINESS_RULES=Object.freeze({
   r2RestoreDrill:{severity:'warning',category:'Backup',title:'R2 restore-test behöver uppmärksamhet',message:'Återställningskontrollen för offsite-lagringen är inte godkänd.'},
   stagingEvidenceConsistent:{severity:'critical',category:'Drift',title:'Stagingbevis matchar inte',message:'Säkerhetsbevisen för staging pekar inte på samma verifierade data.'},
   monitoring:{severity:'critical',category:'Övervakning',title:'Extern övervakning är inte verifierad',message:'Readiness eller larmleverans saknar ett färskt godkänt övervakningsbevis.'},
+  alertDelivery:{severity:'critical',category:'Övervakning',title:'Extern larmleverans är inte verifierad',message:'Säkerhetslarmens externa kanal saknar en färsk godkänd testleverans.'},
   auditAnchor:{severity:'critical',category:'Audit',title:'Auditankaret är inte verifierat',message:'Den skyddade revisionskedjan saknar ett färskt matchande auditbevis.'},
   platformAdmin:{severity:'critical',category:'Åtkomst',title:'LT Studio global admin är inte redo',message:'Det saknas en aktiv global LT Studio-admin med fungerande MFA.'}
 });

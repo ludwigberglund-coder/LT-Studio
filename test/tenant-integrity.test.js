@@ -83,6 +83,7 @@ test('plattformssäkerhetshändelser är uttryckligen globalt scope och bryter i
     const coverage=Guards.inspectTenantCoverage(db);
     assert.equal(coverage.ok,true);
     assert.ok(coverage.rootTables.includes('security_events'));
+    assert.ok(coverage.rootTables.includes('security_alert_states'));
     const event=Db.appendSecurityEvent(db,{kind:'TEST_SECURITY_SIGNAL',severity:'info',fingerprintHash:'a'.repeat(64),details:{test:true}});
     assert.equal(Db.securityEvents(db)[0].id,event.id);
   }finally{db.close()}
@@ -406,7 +407,7 @@ test('full private runtime has an explicit tenant scope for every database table
     createServer({db,port:4180,secureCookies:false});
     const report=Guards.inspectTenantCoverage(db);
     assert.equal(report.ok,true,JSON.stringify(report));
-    assert.deepEqual(report.rootTables,['companies','login_attempts','mfa_used_steps','platform_operator_audit_events','platform_operator_mfa_used_steps','platform_operator_sessions','platform_operators','schema_migrations','security_events','security_incident_states','users']);
+    assert.deepEqual(report.rootTables,['companies','login_attempts','mfa_used_steps','platform_operator_audit_events','platform_operator_mfa_used_steps','platform_operator_sessions','platform_operators','schema_migrations','security_alert_states','security_events','security_incident_states','users']);
     assert.ok(report.directTenantTables.includes('invoices'));
     assert.ok(report.directTenantTables.includes('supplier_invoices'));
     assert.ok(report.directTenantTables.includes('website_cms_state'));
