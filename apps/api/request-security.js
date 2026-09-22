@@ -182,6 +182,8 @@ const QUERY_RULES=Object.freeze([
 
 const BODY_RULES=Object.freeze([
   ['POST',/^\/api\/v1\/auth\/login$/,new Set(['username','password','totp','companyId'])],
+  ['PUT',/^\/api\/v1\/profile\/security$/,new Set(['sessionDurationMinutes'])],
+  ['PUT',/^\/api\/v1\/access\/members\/[^/]+\/role$/,new Set(['role'])],
   ['POST',/^\/api\/operator\/v1\/auth\/login$/,new Set(['username','password','totp'])],
   ['POST',/^\/api\/v1\/customers$/,new Set(['requestId','name','email','orgNumber','address','reminderFeeAgreed'])],
   ['PUT',/^\/api\/v1\/customers\/[^/]+$/,new Set(['name','email','orgNumber','address','reminderFeeAgreed'])],
@@ -326,6 +328,13 @@ function assertPrimitiveTypes(req,payload){
     assertTextField(payload,'password',256);
     assertTextField(payload,'totp',8,{pattern:/^\d{6}$/});
     assertTextField(payload,'companyId',200);
+  }
+  if(method==='PUT'&&pathname==='/api/v1/profile/security'){
+    if(payload.sessionDurationMinutes!==null&&payload.sessionDurationMinutes!=='session'&&!Number.isSafeInteger(payload.sessionDurationMinutes))throw securityError('sessionDurationMinutes måste vara null eller ett säkert heltal.','INVALID_INPUT_TYPE',422);
+    if(payload.sessionDurationMinutes!==null&&payload.sessionDurationMinutes!=='session'&&![120,240,360,480].includes(payload.sessionDurationMinutes))throw securityError('sessionDurationMinutes måste vara 120, 240, 360 eller 480.','INVALID_INPUT_FORMAT',422);
+  }
+  if(method==='PUT'&&/^\/api\/v1\/access\/members\/[^/]+\/role$/.test(pathname)){
+    assertTextField(payload,'role',20,{pattern:/^(?:admin|accountant|approver|readonly)$/});
   }
   if((method==='POST'&&pathname==='/api/v1/customers')||(method==='PUT'&&/^\/api\/v1\/customers\/[^/]+$/.test(pathname))){
     assertTextField(payload,'requestId',200);
