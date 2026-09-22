@@ -1,4 +1,5 @@
 const app=document.getElementById('profile-app');
+const isDemo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 async function api(path,options={}){
@@ -22,6 +23,10 @@ ${security.allowedSessionDurationMinutes.map(minutes=>`<option value="${minutes}
   globalThis.RollandsNavigation?.mount?.();
 }
 async function load(){
+  if(isDemo){
+    app.innerHTML=`<div class="portal"><aside class="sidebar"></aside><section class="main"><header class="topbar"><div><h1>Min profil</h1><p>Demo · inga riktiga kontoinställningar</p></div></header><main class="content"><div class="demo-banner"><b>Demo.</b> Personlig sessionstid ändras endast i den privata portalen efter riktig inloggning.</div><section class="panel" style="padding:22px"><h2>Personlig säkerhet</h2><p>Här kan en riktig användare välja varje gång, 2, 4, 6 eller 8 timmar. Demot sparar inga kontoändringar.</p></section></main></section></div>`;
+    globalThis.RollandsNavigation?.mount?.();return;
+  }
   const session=await api('/session');
   if(!session.authenticated){location.href='./index.html';return}
   const security=await api('/profile/security');
