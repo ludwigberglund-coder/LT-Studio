@@ -72,3 +72,77 @@ test('periodlås och upplåsningsbegäran är idempotenta vid identiska HTTP-ret
     await f.close();
   }
 });
+
+
+test('flera behöriga kräver annan beslutsfattare men ensam kundanvändare kan självupplåsa med ny MFA',async()=>{
+  const f=await fixture();
+  try{
+    const periodMulti='2026-12';
+    const adminHeaders=await f.login(f.admin.username);
+    let response=await fetch(f.base+`/api/v1/accounting/periods/${periodMulti}/lock`,{method:'POST',headers:adminHeaders,body:'{}'});
+    assert.equal(response.status,200);
+    response=await fetch(f.base+`/api/v1/accounting/periods/${periodMulti}/unlock-request`,{method:'POST',headers:adminHeaders,body:JSON.stringify({reason:'Behöver öppna perioden för kontrollerad rättelse'})});
+    assert.equal(response.status,201);
+    const multiRequest=(await response.json()).request;
+
+    const multiPolicy=await (await fetch(f.base+'/api/v1/accounting/unlock-requests?status=pending',{headers:adminHeaders})).json();
+    assert.equal(multiPolicy.unlockPolicy.eligibleCustomerApprovers,2);
+    assert.equal(multiPolicy.unlockPolicy.selfUnlockAllowed,false);
+
+    response=await fetch(f.base+`/api/v1/accounting/unlock-requests/${multiRequest.id}/approve`,{
+      method:'POST',headers:adminHeaders,
+      body:JSON.stringify({reason:'Försök till självbeslut',password:f.PASSWORD,totp:Auth.totpCode(f.MFA)})
+    });
+    assert.equal(response.status,409);
+    assert.equal((await response.json()).code,'SEPARATION_OF_DUTIES_FAILED');
+    assert.equal(Admin.periodStatus(f.db,f.a.id,periodMulti).status,'locked');
+
+    const otherHeaders=await f.login(f.auditor.username);
+    response=await fetch(f.base+`/api/v1/accounting/unlock-requests/${multiRequest.id}/approve`,{
+      method:'POST',headers:otherHeaders,body:JSON.stringify({reason:'Granskad och godkänd av annan behörig'})
+    });
+    assert.equal(response.status,200);
+    assert.equal((await response.json()).selfUnlock,false);
+    assert.equal(Admin.periodStatus(f.db,f.a.id,periodMulti).status,'open');
+
+    const singleCompany=Db.createCompany(f.db,{legalName:'Enmansbolag Test AB',displayName:'Enmansbolag Test',orgNumber:'559900-1999'});
+    const single=Db.createUser(f.db,{username:'single.owner',displayName:'Ensam ägare',passwordHash:Auth.hashPassword(f.PASSWORD),mfaSecretEncrypted:Auth.encryptSecret(f.MFA,'test-only-private-workflows-key-not-for-production-1234')});
+    Db.addMembership(f.db,{companyId:singleCompany.id,userId:single.id,role:'admin'});
+    const singleHeaders=await f.login(single.username);
+    const periodSingle='2026-10';
+
+    response=await fetch(f.base+`/api/v1/accounting/periods/${periodSingle}/lock`,{method:'POST',headers:singleHeaders,body:'{}'});
+    assert.equal(response.status,200);
+    response=await fetch(f.base+`/api/v1/accounting/periods/${periodSingle}/unlock-request`,{method:'POST',headers:singleHeaders,body:JSON.stringify({reason:'Ensam användare behöver fortsätta bokföringen'})});
+    assert.equal(response.status,201);
+    const singleRequest=(await response.json()).request;
+
+    const singlePolicy=await (await fetch(f.base+'/api/v1/accounting/unlock-requests?status=pending',{headers:singleHeaders})).json();
+    assert.equal(singlePolicy.unlockPolicy.eligibleCustomerApprovers,1);
+    assert.equal(singlePolicy.unlockPolicy.selfUnlockAllowed,true);
+
+    response=await fetch(f.base+`/api/v1/accounting/unlock-requests/${singleRequest.id}/approve`,{
+      method:'POST',headers:singleHeaders,
+      body:JSON.stringify({reason:'Verifierad självupplåsning för fortsatt bokföring',password:'fel lösenord',totp:Auth.totpCode(f.MFA)})
+    });
+    assert.equal(response.status,401);
+    assert.equal((await response.json()).code,'REAUTH_PASSWORD_INVALID');
+    assert.equal(Admin.periodStatus(f.db,singleCompany.id,periodSingle).status,'locked');
+
+    response=await fetch(f.base+`/api/v1/accounting/unlock-requests/${singleRequest.id}/approve`,{
+      method:'POST',headers:singleHeaders,
+      body:JSON.stringify({reason:'Verifierad självupplåsning för fortsatt bokföring',password:f.PASSWORD,totp:Auth.totpCode(f.MFA)})
+    });
+    assert.equal(response.status,200);
+    const body=await response.json();
+    assert.equal(body.selfUnlock,true);
+    assert.equal(Admin.periodStatus(f.db,singleCompany.id,periodSingle).status,'open');
+    const audit=Db.auditForCompany(f.db,singleCompany.id).find(event=>event.action==='ACCOUNTING_PERIOD_UNLOCKED'&&event.entityId===periodSingle);
+    assert.ok(audit);
+    assert.equal(audit.details.selfUnlock,true);
+    assert.equal(audit.details.reauthenticated,true);
+    assert.equal(audit.details.eligibleCustomerApprovers,1);
+  }finally{
+    await f.close();
+  }
+});
