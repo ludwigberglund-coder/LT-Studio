@@ -14,7 +14,8 @@ test('runtime scanner blocks dynamic code execution and process primitives',()=>
     ['srcdoc-assignment','frame.'+'srcdoc = userInput'],
     ['string-timeout','set'+'Timeout("doSomething()",100)'],
     ['string-interval','set'+'Interval("doSomething()",100)'],
-    ['javascript-url','href="java'+'script:alert(1)"']
+    ['javascript-url','href="java'+'script:alert(1)"'],
+    ['inline-event-attribute','<img src="x" on'+'error="alert(1)">']
   ];
   for(const [rule,source] of samples){
     assert.ok(findingsInText(source).some(hit=>hit.rule===rule),rule);
