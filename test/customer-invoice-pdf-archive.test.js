@@ -136,7 +136,7 @@ test('delbetald kundfaktura kan helkrediteras med verifierad kundkredit som vän
   assert.equal(credit.original.remainingOre,0);
   assert.equal(credit.original.status,'Krediterad');
 
-  const reconciliation=Reports.receivablesReconciliation(db,co1.id);
+  const reconciliation=Reports.receivablesControl(db,co1.id);
   assert.equal(reconciliation.integrityOk,true);
   assert.equal(reconciliation.differenceOre,0);
 
