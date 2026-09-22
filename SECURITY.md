@@ -94,6 +94,47 @@ Användaruppladdningar är en särskilt känslig attackyta. Följande policy gä
 
 Om stöd för en annan filtyp någon gång behövs ska det behandlas som en ny säkerhetsfunktion med separat threat model, validering, tester och PR. Det får inte införas genom att bara utöka en MIME-lista eller ett HTML `accept`-attribut.
 
+
+## Skydd av `main` i GitHub
+
+`main` är projektets Source of Truth och ska normalt endast ändras via:
+
+`branch -> Pull Request -> obligatorisk CI -> review -> merge`.
+
+Repositoryägaren ska använda ett GitHub Ruleset eller motsvarande branch protection för `main` med följande mål:
+
+- Pull Request krävs före merge.
+- Required status check `test` från workflow `Quality and security checks` måste vara grön.
+- Required status check `CodeQL JavaScript` från workflow `CodeQL security analysis` måste vara grön.
+- Öppna review-konversationer måste vara lösta.
+- Force-push till `main` är blockerad.
+- Radering av `main` är blockerad.
+- PR-branchen ska vara uppdaterad mot senaste `main` före merge när GitHub-stödet för detta används. Detta minskar risken för att en PR mergas på gamla gröna resultat när flera agenter arbetar parallellt.
+- Nya commits efter approval ska göra tidigare approval inaktuellt när reviewkravet används.
+
+Normal utveckling ska fortfarande fungera för behöriga utvecklare genom att skapa branch, pusha till branchen, öppna PR, låta CI köra och därefter merga när reglerna är uppfyllda.
+
+### Admin- och emergency-modell
+
+Reglerna bör gälla även repository-admins i normalt arbete. En generell bypass för alla administratörer ska inte användas.
+
+Om GitHub-planen och ruleset-funktionen tillåter en separat emergency-bypass ska den begränsas till minsta möjliga krets och endast användas vid ett verkligt incidentläge där den normala PR-kedjan inte kan användas. Varje sådan bypass ska dokumenteras i efterhand med orsak, vilka commits som berördes och vilken verifiering som gjordes.
+
+Rulesetet får inte kräva signerade commits så länge den nuvarande ChatGPT/GitHub-integrationen inte konsekvent kan skapa signerade commits. GitHub Pages-deployment ska inte vara en merge-gate.
+
+### Verifiering av rulesetet
+
+Skyddet räknas som färdigt först när GitHub faktiskt visar aktivt skydd och följande har verifierats:
+
+1. en normal PR med grön `test` och `CodeQL JavaScript` kan mergas,
+2. en PR med röd obligatorisk check inte kan mergas,
+3. direkt push till `main` blockeras enligt reglerna,
+4. en PR utan godkänd CodeQL-check inte kan mergas,
+5. beteendet efter ny commit efter approval är kontrollerat,
+6. branch deletion och force-push är blockerade.
+
+Den öppna repository-governance-blockeraren spåras i GitHub issue #226. Issue får inte stängas enbart för att dokumentationen finns; faktisk GitHub-konfiguration och praktiska tester krävs.
+
 ## Supported versions
 
 Projektet är fortfarande i Production Readiness Phase 1. Endast aktuell `main` och uttryckligen godkända release-commits används som säkerhetsreferens. Äldre demo-, legacy- eller featurebrancher ska inte betraktas som supportade driftversioner.
