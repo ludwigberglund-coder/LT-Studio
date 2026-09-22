@@ -19,5 +19,5 @@ test('godkännande visar sann återkoppling innan nästa steg',()=>{
 test('bokförd kundbetalning ersätter gammal godkännandebekräftelse med sann status',()=>{
   assert.match(source,/Kundbetalningen är bokförd/);
   assert.match(source,/Kundbetalningen bokfördes och kundreskontran har uppdaterats/);
-  assert.match(source,/confirmation=\{title:'✓ Kundbetalningen är bokförd'/);
+  assert.match(source,/confirmation=\{title:'Kundbetalningen är bokförd'/);
 });

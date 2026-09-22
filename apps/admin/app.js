@@ -12,6 +12,17 @@ let decisions;
 let accessConfig;
 let draftSite;
 
+const ADMIN_ICONOIR=Object.freeze({
+  overview:'<path d="M9 21H7C4.79086 21 3 19.2091 3 17V10.7076C3 9.30887 3.73061 8.01175 4.92679 7.28679L9.92679 4.25649C11.2011 3.48421 12.7989 3.48421 14.0732 4.25649L19.0732 7.28679C20.2694 8.01175 21 9.30887 21 10.7076V17C21 19.2091 19.2091 21 17 21H15M9 21V17C9 15.3431 10.3431 14 12 14C13.6569 14 15 15.3431 15 17V21M9 21H15"/>',
+  content:'<path d="M4 21.4V2.6C4 2.26863 4.26863 2 4.6 2H16.2515C16.4106 2 16.5632 2.06321 16.6757 2.17574L19.8243 5.32426C19.9368 5.43679 20 5.5894 20 5.74853V21.4C20 21.7314 19.7314 22 19.4 22H4.6C4.26863 22 4 21.7314 4 21.4ZM8 10H16M8 18H16M8 14H12M16 2V5.4C16 5.73137 16.2686 6 16.6 6H20"/>',
+  money:'<path d="M1 21V3C1 1.89543 1.89543 1 3 1H21C22.1046 1 23 1.89543 23 3V21C23 22.1046 22.1046 23 21 23H3C1.89543 23 1 22.1046 1 21ZM15 7H19M15 15.5H19M15 18.5H19M5 7H9M7 5V9M5.58609 18.4142L8.41452 15.5858M5.58609 15.5858L8.41452 18.4142"/>',
+  access:'<path d="M1 20V19C1 15.134 4.13401 12 8 12C11.866 12 15 15.134 15 19V20M13 14C13 11.2386 15.2386 9 18 9C20.7614 9 23 11.2386 23 14V14.5M8 12C10.2091 12 12 10.2091 12 8C12 5.79086 10.2091 4 8 4C5.79086 4 4 5.79086 4 8C4 10.2091 5.79086 12 8 12ZM18 9C19.6569 9 21 7.65685 21 6C21 4.34315 19.6569 3 18 3C16.3431 3 15 4.34315 15 6C15 7.65685 16.3431 9 18 9Z"/>',
+  journal:'<path d="M4 19V5C4 3.89543 4.89543 3 6 3H19.4C19.7314 3 20 3.26863 20 3.6V16.7143M6 17H20M6 21H20M6 21C4.89543 21 4 20.1046 4 19C4 17.8954 4.89543 17 6 17M9 7H15"/>',
+  modules:'<path d="M20 6V18C20 19.1046 19.1046 20 18 20H6C4.89543 20 4 19.1046 4 18V6C4 4.89543 4.89543 4 6 4H18C19.1045 4 20 4.89543 20 6ZM12 9V4"/>',
+  decisions:'<path d="M7 12.5L10 15.5L17 8.5M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"/>'
+});
+function adminIcon(name){return `<span class="ui-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" focusable="false">${ADMIN_ICONOIR[name]||ADMIN_ICONOIR.content}</svg></span>`}
+
 function currentView() {
   const match = location.hash.match(/^#\/([a-z-]+)/);
   return match ? match[1] : 'overview';
@@ -24,8 +35,8 @@ function statusClass(tone) {
 function navigation(view) {
   return adminContent.navigation.map(item => `
     <a class="nav-item ${view === item.id ? 'active' : ''}" href="#/${escapeHtml(item.id)}">
-      <span>${escapeHtml(item.symbol)}</span>
-      ${escapeHtml(item.label)}
+      ${adminIcon(item.id)}
+      <span>${escapeHtml(item.label)}</span>
     </a>
   `).join('');
 }
@@ -175,7 +186,7 @@ function modulesView() {
       </div>
       <h2>${escapeHtml(module.title)}</h2>
       <p>${escapeHtml(module.description)}</p>
-      ${module.href !== '#' ? `<a href="${escapeHtml(safeHref(module.href))}" ${module.href.startsWith('#') ? '' : 'target="_blank"'}>Öppna modul →</a>` : '<span class="disabled-link">Inte aktiverad ännu</span>'}
+      ${module.href !== '#' ? `<a href="${escapeHtml(safeHref(module.href))}" ${module.href.startsWith('#') ? '' : 'target="_blank"'}>Öppna modul</a>` : '<span class="disabled-link">Inte aktiverad ännu</span>'}
     </article>
   `).join('');
   return layout('modules', 'Systemmoduler', 'Varje verksamhetsområde byggs som en avgränsad modul med egna regler och tester.', `<section class="module-grid">${modules}</section>`);
