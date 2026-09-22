@@ -339,13 +339,13 @@ function companyDetailView(detail){
 }
 function render(){if(selectedCompany)return companyDetailView(selectedCompany);if(view==='companies')return companiesView();if(view==='statistics')return statisticsView();if(view==='security')return securityView();return overviewView()}
 async function loadData(){
-  const [o,r,s,a]=await Promise.all([
+  const [o,r,s]=await Promise.all([
     api('/overview'),
     api('/readiness').catch(err=>err.data&&typeof err.data==='object'?err.data:{ok:false,error:err.message,checks:{}}),
-    api('/security-events?limit=100'),
-    api('/operator-audit?limit=100').catch(err=>({events:[],unavailable:true,error:err.message}))
+    api('/security-events?limit=100')
   ]);
-  overview=o;readiness=r;security=s;operatorAudit=a;
+  overview=o;readiness=r;security=s;
+  operatorAudit=await api('/operator-audit?limit=100').catch(err=>({events:[],unavailable:true,error:err.message,code:err.code||'',status:err.status||0}));
 }
 async function openCompany(id){errorMessage='';try{selectedCompany=await api('/companies/'+encodeURIComponent(id));render()}catch(error){errorMessage=error.message;selectedCompany=null;render()}}
 async function reloadSelectedCompanyOverview(){
