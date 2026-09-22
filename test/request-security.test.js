@@ -145,3 +145,15 @@ test('GET och HEAD avvisar request-body',async()=>{
     error=>error?.code==='UNEXPECTED_REQUEST_BODY'&&error?.statusCode===400
   );
 });
+
+
+test('periodupplåsning har strikt schema för återautentisering',()=>{
+  const approve=request('/api/v1/accounting/unlock-requests/request-1/approve',{method:'POST'});
+  assert.doesNotThrow(()=>Security.validateJsonInput(approve,{reason:'Kontrollerad självupplåsning',password:'Starkt1!',totp:'123456'}));
+  assert.throws(()=>Security.validateJsonInput(approve,{reason:'Kontrollerad självupplåsning',password:'Starkt1!',totp:'12345'}),{code:'INVALID_INPUT_FORMAT'});
+  assert.throws(()=>Security.validateJsonInput(approve,{reason:'Kontrollerad självupplåsning',password:'Starkt1!',totp:'123456',admin:true}),{code:'UNEXPECTED_FIELDS'});
+
+  const reject=request('/api/v1/accounting/unlock-requests/request-1/reject',{method:'POST'});
+  assert.doesNotThrow(()=>Security.validateJsonInput(reject,{reason:'Begäran avslås efter kontroll'}));
+  assert.throws(()=>Security.validateJsonInput(reject,{reason:'Begäran avslås efter kontroll',password:'ska inte tillåtas'}),{code:'UNEXPECTED_FIELDS'});
+});

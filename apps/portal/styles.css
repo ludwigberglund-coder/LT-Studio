@@ -14,3 +14,4 @@
 .shared-user-dropdown a:hover,.shared-user-dropdown button:hover{background:#f3f5f2}
 .shared-user-dropdown button{color:var(--danger)}
 @media(max-width:720px){.shared-user-label small{display:none}.shared-user-trigger{padding:4px}}
+.unlock-self-row{align-items:flex-start}.unlock-self-row>div:first-child{min-width:0}.unlock-self-row .notice-box{margin:12px 0}.self-unlock-form{margin-top:12px;max-width:560px}.self-unlock-form label{display:grid;gap:6px}.self-unlock-form input,.self-unlock-form textarea{width:100%}

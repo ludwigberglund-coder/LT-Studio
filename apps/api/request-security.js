@@ -211,7 +211,8 @@ const BODY_RULES=Object.freeze([
   ['POST',/^\/api\/v1\/accounting\/opening-migration\/import$/,new Set(['confirmImport','year','postingDate','lines','receivables','payables'])],
   ['POST',/^\/api\/v1\/accounting\/opening-balances\/(?:19|20|21)\d{2}$/,new Set(['postingDate','lines'])],
   ['POST',/^\/api\/v1\/accounting\/periods\/\d{4}-\d{2}\/unlock-request$/,new Set(['reason'])],
-  ['POST',/^\/api\/v1\/accounting\/unlock-requests\/[^/]+\/(?:approve|reject)$/,new Set(['reason'])],
+  ['POST',/^\/api\/v1\/accounting\/unlock-requests\/[^/]+\/approve$/,new Set(['reason','password','totp'])],
+  ['POST',/^\/api\/v1\/accounting\/unlock-requests\/[^/]+\/reject$/,new Set(['reason'])],
   ['POST',/^\/api\/v1\/payables\/suppliers$/,new Set(['supplierNumber','name','orgNumber','email','bankgiro','plusgiro','defaultCostAccount'])],
   ['POST',/^\/api\/v1\/payables\/invoices$/,new Set(['supplierId','supplierInvoiceNumber','invoiceDate','dueDate','totalOre','vatOre','currency','vatTreatment'])],
   ['PUT',/^\/api\/v1\/payables\/invoices\/[^/]+\/coding$/,new Set(['lines'])],
@@ -470,6 +471,14 @@ function assertPrimitiveTypes(req,payload){
     for(const field of ['includeReminderFee','includeInterest','includeBusinessLatePaymentCompensation']){
       if(payload[field]!==undefined&&typeof payload[field]!=='boolean')throw securityError(`${field} måste vara true eller false.`,'INVALID_INPUT_TYPE',422);
     }
+  }
+  if(method==='POST'&&/^\/api\/v1\/accounting\/unlock-requests\/[^/]+\/approve$/.test(pathname)){
+    assertTextField(payload,'reason',500);
+    assertTextField(payload,'password',256);
+    assertTextField(payload,'totp',6,{pattern:/^\d{6}$/});
+  }
+  if(method==='POST'&&/^\/api\/v1\/accounting\/unlock-requests\/[^/]+\/reject$/.test(pathname)){
+    assertTextField(payload,'reason',500);
   }
   if(method==='POST'&&/^\/api\/v1\/customer-invoices\/[^/]+\/credit$/.test(pathname)){
     assertTextField(payload,'requestId',100);
