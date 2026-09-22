@@ -1,6 +1,8 @@
 'use strict';
 
 const crypto=require('node:crypto');
+const fs=require('node:fs');
+const path=require('node:path');
 const Auth=require('./auth.js');
 const OperatorAuth=require('./operator-auth.js');
 const Db=require('./database.js');
@@ -8,6 +10,31 @@ const RequestSecurity=require('./request-security.js');
 const {platformOverview}=require('./platform-overview.js');
 
 const BODY_LIMIT=64*1024;
+const ACCESS_CONFIG=JSON.parse(fs.readFileSync(path.join(__dirname,'..','..','config','access-control.json'),'utf8'));
+const CUSTOMER_ROLES=Object.freeze(ACCESS_CONFIG.roles.map(role=>Object.freeze({id:role.id,label:role.label,description:role.description})));
+const BASE32_ALPHABET='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+function base32Encode(bytes){
+  let bits='',output='';
+  for(const byte of bytes)bits+=byte.toString(2).padStart(8,'0');
+  for(let index=0;index<bits.length;index+=5){
+    const chunk=bits.slice(index,index+5).padEnd(5,'0');
+    output+=BASE32_ALPHABET[parseInt(chunk,2)];
+  }
+  return output;
+}
+function createMfaSecret(){return base32Encode(crypto.randomBytes(20))}
+function publicUser(member){
+  return {
+    id:member.userId||member.id,
+    username:member.username,
+    displayName:member.displayName,
+    role:member.role,
+    disabled:Boolean(member.disabled),
+    sessionDurationMinutes:member.sessionDurationMinutes??480,
+    createdAt:member.createdAt||null
+  };
+}
 
 function operatorError(message,code='OPERATOR_API_ERROR',statusCode=400){
   const error=new Error(message);error.code=code;error.statusCode=statusCode;return error;
@@ -195,6 +222,73 @@ function createOperatorRouter(options={}){
         const events=Db.securityEvents(db,{limit}).map(event=>({kind:event.kind,severity:event.severity,createdAt:event.createdAt}));
         send(res,200,{events});return true;
       }
+
+      const companyUsersMatch=url.pathname.match(/^\/api\/operator\/v1\/companies\/([^/]+)\/users$/);
+      if(companyUsersMatch&&req.method==='GET'){
+        const companyId=decodeURIComponent(companyUsersMatch[1]);
+        const company=Db.companyById(db,companyId);
+        if(!company)throw operatorError('Företaget hittades inte.','OPERATOR_COMPANY_NOT_FOUND',404);
+        const members=Db.membershipsForCompany(db,companyId).map(member=>({
+          ...publicUser(member),
+          sessionDurationMinutes:Db.userById(db,member.userId)?.sessionDurationMinutes??480
+        }));
+        send(res,200,{company,users:members,roles:CUSTOMER_ROLES,passwordRequirements:Auth.PASSWORD_REQUIREMENTS});return true;
+      }
+      if(companyUsersMatch&&req.method==='POST'){
+        const companyId=decodeURIComponent(companyUsersMatch[1]);
+        const company=Db.companyById(db,companyId);
+        if(!company)throw operatorError('Företaget hittades inte.','OPERATOR_COMPANY_NOT_FOUND',404);
+        const payload=await readJson(req,res);if(!payload)return true;
+        const username=Auth.normalizeUsername(payload.username);
+        const displayName=String(payload.displayName||'').trim();
+        if(displayName.length<2||displayName.length>160)throw operatorError('Namnet måste vara mellan 2 och 160 tecken.','INVALID_DISPLAY_NAME',422);
+        if(Db.userByUsername(db,username))throw operatorError('Användarnamnet används redan. Välj ett annat användarnamn.','USERNAME_ALREADY_EXISTS',409);
+        const role=Db.membershipRole(payload.role||'readonly');
+        const sessionDurationMinutes=Db.normalizeSessionDuration(payload.sessionDurationMinutes===undefined?480:payload.sessionDurationMinutes);
+        const passwordHash=Auth.hashPassword(payload.password);
+        if(!authEncryptionKey)throw operatorError('Serverns krypteringsnyckel saknas. Kontot kan inte skapas säkert.','OPERATOR_MFA_SERVER_NOT_CONFIGURED',503);
+        const mfaSecret=createMfaSecret();
+        const encryptedMfa=Auth.encryptSecret(mfaSecret,authEncryptionKey);
+        let user;
+        Db.transaction(db,()=>{
+          user=Db.createUser(db,{username,displayName,passwordHash,mfaSecretEncrypted:encryptedMfa,sessionDurationMinutes});
+          Db.addMembership(db,{companyId,userId:user.id,role});
+          Db.appendAudit(db,{companyId,userId:null,action:'USER_CREATED_BY_LT_STUDIO',entityType:'user',entityId:user.id,details:{username,displayName,role,operatorId:session.operatorId}});
+          Db.appendPlatformOperatorAudit(db,{operatorId:session.operatorId,action:'CUSTOMER_USER_CREATED',details:{companyId,userId:user.id,role}});
+        });
+        send(res,201,{user:{id:user.id,username:user.username,displayName:user.displayName,role,disabled:false,sessionDurationMinutes:user.sessionDurationMinutes},mfaSecret,passwordRequirements:Auth.PASSWORD_REQUIREMENTS});return true;
+      }
+
+      const companyUserMatch=url.pathname.match(/^\/api\/operator\/v1\/companies\/([^/]+)\/users\/([^/]+)$/);
+      if(companyUserMatch&&req.method==='PUT'){
+        const companyId=decodeURIComponent(companyUserMatch[1]),userId=decodeURIComponent(companyUserMatch[2]);
+        const company=Db.companyById(db,companyId);
+        if(!company)throw operatorError('Företaget hittades inte.','OPERATOR_COMPANY_NOT_FOUND',404);
+        const membership=Db.membership(db,companyId,userId);
+        if(!membership)throw operatorError('Användaren finns inte i företaget.','OPERATOR_USER_NOT_FOUND',404);
+        const payload=await readJson(req,res);if(!payload)return true;
+        const action=String(payload.action||'');
+        let user=Db.userById(db,userId),updatedMembership=membership;
+        Db.transaction(db,()=>{
+          if(action==='role'){
+            updatedMembership=Db.setMembershipRole(db,{companyId,userId,role:payload.role});
+            Db.deleteSessionsForUser(db,userId);
+          }else if(action==='password'){
+            Db.updateUserPasswordHash(db,{userId,passwordHash:Auth.hashPassword(payload.password)});
+            Db.deleteSessionsForUser(db,userId);
+          }else if(action==='status'){
+            user=Db.setUserDisabled(db,{userId,disabled:payload.disabled===true});
+            Db.deleteSessionsForUser(db,userId);
+          }else{
+            throw operatorError('Ogiltig användaråtgärd.','INVALID_OPERATOR_USER_ACTION',422);
+          }
+          Db.appendAudit(db,{companyId,userId:null,action:'USER_MANAGED_BY_LT_STUDIO',entityType:'user',entityId:userId,details:{action,role:updatedMembership.role,disabled:Boolean(user?.disabled),operatorId:session.operatorId,sessionsRevoked:true}});
+          Db.appendPlatformOperatorAudit(db,{operatorId:session.operatorId,action:'CUSTOMER_USER_MANAGED',details:{companyId,userId,action}});
+        });
+        user=Db.userById(db,userId);
+        send(res,200,{user:{id:user.id,username:user.username,displayName:user.displayName,role:updatedMembership.role,disabled:Boolean(user.disabled),sessionDurationMinutes:user.sessionDurationMinutes},sessionsRevoked:true});return true;
+      }
+
       send(res,404,{error:'Hittades inte.',code:'OPERATOR_NOT_FOUND'});return true;
     }catch(error){
       const status=Number(error.statusCode||500);
