@@ -275,7 +275,7 @@
           "label": "Upplåst av"
         }
       ],
-      "reason": "Upplåsning av en stängd period kräver en separat kontrollperson och ska alltid loggas."
+      "reason": "Upplåsning av en stängd period kräver normalt en separat kontrollperson och ska alltid loggas. Om företaget bara har en aktiv kundanvändare med upplåsningsbehörighet får samma person godkänna sin egen begäran först efter ny lösenords- och MFA-verifiering."
     },
     {
       "id": "inventory-adjustment",

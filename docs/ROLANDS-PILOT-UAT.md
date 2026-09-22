@@ -79,11 +79,12 @@ Efter grön driftkedja och grön UAT skapas ett gemensamt signoffbevis med `npm 
 2. Försök bokföra en ekonomisk post i den låsta perioden.
 3. Verifiera att bokföringen stoppas och att ingen halvfärdig data har skapats.
 4. Begär upplåsning enligt befintlig process.
-5. Godkänn upplåsningen med en annan behörig person där fyrögonprincip krävs.
-6. Kontrollera historiken över låsning och upplåsning.
-7. Bokför därefter den avsedda testposten.
+5. Om företaget har flera aktiva användare med `period.unlock`: låt en annan behörig användare godkänna eller avslå begäran.
+6. Om företaget bara har en aktiv kundanvändare med `period.unlock`: verifiera att självupplåsning kräver nytt lösenord, aktuell MFA-kod och beslutsorsak.
+7. Kontrollera audit-historiken och att den visar om upplåsningen var vanlig fyrögonupplåsning eller verifierad självupplåsning.
+8. Bokför därefter den avsedda testposten.
 
-**Godkänt när:** låst period verkligen blockerar bokföring och upplåsningen är spårbar.
+**Godkänt när:** låst period verkligen blockerar bokföring, ingen halvfärdig post skapas och upplåsningen är spårbar. Fleranvändarföretag kräver separat beslutsfattare; enmansföretag kan arbeta självständigt men endast efter förstärkt verifiering.
 
 ## Scenario E – dubbeltryck/idempotens
 
