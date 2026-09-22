@@ -95,6 +95,8 @@ jobs:
         run: node test/menu-invoice-browser.cjs
       - name: Run private API PDF and CMS browser flows
         run: xvfb-run -a node test/private-workflows-browser.cjs
+      - name: Run customer credit and refund browser flow
+        run: node test/customer-credit-refund-browser.cjs
       - name: Run LT operator admin browser flow
         run: npm run test:browser:operator
       - name: Run opening balance browser flow
