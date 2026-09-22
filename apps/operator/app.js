@@ -6,6 +6,43 @@ function esc(value=''){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp
 function initials(name='LT'){return String(name).trim().split(/\s+/).filter(Boolean).map(part=>part[0]).join('').slice(0,2).toUpperCase()||'LT'}
 function dateTime(value){if(!value)return '—';const d=new Date(value);return Number.isNaN(d.getTime())?'—':new Intl.DateTimeFormat('sv-SE',{dateStyle:'short',timeStyle:'short'}).format(d)}
 function roleLabel(role){return({admin:'Admin',accountant:'Ekonom',approver:'Attestant',readonly:'Läsbehörighet'})[role]||role}
+function num(value){return new Intl.NumberFormat('sv-SE').format(Number(value||0))}
+function clamp(value,min=0,max=100){return Math.min(max,Math.max(min,Number(value)||0))}
+function percent(part,total){return total?Math.round((Number(part||0)/Number(total))*100):0}
+function toneForPercent(value){const score=clamp(value);return score>=80?'ok':score>=55?'warning':'critical'}
+function readinessScore(){
+  const checks=readiness?.checks&&typeof readiness.checks==='object'?Object.values(readiness.checks).filter(value=>typeof value==='boolean'):[];
+  if(!checks.length)return 0;
+  return Math.round(checks.filter(Boolean).length/checks.length*100);
+}
+function ringGauge(value,label,caption,tone=toneForPercent(value)){
+  const pct=clamp(value),circumference=301.593,filled=(circumference*pct/100).toFixed(2),rest=(circumference-(circumference*pct/100)).toFixed(2);
+  return `<div class="ring-gauge"><div class="ring-visual"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="ring-track" cx="60" cy="60" r="48"></circle><circle class="ring-value ${esc(tone)}" cx="60" cy="60" r="48" stroke-dasharray="${filled} ${rest}" transform="rotate(-90 60 60)"></circle></svg><div class="ring-center"><strong>${pct}%</strong><span>${esc(label)}</span></div></div><p>${esc(caption)}</p></div>`;
+}
+function sparkline(items,key){
+  const values=(items||[]).map(item=>Number(item?.[key]||0));
+  const width=520,height=150,pad=14,max=Math.max(1,...values),step=values.length>1?(width-pad*2)/(values.length-1):0;
+  const points=values.map((value,index)=>`${(pad+index*step).toFixed(1)},${(height-pad-(value/max)*(height-pad*2)).toFixed(1)}`).join(' ');
+  const dots=values.map((value,index)=>{const x=(pad+index*step).toFixed(1),y=(height-pad-(value/max)*(height-pad*2)).toFixed(1);return `<circle cx="${x}" cy="${y}" r="4"></circle>`}).join('');
+  return `<svg class="sparkline" viewBox="0 0 ${width} ${height}" role="img" aria-label="Trend"><line x1="${pad}" y1="${height-pad}" x2="${width-pad}" y2="${height-pad}"></line><polyline points="${points}"></polyline>${dots}</svg>`;
+}
+function miniBars(companies,key,label){
+  const sorted=[...(companies||[])].sort((a,b)=>Number(b[key]||0)-Number(a[key]||0)).slice(0,7);
+  const max=Math.max(1,...sorted.map(item=>Number(item[key]||0)));
+  if(!sorted.length)return '<div class="empty">Ingen statistik ännu.</div>';
+  return `<div class="bar-list">${sorted.map((item)=>`<div class="bar-row"><div><strong>${esc(item.displayName)}</strong><span>${num(item[key])} ${esc(label)}</span></div><meter min="0" max="${max}" value="${Number(item[key]||0)}"></meter></div>`).join('')}</div>`;
+}
+function roleBars(){
+  const roles=overview?.roleDistribution||{},total=Object.values(roles).reduce((sum,value)=>sum+Number(value||0),0),max=Math.max(1,...Object.values(roles).map(Number));
+  return ['admin','accountant','approver','readonly'].map(role=>`<div class="role-row"><div><strong>${roleLabel(role)}</strong><span>${num(roles[role])} · ${percent(roles[role],total)}%</span></div><meter min="0" max="${max}" value="${Number(roles[role]||0)}"></meter></div>`).join('');
+}
+function kpiCard(label,value,caption,detail='')}
+  return `<article class="metric"><div class="metric-top"><span>${esc(label)}</span>${detail?`<em>${esc(detail)}</em>`:''}</div><strong>${esc(value)}</strong><small>${esc(caption)}</small></article>`;
+}
+function trendCard(title,description,key,totalLabel){
+  const months=overview?.monthly||[],total=months.reduce((sum,item)=>sum+Number(item[key]||0),0);
+  return `<article class="chart-card"><div class="chart-head"><div><span class="eyebrow">6 MÅNADER</span><h3>${esc(title)}</h3><p>${esc(description)}</p></div><div class="chart-total"><strong>${num(total)}</strong><span>${esc(totalLabel)}</span></div></div>${sparkline(months,key)}<div class="chart-axis">${months.map(item=>`<span>${esc(item.label)}</span>`).join('')}</div></article>`;
+}
 async function api(path,options={}){
   const headers={Accept:'application/json',...(options.headers||{})};
   const response=await fetch('/api/operator/v1'+path,{credentials:'same-origin',...options,headers});
