@@ -94,6 +94,42 @@ Användaruppladdningar är en särskilt känslig attackyta. Följande policy gä
 
 Om stöd för en annan filtyp någon gång behövs ska det behandlas som en ny säkerhetsfunktion med separat threat model, validering, tester och PR. Det får inte införas genom att bara utöka en MIME-lista eller ett HTML `accept`-attribut.
 
+
+## Skydd av `main` i GitHub
+
+`main` är projektets Source of Truth och ska normalt endast ändras via:
+
+`branch -> Pull Request -> obligatorisk CI -> review -> merge`.
+
+Repositoryt använder rulesetet `Protect main` för default branch. Rulesetet ska minst säkerställa:
+
+- Pull Request krävs före merge.
+- Required status check `test` från workflow `Quality and security checks` måste vara grön.
+- Required status check `CodeQL JavaScript` från workflow `CodeQL security analysis` måste vara grön.
+- Öppna review-konversationer måste vara lösta.
+- Force-push till `main` är blockerad.
+- Radering av `main` är blockerad.
+- PR-branchen måste vara uppdaterad mot senaste `main` före merge.
+- Nya commits ska göra tidigare approval inaktuellt enligt stale-review-reglerna.
+
+Normal utveckling fortsätter genom att skapa branch, pusha till branchen, öppna PR, låta CI köra och därefter merga när reglerna är uppfyllda.
+
+### Admin- och emergency-modell
+
+Rulesetet har ingen normal bypass. Administratörer följer därför samma branch -> PR -> CI -> merge-flöde i normalt arbete.
+
+Om ett framtida emergency-bypass införs ska det begränsas till minsta möjliga krets och varje faktisk användning dokumenteras i efterhand med orsak, berörda commits och verifiering.
+
+Rulesetet kräver inte signerade commits och GitHub Pages är inte en merge-gate.
+
+### Verifiering
+
+Rulesetet aktiverades och verifierades 2026-09-22. GitHub rapporterade då `main protected: true` och rulesetet `Protect main` som `active`.
+
+Ett separat negativt test genomfördes i PR #438 med medvetet ogiltig JavaScript-syntax. Den obligatoriska checken `test` blev `failure`; PR:n mergades inte och stängdes efter verifieringen.
+
+Den centrala repository-governance-spårningen finns i issue #226.
+
 ## Supported versions
 
 Projektet är fortfarande i Production Readiness Phase 1. Endast aktuell `main` och uttryckligen godkända release-commits används som säkerhetsreferens. Äldre demo-, legacy- eller featurebrancher ska inte betraktas som supportade driftversioner.
