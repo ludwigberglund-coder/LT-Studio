@@ -78,22 +78,35 @@ function createOperatorRouter(options={}){
     const identity=`${requestIp(req)}|${String(username||'').toLocaleLowerCase('sv')}`;
     return crypto.createHash('sha256').update('lt-operator-login-v1|'+identity).digest('hex');
   }
+  function loginAccountKey(username){
+    const identity=String(username||'').toLocaleLowerCase('sv');
+    return crypto.createHash('sha256').update('lt-operator-login-account-v1|'+identity).digest('hex');
+  }
   function loginBlocked(req,username){
-    const state=Db.loginAttemptState(db,{keyHash:loginKey(req,username)});
-    return Boolean(state&&state.failureCount>=5);
+    const scoped=Db.loginAttemptState(db,{keyHash:loginKey(req,username)});
+    const account=Db.loginAttemptState(db,{keyHash:loginAccountKey(username)});
+    return Boolean((scoped&&scoped.failureCount>=5)||(account&&account.failureCount>=10));
   }
   function noteLoginFailure(req,username){
-    const keyHash=loginKey(req,username);let state;
+    const scopedKeyHash=loginKey(req,username),accountKeyHash=loginAccountKey(username);
+    let scopedState,accountState;
     Db.transaction(db,()=>{
-      state=Db.noteLoginFailure(db,{keyHash,windowMinutes:15});
-      if(state.failureCount===5)Db.appendSecurityEvent(db,{
+      scopedState=Db.noteLoginFailure(db,{keyHash:scopedKeyHash,windowMinutes:15});
+      accountState=Db.noteLoginFailure(db,{keyHash:accountKeyHash,windowMinutes:15});
+      if(scopedState.failureCount===5)Db.appendSecurityEvent(db,{
         kind:'OPERATOR_LOGIN_FAILURE_THRESHOLD',
         severity:'critical',
-        fingerprintHash:keyHash,
-        details:{failureCount:state.failureCount,windowMinutes:15,retryAfterSeconds:900}
+        fingerprintHash:scopedKeyHash,
+        details:{scope:'ip-user',failureCount:scopedState.failureCount,windowMinutes:15,retryAfterSeconds:900}
+      });
+      if(accountState.failureCount===10)Db.appendSecurityEvent(db,{
+        kind:'OPERATOR_ACCOUNT_LOGIN_FAILURE_THRESHOLD',
+        severity:'critical',
+        fingerprintHash:accountKeyHash,
+        details:{scope:'user',failureCount:accountState.failureCount,windowMinutes:15,retryAfterSeconds:900}
       });
     });
-    return state;
+    return{scopedState,accountState};
   }
   function currentSession(req){
     const token=OperatorAuth.operatorTokenFromRequest(req);
@@ -137,6 +150,7 @@ function createOperatorRouter(options={}){
       Db.appendPlatformOperatorAudit(db,{operatorId:operator.id,action:'OPERATOR_SESSION_LOGIN',details:{sessionIdleMinutes,sessionMaxMinutes,mfaRequired:true}});
     });
     Db.clearLoginAttempts(db,loginKey(req,username));
+    Db.clearLoginAttempts(db,loginAccountKey(username));
     return send(res,200,{authenticated:true,csrfToken,operator:{id:operator.id,username:operator.username,displayName:operator.displayName}},
       {'Set-Cookie':OperatorAuth.operatorSessionCookie(sessionToken,{secure:secureCookies,maxAgeSeconds:sessionMaxMinutes*60})});
   }
