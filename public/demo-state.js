@@ -1,7 +1,7 @@
 /* Startdata used when den statiska Sites-förhandsvisningen saknar lokal API-server. */
 window.ROLLANDS_DEMO = {
   schemaVersion: 4,
-  business: { name: 'Demo Handel AB', displayName: 'Demo Saluhall', orgNumber: '559999-0000', address: 'Exempelgatan 1, 411 00 Göteborg', phone: '031-000 00 00', email: 'kontakt@demo.example.invalid', vatNumber: 'SE559999000001', registeredOffice: 'Göteborg', invoiceContact: 'Demo Referens', paymentAccount: 'Demo bankkonto – ej betalning', sni: '47210 – Detaljhandel med frukt och grönsaker' },
+  business: { name: 'Demo Handel AB', displayName: 'Demo Saluhall', orgNumber: '000000-0000', address: 'Exempelgatan 1, 411 00 Göteborg', phone: '031-000 00 00', email: 'kontakt@demo.example.invalid', vatNumber: 'SE000000000001', registeredOffice: 'Göteborg', invoiceContact: 'Demo Referens', paymentAccount: 'Demo bankkonto – ej betalning', sni: '47210 – Detaljhandel med frukt och grönsaker' },
   settings: { fiscalYear: '2026-01-01 – 2026-12-31', bankAccount: '1930 Företagskonto', emailInbox: 'fakturor@demo.example.invalid', aiAutoBookLimit: 0.92 },
   invoices: [
     { id:'demo_i1', number:'2026-1101', customerNumber:'K-2001', customer:'Västra Hamnen Logistik AB', address:'Hamngatan 4, 411 14 Göteborg', reference:'Företagsfrukt september', ourContact:'Demo Referens', date:'2026-09-04', dueDate:'2026-10-04', total:5000, net:4000, vat:1000, status:'Bokförd', paid:false, payments:[{id:'demo_p1',amount:2500,date:'2026-09-12',method:'Bank',reference:'HB-DEMO-1101',journalNumber:'A100'}] },
