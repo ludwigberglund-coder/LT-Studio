@@ -104,7 +104,8 @@ function parseCookies(header) {
 }
 
 function sessionCookie(token, {secure = true, maxAgeSeconds = 8 * 60 * 60} = {}) {
-  return `rollands_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAgeSeconds}${secure ? '; Secure' : ''}`;
+  const age=maxAgeSeconds===null?'':`; Max-Age=${Math.max(0,Math.floor(Number(maxAgeSeconds)||0))}`;
+  return `rollands_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/${age}${secure ? '; Secure' : ''}`;
 }
 
 function clearSessionCookie({secure = true} = {}) {
