@@ -42,3 +42,14 @@ test('PDF upload security enforces the 10 MB ceiling',()=>{
   Buffer.from('%PDF-').copy(bytes,0);
   assert.throws(()=>PdfSecurity.assertSafePdf(bytes,{fileName:'stor.pdf'}),e=>e.code==='DOCUMENT_TOO_LARGE'&&e.statusCode===413);
 });
+
+test('PDF upload security rejects undersized and truncated pseudo-PDFs',()=>{
+  assert.throws(()=>PdfSecurity.assertSafePdf(Buffer.from('%PDF-1.4\n%%EOF','latin1'),{fileName:'for-liten.pdf'}),e=>e.code==='DOCUMENT_TOO_SMALL'&&e.statusCode===415);
+  const truncated=Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\n','latin1');
+  assert.throws(()=>PdfSecurity.assertSafePdf(truncated,{fileName:'avhuggen.pdf'}),e=>e.code==='INVALID_PDF_EOF'&&e.statusCode===415);
+});
+
+test('PDF upload security accepts trailing PDF whitespace after EOF',()=>{
+  const bytes=Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\n%%EOF\n\r\t ','latin1');
+  assert.deepEqual(PdfSecurity.assertSafePdf(bytes,{fileName:'faktura.pdf'}),{sizeBytes:bytes.length});
+});
