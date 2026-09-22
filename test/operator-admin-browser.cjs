@@ -106,7 +106,7 @@ const out=path.join(__dirname,'..','test-artifacts');
     assert.match(securityBody,/Administratörslogg/);
     assert.match(securityBody,/Behörighet ändrades/);
     assert.match(securityBody,/Läsbehörighet → Ekonom/);
-    assert.match(securityBody,/Senaste bevis/);
+    assert.match(await page.locator('.security-check-table thead').textContent(),/Senaste bevis/);
     assert.doesNotMatch(securityBody,/LOGIN FAILURE THRESHOLD|never-in-ui|never-in-ui-either|never-in-ui-audit|cccccccc|dddddddd/);
 
     const severityFilter=page.locator('[data-security-severity]');
