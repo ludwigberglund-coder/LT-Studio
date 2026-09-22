@@ -237,10 +237,19 @@ function createOperatorRouter(options={}){
         if(!Db.companyById(db,companyId))throw operatorError('Kundföretaget hittades inte.','COMPANY_NOT_FOUND',404);
         const payload=await readJson(req,res);if(!payload)return true;
         const username=Auth.normalizeUsername(payload.username);
-        if(Db.userByUsername(db,username))throw operatorError('Det finns redan en användare med det användarnamnet.','USERNAME_EXISTS',409);
+        const role=Db.membershipRole(payload.role||'readonly');
+        const existing=Db.userByUsername(db,username);
+        if(existing){
+          if(existing.disabled)throw operatorError('Det befintliga användarkontot är inaktiverat. Aktivera kontot innan det kopplas till fler företag.','USER_DISABLED',409);
+          if(Db.membership(db,companyId,existing.id))throw operatorError('Användaren har redan åtkomst till kundföretaget.','MEMBERSHIP_EXISTS',409);
+          Db.transaction(db,()=>{
+            Db.addMembership(db,{companyId,userId:existing.id,role});
+            Db.appendPlatformOperatorAudit(db,{operatorId:session.operatorId,action:'CUSTOMER_EXISTING_USER_ADDED',details:{companyId,userId:existing.id,role}});
+          });
+          send(res,201,{created:false,linkedExisting:true,userId:existing.id,username:existing.username,displayName:existing.displayName,role,mfaSecret:null});return true;
+        }
         const displayName=String(payload.displayName||'').trim();
         if(displayName.length<2||displayName.length>120)throw operatorError('Användarens namn måste vara 2–120 tecken.','INVALID_DISPLAY_NAME',422);
-        const role=Db.membershipRole(payload.role||'readonly');
         const mfaSecret=base32Encode(crypto.randomBytes(20));
         const userId=Db.transaction(db,()=>{
           const user=Db.createUser(db,{
@@ -251,7 +260,7 @@ function createOperatorRouter(options={}){
           Db.appendPlatformOperatorAudit(db,{operatorId:session.operatorId,action:'CUSTOMER_USER_CREATED',details:{companyId,userId:user.id,role}});
           return user.id;
         });
-        send(res,201,{created:true,userId,username,role,mfaSecret});return true;
+        send(res,201,{created:true,linkedExisting:false,userId,username,displayName,role,mfaSecret});return true;
       }
       const memberRoleMatch=url.pathname.match(/^\/api\/operator\/v1\/companies\/([^/]+)\/users\/([^/]+)\/role$/);
       if(req.method==='PUT'&&memberRoleMatch){
