@@ -13,6 +13,8 @@ test('plattformsoverview listar företag och aggregerad säkerhet utan affärsde
     const b=Db.createCompany(db,{legalName:'Beta Mat AB',displayName:'Beta Mat',orgNumber:'559900-7002'});
     const user=Db.createUser(db,{username:'operator-overview-member',displayName:'Översiktsmedlem',passwordHash:'test-only'});
     Db.addMembership(db,{companyId:a.id,userId:user.id});
+    const disabledUser=Db.createUser(db,{username:'operator-overview-disabled',displayName:'Inaktiv medlem',passwordHash:'test-only',disabled:true});
+    Db.addMembership(db,{companyId:b.id,userId:disabledUser.id,role:'readonly'});
     const token=Auth.randomToken(),csrf=Auth.randomToken();
     Db.createSession(db,{tokenHash:Auth.hashToken(token),csrfHash:Auth.hashToken(csrf),companyId:a.id,userId:user.id,expiresAt:'2099-01-01T00:00:00.000Z',absoluteExpiresAt:'2099-01-02T00:00:00.000Z'});
 
@@ -31,12 +33,14 @@ test('plattformsoverview listar företag och aggregerad säkerhet utan affärsde
 
     const alpha=result.companies[0],beta=result.companies[1];
     assert.equal(alpha.memberCount,1);
+    assert.equal(alpha.activeMemberCount,1);
     assert.equal(alpha.activeSessionCount,1);
     assert.equal(alpha.customerRecordCount,1);
     assert.equal(alpha.invoiceRecordCount,1);
     assert.equal(alpha.accessConfigured,true);
     assert.ok(alpha.lastActivityAt);
-    assert.equal(beta.memberCount,0);
+    assert.equal(beta.memberCount,1);
+    assert.equal(beta.activeMemberCount,0);
     assert.equal(beta.activeSessionCount,0);
     assert.equal(beta.accessConfigured,false);
 
@@ -46,11 +50,12 @@ test('plattformsoverview listar företag och aggregerad säkerhet utan affärsde
     assert.equal(result.security.total,1);
     assert.ok(result.security.latestEventAt);
 
-    assert.equal(result.totals.members,1);
+    assert.equal(result.totals.members,2);
     assert.equal(result.totals.customers,2);
     assert.equal(result.totals.invoices,2);
     assert.equal(result.totals.configuredCompanies,1);
     assert.equal(result.roleDistribution.admin,1);
+    assert.equal(result.roleDistribution.readonly,1);
     assert.equal(result.monthly.length,6);
     assert.ok(result.monthly.every(item=>typeof item.activity==='number'&&typeof item.invoices==='number'&&typeof item.customers==='number'&&typeof item.memberships==='number'));
 
