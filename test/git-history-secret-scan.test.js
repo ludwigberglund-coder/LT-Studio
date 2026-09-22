@@ -58,3 +58,16 @@ test('history secret scanner detects Cloudflare and audit-storage credentials wi
     'rollands-runtime-secret'
   ]);
 });
+
+test('history secret scanner detects newer provider token formats',()=>{
+  const sample=[
+    'token='+'github_'+'pat_'+'11AA'+'b'.repeat(30),
+    'token='+'npm_'+'c'.repeat(36),
+    'key='+'AI'+'za'+'d'.repeat(35)
+  ].join('\n');
+  assert.deepEqual(findingsInText(sample).map(row=>row.rule),[
+    'github-fine-grained-token',
+    'npm-token',
+    'google-api-key'
+  ]);
+});
