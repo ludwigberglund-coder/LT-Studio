@@ -85,7 +85,7 @@ function focusModal(){
 }
 function nav(){
   const items=[['overview','Översikt','⌂'],['companies','Kunder & företag','◇'],['statistics','Statistik','▥'],['security','Säkerhetsportal','◈']];
-  return items.map(([id,label,icon])=>`<button class="${view===id?'active':''}" data-view="${id}"><span class="nav-label"><span class="nav-icon" aria-hidden="true">${icon}</span>${label}</span>${id==='security'?'<span class="nav-badge">nästa</span>':''}</button>`).join('');
+  return items.map(([id,label,icon])=>`<button class="${view===id?'active':''}" data-view="${id}"><span class="nav-label"><span class="nav-icon" aria-hidden="true">${icon}</span>${label}</span>${id==='security'?'<span class="nav-badge" aria-hidden="true">nästa</span>':''}</button>`).join('');
 }
 function shell(body,title,subtitle){
   const operator=session?.operator||{};
