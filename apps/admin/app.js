@@ -175,7 +175,7 @@ function modulesView() {
       </div>
       <h2>${escapeHtml(module.title)}</h2>
       <p>${escapeHtml(module.description)}</p>
-      ${module.href !== '#' ? `<a href="${escapeHtml(safeHref(module.href))}" ${module.href.startsWith('#') ? '' : 'target="_blank"'}>Öppna modul →</a>` : '<span class="disabled-link">Inte aktiverad ännu</span>'}
+      ${module.href !== '#' ? `<a href="${escapeHtml(safeHref(module.href))}" ${module.href.startsWith('#') ? '' : 'target="_blank"'}>Öppna modul</a>` : '<span class="disabled-link">Inte aktiverad ännu</span>'}
     </article>
   `).join('');
   return layout('modules', 'Systemmoduler', 'Varje verksamhetsområde byggs som en avgränsad modul med egna regler och tester.', `<section class="module-grid">${modules}</section>`);
