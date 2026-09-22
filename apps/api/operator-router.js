@@ -121,6 +121,7 @@ function createOperatorRouter(options={}){
   const sessionIdleMinutes=Number(options.sessionIdleMinutes||15);
   const sessionMaxMinutes=Number(options.sessionMaxMinutes||120);
   const readinessProvider=typeof options.readinessProvider==='function'?options.readinessProvider:()=>({ok:false,error:'Readiness-provider saknas.'});
+  const securityMonitor=options.securityMonitor&&typeof options.securityMonitor.snapshot==='function'?options.securityMonitor:null;
   const requestIp=typeof options.clientIp==='function'?options.clientIp:(req=>req.socket?.remoteAddress||'unknown');
   if(!Number.isSafeInteger(sessionIdleMinutes)||sessionIdleMinutes<5||!Number.isSafeInteger(sessionMaxMinutes)||sessionMaxMinutes<sessionIdleMinutes||sessionMaxMinutes>24*60){
     throw new Error('Ogiltiga operatörssessionstider.');
@@ -322,6 +323,10 @@ function createOperatorRouter(options={}){
         const limit=Math.max(1,Math.min(200,Number(url.searchParams.get('limit'))||50));
         const events=Db.securityEvents(db,{limit}).map(event=>({kind:event.kind,severity:event.severity,createdAt:event.createdAt}));
         send(res,200,{events});return true;
+      }
+      if(req.method==='GET'&&url.pathname==='/api/operator/v1/security-monitor'){
+        if(!securityMonitor){send(res,503,{error:'Aktiv säkerhetsövervakning är inte tillgänglig.',code:'SECURITY_MONITOR_UNAVAILABLE'});return true}
+        send(res,200,securityMonitor.snapshot());return true;
       }
       send(res,404,{error:'Hittades inte.',code:'OPERATOR_NOT_FOUND'});return true;
     }catch(error){
