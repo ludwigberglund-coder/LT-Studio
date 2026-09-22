@@ -172,6 +172,9 @@ function createApiApp(options) {
   const operationalLogger=options.operationalLogger||null;
   const operationalRuntimeId=String(options.operationalRuntimeId||'');
   const requestIp=typeof options.clientIp==='function'?options.clientIp:(req=>req.socket?.remoteAddress||'unknown');
+  // Precompute one synthetic verification hash so unknown usernames take the same
+  // expensive scrypt verification path as real accounts without revealing existence by timing.
+  const passwordVerificationFallback=Auth.dummyPasswordHash();
   WebsiteCms.initializeWebsiteCms(db);
   const fixedCompanyProfile = options.companyProfile || null;
   const companyProfileFor = typeof options.companyProfileFor === 'function'
@@ -264,7 +267,8 @@ function createApiApp(options) {
     const username=Auth.normalizeUsername(payload.username);
     if(loginBlocked(req,username)) return send(res,429,{error:'För många felaktiga inloggningsförsök. Vänta 15 minuter.',code:'LOGIN_RATE_LIMITED'},{'Retry-After':'900'});
     const user=Db.userByUsername(db,username);
-    const valid=Boolean(user && !user.disabled && Auth.verifyPassword(payload.password,user.passwordHash));
+    const passwordValid=Auth.verifyPassword(payload.password,user?.passwordHash||passwordVerificationFallback);
+    const valid=Boolean(user && !user.disabled && passwordValid);
     if(!valid) {
       noteLoginFailure(req,username);
       return send(res,401,{error:'Användarnamn eller lösenord är fel.',code:'INVALID_CREDENTIALS'});
@@ -292,15 +296,17 @@ function createApiApp(options) {
       }
     }
 
+    const upgradedPasswordHash=Auth.needsPasswordRehash(user.passwordHash)?Auth.hashPassword(payload.password):'';
     const now=Date.now();
     const sessionToken=Auth.randomToken(32), csrfToken=Auth.randomToken(24);
     Db.transaction(db,()=>{
       if(mfaRequired) Db.consumeMfaStep(db,{userId:user.id,totpCounter:mfaCounter});
+      if(upgradedPasswordHash)db.prepare('UPDATE users SET password_hash=? WHERE id=?').run(upgradedPasswordHash,user.id);
       Db.createSession(db,{
         tokenHash:Auth.hashToken(sessionToken),csrfHash:Auth.hashToken(csrfToken),userId:user.id,companyId:selected.companyId,
         expiresAt:sessionExpiryIso(sessionIdleMinutes,now),absoluteExpiresAt:sessionExpiryIso(sessionMaxMinutes,now)
       });
-      Db.appendAudit(db,{companyId:selected.companyId,userId:user.id,action:'SESSION_LOGIN',entityType:'session',details:{username:user.username,mfaRequired,sessionIdleMinutes,sessionMaxMinutes}});
+      Db.appendAudit(db,{companyId:selected.companyId,userId:user.id,action:'SESSION_LOGIN',entityType:'session',details:{username:user.username,mfaRequired,sessionIdleMinutes,sessionMaxMinutes,passwordHashUpgraded:Boolean(upgradedPasswordHash)}});
     });
     Db.clearLoginAttempts(db,loginKey(req,username));
     return send(res,200,{
