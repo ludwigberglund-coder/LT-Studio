@@ -1,6 +1,6 @@
-# Rolands Pilot Deployment
+# Customer Pilot Deployment
 
-Detta dokument beskriver hur den skyddade Rollands-backenden sätts upp för en **kontrollerad single-instance pilot**. GitHub Pages är fortsatt endast publik demo. Riktig pilotdata får aldrig lagras i repositoryt eller GitHub Pages.
+Detta dokument beskriver hur den skyddade referenskunden-backenden sätts upp för en **kontrollerad single-instance pilot**. GitHub Pages är fortsatt endast publik demo. Riktig pilotdata får aldrig lagras i repositoryt eller GitHub Pages.
 
 ## Driftbedömning
 
@@ -28,7 +28,7 @@ Följande måste vara löst i den verkliga driftmiljön innan riktiga pilotdata 
 - daglig verifierad SQLite-backup och kopiering till annan server/tjänst,
 - systemd eller motsvarande restart-policy,
 - logginsamling och kontroll av `/api/v1/health`,
-- manuell UAT enligt `docs/ROLANDS-PILOT-UAT.md` innan status kan bli READY FOR CONTROLLED ROLANDS PILOT.
+- manuell UAT enligt `docs/ROLANDS-PILOT-UAT.md` innan status kan bli READY FOR CONTROLLED CUSTOMER PILOT.
 
 ### RECOMMENDED
 
@@ -56,7 +56,7 @@ Den avsedda ordningen är:
 1. sätt `NODE_ENV=production` och `ROLLANDS_ENV=staging`,
 2. fyll den privata operationsfilen med riktiga ansvar, kontaktvägar, offsite-destination och retention, men låt `approvedForPilot` vara `false` och `approvedAt` vara tomt/null,
 3. kör `npm run pilot:preflight`; staging omfattas av samma privata runtimekrav som pilot/produktion,
-4. genomför backup → restore drill, extern monitoring/larmtest och Rolands UAT med enbart syntetiska/fiktiva data; ingen Rolands-data eller avidentifierad kunddata får användas,
+4. genomför backup → restore drill, extern monitoring/larmtest och kund-UAT med enbart syntetiska/fiktiva data; ingen kunddata eller avidentifierad kunddata får användas,
 5. dokumentera resultat och fatta därefter ett uttryckligt pilotbeslut,
 6. sätt `approvedForPilot:true` och ett verkligt `approvedAt` i den privata operationsfilen,
 7. byt till `ROLLANDS_ENV=pilot` och kör `npm run pilot:preflight` igen före första riktiga pilotdata.
@@ -67,7 +67,7 @@ Den avsedda ordningen är:
 
 För pilotfasen är en Linux-server/VM med **en applikationsinstans** tillräcklig. Rekommenderad miniminivå är 2 vCPU, 2–4 GB RAM och SSD-baserad persistent disk med gott om marginal för databas, dokument och backup.
 
-SQLite används med WAL, foreign keys, `synchronous=FULL` och busy timeout. Kör därför inte två Rollands-instanser mot samma SQLite-fil via nätverksfilsystem.
+SQLite används med WAL, foreign keys, `synchronous=FULL` och busy timeout. Kör därför inte två referenskunden-instanser mot samma SQLite-fil via nätverksfilsystem.
 
 Operativsystemet ska ha:
 
@@ -208,7 +208,7 @@ Exempel på systemd-unit:
 
 ```ini
 [Unit]
-Description=Rollands Pilot API
+Description=referenskunden Pilot API
 After=network.target
 
 [Service]
@@ -433,7 +433,7 @@ Före faktisk pilotinstallation behöver ni välja och meddela:
 6. **Vem som är första personliga användaren** – personligt användarnamn och MFA ska skapas direkt på servern, aldrig skickas in i repositoryt.
 7. **Logg- och övervakningslösning** – minst vem som tar emot larm vid driftstopp/backupfel och hur länge driftloggar sparas.
 
-När servern är installerad ska `pilot:preflight`, health check, verklig backup→restore och hela manuella `ROLANDS-PILOT-UAT.md` genomföras. Först därefter kan beslut om **READY FOR CONTROLLED ROLANDS PILOT** tas.
+När servern är installerad ska `pilot:preflight`, health check, verklig backup→restore och hela manuella `ROLANDS-PILOT-UAT.md` genomföras. Först därefter kan beslut om **READY FOR CONTROLLED CUSTOMER PILOT** tas.
 
 
 ## Krypterad backup för offsite
@@ -443,7 +443,7 @@ Sätt en separat `ROLLANDS_BACKUP_ENCRYPTION_KEY` i secret manager. `scripts/pil
 
 ## Backupretention
 
-Retention använder `backupRetentionDays` från den godkända privata operationsfilen. Kör först `npm run pilot:backup:retention` utan flagga och granska JSON-planen. Inga filer raderas i dry-run. Kör först därefter `npm run pilot:backup:retention -- --apply` om planen är korrekt. Verktyget hanterar bara filer som matchar Rollands backupnamn, raderar hela backupfamiljen tillsammans och bevarar alltid den nyaste familjen även om alla filer är äldre än retentionstiden. Extern lagringsleverantör måste ha en motsvarande eller striktare retention som verifieras separat.
+Retention använder `backupRetentionDays` från den godkända privata operationsfilen. Kör först `npm run pilot:backup:retention` utan flagga och granska JSON-planen. Inga filer raderas i dry-run. Kör först därefter `npm run pilot:backup:retention -- --apply` om planen är korrekt. Verktyget hanterar bara filer som matchar referenskunden backupnamn, raderar hela backupfamiljen tillsammans och bevarar alltid den nyaste familjen även om alla filer är äldre än retentionstiden. Extern lagringsleverantör måste ha en motsvarande eller striktare retention som verifieras separat.
 
 
 ## Isolerad restore-övning
