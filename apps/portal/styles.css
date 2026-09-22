@@ -45,3 +45,6 @@
 :where(button,a,.column-picker summary,.invoice-section>summary){-webkit-tap-highlight-color:transparent}
 :where(.modal,.modal-sales,.access-recovery-card,.login-card){box-shadow:0 24px 70px rgba(18,42,34,.16)}
 :where(input,select,textarea):focus-visible{outline:3px solid rgba(31,92,73,.2);outline-offset:2px}
+
+/* Disabled actions must never look actionable after tactile UI polish. */
+.button:disabled,.button[disabled]{background:#dfe4df!important;background-color:#dfe4df!important;color:#6f7b74!important;border-color:#c5cec7!important;box-shadow:none!important;transform:none!important;opacity:1!important;cursor:not-allowed!important}
