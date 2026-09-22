@@ -1014,3 +1014,20 @@ table {
 
 /* Disabled actions switch state immediately and never animate from an active color. */
 .button:disabled,.invoice-workspace #invoice-form button[type="submit"]:disabled{transition:none!important;transform:none!important;box-shadow:none!important}
+
+
+/* Seamless module navigation: runtime work continues in the background without a visible loading screen. */
+.boot {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
