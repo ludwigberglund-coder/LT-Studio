@@ -25,8 +25,13 @@ const out=path.join(__dirname,'..','test-artifacts');
       mfaSecretEncrypted:Auth.encryptSecret(MFA_SECRET,ENCRYPTION_KEY)
     });
     const company=Db.createCompany(runtime.db,{legalName:'Browser Kund AB',displayName:'Browser Kund',orgNumber:'559900-9201'});
+    const secondCompany=Db.createCompany(runtime.db,{legalName:'Annan Kund AB',displayName:'Annan Kund',orgNumber:'559900-9202'});
     const customerUser=Db.createUser(runtime.db,{username:'browser.user',displayName:'Browser Användare',passwordHash:Auth.hashPassword('Browser kundlosenord 2026!')});
     Db.addMembership(runtime.db,{companyId:company.id,userId:customerUser.id,role:'readonly'});
+    const sharedPassword='Delat konto losenord 2026!';
+    const sharedMfaEncrypted=Auth.encryptSecret(MFA_SECRET,ENCRYPTION_KEY);
+    const sharedUser=Db.createUser(runtime.db,{username:'shared.user',displayName:'Delad Användare',passwordHash:Auth.hashPassword(sharedPassword),mfaSecretEncrypted:sharedMfaEncrypted});
+    Db.addMembership(runtime.db,{companyId:secondCompany.id,userId:sharedUser.id,role:'accountant'});
     const customer=Db.createCustomer(runtime.db,{companyId:company.id,customerNumber:'SECRET-BROWSER-CUSTOMER',name:'Hemlig Browserkund'});
     Db.createInvoice(runtime.db,{companyId:company.id,customerId:customer.id,invoiceNumber:'SECRET-BROWSER-INVOICE',invoiceDate:'2026-09-21',postingDate:'2026-09-21',dueDate:'2026-10-21',totalOre:333300,remainingOre:333300,vatOre:66660,status:'Bokförd'});
     Db.appendSecurityEvent(runtime.db,{kind:'LOGIN_FAILURE_THRESHOLD',severity:'warning',fingerprintHash:'c'.repeat(64),details:{private:'never-in-ui'}});
@@ -89,6 +94,20 @@ const out=path.join(__dirname,'..','test-artifacts');
     assert.match(await page.locator('body').innerText(),/Användare & behörigheter|Lägg till användare/);
     assert.equal(await page.locator('#add-user-form select[name="role"]').inputValue(),'readonly');
     checks.push({kind:'company-admin-keyboard',company:'Browser Kund',safeDefaultRole:'readonly'});
+
+    await page.locator('#add-user-form input[name="username"]').fill('shared.user');
+    await page.locator('#add-user-form input[name="displayName"]').fill('Ska inte ersätta namn');
+    await page.locator('#add-user-form input[name="password"]').fill('SkaInteErsatta1!');
+    await page.getByRole('button',{name:'Skapa eller koppla användare',exact:true}).click();
+    await page.getByText(/Befintligt konto kopplades/).waitFor();
+    const sharedAfter=Db.userById(runtime.db,sharedUser.id);
+    assert.equal(Db.membership(runtime.db,company.id,sharedUser.id).role,'readonly');
+    assert.equal(sharedAfter.displayName,'Delad Användare');
+    assert.equal(Auth.verifyPassword(sharedPassword,sharedAfter.passwordHash),true);
+    assert.equal(Auth.verifyPassword('SkaInteErsatta1!',sharedAfter.passwordHash),false);
+    assert.equal(sharedAfter.mfaSecretEncrypted,sharedMfaEncrypted);
+    assert.equal(await page.locator('#mfa-result code').count(),0);
+    checks.push({kind:'existing-user-linked-to-second-company'});
 
     const roleSelect=page.locator('select[data-role-user="'+customerUser.id+'"]');
     await roleSelect.selectOption('accountant');

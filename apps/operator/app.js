@@ -217,13 +217,13 @@ function companyDetailView(detail){
     <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">ROLLER</span><h2>Behörigheter</h2><p>Rollfördelning i just detta företag.</p></div></div><div class="role-bars roomy">${memberRoleBars(detail)}</div></article>
   </section>
   <section class="panel"><div class="panel-head"><div><span class="eyebrow">ÅTKOMST</span><h2>Användare & behörigheter</h2><p>Endast LT Studio kan skapa, ändra eller ta bort användare.</p></div><span class="panel-stat">${memberCount} användare</span></div><div class="table-wrap"><table><thead><tr><th>Användare</th><th>Roll</th><th>Status</th><th>Åtgärder</th></tr></thead><tbody>${memberRows(detail)}</tbody></table></div></section>
-  <section class="panel add-user-panel"><div class="panel-head"><div><span class="eyebrow">NY ANVÄNDARE</span><h2>Lägg till användare</h2><p>Minst 8 tecken, stora och små bokstäver samt minst en siffra eller ett specialtecken. MFA skapas samtidigt.</p></div></div>
+  <section class="panel add-user-panel"><div class="panel-head"><div><span class="eyebrow">ANVÄNDARÅTKOMST</span><h2>Lägg till användare</h2><p>Om användarnamnet redan finns kopplas det befintliga kontot till företaget. Då ändras inte personens lösenord eller MFA.</p></div></div>
     <form id="add-user-form" class="form-grid compact-form">
-      <label class="field"><span>Namn</span><input name="displayName" required maxlength="120" placeholder="För- och efternamn"></label>
+      <label class="field"><span>Namn · nytt konto</span><input name="displayName" maxlength="120" placeholder="För- och efternamn"></label>
       <label class="field"><span>Användarnamn / e-post</span><input name="username" required maxlength="120" placeholder="namn@foretag.se"></label>
-      <label class="field"><span>Tillfälligt lösenord</span><input name="password" type="password" required minlength="8" placeholder="Minst 8 tecken"></label>
+      <label class="field"><span>Tillfälligt lösenord · nytt konto</span><input name="password" type="password" minlength="8" placeholder="Minst 8 tecken"></label>
       <label class="field"><span>Behörighet</span><select name="role"><option value="readonly">Läsbehörighet · säker standard</option><option value="approver">Attestant</option><option value="accountant">Ekonom</option><option value="admin">Admin</option></select></label>
-      <div><button class="button" type="submit">Skapa användare</button></div>
+      <div><button class="button" type="submit">Skapa eller koppla användare</button></div>
     </form><div id="mfa-result"></div>
   </section>`,'Företagsadmin',`Inställningar, användare och statistik för ${c.displayName}.`);
 }
@@ -246,7 +246,7 @@ document.addEventListener('submit',async event=>{
   }
   if(event.target.id==='add-user-form'){
     event.preventDefault();const data=Object.fromEntries(new FormData(event.target).entries());const button=event.target.querySelector('button[type="submit"]');if(button)button.disabled=true;
-    try{const created=await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users',{method:'POST',body:JSON.stringify(data)});selectedCompany=await api('/companies/'+encodeURIComponent(selectedCompany.company.id));uiNotice='Användaren skapades.';render();const box=document.getElementById('mfa-result');if(box)box.innerHTML=`<div class="success-box"><strong>MFA-hemlighet – visas bara nu</strong><p><code>${esc(created.mfaSecret)}</code></p><p>Ge koden direkt till användaren och spara den inte i GitHub eller delade dokument.</p></div>`}catch(error){errorMessage=error.message;render()}return;
+    try{const created=await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users',{method:'POST',body:JSON.stringify(data)});selectedCompany=await api('/companies/'+encodeURIComponent(selectedCompany.company.id));uiNotice=created.linkedExisting?'Befintligt konto kopplades till företaget. Lösenord och MFA ändrades inte.':'Användaren skapades.';render();const box=document.getElementById('mfa-result');if(box&&created.mfaSecret)box.innerHTML=`<div class="success-box"><strong>MFA-hemlighet – visas bara nu</strong><p><code>${esc(created.mfaSecret)}</code></p><p>Ge koden direkt till användaren och spara den inte i GitHub eller delade dokument.</p></div>`}catch(error){errorMessage=error.message;render()}return;
   }
   if(event.target.id==='reset-password-form'){
     event.preventDefault();if(!modal||modal.kind!=='password')return;const data=Object.fromEntries(new FormData(event.target).entries());const button=event.target.querySelector('button[type="submit"]');if(button)button.disabled=true;
