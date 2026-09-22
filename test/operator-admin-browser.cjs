@@ -68,7 +68,8 @@ const out=path.join(__dirname,'..','test-artifacts');
     await page.keyboard.press('Enter');
     await page.getByRole('heading',{name:'Företagsadmin',exact:true}).waitFor();
     assert.match(await page.locator('body').innerText(),/Användare & behörigheter|Lägg till användare/);
-    checks.push({kind:'company-admin-keyboard',company:'Browser Kund'});
+    assert.equal(await page.locator('#add-user-form select[name="role"]').inputValue(),'readonly');
+    checks.push({kind:'company-admin-keyboard',company:'Browser Kund',safeDefaultRole:'readonly'});
 
     const roleSelect=page.locator('select[data-role-user="'+customerUser.id+'"]');
     await roleSelect.selectOption('accountant');
