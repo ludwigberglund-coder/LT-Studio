@@ -127,7 +127,7 @@ const Auth=require('../apps/api/auth.js');
     assert.equal(pendingBundle.credit.refundStatus,'pending');
     assert.equal(pendingBundle.credit.refundOutstandingOre,50000);
 
-    const beforeRefund=Reports.receivablesReconciliation(f.db,f.a.id);
+    const beforeRefund=Reports.receivablesControl(f.db,f.a.id);
     assert.equal(beforeRefund.integrityOk,true,'kundreskontra och 1510 ska stämma även medan återbetalning väntar');
     assert.equal(beforeRefund.differenceOre,0);
 
@@ -146,7 +146,7 @@ const Auth=require('../apps/api/auth.js');
     assert.equal(refundEntry.lines.find(row=>row.account==='1930').creditOre,50000);
     assert.equal(refundEntry.lines.reduce((sum,row)=>sum+row.debitOre-row.creditOre,0),0);
 
-    const afterRefund=Reports.receivablesReconciliation(f.db,f.a.id);
+    const afterRefund=Reports.receivablesControl(f.db,f.a.id);
     assert.equal(afterRefund.integrityOk,true);
     assert.equal(afterRefund.differenceOre,0);
 
