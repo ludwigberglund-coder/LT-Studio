@@ -1,39 +1,20 @@
-# Verksamhetsbeslut för Rolands Frukt o Grönt Aktiebolag
+# Verksamhetsbeslut – syntetisk demokonfiguration
 
-**Organisationsnummer:** 556406-5059  
-**Beslutsdatum:** 2026-09-15
+Det här dokumentet beskriver endast den publika demokonfigurationen i GitHub. Det innehåller inte beslut eller registrerade uppgifter för någon verklig kund.
 
-Dessa beslut ska vara styrande för fortsatt utveckling av Rollands ekonomiplattform.
+## Demoantaganden
 
-## Beslutade inställningar
-
-| Område | Beslut | Status |
+| Område | Demovärde | Produktionsregel |
 |---|---|---|
-| Räkenskapsår | Kalenderår, 1 januari–31 december | Beslutat |
-| Redovisningsregelverk | K2 | Beslutat mål; verifieras mot senaste signerade årsredovisning före skarp drift |
-| Momsperiod | Månad | Beslutat mål; verifieras mot registrerad momsperiod hos Skatteverket före skarp deklaration |
-| Beloppsprecision | Ören ska stödjas och lagras exakt | Krav; teknisk migrering återstår |
-| Lön | Bokföringsintegrerad lönehantering med stöd för extern löneleverantör | Beslutat |
-| Lager | Integrerad lagerhantering i Rollands-systemet | Beslutat |
+| Räkenskapsår | Kalenderår | Verifieras privat för varje kund före skarp drift |
+| Redovisningsregelverk | K2 som demoexempel | Senaste signerade årsredovisning styr verkligt val |
+| Momsperiod | Månad som demoexempel | Registrerad momsperiod verifieras privat före deklarationsflöde |
+| Beloppsprecision | Ören | Ska lagras exakt genom hela systemet |
+| Lön | Bokföringsintegrerad med stöd för extern löneleverantör | Kundens verkliga upplägg beslutas privat |
+| Lager | Integrerad demomodul | Kundens verkliga behov beslutas privat |
 
-## Tekniska konsekvenser
+## Regel
 
-### Öresprecision
-Nuvarande ekonomimotor använder fortfarande hela kronor i flera flöden. Innan produktionsdrift ska hela penningmodellen migreras till en exakt minsta enhet, normalt ören som heltal. Presentationen ska därefter kunna visa exempelvis `1 234,56 kr` utan flyttalsfel.
+GitHub får endast innehålla syntetiska demoantaganden. Verkliga kunders redovisningsregelverk, momsperiod, interna beslut och annan företagsspecifik driftinformation ska lagras och verifieras utanför det publika repositoryt.
 
-### Lön
-Första produktionsnivån ska stödja import av lönejournaler, bokföring av lönekostnader, personalskatt, arbetsgivaravgifter, semesterlöneskuld och avstämning. Full löneberäkning kan byggas senare utan att bokföringsmodellen behöver göras om.
-
-### Lager
-Lagermodulen ska omfatta artiklar, lagersaldo, inköpspris, inventering, svinn/kassation, lagerjusteringar och bokföring av lagerförändringar. Svinn är särskilt viktigt eftersom verksamheten arbetar med färskvaror.
-
-## Produktionsspärrar
-
-Följande ska verifieras innan funktionerna används skarpt:
-
-1. Att senaste signerade årsredovisning faktiskt använder K2.
-2. Att registrerad momsredovisningsperiod hos Skatteverket är månad.
-3. Att all monetär lagring är migrerad till öresprecision genom hela systemet.
-4. Att lager- och löneflöden har avstämning, behörigheter och revisionsspår.
-
-Den maskinläsbara motsvarigheten finns i `config/rolands-business-decisions.json`.
+Den maskinläsbara publika demomotsvarigheten finns i `config/rolands-business-decisions.json`. Filnamnet är ett äldre tekniskt namn och ska inte tolkas som kunddata.

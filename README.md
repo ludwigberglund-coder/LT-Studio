@@ -1,6 +1,6 @@
 # Rolands / LT Studio – småföretagsplattform
 
-Vi bygger en återanvändbar plattform för småbutiker, saluhallar och mindre restauranger. Rolands Frukt o Grönt Aktiebolag, 556406-5059, är första referensföretaget. Företagets innehåll och inställningar ska vara separerade från gemensamma verksamhetsregler.
+Vi bygger en återanvändbar plattform för småföretag. Referenskunders verkliga identitet, innehåll och driftinställningar hålls utanför det publika repositoryt och separeras från gemensamma verksamhetsregler.
 
 **Aktuell fas: Production Readiness Phase 1. Inga nya stora moduler prioriteras. Plattformen är ännu inte godkänd för pilot med verkliga ekonomiska data.**
 

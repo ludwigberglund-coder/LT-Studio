@@ -1,9 +1,9 @@
-# Rolands Pilot UAT
+# Customer Pilot UAT
 
 > **Miljö för tekniskt godkännande:** Kör denna UAT i den privata stagingmiljön med `NODE_ENV=production` och `ROLLANDS_ENV=staging`. Använd endast fiktiva eller avidentifierade data. `approvedForPilot` ska fortfarande vara `false` under UAT. Först när tekniska/driftsmässiga bevis och denna UAT är godkända fattas pilotbeslutet; därefter sätts `ROLLANDS_ENV=pilot`, `approvedForPilot:true` och preflight körs om.
 
 
-Detta dokument är en manuell kontrollista inför en kontrollerad första pilot hos Rolands. Den ska kunna följas av en person utan kodkunskap.
+Detta dokument är en manuell kontrollista inför en kontrollerad första pilot hos referenskunden. Den ska kunna följas av en person utan kodkunskap.
 
 ## Maskinellt UAT-bevis
 
@@ -132,7 +132,7 @@ Markera inte piloten som klar enbart för att denna checklista är genomförd. F
 - `npm run pilot:check` är grön.
 - Inga kända blockerande fel finns i bokföring, behörighet, backup/restore eller företagsisolering.
 - GitHub Pages innehåller endast demo/testdata.
-- Verkliga secrets och verklig Rolands-data ligger utanför GitHub.
+- Verkliga secrets och verklig kunddata ligger utanför GitHub.
 - Driftmiljön har separat backupmål och dokumenterad återställningsrutin.
 
-Resultat ska anges som antingen **NOT READY** eller **READY FOR CONTROLLED ROLANDS PILOT**.
+Resultat ska anges som antingen **NOT READY** eller **READY FOR CONTROLLED CUSTOMER PILOT**.

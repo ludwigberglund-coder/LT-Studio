@@ -1,12 +1,12 @@
-# Produktvision – en komplett småföretagsplattform med Rolands som första referenskund
+# Produktvision – en komplett småföretagsplattform med referenskunden som första referenskund
 
 ## Dokumentets roll
 
 Detta dokument beskriver **varför systemet byggs**, **vem det byggs för** och **hur vi ska undvika att fastna i ett specialbygge för ett enda företag**.
 
-När det uppstår ett val mellan en snabb Rolands-specifik lösning och en återanvändbar lösning ska följande princip gälla:
+När det uppstår ett val mellan en snabb referenskunden-specifik lösning och en återanvändbar lösning ska följande princip gälla:
 
-> Rolands är vår första kompletta referenskund. Själva plattformens kärna ska samtidigt kunna användas av andra saluhallar, småbutiker och mindre restauranger utan att byggas om från början.
+> referenskunden är vår första kompletta referenskund. Själva plattformens kärna ska samtidigt kunna användas av andra saluhallar, småbutiker och mindre restauranger utan att byggas om från början.
 
 ## Produktens mål
 
@@ -43,27 +43,27 @@ Den första målgruppen är:
 
 De verksamheterna har flera gemensamma behov men också skillnader. En butik behöver ofta artiklar, lager och kassaflöden. En restaurang behöver dessutom exempelvis råvaror, recept, svinn, bord eller beställningsflöden. Därför ska gemensamma funktioner ligga i plattformens kärna medan branschspecifika funktioner byggs som valbara moduler.
 
-## Rolands roll
+## referenskunden roll
 
-Rolands Frukt o Grönt Aktiebolag är **kund nummer ett och referensimplementationen**.
+den första referenskunden är **kund nummer ett och referensimplementationen**.
 
-Vi ska bygga en komplett kedja för Rolands:
+Vi ska bygga en komplett kedja för referenskunden:
 
-1. En besökare öppnar Rolands publika hemsida.
+1. En besökare öppnar referenskunden publika hemsida.
 2. Besökaren kan endast se publikt innehåll.
 3. En behörig medarbetare går till inloggningen.
 4. Efter säker inloggning öppnas företagets privata portal.
 5. Alla inloggade medlemmar ser samma funktioner inom sitt företag.
 6. Företagets ekonomi, lager, dokument, webbplats och övriga moduler hanteras i samma portal.
 
-Rolands ska ge oss verkliga arbetsflöden, riktiga krav och ett tydligt exempelresultat. Men följande får **inte** byggas direkt in i den gemensamma kärnan:
+referenskunden ska ge oss verkliga arbetsflöden, riktiga krav och ett tydligt exempelresultat. Men följande får **inte** byggas direkt in i den gemensamma kärnan:
 
-- företagsnamnet Rolands,
-- Rolands logotyp och färger,
-- Rolands organisationsnummer och kontaktuppgifter,
-- Rolands konton, användare eller dokument,
-- Rolands specifika webbtexter,
-- antaganden som bara gäller Rolands arbetssätt.
+- företagsnamnet referenskunden,
+- referenskunden logotyp och färger,
+- referenskunden organisationsnummer och kontaktuppgifter,
+- referenskunden konton, användare eller dokument,
+- referenskunden specifika webbtexter,
+- antaganden som bara gäller referenskunden arbetssätt.
 
 Sådant ska ligga i en separat företagskonfiguration och i företagets egen datamiljö.
 
@@ -73,7 +73,7 @@ Sådant ska ligga i en separat företagskonfiguration och i företagets egen dat
 
 Den publika hemsidan är öppen för alla och får endast innehålla information som företaget vill publicera.
 
-Exempel för Rolands:
+Exempel för referenskunden:
 
 - startsida,
 - sortiment och tjänster,
@@ -177,7 +177,7 @@ Skarp data ska ligga i en riktig databas och skyddad dokumentlagring. Varje för
 
 ## Viktiga produktprinciper
 
-1. **Rolands först, men inte Rolands-låst.** Vi löser verkliga behov för Rolands men lägger gemensamma regler i återanvändbara moduler.
+1. **referenskunden först, men inte referenskunden-låst.** Vi löser verkliga behov för referenskunden men lägger gemensamma regler i återanvändbara moduler.
 2. **Konfiguration före specialkod.** Företagsskillnader ska så långt som möjligt hanteras med innehåll, inställningar, teman och aktiverade moduler.
 3. **Säkerhet på serversidan.** Dold navigation eller frontendkontroller räcker aldrig.
 4. **Minsta möjliga behörighet.** Varje användare får endast den åtkomst som behövs för arbetsuppgiften.
@@ -208,7 +208,7 @@ Skarp data ska ligga i en riktig databas och skyddad dokumentlagring. Varje för
 - säker dokumentlagring,
 - migrations- och backupstrategi.
 
-### Fas 3 – Rolands första kompletta verksamhetsflöden
+### Fas 3 – referenskunden första kompletta verksamhetsflöden
 
 - kunder och leverantörer,
 - kund- och leverantörsfakturor,
@@ -233,12 +233,12 @@ Skarp data ska ligga i en riktig databas och skyddad dokumentlagring. Varje för
 - redovisningsmässig verifiering,
 - återställningstest,
 - övervakning och incidentrutiner,
-- första skarpa Rolands-miljön,
+- första skarpa referenskunden-miljön,
 - mall för att skapa nästa kund utan ny kodbas.
 
 ## Hur vi mäter att lösningen är återanvändbar
 
-Rolands-implementationen är inte färdig som plattform förrän vi kan skapa en andra testkund och utan större kodändringar:
+referenskunden-implementationen är inte färdig som plattform förrän vi kan skapa en andra testkund och utan större kodändringar:
 
 - byta varumärke och webbdesign,
 - ändra företagsuppgifter,
@@ -247,4 +247,4 @@ Rolands-implementationen är inte färdig som plattform förrän vi kan skapa en
 - använda en egen databas-/företagsmiljö,
 - behålla samma ekonomiska kärna och säkerhetsregler.
 
-Den andra testkunden behöver inte vara skarp. Den fungerar som ett bevis på att vi verkligen har byggt en plattform och inte bara en enskild Rolands-applikation.
+Den andra testkunden behöver inte vara skarp. Den fungerar som ett bevis på att vi verkligen har byggt en plattform och inte bara en enskild referenskunden-applikation.

@@ -1,0 +1,77 @@
+'use strict';
+
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+
+const root=path.resolve(__dirname,'..');
+const readJson=file=>JSON.parse(fs.readFileSync(path.join(root,file),'utf8'));
+const read=file=>fs.readFileSync(path.join(root,file),'utf8');
+
+test('publik företagsprofil är uttryckligen syntetisk',()=>{
+  const company=readJson('content/company.json');
+  assert.equal(company.legalName,'Demo Handel AB');
+  assert.equal(company.displayName,'Demo Saluhall');
+  assert.equal(company.orgNumber,'000000-0000');
+  assert.equal(company.vatNumber,'SE000000000001');
+  assert.ok(String(company.contact.email).toLowerCase().endsWith('.invalid'));
+  assert.ok(new URL(company.website).hostname.toLowerCase().endsWith('.invalid'));
+  assert.match(company.invoice.bankgiro,/^DEMO-/);
+});
+
+test('publika verksamhetsbeslut innehåller bara demoklassificering och inga externa kundbevis',()=>{
+  const decisions=readJson('config/rolands-business-decisions.json');
+  assert.equal(decisions.dataClassification,'synthetic-demo');
+  assert.equal(decisions.company.legalName,'Demo Handel AB');
+  assert.equal(decisions.company.orgNumber,'000000-0000');
+  assert.deepEqual(decisions.accounting.fiscalYear.evidence,[]);
+  assert.equal(decisions.accounting.vatPeriod.publicRegistrationVerified,false);
+  assert.equal(decisions.accounting.vatPeriod.publicRegistrationEvidence,null);
+});
+
+test('legacy-demo och fakturafixture använder endast tydligt märkta demouppgifter',()=>{
+  const demo=read('public/demo-state.js');
+  const fixture=read('test/fixtures/invoice-example.js');
+  assert.match(demo,/Demo Handel AB/);
+  assert.match(demo,/demo\.example\.invalid/);
+  assert.match(demo,/Demo bankkonto/);
+  assert.match(fixture,/Demo Handel AB/);
+  assert.match(fixture,/demo\.example\.invalid|example\.invalid/);
+});
+
+test('publika kundbeslutsdokument beskriver data som demo eller privat verifiering',()=>{
+  const decisions=read('docs/VERKSAMHETSBESLUT.md');
+  const evidence=read('docs/ROLANDS-ACCOUNTING-DECISIONS-EVIDENCE.md');
+  assert.match(decisions,/syntetisk demokonfiguration/i);
+  assert.match(evidence,/inte längre verifieringsbevis|publika repositoryt/i);
+});
+
+test('publika demoidentiteter använder bara syntetiska organisations- och kontaktuppgifter',()=>{
+  const files=[
+    'content/company.json',
+    'content/site.json',
+    'content/admin.json',
+    'config/rolands-business-decisions.json',
+    'public/demo-state.js',
+    'public/app.js',
+    'public/finance.js',
+    'public/workspace.js',
+    'test/fixtures/invoice-example.js'
+  ];
+  const source=files.map(file=>read(file)).join('\n');
+
+  const orgNumbers=source.match(/\b\d{6}-\d{4}\b/g)||[];
+  assert.ok(orgNumbers.length>0);
+  assert.deepEqual([...new Set(orgNumbers)],['000000-0000']);
+
+  const vatNumbers=source.match(/\bSE\d{12}\b/g)||[];
+  assert.ok(vatNumbers.length>0);
+  assert.deepEqual([...new Set(vatNumbers)],['SE000000000001']);
+
+  const emails=source.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/ig)||[];
+  for(const email of emails){
+    const host=email.toLowerCase().split('@')[1]||'';
+    assert.ok(host.endsWith('.invalid')||host.endsWith('.example'),`publik demo innehåller e-post på icke-reserverad domän: ${email}`);
+  }
+});
