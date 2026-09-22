@@ -173,7 +173,7 @@
     document.querySelectorAll('.shared-foot>a').forEach(el=>addIcon(el,'home'));
     document.querySelectorAll('.comment-badge').forEach(el=>addIcon(el,'chat'));
     document.querySelectorAll('[data-iconoir]').forEach(el=>{const name=el.dataset.iconoir;if(!name||!ICONOIR[name])return;el.replaceChildren(iconoir(name));});
-    document.querySelectorAll('button,.button,.nav-item,.module-card a,.callout a,.column-picker summary,.context-menu button').forEach(button=>{if(button.matches('.metric,.stat-button'))return;const name=semanticButtonIcon(button);if(name)addIcon(button,name);});
+    document.querySelectorAll('button,.button,.nav-item,.module-card a,.callout a,.column-picker summary,.context-menu button').forEach(button=>{if(button.matches('.metric,.stat-button,.shared-user-trigger'))return;const name=semanticButtonIcon(button);if(name)addIcon(button,name);});
   }
   function animateTap(element){
     if(!element||element.disabled||matchMedia('(prefers-reduced-motion: reduce)').matches)return;

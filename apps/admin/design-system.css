@@ -525,6 +525,18 @@ th {
 
   .shared-user-menu {
     margin-left: auto;
+    min-width: 0;
+    max-width: 64px;
+  }
+
+  .shared-user-trigger {
+    max-width: 64px;
+    gap: 6px;
+    padding: 4px;
+  }
+
+  .shared-user-label {
+    display: none;
   }
 
   .sidebar.shared-sidebar {
