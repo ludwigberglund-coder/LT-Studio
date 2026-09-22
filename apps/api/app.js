@@ -239,7 +239,7 @@ function createApiApp(options) {
     const session=Db.sessionByTokenHash(db,tokenHash);
     if(!session || session.disabled) return null;
     session.tokenHash=tokenHash;
-    session.actor={id:session.userId,name:session.displayName,companyId:session.companyId,authenticated:true,membershipActive:true,disabled:Boolean(session.disabled)};
+    session.actor={id:session.userId,name:session.displayName,companyId:session.companyId,authenticated:true,membershipActive:true,disabled:Boolean(session.disabled),role:session.role};
     return session;
   }
 
