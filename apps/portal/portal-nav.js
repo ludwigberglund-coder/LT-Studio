@@ -16,7 +16,7 @@
     {id:'operations',label:'Register & verksamhet',items:[['customers','Kunder','portal/customers.html'],['suppliers','Leverantörer','portal/suppliers.html'],['inventory','Lager & svinn','portal/inventory.html']]},
     {id:'administration',label:'Systemadministration',items:[
       ['website','Webbplats & innehåll','portal/website.html'],['documents','Dokument','portal/documents.html'],
-      ['access','Användare & behörigheter','portal/access.html'],['decisions','Verksamhetsbeslut','admin/#/decisions'],
+      ['decisions','Verksamhetsbeslut','admin/#/decisions'],
       ['modules','Systemmoduler','admin/#/modules'],['project','Projektöversikt','admin/#/overview'],
       ['content','Innehållsförhandsvisning','admin/#/content'],
       ['audit','Revisionslogg (äldre demo)','legacy/#/audit'],['settings','Inställningar (äldre demo)','legacy/#/settings']
@@ -25,7 +25,7 @@
   ];
   const demoOnlyIds=new Set(['money','journal','res-tools','batches','inbox','audit','settings','legacy','assistant','decisions','modules','project','content','uat','receivables-details']);
   const requiredPermission=Object.freeze({
-    invoices:'customer-invoice.view',receivables:'customer-invoice.view',payables:'supplier-invoice.view',payments:'payment.view',bank:'bank.view',automation:'accounting.view',accounting:'accounting.view',reports:'reports.view',accounts:'accounting.view',payroll:'payroll.view',customers:'customer-invoice.view',suppliers:'supplier.view',inventory:'inventory.view',website:'website.manage',documents:'documents.view',access:'users.manage'
+    invoices:'customer-invoice.view',receivables:'customer-invoice.view',payables:'supplier-invoice.view',payments:'payment.view',bank:'bank.view',automation:'accounting.view',accounting:'accounting.view',reports:'reports.view',accounts:'accounting.view',payroll:'payroll.view',customers:'customer-invoice.view',suppliers:'supplier.view',inventory:'inventory.view',website:'website.manage',documents:'documents.view'
   });
   function visibleGroups({authenticated=false,demo=false,permissions=[]}={}){
     if(demo)return groups;
