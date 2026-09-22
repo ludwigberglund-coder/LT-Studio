@@ -4,6 +4,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {fixture}=require('./private-workflows-fixture.cjs');
 const Db=require('../apps/api/database.js');
+const Auth=require('../apps/api/auth.js');
 const Admin=require('../apps/api/accounting-admin.js');
 
 test('periodlås och upplåsningsbegäran är idempotenta vid identiska HTTP-retries',async()=>{
