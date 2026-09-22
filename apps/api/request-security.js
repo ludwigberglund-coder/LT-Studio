@@ -213,6 +213,28 @@ const BODY_RULES=Object.freeze([
 ]);
 
 
+const EMPTY_BODY_RULES=Object.freeze([
+  ['POST',/^\/api\/v1\/auth\/logout$/],
+  ['DELETE',/^\/api\/v1\/customers\/[^/]+$/],
+  ['POST',/^\/api\/v1\/customers\/[^/]+\/restore$/],
+  ['DELETE',/^\/api\/v1\/customer-invoices\/draft$/],
+  ['POST',/^\/api\/v1\/automation\/proposals\/[^/]+\/(?:approve|execute)$/],
+  ['POST',/^\/api\/v1\/bank\/payments\/[^/]+\/match$/],
+  ['POST',/^\/api\/v1\/inventory\/adjustments\/[^/]+\/(?:approve|reject)$/],
+  ['POST',/^\/api\/v1\/payables\/payments\/[^/]+\/release$/],
+  ['POST',/^\/api\/v1\/payables\/invoices\/[^/]+\/(?:coding-suggestion|post)$/],
+  ['POST',/^\/api\/v1\/payroll\/runs\/[^/]+\/post$/],
+  ['POST',/^\/api\/v1\/suppliers\/changes\/[^/]+\/approve$/],
+  ['POST',/^\/api\/operator\/v1\/auth\/logout$/]
+]);
+
+const BINARY_BODY_RULES=Object.freeze([
+  ['PUT',/^\/api\/v1\/documents\/[^/]+\/content$/],
+  ['PUT',/^\/api\/v1\/payables\/invoices\/[^/]+\/document$/]
+]);
+
+const EMPTY_BODY_LIMIT=64;
+
 const ACCOUNTING_LINE_FIELDS=new Set(['account','text','label','vatCode','debitOre','creditOre']);
 const INVOICE_LINE_FIELDS=new Set(['description','unit','quantity','unitPrice','vatTreatment','vatRate','revenueAccount','kind']);
 const RECEIVABLE_FIELDS=new Set(['customerNumber','invoiceNumber','invoiceDate','dueDate','totalOre','remainingOre']);
@@ -491,6 +513,75 @@ function validateQueryValue(pathname,key,value){
   if(perFieldMax[key]&&value.length>perFieldMax[key])throw securityError(`Query-parametern ${key} är för lång.`,'INVALID_QUERY_VALUE',422);
 }
 
+function bodyPolicyFor(req){
+  const method=String(req?.method||'GET').toUpperCase();
+  const pathname=apiPath(req);
+  if(BODY_RULES.some(([verb,pattern])=>verb===method&&pattern.test(pathname)))return'json';
+  if(BINARY_BODY_RULES.some(([verb,pattern])=>verb===method&&pattern.test(pathname)))return'binary';
+  if(EMPTY_BODY_RULES.some(([verb,pattern])=>verb===method&&pattern.test(pathname)))return'empty-json';
+  if(method==='GET'||method==='HEAD')return'none';
+  return'unknown';
+}
+function requestHasBody(req){
+  const rawLength=String(req?.headers?.['content-length']??'').trim();
+  const transfer=String(req?.headers?.['transfer-encoding']??'').trim();
+  if(transfer)return true;
+  if(!rawLength)return false;
+  if(!/^\d+$/.test(rawLength))throw securityError('Content-Length är ogiltig.','INVALID_CONTENT_LENGTH',400);
+  return Number(rawLength)>0;
+}
+function readEmptyJsonBody(req){
+  const contentType=String(req?.headers?.['content-type']||'').split(';')[0].trim().toLowerCase();
+  if(contentType!=='application/json'){
+    req.resume?.();
+    throw securityError('Den här åtgärden accepterar ingen data. Om en tom JSON-body skickas måste Content-Type vara application/json.','UNSUPPORTED_MEDIA_TYPE',415);
+  }
+  const rawLength=String(req?.headers?.['content-length']??'').trim();
+  if(rawLength){
+    if(!/^\d+$/.test(rawLength))throw securityError('Content-Length är ogiltig.','INVALID_CONTENT_LENGTH',400);
+    if(Number(rawLength)>EMPTY_BODY_LIMIT){
+      req.resume?.();
+      throw securityError('Den här åtgärden accepterar endast ett tomt JSON-objekt.','UNEXPECTED_REQUEST_BODY',422);
+    }
+  }
+  return new Promise((resolve,reject)=>{
+    const chunks=[];
+    let size=0,settled=false;
+    const fail=error=>{
+      if(settled)return;
+      settled=true;
+      req.resume?.();
+      reject(error);
+    };
+    req.on('data',chunk=>{
+      if(settled)return;
+      size+=chunk.length;
+      if(size>EMPTY_BODY_LIMIT)return fail(securityError('Den här åtgärden accepterar endast ett tomt JSON-objekt.','UNEXPECTED_REQUEST_BODY',422));
+      chunks.push(chunk);
+    });
+    req.on('end',()=>{
+      if(settled)return;
+      settled=true;
+      let value;
+      try{value=JSON.parse(Buffer.concat(chunks).toString('utf8'))}
+      catch{return reject(securityError('Den här åtgärden accepterar endast ett tomt JSON-objekt.','UNEXPECTED_REQUEST_BODY',422))}
+      if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).length){
+        return reject(securityError('Den här åtgärden accepterar endast ett tomt JSON-objekt.','UNEXPECTED_REQUEST_BODY',422));
+      }
+      resolve();
+    });
+    req.on('error',error=>fail(error));
+  });
+}
+async function validateRequestBody(req){
+  const policy=bodyPolicyFor(req);
+  if(policy==='json'||policy==='binary'||policy==='unknown')return;
+  if(!requestHasBody(req))return;
+  if(policy==='empty-json')return await readEmptyJsonBody(req);
+  req.resume?.();
+  throw securityError('Den här request-metoden accepterar ingen body.','UNEXPECTED_REQUEST_BODY',400);
+}
+
 function validateRequestTarget(req){
   const raw=String(req?.url||'/');
   if(raw.length>4096)throw securityError('Adressen är för lång.','URL_TOO_LONG',414);
@@ -519,5 +610,5 @@ function validateRequestTarget(req){
 
 module.exports=Object.freeze({
   securityError,intSetting,clientIp,identityKey,routeClass,policyFor,createRateLimiter,sendRateLimited,
-  validateRequestTarget,validateJsonInput,sanitizeJson,QUERY_RULES,BODY_RULES
+  validateRequestTarget,validateRequestBody,bodyPolicyFor,validateJsonInput,sanitizeJson,QUERY_RULES,BODY_RULES,EMPTY_BODY_RULES,BINARY_BODY_RULES
 });
