@@ -125,6 +125,7 @@ test('delbetald kundfaktura kan helkrediteras med verifierad kundkredit som vän
   const paid=CustomerPayment.executeApprovedCustomerPayment(db,{companyId:co1.id,proposalId:proposal.id,actorId:user.id});
   assert.equal(paid.invoice.remainingOre,85000);
 
+  const beforeCreditControl=Reports.receivablesControl(db,co1.id);
   const creditRequestId='credit-after-partial-payment-01';
   const creditResponse=await fetch(base+`/api/v1/customer-invoices/${issued.invoice.id}/credit`,{method:'POST',headers,body:JSON.stringify({requestId:creditRequestId,creditDate:'2026-09-20',reason:'Helkredit efter delbetalning.'})});
   const credit=await creditResponse.json();
@@ -138,8 +139,9 @@ test('delbetald kundfaktura kan helkrediteras med verifierad kundkredit som vän
   assert.equal(credit.original.status,'Krediterad');
 
   const reconciliation=Reports.receivablesControl(db,co1.id);
-  assert.equal(reconciliation.integrityOk,true);
-  assert.equal(reconciliation.differenceOre,0);
+  assert.equal(reconciliation.differenceOre,beforeCreditControl.differenceOre,'krediteringen får inte skapa en ny differens mellan reskontra och 1510');
+  assert.equal(reconciliation.subledgerOre-beforeCreditControl.subledgerOre,-125000);
+  assert.equal(reconciliation.ledgerOre-beforeCreditControl.ledgerOre,-125000);
 
   const archived=Invoicing.pdfArchiveForInvoice(db,co1.id,credit.invoice.id);
   assert.equal(archived.bytes.subarray(0,5).toString('ascii'),'%PDF-');
