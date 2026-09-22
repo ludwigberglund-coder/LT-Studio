@@ -411,6 +411,13 @@ function membershipsForUser(db, userId) {
     FROM memberships m JOIN companies c ON c.id=m.company_id WHERE m.user_id=? ORDER BY c.display_name`).all(userId);
 }
 
+function membershipsForCompany(db,companyId) {
+  return db.prepare(`SELECT m.company_id AS companyId,m.user_id AS userId,m.role,m.created_at AS createdAt,
+    u.username,u.display_name AS displayName,u.disabled,u.platform_admin AS platformAdmin
+    FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.company_id=? ORDER BY u.display_name,u.username,u.id`).all(companyId)
+    .map(row=>({...row,disabled:Boolean(row.disabled),platformAdmin:Boolean(row.platformAdmin)}));
+}
+
 function createSession(db, {tokenHash,csrfHash,userId,companyId,expiresAt,absoluteExpiresAt = expiresAt}) {
   const now = nowIso();
   if (!absoluteExpiresAt || absoluteExpiresAt < expiresAt) throw databaseError('Sessionens absoluta sluttid måste vara minst lika sen som inaktivitetsgränsen.','INVALID_SESSION_EXPIRY',500);
@@ -813,6 +820,7 @@ module.exports = Object.freeze({
   setMembershipRole,
   membership,
   membershipsForUser,
+  membershipsForCompany,
   createSession,
   sessionByTokenHash,
   touchSession,
