@@ -7,7 +7,10 @@ const os=require('node:os');
 const path=require('node:path');
 const crypto=require('node:crypto');
 const Db=require('../apps/api/database.js');
+const Auth=require('../apps/api/auth.js');
 const {readinessReport}=require('../apps/api/readiness.js');
+const TEST_AUTH_KEY='test-only-readiness-auth-key-123456789-ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const TEST_MFA_SECRET='GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 const {createServer}=require('../apps/api/server.js');
 const AuditAnchor=require('../scripts/audit-anchor.js');
 
@@ -51,33 +54,45 @@ test('readiness kräver läsbar och skrivbar databas',()=>{
   }finally{db.close()}
 });
 
-test('protected readiness kräver minst en aktiv LT Studio global admin med MFA',()=>{
+test('protected readiness kräver minst en aktiv LT Studio global admin med fungerande MFA',()=>{
   const db=Db.openDatabase(':memory:');
+  const report=overrides=>readinessReport({
+    db,
+    databasePath:':memory:',
+    minFreeBytes:1,
+    requirePlatformAdmin:true,
+    authEncryptionKey:TEST_AUTH_KEY,
+    ...overrides
+  });
   try{
-    let report=readinessReport({db,databasePath:':memory:',minFreeBytes:1,requirePlatformAdmin:true});
-    assert.equal(report.ok,false);
-    assert.equal(report.checks.platformAdmin,false);
+    let result=report();
+    assert.equal(result.ok,false);
+    assert.equal(result.checks.platformAdmin,false);
 
     const user=Db.createUser(db,{
       username:'lt-security-admin',
       displayName:'LT Security Admin',
       passwordHash:'test-password-hash',
-      mfaSecretEncrypted:'encrypted-test-secret',
+      mfaSecretEncrypted:Auth.encryptSecret(TEST_MFA_SECRET,TEST_AUTH_KEY),
       platformAdmin:true
     });
-    report=readinessReport({db,databasePath:':memory:',minFreeBytes:1,requirePlatformAdmin:true});
-    assert.equal(report.ok,true);
-    assert.equal(report.checks.platformAdmin,true);
+    result=report();
+    assert.equal(result.ok,true);
+    assert.equal(result.checks.platformAdmin,true);
+
+    result=report({authEncryptionKey:'wrong-test-readiness-auth-key-123456789-ABCDEFGHIJKLMNOPQRSTUVWXYZ'});
+    assert.equal(result.ok,false);
+    assert.equal(result.checks.platformAdmin,false);
 
     db.prepare('UPDATE users SET disabled=1 WHERE id=?').run(user.id);
-    report=readinessReport({db,databasePath:':memory:',minFreeBytes:1,requirePlatformAdmin:true});
-    assert.equal(report.ok,false);
-    assert.equal(report.checks.platformAdmin,false);
+    result=report();
+    assert.equal(result.ok,false);
+    assert.equal(result.checks.platformAdmin,false);
 
     db.prepare("UPDATE users SET disabled=0,mfa_secret_encrypted='' WHERE id=?").run(user.id);
-    report=readinessReport({db,databasePath:':memory:',minFreeBytes:1,requirePlatformAdmin:true});
-    assert.equal(report.ok,false);
-    assert.equal(report.checks.platformAdmin,false);
+    result=report();
+    assert.equal(result.ok,false);
+    assert.equal(result.checks.platformAdmin,false);
   }finally{db.close()}
 });
 
