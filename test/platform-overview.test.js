@@ -11,7 +11,7 @@ test('plattformsoverview listar företag och aggregerad säkerhet utan affärsde
   try{
     const a=Db.createCompany(db,{legalName:'Alpha Butik AB',displayName:'Alpha Butik',orgNumber:'559900-7001'});
     const b=Db.createCompany(db,{legalName:'Beta Mat AB',displayName:'Beta Mat',orgNumber:'559900-7002'});
-    const user=Db.createUser(db,{username:'operator-overview-member',displayName:'Översiktsmedlem',passwordHash:'test-only'});
+    const user=Db.createUser(db,{username:'operator-overview-member',displayName:'Översiktsmedlem',passwordHash:'test-only',mfaSecretEncrypted:'test-encrypted-mfa'});
     Db.addMembership(db,{companyId:a.id,userId:user.id});
     const disabledUser=Db.createUser(db,{username:'operator-overview-disabled',displayName:'Inaktiv medlem',passwordHash:'test-only',disabled:true});
     Db.addMembership(db,{companyId:b.id,userId:disabledUser.id,role:'readonly'});
@@ -54,6 +54,8 @@ test('plattformsoverview listar företag och aggregerad säkerhet utan affärsde
     assert.equal(result.totals.customers,2);
     assert.equal(result.totals.invoices,2);
     assert.equal(result.totals.configuredCompanies,1);
+    assert.equal(result.totals.activeUsers,1);
+    assert.equal(result.totals.mfaProtectedUsers,1);
     assert.equal(result.roleDistribution.admin,1);
     assert.equal(result.roleDistribution.readonly,1);
     assert.equal(result.monthly.length,6);
