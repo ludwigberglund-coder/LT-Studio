@@ -38,6 +38,8 @@ jobs:
         run: npm run security:client-scan
       - name: Block dangerous runtime code execution primitives
         run: npm run security:runtime-code-scan
+      - name: Enforce GitHub Actions trust boundary
+        run: npm run security:ci-trust-boundary
       - name: Validate editable content
         run: npm run content:check
       - name: Check JavaScript syntax
