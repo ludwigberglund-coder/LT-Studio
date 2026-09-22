@@ -45,6 +45,10 @@ Ett sådant konto:
 
 Global admin aktiveras aldrig automatiskt från användarnamn eller e-post. Det kräver en explicit administrativ åtgärd.
 
+### Readiness
+
+I skyddade runtime-lägen rapporteras systemet inte som ready om det saknas minst ett aktivt LT Studio global-admin-konto vars MFA-hemlighet kan dekrypteras och valideras med den aktuella servernyckeln. Det förhindrar ett falskt grönt läge där global admin finns i databasen men i praktiken inte går att logga in med.
+
 Exempel för en verifierad LT Studio-användare:
 
 ```sh
