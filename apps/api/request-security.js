@@ -245,6 +245,7 @@ const EMPTY_BODY_RULES=Object.freeze([
   ['POST',/^\/api\/v1\/payroll\/runs\/[^/]+\/post$/],
   ['POST',/^\/api\/v1\/suppliers\/changes\/[^/]+\/approve$/],
   ['POST',/^\/api\/operator\/v1\/auth\/logout$/],
+  ['POST',/^\/api\/operator\/v1\/security-alerts\/test$/],
   ['DELETE',/^\/api\/operator\/v1\/companies\/[^/]+\/users\/[^/]+$/]
 ]);
 

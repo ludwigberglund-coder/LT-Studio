@@ -110,6 +110,19 @@ const out=path.join(__dirname,'..','test-artifacts');
     assert.doesNotMatch(securityBody,/LOGIN FAILURE THRESHOLD|never-in-ui|never-in-ui-either|never-in-ui-audit|cccccccc|dddddddd/);
     assert.match(securityBody,/Aktiv säkerhetsövervakning/i);
     assert.match(securityBody,/Systemet söker löpande efter risker och fel/i);
+    assert.match(securityBody,/Webhook för säkerhetslarm/i);
+    assert.match(securityBody,/Webhook saknas i runtime-konfigurationen/i);
+    const alertTestButton=page.getByRole('button',{name:'Skicka testlarm',exact:true});
+    assert.equal(await alertTestButton.isDisabled(),true);
+    const alertProbe=await page.evaluate(async()=>{
+      const response=await fetch('/api/operator/v1/security-alerts',{credentials:'same-origin'});
+      const body=await response.json().catch(()=>({}));
+      return {status:response.status,body};
+    });
+    assert.equal(alertProbe.status,200,JSON.stringify(alertProbe.body));
+    assert.equal(alertProbe.body.configured,false);
+    assert.doesNotMatch(JSON.stringify(alertProbe.body),/url|token|secret/i);
+    checks.push({kind:'security-alert-channel-browser',configured:alertProbe.body.configured});
     assert.match(securityBody,/Aktiva användare saknar MFA/i);
     const monitorProbe=await page.evaluate(async()=>{
       const response=await fetch('/api/operator/v1/security-monitor',{credentials:'same-origin'});

@@ -86,6 +86,24 @@ test('operator-API kräver separat operatörssession och läcker inte kundernas 
   assert.equal(security.events[0].incidentUpdatedBy,null);
   assert.doesNotMatch(JSON.stringify(security),/aaaaaaaa|192\.0\.2\.44|must-not-leak/);
 
+  const alertStatusResponse=await fetch(base+'/api/operator/v1/security-alerts',{headers:{Cookie:signed.cookie}});
+  assert.equal(alertStatusResponse.status,200);
+  const alertStatus=await alertStatusResponse.json();
+  assert.equal(alertStatus.configured,false);
+  assert.equal(alertStatus.channel,'webhook');
+  assert.doesNotMatch(JSON.stringify(alertStatus),/url|token|secret/i);
+
+  const alertTestWithoutCsrf=await fetch(base+'/api/operator/v1/security-alerts/test',{
+    method:'POST',headers:{Cookie:signed.cookie,'Content-Type':'application/json'},body:'{}'
+  });
+  assert.equal(alertTestWithoutCsrf.status,403);
+
+  const alertTestUnconfigured=await fetch(base+'/api/operator/v1/security-alerts/test',{
+    method:'POST',headers:{Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken},body:'{}'
+  });
+  assert.equal(alertTestUnconfigured.status,503);
+  assert.equal((await alertTestUnconfigured.json()).code,'SECURITY_ALERT_NOT_CONFIGURED');
+
   const incidentWithoutCsrf=await fetch(base+'/api/operator/v1/security-events/'+encodeURIComponent(security.events[0].id)+'/status',{
     method:'PUT',headers:{Cookie:signed.cookie,'Content-Type':'application/json'},body:JSON.stringify({status:'investigating'})
   });
@@ -113,7 +131,7 @@ test('operator-API kräver separat operatörssession och läcker inte kundernas 
   const auditBody=await auditResponse.json();
   assert.equal(auditResponse.status,200,JSON.stringify(auditBody));
   assert.ok(auditBody.events.length>=3);
-  assert.deepEqual(Object.keys(auditBody.events[0]).sort(),['action','afterRole','afterStatus','beforeRole','beforeStatus','companyId','companyName','createdAt','operatorName','role','targetUserName'].sort());
+  assert.deepEqual(Object.keys(auditBody.events[0]).sort(),['action','afterRole','afterStatus','alertCode','alertErrorCode','alertResult','alertSeverity','alertTest','beforeRole','beforeStatus','companyId','companyName','createdAt','operatorName','role','targetUserName'].sort());
   const correlatedAudit=auditBody.events.find(event=>event.action==='CUSTOMER_USER_ROLE_CHANGED');
   assert.ok(correlatedAudit);
   assert.equal(correlatedAudit.companyName,'Kundbolag Ett');
@@ -133,6 +151,7 @@ test('operator-API kräver separat operatörssession och läcker inte kundernas 
   assert.equal(typeof readinessBody.checks,'object');
   assert.equal(typeof readinessBody.checks.databaseRead,'boolean');
   assert.equal(typeof readinessBody.checks.databaseWrite,'boolean');
+  assert.equal(typeof readinessBody.checks.alertDelivery,'boolean');
 }));
 
 test('operator-session använder MFA, CSRF och server-side logout',()=>withOperatorApi(async({runtime,base,operator})=>{
