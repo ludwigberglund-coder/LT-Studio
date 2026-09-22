@@ -8,6 +8,7 @@ const CodingSuggestions=require('../../packages/automation/supplier-coding.js');
 const Auth=require('./auth.js');
 const Db=require('./database.js');
 const Payables=require('./payables.js');
+const PdfSecurity=require('./pdf-upload-security.js');
 const SupplierAccounting=require('./supplier-accounting.js');
 const Queues=require('./queues.js');
 const Domain=require('../../packages/payables/supplier-invoices.js');
@@ -46,7 +47,7 @@ function createPayablesRouter(options){
       const invoiceMatch=url.pathname.match(/^\/api\/v1\/payables\/invoices\/([^/]+)$/);
       if(invoiceMatch&&req.method==='GET'){permission(s,'supplier-invoice.view');const invoice=Payables.invoiceById(db,s.companyId,invoiceMatch[1]);if(!invoice)throw routeError('Fakturan hittades inte.','INVOICE_NOT_FOUND',404);return send(res,200,{invoice}),true}
       const pdfMatch=url.pathname.match(/^\/api\/v1\/payables\/invoices\/([^/]+)\/document$/);
-      if(pdfMatch&&req.method==='PUT'){permission(s,'supplier-invoice.register');const bytes=await readPdf(req,res);if(!bytes)return true;const result=Db.transaction(db,()=>{const value=Payables.storeDocumentIdempotent(db,{companyId:s.companyId,invoiceId:pdfMatch[1],name:documentName(req),mime:'application/pdf',bytes});if(!value.duplicate)Db.appendAudit(db,{companyId:s.companyId,userId:s.userId,action:'SUPPLIER_INVOICE_DOCUMENT_STORED',entityType:'supplier-invoice',entityId:pdfMatch[1],details:{sha256:value.document.sha256,size:value.document.size}});return value});return send(res,result.duplicate?200:201,result),true}
+      if(pdfMatch&&req.method==='PUT'){permission(s,'supplier-invoice.register');const bytes=await readPdf(req,res);if(!bytes)return true;const name=documentName(req);await PdfSecurity.assertSafePdfDeep(bytes,{fileName:name,maxBytes:PDF_LIMIT});const result=Db.transaction(db,()=>{const value=Payables.storeDocumentIdempotent(db,{companyId:s.companyId,invoiceId:pdfMatch[1],name,mime:'application/pdf',bytes});if(!value.duplicate)Db.appendAudit(db,{companyId:s.companyId,userId:s.userId,action:'SUPPLIER_INVOICE_DOCUMENT_STORED',entityType:'supplier-invoice',entityId:pdfMatch[1],details:{sha256:value.document.sha256,size:value.document.size}});return value});return send(res,result.duplicate?200:201,result),true}
       if(pdfMatch&&req.method==='GET'){permission(s,'supplier-invoice.view');const doc=Payables.document(db,s.companyId,pdfMatch[1]);res.writeHead(200,{...securityHeaders(),'Content-Type':'application/pdf','X-Frame-Options':'DENY','Content-Security-Policy':"sandbox; default-src 'none'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'",'Content-Disposition':pdfDisposition(doc.name),'Content-Length':doc.bytes.length,'X-Document-SHA256':doc.sha256});res.end(doc.bytes);return true}
       const suggestionMatch=url.pathname.match(/^\/api\/v1\/payables\/invoices\/([^/]+)\/coding-suggestion$/);
       if(suggestionMatch&&req.method==='POST'){
