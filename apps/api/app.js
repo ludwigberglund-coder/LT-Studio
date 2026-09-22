@@ -8,6 +8,7 @@ const Receivables = require('../../packages/receivables/customer-receivables.js'
 const Auth = require('./auth.js');
 const Db = require('./database.js');
 const CustomerInvoicing = require('./customer-invoicing.js');
+const CompanySettings = require('./company-invoice-settings.js');
 const WebsiteCms = require('./website-cms.js');
 const RequestSecurity = require('./request-security.js');
 
@@ -388,6 +389,43 @@ function createApiApp(options) {
           Db.deleteSessionsForUser(db,session.userId);
         });
         return send(res,200,{saved:true,reauthenticate:true,sessionDurationMinutes:requested},{'Set-Cookie':Auth.clearSessionCookie({secure:secureCookies})});
+      }
+
+      if(req.method==='GET' && url.pathname==='/api/v1/company-settings') {
+        requirePermission(session,'platform.settings.manage');
+        const company=Db.companyById(db,session.companyId);
+        const stored=CompanySettings.getInvoiceSettings(db,session.companyId);
+        const resolved=CompanySettings.privateProfile(db,session.companyId,companyProfileFor(session.companyId)||{}).profile;
+        return send(res,200,{
+          company:{id:company.id,legalName:company.legalName,displayName:company.displayName,orgNumber:company.orgNumber},
+          settings:{
+            address:String(stored?.address||resolved.address?.full||''),
+            email:String(stored?.email||resolved.contact?.email||''),
+            phone:String(stored?.phone||resolved.contact?.phone||''),
+            website:String(stored?.website||resolved.website||''),
+            vatNumber:String(stored?.vatNumber||resolved.vatNumber||''),
+            bankgiro:String(stored?.bankgiro||''),
+            taxStatus:String(stored?.taxStatus||'')
+          },
+          expectedVatNumber:CompanySettings.expectedVatNumberForOrgNumber(company.orgNumber),
+          configured:Boolean(stored)
+        });
+      }
+
+      if(req.method==='PUT' && url.pathname==='/api/v1/company-settings') {
+        requirePermission(session,'platform.settings.manage');
+        const payload=await readJson(req,res); if(!payload) return;
+        let settings;
+        Db.transaction(db,()=>{
+          settings=CompanySettings.setCompanySettings(db,{
+            companyId:session.companyId,
+            address:payload.address,email:payload.email,phone:payload.phone,website:payload.website,
+            vatNumber:payload.vatNumber,bankgiro:payload.bankgiro,taxStatus:payload.taxStatus,updatedBy:session.userId
+          });
+          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'COMPANY_SETTINGS_UPDATED',entityType:'company',entityId:session.companyId,
+            details:{fields:['address','email','phone','website','vatNumber','bankgiro','taxStatus']}});
+        });
+        return send(res,200,{saved:true,settings});
       }
 
       if(req.method==='GET' && url.pathname==='/api/v1/customers') {
