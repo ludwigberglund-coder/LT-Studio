@@ -59,6 +59,11 @@ function platformOverview(db,{nowMs=Date.now(),securityWindowHours=24}={}){
     accessConfigured:Number(row.activeMemberCount||0)>0
   }));
 
+  const userSecurity=db.prepare(`SELECT
+    COUNT(*) AS activeUsers,
+    SUM(CASE WHEN mfa_secret_encrypted IS NOT NULL AND trim(mfa_secret_encrypted)<>'' THEN 1 ELSE 0 END) AS mfaProtectedUsers
+    FROM users u
+    WHERE u.disabled=0 AND EXISTS (SELECT 1 FROM memberships m WHERE m.user_id=u.id)`).get()||{};
   const totals=Object.freeze({
     members:companies.reduce((sum,row)=>sum+row.memberCount,0),
     customers:companies.reduce((sum,row)=>sum+row.customerRecordCount,0),
@@ -67,7 +72,9 @@ function platformOverview(db,{nowMs=Date.now(),securityWindowHours=24}={}){
     configuredCompanies:companies.filter(row=>row.accessConfigured).length,
     activeCompanies30d:companies.filter(row=>row.lastActivityAt&&row.lastActivityAt>=active30SinceIso).length,
     newCompanies30d:companies.filter(row=>row.createdAt>=active30SinceIso).length,
-    disabledUsers:Number(db.prepare('SELECT COUNT(*) AS count FROM users WHERE disabled=1').get()?.count||0)
+    disabledUsers:Number(db.prepare('SELECT COUNT(*) AS count FROM users WHERE disabled=1').get()?.count||0),
+    activeUsers:Number(userSecurity.activeUsers||0),
+    mfaProtectedUsers:Number(userSecurity.mfaProtectedUsers||0)
   });
 
   const roleRows=db.prepare('SELECT role,COUNT(*) AS count FROM memberships GROUP BY role ORDER BY role').all();
