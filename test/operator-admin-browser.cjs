@@ -66,6 +66,37 @@ const out=path.join(__dirname,'..','test-artifacts');
     await page.getByRole('heading',{name:'Kundmiljöer',exact:true}).waitFor();
     checks.push({kind:'refresh'});
 
+    await page.getByRole('button',{name:'Hantera användare',exact:true}).click();
+    await page.getByRole('heading',{name:/Användare · Browser Kund/}).waitFor();
+    assert.match(await page.locator('#user-admin-panel').innerText(),/Endast LT Studio-operatörer/);
+    await page.locator('#create-user-form input[name="displayName"]').fill('Kund Användare');
+    await page.locator('#create-user-form input[name="username"]').fill('kund.browser');
+    await page.locator('#create-user-form input[name="password"]').fill('Kundtest1!');
+    await page.locator('#create-user-form select[name="role"]').selectOption('readonly');
+    await page.getByRole('button',{name:'Skapa konto',exact:true}).click();
+    await page.getByText(/MFA-hemlighet \(visas bara nu\):/).waitFor();
+    const created=Db.userByUsername(runtime.db,'kund.browser');
+    assert.ok(created);
+    assert.equal(Db.membership(runtime.db,company.id,created.id).role,'readonly');
+    checks.push({kind:'create-customer-user'});
+
+    await page.locator('select[data-user-role="'+created.id+'"]').selectOption('accountant');
+    await page.getByText(/Rollen ändrades/).waitFor();
+    assert.equal(Db.membership(runtime.db,company.id,created.id).role,'accountant');
+    checks.push({kind:'change-customer-role'});
+
+    page.once('dialog',async dialog=>{assert.equal(dialog.type(),'prompt');await dialog.accept('Nyttlosen1!')});
+    await page.locator('button[data-action="reset-password"][data-user-id="'+created.id+'"]').click();
+    await page.getByText(/Lösenordet byttes/).waitFor();
+    assert.equal(Auth.verifyPassword('Nyttlosen1!',Db.userById(runtime.db,created.id).passwordHash),true);
+    checks.push({kind:'reset-customer-password'});
+
+    page.once('dialog',async dialog=>{assert.equal(dialog.type(),'confirm');await dialog.accept()});
+    await page.locator('button[data-action="toggle-user"][data-user-id="'+created.id+'"]').click();
+    await page.getByText(/Användaren inaktiverades/).waitFor();
+    assert.equal(Db.userById(runtime.db,created.id).disabled,true);
+    checks.push({kind:'disable-customer-user'});
+
     await page.setViewportSize({width:390,height:844});
     assert.equal(await page.getByRole('heading',{name:'Plattformsöversikt',exact:true}).count(),1);
     checks.push({kind:'mobile-layout'});
