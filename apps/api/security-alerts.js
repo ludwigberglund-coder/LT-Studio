@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto=require('node:crypto');
+const net=require('node:net');
 const Db=require('./database.js');
 
 const DEFAULT_COOLDOWN_MS=15*60*1000;
@@ -26,14 +27,33 @@ function intSetting(env,name,fallback,{min,max}){
 function cleanText(value,max){
   return String(value||'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,max);
 }
+function privateIpLiteral(hostname){
+  const host=String(hostname||'').replace(/^\[|\]$/g,'').toLowerCase();
+  const family=net.isIP(host);
+  if(family===4){
+    const parts=host.split('.').map(Number);
+    const [a,b]=parts;
+    return a===0||a===10||a===127||(a===100&&b>=64&&b<=127)||(a===169&&b===254)||
+      (a===172&&b>=16&&b<=31)||(a===192&&b===168)||(a===198&&(b===18||b===19))||a>=224;
+  }
+  if(family===6){
+    const compact=host.replace(/^0+(?=[0-9a-f])/,'');
+    return host==='::'||host==='::1'||/^f[cd][0-9a-f]{2}:/i.test(host)||/^fe[89ab][0-9a-f]:/i.test(host)||/^ff/i.test(compact);
+  }
+  return false;
+}
+function localHostname(hostname){
+  const host=String(hostname||'').replace(/^\[|\]$/g,'').toLowerCase().replace(/\.$/,'');
+  return host==='localhost'||host.endsWith('.localhost')||host.endsWith('.local')||host.endsWith('.internal')||host.endsWith('.home.arpa');
+}
 function parseWebhookUrl(raw){
   const value=String(raw||'').trim();
   if(!value)return null;
   let parsed;
   try{parsed=new URL(value)}catch{throw alertError('Webhook-adressen för säkerhetslarm är ogiltig.','SECURITY_ALERT_INVALID_WEBHOOK_URL',500)}
   const host=parsed.hostname.toLowerCase();
-  if(parsed.protocol!=='https:'||parsed.username||parsed.password||parsed.hash||!host||['localhost','127.0.0.1','::1'].includes(host)){
-    throw alertError('Webhook-adressen för säkerhetslarm måste vara en extern HTTPS-adress utan inbyggda inloggningsuppgifter.','SECURITY_ALERT_INVALID_WEBHOOK_URL',500);
+  if(parsed.protocol!=='https:'||parsed.username||parsed.password||parsed.hash||!host||privateIpLiteral(host)||localHostname(host)){
+    throw alertError('Webhook-adressen för säkerhetslarm måste vara en extern HTTPS-adress utan inbyggda inloggningsuppgifter eller lokal nätverksdestination.','SECURITY_ALERT_INVALID_WEBHOOK_URL',500);
   }
   return parsed.toString();
 }
@@ -259,5 +279,8 @@ module.exports=Object.freeze({
   DEFAULT_TIMEOUT_MS,
   DEFAULT_RETRY_BASE_MS,
   DEFAULT_TEST_MAX_AGE_MS,
-  createSecurityAlertService
+  createSecurityAlertService,
+  privateIpLiteral,
+  localHostname,
+  parseWebhookUrl
 });
