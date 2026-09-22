@@ -50,6 +50,14 @@ test('sessionscookies är HttpOnly SameSite Strict och Secure i skarp standard',
   assert.match(Auth.clearSessionCookie(),/Max-Age=0/);
 });
 
+test('varje gång använder sessionscookie utan permanent Max-Age',()=>{
+  const cookie=Auth.sessionCookie('abc',{secure:true,maxAgeSeconds:null});
+  assert.match(cookie,/HttpOnly/);
+  assert.match(cookie,/SameSite=Strict/);
+  assert.match(cookie,/Secure/);
+  assert.doesNotMatch(cookie,/Max-Age=/);
+});
+
 
 test('lösenordsverifiering avvisar manipulerade scrypt-parametrar fail-closed', () => {
   const password='Ett mycket langt testlosenord 2026!';

@@ -279,6 +279,9 @@ function initializeSchema(db) {
   db.exec("UPDATE invoice_reminders SET reminder_date=substr(sent_at,1,10) WHERE reminder_date IS NULL OR reminder_date=''");
   if (!hasColumn(db,'customers','archived_at')) db.exec('ALTER TABLE customers ADD COLUMN archived_at TEXT');
   db.exec('CREATE INDEX IF NOT EXISTS idx_customers_company_archived ON customers(company_id,archived_at,customer_number)');
+  if (!hasColumn(db,'memberships','role')) db.exec("ALTER TABLE memberships ADD COLUMN role TEXT NOT NULL DEFAULT 'admin' CHECK(role IN ('admin','accountant','approver','readonly'))");
+  if (!hasColumn(db,'users','platform_admin')) db.exec("ALTER TABLE users ADD COLUMN platform_admin INTEGER NOT NULL DEFAULT 0 CHECK(platform_admin IN (0,1))");
+  if (!hasColumn(db,'users','session_duration_minutes')) db.exec("ALTER TABLE users ADD COLUMN session_duration_minutes INTEGER DEFAULT 480 CHECK(session_duration_minutes IS NULL OR session_duration_minutes IN (120,240,360,480))");
   const {protectAppendOnly}=require('./history-guards.js');
   protectAppendOnly(db,'audit_events');
   protectAppendOnly(db,'security_events');
@@ -326,19 +329,51 @@ function companyById(db, companyId) {
   return db.prepare('SELECT id,legal_name AS legalName,org_number AS orgNumber,display_name AS displayName,created_at AS createdAt FROM companies WHERE id=?').get(companyId) || null;
 }
 
-function createUser(db, {id: userId = id('user'), username, displayName, passwordHash, mfaSecretEncrypted = null, disabled = false}) {
+function listCompanies(db) {
+  return db.prepare('SELECT id,legal_name AS legalName,org_number AS orgNumber,display_name AS displayName,created_at AS createdAt FROM companies ORDER BY display_name,legal_name,id').all();
+}
+
+function createUser(db, {id: userId = id('user'), username, displayName, passwordHash, mfaSecretEncrypted = null, disabled = false, platformAdmin = false, sessionDurationMinutes = 480}) {
   const createdAt = nowIso();
-  db.prepare('INSERT INTO users(id,username,display_name,password_hash,mfa_secret_encrypted,disabled,created_at) VALUES(?,?,?,?,?,?,?)')
-    .run(userId, username, String(displayName || '').trim(), passwordHash, mfaSecretEncrypted, disabled ? 1 : 0, createdAt);
+  const duration=normalizeSessionDuration(sessionDurationMinutes);
+  db.prepare('INSERT INTO users(id,username,display_name,password_hash,mfa_secret_encrypted,disabled,platform_admin,session_duration_minutes,created_at) VALUES(?,?,?,?,?,?,?,?,?)')
+    .run(userId, username, String(displayName || '').trim(), passwordHash, mfaSecretEncrypted, disabled ? 1 : 0, platformAdmin ? 1 : 0, duration, createdAt);
   return userById(db, userId);
 }
 
 function userById(db, userId) {
-  return db.prepare('SELECT id,username,display_name AS displayName,password_hash AS passwordHash,mfa_secret_encrypted AS mfaSecretEncrypted,disabled,created_at AS createdAt FROM users WHERE id=?').get(userId) || null;
+  const row=db.prepare('SELECT id,username,display_name AS displayName,password_hash AS passwordHash,mfa_secret_encrypted AS mfaSecretEncrypted,disabled,platform_admin AS platformAdmin,session_duration_minutes AS sessionDurationMinutes,created_at AS createdAt FROM users WHERE id=?').get(userId) || null;
+  return row?{...row,disabled:Boolean(row.disabled),platformAdmin:Boolean(row.platformAdmin)}:null;
 }
 
 function userByUsername(db, username) {
-  return db.prepare('SELECT id,username,display_name AS displayName,password_hash AS passwordHash,mfa_secret_encrypted AS mfaSecretEncrypted,disabled,created_at AS createdAt FROM users WHERE username=?').get(username) || null;
+  const row=db.prepare('SELECT id,username,display_name AS displayName,password_hash AS passwordHash,mfa_secret_encrypted AS mfaSecretEncrypted,disabled,platform_admin AS platformAdmin,session_duration_minutes AS sessionDurationMinutes,created_at AS createdAt FROM users WHERE username=?').get(username) || null;
+  return row?{...row,disabled:Boolean(row.disabled),platformAdmin:Boolean(row.platformAdmin)}:null;
+}
+
+const SESSION_DURATION_MINUTES=Object.freeze([120,240,360,480]);
+function normalizeSessionDuration(value) {
+  if(value===null||value==='session') return null;
+  const minutes=Number(value);
+  if(!Number.isSafeInteger(minutes)||!SESSION_DURATION_MINUTES.includes(minutes)) throw databaseError('Inloggningstiden måste vara varje gång, 2, 4, 6 eller 8 timmar.','INVALID_SESSION_DURATION',400);
+  return minutes;
+}
+
+function setUserSessionDuration(db,{userId,sessionDurationMinutes}) {
+  const duration=normalizeSessionDuration(sessionDurationMinutes);
+  const result=db.prepare('UPDATE users SET session_duration_minutes=? WHERE id=? AND disabled=0').run(duration,String(userId||'').trim());
+  if(Number(result.changes||0)!==1) throw databaseError('Användarkontot hittades inte.','USER_NOT_FOUND',404);
+  return userById(db,userId);
+}
+
+function setUserPlatformAdmin(db,{userId,enabled}) {
+  const result=db.prepare('UPDATE users SET platform_admin=? WHERE id=? AND disabled=0').run(enabled?1:0,String(userId||'').trim());
+  if(Number(result.changes||0)!==1) throw databaseError('Användarkontot hittades inte.','USER_NOT_FOUND',404);
+  return userById(db,userId);
+}
+
+function deleteSessionsForUser(db,userId) {
+  return Number(db.prepare('DELETE FROM sessions WHERE user_id=?').run(String(userId||'').trim()).changes||0);
 }
 
 function updateUserPasswordHash(db,{userId,passwordHash}) {
@@ -349,19 +384,41 @@ function updateUserPasswordHash(db,{userId,passwordHash}) {
   return userById(db,idValue);
 }
 
-function addMembership(db, {companyId,userId}) {
-  db.prepare('INSERT INTO memberships(company_id,user_id,created_at) VALUES(?,?,?) ON CONFLICT(company_id,user_id) DO NOTHING')
-    .run(companyId,userId,nowIso());
+const MEMBERSHIP_ROLES=Object.freeze(['admin','accountant','approver','readonly']);
+function membershipRole(value) {
+  const role=String(value||'').trim();
+  if(!MEMBERSHIP_ROLES.includes(role)) throw databaseError('Ogiltig företagsroll.','INVALID_MEMBERSHIP_ROLE',400);
+  return role;
+}
+
+function addMembership(db, {companyId,userId,role='admin'}) {
+  const normalizedRole=membershipRole(role);
+  db.prepare('INSERT INTO memberships(company_id,user_id,role,created_at) VALUES(?,?,?,?) ON CONFLICT(company_id,user_id) DO NOTHING')
+    .run(companyId,userId,normalizedRole,nowIso());
   return membership(db, companyId, userId);
 }
 
+function setMembershipRole(db,{companyId,userId,role}) {
+  const normalizedRole=membershipRole(role);
+  const result=db.prepare('UPDATE memberships SET role=? WHERE company_id=? AND user_id=?').run(normalizedRole,companyId,userId);
+  if(Number(result.changes||0)!==1) throw databaseError('Företagsmedlemskapet hittades inte.','MEMBERSHIP_NOT_FOUND',404);
+  return membership(db,companyId,userId);
+}
+
 function membership(db, companyId, userId) {
-  return db.prepare('SELECT company_id AS companyId,user_id AS userId,created_at AS createdAt FROM memberships WHERE company_id=? AND user_id=?').get(companyId,userId) || null;
+  return db.prepare('SELECT company_id AS companyId,user_id AS userId,role,created_at AS createdAt FROM memberships WHERE company_id=? AND user_id=?').get(companyId,userId) || null;
 }
 
 function membershipsForUser(db, userId) {
-  return db.prepare(`SELECT m.company_id AS companyId,c.legal_name AS legalName,c.display_name AS displayName
+  return db.prepare(`SELECT m.company_id AS companyId,m.role,c.legal_name AS legalName,c.display_name AS displayName
     FROM memberships m JOIN companies c ON c.id=m.company_id WHERE m.user_id=? ORDER BY c.display_name`).all(userId);
+}
+
+function membershipsForCompany(db,companyId) {
+  return db.prepare(`SELECT m.company_id AS companyId,m.user_id AS userId,m.role,m.created_at AS createdAt,
+    u.username,u.display_name AS displayName,u.disabled,u.platform_admin AS platformAdmin
+    FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.company_id=? ORDER BY u.display_name,u.username,u.id`).all(companyId)
+    .map(row=>({...row,disabled:Boolean(row.disabled),platformAdmin:Boolean(row.platformAdmin)}));
 }
 
 function createSession(db, {tokenHash,csrfHash,userId,companyId,expiresAt,absoluteExpiresAt = expiresAt}) {
@@ -376,9 +433,11 @@ function sessionByTokenHash(db, tokenHash) {
   const now = nowIso();
   const row = db.prepare(`SELECT s.token_hash AS tokenHash,s.csrf_hash AS csrfHash,s.user_id AS userId,s.company_id AS companyId,
       s.expires_at AS expiresAt,s.absolute_expires_at AS absoluteExpiresAt,s.created_at AS createdAt,s.last_seen_at AS lastSeenAt,
-      u.username,u.display_name AS displayName,u.disabled
-    FROM sessions s JOIN users u ON u.id=s.user_id JOIN memberships m ON m.user_id=s.user_id AND m.company_id=s.company_id
-    WHERE s.token_hash=? AND s.expires_at>? AND s.absolute_expires_at>?`).get(tokenHash,now,now);
+      u.username,u.display_name AS displayName,u.disabled,u.platform_admin AS platformAdmin,u.session_duration_minutes AS sessionDurationMinutes,
+      COALESCE(m.role,'admin') AS role
+    FROM sessions s JOIN users u ON u.id=s.user_id
+    LEFT JOIN memberships m ON m.user_id=s.user_id AND m.company_id=s.company_id
+    WHERE s.token_hash=? AND s.expires_at>? AND s.absolute_expires_at>? AND (u.platform_admin=1 OR m.user_id IS NOT NULL)`).get(tokenHash,now,now);
   if (!row) return null;
   return row;
 }
@@ -748,13 +807,23 @@ module.exports = Object.freeze({
   transaction,
   createCompany,
   companyById,
+  listCompanies,
   createUser,
   userById,
   userByUsername,
+  SESSION_DURATION_MINUTES,
+  normalizeSessionDuration,
+  setUserSessionDuration,
+  setUserPlatformAdmin,
+  deleteSessionsForUser,
   updateUserPasswordHash,
+  MEMBERSHIP_ROLES,
+  membershipRole,
   addMembership,
+  setMembershipRole,
   membership,
   membershipsForUser,
+  membershipsForCompany,
   createSession,
   sessionByTokenHash,
   touchSession,

@@ -42,7 +42,7 @@ function buildStatic(){
   const required=[
     'index.html','app.js','styles.css','admin/index.html','admin/app.js','admin/money-view.js','admin/money.css',
     'admin/access-view.js','admin/access.css','admin/journal-view.js','admin/journal.css',
-    'portal/dashboard.html','portal/dashboard.js','portal/dashboard.css','portal/portal-nav.js','portal/shared-nav.css',
+    'portal/dashboard.html','portal/dashboard.js','portal/dashboard.css','portal/portal-nav.js','portal/shared-nav.css','portal/profile.html','portal/profile.js','portal/access.html','portal/access.js',
     'portal/index.html','portal/app.js','portal/styles.css','portal/automation-link.js',
     'portal/customers.html','portal/customers.js','portal/invoices.html','portal/invoices.js','portal/receivables.html','portal/receivables.js','portal/sales.css',
     'portal/accounts.html','portal/accounts.js','portal/invoice-editor.css',

@@ -18,6 +18,20 @@ const MIGRATIONS=Object.freeze([
     name:'customer-archive-and-safe-removal-2026-09-21',
     description:'Record the compatible customer archival schema upgrade after startup has ensured the additive archived_at column exists.',
     sql:''
+  }),
+  Object.freeze({
+    version:3,
+    id:'membership-role-2026-09-22-v3',
+    name:'company-membership-role-2026-09-22',
+    description:'Record the compatible membership-role schema upgrade after startup has ensured the additive role column exists.',
+    sql:''
+  }),
+  Object.freeze({
+    version:4,
+    id:'user-security-preferences-2026-09-22-v4',
+    name:'platform-admin-and-session-duration-2026-09-22',
+    description:'Record the compatible global-admin and personal-session schema upgrade after startup has ensured the additive user columns exist.',
+    sql:''
   })
 ]);
 

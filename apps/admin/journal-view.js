@@ -32,7 +32,7 @@ function access() {
 }
 
 function actor() {
-  return {id:selectedUserId,companyId:'demo-company',authenticated:true,membershipActive:true};
+  return {id:selectedUserId,companyId:'demo-company',role:'admin',authenticated:true,membershipActive:true};
 }
 
 function context(extra = {}) {
@@ -60,7 +60,7 @@ function createSeedLedger() {
       {account: '2621', text: 'Utgående moms 12 %', debitOre: 0, creditOre: 12000}
     ]
   }, {
-    actor: {id:'demo-user-1',companyId:'demo-company',authenticated:true,membershipActive:true},
+    actor: {id:'demo-user-1',companyId:'demo-company',role:'admin',authenticated:true,membershipActive:true},
     access: accessModel,
     now: '2026-09-01T08:00:00.000Z',
     idFactory: prefix => `${prefix}-seed-1001`

@@ -48,6 +48,9 @@
     if (!Array.isArray(config.workflows) || config.workflows.length === 0) {
       errors.push('workflows måste innehålla minst ett separationsflöde.');
     }
+    if (!Array.isArray(config.roles) || config.roles.length === 0) {
+      errors.push('roles måste innehålla minst en roll.');
+    }
 
     const permissionIds = (config.permissions || []).map(permission => permission?.id);
     for (const duplicate of duplicates(permissionIds)) errors.push(`Dubblerad behörighet: ${duplicate}.`);
@@ -59,6 +62,23 @@
       if (!nonEmptyText(permission?.label)) errors.push(`${prefix}.label måste vara text.`);
       if (!nonEmptyText(permission?.category)) errors.push(`${prefix}.category måste vara text.`);
       if (!['read', 'write', 'critical'].includes(permission?.risk)) errors.push(`${prefix}.risk måste vara read, write eller critical.`);
+    }
+
+    const roleIds = (config.roles || []).map(role => role?.id);
+    for (const duplicate of duplicates(roleIds)) errors.push(`Dubblerad roll: ${duplicate}.`);
+    for (const [index, role] of (config.roles || []).entries()) {
+      const prefix = `roles[${index}]`;
+      if (!IDENTIFIER_PATTERN.test(role?.id || '')) errors.push(`${prefix}.id har ogiltigt format.`);
+      if (!nonEmptyText(role?.label)) errors.push(`${prefix}.label måste vara text.`);
+      if (!nonEmptyText(role?.description)) errors.push(`${prefix}.description måste vara text.`);
+      if (!Array.isArray(role?.permissions)) {
+        errors.push(`${prefix}.permissions måste vara en lista.`);
+        continue;
+      }
+      for (const duplicate of duplicates(role.permissions)) errors.push(`${prefix}.permissions innehåller dubbletten ${duplicate}.`);
+      for (const permissionId of role.permissions) {
+        if (!permissionSet.has(permissionId)) errors.push(`${prefix}.permissions innehåller okänd behörighet ${permissionId}.`);
+      }
     }
 
     const workflowIds = (config.workflows || []).map(workflow => workflow?.id);
@@ -89,6 +109,7 @@
       summary: {
         permissions: config.permissions?.length || 0,
         workflows: config.workflows?.length || 0,
+        roles: config.roles?.length || 0,
         criticalPermissions: (config.permissions || []).filter(permission => permission?.risk === 'critical').length
       }
     };
@@ -99,6 +120,7 @@
     if (!report.ok) throw accessError(`Ogiltig behörighetskonfiguration: ${report.errors[0]}`, 'INVALID_ACCESS_CONFIG', report);
 
     const permissionsById = new Map(config.permissions.map(permission => [permission.id, Object.freeze({...permission})]));
+    const rolesById = new Map(config.roles.map(role => [role.id, Object.freeze({...role,permissions:Object.freeze([...role.permissions])})]));
     const workflowsById = new Map(config.workflows.map(workflow => [workflow.id, Object.freeze({
       ...workflow,
       fields: Object.freeze(workflow.fields.map(field => Object.freeze({...field})))
@@ -108,6 +130,7 @@
       config,
       report,
       permissionsById,
+      rolesById,
       workflowsById
     });
   }
@@ -121,7 +144,8 @@
     if (!actor || typeof actor !== 'object' || Array.isArray(actor)) return null;
     const id = typeof actor.id === 'string' ? actor.id.trim() : '';
     const companyId = typeof actor.companyId === 'string' ? actor.companyId.trim() : '';
-    return {id, companyId, authenticated:actor.authenticated === true, membershipActive:actor.membershipActive === true, disabled:actor.disabled === true};
+    const role = typeof actor.role === 'string' ? actor.role.trim() : '';
+    return {id, companyId, role, authenticated:actor.authenticated === true, membershipActive:actor.membershipActive === true, disabled:actor.disabled === true};
   }
 
   // Only server-created actors from a current session/membership may cross this boundary.
@@ -129,12 +153,15 @@
   function authorize(modelOrConfig, actor, permissionId) {
     const model = asModel(modelOrConfig);
     const current = normalizeActor(actor);
-    let code = 'ALLOWED', reason = 'Personlig användare med aktivt företagsmedlemskap.';
+    let code = 'ALLOWED', reason = 'Rollen tillåter åtgärden.';
+    const role = current?.role ? model.rolesById.get(current.role) : null;
     if (!model.permissionsById.has(permissionId)) {code='UNKNOWN_PERMISSION';reason='Åtgärden är inte definierad.';}
     else if (!current?.id || !current.authenticated) {code='MISSING_IDENTITY';reason='Personlig inloggning krävs.';}
     else if (current.disabled) {code='ACCOUNT_DISABLED';reason='Användarkontot är inaktiverat.';}
     else if (!current.companyId || !current.membershipActive) {code='COMPANY_ACCESS_DENIED';reason='Aktivt företagsmedlemskap krävs.';}
-    return {allowed:code==='ALLOWED',code,reason,permissionId,actorId:current?.id,companyId:current?.companyId};
+    else if (!role) {code='ROLE_ACCESS_DENIED';reason='Företagsmedlemskapet saknar en giltig roll.';}
+    else if (!role.permissions.includes(permissionId)) {code='PERMISSION_DENIED';reason='Rollen saknar behörighet för åtgärden.';}
+    return {allowed:code==='ALLOWED',code,reason,permissionId,actorId:current?.id,companyId:current?.companyId,role:current?.role};
   }
 
   function permissionsForActor(modelOrConfig, actor) {

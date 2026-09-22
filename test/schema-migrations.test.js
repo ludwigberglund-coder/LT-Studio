@@ -27,9 +27,9 @@ test('ny databas registrerar verifierbar append-only schemahistorik',()=>{
   try{
     const status=Db.schemaMigrationStatus(db);
     assert.equal(status.ok,true);
-    assert.equal(status.currentVersion,2);
-    assert.equal(status.latestKnownVersion,2);
-    assert.equal(status.rows.length,2);
+    assert.equal(status.currentVersion,4);
+    assert.equal(status.latestKnownVersion,4);
+    assert.equal(status.rows.length,4);
     assert.equal(status.rows[0].id,Db.CORE_SCHEMA_MIGRATION_ID);
     assert.equal(status.rows[0].name,'core-sqlite-baseline-2026-09-21');
     assert.match(status.rows[0].checksumSha256,/^[a-f0-9]{64}$/);
@@ -64,10 +64,15 @@ test('befintlig tvåkolumners migrationsledger uppgraderas utan att affärsdata 
     assert.deepEqual(columns(db,'schema_migrations'),['id','applied_at','version','name','checksum_sha256']);
     const status=Db.schemaMigrationStatus(db);
     assert.equal(status.ok,true);
-    assert.equal(status.currentVersion,2);
+    assert.equal(status.currentVersion,4);
     assert.equal(status.rows[0].id,Db.CORE_SCHEMA_MIGRATION_ID);
     assert.equal(status.rows[1].id,'customer-archive-2026-09-21-v2');
+    assert.equal(status.rows[2].id,'membership-role-2026-09-22-v3');
+    assert.equal(status.rows[3].id,'user-security-preferences-2026-09-22-v4');
     assert.ok(columns(db,'customers').includes('archived_at'));
+    assert.ok(columns(db,'memberships').includes('role'));
+    assert.ok(columns(db,'users').includes('platform_admin'));
+    assert.ok(columns(db,'users').includes('session_duration_minutes'));
     assert.equal(status.rows[0].appliedAt,'2026-09-21T12:00:00.000Z');
     assert.match(status.rows[0].checksumSha256,/^[a-f0-9]{64}$/);
     assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
@@ -210,10 +215,15 @@ test('avbruten legacy-migration rullar tillbaka schemaändringar och migrationsp
       assert.equal(reminder.reminderDate,'2026-09-01');
       const status=Db.schemaMigrationStatus(migrated);
       assert.equal(status.ok,true);
-      assert.equal(status.currentVersion,2);
+      assert.equal(status.currentVersion,4);
       assert.equal(status.rows[0].id,Db.CORE_SCHEMA_MIGRATION_ID);
       assert.equal(status.rows[1].id,'customer-archive-2026-09-21-v2');
+      assert.equal(status.rows[2].id,'membership-role-2026-09-22-v3');
+      assert.equal(status.rows[3].id,'user-security-preferences-2026-09-22-v4');
       assert.ok(columns(migrated,'customers').includes('archived_at'));
+      assert.ok(columns(migrated,'memberships').includes('role'));
+      assert.ok(columns(migrated,'users').includes('platform_admin'));
+      assert.ok(columns(migrated,'users').includes('session_duration_minutes'));
       assert.equal(migrated.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
     }finally{
       migrated.close();
