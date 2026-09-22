@@ -89,6 +89,15 @@ const out=path.join(__dirname,'..','test-artifacts');
     assert.match(await page.locator('body').innerText(),/Fakturavolym|Behörighetsfördelning|Aktivering/);
     checks.push({kind:'statistics-dashboard',trendCharts:4});
 
+    const auditProbe=await page.evaluate(async()=>{
+      const response=await fetch('/api/operator/v1/operator-audit?limit=100',{credentials:'same-origin'});
+      const body=await response.json().catch(()=>({}));
+      return {status:response.status,body};
+    });
+    assert.equal(auditProbe.status,200,JSON.stringify(auditProbe.body));
+    assert.ok(Array.isArray(auditProbe.body.events));
+    checks.push({kind:'operator-audit-api-browser',eventCount:auditProbe.body.events.length});
+
     await page.getByRole('button',{name:'Säkerhetsportal',exact:true}).first().click();
     await page.getByRole('heading',{name:'Säkerhetsportal',exact:true}).waitFor();
     let securityBody=await page.locator('body').innerText();
