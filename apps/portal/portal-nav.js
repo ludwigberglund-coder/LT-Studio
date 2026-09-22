@@ -100,6 +100,9 @@
     arrowLeft:'<path d="M21 12H3M3 12L11.5 3.5M3 12L11.5 20.5"/>',
     navArrowDown:'<path d="M6 9L12 15L18 9"/>',
     unlock:'<path d="M11.5 12H6.6C6.26863 12 6 12.2686 6 12.6V19.4C6 19.7314 6.26863 20 6.6 20H17.4C17.7314 20 18 19.7314 18 19.4V18.5M16 12V8C16 6.66667 15.2 4 12 4C11.2532 4 10.6371 4.14525 10.1313 4.38491M16 12H17.4C17.7314 12 18 12.2686 18 12.6V13M8 8V8.5V12M3 3L21 21"/>',
+    appleHalf:'<path d="M12.1471 21.2646L12 21.2351L11.8529 21.2646C9.47627 21.7399 7.23257 21.4756 5.59352 20.1643C3.96312 18.86 2.75 16.374 2.75 12C2.75 7.52684 3.75792 5.70955 5.08541 5.04581C5.77977 4.69863 6.67771 4.59759 7.82028 4.72943C8.96149 4.86111 10.2783 5.21669 11.7628 5.71153L12.0235 5.79841L12.2785 5.69638C14.7602 4.70367 16.9909 4.3234 18.5578 5.05463C20.0271 5.7403 21.25 7.59326 21.25 12C21.25 16.374 20.0369 18.86 18.4065 20.1643C16.7674 21.4756 14.5237 21.7399 12.1471 21.2646ZM12 5.5C12 3 11 2 9 2M12 6V21M15 12V14"/>',
+    deliveryTruck:'<path d="M8 19C9.10457 19 10 18.1046 10 17C10 15.8954 9.10457 15 8 15C6.89543 15 6 15.8954 6 17C6 18.1046 6.89543 19 8 19ZM18 19C19.1046 19 20 18.1046 20 17C20 15.8954 19.1046 15 18 15C16.8954 15 16 15.8954 16 17C16 18.1046 16.8954 19 18 19ZM10.05 17H15V6.6C15 6.26863 14.7314 6 14.4 6H1M5.65 17H3.6C3.26863 17 3 16.7314 3 16.4V11.5M2 9H6M15 9H20.6101C20.8472 9 21.0621 9.13964 21.1584 9.35632L22.9483 13.3836C22.9824 13.4604 23 13.5434 23 13.6273V16.4C23 16.7314 22.7314 17 22.4 17H20.5M15 17H16"/>',
+    cutlery:'<path d="M6 20H12M9 20V15M17 20V12C17 12 19.5 11 19.5 9V4.5M17 8.5V4.5M4.5 11C5.5 13.1281 9 15 9 15C9 15 12.5001 13.1281 13.5 11C14.5795 8.70257 13.5 4.5 13.5 4.5H4.5C4.5 4.5 3.42047 8.70257 4.5 11Z"/>',
     chat:'<path d="M8 10H12H16M8 14H10H12M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 13.8214 2.48697 15.5291 3.33782 17L2.5 21.5L7 20.6622C8.47087 21.513 10.1786 22 12 22Z"/>',
     send:'<path d="M22 12L3 20L6.5625 12L3 4L22 12ZM6.5 12H22"/>'
   });
@@ -169,6 +172,7 @@
     document.querySelectorAll('.shared-user-dropdown a,.shared-user-dropdown button').forEach(el=>addIcon(el,semanticButtonIcon(el)||'profile'));
     document.querySelectorAll('.shared-foot>a').forEach(el=>addIcon(el,'home'));
     document.querySelectorAll('.comment-badge').forEach(el=>addIcon(el,'chat'));
+    document.querySelectorAll('[data-iconoir]').forEach(el=>{const name=el.dataset.iconoir;if(!name||!ICONOIR[name])return;el.replaceChildren(iconoir(name));});
     document.querySelectorAll('button,.button,.nav-item,.module-card a,.callout a,.column-picker summary,.context-menu button').forEach(button=>{const name=semanticButtonIcon(button);if(name)addIcon(button,name);});
   }
   function animateTap(element){
