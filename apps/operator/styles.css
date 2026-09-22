@@ -683,3 +683,16 @@ tbody tr:hover td{background:#f7faf6}
   .monitor-live{border-radius:14px}
 }
 @media(prefers-reduced-motion:reduce){.security-pulse{animation:none}}
+
+
+/* Security incident lifecycle */
+.security-toolbar{grid-template-columns:minmax(145px,1fr) minmax(145px,1fr) minmax(170px,1.15fr) minmax(155px,1fr) auto}
+.security-event{grid-template-columns:auto minmax(0,1fr) minmax(150px,190px) auto;align-items:center}
+.incident-state-control{display:grid;gap:5px;min-width:0}
+.incident-state-control>span{font-size:9px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.incident-state-control select{width:100%;height:36px;padding:0 9px;border:1px solid #d8e0d7;border-radius:9px;background:#f8faf7;color:#344039;font-size:11px;font-weight:800}
+.incident-state-control select:focus{outline:2px solid rgba(53,98,70,.18);outline-offset:1px}
+.incident-state-control select:disabled{opacity:.58;cursor:wait}
+@media(max-width:1180px){.security-toolbar{grid-template-columns:1fr 1fr}.security-filter-count{grid-column:1/-1;justify-self:start}}
+@media(max-width:780px){.security-event{grid-template-columns:auto minmax(0,1fr)}.incident-state-control,.security-event time{grid-column:2}.security-event time{justify-self:start}}
+@media(max-width:620px){.security-toolbar{grid-template-columns:1fr}.security-filter-count{grid-column:auto}}
