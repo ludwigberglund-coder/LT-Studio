@@ -599,7 +599,8 @@ function validateRefundAccount(value){const account=text(value);if(!CUSTOMER_REF
 function registerCreditRefund(db,{companyId,userId,creditInvoiceId,payload}){
   const requestId=validateRequestId(payload?.requestId),prior=refundByRequest(db,companyId,requestId);
   if(prior){
-    if(prior.creditInvoiceId!==creditInvoiceId)throw invoiceError('Idempotensnyckeln är redan använd för en annan återbetalning.','REFUND_IDEMPOTENCY_CONFLICT',409);
+    if(prior.creditInvoiceId!==creditInvoiceId||prior.refundDate!==text(payload?.refundDate)||prior.refundAccount!==text(payload?.refundAccount)||prior.bankReference!==text(payload?.bankReference))
+      throw invoiceError('Idempotensnyckeln är redan använd med andra återbetalningsuppgifter.','REFUND_IDEMPOTENCY_CONFLICT',409);
     return{...invoiceBundle(db,companyId,creditInvoiceId),refund:prior,duplicate:true};
   }
   const adjustment=creditAdjustmentByCreditInvoice(db,companyId,creditInvoiceId);if(!adjustment)throw invoiceError('Kreditfakturan saknar återbetalningsunderlag.','CREDIT_ADJUSTMENT_NOT_FOUND',404);
