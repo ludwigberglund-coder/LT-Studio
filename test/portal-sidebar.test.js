@@ -10,7 +10,7 @@ const portal=path.join(root,'apps','portal');
 const privatePortalPages=[
   'dashboard.html','invoices.html','index.html','payables.html','bank.html','automation.html',
   'accounting.html','reports.html','accounts.html','payroll.html','customers.html','suppliers.html',
-  'inventory.html','website.html','documents.html'
+  'inventory.html','company-settings.html','website.html','documents.html'
 ];
 
 test('alla privata portalsidor monterar samma delade sidomeny',()=>{
