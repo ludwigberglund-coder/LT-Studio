@@ -18,7 +18,7 @@ const out=path.join(__dirname,'..','test-artifacts');
   let browser,page;
   const checks=[];
   try{
-    Db.createPlatformOperator(runtime.db,{
+    const operator=Db.createPlatformOperator(runtime.db,{
       username:'lt.browser',
       displayName:'LT Browser Operator',
       passwordHash:Auth.hashPassword('Browser operator testlosenord 2026!'),
@@ -42,7 +42,9 @@ const out=path.join(__dirname,'..','test-artifacts');
     Db.addMembership(runtime.db,{companyId:secondCompany.id,userId:sharedUser.id,role:'accountant'});
     const customer=Db.createCustomer(runtime.db,{companyId:company.id,customerNumber:'SECRET-BROWSER-CUSTOMER',name:'Hemlig Browserkund'});
     Db.createInvoice(runtime.db,{companyId:company.id,customerId:customer.id,invoiceNumber:'SECRET-BROWSER-INVOICE',invoiceDate:'2026-09-21',postingDate:'2026-09-21',dueDate:'2026-10-21',totalOre:333300,remainingOre:333300,vatOre:66660,status:'Bokförd'});
-    Db.appendSecurityEvent(runtime.db,{kind:'LOGIN_FAILURE_THRESHOLD',severity:'warning',fingerprintHash:'c'.repeat(64),details:{private:'never-in-ui'}});
+    Db.appendSecurityEvent(runtime.db,{kind:'LOGIN_FAILURE_THRESHOLD',severity:'warning',fingerprintHash:'c'.repeat(64),details:{private:'never-in-ui',companyId:company.id}});
+    Db.appendSecurityEvent(runtime.db,{kind:'OPERATOR_LOGIN_FAILURE_THRESHOLD',severity:'critical',fingerprintHash:'d'.repeat(64),details:{private:'never-in-ui-either'}});
+    Db.appendPlatformOperatorAudit(runtime.db,{operatorId:operator.id,action:'CUSTOMER_USER_ROLE_CHANGED',details:{companyId:company.id,userId:customerUser.id,before:'readonly',after:'accountant',private:'never-in-ui-audit'}});
 
     await new Promise(resolve=>runtime.server.listen(0,'127.0.0.1',resolve));
     const base=`http://127.0.0.1:${runtime.server.address().port}`;
@@ -89,10 +91,36 @@ const out=path.join(__dirname,'..','test-artifacts');
 
     await page.getByRole('button',{name:'Säkerhetsportal',exact:true}).first().click();
     await page.getByRole('heading',{name:'Säkerhetsportal',exact:true}).waitFor();
-    const securityBody=await page.locator('body').innerText();
+    let securityBody=await page.locator('body').innerText();
     assert.match(securityBody,/Många felaktiga kundinloggningar/);
-    assert.doesNotMatch(securityBody,/LOGIN FAILURE THRESHOLD|never-in-ui|cccccccc/);
-    checks.push({kind:'security-preview'});
+    assert.match(securityBody,/Browser Kund/);
+    assert.match(securityBody,/Administratörslogg/);
+    assert.match(securityBody,/Behörighet ändrades/);
+    assert.match(securityBody,/Läsbehörighet → Ekonom/);
+    assert.match(securityBody,/Senaste bevis/);
+    assert.doesNotMatch(securityBody,/LOGIN FAILURE THRESHOLD|never-in-ui|never-in-ui-either|never-in-ui-audit|cccccccc|dddddddd/);
+
+    const severityFilter=page.locator('[data-security-severity]');
+    await severityFilter.selectOption('critical');
+    securityBody=await page.locator('body').innerText();
+    assert.match(securityBody,/Många felaktiga LT Studio-admininloggningar/);
+    assert.doesNotMatch(securityBody,/Många felaktiga kundinloggningar/);
+
+    await severityFilter.selectOption('all');
+    const companyFilter=page.locator('[data-security-company]');
+    await companyFilter.selectOption(company.id);
+    securityBody=await page.locator('body').innerText();
+    assert.match(securityBody,/Många felaktiga kundinloggningar/);
+    assert.doesNotMatch(securityBody,/Många felaktiga LT Studio-admininloggningar/);
+
+    await companyFilter.selectOption('platform');
+    securityBody=await page.locator('body').innerText();
+    assert.match(securityBody,/Många felaktiga LT Studio-admininloggningar/);
+    assert.doesNotMatch(securityBody,/Många felaktiga kundinloggningar/);
+
+    await page.locator('[data-security-period]').selectOption('all');
+    assert.equal(await page.locator('.security-check-table').count(),1);
+    checks.push({kind:'security-portal-filters-and-audit',companyCorrelation:true,operatorAudit:true,evidenceAgeColumn:true});
 
     await page.getByRole('button',{name:'Kunder & företag',exact:true}).first().click();
     await page.getByRole('heading',{name:'Kunder & företag',exact:true}).waitFor();
