@@ -279,6 +279,9 @@ function initializeSchema(db) {
   db.exec("UPDATE invoice_reminders SET reminder_date=substr(sent_at,1,10) WHERE reminder_date IS NULL OR reminder_date=''");
   if (!hasColumn(db,'customers','archived_at')) db.exec('ALTER TABLE customers ADD COLUMN archived_at TEXT');
   db.exec('CREATE INDEX IF NOT EXISTS idx_customers_company_archived ON customers(company_id,archived_at,customer_number)');
+  if (!hasColumn(db,'memberships','role')) db.exec("ALTER TABLE memberships ADD COLUMN role TEXT NOT NULL DEFAULT 'admin' CHECK(role IN ('admin','accountant','approver','readonly'))");
+  if (!hasColumn(db,'users','platform_admin')) db.exec("ALTER TABLE users ADD COLUMN platform_admin INTEGER NOT NULL DEFAULT 0 CHECK(platform_admin IN (0,1))");
+  if (!hasColumn(db,'users','session_duration_minutes')) db.exec("ALTER TABLE users ADD COLUMN session_duration_minutes INTEGER DEFAULT 480 CHECK(session_duration_minutes IS NULL OR session_duration_minutes IN (120,240,360,480))");
   const {protectAppendOnly}=require('./history-guards.js');
   protectAppendOnly(db,'audit_events');
   protectAppendOnly(db,'security_events');
