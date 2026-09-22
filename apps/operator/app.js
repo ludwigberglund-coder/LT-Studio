@@ -153,7 +153,7 @@ function updateSecurityChrome(){
 }
 function securityFindings(){
   const findings=securityMonitor?.findings||[];
-  if(!findings.length)return '<div class="security-clear live-clear"><span class="clear-check" aria-hidden="true">${operatorIcon('checkCircle')}</span><div><strong>Inga aktiva säkerhetsflaggor</strong><p>Senaste skanningen hittade inga regler som kräver åtgärd.</p></div></div>';
+  if(!findings.length)return `<div class="security-clear live-clear"><span class="clear-check" aria-hidden="true">${operatorIcon('checkCircle')}</span><div><strong>Inga aktiva säkerhetsflaggor</strong><p>Senaste skanningen hittade inga regler som kräver åtgärd.</p></div></div>`;
   return `<div class="finding-list">${findings.map(item=>`<article class="security-finding ${esc(item.severity)}"><div class="finding-top"><span class="status-pill"><span class="dot ${esc(item.severity)}"></span>${esc(({critical:'Kritisk',warning:'Varning',info:'Information'})[item.severity]||item.severity)}</span><span class="finding-category">${esc(item.category)}</span></div><h3>${esc(item.title)}</h3><p>${esc(item.message)}</p></article>`).join('')}</div>`;
 }
 function modalMarkup(){
