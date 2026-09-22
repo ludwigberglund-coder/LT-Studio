@@ -80,6 +80,15 @@ function policyFor(req,env={}){
   return{windowMs,ipLimit:intSetting(env,'ROLLANDS_RATE_LIMIT_PUBLIC_IP_PER_MINUTE',600,{min:60,max:30000}),identityLimit:genericUser};
 }
 function createRateLimiter({env=process.env,db,trustCloudflare=env.ROLLANDS_TRUST_CLOUDFLARE==='1'}={}){
+  // Parse every configurable ceiling at startup so a typo cannot silently disable protection.
+  for(const sample of [
+    {url:'/api/v1/auth/login',method:'POST'},
+    {url:'/api/operator/v1/auth/login',method:'POST'},
+    {url:'/api/v1/health',method:'GET'},
+    {url:'/website-preview/',method:'GET'},
+    {url:'/api/v1/customers',method:'GET'},
+    {url:'/',method:'GET'}
+  ])policyFor(sample,env);
   const buckets=new Map();
   let operations=0;
   function consume(key,limit,windowMs,now){
@@ -120,6 +129,9 @@ function sendRateLimited(res,result,requestId=''){
     'Content-Type':'application/json; charset=utf-8',
     'Cache-Control':'no-store',
     'X-Content-Type-Options':'nosniff',
+    'X-Frame-Options':'DENY',
+    'Referrer-Policy':'no-referrer',
+    'Content-Security-Policy':"default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
     'Retry-After':retry,
     'RateLimit-Limit':String(result.limit||0),
     'RateLimit-Remaining':'0',
