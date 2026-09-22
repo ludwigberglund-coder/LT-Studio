@@ -6,7 +6,7 @@ const SIE = require('../lib/sie4i.js');
 
 function store() {
   return {
-    business: {name: 'Rollands Frukt & Grönt Aktiebolag', orgNumber: '556406-5059', companyType: 'AB'},
+    business: {name: 'Demo Handel AB', orgNumber: '000000-0000', companyType: 'AB'},
     journal: [
       {
         id: 'ver_A24', series: 'A', number: 'A24', date: '2026-09-14', description: 'Försäljning äpplen',
@@ -27,8 +27,8 @@ test('SIE 4I innehåller obligatorisk identifikation, konton och balanserad veri
   assert.match(text, /#FORMAT PC8/);
   assert.match(text, /#GEN 20260915 TEST/);
   assert.match(text, /#SIETYP 4/);
-  assert.match(text, /#FNAMN "Rollands Frukt & Grönt Aktiebolag"/);
-  assert.match(text, /#ORGNR 556406-5059/);
+  assert.match(text, /#FNAMN "Demo Handel AB"/);
+  assert.match(text, /#ORGNR 000000-0000/);
   assert.match(text, /#RAR 0 20260101 20261231/);
   assert.match(text, /#KONTO 1930 /);
   assert.match(text, /#KONTO 2621 /);
@@ -73,7 +73,7 @@ test('SIE-export stoppar obalanserade verifikationer', () => {
 
 test('SIE-export stoppar tecken som inte kan representeras i PC8', () => {
   const data = store();
-  data.business.name = 'Rollands 🍎 AB';
+  data.business.name = 'Demo 🍎 AB';
   assert.throws(() => SIE.buildSie4i(data, {generatedAt: '2026-09-15'}), error => error.code === 'SIE_UNSUPPORTED_CHARACTER');
 });
 
