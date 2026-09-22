@@ -15,6 +15,20 @@ test('personliga lösenord lagras med scrypt och fel lösenord godkänns aldrig'
   assert.throws(()=>Auth.hashPassword('kort'),error=>error.code==='WEAK_PASSWORD');
 });
 
+test('nya lösenord kräver minst 8 tecken, stor och liten bokstav samt siffra eller specialtecken', () => {
+  const validWithDigit='Abcdefg1';
+  const validWithSpecial='Abcdefg!';
+  assert.doesNotThrow(()=>Auth.assertPassword(validWithDigit));
+  assert.doesNotThrow(()=>Auth.assertPassword(validWithSpecial));
+  assert.throws(()=>Auth.assertPassword('Abcdef1'),error=>error.code==='WEAK_PASSWORD');
+  assert.throws(()=>Auth.assertPassword('abcdefg1'),error=>error.code==='WEAK_PASSWORD');
+  assert.throws(()=>Auth.assertPassword('ABCDEFG1'),error=>error.code==='WEAK_PASSWORD');
+  assert.throws(()=>Auth.assertPassword('Abcdefgh'),error=>error.code==='WEAK_PASSWORD');
+  assert.match(Auth.PASSWORD_REQUIREMENTS.message,/minst 8 tecken/i);
+  assert.match(Auth.PASSWORD_REQUIREMENTS.message,/stor och liten bokstav/i);
+  assert.match(Auth.PASSWORD_REQUIREMENTS.message,/siffra eller ett specialtecken/i);
+});
+
 test('sessionstoken och csrf-token kan endast jämföras via hash', () => {
   const token=Auth.randomToken(32);
   const hash=Auth.hashToken(token);
