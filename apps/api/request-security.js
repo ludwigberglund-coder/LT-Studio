@@ -214,7 +214,7 @@ const BODY_RULES=Object.freeze([
 
 
 const ACCOUNTING_LINE_FIELDS=new Set(['account','text','label','vatCode','debitOre','creditOre']);
-const INVOICE_LINE_FIELDS=new Set(['articleNumber','discountPercent','description','unit','quantity','unitPrice','vatTreatment','vatRate','revenueAccount','kind']);
+const INVOICE_LINE_FIELDS=new Set(['description','unit','quantity','unitPrice','vatTreatment','vatRate','revenueAccount','kind']);
 const RECEIVABLE_FIELDS=new Set(['customerNumber','invoiceNumber','invoiceDate','dueDate','totalOre','remainingOre']);
 const PAYABLE_FIELDS=new Set(['supplierNumber','invoiceNumber','invoiceDate','dueDate','totalOre','remainingOre']);
 
