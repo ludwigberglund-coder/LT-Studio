@@ -128,6 +128,15 @@ const out=path.join(__dirname,'..','test-artifacts');
     assert.equal(await page.locator('#mfa-result code').count(),0);
     checks.push({kind:'existing-user-linked-to-second-company'});
 
+    await page.getByRole('button',{name:'← Alla företag',exact:true}).click();
+    await page.getByRole('heading',{name:'Kunder & företag',exact:true}).waitFor();
+    const refreshedCompanyRow=page.locator('[data-company-id="'+company.id+'"]');
+    assert.equal((await refreshedCompanyRow.locator('td').nth(2).innerText()).trim(),'3');
+    await refreshedCompanyRow.focus();
+    await page.keyboard.press('Enter');
+    await page.getByRole('heading',{name:'Företagsadmin',exact:true}).waitFor();
+    checks.push({kind:'overview-refresh-after-user-link',memberCount:3});
+
     const sessionExpiry=new Date(Date.now()+60*60*1000).toISOString();
     const sharedCompanyATokenHash=Auth.hashToken('shared-company-a-session');
     const sharedCompanyBTokenHash=Auth.hashToken('shared-company-b-session');
