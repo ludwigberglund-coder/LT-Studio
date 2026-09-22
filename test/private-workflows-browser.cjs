@@ -85,21 +85,23 @@ const Settings=require('../apps/api/company-invoice-settings.js');
     await page.waitForFunction(()=>document.querySelector('.cms-message')?.textContent.includes('CMS.'));
     assert.equal(Cms.listRevisions(f.db,f.a.id).length,1);checks.push('CMS publication has one revision and honestly describes external publication boundary');
     assert.deepEqual(await page.evaluate(()=>window.__cspFailures),[]);
-    const pdfResponse=page.waitForResponse(r=>r.url().includes(f.payable.id+'/document')&&r.status()===200);
     await page.goto(f.base+'/portal/payables.html');
-    // The first invoice opens automatically in this single-invoice company.
-    await page.locator('iframe.pdf-frame').waitFor();
-    await pdfResponse;
-    await page.locator('iframe.pdf-frame').scrollIntoViewIfNeeded();
-    const src=await page.locator('iframe.pdf-frame').getAttribute('src');
-    const documentUrl=new URL(src,f.base);
+    // Uploaded supplier PDFs must never render inline from the LT Studio origin.
+    await page.getByText('Säker PDF-hantering:').waitFor();
+    assert.equal(await page.locator('iframe.pdf-frame').count(),0);
+    const downloadLink=page.getByRole('link',{name:'Ladda ner original-PDF',exact:true});
+    const href=await downloadLink.getAttribute('href');
+    const documentUrl=new URL(href,f.base);
     assert.ok(documentUrl.pathname.endsWith(f.payable.id+'/document'));
-    assert.equal(documentUrl.hash,'#page=1&view=FitH&navpanes=0');
-    const original=await context.request.get(f.base+src);assert.equal(original.status(),200);assert.deepEqual(await original.body(),f.pdf);
+    const original=await context.request.get(documentUrl.toString());
+    assert.equal(original.status(),200);
+    assert.match(original.headers()['content-disposition']||'',/^attachment;/);
+    assert.match(original.headers()['content-security-policy']||'',/sandbox/);
+    assert.deepEqual(await original.body(),f.pdf);
     assert.deepEqual(await page.evaluate(()=>window.__cspFailures),[]);
     fs.writeFileSync(path.join(out,'private-supplier-original.pdf'),await original.body());
-    await page.waitForTimeout(800); // Let the native viewer paint before visual review.
-    await page.screenshot({path:path.join(out,'private-supplier-pdf-view.png'),fullPage:false});checks.push('Original supplier PDF served byte-exact through private iframe with CSP active');
+    await page.screenshot({path:path.join(out,'private-supplier-download-view.png'),fullPage:false});
+    checks.push('Original supplier PDF is private, byte-exact and download-only without inline rendering');
     f.db.prepare('DELETE FROM company_invoice_settings WHERE company_id=?').run(f.a.id);
     await page.goto(f.base+'/portal/invoices.html');
     await page.getByRole('button',{name:'+ Ny kundfaktura',exact:true}).click();
