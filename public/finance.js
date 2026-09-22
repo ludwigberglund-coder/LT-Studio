@@ -27,8 +27,8 @@
   const isBooked = (i, kind) => kind === 'customer' || i.status !== 'Attest väntar';
   function normalize(store) {
     store.settings ||= {};
-    store.settings.attestResponsible ||= 'Odd Stefan Arne Svensson';
-    store.settings.attestSubstitute ||= 'Anna Åberg';
+    store.settings.attestResponsible ||= 'Demo Attestant';
+    store.settings.attestSubstitute ||= 'Demo Ersättare';
     store.settings.emailInbox ||= 'fakturor@demo.example.invalid';
     store.settings.lastBankImport ||= '';
     store.settings.lastInvoiceEmail ||= '';
