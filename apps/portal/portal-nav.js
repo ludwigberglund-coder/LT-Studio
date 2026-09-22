@@ -127,6 +127,7 @@
     if(/logga ut/.test(text))return'logout';
     if(/stäng|avbryt/.test(text))return'xmark';
     if(/kommentar/.test(text))return'chat';
+    if(/kolumn/.test(text))return'stats';
     if(/påminnelse|skicka/.test(text))return'send';
     if(/ta bort|radera/.test(text))return'trash';
     if(/lösenord|mfa|nyckel/.test(text))return'key';
@@ -145,6 +146,7 @@
     document.querySelectorAll('[data-nav-id]').forEach(link=>addIcon(link,NAV_ICONS[link.dataset.navId]||'page'));
     document.querySelectorAll('.shared-user-dropdown a,.shared-user-dropdown button').forEach(el=>addIcon(el,semanticButtonIcon(el)||'profile'));
     document.querySelectorAll('.shared-foot>a').forEach(el=>addIcon(el,'home'));
+    document.querySelectorAll('.comment-badge').forEach(el=>addIcon(el,'chat'));
     document.querySelectorAll('.button,button[data-action],button[data-journal-action],.nav-item,.module-card a,.callout a,.column-picker summary,.context-menu button,.modal-head button,.modal-head-sales button').forEach(button=>{const name=semanticButtonIcon(button);if(name)addIcon(button,name);});
   }
   function animateTap(element){
