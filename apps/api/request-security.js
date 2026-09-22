@@ -265,21 +265,87 @@ function assertNestedSchema(req,payload){
   if(method==='POST'&&pathname==='/api/v1/payroll/runs'){assertObjectArray(payload.lines,ACCOUNTING_LINE_FIELDS,'Lönejournal',500);return}
   if(method==='PUT'&&pathname==='/api/v1/website/cms/draft'){assertCmsSite(payload.site);assertCmsCompany(payload.company)}
 }
+function assertTextField(payload,field,max,{pattern=null}={}){
+  if(payload[field]===undefined)return;
+  if(typeof payload[field]!=='string')throw securityError(`${field} måste vara text.`,'INVALID_INPUT_TYPE',422);
+  if(payload[field].length>max)throw securityError(`${field} är för långt.`,'STRING_TOO_LONG',422);
+  if(pattern&&payload[field]&&!pattern.test(payload[field]))throw securityError(`${field} har ogiltigt format.`,'INVALID_INPUT_FORMAT',422);
+}
 function assertPrimitiveTypes(req,payload){
   const method=String(req?.method||'GET').toUpperCase(),pathname=apiPath(req);
   if(pathname.endsWith('/auth/login')){
-    for(const field of ['username','password','totp'])if(payload[field]!==undefined&&typeof payload[field]!=='string')throw securityError(`${field} måste vara text.`,'INVALID_INPUT_TYPE',422);
-    if(payload.companyId!==undefined&&typeof payload.companyId!=='string')throw securityError('companyId måste vara text.','INVALID_INPUT_TYPE',422);
+    assertTextField(payload,'username',120);
+    assertTextField(payload,'password',256);
+    assertTextField(payload,'totp',8,{pattern:/^\d{6}$/});
+    assertTextField(payload,'companyId',200);
   }
   if((method==='POST'&&pathname==='/api/v1/customers')||(method==='PUT'&&/^\/api\/v1\/customers\/[^/]+$/.test(pathname))){
-    for(const field of ['name','email','orgNumber','address'])if(payload[field]!==undefined&&typeof payload[field]!=='string')throw securityError(`${field} måste vara text.`,'INVALID_INPUT_TYPE',422);
+    assertTextField(payload,'requestId',200);
+    assertTextField(payload,'name',160);
+    assertTextField(payload,'email',254,{pattern:/^[^\s@]+@[^\s@]+\.[^\s@]+$/});
+    assertTextField(payload,'orgNumber',40);
+    assertTextField(payload,'address',500);
     if(payload.reminderFeeAgreed!==undefined&&typeof payload.reminderFeeAgreed!=='boolean')throw securityError('reminderFeeAgreed måste vara true eller false.','INVALID_INPUT_TYPE',422);
   }
+  if(method==='POST'&&pathname==='/api/v1/bank/payments'){
+    assertTextField(payload,'externalId',200);
+    assertTextField(payload,'bookingDate',10,{pattern:/^\d{4}-\d{2}-\d{2}$/});
+    assertTextField(payload,'valueDate',10,{pattern:/^\d{4}-\d{2}-\d{2}$/});
+    assertTextField(payload,'currency',3);
+    assertTextField(payload,'reference',500);
+    assertTextField(payload,'message',1000);
+    assertTextField(payload,'payerName',200);
+    assertTextField(payload,'payerAccount',100);
+  }
+  if(method==='POST'&&pathname==='/api/v1/payables/suppliers'){
+    assertTextField(payload,'supplierNumber',40);
+    assertTextField(payload,'name',160);
+    assertTextField(payload,'orgNumber',40);
+    assertTextField(payload,'email',254,{pattern:/^[^\s@]+@[^\s@]+\.[^\s@]+$/});
+    assertTextField(payload,'bankgiro',50);
+    assertTextField(payload,'plusgiro',50);
+    assertTextField(payload,'defaultCostAccount',4,{pattern:/^\d{4}$/});
+  }
+  if(method==='POST'&&pathname==='/api/v1/payables/invoices'){
+    assertTextField(payload,'supplierId',200);
+    assertTextField(payload,'supplierInvoiceNumber',100);
+    assertTextField(payload,'invoiceDate',10,{pattern:/^\d{4}-\d{2}-\d{2}$/});
+    assertTextField(payload,'dueDate',10,{pattern:/^\d{4}-\d{2}-\d{2}$/});
+    assertTextField(payload,'currency',3);
+    assertTextField(payload,'vatTreatment',80);
+  }
+  if(method==='POST'&&pathname==='/api/v1/inventory/items'){
+    assertTextField(payload,'sku',60);
+    assertTextField(payload,'name',160);
+    assertTextField(payload,'unit',8);
+    assertTextField(payload,'purchaseAccount',4,{pattern:/^\d{4}$/});
+    assertTextField(payload,'inventoryAccount',4,{pattern:/^\d{4}$/});
+  }
+  if(method==='POST'&&pathname==='/api/v1/inventory/movements'){
+    assertTextField(payload,'itemId',200);
+    assertTextField(payload,'movementDate',10,{pattern:/^\d{4}-\d{2}-\d{2}$/});
+    assertTextField(payload,'type',20);
+    assertTextField(payload,'referenceType',80);
+    assertTextField(payload,'referenceId',200);
+    assertTextField(payload,'note',500);
+    assertTextField(payload,'requestId',100);
+  }
+  if(method==='POST'&&pathname==='/api/v1/inventory/adjustments'){
+    assertTextField(payload,'itemId',200);
+    assertTextField(payload,'adjustmentDate',10,{pattern:/^\d{4}-\d{2}-\d{2}$/});
+    assertTextField(payload,'reason',500);
+    assertTextField(payload,'requestId',100);
+  }
+  if(method==='POST'&&/^\/api\/v1\/customer-invoices\/[^/]+\/credit$/.test(pathname)){
+    assertTextField(payload,'requestId',100);
+    assertTextField(payload,'creditDate',10,{pattern:/^\d{4}-\d{2}-\d{2}$/});
+    assertTextField(payload,'reason',500);
+  }
+  if(method==='POST'&&/^\/api\/v1\/invoices\/[^/]+\/comments$/.test(pathname))assertTextField(payload,'text',2000);
   for(const field of ['amountOre','totalOre','vatOre','quantityMilli','unitCostOre','countedQuantityMilli','paymentTermsDays','expectedRevision','expectedPublishedVersion','grossSalaryOre','withheldTaxOre','employerContributionsOre','netPayOre','vacationLiabilityChangeOre']){
     if(payload[field]!==undefined&&!Number.isSafeInteger(payload[field]))throw securityError(`${field} måste vara ett säkert heltal.`,'INVALID_INPUT_TYPE',422);
   }
 }
-
 function schemaFor(method,pathname){
   return BODY_RULES.find(([verb,pattern])=>verb===method&&pattern.test(pathname))?.[2]||null;
 }
