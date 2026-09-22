@@ -1,6 +1,6 @@
 const root=document.getElementById('operator-app');
 const csrfKey='lt-operator-csrf';
-let session=null,overview=null,readiness=null,security=null,errorMessage='',view='overview',selectedCompany=null;
+let session=null,overview=null,readiness=null,security=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='';
 
 function esc(value=''){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
 function initials(name='LT'){return String(name).trim().split(/\s+/).filter(Boolean).map(part=>part[0]).join('').slice(0,2).toUpperCase()||'LT'}
@@ -30,20 +30,40 @@ function readinessState(){if(!readiness)return{label:'Laddar',kind:'warning'};re
 function securityState(){const critical=Number(overview?.security?.critical||0),warning=Number(overview?.security?.warning||0);if(critical)return{label:`${critical} kritiska`,kind:'critical'};if(warning)return{label:`${warning} varningar`,kind:'warning'};return{label:'Ingen aktiv varning',kind:'ok'}}
 function nav(){
   const items=[['overview','Översikt'],['companies','Kunder & företag'],['statistics','Statistik'],['security','Säkerhetsportal']];
-  return items.map(([id,label])=>`<button class="${view===id?'active':''}" data-view="${id}">${label}${id==='security'?'<span class="nav-badge">nästa</span>':''}</button>`).join('');
+  return items.map(([id,label])=>`<button class="${view===id?'active':''}" data-view="${id}" aria-current="${view===id?'page':'false'}">${label}${id==='security'?'<span class="nav-badge">nästa</span>':''}</button>`).join('');
 }
+function modalMarkup(){
+  if(!modal)return '';
+  if(modal.kind==='password')return `<div class="modal-backdrop" data-action="close-modal"><section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="reset-password-title" data-modal-panel>
+    <div class="modal-head"><div><span class="eyebrow">Kontosäkerhet</span><h2 id="reset-password-title">Byt lösenord</h2><p>${esc(modal.userName)}</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div>
+    <form id="reset-password-form">
+      <label class="field"><span>Nytt tillfälligt lösenord</span><input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="256" required autofocus></label>
+      <p class="form-help">Minst 8 tecken, både stor och liten bokstav samt minst en siffra eller ett specialtecken.</p>
+      <div class="modal-actions"><button class="button secondary" type="button" data-action="close-modal">Avbryt</button><button class="button" type="submit">Spara nytt lösenord</button></div>
+    </form>
+  </section></div>`;
+  if(modal.kind==='remove')return `<div class="modal-backdrop" data-action="close-modal"><section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="remove-user-title" data-modal-panel>
+    <div class="modal-head"><div><span class="eyebrow">Åtkomst</span><h2 id="remove-user-title">Ta bort åtkomst?</h2><p>${esc(modal.userName)}</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div>
+    <p class="modal-copy">Användaren tas bort från det här kundföretaget och aktiva sessioner avslutas. Ett konto som används i andra företag påverkas inte där.</p>
+    <div class="modal-actions"><button class="button secondary" type="button" data-action="close-modal">Avbryt</button><button class="button danger solid" type="button" data-action="confirm-remove-user">Ta bort åtkomst</button></div>
+  </section></div>`;
+  return '';
+}
+function focusModal(){queueMicrotask(()=>document.querySelector('.modal-card input, .modal-card button')?.focus())}
 function shell(body,title,subtitle){
   const operator=session?.operator||{};
-  root.innerHTML=`<div class="operator-shell"><aside class="sidebar"><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div class="side-copy">Central adminportal för alla kundföretag.</div><nav class="side-nav">${nav()}</nav><div class="side-footer">Endast LT Studio-operatörer. Alla ändringar loggas.</div></aside>
+  root.innerHTML=`<div class="operator-shell"><aside class="sidebar"><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div class="side-copy">Central adminportal för alla kundföretag.</div><nav class="side-nav" aria-label="Adminmeny">${nav()}</nav><div class="side-footer">Endast LT Studio-operatörer. Alla ändringar loggas.</div></aside>
   <section class="main"><header class="topbar"><div><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div><div class="actions"><div class="operator-user"><span class="avatar">${initials(operator.displayName)}</span><div><strong>${esc(operator.displayName||operator.username||'Operatör')}</strong><small>LT Studio-operatör</small></div></div><button class="button secondary" data-action="logout">Logga ut</button></div></header>
-  ${errorMessage?`<div class="notice">${esc(errorMessage)}</div>`:''}${body}</section></div>`;
+  <nav class="mobile-nav" aria-label="Adminmeny">${nav()}</nav>
+  ${uiNotice?`<div class="toast" role="status"><span>${esc(uiNotice)}</span><button type="button" data-action="dismiss-notice" aria-label="Stäng meddelande">×</button></div>`:''}
+  ${errorMessage?`<div class="notice" role="alert">${esc(errorMessage)}</div>`:''}${body}</section></div>${modalMarkup()}`;
 }
 function companyRows(){
   const rows=overview?.companies||[];
   if(!rows.length)return '<tr><td colspan="7" class="empty">Inga företag är registrerade ännu.</td></tr>';
   return rows.map(company=>{
     const access=company.accessConfigured?'<span class="status-pill"><span class="dot ok"></span>Konfigurerad</span>':'<span class="status-pill"><span class="dot warning"></span>Saknar användare</span>';
-    return `<tr class="click-row" data-company-id="${esc(company.id)}"><td><strong>${esc(company.displayName)}</strong><br><small>${esc(company.legalName)}</small></td><td>${esc(company.orgNumber||'—')}</td><td>${company.memberCount}</td><td>${access}</td><td>${company.activeSessionCount}</td><td>${company.invoiceRecordCount}</td><td>${dateTime(company.lastActivityAt)}</td></tr>`;
+    return `<tr class="click-row" data-company-id="${esc(company.id)}" tabindex="0" role="button" aria-label="Öppna ${esc(company.displayName)}"><td><strong>${esc(company.displayName)}</strong><br><small>${esc(company.legalName)}</small></td><td>${esc(company.orgNumber||'—')}</td><td>${company.memberCount}</td><td>${access}</td><td>${company.activeSessionCount}</td><td>${company.invoiceRecordCount}</td><td>${dateTime(company.lastActivityAt)}</td></tr>`;
   }).join('');
 }
 function readinessChecks(){
@@ -85,7 +105,7 @@ function securityView(){
   <section class="panel"><div class="panel-head"><div><h2>Nuvarande säkerhetshändelser</h2><p>Den befintliga read-only-vyn finns kvar tills säkerhetsportalen byggs färdigt.</p></div></div><div class="event-list">${securityEvents()}</div></section>`,'Säkerhetsportal','Planerad separat säkerhetsyta för LT Studio.');
 }
 function memberRows(detail){
-  return (detail.members||[]).map(m=>`<tr><td><strong>${esc(m.displayName)}</strong><br><small>${esc(m.username)}</small></td><td><select data-role-user="${esc(m.userId)}">${['admin','accountant','approver','readonly'].map(r=>`<option value="${r}" ${m.role===r?'selected':''}>${roleLabel(r)}</option>`).join('')}</select></td><td>${m.disabled?'Inaktiv':'Aktiv'}</td><td><button class="button secondary small" data-action="reset-password" data-user-id="${esc(m.userId)}" data-user-name="${esc(m.displayName)}">Byt lösenord</button> <button class="button danger small" data-action="remove-user" data-user-id="${esc(m.userId)}" data-user-name="${esc(m.displayName)}">Ta bort</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Inga användare i företaget.</td></tr>';
+  return (detail.members||[]).map(m=>`<tr><td><strong>${esc(m.displayName)}</strong><br><small>${esc(m.username)}</small></td><td><select data-role-user="${esc(m.userId)}">${['admin','accountant','approver','readonly'].map(r=>`<option value="${r}" ${m.role===r?'selected':''}>${roleLabel(r)}</option>`).join('')}</select></td><td>${m.disabled?'Inaktiv':'Aktiv'}</td><td><button class="button secondary small" data-action="reset-password" data-user-id="${esc(m.userId)}" data-user-name="${esc(m.displayName)}">Byt lösenord</button> <button class="button danger small" data-action="remove-user" data-user-id="${esc(m.userId)}" data-user-name="${esc(m.displayName)}">Ta bort åtkomst</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Inga användare i företaget.</td></tr>';
 }
 function companyDetailView(detail){
   selectedCompany=detail;
@@ -118,13 +138,24 @@ document.addEventListener('submit',async event=>{
     try{const signed=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});session={authenticated:true,operator:signed.operator};sessionStorage.setItem(csrfKey,signed.csrfToken||'');await loadData();render()}catch(error){errorMessage=error.message;loginView()}return;
   }
   if(event.target.id==='add-user-form'){
-    event.preventDefault();const data=Object.fromEntries(new FormData(event.target).entries());
-    try{const created=await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users',{method:'POST',body:JSON.stringify(data)});selectedCompany=await api('/companies/'+encodeURIComponent(selectedCompany.company.id));render();const box=document.getElementById('mfa-result');if(box)box.innerHTML=`<div class="success-box"><strong>Användaren skapades.</strong><p>MFA-hemlighet (visa bara för användaren): <code>${esc(created.mfaSecret)}</code></p><p>Spara inte denna kod i GitHub eller andra delade dokument.</p></div>`}catch(error){errorMessage=error.message;render()}return;
+    event.preventDefault();const data=Object.fromEntries(new FormData(event.target).entries());const button=event.target.querySelector('button[type="submit"]');if(button)button.disabled=true;
+    try{const created=await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users',{method:'POST',body:JSON.stringify(data)});selectedCompany=await api('/companies/'+encodeURIComponent(selectedCompany.company.id));uiNotice='Användaren skapades.';render();const box=document.getElementById('mfa-result');if(box)box.innerHTML=`<div class="success-box"><strong>MFA-hemlighet – visas bara nu</strong><p><code>${esc(created.mfaSecret)}</code></p><p>Ge koden direkt till användaren och spara den inte i GitHub eller delade dokument.</p></div>`}catch(error){errorMessage=error.message;render()}return;
+  }
+  if(event.target.id==='reset-password-form'){
+    event.preventDefault();if(!modal||modal.kind!=='password')return;const data=Object.fromEntries(new FormData(event.target).entries());const button=event.target.querySelector('button[type="submit"]');if(button)button.disabled=true;
+    try{await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users/'+encodeURIComponent(modal.userId)+'/password',{method:'PUT',body:JSON.stringify({password:data.password})});selectedCompany=await api('/companies/'+encodeURIComponent(selectedCompany.company.id));modal=null;uiNotice='Lösenordet ändrades och användarens tidigare sessioner avslutades.';errorMessage='';render()}catch(error){errorMessage=error.message;modal=null;render()}return;
   }
 });
 document.addEventListener('change',async event=>{
   const userId=event.target.dataset.roleUser;if(!userId||!selectedCompany)return;
   try{await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users/'+encodeURIComponent(userId)+'/role',{method:'PUT',body:JSON.stringify({role:event.target.value})});selectedCompany=await api('/companies/'+encodeURIComponent(selectedCompany.company.id));render()}catch(error){errorMessage=error.message;render()}
+});
+document.addEventListener('keydown',async event=>{
+  const row=event.target.closest?.('[data-company-id]');if(!row||!['Enter',' '].includes(event.key))return;
+  event.preventDefault();await openCompany(row.dataset.companyId);
+});
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&modal){modal=null;render();}
 });
 document.addEventListener('click',async event=>{
   const companyRow=event.target.closest('[data-company-id]');if(companyRow){await openCompany(companyRow.dataset.companyId);return}
@@ -133,14 +164,13 @@ document.addEventListener('click',async event=>{
   const action=button.dataset.action;
   if(action==='refresh'){await refresh();return}
   if(action==='back-companies'){selectedCompany=null;view='companies';render();return}
-  if(action==='reset-password'){
-    const password=prompt('Nytt tillfälligt lösenord för '+(button.dataset.userName||'användaren')+'\nMinst 8 tecken, stora och små bokstäver samt siffra eller specialtecken.');
-    if(!password)return;
-    try{await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users/'+encodeURIComponent(button.dataset.userId)+'/password',{method:'PUT',body:JSON.stringify({password})});alert('Lösenordet är ändrat och användarens tidigare sessioner har loggats ut.')}catch(error){errorMessage=error.message;render()}return;
-  }
-  if(action==='remove-user'){
-    if(!confirm('Ta bort '+(button.dataset.userName||'användaren')+' från företaget? Kontot tas inte bort från andra företag.'))return;
-    try{await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users/'+encodeURIComponent(button.dataset.userId),{method:'DELETE',body:'{}'});selectedCompany=await api('/companies/'+encodeURIComponent(selectedCompany.company.id));render()}catch(error){errorMessage=error.message;render()}return;
+  if(action==='reset-password'){modal={kind:'password',userId:button.dataset.userId,userName:button.dataset.userName||'Användaren'};render();focusModal();return}
+  if(action==='remove-user'){modal={kind:'remove',userId:button.dataset.userId,userName:button.dataset.userName||'Användaren'};render();focusModal();return}
+  if(action==='close-modal'){modal=null;render();return}
+  if(action==='dismiss-notice'){uiNotice='';render();return}
+  if(action==='confirm-remove-user'){
+    if(!modal||modal.kind!=='remove')return;button.disabled=true;
+    try{await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users/'+encodeURIComponent(modal.userId),{method:'DELETE',body:'{}'});selectedCompany=await api('/companies/'+encodeURIComponent(selectedCompany.company.id));modal=null;uiNotice='Användarens åtkomst till företaget togs bort och aktiva sessioner avslutades.';errorMessage='';render()}catch(error){errorMessage=error.message;modal=null;render()}return;
   }
   if(action==='logout'){
     try{await mutate('/auth/logout',{method:'POST',body:'{}'})}catch{}
