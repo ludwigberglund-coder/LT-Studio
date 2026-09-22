@@ -175,7 +175,7 @@ test('LT Studio global admin behåller adminroll även om ett vanligt kundmedlem
   assert.equal(session.authenticated,true);
   assert.equal(session.user.platformAdmin,true);
   assert.equal(session.role,'admin');
-  assert.ok(session.permissions.includes('users.manage'));
+  assert.equal(session.permissions.includes('users.manage'),false);
   assert.ok(session.permissions.includes('payroll.view'));
 }));
 
@@ -207,7 +207,7 @@ test('LT Studio global admin kan välja alla företag och får adminroll utan ku
   assert.equal(session.companyId,co2.id);
   assert.equal(session.role,'admin');
   assert.equal(session.user.platformAdmin,true);
-  assert.ok(session.permissions.includes('users.manage'));
+  assert.equal(session.permissions.includes('users.manage'),false);
 
   const customers=await fetch(base+'/api/v1/customers',{headers:{Cookie:cookie}});
   const listed=await customers.json();

@@ -299,10 +299,9 @@
     {
       "id": "admin",
       "label": "Admin / huvudanvändare",
-      "description": "Kan göra allt i företagets privata system.",
+      "description": "Kan administrera företagets verksamhet och ekonomi, men användarkonton hanteras endast av LT Studio.",
       "permissions": [
         "platform.settings.manage",
-        "users.manage",
         "website.manage",
         "audit.view",
         "documents.view",
