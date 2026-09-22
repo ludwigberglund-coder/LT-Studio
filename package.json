@@ -56,7 +56,8 @@
     "audit:anchor:create": "node scripts/audit-anchor.js",
     "audit:anchor:verify": "node scripts/audit-anchor.js --verify",
     "audit:anchor:r2": "node scripts/audit-anchor-r2.js",
-    "staging:bootstrap:synthetic": "node scripts/bootstrap-staging-synthetic.js"
+    "staging:bootstrap:synthetic": "node scripts/bootstrap-staging-synthetic.js",
+    "security:ci-trust-boundary": "node scripts/check-ci-trust-boundary.js"
   },
   "engines": {
     "node": ">=24"
