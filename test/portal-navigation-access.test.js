@@ -13,7 +13,8 @@ function ids(roleId){
 
 test('navigationen följer serverns rollbehörigheter',()=>{
   const admin=ids('admin');
-  for(const id of ['receivables','accounting','reports','website','payables','documents','payroll','access'])assert.ok(admin.includes(id),id);
+  for(const id of ['receivables','accounting','reports','website','payables','documents','payroll'])assert.ok(admin.includes(id),id);
+  assert.equal(admin.includes('access'),false);
 
   const accountant=ids('accountant');
   for(const id of ['receivables','accounting','reports','payables','documents','payroll'])assert.ok(accountant.includes(id),id);
