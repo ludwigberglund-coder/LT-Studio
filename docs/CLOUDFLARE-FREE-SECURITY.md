@@ -85,3 +85,14 @@ Alla Cloudflare-tokens ska ha minsta möjliga scope. En token som har committats
 Free WAF är inte samma fulla ruleset som Pro/Business. Free har endast en rate-limiting rule och Security Events är sampled. Därför får pilotens säkerhet inte bygga på att Cloudflare ensam upptäcker eller stoppar allt.
 
 Applikationens egna limiter, audit/security events, central loggning och driftövervakning är fortsatt obligatoriska.
+
+## Skalning och rate limiting
+
+Nuvarande applikations-rate-limit lagrar räknare i minnet i varje Node-process. Det är säkert för pilot så länge API:t körs som **en enda instans**, men flera parallella instanser skulle få separata räknare och därmed göra de effektiva gränserna högre.
+
+Tills ett gemensamt limiterlager (t.ex. Redis/KV) eller motsvarande central edge-enforcement är infört gäller därför:
+
+- staging/pilot/produktion kör en API-instans,
+- Cloudflares rate-limit-regel används som extra skydd för kundinloggningen,
+- horisontell autoskalning får inte aktiveras som en ren driftinställning utan en ny säkerhetsgranskning,
+- när systemet senare skalas ut ska rate-limit-tester verifiera att gränser delas mellan instanser.
