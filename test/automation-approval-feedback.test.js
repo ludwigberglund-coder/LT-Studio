@@ -14,3 +14,10 @@ test('godkännande visar sann återkoppling innan nästa steg',()=>{
   assert.doesNotMatch(source,/godkänts och bokförts/i);
   assert.match(source,/approval-confirmation/);
 });
+
+
+test('bokförd kundbetalning ersätter gammal godkännandebekräftelse med sann status',()=>{
+  assert.match(source,/Kundbetalningen är bokförd/);
+  assert.match(source,/Kundbetalningen bokfördes och kundreskontran har uppdaterats/);
+  assert.match(source,/confirmation=\{title:'✓ Kundbetalningen är bokförd'/);
+});
