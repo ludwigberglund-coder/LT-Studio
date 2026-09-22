@@ -92,7 +92,12 @@
     search:'<path d="M17 17L21 21M3 11C3 15.4183 6.58172 19 11 19C15.4183 19 19 15.4183 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11Z"/>',
     refresh:'<path d="M21.8883 13.5C21.1645 18.3113 17.013 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C16.1006 2 19.6248 4.46819 21.1679 8M17 8H21.4C21.7314 8 22 7.73137 22 7.4V3"/>',
     download:'<path d="M6 20H18M12 4V16M12 16L15.5 12.5M12 16L8.5 12.5"/>',
-    edit:'<path d="M14.3632 5.65156L15.8431 4.17157C16.6242 3.39052 17.8905 3.39052 18.6716 4.17157L20.0858 5.58579C20.8668 6.36683 20.8668 7.63316 20.0858 8.41421L18.6058 9.8942M14.3632 5.65156L4.74749 15.2672C4.41542 15.5993 4.21079 16.0376 4.16947 16.5054L3.92738 19.2459C3.87261 19.8659 4.39148 20.3848 5.0115 20.33L7.75191 20.0879C8.21972 20.0466 8.65806 19.8419 8.99013 19.5099L18.6058 9.8942M14.3632 5.65156L18.6058 9.8942"/>'
+    edit:'<path d="M14.3632 5.65156L15.8431 4.17157C16.6242 3.39052 17.8905 3.39052 18.6716 4.17157L20.0858 5.58579C20.8668 6.36683 20.8668 7.63316 20.0858 8.41421L18.6058 9.8942M14.3632 5.65156L4.74749 15.2672C4.41542 15.5993 4.21079 16.0376 4.16947 16.5054L3.92738 19.2459C3.87261 19.8659 4.39148 20.3848 5.0115 20.33L7.75191 20.0879C8.21972 20.0466 8.65806 19.8419 8.99013 19.5099L18.6058 9.8942M14.3632 5.65156L18.6058 9.8942"/>',
+    xmark:'<path d="M6.75827 17.2426L12.0009 12M17.2435 6.75736L12.0009 12M12.0009 12L6.75827 6.75736M12.0009 12L17.2435 17.2426"/>',
+    trash:'<path d="M20 9L18.005 20.3463C17.8369 21.3026 17.0062 22 16.0353 22H7.96474C6.99379 22 6.1631 21.3026 5.99496 20.3463L4 9M21 6H15.375M3 6H8.625M8.625 6V4C8.625 2.89543 9.52043 2 10.625 2H13.375C14.4796 2 15.375 2.89543 15.375 4V6M8.625 6H15.375"/>',
+    key:'<path d="M10 12C10 14.2091 8.20914 16 6 16C3.79086 16 2 14.2091 2 12C2 9.79086 3.79086 8 6 8C8.20914 8 10 9.79086 10 12ZM10 12H22V15M18 12V15"/>',
+    openWindow:'<path d="M21 3H15M21 3L12 12M21 3V9M21 13V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H11"/>',
+    arrowLeft:'<path d="M21 12H3M3 12L11.5 3.5M3 12L11.5 20.5"/>'
   });
   const NAV_ICONS=Object.freeze({
     overview:'home',invoices:'page',receivables:'wallet','receivables-details':'stats',payables:'page',payments:'card',bank:'bank',
@@ -113,11 +118,16 @@
   function semanticButtonIcon(element){
     const text=String(element.textContent||'').trim().toLowerCase();
     if(/logga ut/.test(text))return'logout';
-    if(/spara|godkänn|verifiera|registrera|bokför|skapa och/.test(text))return'check';
+    if(/stäng|avbryt/.test(text))return'xmark';
+    if(/ta bort|radera/.test(text))return'trash';
+    if(/lösenord|mfa|nyckel/.test(text))return'key';
+    if(/tillbaka|alla företag/.test(text))return'arrowLeft';
+    if(/spara|godkänn|verifiera|registrera|bokför|skapa och|attestera/.test(text))return'check';
     if(/skapa|lägg till|ny /.test(text))return'plus';
     if(/sök|filtrera|hitta/.test(text))return'search';
     if(/uppdatera|försök igen|återställ|beräkna/.test(text))return'refresh';
-    if(/ladda ner|exportera/.test(text))return'download';
+    if(/ladda ner|ladda ned|exportera/.test(text))return'download';
+    if(/öppna|visa /.test(text))return'openWindow';
     if(/redigera|ändra/.test(text))return'edit';
     if(/profil|konto|inloggning/.test(text))return'profile';
     return'';
@@ -126,7 +136,7 @@
     document.querySelectorAll('[data-nav-id]').forEach(link=>addIcon(link,NAV_ICONS[link.dataset.navId]||'page'));
     document.querySelectorAll('.shared-user-dropdown a,.shared-user-dropdown button').forEach(el=>addIcon(el,semanticButtonIcon(el)||'profile'));
     document.querySelectorAll('.shared-foot>a').forEach(el=>addIcon(el,'home'));
-    document.querySelectorAll('.button,button[data-action]').forEach(button=>{const name=semanticButtonIcon(button);if(name)addIcon(button,name);});
+    document.querySelectorAll('.button,button[data-action],button[data-journal-action],.nav-item,.module-card a,.callout a').forEach(button=>{const name=semanticButtonIcon(button);if(name)addIcon(button,name);});
   }
   function animateTap(element){
     if(!element||element.disabled||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
@@ -136,7 +146,7 @@
     );
   }
   document.addEventListener('pointerdown',event=>{
-    const target=event.target.closest('.button,.shared-links a,.module-card,.task-card,.shared-user-trigger,.shared-user-dropdown a,.shared-user-dropdown button');
+    const target=event.target.closest('.button,.shared-links a,.module-card,.task-card,.sales-panel,.sales-metric,.invoice-section>summary,.shared-user-trigger,.shared-user-dropdown a,.shared-user-dropdown button,.nav-item,.clickable-card');
     if(target)animateTap(target);
   },{passive:true});
   document.addEventListener('click',event=>{
