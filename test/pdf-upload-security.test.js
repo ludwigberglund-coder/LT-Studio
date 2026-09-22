@@ -3,6 +3,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const PdfSecurity=require('../apps/api/pdf-upload-security.js');
+const {PDFDocument}=require('pdf-lib');
 
 function pdf(body='1 0 obj << /Type /Catalog >> endobj'){
   return Buffer.from('%PDF-1.4\n'+body+'\n%%EOF','latin1');
@@ -64,4 +65,23 @@ test('PDF upload security rejects deceptive executable-style filenames',()=>{
 test('PDF upload security requires a supported PDF version header',()=>{
   const bad=Buffer.from('%PDF-x.y\n1 0 obj << /Type /Catalog >> endobj\n%%EOF','latin1');
   assert.throws(()=>PdfSecurity.assertSafePdf(bad,{fileName:'faktura.pdf'}),e=>e.code==='INVALID_PDF_SIGNATURE'&&e.statusCode===415);
+});
+
+test('deep PDF verification accepts a structurally valid passive PDF',async()=>{
+  const document=await PDFDocument.create();
+  document.addPage([300,400]);
+  const bytes=Buffer.from(await document.save({useObjectStreams:true}));
+  await assert.doesNotReject(()=>PdfSecurity.assertSafePdfDeep(bytes,{fileName:'faktura.pdf'}));
+});
+
+test('deep PDF verification blocks JavaScript hidden in compressed PDF objects',async()=>{
+  const document=await PDFDocument.create();
+  document.addPage([300,400]);
+  document.addJavaScript('invoice-action','app.alert("blocked")');
+  const bytes=Buffer.from(await document.save({useObjectStreams:true}));
+  assert.equal(bytes.toString('latin1').toLowerCase().includes('/javascript'),false);
+  await assert.rejects(
+    ()=>PdfSecurity.assertSafePdfDeep(bytes,{fileName:'faktura.pdf'}),
+    error=>error?.code==='ACTIVE_PDF_CONTENT_NOT_ALLOWED'&&error?.statusCode===415
+  );
 });
