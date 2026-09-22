@@ -41,7 +41,7 @@ test('ekonom får ekonomifunktioner inklusive lön men inte användaradministrat
 
   assert.equal((await fetch(f.base+'/api/v1/payroll/runs',{headers})).status,200);
   assert.equal((await fetch(f.base+'/api/v1/accounting/entries',{headers})).status,200);
-  assert.equal((await fetch(f.base+'/api/v1/access/members',{headers})).status,403);
+  assert.equal((await fetch(f.base+'/api/v1/access/members',{headers})).status,404);
 }));
 
 
