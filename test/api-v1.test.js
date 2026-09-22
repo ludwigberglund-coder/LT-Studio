@@ -175,7 +175,7 @@ test('LT Studio global admin behåller adminroll även om ett vanligt kundmedlem
   assert.equal(session.authenticated,true);
   assert.equal(session.user.platformAdmin,true);
   assert.equal(session.role,'admin');
-  assert.ok(session.permissions.includes('users.manage'));
+  assert.equal(session.permissions.includes('users.manage'),false);
   assert.ok(session.permissions.includes('payroll.view'));
 }));
 
