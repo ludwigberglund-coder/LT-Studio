@@ -572,7 +572,7 @@ function finalizeCreditIssuance(db,{companyId,userId,prepared,pdfBytes}){
   if(source.offsetAmountOre!==prepared.offsetAmountOre||source.refundDueOre!==prepared.refundDueOre)throw invoiceError('Fakturans saldo ändrades medan kreditfakturan skapades. Försök igen från den uppdaterade fakturan.','CREDIT_SETTLEMENT_CHANGED',409);
   const original=source.original,document=prepared.document,invoiceNumber=prepared.invoiceNumber;
   const creditInvoice=Db.createInvoice(db,{companyId,customerId:original.customerId,invoiceNumber,ocr:invoiceNumber,invoiceDate:prepared.creditDate,postingDate:prepared.creditDate,dueDate:prepared.creditDate,
-    totalOre:-prepared.creditAmountOre,remainingOre:0,vatOre:Number(document.vatOre||0),status:'Kreditfaktura',paymentMethod:original.paymentMethod,paymentAccount:original.paymentAccount,invoiceAccount:'1510'});
+    totalOre:-prepared.creditAmountOre,remainingOre:-prepared.refundDueOre,vatOre:Number(document.vatOre||0),status:prepared.refundDueOre>0?'Kreditfaktura · återbetalning väntar':'Kreditfaktura',paymentMethod:original.paymentMethod,paymentAccount:original.paymentAccount,invoiceAccount:'1510'});
   const posted=Accounting.postEntry(db,{companyId,postingDate:prepared.creditDate,description:`Kreditfaktura ${invoiceNumber} av ${original.invoiceNumber}`.slice(0,240),
     sourceType:'customer-credit-note',sourceId:creditInvoice.id,createdBy:userId,series:'F',lines:creditJournalLines(document)});
   const createdAt=new Date().toISOString();
@@ -618,6 +618,7 @@ function registerCreditRefund(db,{companyId,userId,creditInvoiceId,payload}){
   const transaction=Db.addInvoiceTransaction(db,{companyId,invoiceId:creditInvoice.id,transactionType:'refund',paymentMethod:'Bank',
     paymentDate:refundDate,postingDate:refundDate,journalNumber:posted.entry.number,amountOre:adjustment.refundDueOre,approved:true,account:refundAccount,bankReference});
   const createdAt=new Date().toISOString();
+  db.prepare('UPDATE invoices SET remaining_ore=0,status=?,updated_at=? WHERE company_id=? AND id=?').run('Kreditfaktura · återbetald',createdAt,companyId,creditInvoice.id);
   db.prepare(`INSERT INTO customer_credit_refunds(company_id,request_id,credit_invoice_id,original_invoice_id,amount_ore,refund_date,refund_account,bank_reference,accounting_entry_id,invoice_transaction_id,created_by,created_at)
     VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`).run(companyId,requestId,creditInvoice.id,original.id,adjustment.refundDueOre,refundDate,refundAccount,bankReference,posted.entry.id,transaction.id,userId,createdAt);
   Db.appendAudit(db,{companyId,userId,action:'CUSTOMER_CREDIT_REFUND_REGISTERED',entityType:'invoice',entityId:creditInvoice.id,details:{
