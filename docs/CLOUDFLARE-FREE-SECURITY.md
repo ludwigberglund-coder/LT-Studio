@@ -63,12 +63,14 @@ Skydda operator-host/path med Cloudflare Access utöver den separata operatorinl
 2. Aktivera proxied DNS för publika hostnamn.
 3. Behåll SSL/TLS i strikt läge där arkitekturen använder origin-TLS. Med Tunnel till loopback kan tunnelanslutningen gå direkt till den lokala tjänsten.
 4. Verifiera att Free Managed Ruleset är aktivt.
-5. Skapa den enda Free rate-limit-regeln för `/api/v1/auth/login`. Applikationens egna gränser gäller fortsatt för alla andra routes.
-6. Skapa en named Cloudflare Tunnel och routea hostnamnet till `http://127.0.0.1:4180`.
-7. Stäng all publik inbound-åtkomst till applikationsporten.
-8. Sätt `ROLLANDS_TRUST_CLOUDFLARE=1` först när steg 6–7 är verifierade. Servern vägrar starta med denna inställning om den inte är bunden till loopback.
-9. Lägg Access framför staging och operatorportalen.
-10. Testa normal login, 429-svar, felaktiga host headers, WAF-block, tunnelavbrott och återställning innan pilot.
+5. Skapa den enda Free rate-limit-regeln för `/api/v1/auth/login`. Free-planens rate-limit-uttryck är mer begränsade än betalda planer, så applikationens egna gränser gäller fortsatt för alla routes.
+6. Använd de fem custom WAF-reglerna sparsamt för högsäkerhetssignaler, exempelvis uppenbart felaktiga paths eller trafik ni med säkerhet vet inte ska nå origin. Undvik breda regler som kan blockera legitima ekonomiflöden.
+7. Testa Bot Fight Mode i staging före eventuell aktivering på produktionsdomänen.
+8. Skapa en named Cloudflare Tunnel och routea hostnamnet till `http://127.0.0.1:4180`.
+9. Stäng all publik inbound-åtkomst till applikationsporten.
+10. Sätt `ROLLANDS_TRUST_CLOUDFLARE=1` först när steg 6–7 är verifierade. Servern vägrar starta med denna inställning om den inte är bunden till loopback.
+11. Lägg Access framför staging och operatorportalen.
+12. Testa normal login, 429-svar, felaktiga host headers, WAF-block, tunnelavbrott och återställning innan pilot.
 
 ## Secrets
 
