@@ -94,6 +94,46 @@ Användaruppladdningar är en särskilt känslig attackyta. Följande policy gä
 
 Om stöd för en annan filtyp någon gång behövs ska det behandlas som en ny säkerhetsfunktion med separat threat model, validering, tester och PR. Det får inte införas genom att bara utöka en MIME-lista eller ett HTML `accept`-attribut.
 
+## Skydd av `main` i GitHub
+
+`main` är projektets Source of Truth och ska under aktiv utveckling normalt endast ändras via:
+
+`branch -> Pull Request -> obligatorisk CI -> merge`.
+
+Under aktiv utveckling krävs **ingen approval** för merge så länge Pull Request-kravet och de obligatoriska statuskontrollerna är gröna. När systemet bedöms vara färdigt inför slutlig launch/readiness ska separat approval återinföras som ytterligare merge-gate.
+
+Repositoryt använder rulesetet `Protect main` för default branch. Under aktiv utveckling ska rulesetet minst säkerställa:
+
+- Pull Request krävs före merge.
+- Required status check `test` från workflow `Quality and security checks` måste vara grön.
+- Required status check `CodeQL JavaScript` från workflow `CodeQL security analysis` måste vara grön.
+- Öppna review-konversationer måste vara lösta.
+- Force-push/non-fast-forward till `main` är blockerad.
+- Radering av `main` är blockerad.
+- PR-branchen måste vara uppdaterad mot senaste `main` före merge.
+- `required_approving_review_count` är 0 under aktiv utveckling.
+- `Require approval of the most recent reviewable push` är avstängd under aktiv utveckling.
+
+När systemet är klart inför slutlig launch/readiness ska approval-kravet återaktiveras och verifieras innan skarp release. Det ska dokumenteras som ett separat Production Readiness-steg.
+
+### Admin- och emergency-modell
+
+Rulesetet har ingen normal bypass. Administratörer följer därför samma branch -> PR -> CI -> merge-flöde i normalt arbete.
+
+Om ett framtida emergency-bypass införs ska det begränsas till minsta möjliga krets och varje faktisk användning dokumenteras i efterhand med orsak, berörda commits och verifiering.
+
+Rulesetet kräver inte signerade commits och GitHub Pages är inte en merge-gate.
+
+### Verifiering
+
+Rulesetet `Protect main` aktiverades 2026-09-22. GitHub rapporterar `main protected: true`.
+
+Ett negativt test genomfördes i PR #438 med medvetet ogiltig JavaScript-syntax. Den obligatoriska checken `test` blev `failure`; PR:n mergades inte.
+
+Den 22 september 2026 ändrades utvecklingspolicyn så att approval inte krävs under aktiv utveckling. PR + obligatorisk CI behålls. Approval ska återaktiveras när systemet är färdigt inför slutlig launch/readiness.
+
+Den centrala repository-governance-spårningen finns i issue #226.
+
 ## Supported versions
 
 Projektet är fortfarande i Production Readiness Phase 1. Endast aktuell `main` och uttryckligen godkända release-commits används som säkerhetsreferens. Äldre demo-, legacy- eller featurebrancher ska inte betraktas som supportade driftversioner.
