@@ -81,8 +81,8 @@ const out=path.join(__dirname,'..','test-artifacts');
     await page.getByRole('button',{name:'Säkerhetsportal',exact:true}).first().click();
     await page.getByRole('heading',{name:'Säkerhetsportal',exact:true}).waitFor();
     const securityBody=await page.locator('body').innerText();
-    assert.match(securityBody,/LOGIN FAILURE THRESHOLD/);
-    assert.doesNotMatch(securityBody,/never-in-ui|cccccccc/);
+    assert.match(securityBody,/Många felaktiga kundinloggningar/);
+    assert.doesNotMatch(securityBody,/LOGIN FAILURE THRESHOLD|never-in-ui|cccccccc/);
     checks.push({kind:'security-preview'});
 
     await page.getByRole('button',{name:'Kunder & företag',exact:true}).first().click();
