@@ -36,10 +36,12 @@ function verifyPassword(password, encoded) {
     const [prefix,nRaw,rRaw,pRaw,saltRaw,hashRaw] = String(encoded || '').split('$');
     if (prefix !== PASSWORD_PREFIX || !saltRaw || !hashRaw) return false;
     const N = Number(nRaw), r = Number(rRaw), p = Number(pRaw);
-    if (![N,r,p].every(Number.isSafeInteger) || N < 16384 || r < 8 || p < 1) return false;
+    if (N !== SCRYPT.N || r !== SCRYPT.r || p !== SCRYPT.p) return false;
+    const salt = Buffer.from(saltRaw, 'base64url');
     const expected = Buffer.from(hashRaw, 'base64url');
-    const actual = crypto.scryptSync(String(password || ''), Buffer.from(saltRaw, 'base64url'), expected.length, {N,r,p,maxmem:SCRYPT.maxmem});
-    return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+    if (salt.length !== 16 || expected.length !== SCRYPT.keyLength) return false;
+    const actual = crypto.scryptSync(String(password || ''), salt, SCRYPT.keyLength, {N:SCRYPT.N,r:SCRYPT.r,p:SCRYPT.p,maxmem:SCRYPT.maxmem});
+    return crypto.timingSafeEqual(expected, actual);
   } catch {
     return false;
   }
