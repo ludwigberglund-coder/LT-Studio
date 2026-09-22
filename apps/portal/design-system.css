@@ -291,7 +291,7 @@ a {
 .shared-navigation .shared-links a.active,
 .shared-navigation .shared-links a[aria-current="page"] {
   color: var(--color-paper) !important;
-  background: linear-gradient(135deg, var(--color-brand), var(--color-brand-2)) !important;
+  background: #173f32 !important;
   font-weight: var(--font-weight-medium) !important;
 }
 
@@ -334,7 +334,7 @@ a {
 .avatar,
 .shared-user-avatar {
   color: var(--color-paper);
-  background: linear-gradient(135deg, var(--color-brand), var(--color-brand-2));
+  background: #173f32;
   font-weight: var(--font-weight-semibold);
 }
 
@@ -469,14 +469,14 @@ a {
 }
 
 .dash-hero {
-  background: linear-gradient(135deg, #ffffff 0%, #fbfdf9 70%, #f1f7ec 100%);
+  background: #ffffff;
   border-color: #d9e4d6;
 }
 
 .module-card,
 .task-card,
 .modules-secondary .module-card {
-  background: linear-gradient(180deg, #ffffff, #fbfdf9);
+  background: #ffffff;
 }
 
 .module-card:hover,
@@ -503,7 +503,7 @@ a {
   min-height: 36px;
   padding: 8px 16px;
   color: var(--color-paper);
-  background: linear-gradient(135deg, var(--color-brand), var(--color-brand-2));
+  background: #173f32;
   border: 1px solid var(--color-brand);
   border-radius: var(--radius-buttons);
   box-shadow: none;
@@ -930,7 +930,7 @@ table {
 }
 
 .confidence > span {
-  background: linear-gradient(90deg, var(--color-leaf), var(--color-brand-2));
+  background: #6f8f4f;
 }
 
 .uat-shell {
@@ -957,10 +957,7 @@ table {
 
 .login-brand {
   color: var(--color-paper);
-  background:
-    radial-gradient(circle at 18% 18%, rgb(220 233 167 / .18), transparent 26%),
-    radial-gradient(circle at 82% 78%, rgb(197 101 63 / .16), transparent 30%),
-    linear-gradient(145deg, #102f26, var(--color-brand));
+  background: #173f32;
 }
 
 .login-brand h1 {
