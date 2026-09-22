@@ -67,6 +67,7 @@ function createServer(options = {}) {
   const authEncryptionKey = options.authEncryptionKey ?? process.env.ROLLANDS_AUTH_ENCRYPTION_KEY ?? '';
   const configuredAllowedHosts = options.allowedHosts || String(process.env.ROLLANDS_ALLOWED_HOSTS || '').split(',').map(value=>value.trim()).filter(Boolean);
   const trustCloudflare = options.trustCloudflare ?? (process.env.ROLLANDS_TRUST_CLOUDFLARE === '1');
+  const rateLimitEnv = options.rateLimitEnv || process.env;
   const runtimeId = crypto.randomUUID();
   const operationalLogger=OperationalLog.createOperationalLogger({writer:options.operationalLogWriter??OperationalLog.defaultWriter(process.env)});
   if (!Number.isSafeInteger(port) || port < 1 || port > 65535) throw new Error('PORT måste vara ett heltal mellan 1 och 65535.');
@@ -89,7 +90,7 @@ function createServer(options = {}) {
   PrivateObjectCopyLedger.initializePrivateObjectCopyLedger(db);
   Queues.initializeQueues(db); ReminderOutbox.initializeReminderOutbox(db); Bank.initializeBankPayments(db); Payables.initializePayables(db); SupplierMasterdata.initializeSupplierMasterdata(db); PaymentConfirmation.initializePaymentConfirmation(db); Inventory.initializeInventory(db); Payroll.initializePayroll(db); Documents.initializeDocuments(db); AccountingAdmin.initializeAccountingAdmin(db); WebsiteCms.initializeWebsiteCms(db);
   const clientIp=req=>RequestSecurity.clientIp(req,{trustCloudflare});
-  const rateLimiter=RequestSecurity.createRateLimiter({env:process.env,db,trustCloudflare});
+  const rateLimiter=RequestSecurity.createRateLimiter({env:rateLimitEnv,db,trustCloudflare});
   const api = createApiApp({db,secureCookies,authEncryptionKey,operationalLogger,operationalRuntimeId:runtimeId,clientIp});
   const automationReview = createAutomationReviewRouter({db}); const bank = createBankRouter({db}); const payables = createPayablesRouter({db}); const supplierMasterdata = createSupplierMasterdataRouter({db}); const paymentRelease = createPaymentReleaseRouter({db}); const paymentConfirmation = createPaymentConfirmationRouter({db}); const inventory = createInventoryRouter({db}); const reports = createReportsRouter({db}); const exportsRouter=createExportsRouter({db}); const payroll = createPayrollRouter({db}); const documents = createDocumentsRouter({db}); const openingMigrationImport=createOpeningMigrationImportRouter({db}); const accounting = createAccountingAdminRouter({db}); const websiteCms = createWebsiteCmsRouter({db});
   const protectedMode=protectedRuntimeMode(process.env);
