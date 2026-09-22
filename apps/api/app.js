@@ -288,11 +288,11 @@ function createApiApp(options) {
       ? Db.listCompanies(db).map(company=>({companyId:company.id,role:'admin',legalName:company.legalName,displayName:company.displayName}))
       : Db.membershipsForUser(db,user.id);
     if(!memberships.length) return send(res,403,{error:'Användaren saknar företagsåtkomst.',code:'NO_COMPANY_ACCESS'});
-    let selected;
-    if(payload.companyId) selected=memberships.find(item=>item.companyId===String(payload.companyId));
+    let selected=null;
+    if(payload.companyId) selected=memberships.find(item=>item.companyId===String(payload.companyId))||null;
     else if(memberships.length===1) selected=memberships[0];
-    else return send(res,409,{error:'Välj företag för inloggningen.',code:'COMPANY_REQUIRED',companies:memberships.map(item=>({id:item.companyId,name:item.displayName,role:item.role}))});
-    if(!selected) return send(res,403,{error:'Användaren saknar åtkomst till valt företag.',code:'COMPANY_ACCESS_DENIED'});
+    const companySelectionRequired=!payload.companyId&&memberships.length>1;
+    const invalidCompanySelection=Boolean(payload.companyId)&&!selected;
 
     const mfaRequired=true;
     let mfaCounter=null;
@@ -308,6 +308,9 @@ function createApiApp(options) {
         return send(res,401,{error:'MFA-koden är felaktig eller har gått ut.',code:'INVALID_MFA'});
       }
     }
+
+    if(companySelectionRequired) return send(res,409,{error:'Välj företag för inloggningen.',code:'COMPANY_REQUIRED',companies:memberships.map(item=>({id:item.companyId,name:item.displayName,role:item.role}))});
+    if(invalidCompanySelection) return send(res,403,{error:'Användaren saknar åtkomst till valt företag.',code:'COMPANY_ACCESS_DENIED'});
 
     const upgradedPasswordHash=Auth.passwordHashNeedsUpgrade(user.passwordHash)?Auth.hashPassword(payload.password):'';
     const configuredDuration=user.sessionDurationMinutes===null?null:Number(user.sessionDurationMinutes||sessionMaxMinutes);
