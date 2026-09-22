@@ -191,6 +191,10 @@ a {
   color: var(--color-mid-gray);
 }
 
+.dash-hero p + p {
+  margin-top: var(--spacing-12);
+}
+
 .eyebrow,
 .module-state,
 .task-state,
@@ -404,6 +408,11 @@ a {
   box-shadow: var(--shadow-subtle);
 }
 
+.cms-form,
+.cms-side > .panel {
+  padding: var(--card-padding);
+}
+
 .metrics .metric,
 .dash-metrics .dash-metric,
 .report-summary article,
@@ -610,6 +619,10 @@ label,
 .accounting-form label {
   color: var(--color-ink-soft);
   font-weight: var(--font-weight-medium);
+}
+
+.invoice-search {
+  width: min(420px, 100%);
 }
 
 /* Tables */
