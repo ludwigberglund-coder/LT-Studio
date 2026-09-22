@@ -47,7 +47,37 @@ test('readiness kräver läsbar och skrivbar databas',()=>{
   try{
     const report=readinessReport({db,databasePath:':memory:',minFreeBytes:1});
     assert.equal(report.ok,true);
-    assert.deepEqual(report.checks,{databaseRead:true,databaseWrite:true,diskSpace:true,backup:true,offsiteBackup:true,r2StagingAudit:true,restoreDrill:true,r2RestoreDrill:true,stagingEvidenceConsistent:true,monitoring:true,auditAnchor:true});
+    assert.deepEqual(report.checks,{databaseRead:true,databaseWrite:true,diskSpace:true,backup:true,offsiteBackup:true,r2StagingAudit:true,restoreDrill:true,r2RestoreDrill:true,stagingEvidenceConsistent:true,monitoring:true,auditAnchor:true,platformAdmin:true});
+  }finally{db.close()}
+});
+
+test('protected readiness kräver minst en aktiv LT Studio global admin med MFA',()=>{
+  const db=Db.openDatabase(':memory:');
+  try{
+    let report=readinessReport({db,databasePath:':memory:',minFreeBytes:1,requirePlatformAdmin:true});
+    assert.equal(report.ok,false);
+    assert.equal(report.checks.platformAdmin,false);
+
+    const user=Db.createUser(db,{
+      username:'lt-security-admin',
+      displayName:'LT Security Admin',
+      passwordHash:'test-password-hash',
+      mfaSecretEncrypted:'encrypted-test-secret',
+      platformAdmin:true
+    });
+    report=readinessReport({db,databasePath:':memory:',minFreeBytes:1,requirePlatformAdmin:true});
+    assert.equal(report.ok,true);
+    assert.equal(report.checks.platformAdmin,true);
+
+    db.prepare('UPDATE users SET disabled=1 WHERE id=?').run(user.id);
+    report=readinessReport({db,databasePath:':memory:',minFreeBytes:1,requirePlatformAdmin:true});
+    assert.equal(report.ok,false);
+    assert.equal(report.checks.platformAdmin,false);
+
+    db.prepare("UPDATE users SET disabled=0,mfa_secret_encrypted='' WHERE id=?").run(user.id);
+    report=readinessReport({db,databasePath:':memory:',minFreeBytes:1,requirePlatformAdmin:true});
+    assert.equal(report.ok,false);
+    assert.equal(report.checks.platformAdmin,false);
   }finally{db.close()}
 });
 
