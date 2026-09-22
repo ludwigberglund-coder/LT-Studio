@@ -164,6 +164,7 @@ const QUERY_RULES=Object.freeze([
   ['GET',/^\/api\/v1\/accounting\/periods$/,new Set(['year'])],
   ['GET',/^\/api\/v1\/accounting\/unlock-requests$/,new Set(['status'])],
   ['GET',/^\/api\/operator\/v1\/security-events$/,new Set(['limit'])],
+  ['GET',/^\/api\/operator\/v1\/operator-audit$/,new Set(['limit'])],
 
   ['GET',/^\/api\/v1\/reports\/(?:trial-balance|profit-loss|sales|supplier-purchases)$/,new Set(['from','to'])],
   ['GET',/^\/api\/v1\/reports\/general-ledger$/,new Set(['from','to','account'])],
@@ -534,7 +535,7 @@ function validateQueryValue(pathname,key,value){
   if(key==='includeArchived'&&!/^[01]$/.test(value))throw securityError('includeArchived måste vara 0 eller 1.','INVALID_QUERY_VALUE',422);
   if(key==='limit'){
     const limit=Number(value);
-    const max=pathname==='/api/operator/v1/security-events'?200:1000;
+    const max=['/api/operator/v1/security-events','/api/operator/v1/operator-audit'].includes(pathname)?200:1000;
     if(!/^\d{1,4}$/.test(value)||!Number.isSafeInteger(limit)||limit<1||limit>max)throw securityError(`limit måste vara 1–${max}.`,'INVALID_QUERY_VALUE',422);
   }
   if(key==='account'&&value&&!/^\d{4}$/.test(value))throw securityError('Konto måste bestå av fyra siffror.','INVALID_QUERY_VALUE',422);
