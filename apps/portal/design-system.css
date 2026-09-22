@@ -998,3 +998,6 @@ table {
 :where(.module-card,.task-card,.sales-panel,.sales-metric):active{transform:translateY(1px) scale(.995)}
 .ui-action-confirmed{animation:lt-ui-confirm .4s cubic-bezier(.2,.8,.2,1)}
 @keyframes lt-ui-confirm{0%{box-shadow:0 0 0 0 rgb(10 10 10 / .18)}55%{box-shadow:0 0 0 6px rgb(10 10 10 / 0)}100%{box-shadow:var(--shadow-subtle)}}
+
+/* Disabled actions switch state immediately and never animate from an active color. */
+.button:disabled,.invoice-workspace #invoice-form button[type="submit"]:disabled{transition:none!important;transform:none!important;box-shadow:none!important}
