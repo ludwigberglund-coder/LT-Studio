@@ -1,5 +1,7 @@
 'use strict';
 
+const {PDFDocument}=require('pdf-lib');
+
 const MAX_PDF_BYTES=10*1024*1024;
 const MIN_PDF_BYTES=32;
 const ACTIVE_PDF_NAMES=Object.freeze([
@@ -26,6 +28,14 @@ function assertPdfFileName(fileName){
   }
   return name;
 }
+function assertNoActivePdfSyntax(syntax){
+  const normalized=decodePdfNameEscapes(syntax).toLowerCase();
+  if(/\/encrypt\b/.test(normalized))throw pdfSecurityError('Krypterade PDF-filer tillåts inte eftersom innehållet inte kan säkerhetskontrolleras.','ENCRYPTED_PDF_NOT_ALLOWED',415);
+  for(const name of ACTIVE_PDF_NAMES){
+    const pattern=new RegExp('\\/'+name+'\\b','i');
+    if(pattern.test(normalized))throw pdfSecurityError('PDF-filen innehåller aktiva eller inbäddade funktioner som inte är tillåtna.','ACTIVE_PDF_CONTENT_NOT_ALLOWED',415);
+  }
+}
 function assertSafePdf(bytes,{fileName='document.pdf',maxBytes=MAX_PDF_BYTES}={}){
   assertPdfFileName(fileName);
   if(!Buffer.isBuffer(bytes)||!bytes.length)throw pdfSecurityError('PDF-innehåll saknas.','MISSING_PDF_CONTENT',422);
@@ -37,13 +47,27 @@ function assertSafePdf(bytes,{fileName='document.pdf',maxBytes=MAX_PDF_BYTES}={}
 
   // PDF names can encode characters as #xx (e.g. /Java#53cript). Decode those
   // before searching so simple obfuscation cannot bypass the active-content gate.
-  const syntax=decodePdfNameEscapes(bytes.toString('latin1')).toLowerCase();
-  if(/\/encrypt\b/.test(syntax))throw pdfSecurityError('Krypterade PDF-filer tillåts inte eftersom innehållet inte kan säkerhetskontrolleras.','ENCRYPTED_PDF_NOT_ALLOWED',415);
-  for(const name of ACTIVE_PDF_NAMES){
-    const pattern=new RegExp('\\/'+name+'\\b','i');
-    if(pattern.test(syntax))throw pdfSecurityError('PDF-filen innehåller aktiva eller inbäddade funktioner som inte är tillåtna.','ACTIVE_PDF_CONTENT_NOT_ALLOWED',415);
-  }
+  assertNoActivePdfSyntax(bytes.toString('latin1'));
   return Object.freeze({sizeBytes:bytes.length});
 }
 
-module.exports=Object.freeze({MAX_PDF_BYTES,MIN_PDF_BYTES,ACTIVE_PDF_NAMES,assertPdfFileName,assertSafePdf,decodePdfNameEscapes});
+async function assertSafePdfDeep(bytes,options={}){
+  const result=assertSafePdf(bytes,options);
+  let document;
+  try{
+    document=await PDFDocument.load(bytes,{ignoreEncryption:false,updateMetadata:false});
+  }catch{
+    throw pdfSecurityError('PDF-filen kunde inte tolkas som ett giltigt PDF-dokument och avvisas.','INVALID_PDF_STRUCTURE',415);
+  }
+  try{
+    for(const[,object]of document.context.enumerateIndirectObjects()){
+      assertNoActivePdfSyntax(String(object));
+    }
+  }catch(error){
+    if(error?.code==='ACTIVE_PDF_CONTENT_NOT_ALLOWED'||error?.code==='ENCRYPTED_PDF_NOT_ALLOWED')throw error;
+    throw pdfSecurityError('PDF-strukturen kunde inte säkerhetskontrolleras fullständigt och avvisas.','INVALID_PDF_STRUCTURE',415);
+  }
+  return result;
+}
+
+module.exports=Object.freeze({MAX_PDF_BYTES,MIN_PDF_BYTES,ACTIVE_PDF_NAMES,assertPdfFileName,assertSafePdf,assertSafePdfDeep,decodePdfNameEscapes});
