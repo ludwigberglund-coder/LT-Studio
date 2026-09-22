@@ -36,7 +36,7 @@ function roleBars(){
   const roles=overview?.roleDistribution||{},total=Object.values(roles).reduce((sum,value)=>sum+Number(value||0),0),max=Math.max(1,...Object.values(roles).map(Number));
   return ['admin','accountant','approver','readonly'].map(role=>`<div class="role-row"><div><strong>${roleLabel(role)}</strong><span>${num(roles[role])} · ${percent(roles[role],total)}%</span></div><meter min="0" max="${max}" value="${Number(roles[role]||0)}"></meter></div>`).join('');
 }
-function kpiCard(label,value,caption,detail='')}
+function kpiCard(label,value,caption,detail=''){
   return `<article class="metric"><div class="metric-top"><span>${esc(label)}</span>${detail?`<em>${esc(detail)}</em>`:''}</div><strong>${esc(value)}</strong><small>${esc(caption)}</small></article>`;
 }
 function trendCard(title,description,key,totalLabel){
@@ -136,7 +136,7 @@ function companyDetailView(detail){
       <label class="field"><span>Namn</span><input name="displayName" required maxlength="120"></label>
       <label class="field"><span>Användarnamn / e-post</span><input name="username" required maxlength="120"></label>
       <label class="field"><span>Tillfälligt lösenord</span><input name="password" type="password" required minlength="8"></label>
-      <label class="field"><span>Behörighet</span><select name="role"><option value="admin">Admin</option><option value="accountant">Ekonom</option><option value="approver">Attestant</option><option value="readonly">Läsbehörighet</option></select></label>
+      <label class="field"><span>Behörighet</span><select name="role"><option value="readonly">Läsbehörighet · säker standard</option><option value="approver">Attestant</option><option value="accountant">Ekonom</option><option value="admin">Admin</option></select></label>
       <div><button class="button" type="submit">Skapa användare</button></div>
     </form><div id="mfa-result"></div>
   </section>`,'Företagsadmin',`Inställningar och åtgärder för ${c.displayName}.`);
