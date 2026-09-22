@@ -1,8 +1,8 @@
-# Rollands-plattformen – enkel förklaring av nuläge, upplägg och plan
+# referenskunden-plattformen – enkel förklaring av nuläge, upplägg och plan
 
 ## Sammanfattning
 
-Vi bygger inte bara en hemsida för Rolands. Vi bygger en **återanvändbar småföretagsplattform** där Rolands Frukt o Grönt Aktiebolag är den första kompletta referenskunden.
+Vi bygger inte bara en hemsida för referenskunden. Vi bygger en **återanvändbar småföretagsplattform** där den första referenskunden är den första kompletta referenskunden.
 
 Tanken är att samma tekniska kärna senare ska kunna användas av andra:
 
@@ -62,7 +62,7 @@ Den är skapad för att:
 
 Den publika demon finns här:
 
-<https://ludwigberglund-coder.github.io/Rollands/>
+<https://ludwigberglund-coder.github.io/referenskunden/>
 
 ### Vad som är enkelt att ändra
 
@@ -78,7 +78,7 @@ Det innebär att vanliga textändringar inte behöver göras mitt inne i program
 
 Det finns en adminliknande miljö där vi kan se och prova de nya delarna:
 
-<https://ludwigberglund-coder.github.io/Rollands/admin/>
+<https://ludwigberglund-coder.github.io/referenskunden/admin/>
 
 Den innehåller bland annat:
 
@@ -125,7 +125,7 @@ Att lagra `100,50 kr` som `10050` öre är därför säkrare än att lagra talet
 
 En fungerande demo finns här:
 
-<https://ludwigberglund-coder.github.io/Rollands/admin/#/money>
+<https://ludwigberglund-coder.github.io/referenskunden/admin/#/money>
 
 ## 4. Personlig autentisering och företagsmedlemskap
 
@@ -167,13 +167,13 @@ Det gör historiken begriplig och spårbar.
 
 Demon finns här:
 
-<https://ludwigberglund-coder.github.io/Rollands/admin/#/journal>
+<https://ludwigberglund-coder.github.io/referenskunden/admin/#/journal>
 
 ## 6. Tidigare system som referens
 
 Den äldre versionen finns kvar under:
 
-<https://ludwigberglund-coder.github.io/Rollands/legacy/#/overview>
+<https://ludwigberglund-coder.github.io/referenskunden/legacy/#/overview>
 
 Den innehåller många tidigare funktioner och arbetsflöden, exempelvis fakturering, reskontra, bankbedömning, rapporter och SIE-export.
 
@@ -437,7 +437,7 @@ Innan skarp användning krävs:
 
 ## Etapp 1 – Gör plattformen företagsneutral
 
-Mål: Rolands ska vara första konfigurationen, inte hårdkodad kärna.
+Mål: referenskunden ska vara första konfigurationen, inte hårdkodad kärna.
 
 Arbete:
 
@@ -521,7 +521,7 @@ Arbete:
 - aviseringar och uppgifter,
 - butik-, saluhalls- och restaurangspecifika moduler.
 
-## Etapp 7 – Produktionssättning av Rolands
+## Etapp 7 – Produktionssättning av referenskunden
 
 Mål: första säkra och verifierade kundmiljön.
 
@@ -541,7 +541,7 @@ Arbete:
 
 ## 1. Börja med verkliga behov, men separera dem från kärnan
 
-Rolands ger oss konkreta problem att lösa. Det är bra. Men företagsnamn, design och lokala arbetssätt får inte hamna inne i de gemensamma ekonomireglerna.
+referenskunden ger oss konkreta problem att lösa. Det är bra. Men företagsnamn, design och lokala arbetssätt får inte hamna inne i de gemensamma ekonomireglerna.
 
 ## 2. Regler bör byggas före många nya sidor
 
@@ -580,7 +580,7 @@ En text på hemsidan kan skrivas över. En bokförd verifikation ska i stället 
 
 ## 8. Den andra testkunden blir ett viktigt prov
 
-Det bästa sättet att upptäcka Rolands-hårdkodning är att skapa en andra testkund tidigt. Då ser vi direkt vilka delar som verkligen är återanvändbara.
+Det bästa sättet att upptäcka referenskunden-hårdkodning är att skapa en andra testkund tidigt. Då ser vi direkt vilka delar som verkligen är återanvändbara.
 
 ## 9. Färdiga arbetsflöden är bättre än många halvfärdiga moduler
 
@@ -650,16 +650,16 @@ Detta är en viktig och positiv skillnad: grunden är genomtänkt, men vi ska in
 
 ## Slutsats
 
-Rolands är rätt första referenskund. Det ger projektet ett verkligt mål och en tydlig kvalitetsnivå.
+referenskunden är rätt första referenskund. Det ger projektet ett verkligt mål och en tydlig kvalitetsnivå.
 
 Den bästa vägen är:
 
-1. bygg hela kedjan för Rolands,
+1. bygg hela kedjan för referenskunden,
 2. håll kärnan företagsneutral,
-3. lägg Rolands-specifika delar i konfiguration och egen företagsdata,
+3. lägg referenskunden-specifika delar i konfiguration och egen företagsdata,
 4. bygg riktig login, backend och databas innan privat information används,
 5. färdigställ ett arbetsflöde i taget,
 6. skapa en andra testkund som bevis på återanvändbarhet,
 7. produktionssätt först efter säkerhets-, drift- och redovisningskontroller.
 
-På så sätt får vi både ett tydligt exempelresultat för Rolands och en grund som kan växa till ett komplett system för många småföretag.
+På så sätt får vi både ett tydligt exempelresultat för referenskunden och en grund som kan växa till ett komplett system för många småföretag.
