@@ -53,9 +53,11 @@ function isLoopback(value) { return ['127.0.0.1','localhost','::1'].includes(nor
 function allowedHost(req, host, configuredAllowedHosts) {
   const requested = normalizeHostname(req.headers.host);
   if (!requested) return false;
-  if (isLoopback(requested)) return true;
   const allowed = new Set(configuredAllowedHosts.map(normalizeHostname).filter(Boolean));
   const bound = normalizeHostname(host);
+  // Loopback Host headers are implicitly trusted only for a loopback-bound origin.
+  // A public/wildcard origin must never accept "Host: 127.0.0.1" as a shortcut around the allowlist.
+  if (isLoopback(requested) && isLoopback(bound)) return true;
   if (!['0.0.0.0','::'].includes(bound)) allowed.add(bound);
   return allowed.has(requested);
 }
