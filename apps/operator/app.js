@@ -1,6 +1,6 @@
 const root=document.getElementById('operator-app');
 const csrfKey='lt-operator-csrf';
-let session=null,overview=null,readiness=null,security=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='',companyQuery='',companyStatus='all',companySort='name';
+let session=null,overview=null,readiness=null,security=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='',companyQuery='',companyStatus='all',companySort='name',securitySeverity='all',securityPeriod='24h';
 
 function esc(value=''){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
 function initials(name='LT'){return String(name).trim().split(/\s+/).filter(Boolean).map(part=>part[0]).join('').slice(0,2).toUpperCase()||'LT'}
@@ -85,7 +85,7 @@ function focusModal(){
 }
 function nav(){
   const items=[['overview','Översikt','⌂'],['companies','Kunder & företag','◇'],['statistics','Statistik','▥'],['security','Säkerhetsportal','◈']];
-  return items.map(([id,label,icon])=>`<button class="${view===id?'active':''}" data-view="${id}"><span class="nav-label"><span class="nav-icon" aria-hidden="true">${icon}</span>${label}</span>${id==='security'?'<span class="nav-badge" aria-hidden="true">nästa</span>':''}</button>`).join('');
+  return items.map(([id,label,icon])=>`<button class="${view===id?'active':''}" data-view="${id}"><span class="nav-label"><span class="nav-icon" aria-hidden="true">${icon}</span>${label}</span></button>`).join('');
 }
 function shell(body,title,subtitle){
   const operator=session?.operator||{};
@@ -121,12 +121,48 @@ function companyRows(source){
     return `<tr class="click-row" data-company-id="${esc(company.id)}" tabindex="0" role="button"><td><div class="company-cell"><span class="company-avatar">${initials(company.displayName)}</span><div><strong>${esc(company.displayName)}</strong><small>${esc(company.legalName)}</small></div></div></td><td>${esc(company.orgNumber||'—')}</td><td>${company.memberCount}</td><td>${access}</td><td>${company.activeSessionCount}</td><td>${company.invoiceRecordCount}</td><td>${dateTime(company.lastActivityAt)}</td></tr>`;
   }).join('');
 }
-function readinessChecks(){
+function ageLabel(minutes){
+  if(minutes===null||minutes===undefined||!Number.isFinite(Number(minutes)))return 'Ej tillgängligt';
+  const value=Math.max(0,Number(minutes));
+  if(value<60)return `${Math.floor(value)} min`;
+  if(value<1440)return `${Math.floor(value/60)} h`;
+  return `${Math.floor(value/1440)} d`;
+}
+const SECURITY_READINESS=Object.freeze([
+  {key:'databaseRead',label:'Databas · läsning',action:'Kontrollera databasens åtkomst och integritet innan kunddata används.'},
+  {key:'databaseWrite',label:'Databas · skrivning',action:'Kontrollera skrivlås, diskutrymme och databasens filrättigheter.'},
+  {key:'diskSpace',label:'Ledigt diskutrymme',detail:'freeMiB',action:'Frigör eller utöka lagringsutrymmet innan kapaciteten blir kritisk.'},
+  {key:'platformAdmin',label:'LT Studio global admin',action:'Säkerställ minst ett aktivt globaladmin-konto med fungerande MFA.'},
+  {key:'backup',label:'Lokal backup',age:'backupAgeMinutes',action:'Kör och verifiera en ny lokal backup med giltig kontrollsumma.'},
+  {key:'offsiteBackup',label:'Extern backup',age:'offsiteBackupAgeMinutes',action:'Verifiera senaste offsite-backup och dess evidens.'},
+  {key:'r2StagingAudit',label:'R2 · privata objekt',age:'r2StagingAuditAgeMinutes',action:'Kör R2-auditen och kontrollera att alla privata objekt kan verifieras.'},
+  {key:'restoreDrill',label:'Restore-test',age:'restoreDrillAgeMinutes',action:'Genomför och dokumentera ett nytt återställningstest.'},
+  {key:'r2RestoreDrill',label:'R2 · restore-test',age:'r2RestoreDrillAgeMinutes',action:'Genomför ett nytt restore-test mot privat objektlagring.'},
+  {key:'stagingEvidenceConsistent',label:'Staging · evidenskedja',action:'Kontrollera att staging-bevisen kommer från samma verifierade datamängd.'},
+  {key:'auditAnchor',label:'Audit · externt ankare',age:'auditAnchorAgeMinutes',action:'Skapa och verifiera ett nytt externt audit-ankare.'},
+  {key:'monitoring',label:'Extern monitoring',age:'monitoringAgeMinutes',action:'Verifiera extern monitoring och att senaste larmtestet fungerar.'}
+]);
+function readinessEntries(){
   const checks=readiness?.checks&&typeof readiness.checks==='object'?readiness.checks:{};
-  return [['databaseRead','Databas · läsning'],['databaseWrite','Databas · skrivning'],['platformAdmin','LT Studio global admin'],['backup','Lokal backup'],['offsiteBackup','Extern backup'],['r2StagingAudit','R2 · privata objekt'],['restoreDrill','Restore-test'],['auditAnchor','Audit · externt ankare'],['monitoring','Extern monitoring']].map(([key,label])=>{
-    const ok=checks[key]===true,known=typeof checks[key]==='boolean',state=known?(ok?'OK':'Problem'):'Saknas',kind=known?(ok?'ok':'critical'):'warning';
-    return `<div class="health-row"><div class="health-name"><span class="health-dot ${kind}"></span><strong>${esc(label)}</strong></div><span class="health-line"></span><span class="status-pill"><span class="dot ${kind}"></span>${state}</span></div>`;
-  }).join('');
+  return SECURITY_READINESS.map(item=>{
+    const value=checks[item.key],known=typeof value==='boolean',ok=value===true;
+    let evidence='—';
+    if(item.age)evidence=ageLabel(readiness?.[item.age]);
+    if(item.detail==='freeMiB'&&readiness?.freeMiB!==null&&readiness?.freeMiB!==undefined)evidence=`${num(readiness.freeMiB)} MiB ledigt`;
+    if(item.key==='monitoring'&&readiness?.alertTestAgeMinutes!==null&&readiness?.alertTestAgeMinutes!==undefined)evidence+=` · larmtest ${ageLabel(readiness.alertTestAgeMinutes)}`;
+    return {...item,known,ok,state:known?(ok?'OK':'Problem'):'Saknas',kind:known?(ok?'ok':'critical'):'warning',evidence};
+  });
+}
+function readinessChecks(){
+  return readinessEntries().map(item=>`<div class="health-row"><div class="health-name"><span class="health-dot ${item.kind}"></span><strong>${esc(item.label)}</strong></div><span class="health-line"></span><span class="status-pill"><span class="dot ${item.kind}"></span>${item.state}</span></div>`).join('');
+}
+function securityReadinessTable(){
+  return readinessEntries().map(item=>`<tr><td><div class="security-check-name"><span class="health-dot ${item.kind}"></span><strong>${esc(item.label)}</strong></div></td><td><span class="status-pill"><span class="dot ${item.kind}"></span>${item.state}</span></td><td>${esc(item.evidence)}</td><td class="security-action-copy">${esc(item.ok?'Ingen åtgärd krävs just nu.':item.action)}</td></tr>`).join('');
+}
+function unresolvedSecurityActions(){
+  const items=readinessEntries().filter(item=>!item.ok);
+  if(!items.length)return '<div class="security-clear"><span class="health-dot ok"></span><div><strong>Inga kända driftblockerare</strong><p>Alla rapporterade tekniska kontroller är godkända just nu.</p></div></div>';
+  return items.map(item=>`<div class="security-action"><span class="health-dot ${item.kind}"></span><div><strong>${esc(item.label)}</strong><p>${esc(item.action)}</p></div></div>`).join('');
 }
 function securityEventLabel(kind){
   const key=String(kind||'');
@@ -140,9 +176,20 @@ function securityEventLabel(kind){
   const fallback=key.replaceAll('_',' ').toLocaleLowerCase('sv')||'säkerhetshändelse';
   return fallback.charAt(0).toLocaleUpperCase('sv')+fallback.slice(1);
 }
-function securityEvents(){
+function filteredSecurityEvents(){
   const events=security?.events||[];
-  if(!events.length)return '<div class="empty">Inga säkerhetshändelser i listan.</div>';
+  const hours=securityPeriod==='24h'?24:securityPeriod==='7d'?24*7:securityPeriod==='30d'?24*30:null;
+  const cutoff=hours===null?null:Date.now()-hours*60*60*1000;
+  return events.filter(event=>{
+    if(securitySeverity!=='all'&&event.severity!==securitySeverity)return false;
+    if(cutoff===null)return true;
+    const time=new Date(event.createdAt).getTime();
+    return Number.isFinite(time)&&time>=cutoff;
+  });
+}
+function securityEvents(){
+  const events=filteredSecurityEvents();
+  if(!events.length)return '<div class="empty">Inga säkerhetshändelser matchar filtret.</div>';
   return events.map(event=>`<div class="event"><span class="status-pill"><span class="dot ${esc(event.severity)}"></span>${esc(({critical:'Kritisk',warning:'Varning',info:'Information'})[event.severity]||event.severity)}</span><strong>${esc(securityEventLabel(event.kind))}</strong><time>${dateTime(event.createdAt)}</time></div>`).join('');
 }
 function overviewView(){
@@ -207,10 +254,15 @@ function statisticsView(){
   <section class="panel"><div class="panel-head"><div><span class="eyebrow">DETALJER</span><h2>Företagsstatistik</h2><p>Operativ metadata utan fakturainnehåll eller ekonomiska belopp.</p></div></div><div class="table-wrap"><table><thead><tr><th>Företag</th><th>Användare</th><th>Kunder</th><th>Fakturor</th><th>Sessioner</th><th>Senaste aktivitet</th></tr></thead><tbody>${companies.map(c=>`<tr class="click-row" data-company-id="${esc(c.id)}" tabindex="0" role="button"><td><div class="company-cell"><span class="company-avatar">${initials(c.displayName)}</span><strong>${esc(c.displayName)}</strong></div></td><td>${c.memberCount}</td><td>${c.customerRecordCount}</td><td>${c.invoiceRecordCount}</td><td>${c.activeSessionCount}</td><td>${dateTime(c.lastActivityAt)}</td></tr>`).join('')}</tbody></table></div></section>`,'Statistik','Mätbara nyckeltal och trender för hela LT Studio-plattformen.');
 }
 function securityView(){
-  const sec=overview?.security||{},totals=overview?.totals||{},health=readinessScore(),mfaPct=percent(totals.mfaProtectedUsers,totals.activeUsers);
-  shell(`<section class="security-hero"><div><span class="eyebrow">SÄKERHETSPORTAL · NÄSTA ETAPP</span><h2>En samlad säkerhetsyta för hela LT Studio.</h2><p>Den fulla säkerhetsportalen byggs separat. Den här förhandsvyn använder redan aktuella säkerhetshändelser och tekniska hälsokontroller.</p></div><div class="hero-gauges compact">${ringGauge(health,'Drift','Tekniska kontroller')}${ringGauge(mfaPct,'MFA',`${totals.mfaProtectedUsers||0} av ${totals.activeUsers||0} aktiva användare`)}</div></section>
-  <section class="status-grid"><article class="metric"><span>Kritiska händelser</span><strong class="critical">${num(sec.critical)}</strong><small>senaste 24 timmar</small></article><article class="metric"><span>Varningar</span><strong class="warning">${num(sec.warning)}</strong><small>senaste 24 timmar</small></article><article class="metric"><span>Information</span><strong>${num(sec.info)}</strong><small>senaste 24 timmar</small></article><article class="metric"><span>Senaste händelse</span><strong class="small-value">${esc(dateTime(sec.latestEventAt))}</strong><small>säkerhetslogg</small></article></section>
-  <section class="dashboard-grid equal"><article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">SÄKERHET</span><h2>Aktuella händelser</h2><p>Redigerad vy utan känsliga tekniska detaljer.</p></div></div><div class="event-list">${securityEvents()}</div></article><article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">DRIFT</span><h2>Skydd & hälsa</h2><p>Kontroller som säkerhetsportalen kommer övervaka.</p></div></div><div class="health-list">${readinessChecks()}</div></article></section>`,'Säkerhetsportal','Förhandsvy inför den separata säkerhetsetappen.');
+  const totals=overview?.totals||{},mfaPct=percent(totals.mfaProtectedUsers,totals.activeUsers),entries=readinessEntries(),known=entries.filter(item=>item.known),okCount=known.filter(item=>item.ok).length,events=filteredSecurityEvents();
+  const critical=events.filter(event=>event.severity==='critical').length,warning=events.filter(event=>event.severity==='warning').length,latest=events[0]?.createdAt||null;
+  shell(`<section class="security-hero security-hero-live"><div><span class="eyebrow">SÄKERHETSPORTAL</span><h2>Verkliga kontroller. Tydliga åtgärder.</h2><p>Samlad read-only säkerhetsöversikt för LT Studio. Statusen bygger på systemets faktiska readiness-kontroller och säkerhetshändelser — inte på ett påhittat säkerhetsbetyg.</p></div><div class="security-snapshot"><div><span>Tekniska kontroller</span><strong>${okCount}/${known.length||entries.length}</strong><small>rapporterar OK</small></div><div><span>MFA-täckning</span><strong>${mfaPct}%</strong><small>${totals.mfaProtectedUsers||0} av ${totals.activeUsers||0} aktiva användare</small></div></div></section>
+  <section class="status-grid"><article class="metric"><span>Readiness</span><strong class="${readiness?.ok?'ok':'critical'}">${readiness?.ok?'OK':'Åtgärd krävs'}</strong><small>samlad teknisk gate</small></article><article class="metric"><span>Kritiska händelser</span><strong class="critical">${num(critical)}</strong><small>i valt tidsfilter</small></article><article class="metric"><span>Varningar</span><strong class="warning">${num(warning)}</strong><small>i valt tidsfilter</small></article><article class="metric"><span>Senaste händelse</span><strong class="small-value">${esc(dateTime(latest))}</strong><small>bland senast hämtade händelser</small></article></section>
+  <section class="panel security-readiness-panel"><div class="panel-head"><div><span class="eyebrow">SKYDD & DRIFT</span><h2>Hälsokontroller och verifieringsbevis</h2><p>Databas, backup, R2, restore, monitoring, audit-ankare och global admin. Bevisålder visas där backend har verifierbar evidens.</p></div><span class="panel-stat ${readiness?.ok?'ok':'critical'}">${okCount} av ${known.length||entries.length} OK</span></div><div class="table-wrap"><table class="security-check-table"><thead><tr><th>Kontroll</th><th>Status</th><th>Senaste bevis</th><th>Rekommenderad åtgärd</th></tr></thead><tbody>${securityReadinessTable()}</tbody></table></div></section>
+  <section class="dashboard-grid equal security-lower-grid">
+    <article class="panel dashboard-panel"><div class="panel-head security-events-head"><div><span class="eyebrow">INCIDENTER</span><h2>Säkerhetshändelser</h2><p>Redigerad logg utan IP-adresser, fingeravtryck eller hemliga tekniska detaljer. Filtren gäller de senast hämtade händelserna.</p></div></div><div class="security-toolbar"><label><span>Allvarlighetsgrad</span><select data-security-severity><option value="all" ${securitySeverity==='all'?'selected':''}>Alla</option><option value="critical" ${securitySeverity==='critical'?'selected':''}>Kritisk</option><option value="warning" ${securitySeverity==='warning'?'selected':''}>Varning</option><option value="info" ${securitySeverity==='info'?'selected':''}>Information</option></select></label><label><span>Tidsperiod</span><select data-security-period><option value="24h" ${securityPeriod==='24h'?'selected':''}>24 timmar</option><option value="7d" ${securityPeriod==='7d'?'selected':''}>7 dagar</option><option value="30d" ${securityPeriod==='30d'?'selected':''}>30 dagar</option><option value="all" ${securityPeriod==='all'?'selected':''}>Alla hämtade</option></select></label><span class="security-filter-count">${num(events.length)} händelser</span></div><div class="event-list" id="security-event-list">${securityEvents()}</div></article>
+    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">ÅTGÄRDSLISTA</span><h2>Det som behöver uppmärksamhet</h2><p>Konkreta rekommendationer från kontroller som inte rapporterar OK.</p></div></div><div class="security-actions">${unresolvedSecurityActions()}</div><div class="security-privacy-note"><strong>Dataminimerad vy</strong><p>Säkerhetsportalen visar inte lösenord, MFA-hemligheter, IP-adresser, kundernas dokument eller ekonomiska detaljdata.</p></div></article>
+  </section>`,'Säkerhetsportal','Systemhälsa, säkerhetshändelser och verifieringsbevis för hela LT Studio.');
 }
 function globalAdminRows(detail){
   const admins=detail.platformAdmins||[];
@@ -294,6 +346,8 @@ document.addEventListener('submit',async event=>{
   }
 });
 document.addEventListener('change',async event=>{
+  if(event.target.matches?.('[data-security-severity]')){securitySeverity=event.target.value;render();return}
+  if(event.target.matches?.('[data-security-period]')){securityPeriod=event.target.value;render();return}
   if(event.target.matches?.('[data-company-filter]')){companyStatus=event.target.value;updateCompanyTable();return}
   if(event.target.matches?.('[data-company-sort]')){companySort=event.target.value;updateCompanyTable();return}
   const userId=event.target.dataset.roleUser;if(!userId||!selectedCompany)return;
