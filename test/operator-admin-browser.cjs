@@ -70,11 +70,23 @@ const out=path.join(__dirname,'..','test-artifacts');
     assert.match(await page.locator('body').innerText(),/Användare & behörigheter|Lägg till användare/);
     checks.push({kind:'company-admin-keyboard',company:'Browser Kund'});
 
+    const roleSelect=page.locator('select[data-role-user="'+customerUser.id+'"]');
+    await roleSelect.selectOption('accountant');
+    await page.getByText(/Behörigheten uppdaterades/).waitFor();
+    assert.equal(Db.membership(runtime.db,company.id,customerUser.id).role,'accountant');
+    checks.push({kind:'role-change-feedback'});
+
     await page.getByRole('button',{name:'Byt lösenord',exact:true}).click();
     await page.getByRole('heading',{name:'Byt lösenord',exact:true}).waitFor();
     assert.equal(await page.locator('.modal-card').count(),1);
-    await page.getByRole('button',{name:'Avbryt',exact:true}).click();
-    checks.push({kind:'password-modal'});
+    const passwordInput=page.locator('#reset-password-form input[name="password"]');
+    await passwordInput.click();
+    assert.equal(await page.locator('.modal-card').count(),1);
+    await passwordInput.fill('NyttBrowser1!');
+    await page.getByRole('button',{name:'Spara nytt lösenord',exact:true}).click();
+    await page.getByText(/Lösenordet ändrades/).waitFor();
+    assert.equal(Auth.verifyPassword('NyttBrowser1!',Db.userById(runtime.db,customerUser.id).passwordHash),true);
+    checks.push({kind:'password-modal-reset'});
 
     await page.getByRole('button',{name:'Ta bort åtkomst',exact:true}).click();
     await page.getByRole('heading',{name:'Ta bort åtkomst?',exact:true}).waitFor();
