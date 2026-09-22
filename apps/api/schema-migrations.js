@@ -18,6 +18,13 @@ const MIGRATIONS=Object.freeze([
     name:'customer-archive-and-safe-removal-2026-09-21',
     description:'Record the compatible customer archival schema upgrade after startup has ensured the additive archived_at column exists.',
     sql:''
+  }),
+  Object.freeze({
+    version:3,
+    id:'membership-role-2026-09-22-v3',
+    name:'company-membership-role-2026-09-22',
+    description:'Add one explicit least-privilege role per company membership. Existing memberships migrate to admin to preserve current access.',
+    sql:"ALTER TABLE memberships ADD COLUMN role TEXT NOT NULL DEFAULT 'admin' CHECK(role IN ('admin','accountant','approver','readonly'));"
   })
 ]);
 
