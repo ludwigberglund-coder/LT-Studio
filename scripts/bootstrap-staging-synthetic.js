@@ -9,7 +9,7 @@ const SYNTHETIC_TENANTS=Object.freeze([
   Object.freeze({
     legalName:'Synthetic Staging Company Alpha',
     displayName:'Synthetic Alpha',
-    orgNumber:'SYNTHETIC-STAGING-ALPHA',
+    orgNumber:'000000-0000',
     username:'staging-alpha',
     userDisplayName:'Synthetic Tester Alpha',
     passwordEnv:'ROLLANDS_STAGING_ALPHA_PASSWORD',
@@ -18,7 +18,7 @@ const SYNTHETIC_TENANTS=Object.freeze([
   Object.freeze({
     legalName:'Synthetic Staging Company Beta',
     displayName:'Synthetic Beta',
-    orgNumber:'SYNTHETIC-STAGING-BETA',
+    orgNumber:'000000-0018',
     username:'staging-beta',
     userDisplayName:'Synthetic Tester Beta',
     passwordEnv:'ROLLANDS_STAGING_BETA_PASSWORD',
