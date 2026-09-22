@@ -97,7 +97,9 @@
     trash:'<path d="M20 9L18.005 20.3463C17.8369 21.3026 17.0062 22 16.0353 22H7.96474C6.99379 22 6.1631 21.3026 5.99496 20.3463L4 9M21 6H15.375M3 6H8.625M8.625 6V4C8.625 2.89543 9.52043 2 10.625 2H13.375C14.4796 2 15.375 2.89543 15.375 4V6M8.625 6H15.375"/>',
     key:'<path d="M10 12C10 14.2091 8.20914 16 6 16C3.79086 16 2 14.2091 2 12C2 9.79086 3.79086 8 6 8C8.20914 8 10 9.79086 10 12ZM10 12H22V15M18 12V15"/>',
     openWindow:'<path d="M21 3H15M21 3L12 12M21 3V9M21 13V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H11"/>',
-    arrowLeft:'<path d="M21 12H3M3 12L11.5 3.5M3 12L11.5 20.5"/>'
+    arrowLeft:'<path d="M21 12H3M3 12L11.5 3.5M3 12L11.5 20.5"/>',
+    chat:'<path d="M8 10H12H16M8 14H10H12M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 13.8214 2.48697 15.5291 3.33782 17L2.5 21.5L7 20.6622C8.47087 21.513 10.1786 22 12 22Z"/>',
+    send:'<path d="M22 12L3 20L6.5625 12L3 4L22 12ZM6.5 12H22"/>'
   });
   const NAV_ICONS=Object.freeze({
     overview:'home',invoices:'page',receivables:'wallet','receivables-details':'stats',payables:'page',payments:'card',bank:'bank',
@@ -112,13 +114,20 @@
   }
   function addIcon(element,name){
     if(!element||element.querySelector(':scope > .ui-icon'))return;
+    for(const node of [...element.childNodes]){
+      if(node.nodeType!==Node.TEXT_NODE)continue;
+      const cleaned=String(node.textContent||'').replace(/^\s*(?:←|→|↗|↻|×|☷|✓|\+|💬)\s*/u,'');
+      if(cleaned!==node.textContent)node.textContent=cleaned;
+    }
     element.prepend(iconoir(name));
     element.classList.add('ui-with-icon');
   }
   function semanticButtonIcon(element){
-    const text=String(element.textContent||'').trim().toLowerCase();
+    const text=[element.getAttribute?.('aria-label'),element.getAttribute?.('title'),element.textContent].filter(Boolean).join(' ').trim().toLowerCase();
     if(/logga ut/.test(text))return'logout';
     if(/stäng|avbryt/.test(text))return'xmark';
+    if(/kommentar/.test(text))return'chat';
+    if(/påminnelse|skicka/.test(text))return'send';
     if(/ta bort|radera/.test(text))return'trash';
     if(/lösenord|mfa|nyckel/.test(text))return'key';
     if(/tillbaka|alla företag/.test(text))return'arrowLeft';
@@ -136,7 +145,7 @@
     document.querySelectorAll('[data-nav-id]').forEach(link=>addIcon(link,NAV_ICONS[link.dataset.navId]||'page'));
     document.querySelectorAll('.shared-user-dropdown a,.shared-user-dropdown button').forEach(el=>addIcon(el,semanticButtonIcon(el)||'profile'));
     document.querySelectorAll('.shared-foot>a').forEach(el=>addIcon(el,'home'));
-    document.querySelectorAll('.button,button[data-action],button[data-journal-action],.nav-item,.module-card a,.callout a').forEach(button=>{const name=semanticButtonIcon(button);if(name)addIcon(button,name);});
+    document.querySelectorAll('.button,button[data-action],button[data-journal-action],.nav-item,.module-card a,.callout a,.column-picker summary,.context-menu button,.modal-head button,.modal-head-sales button').forEach(button=>{const name=semanticButtonIcon(button);if(name)addIcon(button,name);});
   }
   function animateTap(element){
     if(!element||element.disabled||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
