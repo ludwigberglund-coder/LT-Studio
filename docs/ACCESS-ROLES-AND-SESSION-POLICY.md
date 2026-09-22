@@ -8,7 +8,7 @@ LT Studio använder fyra explicita roller per företagsmedlemskap. Servern fatta
 
 ### Admin / huvudanvändare
 
-Kan använda alla definierade funktioner i det valda företaget, inklusive användar- och behörighetsadministration.
+Kan administrera företagets verksamhet och ekonomi, men kan inte skapa användarkonton, byta lösenord eller ändra användarroller. Kontohantering är reserverad för LT Studios separata operatorportal.
 
 ### Ekonom
 
@@ -26,7 +26,7 @@ Kan läsa tillåtna företags- och ekonomivyer men får inte ändra data. Lön �
 
 När rollsystemet införs migreras befintliga företagsmedlemskap till `admin`.
 
-Detta är avsiktligt för att undvika att befintliga konton låses ute vid uppgraderingen. Därefter kan en admin sänka rättigheterna via **Användare & behörigheter**.
+Detta är avsiktligt för att undvika att befintliga konton låses ute vid uppgraderingen. Därefter kan LT Studio ändra rättigheterna via den separata operatorportalen.
 
 När en roll ändras återkallas den berörda användarens aktiva sessioner.
 
@@ -92,3 +92,19 @@ När en användare ändrar inställningen:
 - global admin är explicit och MFA-skyddad,
 - lönebehörighet är separat och saknas för Attestant och Läsbehörighet,
 - servern litar aldrig på att en knapp är dold i frontend.
+
+
+## Kundkonton hanteras endast av LT Studio
+
+Kundföretag kan inte själva skapa användare eller administrera andra användarkonton.
+
+Den separata LT Studio-operatorportalen är den enda normala administrativa vägen för att:
+
+- skapa användarkonton för ett kundföretag,
+- välja och ändra användarens företagsroll,
+- återställa/byta användarens lösenord,
+- aktivera eller inaktivera ett konto.
+
+Alla sådana åtgärder kräver LT Studio-operatörens separata MFA-skyddade session. Lösenord lagras endast som scrypt-hash. Ett nyskapat konto får en ny MFA-hemlighet som krypteras i databasen och visas för operatören endast i svaret när kontot skapas.
+
+Rollbyte, lösenordsbyte och inaktivering återkallar användarens befintliga sessioner. Åtgärderna skrivs både till plattformsoperatörens auditlogg och till kundföretagets audit trail utan att lösenord eller MFA-hemligheter loggas.
