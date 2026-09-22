@@ -46,3 +46,15 @@ test('history secret scanner detects database URLs that embed a password',()=>{
   const sample='DATA'+'BASE_URL=postgres://rollands:'+'super-secret-value'+'@db.internal/rollands';
   assert.deepEqual(findingsInText(sample).map(row=>row.rule),['database-url-password']);
 });
+
+
+test('history secret scanner detects Cloudflare and audit-storage credentials without committing a live-looking fixture',()=>{
+  const sample=[
+    'CLOUDFLARE_'+'API_TOKEN='+'x'.repeat(40),
+    'R2_AUDIT_'+'SECRET_ACCESS_KEY='+'y'.repeat(40)
+  ].join('\\n');
+  assert.deepEqual(findingsInText(sample).map(row=>row.rule),[
+    'third-party-api-secret',
+    'rollands-runtime-secret'
+  ]);
+});
