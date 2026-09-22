@@ -167,6 +167,7 @@ const QUERY_RULES=Object.freeze([
   ['GET',/^\/api\/v1\/exports\/(?:receivables-aging|payables-aging)$/,new Set(['asOf','to'])],
   ['GET',/^\/api\/v1\/exports\/vat$/,new Set(['period'])],
   ['GET',/^\/api\/v1\/exports\/payments-overview$/,new Set(['mode','date','status','direction','query','account','sort','order'])]
+]);
 
 const BODY_RULES=Object.freeze([
   ['POST',/^\/api\/v1\/auth\/login$/,new Set(['username','password','totp','companyId'])],
