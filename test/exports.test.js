@@ -136,6 +136,7 @@ test('export-router kräver den separata reports.export-behörigheten',async()=>
     version:2,
     policy:{defaultDecision:'deny',requirePersonalAccounts:true,sessionIdleMinutes:60,sessionMaxMinutes:480,requireMfa:true},
     permissions:[{id:'reports.export',label:'Exportera rapporter',category:'Rapporter',risk:'write'}],
+    roles:[{id:'admin',label:'Admin',description:'Testroll',permissions:['reports.export']}],
     workflows:[{
       id:'export-test-separation',label:'Exporttest',requiredPermission:'reports.export',distinctActors:true,
       fields:[{id:'requestedBy',label:'Begärd av'},{id:'approvedBy',label:'Godkänd av'}],reason:'Testkonfiguration'
