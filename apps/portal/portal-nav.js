@@ -16,7 +16,7 @@
     ]},
     {id:'operations',label:'Register & verksamhet',items:[['customers','Kunder','portal/customers.html'],['suppliers','Leverantörer','portal/suppliers.html'],['inventory','Lager & svinn','portal/inventory.html']]},
     {id:'administration',label:'Systemadministration',items:[
-      ['website','Webbplats & innehåll','portal/website.html'],['documents','Dokument','portal/documents.html'],
+      ['company-settings','Företagsinställningar','portal/company-settings.html'],['website','Webbplats & innehåll','portal/website.html'],['documents','Dokument','portal/documents.html'],
       ['decisions','Verksamhetsbeslut','admin/#/decisions'],
       ['modules','Systemmoduler','admin/#/modules'],['project','Projektöversikt','admin/#/overview'],
       ['content','Innehållsförhandsvisning','admin/#/content'],
@@ -26,7 +26,7 @@
   ];
   const demoOnlyIds=new Set(['money','journal','res-tools','batches','inbox','audit','settings','legacy','assistant','decisions','modules','project','content','uat','receivables-details']);
   const requiredPermission=Object.freeze({
-    invoices:'customer-invoice.view',receivables:'customer-invoice.view',payables:'supplier-invoice.view',payments:'payment.view',bank:'bank.view',automation:'accounting.view',accounting:'accounting.view',reports:'reports.view',accounts:'accounting.view',payroll:'payroll.view',customers:'customer-invoice.view',suppliers:'supplier.view',inventory:'inventory.view',website:'website.manage',documents:'documents.view'
+    invoices:'customer-invoice.view',receivables:'customer-invoice.view',payables:'supplier-invoice.view',payments:'payment.view',bank:'bank.view',automation:'accounting.view',accounting:'accounting.view',reports:'reports.view',accounts:'accounting.view',payroll:'payroll.view',customers:'customer-invoice.view',suppliers:'supplier.view',inventory:'inventory.view','company-settings':'platform.settings.manage',website:'website.manage',documents:'documents.view'
   });
   function visibleGroups({authenticated=false,demo=false,permissions=[]}={}){
     if(demo)return groups;
@@ -117,7 +117,7 @@
   const NAV_ICONS=Object.freeze({
     overview:'home',invoices:'page',receivables:'wallet','receivables-details':'stats',payables:'page',payments:'card',bank:'bank',
     automation:'settings',accounting:'book',reports:'stats',accounts:'book',payroll:'wallet',money:'card',journal:'book','res-tools':'database',
-    batches:'package',inbox:'page',customers:'group',suppliers:'group',inventory:'package',website:'page',documents:'page',decisions:'shield',
+    batches:'package',inbox:'page',customers:'group',suppliers:'group',inventory:'package','company-settings':'settings',website:'page',documents:'page',decisions:'shield',
     modules:'package',project:'stats',content:'page',audit:'shield',settings:'settings',uat:'shield',legacy:'database',assistant:'help'
   });
   function iconoir(name,label=''){
