@@ -227,11 +227,11 @@ function createOperatorRouter(options={}){
       if(req.method==='GET'&&url.pathname==='/api/operator/v1/overview'){
         send(res,200,platformOverview(db));return true;
       }
-      const companyMatch=url.pathname.match(/^\\/api\\/operator\\/v1\\/companies\\/([^/]+)$/);
+      const companyMatch=url.pathname.match(/^\/api\/operator\/v1\/companies\/([^/]+)$/);
       if(req.method==='GET'&&companyMatch){
         send(res,200,companyAdminDetail(db,decodeURIComponent(companyMatch[1])));return true;
       }
-      const companyUsersMatch=url.pathname.match(/^\\/api\\/operator\\/v1\\/companies\\/([^/]+)\\/users$/);
+      const companyUsersMatch=url.pathname.match(/^\/api\/operator\/v1\/companies\/([^/]+)\/users$/);
       if(req.method==='POST'&&companyUsersMatch){
         const companyId=decodeURIComponent(companyUsersMatch[1]);
         if(!Db.companyById(db,companyId))throw operatorError('Kundföretaget hittades inte.','COMPANY_NOT_FOUND',404);
@@ -253,7 +253,7 @@ function createOperatorRouter(options={}){
         });
         send(res,201,{created:true,userId,username,role,mfaSecret});return true;
       }
-      const memberRoleMatch=url.pathname.match(/^\\/api\\/operator\\/v1\\/companies\\/([^/]+)\\/users\\/([^/]+)\\/role$/);
+      const memberRoleMatch=url.pathname.match(/^\/api\/operator\/v1\/companies\/([^/]+)\/users\/([^/]+)\/role$/);
       if(req.method==='PUT'&&memberRoleMatch){
         const companyId=decodeURIComponent(memberRoleMatch[1]),userId=decodeURIComponent(memberRoleMatch[2]);
         const before=Db.membership(db,companyId,userId);
@@ -267,7 +267,7 @@ function createOperatorRouter(options={}){
         });
         send(res,200,{membership:updated,sessionsRevoked:true});return true;
       }
-      const memberPasswordMatch=url.pathname.match(/^\\/api\\/operator\\/v1\\/companies\\/([^/]+)\\/users\\/([^/]+)\\/password$/);
+      const memberPasswordMatch=url.pathname.match(/^\/api\/operator\/v1\/companies\/([^/]+)\/users\/([^/]+)\/password$/);
       if(req.method==='PUT'&&memberPasswordMatch){
         const companyId=decodeURIComponent(memberPasswordMatch[1]),userId=decodeURIComponent(memberPasswordMatch[2]);
         if(!Db.membership(db,companyId,userId))throw operatorError('Användaren finns inte i kundföretaget.','MEMBERSHIP_NOT_FOUND',404);
@@ -279,7 +279,7 @@ function createOperatorRouter(options={}){
         });
         send(res,200,{saved:true,sessionsRevoked:true});return true;
       }
-      const memberDeleteMatch=url.pathname.match(/^\\/api\\/operator\\/v1\\/companies\\/([^/]+)\\/users\\/([^/]+)$/);
+      const memberDeleteMatch=url.pathname.match(/^\/api\/operator\/v1\/companies\/([^/]+)\/users\/([^/]+)$/);
       if(req.method==='DELETE'&&memberDeleteMatch){
         const companyId=decodeURIComponent(memberDeleteMatch[1]),userId=decodeURIComponent(memberDeleteMatch[2]);
         const before=Db.membership(db,companyId,userId);
