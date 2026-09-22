@@ -11,6 +11,20 @@ let adminContent;
 let decisions;
 let accessConfig;
 let draftSite;
+const adminMotionSeen=new WeakSet();
+function adminReducedMotion(){return matchMedia('(prefers-reduced-motion: reduce)').matches;}
+function animateAdminUi(){
+  if(adminReducedMotion())return;
+  let index=0;
+  document.querySelectorAll('.metric-card,.panel,.module-card,.workflow-card,.access-role-card').forEach(element=>{
+    if(adminMotionSeen.has(element))return;
+    adminMotionSeen.add(element);
+    element.animate(
+      [{opacity:.7,transform:'translateY(8px)'},{opacity:1,transform:'translateY(0)'}],
+      {duration:340,delay:Math.min(index++,8)*34,easing:'cubic-bezier(.22,1,.36,1)',fill:'both'}
+    );
+  });
+}
 
 const ADMIN_ICONOIR=Object.freeze({
   overview:'<path d="M9 21H7C4.79086 21 3 19.2091 3 17V10.7076C3 9.30887 3.73061 8.01175 4.92679 7.28679L9.92679 4.25649C11.2011 3.48421 12.7989 3.48421 14.0732 4.25649L19.0732 7.28679C20.2694 8.01175 21 9.30887 21 10.7076V17C21 19.2091 19.2091 21 17 21H15M9 21V17C9 15.3431 10.3431 14 12 14C13.6569 14 15 15.3431 15 17V21M9 21H15"/>',
@@ -251,6 +265,7 @@ function render() {
   else if (view === 'modules') app.innerHTML = modulesView();
   else if (view === 'decisions') app.innerHTML = decisionsView();
   else app.innerHTML = overviewView();
+  animateAdminUi();
 }
 
 function bindEvents() {
