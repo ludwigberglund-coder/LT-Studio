@@ -184,6 +184,9 @@ const BODY_RULES=Object.freeze([
   ['POST',/^\/api\/v1\/auth\/login$/,new Set(['username','password','totp','companyId'])],
   ['PUT',/^\/api\/v1\/profile\/security$/,new Set(['sessionDurationMinutes'])],
   ['POST',/^\/api\/operator\/v1\/auth\/login$/,new Set(['username','password','totp'])],
+  ['POST',/^\/api\/operator\/v1\/companies\/[^/]+\/users$/,new Set(['username','displayName','password','role'])],
+  ['PUT',/^\/api\/operator\/v1\/companies\/[^/]+\/users\/[^/]+\/role$/,new Set(['role'])],
+  ['PUT',/^\/api\/operator\/v1\/companies\/[^/]+\/users\/[^/]+\/password$/,new Set(['password'])],
   ['POST',/^\/api\/v1\/customers$/,new Set(['requestId','name','email','orgNumber','address','reminderFeeAgreed'])],
   ['PUT',/^\/api\/v1\/customers\/[^/]+$/,new Set(['name','email','orgNumber','address','reminderFeeAgreed'])],
   ['PUT',/^\/api\/v1\/customer-invoices\/draft$/,new Set(['requestId','draft'])],
@@ -238,7 +241,8 @@ const EMPTY_BODY_RULES=Object.freeze([
   ['POST',/^\/api\/v1\/payables\/invoices\/[^/]+\/(?:coding-suggestion|post)$/],
   ['POST',/^\/api\/v1\/payroll\/runs\/[^/]+\/post$/],
   ['POST',/^\/api\/v1\/suppliers\/changes\/[^/]+\/approve$/],
-  ['POST',/^\/api\/operator\/v1\/auth\/logout$/]
+  ['POST',/^\/api\/operator\/v1\/auth\/logout$/],
+  ['DELETE',/^\/api\/operator\/v1\/companies\/[^/]+\/users\/[^/]+$/]
 ]);
 
 const BINARY_BODY_RULES=Object.freeze([
@@ -327,6 +331,18 @@ function assertPrimitiveTypes(req,payload){
     assertTextField(payload,'password',256);
     assertTextField(payload,'totp',8,{pattern:/^\d{6}$/});
     assertTextField(payload,'companyId',200);
+  }
+  if(method==='POST'&&/^\/api\/operator\/v1\/companies\/[^/]+\/users$/.test(pathname)){
+    assertTextField(payload,'username',120);
+    assertTextField(payload,'displayName',120);
+    assertTextField(payload,'password',256);
+    assertTextField(payload,'role',20,{pattern:/^(?:admin|accountant|approver|readonly)$/});
+  }
+  if(method==='PUT'&&/^\/api\/operator\/v1\/companies\/[^/]+\/users\/[^/]+\/role$/.test(pathname)){
+    assertTextField(payload,'role',20,{pattern:/^(?:admin|accountant|approver|readonly)$/});
+  }
+  if(method==='PUT'&&/^\/api\/operator\/v1\/companies\/[^/]+\/users\/[^/]+\/password$/.test(pathname)){
+    assertTextField(payload,'password',256);
   }
   if(method==='PUT'&&pathname==='/api/v1/profile/security'){
     if(payload.sessionDurationMinutes!==null&&payload.sessionDurationMinutes!=='session'&&!Number.isSafeInteger(payload.sessionDurationMinutes))throw securityError('sessionDurationMinutes måste vara null eller ett säkert heltal.','INVALID_INPUT_TYPE',422);

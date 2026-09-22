@@ -60,6 +60,59 @@ function readJson(req,res){
     req.on('error',reject);
   });
 }
+function base32Encode(buffer){
+  const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits='',output='';
+  for(const byte of buffer)bits+=byte.toString(2).padStart(8,'0');
+  for(let index=0;index<bits.length;index+=5){
+    const chunk=bits.slice(index,index+5).padEnd(5,'0');
+    output+=alphabet[parseInt(chunk,2)];
+  }
+  return output;
+}
+function companyAdminDetail(db,companyId){
+  const company=Db.companyById(db,companyId);
+  if(!company)throw operatorError('Kundföretaget hittades inte.','COMPANY_NOT_FOUND',404);
+  const now=new Date().toISOString();
+  const stats=db.prepare(`SELECT
+    (SELECT COUNT(*) FROM memberships WHERE company_id=?) AS memberCount,
+    (SELECT COUNT(*) FROM sessions WHERE company_id=? AND expires_at>? AND absolute_expires_at>?) AS activeSessionCount,
+    (SELECT COUNT(*) FROM customers WHERE company_id=?) AS customerRecordCount,
+    (SELECT COUNT(*) FROM invoices WHERE company_id=?) AS invoiceRecordCount,
+    (SELECT MAX(created_at) FROM audit_events WHERE company_id=?) AS lastActivityAt`).get(companyId,companyId,now,now,companyId,companyId,companyId);
+  const platformAdmins=db.prepare(`SELECT id AS userId,username,display_name AS displayName,disabled,
+    mfa_secret_encrypted AS mfaSecretEncrypted,created_at AS createdAt
+    FROM users WHERE platform_admin=1 ORDER BY disabled,display_name,username,id`).all().map(admin=>({
+      userId:admin.userId,
+      username:admin.username,
+      displayName:admin.displayName,
+      disabled:Boolean(admin.disabled),
+      mfaConfigured:Boolean(String(admin.mfaSecretEncrypted||'').trim()),
+      createdAt:admin.createdAt
+    }));
+  return {
+    company,
+    stats:{
+      memberCount:Number(stats.memberCount||0),
+      activeSessionCount:Number(stats.activeSessionCount||0),
+      customerRecordCount:Number(stats.customerRecordCount||0),
+      invoiceRecordCount:Number(stats.invoiceRecordCount||0),
+      lastActivityAt:stats.lastActivityAt||null,
+      activePlatformAdminCount:platformAdmins.filter(admin=>!admin.disabled&&admin.mfaConfigured).length
+    },
+    members:Db.membershipsForCompany(db,companyId).map(member=>({
+      userId:member.userId,username:member.username,displayName:member.displayName,role:member.role,
+      disabled:Boolean(member.disabled),platformAdmin:Boolean(member.platformAdmin),createdAt:member.createdAt
+    })),
+    platformAdmins,
+    roles:[
+      {id:'admin',label:'Admin'},
+      {id:'accountant',label:'Ekonom'},
+      {id:'approver',label:'Attestant'},
+      {id:'readonly',label:'Läsbehörighet'}
+    ]
+  };
+}
 function createOperatorRouter(options={}){
   const db=options.db;
   if(!db)throw new Error('Databas krävs för operator-API.');
@@ -185,6 +238,81 @@ function createOperatorRouter(options={}){
       }
       if(req.method==='GET'&&url.pathname==='/api/operator/v1/overview'){
         send(res,200,platformOverview(db));return true;
+      }
+      const companyMatch=url.pathname.match(/^\/api\/operator\/v1\/companies\/([^/]+)$/);
+      if(req.method==='GET'&&companyMatch){
+        send(res,200,companyAdminDetail(db,decodeURIComponent(companyMatch[1])));return true;
+      }
+      const companyUsersMatch=url.pathname.match(/^\/api\/operator\/v1\/companies\/([^/]+)\/users$/);
+      if(req.method==='POST'&&companyUsersMatch){
+        const companyId=decodeURIComponent(companyUsersMatch[1]);
+        if(!Db.companyById(db,companyId))throw operatorError('Kundföretaget hittades inte.','COMPANY_NOT_FOUND',404);
+        const payload=await readJson(req,res);if(!payload)return true;
+        const username=Auth.normalizeUsername(payload.username);
+        const role=Db.membershipRole(payload.role||'readonly');
+        const existing=Db.userByUsername(db,username);
+        if(existing){
+          if(existing.disabled)throw operatorError('Det befintliga användarkontot är inaktiverat. Aktivera kontot innan det kopplas till fler företag.','USER_DISABLED',409);
+          if(Db.membership(db,companyId,existing.id))throw operatorError('Användaren har redan åtkomst till kundföretaget.','MEMBERSHIP_EXISTS',409);
+          Db.transaction(db,()=>{
+            Db.addMembership(db,{companyId,userId:existing.id,role});
+            Db.appendPlatformOperatorAudit(db,{operatorId:session.operatorId,action:'CUSTOMER_EXISTING_USER_ADDED',details:{companyId,userId:existing.id,role}});
+          });
+          send(res,201,{created:false,linkedExisting:true,userId:existing.id,username:existing.username,displayName:existing.displayName,role,mfaSecret:null});return true;
+        }
+        const displayName=String(payload.displayName||'').trim();
+        if(displayName.length<2||displayName.length>120)throw operatorError('Användarens namn måste vara 2–120 tecken.','INVALID_DISPLAY_NAME',422);
+        const mfaSecret=base32Encode(crypto.randomBytes(20));
+        const userId=Db.transaction(db,()=>{
+          const user=Db.createUser(db,{
+            username,displayName,passwordHash:Auth.hashPassword(payload.password),
+            mfaSecretEncrypted:Auth.encryptSecret(mfaSecret,authEncryptionKey)
+          });
+          Db.addMembership(db,{companyId,userId:user.id,role});
+          Db.appendPlatformOperatorAudit(db,{operatorId:session.operatorId,action:'CUSTOMER_USER_CREATED',details:{companyId,userId:user.id,role}});
+          return user.id;
+        });
+        send(res,201,{created:true,linkedExisting:false,userId,username,displayName,role,mfaSecret});return true;
+      }
+      const memberRoleMatch=url.pathname.match(/^\/api\/operator\/v1\/companies\/([^/]+)\/users\/([^/]+)\/role$/);
+      if(req.method==='PUT'&&memberRoleMatch){
+        const companyId=decodeURIComponent(memberRoleMatch[1]),userId=decodeURIComponent(memberRoleMatch[2]);
+        const before=Db.membership(db,companyId,userId);
+        if(!before)throw operatorError('Användaren finns inte i kundföretaget.','MEMBERSHIP_NOT_FOUND',404);
+        const payload=await readJson(req,res);if(!payload)return true;
+        let revokedSessionCount=0;
+        const updated=Db.transaction(db,()=>{
+          const membership=Db.setMembershipRole(db,{companyId,userId,role:payload.role});
+          revokedSessionCount=Db.deleteSessionsForUserCompany(db,{userId,companyId});
+          Db.appendPlatformOperatorAudit(db,{operatorId:session.operatorId,action:'CUSTOMER_USER_ROLE_CHANGED',details:{companyId,userId,before:before.role,after:membership.role,revokedSessionCount}});
+          return membership;
+        });
+        send(res,200,{membership:updated,sessionsRevoked:true,revokedSessionCount,sessionScope:'company'});return true;
+      }
+      const memberPasswordMatch=url.pathname.match(/^\/api\/operator\/v1\/companies\/([^/]+)\/users\/([^/]+)\/password$/);
+      if(req.method==='PUT'&&memberPasswordMatch){
+        const companyId=decodeURIComponent(memberPasswordMatch[1]),userId=decodeURIComponent(memberPasswordMatch[2]);
+        if(!Db.membership(db,companyId,userId))throw operatorError('Användaren finns inte i kundföretaget.','MEMBERSHIP_NOT_FOUND',404);
+        const payload=await readJson(req,res);if(!payload)return true;
+        Db.transaction(db,()=>{
+          Db.updateUserPasswordHash(db,{userId,passwordHash:Auth.hashPassword(payload.password)});
+          Db.deleteSessionsForUser(db,userId);
+          Db.appendPlatformOperatorAudit(db,{operatorId:session.operatorId,action:'CUSTOMER_USER_PASSWORD_RESET',details:{companyId,userId}});
+        });
+        send(res,200,{saved:true,sessionsRevoked:true});return true;
+      }
+      const memberDeleteMatch=url.pathname.match(/^\/api\/operator\/v1\/companies\/([^/]+)\/users\/([^/]+)$/);
+      if(req.method==='DELETE'&&memberDeleteMatch){
+        const companyId=decodeURIComponent(memberDeleteMatch[1]),userId=decodeURIComponent(memberDeleteMatch[2]);
+        const before=Db.membership(db,companyId,userId);
+        if(!before)throw operatorError('Användaren finns inte i kundföretaget.','MEMBERSHIP_NOT_FOUND',404);
+        let revokedSessionCount=0;
+        Db.transaction(db,()=>{
+          revokedSessionCount=Db.deleteSessionsForUserCompany(db,{userId,companyId});
+          db.prepare('DELETE FROM memberships WHERE company_id=? AND user_id=?').run(companyId,userId);
+          Db.appendPlatformOperatorAudit(db,{operatorId:session.operatorId,action:'CUSTOMER_USER_REMOVED',details:{companyId,userId,role:before.role,revokedSessionCount}});
+        });
+        send(res,200,{removed:true,sessionsRevoked:true,revokedSessionCount,sessionScope:'company'});return true;
       }
       if(req.method==='GET'&&url.pathname==='/api/operator/v1/readiness'){
         const report=readinessProvider();

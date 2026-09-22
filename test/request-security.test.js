@@ -33,6 +33,26 @@ test('JSON-schema avvisar oväntade toppnivåfält och fel typer',()=>{
   assert.doesNotThrow(()=>Security.validateJsonInput(customer,{requestId:'12345678',name:'Test AB',email:'',orgNumber:'',address:'',reminderFeeAgreed:false}));
 });
 
+test('LT adminens kundanvändar-rutter har explicit inputschema',async()=>{
+  const create=request('/api/operator/v1/companies/company-1/users',{method:'POST'});
+  assert.doesNotThrow(()=>Security.validateJsonInput(create,{username:'anna@example.test',displayName:'Anna Andersson',password:'Starkt1!',role:'readonly'}));
+  assert.throws(()=>Security.validateJsonInput(create,{username:'anna',displayName:'Anna',password:'Starkt1!',role:'owner'}),{code:'INVALID_INPUT_FORMAT'});
+  assert.throws(()=>Security.validateJsonInput(create,{username:'anna',displayName:'Anna',password:'Starkt1!',role:'readonly',admin:true}),{code:'UNEXPECTED_FIELDS'});
+
+  const role=request('/api/operator/v1/companies/company-1/users/user-1/role',{method:'PUT'});
+  assert.doesNotThrow(()=>Security.validateJsonInput(role,{role:'accountant'}));
+  assert.throws(()=>Security.validateJsonInput(role,{role:'superadmin'}),{code:'INVALID_INPUT_FORMAT'});
+
+  const password=request('/api/operator/v1/companies/company-1/users/user-1/password',{method:'PUT'});
+  assert.doesNotThrow(()=>Security.validateJsonInput(password,{password:'Nyttlosen1!'}));
+  assert.throws(()=>Security.validateJsonInput(password,{password:'Nyttlosen1!',role:'admin'}),{code:'UNEXPECTED_FIELDS'});
+
+  assert.equal(Security.bodyPolicyFor(create),'json');
+  assert.equal(Security.bodyPolicyFor(role),'json');
+  assert.equal(Security.bodyPolicyFor(password),'json');
+  assert.equal(Security.bodyPolicyFor(request('/api/operator/v1/companies/company-1/users/user-1',{method:'DELETE'})),'empty-json');
+});
+
 test('nästlade faktura- och CMS-fält är allowlistade',()=>{
   const invoice=request('/api/v1/customer-invoices',{method:'POST'});
   const base={requestId:'1234567890abcdef',customerNumber:'K-1001',invoiceDate:'2026-09-22',postingDate:'2026-09-22',dueDate:'2026-10-22',paymentTermsDays:30,ourReference:'',yourReference:'',notes:'',lines:[{description:'Tjänst',quantity:'1',unit:'st',unitPrice:'100,00',vatTreatment:'se-standard-25',vatRate:'25',revenueAccount:'3041'}]};

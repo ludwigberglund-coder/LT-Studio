@@ -376,6 +376,11 @@ function deleteSessionsForUser(db,userId) {
   return Number(db.prepare('DELETE FROM sessions WHERE user_id=?').run(String(userId||'').trim()).changes||0);
 }
 
+function deleteSessionsForUserCompany(db,{userId,companyId}) {
+  return Number(db.prepare('DELETE FROM sessions WHERE user_id=? AND company_id=?')
+    .run(String(userId||'').trim(),String(companyId||'').trim()).changes||0);
+}
+
 function updateUserPasswordHash(db,{userId,passwordHash}) {
   const idValue=String(userId||'').trim(),hash=String(passwordHash||'').trim();
   if(!idValue||!hash)throw databaseError('Lösenordsuppgraderingen saknar obligatoriska värden.','INVALID_PASSWORD_HASH_UPDATE',500);
@@ -816,6 +821,7 @@ module.exports = Object.freeze({
   setUserSessionDuration,
   setUserPlatformAdmin,
   deleteSessionsForUser,
+  deleteSessionsForUserCompany,
   updateUserPasswordHash,
   MEMBERSHIP_ROLES,
   membershipRole,
