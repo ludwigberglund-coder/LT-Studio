@@ -8,14 +8,14 @@ Denna audit jämför den faktiska koden med beslutet i [SAAS-TARGET-ARCHITECTURE
 Målet är att skilja på:
 
 1. sådant som redan är flerföretagsredo,
-2. Rolands-specifika delar som ska vara konfiguration eller demo,
+2. referenskunden-specifika delar som ska vara konfiguration eller demo,
 3. kvarvarande arbete innan en andra riktig kundmiljö kan tas i drift.
 
 ## Sammanfattning
 
 Kärnan är längre kommen än gränssnittet. Datamodellen, medlemskapen och flera centrala ekonomiflöden är redan byggda runt ett internt `company_id`. Det finns dessutom automatiska tester med två företag som försöker läsa och ändra data över företagsgränsen.
 
-De största identifierade luckorna i denna genomgång var inte att databasen saknade företagstillhörighet, utan att vissa standardprofiler och privata portaltexter fortfarande utgick från Rolands. De mest direkta av dessa har rättats i samma ändring som denna audit.
+De största identifierade luckorna i denna genomgång var inte att databasen saknade företagstillhörighet, utan att vissa standardprofiler och privata portaltexter fortfarande utgick från referenskunden. De mest direkta av dessa har rättats i samma ändring som denna audit.
 
 Systemet är fortfarande **inte godkänt för en andra skarp kund eller verkliga ekonomiska data**. Production-readiness-spärrarna gäller fortsatt.
 
@@ -73,39 +73,39 @@ Detta är en bra grund för den centrala SaaS-modellen.
 
 ## Problem som rättades i denna ändring
 
-### 1. Fakturaprofil var globalt Rolands-baserad
+### 1. Fakturaprofil var globalt referenskunden-baserad
 
 Tidigare laddade `apps/api/app.js` `content/company.json` som global standardprofil för kundfakturering.
 
-Det innebar att en annan kund kunde ha korrekt isolerad databasdata men ändå få Rolands profil som grund vid fakturakonfiguration. Organisationsnummerkontrollen kunde då blockera kund nummer två, och lösningen var inte verkligt företagsneutral.
+Det innebar att en annan kund kunde ha korrekt isolerad databasdata men ändå få referenskunden profil som grund vid fakturakonfiguration. Organisationsnummerkontrollen kunde då blockera kund nummer två, och lösningen var inte verkligt företagsneutral.
 
 **Rättat:** fakturaprofilen hämtas nu från det aktiva företagets egen publicerade CMS-/företagsprofil. Privata bankgiro- och skattestatusuppgifter fortsätter att hämtas från den privata databasen.
 
-### 2. Ny kund ärvde Rolands webbtexter
+### 2. Ny kund ärvde referenskunden webbtexter
 
-CMS-databasen var isolerad per företag, men standardinnehållet för ett nytt företag klonade Rolands webbplats och bytte bara delar av företagsidentiteten.
+CMS-databasen var isolerad per företag, men standardinnehållet för ett nytt företag klonade referenskunden webbplats och bytte bara delar av företagsidentiteten.
 
-Det gav ingen dataläcka, men var fel produktarkitektur och kunde leda till att en ny kund startade med Rolands texter, Billdal-referenser eller demolänkar.
+Det gav ingen dataläcka, men var fel produktarkitektur och kunde leda till att en ny kund startade med referenskunden texter, demoorten-referenser eller demolänkar.
 
-**Rättat:** Rolands får fortsatt sitt egna referensinnehåll. Alla andra nya företag får ett neutralt webbplatsutkast med sitt eget företagsnamn och generiska texter som måste konfigureras.
+**Rättat:** referenskunden får fortsatt sitt egna referensinnehåll. Alla andra nya företag får ett neutralt webbplatsutkast med sitt eget företagsnamn och generiska texter som måste konfigureras.
 
-### 3. Privat portal visade Rolands som plattformsnamn
+### 3. Privat portal visade referenskunden som plattformsnamn
 
-Den centrala privata portalen hade flera synliga Rolands-texter även i API-läge.
+Den centrala privata portalen hade flera synliga referenskunden-texter även i API-läge.
 
-**Rättat:** sessionens API-svar innehåller nu aktiv företagsidentitet. Portalen och den delade navigationen använder det aktiva företagets visningsnamn. LT Studio används som plattformsnamn. Rolands-namnet finns kvar i den uttryckliga Rolands-demon.
+**Rättat:** sessionens API-svar innehåller nu aktiv företagsidentitet. Portalen och den delade navigationen använder det aktiva företagets visningsnamn. LT Studio används som plattformsnamn. referenskunden-namnet finns kvar i den uttryckliga referenskunden-demon.
 
 ### 4. Saknat explicit kund-nummer-två-kontrakt
 
-Det fanns redan flera tvåföretagstester, men inget sammanhållet test som säkerställde att den andra kundens session, fakturaprofil och CMS-startdata inte ärvde Rolands identitet.
+Det fanns redan flera tvåföretagstester, men inget sammanhållet test som säkerställde att den andra kundens session, fakturaprofil och CMS-startdata inte ärvde referenskunden identitet.
 
 **Rättat:** `test/saas-second-tenant.test.js` verifierar detta.
 
-### 5. Privata portalskal och fakturautkast hade kvar Rolands-standarder
+### 5. Privata portalskal och fakturautkast hade kvar referenskunden-standarder
 
-Flera privata portalsidor hade Rolands som laddningsnamn, sidomenynamn eller breadcrumb även när servern redan arbetade i ett annat företag. Fakturautkastet använde dessutom `https://rollands.se` som reservwebbadress när ett annat företag saknade egen webbplats.
+Flera privata portalsidor hade referenskunden som laddningsnamn, sidomenynamn eller breadcrumb även när servern redan arbetade i ett annat företag. Fakturautkastet använde dessutom `https://demo.example.invalid` som reservwebbadress när ett annat företag saknade egen webbplats.
 
-**Rättat:** privata portalskal använder LT Studio som plattformsnamn och aktivt företagsnamn från session/CMS. Reservlänken till `rollands.se` är borttagen. Den uttryckliga Rolands-demon får fortsatt visa Rolands eftersom den representerar referenskunden.
+**Rättat:** privata portalskal använder LT Studio som plattformsnamn och aktivt företagsnamn från session/CMS. Reservlänken till `rollands.se` är borttagen. Den uttryckliga referenskunden-demon får fortsatt visa referenskunden eftersom den representerar referenskunden.
 
 ### 6. Kund nummer två verifieras nu över fler kärnmoduler
 
@@ -133,14 +133,14 @@ En ny kunds neutrala CMS-startpunkt innehåller avsiktliga platshållare tills r
 
 Detta är ett starkare CI-bevis för SaaS-arkitekturen, men ersätter inte staging, backup/restore och verklig UAT.
 
-## Rolands-specifikt som ska vara kvar
+## referenskunden-specifikt som ska vara kvar
 
-Följande är inte i sig fel eftersom Rolands är referenskund och har en egen publik demo:
+Följande är inte i sig fel eftersom referenskunden är referenskund och har en egen publik demo:
 
 - `content/company.json`,
 - `content/site.json`,
-- Rolands texter och design i den publika GitHub Pages-demon,
-- fiktiva Rolands-demodata i portalens uttryckliga demoläge.
+- referenskunden texter och design i den publika GitHub Pages-demon,
+- fiktiva referenskunden-demodata i portalens uttryckliga demoläge.
 
 Regeln är att dessa värden inte får fungera som dold global standard för andra privata företagsmiljöer.
 
@@ -148,7 +148,7 @@ Regeln är att dessa värden inte får fungera som dold global standard för and
 
 ### Legacy-namn i tekniska identifierare
 
-Flera interna namn använder fortfarande `ROLLANDS_*`, `rollands_session`, `rollands-csrf` och globala JavaScript-namn med Rolands-prefix.
+Flera interna namn använder fortfarande `ROLLANDS_*`, `rollands_session`, `rollands-csrf` och globala JavaScript-namn med referenskunden-prefix.
 
 Detta är främst teknisk namn-/migrationsskuld, inte i sig en företagsisolationsbugg. Vi bör migrera dem kontrollerat med bakåtkompatibilitet i stället för att byta allt samtidigt och riskera driftfel.
 
@@ -166,7 +166,7 @@ Flera dokument/PDF-flöden lagrar innehåll i nuvarande databas. Målarkitekture
 
 ### Publika kundwebbplatser saknar generell distributionsmodell
 
-Rolands publika statiska webb finns som referens. Det finns ännu ingen färdig produktionslösning för att publicera flera kunders webbplatser till separata egna domäner från samma plattform.
+referenskunden publika statiska webb finns som referens. Det finns ännu ingen färdig produktionslösning för att publicera flera kunders webbplatser till separata egna domäner från samma plattform.
 
 ### Modulaktivering behöver bli verklig konfiguration
 
@@ -193,7 +193,7 @@ GitHub är källan för kod och dokumentation, men en verklig gemensam staging- 
 ## Nästa rekommenderade ordning
 
 1. Låt CI verifiera denna ändring och kund-nummer-två-testet.
-2. Behåll production-readiness som högsta prioritet för Rolands.
+2. Behåll production-readiness som högsta prioritet för referenskunden.
 3. Kartlägg alla tabeller med privat data mot krav på `company_id` och tenant-integritetsregler.
 4. ✅ Maskinläsbart tenant-schemakontrakt är infört och stoppar okända oskopade tabeller.
 5. ✅ PostgreSQL-migreringen är dokumenterad; nästa kodsteg är en datalagergräns utan ändrade affärsregler.
