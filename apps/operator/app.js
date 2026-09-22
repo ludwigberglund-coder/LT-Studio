@@ -2,6 +2,54 @@ const root=document.getElementById('operator-app');
 const csrfKey='lt-operator-csrf';
 let session=null,overview=null,readiness=null,security=null,operatorAudit=null,securityMonitor=null,securityAlerts=null,securityPollTimer=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='',companyQuery='',companyStatus='all',companySort='name',securitySeverity='all',securityPeriod='24h',securityCompany='all',securityIncidentStatus='all';
 
+
+const OPERATOR_ICONOIR=Object.freeze({
+  home:'<path d="M9 21H7C4.79086 21 3 19.2091 3 17V10.7076C3 9.30887 3.73061 8.01175 4.92679 7.28679L9.92679 4.25649C11.2011 3.48421 12.7989 3.48421 14.0732 4.25649L19.0732 7.28679C20.2694 8.01175 21 9.30887 21 10.7076V17C21 19.2091 19.2091 21 17 21H15M9 21V17C9 15.3431 10.3431 14 12 14C13.6569 14 15 15.3431 15 17V21M9 21H15"/>',
+  group:'<path d="M1 20V19C1 15.134 4.13401 12 8 12C11.866 12 15 15.134 15 19V20M13 14C13 11.2386 15.2386 9 18 9C20.7614 9 23 11.2386 23 14V14.5M8 12C10.2091 12 12 10.2091 12 8C12 5.79086 10.2091 4 8 4C5.79086 4 4 5.79086 4 8C4 10.2091 5.79086 12 8 12ZM18 9C19.6569 9 21 7.65685 21 6C21 4.34315 19.6569 3 18 3C16.3431 3 15 4.34315 15 6C15 7.65685 16.3431 9 18 9Z"/>',
+  stats:'<path d="M10 9H6M15.5 11C14.1193 11 13 9.88071 13 8.5C13 7.11929 14.1193 6 15.5 6C16.8807 6 18 7.11929 18 8.5C18 9.88071 16.8807 11 15.5 11ZM6 6H9M18 18L13.5 15L11 17L6 13M3 20.4V3.6C3 3.26863 3.26863 3 3.6 3H20.4C20.7314 3 21 3.26863 21 3.6V20.4C21 20.7314 20.7314 21 20.4 21H3.6C3.26863 21 3 20.7314 3 20.4Z"/>',
+  shield:'<path d="M8.5 11.5L11.5 14.5L16.5 9.5M5 18L3.13036 4.91253C3.05646 4.39524 3.39389 3.91247 3.90398 3.79912L11.5661 2.09641C11.8519 2.03291 12.1481 2.03291 12.4339 2.09641L20.096 3.79912C20.6061 3.91247 20.9435 4.39524 20.8696 4.91252L19 18C18.9293 18.495 18.5 21.5 12 21.5C5.5 21.5 5.07071 18.495 5 18Z"/>',
+  refresh:'<path d="M21.8883 13.5C21.1645 18.3113 17.013 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C16.1006 2 19.6248 4.46819 21.1679 8M17 8H21.4C21.7314 8 22 7.73137 22 7.4V3"/>',
+  logout:'<path d="M12 12H19M19 12L16 15M19 12L16 9M19 6V5C19 3.89543 18.1046 3 17 3H7C5.89543 3 5 3.89543 5 5V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V18"/>',
+  openWindow:'<path d="M21 3H15M21 3L12 12M21 3V9M21 13V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H11"/>',
+  check:'<path d="M5 13L9 17L19 7"/>',
+  plus:'<path d="M6 12H18M12 6V18"/>',
+  key:'<path d="M10 12C10 14.2091 8.20914 16 6 16C3.79086 16 2 14.2091 2 12C2 9.79086 3.79086 8 6 8C8.20914 8 10 9.79086 10 12ZM10 12H22V15M18 12V15"/>',
+  trash:'<path d="M20 9L18.005 20.3463C17.8369 21.3026 17.0062 22 16.0353 22H7.96474C6.99379 22 6.1631 21.3026 5.99496 20.3463L4 9M21 6H15.375M3 6H8.625M8.625 6V4C8.625 2.89543 9.52043 2 10.625 2H13.375C14.4796 2 15.375 2.89543 15.375 4V6M8.625 6H15.375"/>',
+  xmark:'<path d="M6.75827 17.2426L12.0009 12M17.2435 6.75736L12.0009 12M12.0009 12L6.75827 6.75736M12.0009 12L17.2435 17.2426"/>',
+  arrowLeft:'<path d="M21 12H3M3 12L11.5 3.5M3 12L11.5 20.5"/>'
+});
+function operatorIcon(name){return '<span class="op-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" focusable="false">'+(OPERATOR_ICONOIR[name]||OPERATOR_ICONOIR.check)+'</svg></span>'}
+function operatorSemanticIcon(element){
+  const text=String(element.textContent||'').trim().toLowerCase(),action=String(element.dataset?.action||'');
+  if(action==='refresh'||/uppdatera/.test(text))return'refresh';
+  if(action==='logout'||/logga ut/.test(text))return'logout';
+  if(action==='close-modal'||/stäng|avbryt/.test(text))return'xmark';
+  if(action==='remove-user'||action==='confirm-remove-user'||/ta bort/.test(text))return'trash';
+  if(action==='reset-password'||/lösenord/.test(text))return'key';
+  if(action==='back-companies'||/alla företag/.test(text))return'arrowLeft';
+  if(/skapa|lägg till/.test(text))return'plus';
+  if(/spara|godkänn|verifiera|skicka test/.test(text))return'check';
+  return'';
+}
+function decorateOperatorUi(){
+  const navIcons={overview:'home',companies:'group',statistics:'stats',security:'shield'};
+  document.querySelectorAll('[data-view]').forEach(button=>{
+    const label=button.querySelector('.nav-label');if(!label||label.querySelector('.op-icon'))return;
+    label.prepend(document.createRange().createContextualFragment(operatorIcon(navIcons[button.dataset.view]||'home')));
+  });
+  document.querySelectorAll('.customer-system-link').forEach(link=>{if(!link.querySelector('.op-icon'))link.prepend(document.createRange().createContextualFragment(operatorIcon('openWindow')))});
+  document.querySelectorAll('.button,.icon-button,button[data-action]').forEach(button=>{
+    if(button.querySelector(':scope > .op-icon'))return;const name=operatorSemanticIcon(button);if(!name)return;
+    button.prepend(document.createRange().createContextualFragment(operatorIcon(name)));button.classList.add('op-with-icon');
+  });
+}
+function operatorTap(element){
+  if(!element||element.disabled||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  element.animate([{transform:'translateY(0) scale(1)'},{transform:'translateY(1px) scale(.97)'},{transform:'translateY(0) scale(1)'}],{duration:220,easing:'cubic-bezier(.2,.8,.2,1)'});
+}
+document.addEventListener('pointerdown',event=>{const target=event.target.closest('.button,.icon-button,.side-nav button,.mobile-nav button,.customer-system-link,.click-row');if(target)operatorTap(target)},{passive:true});
+new MutationObserver(()=>decorateOperatorUi()).observe(document.documentElement,{childList:true,subtree:true});
+
 function esc(value=''){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
 function initials(name='LT'){return String(name).trim().split(/\s+/).filter(Boolean).map(part=>part[0]).join('').slice(0,2).toUpperCase()||'LT'}
 function dateTime(value){if(!value)return '—';const d=new Date(value);return Number.isNaN(d.getTime())?'—':new Intl.DateTimeFormat('sv-SE',{dateStyle:'short',timeStyle:'short'}).format(d)}
@@ -114,13 +162,13 @@ function focusModal(){
   requestAnimationFrame(()=>document.querySelector('.modal-card input, .modal-card button')?.focus());
 }
 function nav(){
-  const items=[['overview','Översikt','⌂'],['companies','Kunder & företag','◇'],['statistics','Statistik','▥'],['security','Säkerhetsportal','◈']];
-  return items.map(([id,label,icon])=>`<button class="${view===id?'active':''}" data-view="${id}"><span class="nav-label"><span class="nav-icon" aria-hidden="true">${icon}</span>${label}</span>${id==='security'?securityBadgeMarkup():''}</button>`).join('');
+  const items=[['overview','Översikt'],['companies','Kunder & företag'],['statistics','Statistik'],['security','Säkerhetsportal']];
+  return items.map(([id,label])=>`<button class="${view===id?'active':''}" data-view="${id}"><span class="nav-label">${label}</span>${id==='security'?securityBadgeMarkup():''}</button>`).join('');
 }
 function shell(body,title,subtitle){
   const operator=session?.operator||{};
-  root.innerHTML=`<div class="operator-shell"><aside class="sidebar"><div><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div class="side-copy">ADMIN CONTROL CENTER</div></div><nav class="side-nav">${nav()}</nav><a class="customer-system-link" href="/portal/" target="_blank" rel="noopener"><span aria-hidden="true">↗</span><span><strong>Öppna kundsystemet</strong><small>UAT på samma webbplats</small></span></a><div class="side-spacer"></div><div class="side-status"><span class="live-dot"></span><div><strong>Operatorportal aktiv</strong><small>Separat säkerhetsgräns</small></div></div><div class="side-footer">Endast LT Studio-operatörer.<br>Alla administrativa ändringar loggas.</div></aside>
-  <section class="main"><header class="topbar"><div><span class="page-kicker">LT STUDIO / ADMIN</span><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div><div class="actions"><div class="operator-user"><span class="avatar">${initials(operator.displayName)}</span><div><strong>${esc(operator.displayName||operator.username||'Operatör')}</strong><small>LT Studio-operatör</small></div></div><button class="icon-button" data-action="refresh" title="Uppdatera" aria-label="Uppdatera">↻</button><button class="button secondary" data-action="logout">Logga ut</button></div></header><nav class="mobile-nav">${nav()}</nav>
+  root.innerHTML=`<div class="operator-shell"><aside class="sidebar"><div><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div class="side-copy">ADMIN CONTROL CENTER</div></div><nav class="side-nav">${nav()}</nav><a class="customer-system-link" href="/portal/" target="_blank" rel="noopener"><span><strong>Öppna kundsystemet</strong><small>UAT på samma webbplats</small></span></a><div class="side-spacer"></div><div class="side-status"><span class="live-dot"></span><div><strong>Operatorportal aktiv</strong><small>Separat säkerhetsgräns</small></div></div><div class="side-footer">Endast LT Studio-operatörer.<br>Alla administrativa ändringar loggas.</div></aside>
+  <section class="main"><header class="topbar"><div><span class="page-kicker">LT STUDIO / ADMIN</span><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div><div class="actions"><div class="operator-user"><span class="avatar">${initials(operator.displayName)}</span><div><strong>${esc(operator.displayName||operator.username||'Operatör')}</strong><small>LT Studio-operatör</small></div></div><button class="icon-button" data-action="refresh" title="Uppdatera" aria-label="Uppdatera"></button><button class="button secondary" data-action="logout">Logga ut</button></div></header><nav class="mobile-nav">${nav()}</nav>
   <div id="security-live-alert">${securityAlertStrip()}</div>${errorMessage?`<div class="notice">${esc(errorMessage)}</div>`:''}${successNotice()}${body}<footer class="portal-footer"><span>LT Studio Admin</span><span>Senast uppdaterad ${dateTime(overview?.generatedAt)}</span></footer></section></div>${modalMarkup()}`;
 }
 function filteredCompanies(){
