@@ -20,9 +20,9 @@ test('aktiv säkerhetsmonitor flaggar readiness, MFA, inloggningsattack och nya 
       mfaSecretEncrypted:'encrypted-test-mfa'
     });
 
-    const nowMs=Date.now();
+    const loginNowMs=Date.now();
     const loginKey=crypto.createHash('sha256').update('security-monitor-test-login').digest('hex');
-    for(let i=0;i<5;i++)Db.noteLoginFailure(db,{keyHash:loginKey,windowMinutes:15,nowMs});
+    for(let i=0;i<5;i++)Db.noteLoginFailure(db,{keyHash:loginKey,windowMinutes:15,nowMs:loginNowMs});
     Db.appendSecurityEvent(db,{
       kind:'OPERATOR_LOGIN_FAILURE_THRESHOLD',
       severity:'critical',
@@ -31,7 +31,7 @@ test('aktiv säkerhetsmonitor flaggar readiness, MFA, inloggningsattack och nya 
     });
 
     const result=SecurityMonitor.scanSecurityState(db,{
-      nowMs,
+      nowMs:Date.now()+1000,
       scanIntervalMs:30_000,
       readinessProvider:()=>({ok:false,checks:{databaseRead:true,databaseWrite:true,backup:false,monitoring:false,platformAdmin:true}})
     });
