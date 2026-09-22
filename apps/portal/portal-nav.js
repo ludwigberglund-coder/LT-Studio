@@ -69,6 +69,85 @@
       return{groups:visibleGroups({authenticated:session?.authenticated===true,permissions:session?.permissions||[]}),session};
     }catch{return{groups:[],session:null}}
   }
+
+  // UI polish: all pictograms below are paths from Iconoir (MIT), never mixed with another icon set.
+  const ICONOIR=Object.freeze({
+    home:'<path d="M9 21H7C4.79086 21 3 19.2091 3 17V10.7076C3 9.30887 3.73061 8.01175 4.92679 7.28679L9.92679 4.25649C11.2011 3.48421 12.7989 3.48421 14.0732 4.25649L19.0732 7.28679C20.2694 8.01175 21 9.30887 21 10.7076V17C21 19.2091 19.2091 21 17 21H15M9 21V17C9 15.3431 10.3431 14 12 14C13.6569 14 15 15.3431 15 17V21M9 21H15" />',
+    page:'<path d="M4 21.4V2.6C4 2.26863 4.26863 2 4.6 2H16.2515C16.4106 2 16.5632 2.06321 16.6757 2.17574L19.8243 5.32426C19.9368 5.43679 20 5.5894 20 5.74853V21.4C20 21.7314 19.7314 22 19.4 22H4.6C4.26863 22 4 21.7314 4 21.4Z"/><path d="M8 10H16M8 18H16M8 14H12M16 2V5.4C16 5.73137 16.2686 6 16.6 6H20"/>',
+    wallet:'<path d="M19 20H5C3.89543 20 3 19.1046 3 18V9C3 7.89543 3.89543 7 5 7H19C20.1046 7 21 7.89543 21 9V18C21 19.1046 20.1046 20 19 20Z"/><path d="M18 7V5.60322C18 4.28916 16.7544 3.33217 15.4847 3.67075L4.48467 6.60409C3.60917 6.83756 3 7.63046 3 8.53656V9"/><path d="M16.5 14.25V13.75"/>',
+    card:'<path d="M22 9V17C22 18.1046 21.1046 19 20 19H4C2.89543 19 2 18.1046 2 17V7C2 5.89543 2.89543 5 4 5H20C21.1046 5 22 5.89543 22 7V9ZM22 9H6"/>',
+    bank:'<path d="M3 9.5L12 4L21 9.5M5 20H19M10 9H14M6 17V12M10 17V12M14 17V12M18 17V12"/>',
+    book:'<path d="M4 19V5C4 3.89543 4.89543 3 6 3H19.4C19.7314 3 20 3.26863 20 3.6V16.7143M6 17H20M6 21H20M6 21C4.89543 21 4 20.1046 4 19C4 17.8954 4.89543 17 6 17M9 7H15"/>',
+    stats:'<path d="M10 9H6M15.5 11C14.1193 11 13 9.88071 13 8.5C13 7.11929 14.1193 6 15.5 6C16.8807 6 18 7.11929 18 8.5C18 9.88071 16.8807 11 15.5 11ZM6 6H9M18 18L13.5 15L11 17L6 13M3 20.4V3.6C3 3.26863 3.26863 3 3.6 3H20.4C20.7314 3 21 3.26863 21 3.6V20.4C21 20.7314 20.7314 21 20.4 21H3.6C3.26863 21 3 20.7314 3 20.4Z"/>',
+    group:'<path d="M1 20V19C1 15.134 4.13401 12 8 12C11.866 12 15 15.134 15 19V20M13 14C13 11.2386 15.2386 9 18 9C20.7614 9 23 11.2386 23 14V14.5M8 12C10.2091 12 12 10.2091 12 8C12 5.79086 10.2091 4 8 4C5.79086 4 4 5.79086 4 8C4 10.2091 5.79086 12 8 12ZM18 9C19.6569 9 21 7.65685 21 6C21 4.34315 19.6569 3 18 3C16.3431 3 15 4.34315 15 6C15 7.65685 16.3431 9 18 9Z"/>',
+    package:'<path d="M20 6V18C20 19.1046 19.1046 20 18 20H6C4.89543 20 4 19.1046 4 18V6C4 4.89543 4.89543 4 6 4H18C19.1045 4 20 4.89543 20 6ZM12 9V4"/>',
+    settings:'<path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z"/><path d="M19.6224 10.3954L18.5247 7.7448L20 6L18 4L16.2647 5.48295L13.5578 4.36974L12.9353 2H10.981L10.3491 4.40113L7.70441 5.51596L6 4L4 6L5.45337 7.78885L4.3725 10.4463L2 11V13L4.40111 13.6555L5.51575 16.2997L4 18L6 20L7.79116 18.5403L10.397 19.6123L11 22H13L13.6045 19.6132L16.2551 18.5155L18 20L20 18L18.5159 16.2494L19.6139 13.598L22 12.9772V11L19.6224 10.3954Z"/>',
+    help:'<path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22ZM9 9C9 5.49997 14.5 5.5 14.5 9C14.5 11.5 12 10.9999 12 13.9999M12 18.01L12.01 17.9989"/>',
+    shield:'<path d="M8.5 11.5L11.5 14.5L16.5 9.5M5 18L3.13036 4.91253C3.05646 4.39524 3.39389 3.91247 3.90398 3.79912L11.5661 2.09641C11.8519 2.03291 12.1481 2.03291 12.4339 2.09641L20.096 3.79912C20.6061 3.91247 20.9435 4.39524 20.8696 4.91252L19 18C18.9293 18.495 18.5 21.5 12 21.5C5.5 21.5 5.07071 18.495 5 18Z"/>',
+    database:'<path d="M5 12V18C5 18 5 21 12 21C19 21 19 18 19 18V12M5 6V12C5 12 5 15 12 15C19 15 19 12 19 12V6M12 3C19 3 19 6 19 6C19 6 19 9 12 9C5 9 5 6 5 6C5 6 5 3 12 3Z"/>',
+    profile:'<path d="M12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2ZM4.271 18.3457C4.271 18.3457 6.5 15.5 12 15.5C17.5 15.5 19.7291 18.3457 19.7291 18.3457M12 12C13.6569 12 15 10.6569 15 9C15 7.34315 13.6569 6 12 6C10.3431 6 9 7.34315 9 9C9 10.6569 10.3431 12 12 12Z"/>',
+    logout:'<path d="M12 12H19M19 12L16 15M19 12L16 9M19 6V5C19 3.89543 18.1046 3 17 3H7C5.89543 3 5 3.89543 5 5V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V18"/>',
+    check:'<path d="M5 13L9 17L19 7"/>',
+    plus:'<path d="M6 12H18M12 6V18"/>',
+    search:'<path d="M17 17L21 21M3 11C3 15.4183 6.58172 19 11 19C15.4183 19 19 15.4183 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11Z"/>',
+    refresh:'<path d="M21.8883 13.5C21.1645 18.3113 17.013 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C16.1006 2 19.6248 4.46819 21.1679 8M17 8H21.4C21.7314 8 22 7.73137 22 7.4V3"/>',
+    download:'<path d="M6 20H18M12 4V16M12 16L15.5 12.5M12 16L8.5 12.5"/>',
+    edit:'<path d="M14.3632 5.65156L15.8431 4.17157C16.6242 3.39052 17.8905 3.39052 18.6716 4.17157L20.0858 5.58579C20.8668 6.36683 20.8668 7.63316 20.0858 8.41421L18.6058 9.8942M14.3632 5.65156L4.74749 15.2672C4.41542 15.5993 4.21079 16.0376 4.16947 16.5054L3.92738 19.2459C3.87261 19.8659 4.39148 20.3848 5.0115 20.33L7.75191 20.0879C8.21972 20.0466 8.65806 19.8419 8.99013 19.5099L18.6058 9.8942M14.3632 5.65156L18.6058 9.8942"/>'
+  });
+  const NAV_ICONS=Object.freeze({
+    overview:'home',invoices:'page',receivables:'wallet','receivables-details':'stats',payables:'page',payments:'card',bank:'bank',
+    automation:'settings',accounting:'book',reports:'stats',accounts:'book',payroll:'wallet',money:'card',journal:'book','res-tools':'database',
+    batches:'package',inbox:'page',customers:'group',suppliers:'group',inventory:'package',website:'page',documents:'page',decisions:'shield',
+    modules:'package',project:'stats',content:'page',audit:'shield',settings:'settings',uat:'shield',legacy:'database',assistant:'help'
+  });
+  function iconoir(name,label=''){
+    const span=document.createElement('span');span.className='ui-icon';span.setAttribute('aria-hidden','true');
+    span.innerHTML='<svg viewBox="0 0 24 24" fill="none" focusable="false" aria-label="'+String(label).replace(/"/g,'')+'">'+(ICONOIR[name]||ICONOIR.page)+'</svg>';
+    return span;
+  }
+  function addIcon(element,name){
+    if(!element||element.querySelector(':scope > .ui-icon'))return;
+    element.prepend(iconoir(name));
+    element.classList.add('ui-with-icon');
+  }
+  function semanticButtonIcon(element){
+    const text=String(element.textContent||'').trim().toLowerCase();
+    if(/logga ut/.test(text))return'logout';
+    if(/spara|godkänn|verifiera|registrera|bokför|skapa och/.test(text))return'check';
+    if(/skapa|lägg till|ny /.test(text))return'plus';
+    if(/sök|filtrera|hitta/.test(text))return'search';
+    if(/uppdatera|försök igen|återställ|beräkna/.test(text))return'refresh';
+    if(/ladda ner|exportera/.test(text))return'download';
+    if(/redigera|ändra/.test(text))return'edit';
+    if(/profil|konto|inloggning/.test(text))return'profile';
+    return'';
+  }
+  function decorateUi(){
+    document.querySelectorAll('[data-nav-id]').forEach(link=>addIcon(link,NAV_ICONS[link.dataset.navId]||'page'));
+    document.querySelectorAll('.shared-user-dropdown a,.shared-user-dropdown button').forEach(el=>addIcon(el,semanticButtonIcon(el)||'profile'));
+    document.querySelectorAll('.shared-foot>a').forEach(el=>addIcon(el,'home'));
+    document.querySelectorAll('.button,button[data-action]').forEach(button=>{const name=semanticButtonIcon(button);if(name)addIcon(button,name);});
+  }
+  function animateTap(element){
+    if(!element||element.disabled||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+    element.animate(
+      [{transform:'translateY(0) scale(1)'},{transform:'translateY(1px) scale(.97)'},{transform:'translateY(0) scale(1)'}],
+      {duration:220,easing:'cubic-bezier(.2,.8,.2,1)'}
+    );
+  }
+  document.addEventListener('pointerdown',event=>{
+    const target=event.target.closest('.button,.shared-links a,.module-card,.task-card,.shared-user-trigger,.shared-user-dropdown a,.shared-user-dropdown button');
+    if(target)animateTap(target);
+  },{passive:true});
+  document.addEventListener('click',event=>{
+    const target=event.target.closest('.button,button[data-action]');
+    if(!target||target.disabled)return;
+    target.classList.remove('ui-action-confirmed');
+    void target.offsetWidth;
+    target.classList.add('ui-action-confirmed');
+    setTimeout(()=>target.classList.remove('ui-action-confirmed'),420);
+  });
+
   function avatarInitials(name){return String(name||'Användare').trim().split(/\s+/).filter(Boolean).map(part=>part[0]).join('').slice(0,2).toUpperCase()||'AN';}
   async function mountUserMenu(){
     const topbar=document.querySelector('.topbar');if(!topbar)return;
@@ -124,7 +203,7 @@
       }
       button.addEventListener('click',()=>{const open=menu.hidden;menu.hidden=!open;button.setAttribute('aria-expanded',String(open));});
       document.addEventListener('click',event=>{if(!wrap.contains(event.target)){menu.hidden=true;button.setAttribute('aria-expanded','false');}});
-      wrap.append(button,menu);topbar.append(wrap);
+      wrap.append(button,menu);topbar.append(wrap);decorateUi();
     }finally{
       delete topbar.dataset.sharedUserMenuMounting;
     }
@@ -160,12 +239,12 @@
     const foot=document.createElement('div');foot.className='shared-foot';
     const home=document.createElement('a');home.href=href(demo?'./':'portal/dashboard.html');home.textContent=demo?'Visa företagets hemsida':'Till arbetsöversikten';foot.append(home);
     const note=document.createElement('p');note.textContent=demo?'Äldre referensverktyg har separat demodata.':'Menyn följer din roll. Servern kontrollerar varje skyddad åtgärd oavsett vad som visas här.';foot.append(note);
-    sidebar.replaceChildren(brand,info,nav,foot);
+    sidebar.replaceChildren(brand,info,nav,foot);decorateUi();
     try{sidebar.scrollTop=Number(sessionStorage.getItem(key+':scroll')||0)}catch{}
     if(!sidebar.dataset.scrollBound){sidebar.addEventListener('scroll',()=>{try{sessionStorage.setItem(key+':scroll',String(sidebar.scrollTop))}catch{}});sidebar.dataset.scrollBound='1';}
   }
   let pending=false;
-  function schedule(){if(pending)return;pending=true;queueMicrotask(async()=>{pending=false;await Promise.all([mount(),mountUserMenu()]);});}
+  function schedule(){if(pending)return;pending=true;queueMicrotask(async()=>{pending=false;await Promise.all([mount(),mountUserMenu()]);decorateUi();});}
   // Renders can replace the entire sidebar. Stay subscribed instead of disconnecting after boot.
   new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true});
   addEventListener('hashchange',schedule);
@@ -173,5 +252,5 @@
   addEventListener('focus',ensureFreshRuntime);
   addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')ensureFreshRuntime();});
   setInterval(ensureFreshRuntime,30000);
-  root.RollandsNavigation={groups,mount,mountUserMenu,href};ensureFreshRuntime();mount();mountUserMenu();
+  root.RollandsNavigation={groups,mount,mountUserMenu,href};ensureFreshRuntime();mount();mountUserMenu();decorateUi();
 })(globalThis);
