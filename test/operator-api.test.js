@@ -77,23 +77,53 @@ test('operator-API kräver separat operatörssession och läcker inte kundernas 
   assert.equal(securityResponse.status,200);
   const security=await securityResponse.json();
   assert.equal(security.events.length,1);
-  assert.deepEqual(Object.keys(security.events[0]).sort(),['companyId','companyName','createdAt','kind','severity']);
+  assert.deepEqual(Object.keys(security.events[0]).sort(),['companyId','companyName','createdAt','id','incidentStatus','incidentUpdatedAt','incidentUpdatedBy','kind','severity'].sort());
   assert.equal(security.events[0].companyId,null);
   assert.equal(security.events[0].companyName,null);
   assert.equal(security.events[0].kind,'LOGIN_FAILURE_THRESHOLD');
+  assert.equal(security.events[0].incidentStatus,'new');
+  assert.equal(security.events[0].incidentUpdatedAt,null);
+  assert.equal(security.events[0].incidentUpdatedBy,null);
   assert.doesNotMatch(JSON.stringify(security),/aaaaaaaa|192\.0\.2\.44|must-not-leak/);
+
+  const incidentWithoutCsrf=await fetch(base+'/api/operator/v1/security-events/'+encodeURIComponent(security.events[0].id)+'/status',{
+    method:'PUT',headers:{Cookie:signed.cookie,'Content-Type':'application/json'},body:JSON.stringify({status:'investigating'})
+  });
+  assert.equal(incidentWithoutCsrf.status,403);
+
+  const invalidIncidentStatus=await fetch(base+'/api/operator/v1/security-events/'+encodeURIComponent(security.events[0].id)+'/status',{
+    method:'PUT',headers:{Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken},body:JSON.stringify({status:'closed'})
+  });
+  assert.equal(invalidIncidentStatus.status,422);
+
+  const incidentUpdate=await fetch(base+'/api/operator/v1/security-events/'+encodeURIComponent(security.events[0].id)+'/status',{
+    method:'PUT',headers:{Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken},body:JSON.stringify({status:'investigating'})
+  });
+  assert.equal(incidentUpdate.status,200);
+  const incidentUpdateBody=await incidentUpdate.json();
+  assert.equal(incidentUpdateBody.changed,true);
+  assert.equal(incidentUpdateBody.incident.status,'investigating');
+  assert.equal(incidentUpdateBody.incident.updatedBy,'LT Operator');
+
+  const securityAfterIncident=await fetch(base+'/api/operator/v1/security-events',{headers:{Cookie:signed.cookie}}).then(response=>response.json());
+  assert.equal(securityAfterIncident.events[0].incidentStatus,'investigating');
+  assert.equal(securityAfterIncident.events[0].incidentUpdatedBy,'LT Operator');
 
   const auditResponse=await fetch(base+'/api/operator/v1/operator-audit',{headers:{Cookie:signed.cookie}});
   const auditBody=await auditResponse.json();
   assert.equal(auditResponse.status,200,JSON.stringify(auditBody));
-  assert.ok(auditBody.events.length>=2);
-  assert.deepEqual(Object.keys(auditBody.events[0]).sort(),['action','afterRole','beforeRole','companyId','companyName','createdAt','operatorName','role','targetUserName']);
+  assert.ok(auditBody.events.length>=3);
+  assert.deepEqual(Object.keys(auditBody.events[0]).sort(),['action','afterRole','afterStatus','beforeRole','beforeStatus','companyId','companyName','createdAt','operatorName','role','targetUserName'].sort());
   const correlatedAudit=auditBody.events.find(event=>event.action==='CUSTOMER_USER_ROLE_CHANGED');
   assert.ok(correlatedAudit);
   assert.equal(correlatedAudit.companyName,'Kundbolag Ett');
   assert.equal(correlatedAudit.targetUserName,'Audit User');
   assert.equal(correlatedAudit.beforeRole,'readonly');
   assert.equal(correlatedAudit.afterRole,'accountant');
+  const incidentAudit=auditBody.events.find(event=>event.action==='SECURITY_INCIDENT_STATUS_CHANGED');
+  assert.ok(incidentAudit);
+  assert.equal(incidentAudit.beforeStatus,'new');
+  assert.equal(incidentAudit.afterStatus,'investigating');
   assert.doesNotMatch(JSON.stringify(auditBody),/passwordHash|mfaSecret|csrf|tokenHash|detailsJson|must-not-leak-audit/);
 
   const readiness=await fetch(base+'/api/operator/v1/readiness',{headers:{Cookie:signed.cookie}});
