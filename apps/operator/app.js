@@ -66,48 +66,28 @@ function loginView(){
 function readinessState(){if(!readiness)return{label:'Laddar',kind:'warning'};return readiness.ok?{label:'OK',kind:'ok'}:{label:'Varning',kind:'critical'}}
 function securityState(){const critical=Number(overview?.security?.critical||0),warning=Number(overview?.security?.warning||0);if(critical)return{label:`${critical} kritiska`,kind:'critical'};if(warning)return{label:`${warning} varningar`,kind:'warning'};return{label:'Ingen aktiv varning',kind:'ok'}}
 function nav(){
-  const items=[['overview','Översikt'],['companies','Kunder & företag'],['statistics','Statistik'],['security','Säkerhetsportal']];
-  return items.map(([id,label])=>`<button class="${view===id?'active':''}" data-view="${id}" aria-current="${view===id?'page':'false'}">${label}${id==='security'?'<span class="nav-badge">nästa</span>':''}</button>`).join('');
+  const items=[['overview','Översikt','⌂'],['companies','Kunder & företag','◇'],['statistics','Statistik','▥'],['security','Säkerhetsportal','◈']];
+  return items.map(([id,label,icon])=>`<button class="${view===id?'active':''}" data-view="${id}"><span class="nav-label"><span class="nav-icon">${icon}</span>${label}</span>${id==='security'?'<span class="nav-badge">nästa</span>':''}</button>`).join('');
 }
-function modalMarkup(){
-  if(!modal)return '';
-  if(modal.kind==='password')return `<div class="modal-backdrop" data-modal-backdrop><section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="reset-password-title" data-modal-panel>
-    <div class="modal-head"><div><span class="eyebrow">Kontosäkerhet</span><h2 id="reset-password-title">Byt lösenord</h2><p>${esc(modal.userName)}</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div>
-    <form id="reset-password-form">
-      <label class="field"><span>Nytt tillfälligt lösenord</span><input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="256" required autofocus></label>
-      <p class="form-help">Minst 8 tecken, både stor och liten bokstav samt minst en siffra eller ett specialtecken.</p>
-      <div class="modal-actions"><button class="button secondary" type="button" data-action="close-modal">Avbryt</button><button class="button" type="submit">Spara nytt lösenord</button></div>
-    </form>
-  </section></div>`;
-  if(modal.kind==='remove')return `<div class="modal-backdrop" data-modal-backdrop><section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="remove-user-title" data-modal-panel>
-    <div class="modal-head"><div><span class="eyebrow">Åtkomst</span><h2 id="remove-user-title">Ta bort åtkomst?</h2><p>${esc(modal.userName)}</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div>
-    <p class="modal-copy">Användaren tas bort från det här kundföretaget och aktiva sessioner avslutas. Ett konto som används i andra företag påverkas inte där.</p>
-    <div class="modal-actions"><button class="button secondary" type="button" data-action="close-modal">Avbryt</button><button class="button danger solid" type="button" data-action="confirm-remove-user">Ta bort åtkomst</button></div>
-  </section></div>`;
-  return '';
-}
-function focusModal(){queueMicrotask(()=>document.querySelector('.modal-card input, .modal-card button')?.focus())}
 function shell(body,title,subtitle){
   const operator=session?.operator||{};
-  root.innerHTML=`<div class="operator-shell"><aside class="sidebar"><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div class="side-copy">Central adminportal för alla kundföretag.</div><nav class="side-nav" aria-label="Adminmeny">${nav()}</nav><div class="side-footer">Endast LT Studio-operatörer. Alla ändringar loggas.</div></aside>
-  <section class="main"><header class="topbar"><div><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div><div class="actions"><div class="operator-user"><span class="avatar">${initials(operator.displayName)}</span><div><strong>${esc(operator.displayName||operator.username||'Operatör')}</strong><small>LT Studio-operatör</small></div></div><button class="button secondary" data-action="logout">Logga ut</button></div></header>
-  <nav class="mobile-nav" aria-label="Adminmeny">${nav()}</nav>
-  ${uiNotice?`<div class="toast" role="status"><span>${esc(uiNotice)}</span><button type="button" data-action="dismiss-notice" aria-label="Stäng meddelande">×</button></div>`:''}
-  ${errorMessage?`<div class="notice" role="alert">${esc(errorMessage)}</div>`:''}${body}</section></div>${modalMarkup()}`;
+  root.innerHTML=`<div class="operator-shell"><aside class="sidebar"><div><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div class="side-copy">ADMIN CONTROL CENTER</div></div><nav class="side-nav">${nav()}</nav><div class="side-spacer"></div><div class="side-status"><span class="live-dot"></span><div><strong>Operatorportal aktiv</strong><small>Separat säkerhetsgräns</small></div></div><div class="side-footer">Endast LT Studio-operatörer.<br>Alla administrativa ändringar loggas.</div></aside>
+  <section class="main"><header class="topbar"><div><span class="page-kicker">LT STUDIO / ADMIN</span><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div><div class="actions"><div class="operator-user"><span class="avatar">${initials(operator.displayName)}</span><div><strong>${esc(operator.displayName||operator.username||'Operatör')}</strong><small>LT Studio-operatör</small></div></div><button class="icon-button" data-action="refresh" title="Uppdatera">↻</button><button class="button secondary" data-action="logout">Logga ut</button></div></header>
+  ${errorMessage?`<div class="notice">${esc(errorMessage)}</div>`:''}${body}<footer class="portal-footer"><span>LT Studio Admin</span><span>Senast uppdaterad ${dateTime(overview?.generatedAt)}</span></footer></section></div>`;
 }
 function companyRows(){
   const rows=overview?.companies||[];
   if(!rows.length)return '<tr><td colspan="7" class="empty">Inga företag är registrerade ännu.</td></tr>';
   return rows.map(company=>{
-    const access=company.accessConfigured?'<span class="status-pill"><span class="dot ok"></span>Konfigurerad</span>':'<span class="status-pill"><span class="dot warning"></span>Saknar användare</span>';
-    return `<tr class="click-row" data-company-id="${esc(company.id)}" tabindex="0" role="button" aria-label="Öppna ${esc(company.displayName)}"><td><strong>${esc(company.displayName)}</strong><br><small>${esc(company.legalName)}</small></td><td>${esc(company.orgNumber||'—')}</td><td>${company.memberCount}</td><td>${access}</td><td>${company.activeSessionCount}</td><td>${company.invoiceRecordCount}</td><td>${dateTime(company.lastActivityAt)}</td></tr>`;
+    const access=company.accessConfigured?'<span class="status-pill"><span class="dot ok"></span>Aktiv</span>':'<span class="status-pill"><span class="dot warning"></span>Saknar användare</span>';
+    return `<tr class="click-row" data-company-id="${esc(company.id)}"><td><div class="company-cell"><span class="company-avatar">${initials(company.displayName)}</span><div><strong>${esc(company.displayName)}</strong><small>${esc(company.legalName)}</small></div></div></td><td>${esc(company.orgNumber||'—')}</td><td>${company.memberCount}</td><td>${access}</td><td>${company.activeSessionCount}</td><td>${company.invoiceRecordCount}</td><td>${dateTime(company.lastActivityAt)}</td></tr>`;
   }).join('');
 }
 function readinessChecks(){
   const checks=readiness?.checks&&typeof readiness.checks==='object'?readiness.checks:{};
   return [['databaseRead','Databas · läsning'],['databaseWrite','Databas · skrivning'],['backup','Lokal backup'],['offsiteBackup','Extern backup'],['r2StagingAudit','R2 · privata objekt'],['restoreDrill','Restore-test'],['auditAnchor','Audit · externt ankare'],['monitoring','Extern monitoring']].map(([key,label])=>{
     const ok=checks[key]===true,known=typeof checks[key]==='boolean',state=known?(ok?'OK':'Problem'):'Saknas',kind=known?(ok?'ok':'critical'):'warning';
-    return `<div class="health-row"><strong>${esc(label)}</strong><span></span><span class="status-pill"><span class="dot ${kind}"></span>${state}</span></div>`;
+    return `<div class="health-row"><div class="health-name"><span class="health-dot ${kind}"></span><strong>${esc(label)}</strong></div><span class="health-line"></span><span class="status-pill"><span class="dot ${kind}"></span>${state}</span></div>`;
   }).join('');
 }
 function securityEvents(){
