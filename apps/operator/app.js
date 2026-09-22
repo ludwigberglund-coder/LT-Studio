@@ -20,7 +20,7 @@ const OPERATOR_ICONOIR=Object.freeze({
 });
 function operatorIcon(name){return '<span class="op-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" focusable="false">'+(OPERATOR_ICONOIR[name]||OPERATOR_ICONOIR.check)+'</svg></span>'}
 function operatorSemanticIcon(element){
-  const text=String(element.textContent||'').trim().toLowerCase(),action=String(element.dataset?.action||'');
+  const text=[element.getAttribute?.('aria-label'),element.getAttribute?.('title'),element.textContent].filter(Boolean).join(' ').trim().toLowerCase(),action=String(element.dataset?.action||'');
   if(action==='refresh'||/uppdatera/.test(text))return'refresh';
   if(action==='logout'||/logga ut/.test(text))return'logout';
   if(action==='close-modal'||/stäng|avbryt/.test(text))return'xmark';
@@ -40,6 +40,11 @@ function decorateOperatorUi(){
   document.querySelectorAll('.customer-system-link').forEach(link=>{if(!link.querySelector('.op-icon'))link.prepend(document.createRange().createContextualFragment(operatorIcon('openWindow')))});
   document.querySelectorAll('.button,.icon-button,button[data-action]').forEach(button=>{
     if(button.querySelector(':scope > .op-icon'))return;const name=operatorSemanticIcon(button);if(!name)return;
+    for(const node of [...button.childNodes]){
+      if(node.nodeType!==Node.TEXT_NODE)continue;
+      const cleaned=String(node.textContent||'').replace(/^\s*(?:←|→|↗|↻|×|✓|\+)\s*/u,'');
+      if(cleaned!==node.textContent)node.textContent=cleaned;
+    }
     button.prepend(document.createRange().createContextualFragment(operatorIcon(name)));button.classList.add('op-with-icon');
   });
 }
