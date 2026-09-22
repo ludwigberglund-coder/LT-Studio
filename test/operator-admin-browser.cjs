@@ -14,7 +14,7 @@ const out=path.join(__dirname,'..','test-artifacts');
 
 (async()=>{
   fs.mkdirSync(out,{recursive:true});
-  const runtime=createServer({databasePath:':memory:',db:Db.openDatabase(':memory:'),secureCookies:false,authEncryptionKey:ENCRYPTION_KEY});
+  const runtime=createServer({databasePath:':memory:',db:Db.openDatabase(':memory:'),secureCookies:false,authEncryptionKey:ENCRYPTION_KEY,securityScanIntervalMs:5000});
   let browser,page;
   const checks=[];
   try{
@@ -108,6 +108,20 @@ const out=path.join(__dirname,'..','test-artifacts');
     assert.match(securityBody,/Läsbehörighet → Ekonom/);
     assert.match(await page.locator('.security-check-table thead').textContent(),/Senaste bevis/);
     assert.doesNotMatch(securityBody,/LOGIN FAILURE THRESHOLD|never-in-ui|never-in-ui-either|never-in-ui-audit|cccccccc|dddddddd/);
+    assert.match(securityBody,/Aktiv säkerhetsövervakning/i);
+    assert.match(securityBody,/Systemet söker löpande efter risker och fel/i);
+    assert.match(securityBody,/Aktiva användare saknar MFA/i);
+    const monitorProbe=await page.evaluate(async()=>{
+      const response=await fetch('/api/operator/v1/security-monitor',{credentials:'same-origin'});
+      const body=await response.json().catch(()=>({}));
+      return {status:response.status,body};
+    });
+    assert.equal(monitorProbe.status,200,JSON.stringify(monitorProbe.body));
+    assert.equal(monitorProbe.body.active,true);
+    assert.ok(Number(monitorProbe.body.counts?.critical||0)>=1);
+    assert.ok((monitorProbe.body.findings||[]).some(item=>item.code==='CUSTOMER_MFA_GAP'));
+    assert.doesNotMatch(JSON.stringify(monitorProbe.body),/never-in-ui|never-in-ui-either|cccccccc|dddddddd/);
+    checks.push({kind:'security-active-monitor-api',critical:monitorProbe.body.counts.critical});
 
     const severityFilter=page.locator('[data-security-severity]');
     await severityFilter.selectOption('critical');
@@ -130,6 +144,33 @@ const out=path.join(__dirname,'..','test-artifacts');
     await page.locator('[data-security-period]').selectOption('all');
     assert.equal(await page.locator('.security-check-table').count(),1);
     checks.push({kind:'security-portal-filters-and-audit',companyCorrelation:true,operatorAudit:true,evidenceAgeColumn:true});
+
+    await companyFilter.selectOption('all');
+    const customerIncidentRow=page.locator('.security-event').filter({hasText:'Många felaktiga kundinloggningar'});
+    await customerIncidentRow.locator('[data-incident-status]').selectOption('investigating');
+    await page.getByText(/Incidentstatusen uppdaterades och audit-loggades/).waitFor();
+    const customerSecurityEvent=Db.securityEvents(runtime.db,{limit:20}).find(event=>event.kind==='LOGIN_FAILURE_THRESHOLD');
+    assert.ok(customerSecurityEvent);
+    assert.equal(Db.securityIncidentState(runtime.db,customerSecurityEvent.id).status,'investigating');
+    securityBody=await page.locator('body').innerText();
+    assert.match(securityBody,/Incidentstatus ändrades/);
+    assert.match(securityBody,/Ny → Utreds/);
+    assert.match(securityBody,/Utreds av LT Browser Operator/);
+
+    const incidentFilter=page.locator('[data-security-incident-filter]');
+    await incidentFilter.selectOption('investigating');
+    securityBody=await page.locator('body').innerText();
+    assert.match(securityBody,/Många felaktiga kundinloggningar/);
+    assert.doesNotMatch(securityBody,/Många felaktiga LT Studio-admininloggningar/);
+    await incidentFilter.selectOption('all');
+    checks.push({kind:'security-incident-lifecycle',status:'investigating',auditLogged:true});
+
+    Db.appendSecurityEvent(runtime.db,{kind:'OPERATOR_ACCOUNT_LOGIN_FAILURE_THRESHOLD',severity:'critical',fingerprintHash:'e'.repeat(64),details:{private:'live-monitor-secret-must-not-render'}});
+    await page.getByText(/2 kritiska säkerhetshändelser har registrerats/).waitFor({timeout:12000});
+    await page.locator('.security-live-alert.critical').waitFor({state:'visible',timeout:12000});
+    const liveSecurityBody=await page.locator('body').innerText();
+    assert.doesNotMatch(liveSecurityBody,/live-monitor-secret-must-not-render|eeeeeeeeeeeeeeee/);
+    checks.push({kind:'security-live-auto-update',criticalEvents:2});
 
     await page.getByRole('button',{name:'Kunder & företag',exact:true}).first().click();
     await page.getByRole('heading',{name:'Kunder & företag',exact:true}).waitFor();

@@ -188,6 +188,7 @@ const BODY_RULES=Object.freeze([
   ['POST',/^\/api\/operator\/v1\/companies\/[^/]+\/users$/,new Set(['username','displayName','password','role'])],
   ['PUT',/^\/api\/operator\/v1\/companies\/[^/]+\/users\/[^/]+\/role$/,new Set(['role'])],
   ['PUT',/^\/api\/operator\/v1\/companies\/[^/]+\/users\/[^/]+\/password$/,new Set(['password'])],
+  ['PUT',/^\/api\/operator\/v1\/security-events\/[^/]+\/status$/,new Set(['status'])],
   ['POST',/^\/api\/v1\/customers$/,new Set(['requestId','name','email','orgNumber','address','reminderFeeAgreed'])],
   ['PUT',/^\/api\/v1\/customers\/[^/]+$/,new Set(['name','email','orgNumber','address','reminderFeeAgreed'])],
   ['PUT',/^\/api\/v1\/customer-invoices\/draft$/,new Set(['requestId','draft'])],
