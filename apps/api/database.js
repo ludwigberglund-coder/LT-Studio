@@ -142,6 +142,13 @@ function initializeSchema(db) {
       created_at TEXT NOT NULL
     ) STRICT;
 
+    CREATE TABLE IF NOT EXISTS security_incident_states (
+      security_event_id TEXT PRIMARY KEY REFERENCES security_events(id) ON DELETE CASCADE,
+      status TEXT NOT NULL CHECK(status IN ('reviewed','investigating','resolved')),
+      updated_by_operator_id TEXT REFERENCES platform_operators(id) ON DELETE SET NULL,
+      updated_at TEXT NOT NULL
+    ) STRICT;
+
     CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY,
       company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -258,6 +265,7 @@ function initializeSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_security_events_fingerprint_created ON security_events(fingerprint_hash,created_at);
     CREATE INDEX IF NOT EXISTS idx_platform_operator_sessions_expiry ON platform_operator_sessions(expires_at);
     CREATE INDEX IF NOT EXISTS idx_platform_operator_sessions_absolute_expiry ON platform_operator_sessions(absolute_expires_at);
+    CREATE INDEX IF NOT EXISTS idx_security_incident_states_status_updated ON security_incident_states(status,updated_at);
     CREATE INDEX IF NOT EXISTS idx_platform_operator_mfa_used_steps_used_at ON platform_operator_mfa_used_steps(used_at);
     CREATE INDEX IF NOT EXISTS idx_platform_operator_audit_created ON platform_operator_audit_events(created_at);
   `);
@@ -518,6 +526,43 @@ function securityEvents(db,{limit=100}={}) {
   return db.prepare(`SELECT id,kind,severity,fingerprint_hash AS fingerprintHash,details_json AS detailsJson,created_at AS createdAt
     FROM security_events ORDER BY created_at DESC,id DESC LIMIT ?`).all(safeLimit)
     .map(row=>({...row,details:jsonParse(row.detailsJson,{})}));
+}
+
+function securityEventById(db,eventId) {
+  const row=db.prepare(`SELECT id,kind,severity,fingerprint_hash AS fingerprintHash,details_json AS detailsJson,created_at AS createdAt
+    FROM security_events WHERE id=?`).get(String(eventId||'').trim());
+  return row?{...row,details:jsonParse(row.detailsJson,{})}:null;
+}
+
+const SECURITY_INCIDENT_STATUSES=Object.freeze(['new','reviewed','investigating','resolved']);
+
+function securityIncidentState(db,eventId) {
+  const idValue=String(eventId||'').trim();
+  if(!idValue)return null;
+  const row=db.prepare(`SELECT s.security_event_id AS securityEventId,s.status,s.updated_by_operator_id AS updatedByOperatorId,
+    s.updated_at AS updatedAt,o.display_name AS updatedByDisplayName,o.username AS updatedByUsername
+    FROM security_incident_states s
+    LEFT JOIN platform_operators o ON o.id=s.updated_by_operator_id
+    WHERE s.security_event_id=?`).get(idValue);
+  return row||null;
+}
+
+function setSecurityIncidentStatus(db,{eventId,status,operatorId}) {
+  const idValue=String(eventId||'').trim();
+  const safeStatus=String(status||'').trim();
+  if(!idValue)throw databaseError('Incidenten saknar säkerhetshändelse.','INVALID_SECURITY_INCIDENT_EVENT',422);
+  if(!SECURITY_INCIDENT_STATUSES.includes(safeStatus))throw databaseError('Ogiltig incidentstatus.','INVALID_SECURITY_INCIDENT_STATUS',422);
+  if(!securityEventById(db,idValue))throw databaseError('Säkerhetshändelsen hittades inte.','SECURITY_EVENT_NOT_FOUND',404);
+  if(safeStatus==='new'){
+    db.prepare('DELETE FROM security_incident_states WHERE security_event_id=?').run(idValue);
+    return{securityEventId:idValue,status:'new',updatedByOperatorId:operatorId||null,updatedAt:nowIso()};
+  }
+  const updatedAt=nowIso();
+  db.prepare(`INSERT INTO security_incident_states(security_event_id,status,updated_by_operator_id,updated_at)
+    VALUES(?,?,?,?)
+    ON CONFLICT(security_event_id) DO UPDATE SET status=excluded.status,updated_by_operator_id=excluded.updated_by_operator_id,updated_at=excluded.updated_at`)
+    .run(idValue,safeStatus,operatorId||null,updatedAt);
+  return securityIncidentState(db,idValue);
 }
 
 function createPlatformOperator(db,{id:operatorId=id('operator'),username,displayName,passwordHash,mfaSecretEncrypted,disabled=false}) {
@@ -840,6 +885,10 @@ module.exports = Object.freeze({
   deleteSession,
   appendSecurityEvent,
   securityEvents,
+  securityEventById,
+  SECURITY_INCIDENT_STATUSES,
+  securityIncidentState,
+  setSecurityIncidentStatus,
   createPlatformOperator,
   platformOperatorById,
   platformOperatorByUsername,
