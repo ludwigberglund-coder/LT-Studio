@@ -33,7 +33,11 @@ function buildStatic(){
   copyDirectory(path.join(root,'packages','invoicing'),path.join(target,'shared','invoicing'));
   copyFile(require.resolve('pdf-lib/dist/pdf-lib.min.js'),path.join(target,'shared','vendor','pdf-lib.min.js'));
   copyDirectory(path.join(root,'content'),path.join(target,'content'));
-  copyDirectory(path.join(root,'config'),path.join(target,'config'));
+  // Public demo config is allowlisted. Never copy the whole config directory:
+  // it also contains internal pilot/evidence/security metadata that browsers do not need.
+  for(const name of ['rolands-business-decisions.json','access-control.json','legal-rates.json','accounting-accounts.json']){
+    copyFile(path.join(root,'config',name),path.join(target,'config',name));
+  }
   copyDirectory(path.join(root,'public'),path.join(target,'legacy'));
   for(const workspace of ['portal','admin','legacy'])installWorkspaceNavigation(path.join(target,workspace));
   copyFile(path.join(root,'apps','website','index.html'),path.join(target,'404.html'));
@@ -59,6 +63,13 @@ function buildStatic(){
     'config/legal-rates.json','config/accounting-accounts.json','legacy/index.html'
   ];
   for(const name of required)if(!fs.existsSync(path.join(target,name)))throw new Error(`Byggfil saknas: ${name}`);
+  const forbidden=[
+    'config/pilot-operations.example.json',
+    'config/pilot-uat-evidence.example.json',
+    'config/secret-scan-baseline.json',
+    '.env','store.json','platform.sqlite'
+  ];
+  for(const name of forbidden)if(fs.existsSync(path.join(target,name)))throw new Error(`Privat driftfil får inte publiceras i statisk demo: ${name}`);
   console.log(`Ny statisk demo byggd: ${target}`);return target;
 }
 if(require.main===module){try{buildStatic();}catch(error){console.error(error.message);process.exitCode=1;}}
