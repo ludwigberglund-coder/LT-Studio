@@ -2,8 +2,11 @@
 
 const crypto = require('node:crypto');
 
-const PASSWORD_PREFIX = 'scrypt-v1';
-const SCRYPT = Object.freeze({N: 16384, r: 8, p: 1, keyLength: 64, maxmem: 64 * 1024 * 1024});
+const PASSWORD_PREFIX = 'scrypt-v2';
+const LEGACY_PASSWORD_PREFIX = 'scrypt-v1';
+// OWASP minimum-equivalent scrypt profile: N=2^14, r=8, p=5.
+const SCRYPT = Object.freeze({N: 16384, r: 8, p: 5, keyLength: 64, saltLength: 16, maxmem: 64 * 1024 * 1024});
+const LEGACY_SCRYPT = Object.freeze({N: 16384, r: 8, p: 1, keyLength: 64, saltLength: 16, maxmem: 64 * 1024 * 1024});
 
 function authError(message, code = 'AUTH_ERROR', statusCode = 401) {
   const error = new Error(message);
@@ -26,22 +29,49 @@ function assertPassword(value) {
 
 function hashPassword(password) {
   const value = assertPassword(password);
-  const salt = crypto.randomBytes(16);
+  const salt = crypto.randomBytes(SCRYPT.saltLength);
   const derived = crypto.scryptSync(value, salt, SCRYPT.keyLength, {N:SCRYPT.N, r:SCRYPT.r, p:SCRYPT.p, maxmem:SCRYPT.maxmem});
   return [PASSWORD_PREFIX, SCRYPT.N, SCRYPT.r, SCRYPT.p, salt.toString('base64url'), derived.toString('base64url')].join('$');
 }
 
+function passwordProfile(prefix) {
+  if (prefix === PASSWORD_PREFIX) return SCRYPT;
+  if (prefix === LEGACY_PASSWORD_PREFIX) return LEGACY_SCRYPT;
+  return null;
+}
+
 function verifyPassword(password, encoded) {
   try {
-    const [prefix,nRaw,rRaw,pRaw,saltRaw,hashRaw] = String(encoded || '').split('$');
-    if (prefix !== PASSWORD_PREFIX || !saltRaw || !hashRaw) return false;
+    const parts = String(encoded || '').split('$');
+    if (parts.length !== 6) return false;
+    const [prefix,nRaw,rRaw,pRaw,saltRaw,hashRaw] = parts;
+    const profile = passwordProfile(prefix);
+    if (!profile || !saltRaw || !hashRaw) return false;
     const N = Number(nRaw), r = Number(rRaw), p = Number(pRaw);
-    if (![N,r,p].every(Number.isSafeInteger) || N < 16384 || r < 8 || p < 1) return false;
+    if (N !== profile.N || r !== profile.r || p !== profile.p) return false;
+    const salt = Buffer.from(saltRaw, 'base64url');
     const expected = Buffer.from(hashRaw, 'base64url');
-    const actual = crypto.scryptSync(String(password || ''), Buffer.from(saltRaw, 'base64url'), expected.length, {N,r,p,maxmem:SCRYPT.maxmem});
-    return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+    if (salt.length !== profile.saltLength || expected.length !== profile.keyLength) return false;
+    const actual = crypto.scryptSync(String(password || ''), salt, profile.keyLength, {
+      N:profile.N,r:profile.r,p:profile.p,maxmem:profile.maxmem
+    });
+    return crypto.timingSafeEqual(expected, actual);
   } catch {
     return false;
+  }
+}
+
+function passwordHashNeedsUpgrade(encoded) {
+  try {
+    const parts = String(encoded || '').split('$');
+    if (parts.length !== 6) return true;
+    const [prefix,nRaw,rRaw,pRaw,saltRaw,hashRaw] = parts;
+    if (prefix !== PASSWORD_PREFIX) return true;
+    if (Number(nRaw) !== SCRYPT.N || Number(rRaw) !== SCRYPT.r || Number(pRaw) !== SCRYPT.p) return true;
+    return Buffer.from(saltRaw || '', 'base64url').length !== SCRYPT.saltLength
+      || Buffer.from(hashRaw || '', 'base64url').length !== SCRYPT.keyLength;
+  } catch {
+    return true;
   }
 }
 
@@ -147,6 +177,7 @@ module.exports = Object.freeze({
   assertPassword,
   hashPassword,
   verifyPassword,
+  passwordHashNeedsUpgrade,
   randomToken,
   hashToken,
   safeEqualText,
