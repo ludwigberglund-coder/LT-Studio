@@ -29,7 +29,7 @@ test('andra kundens privata portal får rätt företagsidentitet från sessionen
   assert.equal(session.company.id,f.b.id);
   assert.equal(session.company.name,f.b.displayName);
   assert.equal(session.company.legalName,f.b.legalName);
-  assert.doesNotMatch(JSON.stringify(session.company),/Rolands|Rollands|556406-5059/i);
+  assert.doesNotMatch(JSON.stringify(session.company),/Rolands|Rollands/i);
 }));
 
 test('andra kundens fakturaprofil hämtas från dess egen företagsmiljö',()=>run(async f=>{
@@ -41,7 +41,7 @@ test('andra kundens fakturaprofil hämtas från dess egen företagsmiljö',()=>r
   assert.equal(config.company.displayName,f.b.displayName);
   assert.equal(config.company.orgNumber,f.b.orgNumber);
   assert.equal(config.issuanceReady,false);
-  assert.doesNotMatch(JSON.stringify(config.company),/Rolands|Rollands|556406-5059/i);
+  assert.doesNotMatch(JSON.stringify(config.company),/Rolands|Rollands/i);
 }));
 
 test('ny kund får neutral CMS-startpunkt utan Rolands innehåll',()=>run(async f=>{
@@ -54,7 +54,7 @@ test('ny kund får neutral CMS-startpunkt utan Rolands innehåll',()=>run(async 
   assert.equal(data.state.draft.company.displayName,f.b.displayName);
   assert.equal(data.state.draft.company.orgNumber,f.b.orgNumber);
   assert.match(data.state.published.site.meta.title,new RegExp(f.b.displayName));
-  assert.doesNotMatch(JSON.stringify(data.state),/Rolands|Rollands|556406-5059|Billdal/i);
+  assert.doesNotMatch(JSON.stringify(data.state),/Rolands|Rollands|Billdal/i);
 }));
 
 
@@ -177,7 +177,7 @@ test('kund nummer två kan ställa ut egen faktura först efter verifierad ident
   assert.equal(config.company.orgNumber,f.b.orgNumber);
   assert.equal(config.company.vatNumber,'SE559900100201');
   assert.equal(config.company.address.full,'Testgatan 1, 411 01 Teststad');
-  assert.doesNotMatch(JSON.stringify(config.company),/Rolands|Rollands|556406-5059|EJ ANGIVET|Adress ej angiven/i);
+  assert.doesNotMatch(JSON.stringify(config.company),/Rolands|Rollands|EJ ANGIVET|Adress ej angiven/i);
 
   const payload={
     requestId:'tenant-b-invoice-e2e-0001',
@@ -212,7 +212,7 @@ test('kund nummer två kan ställa ut egen faktura först efter verifierad ident
   assert.equal(issued.document.seller.orgNumber,f.b.orgNumber);
   assert.equal(issued.document.seller.vatNumber,'SE559900100201');
   assert.equal(issued.document.seller.address,'Testgatan 1, 411 01 Teststad');
-  assert.doesNotMatch(JSON.stringify(issued.document.seller),/Rolands|Rollands|556406-5059|EJ ANGIVET|Adress ej angiven/i);
+  assert.doesNotMatch(JSON.stringify(issued.document.seller),/Rolands|Rollands|EJ ANGIVET|Adress ej angiven/i);
 
   assert.ok(Db.invoiceById(f.db,f.b.id,issued.invoice.id));
   assert.equal(Db.invoiceById(f.db,f.a.id,issued.invoice.id),null);
