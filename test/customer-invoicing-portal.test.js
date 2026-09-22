@@ -39,10 +39,10 @@ test('PDF-utkast kan valideras utan bankgiro men skarp fakturavalidering kräver
   const input={
     customerNumber:'K-1001',
     seller:{
-      name:'Rolands Frukt o Grönt Aktiebolag',
+      name:'Demo Handel AB',
       address:'Testgatan 1, 411 01 Göteborg',
-      orgNumber:'556406-5059',
-      vatNumber:'SE556406505901',
+      orgNumber:'000000-0000',
+      vatNumber:'SE000000000001',
       bankgiro:'',
       taxStatus:''
     },
