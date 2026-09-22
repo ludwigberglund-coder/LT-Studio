@@ -126,7 +126,10 @@ test('public origin rejects spoofed loopback Host but accepts configured host',(
 test('static portal responses use the stricter page CSP and security headers',()=>withServer({},async base=>{
   const response=await fetch(base+'/portal/index.html');
   assert.equal(response.status,200);
-  assert.match(response.headers.get('content-security-policy')||'',/default-src 'self'/);
+  const csp=response.headers.get('content-security-policy')||'';
+  assert.match(csp,/default-src 'self'/);
+  assert.match(csp,/script-src-attr 'none'/);
+  assert.match(csp,/frame-src 'none'/);
   assert.match(response.headers.get('permissions-policy')||'',/geolocation=\(\)/);
   assert.equal(response.headers.get('cross-origin-opener-policy'),'same-origin');
   assert.equal(response.headers.get('cross-origin-resource-policy'),'same-origin');

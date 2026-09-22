@@ -16,7 +16,8 @@ const RULES=Object.freeze([
   {id:'srcdoc-assignment',regex:/\.srcdoc\s*=|\bsrcdoc\s*=/g},
   {id:'string-timeout',regex:/\bsetTimeout\s*\(\s*['"`]/g},
   {id:'string-interval',regex:/\bsetInterval\s*\(\s*['"`]/g},
-  {id:'javascript-url',regex:/\bjavascript\s*:/ig}
+  {id:'javascript-url',regex:/\bjavascript\s*:/ig},
+  {id:'inline-event-attribute',regex:/<[^>\n]*\son[a-z]+\s*=/ig}
 ]);
 
 function walk(directory){
