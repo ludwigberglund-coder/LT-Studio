@@ -49,9 +49,24 @@ function decorateOperatorUi(){
     }
     button.prepend(document.createRange().createContextualFragment(operatorIcon(name)));button.classList.add('op-with-icon');
   });
+  animateOperatorEntrance();
+}
+const operatorMotionSeen=new WeakSet();
+function operatorReducedMotion(){return matchMedia('(prefers-reduced-motion: reduce)').matches;}
+function animateOperatorEntrance(){
+  if(operatorReducedMotion())return;
+  let index=0;
+  document.querySelectorAll('.hero-dashboard,.security-hero,.detail-hero,.metric,.panel,.chart-card,.page-intro-card').forEach(element=>{
+    if(operatorMotionSeen.has(element))return;
+    operatorMotionSeen.add(element);
+    element.animate(
+      [{opacity:.72,transform:'translateY(8px)'},{opacity:1,transform:'translateY(0)'}],
+      {duration:360,delay:Math.min(index++,8)*34,easing:'cubic-bezier(.22,1,.36,1)',fill:'both'}
+    );
+  });
 }
 function operatorTap(element){
-  if(!element||element.disabled||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  if(!element||element.disabled||operatorReducedMotion())return;
   element.animate([{transform:'translateY(0) scale(1)'},{transform:'translateY(1px) scale(.97)'},{transform:'translateY(0) scale(1)'}],{duration:220,easing:'cubic-bezier(.2,.8,.2,1)'});
 }
 document.addEventListener('pointerdown',event=>{const target=event.target.closest('.button,.icon-button,.side-nav button,.mobile-nav button,.customer-system-link,.click-row');if(target)operatorTap(target)},{passive:true});

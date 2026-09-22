@@ -18,6 +18,20 @@ function renderHighlights(items) { return items.map(item => `<div class="highlig
 function renderStoryPoints(items) { return items.map(item => `<li>${siteIcon('check')}<span>${escapeHtml(item)}</span></li>`).join(''); }
 function renderHours(items) { return items.map(item => `<div class="hours-row"><span>${escapeHtml(item.days)}</span><strong>${escapeHtml(item.hours)}</strong></div>`).join(''); }
 
+const siteMotionSeen=new WeakSet();
+function reducedMotion(){return matchMedia('(prefers-reduced-motion: reduce)').matches;}
+function animateSite(){
+  if(reducedMotion())return;
+  let index=0;
+  document.querySelectorAll('.hero-copy > *, .hero-visual, .service-card, .story-panel, .story-list li, .contact-grid > *').forEach(element=>{
+    if(siteMotionSeen.has(element))return;
+    siteMotionSeen.add(element);
+    element.animate(
+      [{opacity:.65,transform:'translateY(10px)'},{opacity:1,transform:'translateY(0)'}],
+      {duration:420,delay:Math.min(index++,10)*38,easing:'cubic-bezier(.22,1,.36,1)',fill:'both'}
+    );
+  });
+}
 function render(company, site, previewMode) {
   document.title = site.meta.title;
   document.querySelector('meta[name="description"]').setAttribute('content', site.meta.description);
@@ -34,6 +48,7 @@ function render(company, site, previewMode) {
   const menuButton=document.querySelector('.menu-button'),navigation=document.getElementById('site-navigation');
   menuButton.addEventListener('click',()=>{const open=menuButton.getAttribute('aria-expanded')==='true';menuButton.setAttribute('aria-expanded',String(!open));navigation.classList.toggle('open',!open)});
   navigation.addEventListener('click',event=>{if(event.target.closest('a')){menuButton.setAttribute('aria-expanded','false');navigation.classList.remove('open')}});
+  animateSite();
 }
 
 async function boot() {

@@ -17,12 +17,18 @@ const themes=[
 const canonicalTokens={
   '--color-canvas':'#f7f5f0',
   '--color-paper':'#ffffff',
-  '--color-surface-alt':'#fafafa',
-  '--color-ink':'#0a0a0a',
-  '--color-ink-soft':'#171717',
-  '--color-mid-gray':'#737373',
-  '--color-hairline':'#e5e5e5',
-  '--color-ember':'#e7000b',
+  '--color-surface-alt':'#f5f8f2',
+  '--color-ink':'#16362b',
+  '--color-ink-soft':'#27483d',
+  '--color-mid-gray':'#6c796f',
+  '--color-hairline':'#dde5dc',
+  '--color-ember':'#b4462f',
+  '--color-brand':'#173f32',
+  '--color-brand-2':'#2c624d',
+  '--color-leaf':'#6f8f4f',
+  '--color-lime':'#dce9a7',
+  '--color-warm':'#c5653f',
+  '--color-sky':'#dcefeb',
   '--radius-cards':'24px',
   '--radius-buttons':'18px',
   '--radius-inputs':'18px',
@@ -45,15 +51,20 @@ test('alla LT Studio-ytor använder samma kanoniska design tokens',()=>{
   }
 });
 
-test('temafilerna är akromatiska utanför den avsiktliga canvasen och felrött',()=>{
+test('temafilerna håller sig till LT Studios kontrollerade varumärkespalett',()=>{
+  const allowedBrandColors=new Set([
+    '#f7f5f0','#f5f8f2','#f3f6f1','#edf4ea','#16362b','#27483d','#6c796f','#dde5dc','#b4462f',
+    '#173f32','#2c624d','#6f8f4f','#dce9a7','#c5653f','#dcefeb','#d9e4d6','#76a9a1','#a0b966',
+    '#c8d9c5','#315b2d','#edf5e8','#d2e4ca','#74551f','#fff5df','#ead8ad','#235f58','#e8f4f1','#cce4df'
+  ]);
   for(const file of themes){
     const colors=new Set(source(file).match(/#[0-9a-f]{6}\b/gi)||[]);
     for(const color of colors){
       const normalized=color.toLowerCase();
-      if(normalized==='#f7f5f0'||normalized==='#e7000b')continue;
+      if(allowedBrandColors.has(normalized))continue;
       const [,red,green,blue]=normalized.match(/^#(..)(..)(..)$/);
-      assert.equal(red,green,`${file} innehåller en otillåten kulör: ${color}`);
-      assert.equal(green,blue,`${file} innehåller en otillåten kulör: ${color}`);
+      assert.equal(red,green,`${file} innehåller en kulör utanför LT Studio-paletten: ${color}`);
+      assert.equal(green,blue,`${file} innehåller en kulör utanför LT Studio-paletten: ${color}`);
     }
   }
 });

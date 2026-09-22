@@ -3,12 +3,18 @@
   color-scheme: light;
   --color-canvas: #f7f5f0;
   --color-paper: #ffffff;
-  --color-surface-alt: #fafafa;
-  --color-ink: #0a0a0a;
-  --color-ink-soft: #171717;
-  --color-mid-gray: #737373;
-  --color-hairline: #e5e5e5;
-  --color-ember: #e7000b;
+  --color-surface-alt: #f5f8f2;
+  --color-ink: #16362b;
+  --color-ink-soft: #27483d;
+  --color-mid-gray: #6c796f;
+  --color-hairline: #dde5dc;
+  --color-ember: #b4462f;
+  --color-brand: #173f32;
+  --color-brand-2: #2c624d;
+  --color-leaf: #6f8f4f;
+  --color-lime: #dce9a7;
+  --color-warm: #c5653f;
+  --color-sky: #dcefeb;
   --font-geist: "Geist", ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --text-caption: 12px;
@@ -41,13 +47,13 @@
     rgb(0 0 0 / 0.1) 0 1px 3px 0,
     rgb(0 0 0 / 0.1) 0 1px 2px -1px;
 
-  --forest: var(--color-ink);
-  --forest-deep: var(--color-ink-soft);
-  --leaf: var(--color-mid-gray);
-  --lime: #f5f5f5;
+  --forest: var(--color-brand);
+  --forest-deep: #173f32;
+  --leaf: var(--color-leaf);
+  --lime: var(--color-lime);
   --cream: var(--color-canvas);
   --paper: var(--color-paper);
-  --warm: var(--color-mid-gray);
+  --warm: #c5653f;
   --ink: var(--color-ink);
   --muted: var(--color-mid-gray);
   --line: var(--color-hairline);
@@ -131,8 +137,8 @@ b {
   min-height: 36px;
   padding: 8px 16px;
   color: var(--color-paper);
-  background: var(--color-ink);
-  border: 1px solid var(--color-ink);
+  background: var(--color-brand);
+  border: 1px solid var(--color-brand);
   border-radius: var(--radius-buttons);
   box-shadow: none;
   font-size: var(--text-body);
@@ -142,7 +148,7 @@ b {
 .header-action:hover,
 .button.primary:hover,
 .button.light-button:hover {
-  background: var(--color-ink-soft);
+  background: var(--color-brand-2);
 }
 
 .button.secondary,
@@ -231,8 +237,8 @@ h3 {
 
 .hero-visual {
   min-height: 480px;
-  background: var(--color-surface-alt);
-  border: 1px solid var(--color-hairline);
+  background: #f5f8f2;
+  border: 1px solid #c8d9c5;
   border-radius: var(--radius-cards);
   box-shadow: var(--shadow-subtle);
 }
@@ -261,19 +267,19 @@ h3 {
 }
 
 .produce-orange {
-  background: #d4d4d4;
+  background: #c5653f;
 }
 
 .produce-green {
-  background: #a3a3a3;
+  background: #a0b966;
 }
 
 .produce-red {
-  background: #404040;
+  background: #b4462f;
 }
 
 .leaf {
-  background: #737373;
+  background: #6f8f4f;
 }
 
 .visual-note {
@@ -288,7 +294,7 @@ h3 {
 }
 
 .services {
-  background: var(--color-surface-alt);
+  background: #f5f8f2;
 }
 
 .story {
@@ -329,7 +335,7 @@ h3 {
 
 .contact {
   color: var(--color-paper);
-  background: var(--color-ink);
+  background: var(--color-brand);
 }
 
 .contact h2,
@@ -405,3 +411,16 @@ h3 {
 .header-action:hover,.button:hover,.menu-button:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgb(0 0 0 / .12)}
 .header-action:active,.button:active,.menu-button:active,.map-link:active,.site-navigation a:active{transform:translateY(1px) scale(.98);box-shadow:0 2px 7px rgb(0 0 0 / .10)}
 .service-card:active{transform:translateY(1px) scale(.995)}
+
+
+/* Brand polish: functional color hierarchy and restrained Motion-style depth. */
+.brand small,.eyebrow,.eyebrow.light{color:var(--color-warm)}
+.site-navigation a:hover{color:var(--color-brand-2)}
+.visual-note{background:var(--color-brand)}
+.service-number{background:var(--color-lime);color:var(--color-brand)}
+.story-list span{color:var(--color-leaf)}
+.service-card{transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+.service-card:hover{transform:translateY(-3px);border-color:#c8d9c5;box-shadow:0 18px 42px rgb(23 63 50 / .10)}
+.highlight strong{color:var(--color-brand)}
+.contact-card{background:rgb(255 255 255 / .07);border-color:rgb(255 255 255 / .16);backdrop-filter:blur(8px)}
+.map-link{color:var(--color-lime)!important}
