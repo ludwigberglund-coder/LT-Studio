@@ -617,3 +617,69 @@ tbody tr:hover td{background:#f7faf6}
 .audit-row time{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 @media(max-width:1000px){.security-toolbar{grid-template-columns:1fr 1fr}.security-toolbar label:nth-child(3){grid-column:1/-1}.audit-row{grid-template-columns:auto minmax(0,1fr) auto}.audit-detail{grid-column:2}.audit-row time{grid-column:3;grid-row:1}}
 @media(max-width:620px){.security-toolbar{grid-template-columns:1fr}.security-toolbar label:nth-child(3){grid-column:auto}.audit-row{grid-template-columns:auto minmax(0,1fr)}.audit-detail,.audit-row time{grid-column:2}.audit-row time{grid-row:auto}}
+
+
+/* Active security monitoring */
+.nav-badge.ok{background:rgba(102,125,107,.18);color:#b8cbbd;border-color:rgba(154,190,163,.12)}
+.nav-badge.warning{background:rgba(197,143,39,.18);color:#e5c36f;border-color:rgba(229,195,111,.12)}
+.nav-badge.critical{background:rgba(201,87,87,.20);color:#f0a1a1;border-color:rgba(240,161,161,.14)}
+.security-live-alert{
+  width:100%;display:flex;align-items:center;gap:11px;margin:0 0 18px;padding:12px 15px;
+  border-radius:13px;border:1px solid;text-align:left;cursor:pointer;font:inherit;
+  box-shadow:0 5px 18px rgba(20,28,22,.035)
+}
+.security-live-alert>span:last-child{margin-left:auto;font-size:18px}
+.security-live-alert strong{font-size:12px}
+.security-live-alert>span:not(.security-pulse):not(:last-child){font-size:12px;opacity:.78}
+.security-live-alert.warning{background:#fff9ed;border-color:#ecddb8;color:#71510d}
+.security-live-alert.critical{background:#fff2f2;border-color:#ebcccc;color:#842c2c}
+.security-pulse{
+  width:8px;height:8px;border-radius:50%;flex:0 0 8px;background:currentColor;
+  box-shadow:0 0 0 0 currentColor;animation:securityPulse 2s infinite
+}
+@keyframes securityPulse{
+  0%{box-shadow:0 0 0 0 color-mix(in srgb,currentColor 34%,transparent)}
+  70%{box-shadow:0 0 0 7px transparent}
+  100%{box-shadow:0 0 0 0 transparent}
+}
+.active-security-hero{min-height:260px}
+.monitor-live{
+  display:inline-flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:20px;padding:9px 12px;
+  border:1px solid rgba(255,255,255,.09);border-radius:999px;background:rgba(255,255,255,.04);
+  color:#aeb8b0;font-size:11px
+}
+.monitor-live strong{color:#f4f7f4}
+.monitor-live .live-dot{width:8px;height:8px}
+.monitor-live .live-dot.ok{background:#86c993;box-shadow:0 0 0 5px rgba(134,201,147,.10)}
+.monitor-live .live-dot.warning{background:#d8b45c;box-shadow:0 0 0 5px rgba(216,180,92,.10)}
+.monitor-live .live-dot.critical{background:#dc7d7d;box-shadow:0 0 0 5px rgba(220,125,125,.10)}
+.findings-panel{overflow:hidden}
+.finding-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.security-finding{
+  position:relative;min-height:168px;padding:21px 23px 22px;border-bottom:1px solid #edf0eb;background:#fff
+}
+.security-finding:nth-child(odd){border-right:1px solid #edf0eb}
+.security-finding::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#9da69f}
+.security-finding.critical::before{background:#c95757}
+.security-finding.warning::before{background:#c39129}
+.security-finding.info::before{background:#718776}
+.finding-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.finding-category{font-size:10px;font-weight:900;letter-spacing:.09em;text-transform:uppercase;color:#929a93}
+.security-finding h3{margin:0 0 8px;font-size:17px;letter-spacing:-.02em;color:#202a23}
+.security-finding p{margin:0;color:#727c74;font-size:13px;line-height:1.55;max-width:620px}
+.live-clear{align-items:center;justify-content:center;min-height:180px;padding:30px;background:linear-gradient(180deg,#fbfdfb,#f7faf7);text-align:left}
+.clear-check{
+  width:44px;height:44px;border-radius:50%;display:grid;place-items:center;flex:0 0 44px;
+  background:#eaf4ec;color:#2e6d41;border:1px solid #d1e7d6;font-size:21px;font-weight:900
+}
+.panel-stat.critical{background:#fff0f0;color:#8c2525}
+.panel-stat.warning{background:#fff7e6;color:#805b0c}
+.panel-stat.ok{background:#edf7ef;color:#24643a}
+@media(max-width:900px){.finding-list{grid-template-columns:1fr}.security-finding:nth-child(odd){border-right:0}}
+@media(max-width:620px){
+  .security-live-alert{align-items:flex-start;flex-wrap:wrap}
+  .security-live-alert>span:last-child{margin-left:auto}
+  .security-live-alert>span:not(.security-pulse):not(:last-child){flex:1 1 180px}
+  .monitor-live{border-radius:14px}
+}
+@media(prefers-reduced-motion:reduce){.security-pulse{animation:none}}
