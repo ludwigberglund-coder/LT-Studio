@@ -181,3 +181,26 @@ test('periodupplåsning har strikt schema för återautentisering',()=>{
   assert.doesNotThrow(()=>Security.validateJsonInput(reject,{reason:'Begäran avslås efter kontroll'}));
   assert.throws(()=>Security.validateJsonInput(reject,{reason:'Begäran avslås efter kontroll',password:'ska inte tillåtas'}),{code:'UNEXPECTED_FIELDS'});
 });
+
+
+test('företagsinställningar har registrerat strikt inputschema',()=>{
+  const req=request('/api/v1/company-settings',{method:'PUT'});
+  const payload={
+    address:'Testgatan 1, 411 00 Göteborg',
+    email:'ekonomi@example.invalid',
+    phone:'+46 31 000 00 00',
+    website:'https://example.invalid/',
+    vatNumber:'SE000000000001',
+    bankgiro:'0000-0000',
+    taxStatus:'Godkänd för F-skatt'
+  };
+  assert.deepEqual(Security.validateJsonInput(req,payload),payload);
+  assert.throws(
+    ()=>Security.validateJsonInput(req,{...payload,bankgiro:'12'}),
+    error=>error?.code==='INVALID_INPUT_FORMAT'
+  );
+  assert.throws(
+    ()=>Security.validateJsonInput(req,{...payload,unexpected:'x'}),
+    error=>error?.code==='UNEXPECTED_FIELDS'
+  );
+});
