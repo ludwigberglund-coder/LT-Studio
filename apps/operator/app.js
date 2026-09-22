@@ -1,6 +1,6 @@
 const root=document.getElementById('operator-app');
 const csrfKey='lt-operator-csrf';
-let session=null,overview=null,readiness=null,security=null,errorMessage='';
+let session=null,overview=null,readiness=null,security=null,errorMessage='',selectedCompanyId='',userAdminData=null,actionMessage='';
 
 function esc(value=''){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
 function initials(name='LT'){return String(name).trim().split(/\s+/).filter(Boolean).map(part=>part[0]).join('').slice(0,2).toUpperCase()||'LT'}
@@ -36,11 +36,44 @@ function securityState(){
 }
 function companyRows(){
   const rows=overview?.companies||[];
-  if(!rows.length)return '<tr><td colspan="6" class="empty">Inga företag är registrerade ännu.</td></tr>';
+  if(!rows.length)return '<tr><td colspan="7" class="empty">Inga företag är registrerade ännu.</td></tr>';
   return rows.map(company=>{
     const access=company.accessConfigured?'<span class="status-pill"><span class="dot ok"></span>Konfigurerad</span>':'<span class="status-pill"><span class="dot warning"></span>Saknar medlem</span>';
-    return `<tr><td><strong>${esc(company.displayName)}</strong><br><small>${esc(company.legalName)}</small></td><td>${esc(company.orgNumber||'—')}</td><td>${access}</td><td>${company.activeSessionCount}</td><td>${company.invoiceRecordCount}</td><td>${dateTime(company.lastActivityAt)}</td></tr>`;
+    return `<tr><td><strong>${esc(company.displayName)}</strong><br><small>${esc(company.legalName)}</small></td><td>${esc(company.orgNumber||'—')}</td><td>${access}</td><td>${company.activeSessionCount}</td><td>${company.invoiceRecordCount}</td><td>${dateTime(company.lastActivityAt)}</td><td><button class="button secondary compact" data-action="manage-users" data-company-id="${esc(company.id)}">Hantera användare</button></td></tr>`;
   }).join('');
+}
+function userAdminPanel(){
+  if(!selectedCompanyId)return '';
+  if(!userAdminData)return '<section class="panel"><div class="empty">Användarna laddas…</div></section>';
+  const company=userAdminData.company||{};
+  const roles=userAdminData.roles||[];
+  const users=userAdminData.users||[];
+  const roleOptions=role=>roles.map(item=>`<option value="${esc(item.id)}" ${item.id===role?'selected':''}>${esc(item.label)}</option>`).join('');
+  const rows=users.length?users.map(user=>`<tr>
+    <td><strong>${esc(user.displayName)}</strong><br><small>${esc(user.username)}</small></td>
+    <td><select data-user-role="${esc(user.id)}">${roleOptions(user.role)}</select></td>
+    <td>${user.disabled?'<span class="status-pill"><span class="dot critical"></span>Inaktiverad</span>':'<span class="status-pill"><span class="dot ok"></span>Aktiv</span>'}</td>
+    <td><button class="button secondary compact" data-action="reset-password" data-user-id="${esc(user.id)}" data-user-name="${esc(user.displayName)}">Byt lösenord</button></td>
+    <td><button class="button secondary compact" data-action="toggle-user" data-user-id="${esc(user.id)}" data-disabled="${user.disabled?'0':'1'}">${user.disabled?'Aktivera':'Inaktivera'}</button></td>
+  </tr>`).join(''):'<tr><td colspan="5" class="empty">Inga användare finns ännu.</td></tr>';
+  const passwordText=esc(userAdminData.passwordRequirements?.message||'Lösenordet måste uppfylla säkerhetskraven.');
+  return `<section class="panel" id="user-admin-panel">
+    <div class="panel-head"><div><h2>Användare · ${esc(company.displayName||company.legalName||'Företag')}</h2><p>Endast LT Studio-operatörer kan skapa och administrera kundkonton.</p></div><button class="button secondary" data-action="close-user-admin">Stäng</button></div>
+    ${actionMessage?`<div class="notice success-note">${esc(actionMessage)}</div>`:''}
+    <div class="user-admin-grid">
+      <form class="card user-create-card" id="create-user-form">
+        <h3>Skapa användare</h3>
+        <p>${passwordText}</p>
+        <label class="field"><span>Namn</span><input name="displayName" required maxlength="160"></label>
+        <label class="field"><span>Användarnamn</span><input name="username" required maxlength="120" autocomplete="off"></label>
+        <label class="field"><span>Tillfälligt lösenord</span><input name="password" type="password" required maxlength="256" autocomplete="new-password"></label>
+        <label class="field"><span>Roll</span><select name="role">${roleOptions('readonly')}</select></label>
+        <label class="field"><span>Inloggning gäller</span><select name="sessionDurationMinutes"><option value="480">8 timmar</option><option value="360">6 timmar</option><option value="240">4 timmar</option><option value="120">2 timmar</option><option value="session">Varje gång webbläsaren stängs</option></select></label>
+        <button class="button" type="submit">Skapa konto</button>
+      </form>
+      <div class="table-wrap"><table><thead><tr><th>Användare</th><th>Roll</th><th>Status</th><th>Lösenord</th><th>Konto</th></tr></thead><tbody>${rows}</tbody></table></div>
+    </div>
+  </section>`;
 }
 function securityEventLabel(kind){
   return ({
@@ -97,7 +130,8 @@ function dashboard(){
     <article class="metric"><span>Readiness</span><strong class="${ready.kind}">${ready.label}</strong><small>backup, R2, audit, restore, monitoring och databas</small></article>
     <article class="metric"><span>Säkerhet 24 h</span><strong class="${sec.kind}">${sec.label}</strong><small>${overview?.security?.total??0} händelser totalt</small></article>
   </section>
-  <section class="panel"><div class="panel-head"><div><h2>Kundmiljöer</h2><p>Teknisk metadata för varje företag.</p></div><button class="button secondary" data-action="refresh">Uppdatera</button></div><div class="table-wrap"><table><thead><tr><th>Företag</th><th>Org.nr</th><th>Åtkomst</th><th>Sessioner</th><th>Fakturaposter</th><th>Senaste aktivitet</th></tr></thead><tbody>${companyRows()}</tbody></table></div></section>
+  <section class="panel"><div class="panel-head"><div><h2>Kundmiljöer</h2><p>Teknisk metadata för varje företag.</p></div><button class="button secondary" data-action="refresh">Uppdatera</button></div><div class="table-wrap"><table><thead><tr><th>Företag</th><th>Org.nr</th><th>Åtkomst</th><th>Sessioner</th><th>Fakturaposter</th><th>Senaste aktivitet</th><th></th></tr></thead><tbody>${companyRows()}</tbody></table></div></section>
+  ${userAdminPanel()}
   <section class="panel"><div class="panel-head"><div><h2>Hälsokontroller</h2><p>Exakt vilken del av driften som är frisk eller behöver åtgärdas.</p></div></div><div class="health-list">${readinessChecks()}</div></section>
   <section class="panel"><div class="panel-head"><div><h2>Säkerhetshändelser</h2><p>Redigerad driftvy utan IP, användarnamn eller tekniska fingeravtryck.</p></div></div><div class="event-list">${securityEvents()}</div></section>
   </section></div>`;
@@ -110,12 +144,41 @@ async function loadData(){
   ]);
   overview=o;readiness=r;security=s;
 }
+async function loadUserAdmin(companyId){
+  selectedCompanyId=companyId;userAdminData=null;actionMessage='';dashboard();
+  try{userAdminData=await api('/companies/'+encodeURIComponent(companyId)+'/users');}
+  catch(error){errorMessage=error.message;selectedCompanyId='';userAdminData=null;}
+  dashboard();
+  document.getElementById('user-admin-panel')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function mutateUser(path,body){
+  const csrf=sessionStorage.getItem(csrfKey)||'';
+  return api(path,{method:'PUT',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(body)});
+}
 async function refresh(){
   errorMessage='';
-  try{await loadData()}catch(error){errorMessage=error.message}
+  try{
+    await loadData();
+    if(selectedCompanyId)userAdminData=await api('/companies/'+encodeURIComponent(selectedCompanyId)+'/users');
+  }catch(error){errorMessage=error.message}
   dashboard();
 }
 document.addEventListener('submit',async event=>{
+  if(event.target.id==='create-user-form'){
+    event.preventDefault();
+    const button=event.target.querySelector('button[type="submit"]');button.disabled=true;
+    const values=Object.fromEntries(new FormData(event.target).entries());
+    if(values.sessionDurationMinutes!=='session')values.sessionDurationMinutes=Number(values.sessionDurationMinutes);
+    else values.sessionDurationMinutes=null;
+    const csrf=sessionStorage.getItem(csrfKey)||'';
+    try{
+      const created=await api('/companies/'+encodeURIComponent(selectedCompanyId)+'/users',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(values)});
+      actionMessage='Kontot skapades. MFA-hemlighet (visas bara nu): '+created.mfaSecret;
+      userAdminData=await api('/companies/'+encodeURIComponent(selectedCompanyId)+'/users');
+      dashboard();
+    }catch(error){errorMessage=error.message;dashboard();}
+    return;
+  }
   if(event.target.id!=='login-form')return;
   event.preventDefault();errorMessage='';
   const button=event.target.querySelector('button[type="submit"]');button.disabled=true;
@@ -126,9 +189,41 @@ document.addEventListener('submit',async event=>{
     await loadData();dashboard();
   }catch(error){errorMessage=error.message;loginView()}
 });
+document.addEventListener('change',async event=>{
+  const select=event.target.closest('[data-user-role]');if(!select||!selectedCompanyId)return;
+  select.disabled=true;
+  try{
+    await mutateUser('/companies/'+encodeURIComponent(selectedCompanyId)+'/users/'+encodeURIComponent(select.dataset.userRole),{action:'role',role:select.value});
+    actionMessage='Rollen ändrades och användarens gamla sessioner avslutades.';
+    userAdminData=await api('/companies/'+encodeURIComponent(selectedCompanyId)+'/users');dashboard();
+  }catch(error){errorMessage=error.message;select.disabled=false;dashboard();}
+});
 document.addEventListener('click',async event=>{
-  const action=event.target.closest('[data-action]')?.dataset.action;
+  const target=event.target.closest('[data-action]');
+  const action=target?.dataset.action;
   if(action==='refresh'){await refresh();return}
+  if(action==='manage-users'){await loadUserAdmin(target.dataset.companyId);return}
+  if(action==='close-user-admin'){selectedCompanyId='';userAdminData=null;actionMessage='';dashboard();return}
+  if(action==='reset-password'){
+    const password=prompt('Ange nytt lösenord för '+(target.dataset.userName||'användaren')+'.');
+    if(password===null)return;
+    try{
+      await mutateUser('/companies/'+encodeURIComponent(selectedCompanyId)+'/users/'+encodeURIComponent(target.dataset.userId),{action:'password',password});
+      actionMessage='Lösenordet byttes och alla gamla sessioner avslutades.';
+      userAdminData=await api('/companies/'+encodeURIComponent(selectedCompanyId)+'/users');dashboard();
+    }catch(error){errorMessage=error.message;dashboard();}
+    return;
+  }
+  if(action==='toggle-user'){
+    const disabled=target.dataset.disabled==='1';
+    if(!confirm(disabled?'Inaktivera användaren och avsluta alla sessioner?':'Aktivera användaren igen?'))return;
+    try{
+      await mutateUser('/companies/'+encodeURIComponent(selectedCompanyId)+'/users/'+encodeURIComponent(target.dataset.userId),{action:'status',disabled});
+      actionMessage=disabled?'Användaren inaktiverades och sessionerna avslutades.':'Användaren aktiverades.';
+      userAdminData=await api('/companies/'+encodeURIComponent(selectedCompanyId)+'/users');dashboard();
+    }catch(error){errorMessage=error.message;dashboard();}
+    return;
+  }
   if(action==='logout'){
     const csrf=sessionStorage.getItem(csrfKey)||'';
     try{await api('/auth/logout',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:'{}'})}catch{}
