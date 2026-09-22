@@ -390,28 +390,6 @@ function createApiApp(options) {
         return send(res,200,{saved:true,reauthenticate:true,sessionDurationMinutes:requested},{'Set-Cookie':Auth.clearSessionCookie({secure:secureCookies})});
       }
 
-      if(req.method==='GET' && url.pathname==='/api/v1/access/members') {
-        requirePermission(session,'users.manage');
-        return send(res,200,{members:Db.membershipsForCompany(db,session.companyId),roles:accessConfig.roles.map(role=>({id:role.id,label:role.label,description:role.description}))});
-      }
-
-      const roleMatch=url.pathname.match(/^\/api\/v1\/access\/members\/([^/]+)\/role$/);
-      if(roleMatch && req.method==='PUT') {
-        requirePermission(session,'users.manage');
-        const targetUserId=roleMatch[1];
-        if(targetUserId===session.userId) throw apiError('Du kan inte ändra din egen roll från den här sidan. Använd en annan administratör.','SELF_ROLE_CHANGE_BLOCKED',409);
-        const payload=await readJson(req,res); if(!payload) return;
-        const before=Db.membership(db,session.companyId,targetUserId);
-        if(!before) throw apiError('Användaren är inte medlem i det inloggade företaget.','MEMBERSHIP_NOT_FOUND',404);
-        let updated;
-        Db.transaction(db,()=>{
-          updated=Db.setMembershipRole(db,{companyId:session.companyId,userId:targetUserId,role:payload.role});
-          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'MEMBERSHIP_ROLE_CHANGED',entityType:'user',entityId:targetUserId,details:{before:before.role,after:updated.role}});
-          Db.deleteSessionsForUser(db,targetUserId);
-        });
-        return send(res,200,{membership:updated,sessionsRevoked:true});
-      }
-
       if(req.method==='GET' && url.pathname==='/api/v1/customers') {
         requirePermission(session,'customer-invoice.view');
         const includeArchived=url.searchParams.get('includeArchived')==='1';
