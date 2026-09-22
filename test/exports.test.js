@@ -128,6 +128,43 @@ test('HTTP-export kräver personlig session och skickar fil som bilaga',async()=
   }finally{await new Promise(resolve=>runtime.close(resolve))}
 });
 
+test('export-router kräver den separata reports.export-behörigheten',async()=>{
+  const runtime=createServer({
+    databasePath:':memory:',
+    db:Db.openDatabase(':memory:'),
+    secureCookies:false,
+    accessConfig:{
+      version:2,
+      policy:{defaultDecision:'deny',requirePersonalAccounts:true,sessionIdleMinutes:60,sessionMaxMinutes:480,requireMfa:true},
+      permissions:[
+        {id:'reports.view',label:'Läsa rapporter',category:'Rapporter',risk:'read'},
+        {id:'reports.export',label:'Exportera rapporter',category:'Rapporter',risk:'write'}
+      ],
+      workflows:[{
+        id:'dummy-separation',
+        label:'Dummy',
+        requiredPermission:'reports.export',
+        distinctActors:true,
+        fields:[{id:'requestedBy',label:'Begärd av'},{id:'approvedBy',label:'Godkänd av'}],
+        reason:'Testkonfiguration'
+      }]
+    }
+  });
+  const company=Db.createCompany(runtime.db,{legalName:'Permission Export AB',displayName:'Permission Export',orgNumber:'559990-3999'});
+  const user=Db.createUser(runtime.db,{username:'permission.export',displayName:'Permission Export',passwordHash:'test-only'});
+  Db.addMembership(runtime.db,{companyId:company.id,userId:user.id});
+  const customer=Db.createCustomer(runtime.db,{companyId:company.id,customerNumber:'K-PERM',name:'Permission Kund'});
+  Db.createInvoice(runtime.db,{companyId:company.id,customerId:customer.id,invoiceNumber:'P-1001',invoiceDate:'2026-09-01',postingDate:'2026-09-01',dueDate:'2026-09-30',totalOre:10000,remainingOre:10000,vatOre:2000,status:'Bokförd'});
+  const token=Auth.randomToken(32),csrf=Auth.randomToken(24);
+  Db.createSession(runtime.db,{tokenHash:Auth.hashToken(token),csrfHash:Auth.hashToken(csrf),userId:user.id,companyId:company.id,expiresAt:new Date(Date.now()+60000).toISOString()});
+  await new Promise(resolve=>runtime.server.listen(0,'127.0.0.1',resolve));
+  const base=`http://127.0.0.1:${runtime.server.address().port}`;
+  try{
+    const response=await fetch(base+'/api/v1/exports/receivables?from=2026-09-01&to=2026-09-30',{headers:{Cookie:`rollands_session=${token}`}});
+    assert.equal(response.status,200);
+  }finally{await new Promise(resolve=>runtime.close(resolve))}
+});
+
 
 test('HTTP-export isoleras av sessionens företag även när flera företag har data i samma period',async()=>{
   const runtime=createServer({databasePath:':memory:',db:Db.openDatabase(':memory:'),secureCookies:false});
