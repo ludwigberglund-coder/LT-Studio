@@ -78,6 +78,22 @@ Om en riktig hemlighet misstänks ha committats ska den behandlas som kompromett
 
 Utvecklings- och agentreglerna som förhindrar nya exponeringar finns i `AGENTS.md`. Cloudflare-arkitekturen och dess begränsningar finns i `docs/CLOUDFLARE-FREE-SECURITY.md`.
 
+## Filuppladdningar
+
+Användaruppladdningar är en särskilt känslig attackyta. Följande policy gäller för LT Studio:
+
+- endast PDF-filer får laddas upp av användare,
+- maximal filstorlek är 10 MB,
+- både filändelse och faktisk PDF-signatur kontrolleras på servern,
+- JPEG, PNG, SVG, HTML, JavaScript, Office-filer, ZIP/arkiv och körbara filer är förbjudna,
+- krypterade PDF-filer avvisas eftersom innehållet inte kan säkerhetskontrolleras,
+- PDF-funktioner för JavaScript, automatiska actions, launch, formulär/XFA, RichMedia och inbäddade filer avvisas,
+- användaruppladdade original lagras som privata blobs och får aldrig publiceras som statiska webbassets,
+- användaruppladdade PDF:er levereras som nedladdning (attachment) med sandboxad CSP, inte som inline-innehåll från LT Studios origin,
+- servern får aldrig exekvera, importera eller require:a uppladdat användarinnehåll.
+
+Om stöd för en annan filtyp någon gång behövs ska det behandlas som en ny säkerhetsfunktion med separat threat model, validering, tester och PR. Det får inte införas genom att bara utöka en MIME-lista eller ett HTML `accept`-attribut.
+
 ## Supported versions
 
 Projektet är fortfarande i Production Readiness Phase 1. Endast aktuell `main` och uttryckligen godkända release-commits används som säkerhetsreferens. Äldre demo-, legacy- eller featurebrancher ska inte betraktas som supportade driftversioner.

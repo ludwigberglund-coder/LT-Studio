@@ -55,11 +55,11 @@ test('CMS audit failure rolls back content and revision together',()=>run(async 
   assert.doesNotMatch(JSON.stringify(result.data),/TEST_FAILURE|INSERT|\.js:/);
   assert.deepEqual(Cms.state(f.db,f.a.id),before);
 }));
-test('PDF is same-origin frameable only after object-level authentication',()=>run(async f=>{
+test('supplier PDF is downloadable only after object-level authentication and cannot be framed',()=>run(async f=>{
   const route='/api/v1/payables/invoices/'+f.payable.id+'/document';
   assert.equal((await fetch(f.base+route)).status,401);
   const headers=await f.login();const res=await fetch(f.base+route,{headers});assert.equal(res.status,200);
-  assert.equal(res.headers.get('x-frame-options'),'SAMEORIGIN');assert.match(res.headers.get('content-security-policy'),/frame-ancestors 'self'/);
+  assert.equal(res.headers.get('x-frame-options'),'DENY');assert.match(res.headers.get('content-security-policy'),/sandbox/);assert.match(res.headers.get('content-security-policy'),/frame-ancestors 'none'/);assert.match(res.headers.get('content-disposition')||'',/^attachment;/);
   assert.equal(res.headers.get('cache-control'),'no-store');assert.deepEqual(Buffer.from(await res.arrayBuffer()),f.pdf);
   const foreign=await fetch(f.base+'/api/v1/payables/invoices/'+f.otherPayable.id+'/document',{headers});assert.equal(foreign.status,404);assert.equal(foreign.headers.get('x-frame-options'),'DENY');
 }));
@@ -108,7 +108,7 @@ test('private PDF response supports international file names without unsafe resp
   const response=await fetch(f.base+'/api/v1/payables/invoices/'+f.payable.id+'/document',{headers:await f.login()});
   assert.equal(response.status,200);
   const disposition=response.headers.get('content-disposition');
-  assert.match(disposition,/^inline; filename="invoice\.pdf"; filename\*=UTF-8''/);
+  assert.match(disposition,/^attachment; filename="invoice\.pdf"; filename\*=UTF-8''/);
   assert.equal(decodeURIComponent(disposition.split("UTF-8''")[1]),name);
   assert.deepEqual(Buffer.from(await response.arrayBuffer()),f.pdf);
 }));

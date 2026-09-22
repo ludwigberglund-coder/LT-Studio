@@ -3,13 +3,14 @@
 const crypto=require('node:crypto');
 const PrivateObject=require('./private-object-contract.js');
 const StoreFactory=require('./private-object-store-factory.js');
+const PdfSecurity=require('./pdf-upload-security.js');
 
 function documentError(message,code='DOCUMENT_ERROR',statusCode=422){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
 function id(prefix){return `${prefix}_${crypto.randomUUID()}`}
 function text(v){return String(v??'').trim()}
 function nowIso(){return new Date().toISOString()}
-const ALLOWED_MIME=Object.freeze(['application/pdf','image/jpeg','image/png']);
-const MAX_BYTES=15*1024*1024;
+const ALLOWED_MIME=Object.freeze(['application/pdf']);
+const MAX_BYTES=PdfSecurity.MAX_PDF_BYTES;
 const TENANT_LINK_TARGETS=Object.freeze({
   invoice:'invoices',
   'customer-invoice':'invoices',
@@ -89,13 +90,13 @@ function createPendingIdempotent(db,{companyId,uploadedBy,requestId,...input}){
   }
   return{document:createPending(db,{id:documentId,companyId,uploadedBy,...input}),duplicate:false};
 }
-function createPending(db,{companyId,uploadedBy,...input}){const meta=validateMeta(input);if(!ALLOWED_MIME.includes(meta.mimeType))throw documentError('Endast PDF, JPEG och PNG stöds i dokumentarkivet.','UNSUPPORTED_DOCUMENT_TYPE',415);if(input.entityType&&input.entityId)assertLinkTarget(db,companyId,input.entityType,input.entityId);const documentId=input.id||id('doc'),createdAt=nowIso();db.prepare(`INSERT INTO documents(id,company_id,file_name,mime_type,category,title,note,status,uploaded_by,created_at) VALUES(?,?,?,?,?,?,?,'pending',?,?)`).run(documentId,companyId,meta.fileName,meta.mimeType,meta.category,meta.title,meta.note||null,uploadedBy,createdAt);if(input.entityType&&input.entityId)linkDocument(db,{companyId,documentId,entityType:input.entityType,entityId:input.entityId,label:input.linkLabel||''});return documentById(db,companyId,documentId)}
-function magicMatches(mime,bytes){if(mime==='application/pdf')return bytes.length>=5&&bytes.subarray(0,5).toString('ascii')==='%PDF-';if(mime==='image/jpeg')return bytes.length>=3&&bytes[0]===0xff&&bytes[1]===0xd8&&bytes[2]===0xff;if(mime==='image/png')return bytes.length>=8&&bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]));return false}
+function createPending(db,{companyId,uploadedBy,...input}){const meta=validateMeta(input);if(!ALLOWED_MIME.includes(meta.mimeType))throw documentError('Endast PDF stöds i dokumentarkivet.','UNSUPPORTED_DOCUMENT_TYPE',415);PdfSecurity.assertPdfFileName(meta.fileName);if(input.entityType&&input.entityId)assertLinkTarget(db,companyId,input.entityType,input.entityId);const documentId=input.id||id('doc'),createdAt=nowIso();db.prepare(`INSERT INTO documents(id,company_id,file_name,mime_type,category,title,note,status,uploaded_by,created_at) VALUES(?,?,?,?,?,?,?,'pending',?,?)`).run(documentId,companyId,meta.fileName,meta.mimeType,meta.category,meta.title,meta.note||null,uploadedBy,createdAt);if(input.entityType&&input.entityId)linkDocument(db,{companyId,documentId,entityType:input.entityType,entityId:input.entityId,label:input.linkLabel||''});return documentById(db,companyId,documentId)}
+function magicMatches(mime,bytes){return mime==='application/pdf'&&Buffer.isBuffer(bytes)&&bytes.length>=5&&bytes.subarray(0,5).toString('ascii')==='%PDF-'}
 function storeContent(db,{companyId,documentId,bytes}){
   const doc=documentById(db,companyId,documentId);
   if(!doc)throw documentError('Dokumentet hittades inte.','DOCUMENT_NOT_FOUND',404);
   if(!Buffer.isBuffer(bytes)||!bytes.length)throw documentError('Dokumentinnehåll saknas.','MISSING_DOCUMENT_CONTENT');
-  if(bytes.length>MAX_BYTES)throw documentError('Dokumentet får vara högst 15 MB.','DOCUMENT_TOO_LARGE',413);
+  PdfSecurity.assertSafePdf(bytes,{fileName:doc.fileName,maxBytes:MAX_BYTES});
   if(!magicMatches(doc.mimeType,bytes))throw documentError('Filens innehåll stämmer inte med angiven filtyp.','DOCUMENT_MAGIC_MISMATCH',415);
   const sha256=crypto.createHash('sha256').update(bytes).digest('hex');
   if(doc.status==='ready'){
@@ -149,7 +150,7 @@ function linkDocumentIdempotent(db,{companyId,documentId,entityType,entityId,lab
 }
 function linksForDocument(db,companyId,documentId){return db.prepare(`SELECT entity_type AS entityType,entity_id AS entityId,label,created_at AS createdAt FROM document_links WHERE company_id=? AND document_id=? ORDER BY created_at`).all(companyId,documentId)}
 function documentById(db,companyId,documentId){const row=db.prepare(`SELECT id,company_id AS companyId,file_name AS fileName,mime_type AS mimeType,category,title,note,sha256,size_bytes AS sizeBytes,status,uploaded_by AS uploadedBy,created_at AS createdAt,completed_at AS completedAt FROM documents WHERE company_id=? AND id=?`).get(companyId,documentId);return row?{...row,links:linksForDocument(db,companyId,row.id)}:null}
-function verifyContent(row){if(!row||row.status!=='ready'||!row.bytes)throw documentError('Dokumentinnehållet hittades inte.','DOCUMENT_CONTENT_NOT_FOUND',404);const bytes=Buffer.from(row.bytes);const expected=text(row.sha256).toLowerCase();const actual=crypto.createHash('sha256').update(bytes).digest('hex');if(!/^[a-f0-9]{64}$/.test(expected)||!Number.isSafeInteger(Number(row.sizeBytes))||Number(row.sizeBytes)!==bytes.length||expected!==actual||!magicMatches(row.mimeType,bytes))throw documentError('Dokumentets integritetskontroll misslyckades.','DOCUMENT_INTEGRITY_ERROR',409);return{...row,bytes}}
+function verifyContent(row){if(!row||row.status!=='ready'||!row.bytes)throw documentError('Dokumentinnehållet hittades inte.','DOCUMENT_CONTENT_NOT_FOUND',404);const bytes=Buffer.from(row.bytes);const expected=text(row.sha256).toLowerCase();const actual=crypto.createHash('sha256').update(bytes).digest('hex');if(!/^[a-f0-9]{64}$/.test(expected)||!Number.isSafeInteger(Number(row.sizeBytes))||Number(row.sizeBytes)!==bytes.length||expected!==actual||!magicMatches(row.mimeType,bytes))throw documentError('Dokumentets integritetskontroll misslyckades.','DOCUMENT_INTEGRITY_ERROR',409);PdfSecurity.assertSafePdf(bytes,{fileName:row.fileName,maxBytes:MAX_BYTES});return{...row,bytes}}
 function content(db,companyId,documentId){
   const row=db.prepare(`SELECT file_name AS fileName,mime_type AS mimeType,sha256,size_bytes AS sizeBytes,status FROM documents WHERE company_id=? AND id=?`).get(companyId,documentId);
   if(row){

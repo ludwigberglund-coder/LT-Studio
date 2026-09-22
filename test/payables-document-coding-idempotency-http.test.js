@@ -40,6 +40,12 @@ test('leverantörsfakturans PDF och kontering återanvänds vid identiska retrie
     assert.equal(firstPdf.status,201);
     assert.equal(firstPdfBody.duplicate,false);
     const afterFirstPdf=Payables.invoiceById(f.db,f.a.id,invoiceId);
+    const pdfDownload=await fetch(f.base+`/api/v1/payables/invoices/${invoiceId}/document`,{headers});
+    assert.equal(pdfDownload.status,200);
+    assert.match(pdfDownload.headers.get('content-disposition')||'',/^attachment;/);
+    assert.match(pdfDownload.headers.get('content-security-policy')||'',/sandbox/);
+    assert.equal(pdfDownload.headers.get('content-type'),'application/pdf');
+    assert.deepEqual(Buffer.from(await pdfDownload.arrayBuffer()),pdf);
 
     const retryPdf=await fetch(f.base+`/api/v1/payables/invoices/${invoiceId}/document`,{
       method:'PUT',headers:pdfHeaders,body:pdf
