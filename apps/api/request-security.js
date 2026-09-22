@@ -349,9 +349,9 @@ function assertPrimitiveTypes(req,payload){
 function schemaFor(method,pathname){
   return BODY_RULES.find(([verb,pattern])=>verb===method&&pattern.test(pathname))?.[2]||null;
 }
-function sanitizeJson(value,state={depth:0,nodes:0}){
-  state.nodes+=1;
-  if(state.nodes>10000)throw securityError('JSON-innehållet är för komplext.','JSON_TOO_COMPLEX',422);
+function sanitizeJson(value,state={depth:0,counter:{nodes:0}}){
+  state.counter.nodes+=1;
+  if(state.counter.nodes>10000)throw securityError('JSON-innehållet är för komplext.','JSON_TOO_COMPLEX',422);
   if(state.depth>10)throw securityError('JSON-innehållet är för djupt nästlat.','JSON_TOO_DEEP',422);
   if(value===null||typeof value==='boolean')return value;
   if(typeof value==='number'){
@@ -365,7 +365,7 @@ function sanitizeJson(value,state={depth:0,nodes:0}){
   }
   if(Array.isArray(value)){
     if(value.length>500)throw securityError('En lista innehåller för många poster.','ARRAY_TOO_LARGE',422);
-    return value.map(item=>sanitizeJson(item,{depth:state.depth+1,nodes:state.nodes}));
+    return value.map(item=>sanitizeJson(item,{depth:state.depth+1,counter:state.counter}));
   }
   if(typeof value==='object'){
     const proto=Object.getPrototypeOf(value);
@@ -375,7 +375,7 @@ function sanitizeJson(value,state={depth:0,nodes:0}){
     const clean={};
     for(const key of keys){
       if(key.length>80||!/^[-A-Za-z0-9_]+$/.test(key)||['__proto__','prototype','constructor'].includes(key))throw securityError('JSON innehåller ett otillåtet fältnamn.','INVALID_FIELD_NAME',422);
-      clean[key]=sanitizeJson(value[key],{depth:state.depth+1,nodes:state.nodes});
+      clean[key]=sanitizeJson(value[key],{depth:state.depth+1,counter:state.counter});
     }
     return clean;
   }
