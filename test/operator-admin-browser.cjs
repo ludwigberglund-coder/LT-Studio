@@ -60,9 +60,28 @@ const out=path.join(__dirname,'..','test-artifacts');
     assert.match(body,/Databas · läsning/);
     assert.match(body,/Extern monitoring/);
     assert.match(body,/Audit · externt ankare/);
-    assert.match(body,/LOGIN FAILURE THRESHOLD/);
     assert.doesNotMatch(body,/Hemlig Browserkund|SECRET-BROWSER-CUSTOMER|SECRET-BROWSER-INVOICE|333300|66660|never-in-ui|cccccccc/);
-    checks.push({kind:'overview',company:'Browser Kund'});
+    assert.match(body,/Plattformsaktivitet|Aktiveringsgrad|Fakturor per företag/);
+    assert.ok(await page.locator('.ring-value').count()>=3);
+    assert.ok(await page.locator('meter').count()>=2);
+    checks.push({kind:'overview',company:'Browser Kund',visualInstruments:true});
+
+    await page.getByRole('button',{name:'Statistik',exact:true}).first().click();
+    await page.getByRole('heading',{name:'Statistik',exact:true}).waitFor();
+    assert.equal(await page.locator('.chart-card').count(),4);
+    assert.ok(await page.locator('.sparkline').count()>=4);
+    assert.match(await page.locator('body').innerText(),/Fakturavolym|Behörighetsfördelning|Aktivering/);
+    checks.push({kind:'statistics-dashboard',trendCharts:4});
+
+    await page.getByRole('button',{name:'Säkerhetsportal',exact:true}).first().click();
+    await page.getByRole('heading',{name:'Säkerhetsportal',exact:true}).waitFor();
+    const securityBody=await page.locator('body').innerText();
+    assert.match(securityBody,/LOGIN FAILURE THRESHOLD/);
+    assert.doesNotMatch(securityBody,/never-in-ui|cccccccc/);
+    checks.push({kind:'security-preview'});
+
+    await page.getByRole('button',{name:'Kunder & företag',exact:true}).first().click();
+    await page.getByRole('heading',{name:'Kunder & företag',exact:true}).waitFor();
     const companyRow=page.locator('[data-company-id="'+company.id+'"]');
     await companyRow.focus();
     await page.keyboard.press('Enter');
