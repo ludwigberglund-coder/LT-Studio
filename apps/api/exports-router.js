@@ -16,7 +16,7 @@ function createExportsRouter(options){
   const accessModel=Access.createModel(options.accessConfig||DEFAULT_ACCESS);
   function session(req){const token=Auth.parseCookies(req.headers.cookie).rollands_session;if(!token)return null;const s=Db.sessionByTokenHash(db,Auth.hashToken(token));if(!s||s.disabled)return null;s.actor={id:s.userId,name:s.displayName,companyId:s.companyId,authenticated:true,membershipActive:true,disabled:Boolean(s.disabled)};return s}
   function requireSession(req){const s=session(req);if(!s)throw routeError('Personlig inloggning krävs.','AUTH_REQUIRED',401);return s}
-  function permission(s){const d=Access.authorize(accessModel,s.actor,'reports.view');if(!d.allowed)throw routeError('Du saknar behörighet för export.','ACCESS_DENIED',403)}
+  function permission(s){const d=Access.authorize(accessModel,s.actor,'reports.export');if(!d.allowed)throw routeError('Du saknar behörighet för export.','ACCESS_DENIED',403)}
   async function handle(req,res){
     let url;try{url=new URL(req.url,'http://localhost')}catch{return false}
     const match=url.pathname.match(/^\/api\/v1\/exports\/([a-z-]+)$/);
