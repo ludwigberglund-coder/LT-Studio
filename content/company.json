@@ -27,5 +27,6 @@
   },
   "links": {
     "maps": "https://www.google.com/maps/search/?api=1&query=Exempelgatan+1+Goteborg"
-  }
+  },
+  "dataClassification": "synthetic-demo"
 }
