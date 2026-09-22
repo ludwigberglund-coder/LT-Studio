@@ -1,6 +1,6 @@
 const root=document.getElementById('operator-app');
 const csrfKey='lt-operator-csrf';
-let session=null,overview=null,readiness=null,security=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='',companyQuery='',companyStatus='all',companySort='name',securitySeverity='all',securityPeriod='24h';
+let session=null,overview=null,readiness=null,security=null,operatorAudit=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='',companyQuery='',companyStatus='all',companySort='name',securitySeverity='all',securityPeriod='24h',securityCompany='all';
 
 function esc(value=''){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
 function initials(name='LT'){return String(name).trim().split(/\s+/).filter(Boolean).map(part=>part[0]).join('').slice(0,2).toUpperCase()||'LT'}
@@ -176,12 +176,18 @@ function securityEventLabel(kind){
   const fallback=key.replaceAll('_',' ').toLocaleLowerCase('sv')||'säkerhetshändelse';
   return fallback.charAt(0).toLocaleUpperCase('sv')+fallback.slice(1);
 }
+function securityCompanyOptions(){
+  const companies=overview?.companies||[];
+  return ['<option value="all" '+(securityCompany==='all'?'selected':'')+'>Alla företag</option>','<option value="platform" '+(securityCompany==='platform'?'selected':'')+'>Plattformsnivå</option>',...companies.map(company=>`<option value="${esc(company.id)}" ${securityCompany===company.id?'selected':''}>${esc(company.displayName)}</option>`)].join('');
+}
 function filteredSecurityEvents(){
   const events=security?.events||[];
   const hours=securityPeriod==='24h'?24:securityPeriod==='7d'?24*7:securityPeriod==='30d'?24*30:null;
   const cutoff=hours===null?null:Date.now()-hours*60*60*1000;
   return events.filter(event=>{
     if(securitySeverity!=='all'&&event.severity!==securitySeverity)return false;
+    if(securityCompany==='platform'&&event.companyId)return false;
+    if(!['all','platform'].includes(securityCompany)&&event.companyId!==securityCompany)return false;
     if(cutoff===null)return true;
     const time=new Date(event.createdAt).getTime();
     return Number.isFinite(time)&&time>=cutoff;
@@ -190,7 +196,28 @@ function filteredSecurityEvents(){
 function securityEvents(){
   const events=filteredSecurityEvents();
   if(!events.length)return '<div class="empty">Inga säkerhetshändelser matchar filtret.</div>';
-  return events.map(event=>`<div class="event"><span class="status-pill"><span class="dot ${esc(event.severity)}"></span>${esc(({critical:'Kritisk',warning:'Varning',info:'Information'})[event.severity]||event.severity)}</span><strong>${esc(securityEventLabel(event.kind))}</strong><time>${dateTime(event.createdAt)}</time></div>`).join('');
+  return events.map(event=>`<div class="event security-event"><span class="status-pill"><span class="dot ${esc(event.severity)}"></span>${esc(({critical:'Kritisk',warning:'Varning',info:'Information'})[event.severity]||event.severity)}</span><div class="event-copy"><strong>${esc(securityEventLabel(event.kind))}</strong><small>${esc(event.companyName||'Plattformsnivå')}</small></div><time>${dateTime(event.createdAt)}</time></div>`).join('');
+}
+function operatorAuditLabel(action){
+  return ({
+    OPERATOR_SESSION_LOGIN:'Operatör loggade in',
+    OPERATOR_SESSION_LOGOUT:'Operatör loggade ut',
+    CUSTOMER_USER_CREATED:'Användare skapades',
+    CUSTOMER_EXISTING_USER_ADDED:'Befintlig användare fick åtkomst',
+    CUSTOMER_USER_ROLE_CHANGED:'Behörighet ändrades',
+    CUSTOMER_USER_PASSWORD_RESET:'Lösenord byttes',
+    CUSTOMER_USER_REMOVED:'Åtkomst togs bort'
+  })[String(action||'')]||'Administrativ åtgärd';
+}
+function operatorAuditDetail(event){
+  if(event.action==='CUSTOMER_USER_ROLE_CHANGED'&&event.beforeRole&&event.afterRole)return `${roleLabel(event.beforeRole)} → ${roleLabel(event.afterRole)}`;
+  if(event.role)return roleLabel(event.role);
+  return event.targetUserName||'—';
+}
+function operatorAuditRows(){
+  const events=operatorAudit?.events||[];
+  if(!events.length)return '<div class="empty">Inga operatörsåtgärder i loggen.</div>';
+  return events.map(event=>`<div class="audit-row"><span class="audit-icon" aria-hidden="true">◎</span><div><strong>${esc(operatorAuditLabel(event.action))}</strong><p>${esc(event.operatorName)} · ${esc(event.companyName||'Plattformsnivå')}</p></div><span class="audit-detail">${esc(operatorAuditDetail(event))}</span><time>${dateTime(event.createdAt)}</time></div>`).join('');
 }
 function overviewView(){
   const totals=overview?.totals||{},companies=overview?.companies||[],ready=readinessState(),sec=securityState();
@@ -260,9 +287,10 @@ function securityView(){
   <section class="status-grid"><article class="metric"><span>Readiness</span><strong class="${readiness?.ok?'ok':'critical'}">${readiness?.ok?'OK':'Åtgärd krävs'}</strong><small>samlad teknisk gate</small></article><article class="metric"><span>Kritiska händelser</span><strong class="critical">${num(critical)}</strong><small>i valt tidsfilter</small></article><article class="metric"><span>Varningar</span><strong class="warning">${num(warning)}</strong><small>i valt tidsfilter</small></article><article class="metric"><span>Senaste händelse</span><strong class="small-value">${esc(dateTime(latest))}</strong><small>bland senast hämtade händelser</small></article></section>
   <section class="panel security-readiness-panel"><div class="panel-head"><div><span class="eyebrow">SKYDD & DRIFT</span><h2>Hälsokontroller och verifieringsbevis</h2><p>Databas, backup, R2, restore, monitoring, audit-ankare och global admin. Bevisålder visas där backend har verifierbar evidens.</p></div><span class="panel-stat ${readiness?.ok?'ok':'critical'}">${okCount} av ${known.length||entries.length} OK</span></div><div class="table-wrap"><table class="security-check-table"><thead><tr><th>Kontroll</th><th>Status</th><th>Senaste bevis</th><th>Rekommenderad åtgärd</th></tr></thead><tbody>${securityReadinessTable()}</tbody></table></div></section>
   <section class="dashboard-grid equal security-lower-grid">
-    <article class="panel dashboard-panel"><div class="panel-head security-events-head"><div><span class="eyebrow">INCIDENTER</span><h2>Säkerhetshändelser</h2><p>Redigerad logg utan IP-adresser, fingeravtryck eller hemliga tekniska detaljer. Filtren gäller de senast hämtade händelserna.</p></div></div><div class="security-toolbar"><label><span>Allvarlighetsgrad</span><select data-security-severity><option value="all" ${securitySeverity==='all'?'selected':''}>Alla</option><option value="critical" ${securitySeverity==='critical'?'selected':''}>Kritisk</option><option value="warning" ${securitySeverity==='warning'?'selected':''}>Varning</option><option value="info" ${securitySeverity==='info'?'selected':''}>Information</option></select></label><label><span>Tidsperiod</span><select data-security-period><option value="24h" ${securityPeriod==='24h'?'selected':''}>24 timmar</option><option value="7d" ${securityPeriod==='7d'?'selected':''}>7 dagar</option><option value="30d" ${securityPeriod==='30d'?'selected':''}>30 dagar</option><option value="all" ${securityPeriod==='all'?'selected':''}>Alla hämtade</option></select></label><span class="security-filter-count">${num(events.length)} händelser</span></div><div class="event-list" id="security-event-list">${securityEvents()}</div></article>
+    <article class="panel dashboard-panel"><div class="panel-head security-events-head"><div><span class="eyebrow">INCIDENTER</span><h2>Säkerhetshändelser</h2><p>Redigerad logg utan IP-adresser, fingeravtryck eller hemliga tekniska detaljer. Filtren gäller de senast hämtade händelserna.</p></div></div><div class="security-toolbar"><label><span>Allvarlighetsgrad</span><select data-security-severity><option value="all" ${securitySeverity==='all'?'selected':''}>Alla</option><option value="critical" ${securitySeverity==='critical'?'selected':''}>Kritisk</option><option value="warning" ${securitySeverity==='warning'?'selected':''}>Varning</option><option value="info" ${securitySeverity==='info'?'selected':''}>Information</option></select></label><label><span>Tidsperiod</span><select data-security-period><option value="24h" ${securityPeriod==='24h'?'selected':''}>24 timmar</option><option value="7d" ${securityPeriod==='7d'?'selected':''}>7 dagar</option><option value="30d" ${securityPeriod==='30d'?'selected':''}>30 dagar</option><option value="all" ${securityPeriod==='all'?'selected':''}>Alla hämtade</option></select></label><label><span>Företag</span><select data-security-company>${securityCompanyOptions()}</select></label><span class="security-filter-count">${num(events.length)} händelser</span></div><div class="event-list" id="security-event-list">${securityEvents()}</div></article>
     <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">ÅTGÄRDSLISTA</span><h2>Det som behöver uppmärksamhet</h2><p>Konkreta rekommendationer från kontroller som inte rapporterar OK.</p></div></div><div class="security-actions">${unresolvedSecurityActions()}</div><div class="security-privacy-note"><strong>Dataminimerad vy</strong><p>Säkerhetsportalen visar inte lösenord, MFA-hemligheter, IP-adresser, kundernas dokument eller ekonomiska detaljdata.</p></div></article>
-  </section>`,'Säkerhetsportal','Systemhälsa, säkerhetshändelser och verifieringsbevis för hela LT Studio.');
+  </section>
+  <section class="panel operator-audit-panel"><div class="panel-head"><div><span class="eyebrow">OPERATÖRER</span><h2>Administratörslogg</h2><p>Read-only historik över vad LT Studio-operatörer har gjort. Endast nödvändig företags-, användar- och rollmetadata visas.</p></div><span class="panel-stat ${operatorAudit?.unavailable?'warning':''}">${operatorAudit?.unavailable?'Tillfälligt otillgänglig':num(operatorAudit?.events?.length||0)+' loggposter'}</span></div><div class="audit-list">${operatorAudit?.unavailable?'<div class="empty">Administratörsloggen kunde inte läsas just nu. Övriga adminfunktioner påverkas inte.</div>':operatorAuditRows()}</div></section>`,'Säkerhetsportal','Systemhälsa, säkerhetshändelser och verifieringsbevis för hela LT Studio.');
 }
 function globalAdminRows(detail){
   const admins=detail.platformAdmins||[];
@@ -310,9 +338,18 @@ function companyDetailView(detail){
   </section>`,'Företagsadmin',`Inställningar, användare och statistik för ${c.displayName}.`);
 }
 function render(){if(selectedCompany)return companyDetailView(selectedCompany);if(view==='companies')return companiesView();if(view==='statistics')return statisticsView();if(view==='security')return securityView();return overviewView()}
+async function loadOperatorAudit(){
+  operatorAudit=await api('/operator-audit?limit=100').catch(err=>({events:[],unavailable:true,error:err.message,code:err.code||'',status:err.status||0}));
+  return operatorAudit;
+}
 async function loadData(){
-  const [o,r,s]=await Promise.all([api('/overview'),api('/readiness').catch(err=>err.data&&typeof err.data==='object'?err.data:{ok:false,error:err.message,checks:{}}),api('/security-events?limit=50')]);
+  const [o,r,s]=await Promise.all([
+    api('/overview'),
+    api('/readiness').catch(err=>err.data&&typeof err.data==='object'?err.data:{ok:false,error:err.message,checks:{}}),
+    api('/security-events?limit=100')
+  ]);
   overview=o;readiness=r;security=s;
+  await loadOperatorAudit();
 }
 async function openCompany(id){errorMessage='';try{selectedCompany=await api('/companies/'+encodeURIComponent(id));render()}catch(error){errorMessage=error.message;selectedCompany=null;render()}}
 async function reloadSelectedCompanyOverview(){
@@ -348,6 +385,7 @@ document.addEventListener('submit',async event=>{
 document.addEventListener('change',async event=>{
   if(event.target.matches?.('[data-security-severity]')){securitySeverity=event.target.value;render();return}
   if(event.target.matches?.('[data-security-period]')){securityPeriod=event.target.value;render();return}
+  if(event.target.matches?.('[data-security-company]')){securityCompany=event.target.value;render();return}
   if(event.target.matches?.('[data-company-filter]')){companyStatus=event.target.value;updateCompanyTable();return}
   if(event.target.matches?.('[data-company-sort]')){companySort=event.target.value;updateCompanyTable();return}
   const userId=event.target.dataset.roleUser;if(!userId||!selectedCompany)return;
@@ -364,7 +402,7 @@ document.addEventListener('keydown',event=>{
 document.addEventListener('click',async event=>{
   if(event.target.matches?.('[data-modal-backdrop]')){modal=null;render();return}
   const companyRow=event.target.closest('[data-company-id]');if(companyRow){await openCompany(companyRow.dataset.companyId);return}
-  const viewButton=event.target.closest('[data-view]');if(viewButton){selectedCompany=null;view=viewButton.dataset.view;render();return}
+  const viewButton=event.target.closest('[data-view]');if(viewButton){selectedCompany=null;view=viewButton.dataset.view;if(view==='security')await loadOperatorAudit();render();return}
   const button=event.target.closest('[data-action]');if(!button)return;
   const action=button.dataset.action;
   if(action==='refresh'){await refresh();return}
@@ -379,7 +417,7 @@ document.addEventListener('click',async event=>{
   }
   if(action==='logout'){
     try{await mutate('/auth/logout',{method:'POST',body:'{}'})}catch{}
-    sessionStorage.removeItem(csrfKey);session=null;overview=null;readiness=null;security=null;selectedCompany=null;errorMessage='';loginView();
+    sessionStorage.removeItem(csrfKey);session=null;overview=null;readiness=null;security=null;operatorAudit=null;selectedCompany=null;errorMessage='';loginView();
   }
 });
 async function boot(){try{const current=await api('/session');if(!current.authenticated){loginView();return}session=current;await loadData();render()}catch(error){errorMessage=error.message;loginView()}}

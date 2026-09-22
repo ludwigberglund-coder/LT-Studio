@@ -40,7 +40,7 @@ async function login(base){
   return{response,body,cookie};
 }
 
-test('operator-API kräver separat operatörssession och läcker inte kundernas affärsdata',()=>withOperatorApi(async({runtime,base})=>{
+test('operator-API kräver separat operatörssession och läcker inte kundernas affärsdata',()=>withOperatorApi(async({runtime,base,operator})=>{
   const health=await fetch(base+'/api/operator/v1/health');
   assert.equal(health.status,200);
 
@@ -54,6 +54,9 @@ test('operator-API kräver separat operatörssession och läcker inte kundernas 
   const customer=Db.createCustomer(runtime.db,{companyId:company.id,customerNumber:'SECRET-CUSTOMER-1',name:'Hemlig Slutkund'});
   Db.createInvoice(runtime.db,{companyId:company.id,customerId:customer.id,invoiceNumber:'SECRET-INVOICE-1',invoiceDate:'2026-09-21',postingDate:'2026-09-21',dueDate:'2026-10-21',totalOre:987654,remainingOre:987654,vatOre:197531,status:'Bokförd'});
   Db.appendSecurityEvent(runtime.db,{kind:'LOGIN_FAILURE_THRESHOLD',severity:'warning',fingerprintHash:'a'.repeat(64),details:{username:'must-not-leak',ip:'192.0.2.44'}});
+  const auditedUser=Db.createUser(runtime.db,{username:'audit.user',displayName:'Audit User',passwordHash:Auth.hashPassword('Audit user testlosenord 2026!')});
+  Db.addMembership(runtime.db,{companyId:company.id,userId:auditedUser.id,role:'readonly'});
+  Db.appendPlatformOperatorAudit(runtime.db,{operatorId:operator.id,action:'CUSTOMER_USER_ROLE_CHANGED',details:{companyId:company.id,userId:auditedUser.id,before:'readonly',after:'accountant',private:'must-not-leak-audit'}});
 
   const signed=await login(base);
   assert.equal(signed.response.status,200);
@@ -74,9 +77,24 @@ test('operator-API kräver separat operatörssession och läcker inte kundernas 
   assert.equal(securityResponse.status,200);
   const security=await securityResponse.json();
   assert.equal(security.events.length,1);
-  assert.deepEqual(Object.keys(security.events[0]).sort(),['createdAt','kind','severity']);
+  assert.deepEqual(Object.keys(security.events[0]).sort(),['companyId','companyName','createdAt','kind','severity']);
+  assert.equal(security.events[0].companyId,null);
+  assert.equal(security.events[0].companyName,null);
   assert.equal(security.events[0].kind,'LOGIN_FAILURE_THRESHOLD');
   assert.doesNotMatch(JSON.stringify(security),/aaaaaaaa|192\.0\.2\.44|must-not-leak/);
+
+  const auditResponse=await fetch(base+'/api/operator/v1/operator-audit',{headers:{Cookie:signed.cookie}});
+  const auditBody=await auditResponse.json();
+  assert.equal(auditResponse.status,200,JSON.stringify(auditBody));
+  assert.ok(auditBody.events.length>=2);
+  assert.deepEqual(Object.keys(auditBody.events[0]).sort(),['action','afterRole','beforeRole','companyId','companyName','createdAt','operatorName','role','targetUserName']);
+  const correlatedAudit=auditBody.events.find(event=>event.action==='CUSTOMER_USER_ROLE_CHANGED');
+  assert.ok(correlatedAudit);
+  assert.equal(correlatedAudit.companyName,'Kundbolag Ett');
+  assert.equal(correlatedAudit.targetUserName,'Audit User');
+  assert.equal(correlatedAudit.beforeRole,'readonly');
+  assert.equal(correlatedAudit.afterRole,'accountant');
+  assert.doesNotMatch(JSON.stringify(auditBody),/passwordHash|mfaSecret|csrf|tokenHash|detailsJson|must-not-leak-audit/);
 
   const readiness=await fetch(base+'/api/operator/v1/readiness',{headers:{Cookie:signed.cookie}});
   assert.ok([200,503].includes(readiness.status));
