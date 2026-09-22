@@ -17,6 +17,7 @@ concurrency:
 
 jobs:
   build-and-deploy:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
@@ -38,14 +39,29 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
+      - name: Scan full Git history for high-confidence secrets
+        run: npm run security:history-scan
+
+      - name: Scan browser source for secrets
+        run: npm run security:client-scan
+
+      - name: Block dangerous runtime code execution primitives
+        run: npm run security:runtime-code-scan
+
       - name: Validate editable content
         run: npm run content:check
 
       - name: Run automated tests
         run: npm test
 
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Build static demo
         run: npm run build:static
+
+      - name: Scan generated browser artifacts for secrets
+        run: npm run security:client-scan
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
