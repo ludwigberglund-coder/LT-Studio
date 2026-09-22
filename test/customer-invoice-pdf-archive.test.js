@@ -140,8 +140,8 @@ test('delbetald kundfaktura kan helkrediteras med verifierad kundkredit som vän
 
   const reconciliation=Reports.receivablesControl(db,co1.id);
   assert.equal(reconciliation.differenceOre,beforeCreditControl.differenceOre,'krediteringen får inte skapa en ny differens mellan reskontra och 1510');
-  assert.equal(reconciliation.subledgerOre-beforeCreditControl.subledgerOre,-125000);
-  assert.equal(reconciliation.ledgerOre-beforeCreditControl.ledgerOre,-125000);
+  assert.equal(reconciliation.subledgerOpenOre-beforeCreditControl.subledgerOpenOre,-125000);
+  assert.equal(reconciliation.ledger1510Ore-beforeCreditControl.ledger1510Ore,-125000);
 
   const archived=Invoicing.pdfArchiveForInvoice(db,co1.id,credit.invoice.id);
   assert.equal(archived.bytes.subarray(0,5).toString('ascii'),'%PDF-');
