@@ -575,10 +575,12 @@ function readEmptyJsonBody(req){
 }
 async function validateRequestBody(req){
   const policy=bodyPolicyFor(req);
-  if(policy==='json'||policy==='binary'||policy==='unknown')return;
-  if(!requestHasBody(req))return;
+  if(policy==='json'||policy==='binary')return;
+  const hasBody=requestHasBody(req);
+  if(!hasBody)return;
   if(policy==='empty-json')return await readEmptyJsonBody(req);
   req.resume?.();
+  if(policy==='unknown')throw securityError('Den här API-rutten saknar en registrerad body-policy.','UNREGISTERED_REQUEST_BODY',400);
   throw securityError('Den här request-metoden accepterar ingen body.','UNEXPECTED_REQUEST_BODY',400);
 }
 
