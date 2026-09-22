@@ -116,20 +116,28 @@ function setCompanySettings(db,{companyId,address,email='',phone='',website='',b
 }
 function privateProfile(db,companyId,publicProfile={}){
   const stored=getInvoiceSettings(db,companyId);
-  const base={...publicProfile,address:{...(typeof publicProfile.address==='object'?publicProfile.address:{})},contact:{...(publicProfile.contact||{})},invoice:{...(publicProfile.invoice||{})}};
+  const company=db.prepare('SELECT legal_name AS legalName,display_name AS displayName,org_number AS orgNumber FROM companies WHERE id=?').get(companyId);
+  const base={
+    ...publicProfile,
+    legalName:company?.legalName||text(publicProfile.legalName),
+    displayName:company?.displayName||text(publicProfile.displayName),
+    orgNumber:company?.orgNumber||text(publicProfile.orgNumber),
+    address:{...(typeof publicProfile.address==='object'?publicProfile.address:{})},
+    contact:{...(publicProfile.contact||{})},
+    invoice:{...(publicProfile.invoice||{})}
+  };
   if(stored){
     base.invoice.bankgiro=stored.bankgiro;
     base.invoice.taxStatus=stored.taxStatus;
-    if(stored.vatNumber)base.vatNumber=stored.vatNumber;
-    if(stored.address)base.address={...base.address,full:stored.address};
-    if(stored.email)base.contact.email=stored.email;
-    if(stored.phone)base.contact.phone=stored.phone;
-    if(stored.website)base.website=stored.website;
+    base.vatNumber=stored.vatNumber||'';
+    base.address={...base.address,full:stored.address||''};
+    base.contact={...base.contact,email:stored.email||'',phone:stored.phone||''};
+    base.website=stored.website||'';
   }else{
     base.invoice.bankgiro='';
     base.invoice.taxStatus='';
   }
-  return{profile:base,configured:Boolean(stored&&stored.bankgiro&&stored.taxStatus&&stored.vatNumber)};
+  return{profile:base,configured:Boolean(stored&&stored.bankgiro&&stored.taxStatus&&stored.vatNumber&&stored.address)};
 }
 module.exports=Object.freeze({
   initializeInvoiceSettings,normalizeBankgiro,normalizeTaxStatus,normalizeVatNumber,expectedVatNumberForOrgNumber,vatNumberMatchesOrgNumber,
