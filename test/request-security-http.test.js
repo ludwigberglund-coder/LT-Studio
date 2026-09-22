@@ -74,4 +74,4 @@ test('bodyless action accepts empty JSON but rejects unexpected fields before au
   assert.equal(rejected.status,422);
   assert.equal(body.code,'UNEXPECTED_REQUEST_BODY');
   assert.ok(body.requestId);
-});
+}));
