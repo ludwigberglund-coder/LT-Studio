@@ -153,7 +153,7 @@ b,
 
 .shared-navigation .shared-links a[aria-current="page"] {
   color: var(--color-paper) !important;
-  background: linear-gradient(135deg,var(--color-brand),var(--color-brand-2)) !important;
+  background: var(--color-brand) !important;
   font-weight: var(--font-weight-medium) !important;
 }
 
@@ -475,7 +475,7 @@ b,
   min-height: 36px;
   padding: 8px 16px;
   color: var(--color-paper);
-  background: linear-gradient(135deg,var(--color-brand),var(--color-brand-2));
+  background: var(--color-brand);
   border: 1px solid var(--color-brand);
   border-radius: var(--radius-buttons);
   box-shadow: none;
