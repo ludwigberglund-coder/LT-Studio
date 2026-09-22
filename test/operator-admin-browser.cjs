@@ -39,7 +39,7 @@ const out=path.join(__dirname,'..','test-artifacts');
     page.on('console',message=>{if(message.type()==='error')errors.push(message.text())});
 
     await page.goto(base+'/operator/',{waitUntil:'networkidle'});
-    await page.getByRole('heading',{name:'Operatörsinloggning'}).waitFor();
+    await page.getByRole('heading',{name:'LT Studio-inloggning'}).waitFor();
     assert.equal(await page.locator('input[name="username"]').count(),1);
     assert.equal(await page.locator('input[name="password"]').count(),1);
     assert.equal(await page.locator('input[name="totp"]').count(),1);
@@ -50,7 +50,7 @@ const out=path.join(__dirname,'..','test-artifacts');
     await page.locator('input[name="totp"]').fill(Auth.totpCode(MFA_SECRET,Date.now()));
     await page.getByRole('button',{name:'Logga in',exact:true}).click();
 
-    await page.getByRole('heading',{name:'Plattformsöversikt',exact:true}).waitFor({timeout:15000});
+    await page.getByRole('heading',{name:'Adminöversikt',exact:true}).waitFor({timeout:15000});
     const body=await page.locator('body').innerText();
     assert.match(body,/Browser Kund/);
     assert.match(body,/Säkerhet 24 h/i);
@@ -58,20 +58,25 @@ const out=path.join(__dirname,'..','test-artifacts');
     assert.match(body,/Databas · läsning/);
     assert.match(body,/Extern monitoring/);
     assert.match(body,/Audit · externt ankare/);
-    assert.match(body,/Många felaktiga kundinloggningar/);
+    assert.match(body,/LOGIN FAILURE THRESHOLD/);
     assert.doesNotMatch(body,/Hemlig Browserkund|SECRET-BROWSER-CUSTOMER|SECRET-BROWSER-INVOICE|333300|66660|never-in-ui|cccccccc/);
     checks.push({kind:'overview',company:'Browser Kund'});
+    await page.getByText('Browser Kund',{exact:true}).first().click();
+    await page.getByRole('heading',{name:'Företagsadmin',exact:true}).waitFor();
+    assert.match(await page.locator('body').innerText(),/Användare & behörigheter|Lägg till användare/);
+    checks.push({kind:'company-admin',company:'Browser Kund'});
 
+    await page.getByRole('button',{name:'← Alla företag',exact:true}).click();
+    await page.getByRole('heading',{name:'Kunder & företag',exact:true}).waitFor();
     await page.getByRole('button',{name:'Uppdatera',exact:true}).click();
-    await page.getByRole('heading',{name:'Kundmiljöer',exact:true}).waitFor();
     checks.push({kind:'refresh'});
 
     await page.setViewportSize({width:390,height:844});
-    assert.equal(await page.getByRole('heading',{name:'Plattformsöversikt',exact:true}).count(),1);
+    assert.equal(await page.getByRole('heading',{name:'Kunder & företag',exact:true}).count(),1);
     checks.push({kind:'mobile-layout'});
 
     await page.getByRole('button',{name:'Logga ut',exact:true}).click();
-    await page.getByRole('heading',{name:'Operatörsinloggning'}).waitFor();
+    await page.getByRole('heading',{name:'LT Studio-inloggning'}).waitFor();
     const session=await page.evaluate(()=>fetch('/api/operator/v1/session',{credentials:'same-origin'}).then(r=>r.json()));
     assert.equal(session.authenticated,false);
     assert.deepEqual(errors,[]);
