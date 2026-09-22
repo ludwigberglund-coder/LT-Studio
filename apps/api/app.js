@@ -183,34 +183,49 @@ function createApiApp(options) {
     const identity=`${requestIp(req)}|${String(username || '').toLocaleLowerCase('sv')}`;
     return crypto.createHash('sha256').update('rollands-login-v1|'+identity).digest('hex');
   }
+  function loginAccountKey(username) {
+    const identity=String(username||'').toLocaleLowerCase('sv');
+    return crypto.createHash('sha256').update('rollands-login-account-v1|'+identity).digest('hex');
+  }
 
   function noteLoginFailure(req,username) {
-    const keyHash=loginKey(req,username);
-    let state,thresholdReached=false;
+    const scopedKeyHash=loginKey(req,username),accountKeyHash=loginAccountKey(username);
+    let scopedState,accountState,scopedThreshold=false,accountThreshold=false;
     Db.transaction(db,()=>{
-      state=Db.noteLoginFailure(db,{keyHash,windowMinutes:15});
-      if(state.failureCount===5) {
+      scopedState=Db.noteLoginFailure(db,{keyHash:scopedKeyHash,windowMinutes:15});
+      accountState=Db.noteLoginFailure(db,{keyHash:accountKeyHash,windowMinutes:15});
+      if(scopedState.failureCount===5) {
         Db.appendSecurityEvent(db,{
           kind:'LOGIN_FAILURE_THRESHOLD',
           severity:'warning',
-          fingerprintHash:keyHash,
-          details:{failureCount:state.failureCount,windowMinutes:15,retryAfterSeconds:900}
+          fingerprintHash:scopedKeyHash,
+          details:{scope:'ip-user',failureCount:scopedState.failureCount,windowMinutes:15,retryAfterSeconds:900}
         });
-        thresholdReached=true;
+        scopedThreshold=true;
+      }
+      if(accountState.failureCount===20) {
+        Db.appendSecurityEvent(db,{
+          kind:'ACCOUNT_LOGIN_FAILURE_THRESHOLD',
+          severity:'critical',
+          fingerprintHash:accountKeyHash,
+          details:{scope:'user',failureCount:accountState.failureCount,windowMinutes:15,retryAfterSeconds:900}
+        });
+        accountThreshold=true;
       }
     });
-    if(thresholdReached&&operationalLogger?.emit)operationalLogger.emit({
-      level:'warning',
+    if((scopedThreshold||accountThreshold)&&operationalLogger?.emit)operationalLogger.emit({
+      level:accountThreshold?'critical':'warning',
       event:'security_event',
       runtimeId:operationalRuntimeId,
-      code:'LOGIN_FAILURE_THRESHOLD'
+      code:accountThreshold?'ACCOUNT_LOGIN_FAILURE_THRESHOLD':'LOGIN_FAILURE_THRESHOLD'
     });
-    return state;
+    return {scopedState,accountState};
   }
 
   function loginBlocked(req,username) {
-    const value=Db.loginAttemptState(db,{keyHash:loginKey(req,username)});
-    return Boolean(value && value.failureCount>=5);
+    const scoped=Db.loginAttemptState(db,{keyHash:loginKey(req,username)});
+    const account=Db.loginAttemptState(db,{keyHash:loginAccountKey(username)});
+    return Boolean((scoped&&scoped.failureCount>=5)||(account&&account.failureCount>=20));
   }
 
   function sessionExpiryIso(minutes, fromMs = Date.now()) {
@@ -303,6 +318,7 @@ function createApiApp(options) {
       Db.appendAudit(db,{companyId:selected.companyId,userId:user.id,action:'SESSION_LOGIN',entityType:'session',details:{username:user.username,mfaRequired,sessionIdleMinutes,sessionMaxMinutes}});
     });
     Db.clearLoginAttempts(db,loginKey(req,username));
+    Db.clearLoginAttempts(db,loginAccountKey(username));
     return send(res,200,{
       authenticated:true,
       csrfToken,

@@ -10,7 +10,7 @@ const MFA_SECRET='GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 const ENCRYPTION_KEY='operator-api-test-encryption-key-longer-than-32-chars';
 
 async function withOperatorApi(fn){
-  const runtime=createServer({databasePath:':memory:',db:Db.openDatabase(':memory:'),secureCookies:false,authEncryptionKey:ENCRYPTION_KEY});
+  const runtime=createServer({databasePath:':memory:',db:Db.openDatabase(':memory:'),secureCookies:false,authEncryptionKey:ENCRYPTION_KEY,trustCloudflare:true});
   const operator=Db.createPlatformOperator(runtime.db,{
     username:'lt.operator',
     displayName:'LT Operator',
@@ -133,4 +133,29 @@ test('fem felaktiga operatörsinloggningar skapar critical-signal och spärrar n
   assert.equal(events[0].severity,'critical');
   assert.match(events[0].fingerprintHash,/^[a-f0-9]{64}$/);
   assert.doesNotMatch(JSON.stringify(events[0]),/lt\.operator|helt fel lösenord/);
+}));
+
+
+test('operator-konto spärras även när felaktiga försök roterar Cloudflare-IP',()=>withOperatorApi(async({runtime,base})=>{
+  for(let attempt=1;attempt<=10;attempt+=1){
+    const response=await fetch(base+'/api/operator/v1/auth/login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','CF-Connecting-IP':`203.0.113.${attempt}`},
+      body:JSON.stringify({username:'lt.operator',password:'distribuerat fel lösenord',totp:'000000'})
+    });
+    assert.equal(response.status,401);
+  }
+  const blocked=await fetch(base+'/api/operator/v1/auth/login',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','CF-Connecting-IP':'198.51.100.250'},
+    body:JSON.stringify({username:'lt.operator',password:'fortsatt fel lösenord',totp:'000000'})
+  });
+  assert.equal(blocked.status,429);
+  assert.equal((await blocked.json()).code,'OPERATOR_LOGIN_RATE_LIMITED');
+
+  const events=Db.securityEvents(runtime.db).filter(event=>event.kind==='OPERATOR_ACCOUNT_LOGIN_FAILURE_THRESHOLD');
+  assert.equal(events.length,1);
+  assert.equal(events[0].severity,'critical');
+  assert.equal(events[0].details.scope,'user');
+  assert.doesNotMatch(JSON.stringify(events[0]),/lt\.operator|203\.0\.113/);
 }));
