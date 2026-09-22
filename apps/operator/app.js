@@ -1,6 +1,6 @@
 const root=document.getElementById('operator-app');
 const csrfKey='lt-operator-csrf';
-let session=null,overview=null,readiness=null,security=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='',companyQuery='',companyStatus='all',companySort='name';
+let session=null,overview=null,readiness=null,security=null,securityMonitor=null,securityPollTimer=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='',companyQuery='',companyStatus='all',companySort='name';
 
 function esc(value=''){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
 function initials(name='LT'){return String(name).trim().split(/\s+/).filter(Boolean).map(part=>part[0]).join('').slice(0,2).toUpperCase()||'LT'}
@@ -70,7 +70,37 @@ function loginView(){
   </section>`;
 }
 function readinessState(){if(!readiness)return{label:'Laddar',kind:'warning'};return readiness.ok?{label:'OK',kind:'ok'}:{label:'Varning',kind:'critical'}}
-function securityState(){const critical=Number(overview?.security?.critical||0),warning=Number(overview?.security?.warning||0);if(critical)return{label:`${critical} kritiska`,kind:'critical'};if(warning)return{label:`${warning} varningar`,kind:'warning'};return{label:'Ingen aktiv varning',kind:'ok'}}
+function securityState(){
+  const critical=Number(securityMonitor?.counts?.critical||overview?.security?.critical||0),warning=Number(securityMonitor?.counts?.warning||overview?.security?.warning||0);
+  if(critical)return{label:`${critical} kritiska`,kind:'critical'};
+  if(warning)return{label:`${warning} varningar`,kind:'warning'};
+  return{label:'Inga aktiva flaggor',kind:'ok'};
+}
+function securityBadgeMarkup(){
+  const critical=Number(securityMonitor?.counts?.critical||0),warning=Number(securityMonitor?.counts?.warning||0);
+  if(critical)return `<span class="nav-badge critical" data-security-badge aria-hidden="true">${critical}</span>`;
+  if(warning)return `<span class="nav-badge warning" data-security-badge aria-hidden="true">${warning}</span>`;
+  return '<span class="nav-badge ok" data-security-badge aria-hidden="true">aktiv</span>';
+}
+function securityAlertStrip(){
+  const counts=securityMonitor?.counts||{};
+  const critical=Number(counts.critical||0),warning=Number(counts.warning||0);
+  if(!critical&&!warning)return '';
+  const tone=critical?'critical':'warning',count=critical||warning;
+  const label=critical?`${count} kritisk${count===1?'':'a'} säkerhetsflagga${count===1?'':'r'}`:`${count} säkerhetsvarning${count===1?'':'ar'}`;
+  return `<button class="security-live-alert ${tone}" type="button" data-view="security"><span class="security-pulse" aria-hidden="true"></span><strong>${esc(label)}</strong><span>Öppna Säkerhetsportalen för detaljer</span><span aria-hidden="true">→</span></button>`;
+}
+function updateSecurityChrome(){
+  document.querySelectorAll('[data-security-badge]').forEach(node=>{
+    const holder=document.createElement('div');holder.innerHTML=securityBadgeMarkup();const next=holder.firstElementChild;if(next)node.replaceWith(next);
+  });
+  const live=document.getElementById('security-live-alert');if(live)live.innerHTML=securityAlertStrip();
+}
+function securityFindings(){
+  const findings=securityMonitor?.findings||[];
+  if(!findings.length)return '<div class="security-clear"><span class="clear-check" aria-hidden="true">✓</span><div><strong>Inga aktiva säkerhetsflaggor</strong><p>Senaste skanningen hittade inga regler som kräver åtgärd.</p></div></div>';
+  return `<div class="finding-list">${findings.map(item=>`<article class="security-finding ${esc(item.severity)}"><div class="finding-top"><span class="status-pill"><span class="dot ${esc(item.severity)}"></span>${esc(({critical:'Kritisk',warning:'Varning',info:'Information'})[item.severity]||item.severity)}</span><span class="finding-category">${esc(item.category)}</span></div><h3>${esc(item.title)}</h3><p>${esc(item.message)}</p></article>`).join('')}</div>`;
+}
 function modalMarkup(){
   if(!modal)return '';
   if(modal.kind==='password')return `<div class="modal-backdrop" data-modal-backdrop><section class="modal-card portal-modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><div><span class="eyebrow">SÄKER ÅTGÄRD</span><h2 id="modal-title">Byt lösenord</h2><p>${esc(modal.userName)}</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div><form id="reset-password-form"><label class="field"><span>Nytt tillfälligt lösenord</span><input name="password" type="password" required minlength="8" autocomplete="new-password" autofocus></label><p class="form-help">Minst 8 tecken, stor och liten bokstav samt minst en siffra eller ett specialtecken. Lösenordet gäller hela personens konto i alla företag där kontot har åtkomst, och alla tidigare sessioner avslutas efter bytet.</p><div class="modal-actions"><button class="button secondary" type="button" data-action="close-modal">Avbryt</button><button class="button" type="submit">Spara nytt lösenord</button></div></form></section></div>`;
@@ -85,13 +115,13 @@ function focusModal(){
 }
 function nav(){
   const items=[['overview','Översikt','⌂'],['companies','Kunder & företag','◇'],['statistics','Statistik','▥'],['security','Säkerhetsportal','◈']];
-  return items.map(([id,label,icon])=>`<button class="${view===id?'active':''}" data-view="${id}"><span class="nav-label"><span class="nav-icon" aria-hidden="true">${icon}</span>${label}</span>${id==='security'?'<span class="nav-badge" aria-hidden="true">nästa</span>':''}</button>`).join('');
+  return items.map(([id,label,icon])=>`<button class="${view===id?'active':''}" data-view="${id}"><span class="nav-label"><span class="nav-icon" aria-hidden="true">${icon}</span>${label}</span>${id==='security'?securityBadgeMarkup():''}</button>`).join('');
 }
 function shell(body,title,subtitle){
   const operator=session?.operator||{};
   root.innerHTML=`<div class="operator-shell"><aside class="sidebar"><div><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div class="side-copy">ADMIN CONTROL CENTER</div></div><nav class="side-nav">${nav()}</nav><div class="side-spacer"></div><div class="side-status"><span class="live-dot"></span><div><strong>Operatorportal aktiv</strong><small>Separat säkerhetsgräns</small></div></div><div class="side-footer">Endast LT Studio-operatörer.<br>Alla administrativa ändringar loggas.</div></aside>
   <section class="main"><header class="topbar"><div><span class="page-kicker">LT STUDIO / ADMIN</span><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div><div class="actions"><div class="operator-user"><span class="avatar">${initials(operator.displayName)}</span><div><strong>${esc(operator.displayName||operator.username||'Operatör')}</strong><small>LT Studio-operatör</small></div></div><button class="icon-button" data-action="refresh" title="Uppdatera" aria-label="Uppdatera">↻</button><button class="button secondary" data-action="logout">Logga ut</button></div></header><nav class="mobile-nav">${nav()}</nav>
-  ${errorMessage?`<div class="notice">${esc(errorMessage)}</div>`:''}${successNotice()}${body}<footer class="portal-footer"><span>LT Studio Admin</span><span>Senast uppdaterad ${dateTime(overview?.generatedAt)}</span></footer></section></div>${modalMarkup()}`;
+  <div id="security-live-alert">${securityAlertStrip()}</div>${errorMessage?`<div class="notice">${esc(errorMessage)}</div>`:''}${successNotice()}${body}<footer class="portal-footer"><span>LT Studio Admin</span><span>Senast uppdaterad ${dateTime(overview?.generatedAt)}</span></footer></section></div>${modalMarkup()}`;
 }
 function filteredCompanies(){
   const query=companyQuery.trim().toLocaleLowerCase('sv');
@@ -207,10 +237,12 @@ function statisticsView(){
   <section class="panel"><div class="panel-head"><div><span class="eyebrow">DETALJER</span><h2>Företagsstatistik</h2><p>Operativ metadata utan fakturainnehåll eller ekonomiska belopp.</p></div></div><div class="table-wrap"><table><thead><tr><th>Företag</th><th>Användare</th><th>Kunder</th><th>Fakturor</th><th>Sessioner</th><th>Senaste aktivitet</th></tr></thead><tbody>${companies.map(c=>`<tr class="click-row" data-company-id="${esc(c.id)}" tabindex="0" role="button"><td><div class="company-cell"><span class="company-avatar">${initials(c.displayName)}</span><strong>${esc(c.displayName)}</strong></div></td><td>${c.memberCount}</td><td>${c.customerRecordCount}</td><td>${c.invoiceRecordCount}</td><td>${c.activeSessionCount}</td><td>${dateTime(c.lastActivityAt)}</td></tr>`).join('')}</tbody></table></div></section>`,'Statistik','Mätbara nyckeltal och trender för hela LT Studio-plattformen.');
 }
 function securityView(){
-  const sec=overview?.security||{},totals=overview?.totals||{},health=readinessScore(),mfaPct=percent(totals.mfaProtectedUsers,totals.activeUsers);
-  shell(`<section class="security-hero"><div><span class="eyebrow">SÄKERHETSPORTAL · NÄSTA ETAPP</span><h2>En samlad säkerhetsyta för hela LT Studio.</h2><p>Den fulla säkerhetsportalen byggs separat. Den här förhandsvyn använder redan aktuella säkerhetshändelser och tekniska hälsokontroller.</p></div><div class="hero-gauges compact">${ringGauge(health,'Drift','Tekniska kontroller')}${ringGauge(mfaPct,'MFA',`${totals.mfaProtectedUsers||0} av ${totals.activeUsers||0} aktiva användare`)}</div></section>
-  <section class="status-grid"><article class="metric"><span>Kritiska händelser</span><strong class="critical">${num(sec.critical)}</strong><small>senaste 24 timmar</small></article><article class="metric"><span>Varningar</span><strong class="warning">${num(sec.warning)}</strong><small>senaste 24 timmar</small></article><article class="metric"><span>Information</span><strong>${num(sec.info)}</strong><small>senaste 24 timmar</small></article><article class="metric"><span>Senaste händelse</span><strong class="small-value">${esc(dateTime(sec.latestEventAt))}</strong><small>säkerhetslogg</small></article></section>
-  <section class="dashboard-grid equal"><article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">SÄKERHET</span><h2>Aktuella händelser</h2><p>Redigerad vy utan känsliga tekniska detaljer.</p></div></div><div class="event-list">${securityEvents()}</div></article><article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">DRIFT</span><h2>Skydd & hälsa</h2><p>Kontroller som säkerhetsportalen kommer övervaka.</p></div></div><div class="health-list">${readinessChecks()}</div></article></section>`,'Säkerhetsportal','Förhandsvy inför den separata säkerhetsetappen.');
+  const sec=overview?.security||{},totals=overview?.totals||{},health=readinessScore(),mfaPct=percent(totals.mfaProtectedUsers,totals.activeUsers),monitor=securityMonitor||{},counts=monitor.counts||{};
+  const monitorTone=monitor.status==='critical'?'critical':monitor.status==='attention'?'warning':'ok';
+  shell(`<section class="security-hero active-security-hero"><div><span class="eyebrow">AKTIV SÄKERHETSÖVERVAKNING</span><h2>Systemet söker löpande efter risker och fel.</h2><p>Säkerhetsmotorn kör på servern även när den här sidan inte är öppen. Portalen hämtar nya flaggor automatiskt ungefär var ${num(monitor.scanIntervalSeconds||30)} sekund.</p><div class="monitor-live"><span class="live-dot ${monitorTone}"></span><strong>Aktiv övervakning</strong><span>Senast skannad ${dateTime(monitor.checkedAt)}</span></div></div><div class="hero-gauges compact">${ringGauge(health,'Drift','Tekniska kontroller')}${ringGauge(mfaPct,'MFA',`${totals.mfaProtectedUsers||0} av ${totals.activeUsers||0} aktiva användare`)}</div></section>
+  <section class="status-grid"><article class="metric"><span>Aktiva flaggor</span><strong class="${monitorTone}">${num(counts.total)}</strong><small>från senaste skanningen</small></article><article class="metric"><span>Kritiska</span><strong class="critical">${num(counts.critical)}</strong><small>kräver prioritering</small></article><article class="metric"><span>Varningar</span><strong class="warning">${num(counts.warning)}</strong><small>bör granskas</small></article><article class="metric"><span>Senaste skanning</span><strong class="small-value">${esc(dateTime(monitor.checkedAt))}</strong><small>automatisk säkerhetsmotor</small></article></section>
+  <section class="panel findings-panel"><div class="panel-head"><div><span class="eyebrow">AKTIVA FLAGGOR</span><h2>Det här behöver er uppmärksamhet</h2><p>Fynd baserade på aktuella tekniska kontroller, autentisering, MFA och säkerhetshändelser. Inga hemligheter eller känsliga detaljer visas.</p></div><span class="panel-stat ${monitorTone}">${monitor.active===false?'Skanning fel':'Live'}</span></div>${securityFindings()}</section>
+  <section class="dashboard-grid equal"><article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">SÄKERHETSHÄNDELSER</span><h2>Senaste loggade händelser</h2><p>Redigerad vy över faktiska säkerhetssignaler.</p></div><span class="panel-stat">${num(sec.total)} / 24 h</span></div><div class="event-list">${securityEvents()}</div></article><article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">DRIFT</span><h2>Skydd & hälsa</h2><p>Kontroller som den aktiva säkerhetsmotorn utvärderar.</p></div></div><div class="health-list">${readinessChecks()}</div></article></section>`,'Säkerhetsportal','Aktiv risk- och felövervakning för hela LT Studio-plattformen.');
 }
 function globalAdminRows(detail){
   const admins=detail.platformAdmins||[];
@@ -259,9 +291,32 @@ function companyDetailView(detail){
 }
 function render(){if(selectedCompany)return companyDetailView(selectedCompany);if(view==='companies')return companiesView();if(view==='statistics')return statisticsView();if(view==='security')return securityView();return overviewView()}
 async function loadData(){
-  const [o,r,s]=await Promise.all([api('/overview'),api('/readiness').catch(err=>err.data&&typeof err.data==='object'?err.data:{ok:false,error:err.message,checks:{}}),api('/security-events?limit=50')]);
-  overview=o;readiness=r;security=s;
+  const [o,r,s,m]=await Promise.all([
+    api('/overview'),
+    api('/readiness').catch(err=>err.data&&typeof err.data==='object'?err.data:{ok:false,error:err.message,checks:{}}),
+    api('/security-events?limit=50'),
+    api('/security-monitor').catch(()=>({active:false,status:'critical',counts:{critical:1,warning:0,info:0,total:1},findings:[{code:'SECURITY_MONITOR_UNAVAILABLE',severity:'critical',category:'Övervakning',title:'Säkerhetsövervakningen är inte tillgänglig',message:'Portalen kunde inte läsa den aktiva säkerhetsmotorn.'}]}))
+  ]);
+  overview=o;readiness=r;security=s;securityMonitor=m;
 }
+function stopSecurityPolling(){if(securityPollTimer){clearTimeout(securityPollTimer);securityPollTimer=null}}
+async function pollSecurity(){
+  if(!session?.authenticated)return;
+  try{
+    securityMonitor=await api('/security-monitor');
+    if(view==='security'&&!selectedCompany&&!modal){
+      const [o,r,s]=await Promise.all([api('/overview'),api('/readiness').catch(err=>err.data&&typeof err.data==='object'?err.data:{ok:false,error:err.message,checks:{}}),api('/security-events?limit=50')]);
+      overview=o;readiness=r;security=s;render();
+    }else updateSecurityChrome();
+  }catch{}
+  finally{
+    if(session?.authenticated){
+      const delay=Math.max(5000,Math.min(60000,Number(securityMonitor?.scanIntervalSeconds||30)*1000));
+      securityPollTimer=setTimeout(pollSecurity,delay);
+    }
+  }
+}
+function startSecurityPolling(){stopSecurityPolling();if(session?.authenticated)securityPollTimer=setTimeout(pollSecurity,1000)}
 async function openCompany(id){errorMessage='';try{selectedCompany=await api('/companies/'+encodeURIComponent(id));render()}catch(error){errorMessage=error.message;selectedCompany=null;render()}}
 async function reloadSelectedCompanyOverview(){
   if(!selectedCompany)return;
@@ -282,7 +337,7 @@ document.addEventListener('input',event=>{
 document.addEventListener('submit',async event=>{
   if(event.target.id==='login-form'){
     event.preventDefault();errorMessage='';const button=event.target.querySelector('button[type="submit"]');button.disabled=true;const data=Object.fromEntries(new FormData(event.target).entries());
-    try{const signed=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});session={authenticated:true,operator:signed.operator};sessionStorage.setItem(csrfKey,signed.csrfToken||'');await loadData();render()}catch(error){errorMessage=error.message;loginView()}return;
+    try{const signed=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});session={authenticated:true,operator:signed.operator};sessionStorage.setItem(csrfKey,signed.csrfToken||'');await loadData();render();startSecurityPolling()}catch(error){errorMessage=error.message;loginView()}return;
   }
   if(event.target.id==='add-user-form'){
     event.preventDefault();const data=Object.fromEntries(new FormData(event.target).entries());const button=event.target.querySelector('button[type="submit"]');if(button)button.disabled=true;
@@ -325,8 +380,8 @@ document.addEventListener('click',async event=>{
   }
   if(action==='logout'){
     try{await mutate('/auth/logout',{method:'POST',body:'{}'})}catch{}
-    sessionStorage.removeItem(csrfKey);session=null;overview=null;readiness=null;security=null;selectedCompany=null;errorMessage='';loginView();
+    stopSecurityPolling();sessionStorage.removeItem(csrfKey);session=null;overview=null;readiness=null;security=null;securityMonitor=null;selectedCompany=null;errorMessage='';loginView();
   }
 });
-async function boot(){try{const current=await api('/session');if(!current.authenticated){loginView();return}session=current;await loadData();render()}catch(error){errorMessage=error.message;loginView()}}
+async function boot(){try{const current=await api('/session');if(!current.authenticated){loginView();return}session=current;await loadData();render();startSecurityPolling()}catch(error){errorMessage=error.message;loginView()}}
 boot();
