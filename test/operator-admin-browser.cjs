@@ -80,7 +80,9 @@ const out=path.join(__dirname,'..','test-artifacts');
     assert.match(body,/Plattformsaktivitet|Aktiveringsgrad|Fakturor per företag/);
     assert.ok(await page.locator('.ring-value').count()>=3);
     assert.ok(await page.locator('meter').count()>=2);
-    checks.push({kind:'overview',company:'Browser Kund',visualInstruments:true});
+    await page.locator('.side-nav [data-view] .op-icon svg').first().waitFor({timeout:5000});
+    assert.equal(await page.locator('.side-nav [data-view] .op-icon svg').count(),4,'alla adminmenyval ska ha Iconoir-ikon');
+    checks.push({kind:'overview',company:'Browser Kund',visualInstruments:true,iconoirNavigation:true});
 
     await page.getByRole('button',{name:'Statistik',exact:true}).first().click();
     await page.getByRole('heading',{name:'Statistik',exact:true}).waitFor();
@@ -300,7 +302,8 @@ const out=path.join(__dirname,'..','test-artifacts');
     const mobileNav=page.locator('.mobile-nav');
     await mobileNav.waitFor({state:'visible'});
     assert.equal(await mobileNav.getByRole('button',{name:'Statistik',exact:true}).count(),1);
-    checks.push({kind:'mobile-navigation'});
+    assert.ok(await mobileNav.locator('.op-icon svg').count()>=4,'mobil adminnavigation ska behålla Iconoir-ikoner');
+    checks.push({kind:'mobile-navigation',iconoir:true});
 
     await page.getByRole('button',{name:'Logga ut',exact:true}).click();
     await page.getByRole('heading',{name:'LT Studio-inloggning'}).waitFor();
