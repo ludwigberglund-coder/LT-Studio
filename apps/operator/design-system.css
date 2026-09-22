@@ -62,14 +62,14 @@
   --ink-soft: var(--color-ink-soft);
   --sidebar: var(--color-surface-alt);
   --sidebar-2: var(--color-surface-alt);
-  --accent: var(--color-ink-soft);
-  --accent-soft: #f5f5f5;
-  --brand: var(--color-ink-soft);
-  --brand-deep: var(--color-ink);
-  --brand-pale: #f5f5f5;
+  --accent: var(--color-leaf);
+  --accent-soft: #edf4ea;
+  --brand: var(--color-brand-2);
+  --brand-deep: var(--color-brand);
+  --brand-pale: #edf4ea;
   --danger: var(--color-ember);
-  --warning: var(--color-mid-gray);
-  --ok: var(--color-ink-soft);
+  --warning: #9a6b21;
+  --ok: #3f7b4e;
   --shadow: var(--shadow-subtle);
   --shadow-soft: var(--shadow-subtle);
   --shadow-lift: var(--shadow-subtle);
@@ -463,8 +463,8 @@ b {
   min-height: 36px;
   padding: 8px 16px;
   color: var(--color-paper);
-  background: var(--color-ink);
-  border: 1px solid var(--color-ink);
+  background: linear-gradient(135deg,var(--color-brand),var(--color-brand-2));
+  border: 1px solid var(--color-brand);
   border-radius: var(--radius-buttons);
   box-shadow: none;
   font-size: var(--text-body);
@@ -473,8 +473,8 @@ b {
 
 .button:hover:not(:disabled) {
   color: var(--color-paper);
-  background: var(--color-ink-soft);
-  border-color: var(--color-ink-soft);
+  background: var(--color-brand-2);
+  border-color: var(--color-brand-2);
   box-shadow: none;
   transform: none;
 }
@@ -540,7 +540,7 @@ textarea:focus,
 
 input[type="checkbox"],
 input[type="radio"] {
-  accent-color: var(--color-ink);
+  accent-color: var(--color-brand-2);
 }
 
 .field span {
@@ -711,3 +711,17 @@ td,
 .button:not(:disabled),.icon-button:not(:disabled),.customer-system-link{box-shadow:var(--shadow-subtle)}
 .button:hover:not(:disabled),.icon-button:hover:not(:disabled),.customer-system-link:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgb(0 0 0 / .12)}
 .button:active:not(:disabled),.icon-button:active:not(:disabled),.side-nav button:active,.mobile-nav button:active,.customer-system-link:active{transform:translateY(1px) scale(.98);box-shadow:0 2px 7px rgb(0 0 0 / .10)}
+
+
+/* Operator UI keeps security semantics clear while restoring LT Studio identity. */
+.page-kicker,.eyebrow{color:var(--color-warm)}
+.side-nav button.active{background:linear-gradient(135deg,var(--color-brand),var(--color-brand-2))}
+.metric:nth-child(4n+1){border-top:3px solid var(--color-leaf)}
+.metric:nth-child(4n+2){border-top:3px solid #76a9a1}
+.metric:nth-child(4n+3){border-top:3px solid var(--color-warm)}
+.metric:nth-child(4n){border-top:3px solid #a0b966}
+.dot.ok,.health-dot.ok,.live-dot{background:#55a36a}
+.dot.warning,.health-dot.warning{background:#c29136}
+.panel-stat.ok,.nav-badge.ok{color:#356a42;background:#edf6ef;border-color:#d2e6d6}
+.panel-stat.warning,.nav-badge.warning{color:#795820;background:#fff5df;border-color:#ead9b2}
+.hero-dashboard,.security-hero,.detail-hero{background:linear-gradient(145deg,#ffffff,#f7faf5)}
