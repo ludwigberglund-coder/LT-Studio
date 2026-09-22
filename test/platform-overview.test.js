@@ -46,6 +46,14 @@ test('plattformsoverview listar företag och aggregerad säkerhet utan affärsde
     assert.equal(result.security.total,1);
     assert.ok(result.security.latestEventAt);
 
+    assert.equal(result.totals.members,1);
+    assert.equal(result.totals.customers,2);
+    assert.equal(result.totals.invoices,2);
+    assert.equal(result.totals.configuredCompanies,1);
+    assert.equal(result.roleDistribution.admin,1);
+    assert.equal(result.monthly.length,6);
+    assert.ok(result.monthly.every(item=>typeof item.activity==='number'&&typeof item.invoices==='number'&&typeof item.customers==='number'&&typeof item.memberships==='number'));
+
     const serialized=JSON.stringify(result);
     assert.doesNotMatch(serialized,/Hemlig Kund|CUSTOMER-SECRET|INVOICE-SECRET|125000|50000/);
     assert.doesNotMatch(serialized,/bbbbbbbb|privateTechnicalDetail|do-not-expose/);
