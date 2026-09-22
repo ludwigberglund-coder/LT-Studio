@@ -760,3 +760,13 @@ textarea:focus-visible,
     animation-iteration-count: 1 !important;
   }
 }
+
+/* LT Studio tactile interaction layer for the legacy reference UI. */
+.ui-icon{width:17px;height:17px;display:inline-grid;place-items:center;flex:0 0 auto;line-height:0}
+.ui-icon svg{width:100%;height:100%;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.ui-with-icon{display:inline-flex!important;align-items:center!important;gap:9px!important}
+.mark .ui-icon{width:28px;height:28px}
+:where(.button,.row-action,.side-nav button,.service-card,.panel,.metric){-webkit-tap-highlight-color:transparent;transition:transform .16s ease,box-shadow .16s ease,background-color .16s ease,border-color .16s ease}
+.button:not(:disabled),.row-action:not(:disabled){box-shadow:var(--shadow-subtle)}
+.button:active:not(:disabled),.row-action:active:not(:disabled),.side-nav button:active{transform:translateY(1px) scale(.98);box-shadow:0 2px 7px rgb(0 0 0 / .10)}
+:where(.service-card,.panel,.metric):active{transform:translateY(1px) scale(.995)}
