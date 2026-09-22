@@ -52,8 +52,8 @@ test('disabled fakturaknapp behåller nya designsystemets blockerade state',()=>
   const browser=read('test/menu-invoice-browser.cjs');
 
   assert.match(css,/\.invoice-workspace #invoice-form button\[type="submit"\]:disabled/);
-  assert.match(browser,/backgroundColor:'rgb\(229, 229, 229\)'/);
-  assert.match(browser,/color:'rgb\(115, 115, 115\)'/);
+  assert.match(browser,/backgroundColor:'rgb\(221, 229, 220\)'/);
+  assert.match(browser,/color:'rgb\(108, 121, 111\)'/);
 });
 
 
