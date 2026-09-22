@@ -16,6 +16,7 @@ test('extern webhook måste vara publik HTTPS och får inte peka mot privata nä
     'https://169.254.169.254/latest/meta-data',
     'https://100.64.1.2/security',
     'https://[::1]/security',
+    'https://[::ffff:127.0.0.1]/security',
     'https://[fc00::1]/security',
     'https://[fe80::1]/security',
     'https://hooks.internal/security',
