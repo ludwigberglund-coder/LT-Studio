@@ -164,6 +164,7 @@ function createServer(options = {}) {
     if(!rateLimit.allowed){operationalCode='RATE_LIMITED';return RequestSecurity.sendRateLimited(res,rateLimit,requestId);}
     if (!allowedHost(req,host,configuredAllowedHosts)) { operationalCode='HOST_NOT_ALLOWED'; res.writeHead(421,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}); return res.end(JSON.stringify({error:'Värdnamnet är inte tillåtet.',code:'HOST_NOT_ALLOWED'})); }
     if (demoRequest(req.url || '/')) { operationalCode='DEMO_DISABLED'; res.writeHead(400,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}); return res.end(JSON.stringify({error:'Demoläge är inte tillåtet på den privata servern. Använd den separata demon.',code:'DEMO_DISABLED'})); }
+    await RequestSecurity.validateRequestBody(req);
     if (String(req.url || '').split('?')[0] === '/_runtime-version') {
       if (!['GET','HEAD'].includes(req.method || 'GET')) { res.writeHead(405,{'Allow':'GET, HEAD','Cache-Control':'no-store'}); return res.end(); }
       const body=Buffer.from(JSON.stringify({runtimeId}));
