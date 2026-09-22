@@ -24,7 +24,7 @@ function documentName(req){const raw=String(req.headers['x-document-name']||'lev
 function pdfDisposition(name){
   const clean=String(name||'invoice.pdf').toWellFormed().replace(/[\x00-\x1f\x7f\\/]/g,'_').slice(0,180).toWellFormed();
   const encoded=encodeURIComponent(clean).replace(/['()*]/g,char=>'%'+char.charCodeAt(0).toString(16).toUpperCase());
-  return `inline; filename="invoice.pdf"; filename*=UTF-8''${encoded}`;
+  return `attachment; filename="invoice.pdf"; filename*=UTF-8''${encoded}`;
 }
 function createPayablesRouter(options){
   const db=options?.db;if(!db)throw new Error('Databas krävs.');Payables.initializePayables(db);SupplierAccounting.initializeSupplierAccounting(db);Queues.initializeQueues(db);
@@ -47,7 +47,7 @@ function createPayablesRouter(options){
       if(invoiceMatch&&req.method==='GET'){permission(s,'supplier-invoice.view');const invoice=Payables.invoiceById(db,s.companyId,invoiceMatch[1]);if(!invoice)throw routeError('Fakturan hittades inte.','INVOICE_NOT_FOUND',404);return send(res,200,{invoice}),true}
       const pdfMatch=url.pathname.match(/^\/api\/v1\/payables\/invoices\/([^/]+)\/document$/);
       if(pdfMatch&&req.method==='PUT'){permission(s,'supplier-invoice.register');const bytes=await readPdf(req,res);if(!bytes)return true;const result=Db.transaction(db,()=>{const value=Payables.storeDocumentIdempotent(db,{companyId:s.companyId,invoiceId:pdfMatch[1],name:documentName(req),mime:'application/pdf',bytes});if(!value.duplicate)Db.appendAudit(db,{companyId:s.companyId,userId:s.userId,action:'SUPPLIER_INVOICE_DOCUMENT_STORED',entityType:'supplier-invoice',entityId:pdfMatch[1],details:{sha256:value.document.sha256,size:value.document.size}});return value});return send(res,result.duplicate?200:201,result),true}
-      if(pdfMatch&&req.method==='GET'){permission(s,'supplier-invoice.view');const doc=Payables.document(db,s.companyId,pdfMatch[1]);res.writeHead(200,{...securityHeaders(),'Content-Type':'application/pdf','X-Frame-Options':'SAMEORIGIN','Content-Security-Policy':"default-src 'none'; frame-ancestors 'self'; base-uri 'none'",'Content-Disposition':pdfDisposition(doc.name),'Content-Length':doc.bytes.length,'X-Document-SHA256':doc.sha256});res.end(doc.bytes);return true}
+      if(pdfMatch&&req.method==='GET'){permission(s,'supplier-invoice.view');const doc=Payables.document(db,s.companyId,pdfMatch[1]);res.writeHead(200,{...securityHeaders(),'Content-Type':'application/pdf','X-Frame-Options':'SAMEORIGIN','Content-Security-Policy':"sandbox; default-src 'none'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'",'Content-Disposition':pdfDisposition(doc.name),'Content-Length':doc.bytes.length,'X-Document-SHA256':doc.sha256});res.end(doc.bytes);return true}
       const suggestionMatch=url.pathname.match(/^\/api\/v1\/payables\/invoices\/([^/]+)\/coding-suggestion$/);
       if(suggestionMatch&&req.method==='POST'){
         permission(s,'supplier-invoice.register');const invoice=Payables.invoiceById(db,s.companyId,suggestionMatch[1]);if(!invoice)throw routeError('Fakturan hittades inte.','INVOICE_NOT_FOUND',404);if(!['registered','coding-review','coded'].includes(invoice.status))throw routeError('Konteringsförslag kan inte skapas efter attest.','CODING_LOCKED',409);
