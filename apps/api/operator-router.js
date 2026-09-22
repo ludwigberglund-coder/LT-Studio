@@ -268,13 +268,14 @@ function createOperatorRouter(options={}){
         const before=Db.membership(db,companyId,userId);
         if(!before)throw operatorError('Användaren finns inte i kundföretaget.','MEMBERSHIP_NOT_FOUND',404);
         const payload=await readJson(req,res);if(!payload)return true;
+        let revokedSessionCount=0;
         const updated=Db.transaction(db,()=>{
           const membership=Db.setMembershipRole(db,{companyId,userId,role:payload.role});
-          Db.deleteSessionsForUser(db,userId);
-          Db.appendPlatformOperatorAudit(db,{operatorId:session.operatorId,action:'CUSTOMER_USER_ROLE_CHANGED',details:{companyId,userId,before:before.role,after:membership.role}});
+          revokedSessionCount=Db.deleteSessionsForUserCompany(db,{userId,companyId});
+          Db.appendPlatformOperatorAudit(db,{operatorId:session.operatorId,action:'CUSTOMER_USER_ROLE_CHANGED',details:{companyId,userId,before:before.role,after:membership.role,revokedSessionCount}});
           return membership;
         });
-        send(res,200,{membership:updated,sessionsRevoked:true});return true;
+        send(res,200,{membership:updated,sessionsRevoked:true,revokedSessionCount,sessionScope:'company'});return true;
       }
       const memberPasswordMatch=url.pathname.match(/^\/api\/operator\/v1\/companies\/([^/]+)\/users\/([^/]+)\/password$/);
       if(req.method==='PUT'&&memberPasswordMatch){
@@ -293,12 +294,13 @@ function createOperatorRouter(options={}){
         const companyId=decodeURIComponent(memberDeleteMatch[1]),userId=decodeURIComponent(memberDeleteMatch[2]);
         const before=Db.membership(db,companyId,userId);
         if(!before)throw operatorError('Användaren finns inte i kundföretaget.','MEMBERSHIP_NOT_FOUND',404);
+        let revokedSessionCount=0;
         Db.transaction(db,()=>{
+          revokedSessionCount=Db.deleteSessionsForUserCompany(db,{userId,companyId});
           db.prepare('DELETE FROM memberships WHERE company_id=? AND user_id=?').run(companyId,userId);
-          Db.deleteSessionsForUser(db,userId);
-          Db.appendPlatformOperatorAudit(db,{operatorId:session.operatorId,action:'CUSTOMER_USER_REMOVED',details:{companyId,userId,role:before.role}});
+          Db.appendPlatformOperatorAudit(db,{operatorId:session.operatorId,action:'CUSTOMER_USER_REMOVED',details:{companyId,userId,role:before.role,revokedSessionCount}});
         });
-        send(res,200,{removed:true,sessionsRevoked:true});return true;
+        send(res,200,{removed:true,sessionsRevoked:true,revokedSessionCount,sessionScope:'company'});return true;
       }
       if(req.method==='GET'&&url.pathname==='/api/operator/v1/readiness'){
         const report=readinessProvider();

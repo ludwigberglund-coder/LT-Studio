@@ -110,6 +110,32 @@ const out=path.join(__dirname,'..','test-artifacts');
     assert.equal(await page.locator('#mfa-result code').count(),0);
     checks.push({kind:'existing-user-linked-to-second-company'});
 
+    const sessionExpiry=new Date(Date.now()+60*60*1000).toISOString();
+    const sharedCompanyATokenHash=Auth.hashToken('shared-company-a-session');
+    const sharedCompanyBTokenHash=Auth.hashToken('shared-company-b-session');
+    Db.createSession(runtime.db,{tokenHash:sharedCompanyATokenHash,csrfHash:Auth.hashToken('shared-a-csrf'),userId:sharedUser.id,companyId:company.id,expiresAt:sessionExpiry,absoluteExpiresAt:sessionExpiry});
+    Db.createSession(runtime.db,{tokenHash:sharedCompanyBTokenHash,csrfHash:Auth.hashToken('shared-b-csrf'),userId:sharedUser.id,companyId:secondCompany.id,expiresAt:sessionExpiry,absoluteExpiresAt:sessionExpiry});
+
+    const sharedRoleSelect=page.locator('select[data-role-user="'+sharedUser.id+'"]');
+    await sharedRoleSelect.selectOption('approver');
+    await page.getByText(/Behörigheten uppdaterades/).waitFor();
+    assert.equal(Db.membership(runtime.db,company.id,sharedUser.id).role,'approver');
+    assert.equal(Db.sessionByTokenHash(runtime.db,sharedCompanyATokenHash),null);
+    assert.ok(Db.sessionByTokenHash(runtime.db,sharedCompanyBTokenHash));
+    checks.push({kind:'role-change-revokes-only-company-session'});
+
+    const sharedCompanyASecondTokenHash=Auth.hashToken('shared-company-a-session-2');
+    Db.createSession(runtime.db,{tokenHash:sharedCompanyASecondTokenHash,csrfHash:Auth.hashToken('shared-a-csrf-2'),userId:sharedUser.id,companyId:company.id,expiresAt:sessionExpiry,absoluteExpiresAt:sessionExpiry});
+    const sharedRow=page.locator('tr').filter({hasText:'shared.user'});
+    await sharedRow.getByRole('button',{name:'Ta bort åtkomst',exact:true}).click();
+    await page.getByRole('heading',{name:'Ta bort åtkomst?',exact:true}).waitFor();
+    await page.locator('.modal-card').getByRole('button',{name:'Ta bort åtkomst',exact:true}).click();
+    await page.getByText(/åtkomst.*togs bort/i).waitFor();
+    assert.equal(Db.membership(runtime.db,company.id,sharedUser.id),null);
+    assert.equal(Db.sessionByTokenHash(runtime.db,sharedCompanyASecondTokenHash),null);
+    assert.ok(Db.sessionByTokenHash(runtime.db,sharedCompanyBTokenHash));
+    checks.push({kind:'remove-access-revokes-only-company-session'});
+
     const roleSelect=page.locator('select[data-role-user="'+customerUser.id+'"]');
     await roleSelect.selectOption('accountant');
     await page.getByText(/Behörigheten uppdaterades/).waitFor();
