@@ -376,6 +376,11 @@ function deleteSessionsForUser(db,userId) {
   return Number(db.prepare('DELETE FROM sessions WHERE user_id=?').run(String(userId||'').trim()).changes||0);
 }
 
+function deleteSessionsForUserCompany(db,{userId,companyId}) {
+  return Number(db.prepare('DELETE FROM sessions WHERE user_id=? AND company_id=?')
+    .run(String(userId||'').trim(),String(companyId||'').trim()).changes||0);
+}
+
 function updateUserPasswordHash(db,{userId,passwordHash}) {
   const idValue=String(userId||'').trim(),hash=String(passwordHash||'').trim();
   if(!idValue||!hash)throw databaseError('Lösenordsuppgraderingen saknar obligatoriska värden.','INVALID_PASSWORD_HASH_UPDATE',500);
@@ -434,7 +439,7 @@ function sessionByTokenHash(db, tokenHash) {
   const row = db.prepare(`SELECT s.token_hash AS tokenHash,s.csrf_hash AS csrfHash,s.user_id AS userId,s.company_id AS companyId,
       s.expires_at AS expiresAt,s.absolute_expires_at AS absoluteExpiresAt,s.created_at AS createdAt,s.last_seen_at AS lastSeenAt,
       u.username,u.display_name AS displayName,u.disabled,u.platform_admin AS platformAdmin,u.session_duration_minutes AS sessionDurationMinutes,
-      CASE WHEN u.platform_admin=1 THEN 'admin' ELSE m.role END AS role
+      COALESCE(m.role,'admin') AS role
     FROM sessions s JOIN users u ON u.id=s.user_id
     LEFT JOIN memberships m ON m.user_id=s.user_id AND m.company_id=s.company_id
     WHERE s.token_hash=? AND s.expires_at>? AND s.absolute_expires_at>? AND (u.platform_admin=1 OR m.user_id IS NOT NULL)`).get(tokenHash,now,now);
@@ -816,6 +821,7 @@ module.exports = Object.freeze({
   setUserSessionDuration,
   setUserPlatformAdmin,
   deleteSessionsForUser,
+  deleteSessionsForUserCompany,
   updateUserPasswordHash,
   MEMBERSHIP_ROLES,
   membershipRole,
