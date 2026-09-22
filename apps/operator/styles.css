@@ -151,3 +151,15 @@ meter::-moz-meter-bar{background:#738a78;border-radius:999px}
   .status-grid.six{grid-template-columns:1fr}.hero-gauges,.hero-gauges.compact{grid-template-columns:1fr}.hero-gauges .ring-gauge:last-child{grid-column:auto}
   .intro-stats{grid-template-columns:1fr}.main{padding:16px}.page-intro-card{padding:20px}
 }
+
+.mobile-nav{display:none}
+.notice.success{background:#edf7ef;color:#24643a;border:1px solid #cfe6d5;align-items:center;justify-content:space-between;gap:12px}
+.notice.success button{border:0;background:transparent;color:inherit;font-size:18px;cursor:pointer;padding:0 2px}
+@media(max-width:760px){
+  .mobile-nav{display:flex;gap:7px;overflow-x:auto;padding:0 0 16px;margin:-4px 0 18px;scrollbar-width:none}
+  .mobile-nav::-webkit-scrollbar{display:none}
+  .mobile-nav button{flex:0 0 auto;border:1px solid var(--line-soft);background:#fff;color:#535a54;border-radius:999px;padding:9px 12px;font-size:11px;font-weight:800;display:flex;align-items:center;gap:8px}
+  .mobile-nav button.active{background:#151a16;color:#fff;border-color:#151a16}
+  .mobile-nav .nav-icon{width:auto;color:inherit}
+  .mobile-nav .nav-badge{display:none}
+}
