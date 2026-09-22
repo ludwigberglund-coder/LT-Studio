@@ -148,7 +148,7 @@ const BODY_RULES=Object.freeze([
   ['POST',/^\/api\/operator\/v1\/auth\/login$/,new Set(['username','password','totp'])],
   ['POST',/^\/api\/v1\/customers$/,new Set(['requestId','name','email','orgNumber','address','reminderFeeAgreed'])],
   ['PUT',/^\/api\/v1\/customers\/[^/]+$/,new Set(['name','email','orgNumber','address','reminderFeeAgreed'])],
-  ['PUT',/^\/api\/v1\/customer-invoices\/draft$/,new Set(['requestId','customerNumber','invoiceDate','postingDate','dueDate','paymentTermsDays','ourReference','yourReference','notes','lines'])],
+  ['PUT',/^\/api\/v1\/customer-invoices\/draft$/,new Set(['requestId','draft'])],
   ['POST',/^\/api\/v1\/customer-invoices$/,new Set(['requestId','customerNumber','invoiceDate','postingDate','dueDate','paymentTermsDays','ourReference','yourReference','notes','lines'])],
   ['POST',/^\/api\/v1\/customer-invoices\/[^/]+\/credit$/,new Set(['requestId','creditDate','reason'])],
   ['POST',/^\/api\/v1\/invoices\/[^/]+\/comments$/,new Set(['text'])],
@@ -185,6 +185,88 @@ const BODY_RULES=Object.freeze([
   ['POST',/^\/api\/v1\/website\/cms\/publish$/,new Set(['expectedRevision','expectedPublishedVersion'])],
   ['POST',/^\/api\/v1\/website\/cms\/revisions\/\d+\/restore$/,new Set(['expectedRevision'])]
 ]);
+
+
+const ACCOUNTING_LINE_FIELDS=new Set(['account','text','label','debitOre','creditOre']);
+const INVOICE_LINE_FIELDS=new Set(['articleNumber','discountPercent','description','unit','quantity','unitPrice','vatTreatment','vatRate','revenueAccount','kind']);
+const RECEIVABLE_FIELDS=new Set(['customerNumber','invoiceNumber','invoiceDate','dueDate','totalOre','remainingOre']);
+const PAYABLE_FIELDS=new Set(['supplierNumber','invoiceNumber','invoiceDate','dueDate','totalOre','remainingOre']);
+
+function assertAllowedObject(value,allowed,label){
+  if(!value||typeof value!=='object'||Array.isArray(value))throw securityError(`${label} måste vara ett objekt.`,'INVALID_INPUT_TYPE',422);
+  const unexpected=Object.keys(value).filter(key=>!allowed.has(key));
+  if(unexpected.length)throw securityError(`${label} innehåller oväntade fält: ${unexpected.slice(0,5).join(', ')}.`,'UNEXPECTED_FIELDS',422);
+}
+function assertObjectArray(value,allowed,label,max=500){
+  if(!Array.isArray(value))throw securityError(`${label} måste vara en lista.`,'INVALID_INPUT_TYPE',422);
+  if(value.length>max)throw securityError(`${label} innehåller för många poster.`,'ARRAY_TOO_LARGE',422);
+  value.forEach((row,index)=>assertAllowedObject(row,allowed,`${label} rad ${index+1}`));
+}
+function assertInvoiceDraft(draft){
+  assertAllowedObject(draft,new Set(['customerNumber','buyer','seller','invoiceDate','postingDate','dueDate','paymentTermsDays','currency','ourReference','yourReference','notes','useFees','includeMessage','lines','freight','administration']),'Fakturautkast');
+  if(Object.hasOwn(draft,'buyer'))assertAllowedObject(draft.buyer,new Set(['name','address','orgNumber','email']),'Fakturautkastets köpare');
+  if(Object.hasOwn(draft,'seller'))assertAllowedObject(draft.seller,new Set(['name','address','orgNumber','vatNumber','phone','email','website','bankgiro','taxStatus']),'Fakturautkastets säljare');
+  if(Object.hasOwn(draft,'lines'))assertObjectArray(draft.lines,INVOICE_LINE_FIELDS,'Fakturarader',200);
+  for(const field of ['freight','administration'])if(Object.hasOwn(draft,field))assertAllowedObject(draft[field],new Set(['amount','vatRate','revenueAccount']),`Fakturautkastets ${field}`);
+}
+function assertCmsSite(site){
+  assertAllowedObject(site,new Set(['meta','navigation','hero','highlights','services','story','contact','footer']),'Webbplatsinnehåll');
+  assertAllowedObject(site.meta,new Set(['title','description','language']),'Webbplatsens meta');
+  assertObjectArray(site.navigation,new Set(['label','href']),'Navigering',12);
+  assertAllowedObject(site.hero,new Set(['eyebrow','title','body','primaryCta','secondaryCta']),'Hero');
+  assertAllowedObject(site.hero.primaryCta,new Set(['label','href']),'Primär CTA');
+  assertAllowedObject(site.hero.secondaryCta,new Set(['label','href']),'Sekundär CTA');
+  assertObjectArray(site.highlights,new Set(['value','label']),'Höjdpunkter',8);
+  assertAllowedObject(site.services,new Set(['eyebrow','title','body','items']),'Tjänster');
+  assertObjectArray(site.services.items,new Set(['id','symbol','title','description']),'Tjänster',12);
+  assertAllowedObject(site.story,new Set(['eyebrow','title','body','points']),'Om-sektion');
+  if(!Array.isArray(site.story.points))throw securityError('Om-punkter måste vara en lista.','INVALID_INPUT_TYPE',422);
+  assertAllowedObject(site.contact,new Set(['eyebrow','title','body','openingHours']),'Kontaktsektion');
+  assertObjectArray(site.contact.openingHours,new Set(['days','hours']),'Öppettider',14);
+  assertAllowedObject(site.footer,new Set(['tagline','adminLabel']),'Sidfot');
+}
+function assertCmsCompany(company){
+  assertAllowedObject(company,new Set(['legalName','displayName','orgNumber','vatNumber','registeredOffice','address','contact','website','invoice','business','links']),'Företagsprofil');
+  assertAllowedObject(company.address,new Set(['street','postalCode','city','full']),'Företagsadress');
+  assertAllowedObject(company.contact,new Set(['phone','phoneHref','email']),'Företagskontakt');
+  if(Object.hasOwn(company,'invoice'))assertAllowedObject(company.invoice,new Set(['bankgiro','taxStatus']),'Fakturainställningar');
+  if(Object.hasOwn(company,'business'))assertAllowedObject(company.business,new Set(['sni','description','currency']),'Verksamhetsprofil');
+  assertAllowedObject(company.links,new Set(['maps']),'Företagslänkar');
+}
+function assertNestedSchema(req,payload){
+  const method=String(req?.method||'GET').toUpperCase(),pathname=apiPath(req);
+  if(method==='PUT'&&pathname==='/api/v1/customer-invoices/draft'){assertInvoiceDraft(payload.draft);return}
+  if((method==='POST'&&pathname==='/api/v1/customer-invoices')||(method==='POST'&&/^\/api\/v1\/customer-invoices\/[^/]+\/credit$/.test(pathname))){
+    if(payload.lines!==undefined)assertObjectArray(payload.lines,INVOICE_LINE_FIELDS,'Fakturarader',200);
+    return;
+  }
+  if(method==='PUT'&&/^\/api\/v1\/automation\/proposals\/[^/]+\/suggestion$/.test(pathname)&&payload.accountingLines!==undefined){assertObjectArray(payload.accountingLines,ACCOUNTING_LINE_FIELDS,'Konteringsrader',20);return}
+  if(method==='POST'&&/^\/api\/v1\/accounting\/entries\/[^/]+\/correct$/.test(pathname)&&payload.replacementLines!==undefined){assertObjectArray(payload.replacementLines,ACCOUNTING_LINE_FIELDS,'Ersättningsrader',500);return}
+  if(method==='POST'&&(pathname==='/api/v1/accounting/opening-migration/preview'||pathname==='/api/v1/accounting/opening-migration/import')){
+    assertObjectArray(payload.lines,ACCOUNTING_LINE_FIELDS,'Ingående balans',500);
+    assertObjectArray(payload.receivables||[],RECEIVABLE_FIELDS,'Öppna kundposter',2000);
+    assertObjectArray(payload.payables||[],PAYABLE_FIELDS,'Öppna leverantörsposter',2000);
+    return;
+  }
+  if(method==='POST'&&/^\/api\/v1\/accounting\/opening-balances\/(?:19|20|21)\d{2}$/.test(pathname)){assertObjectArray(payload.lines,ACCOUNTING_LINE_FIELDS,'Ingående balans',500);return}
+  if(method==='PUT'&&/^\/api\/v1\/payables\/invoices\/[^/]+\/coding$/.test(pathname)){assertObjectArray(payload.lines,ACCOUNTING_LINE_FIELDS,'Konteringsrader',500);return}
+  if(method==='POST'&&pathname==='/api/v1/payroll/runs'){assertObjectArray(payload.lines,ACCOUNTING_LINE_FIELDS,'Lönejournal',500);return}
+  if(method==='PUT'&&pathname==='/api/v1/website/cms/draft'){assertCmsSite(payload.site);assertCmsCompany(payload.company)}
+}
+function assertPrimitiveTypes(req,payload){
+  const method=String(req?.method||'GET').toUpperCase(),pathname=apiPath(req);
+  if(pathname.endsWith('/auth/login')){
+    for(const field of ['username','password','totp'])if(typeof payload[field]!=='string')throw securityError(`${field} måste vara text.`,'INVALID_INPUT_TYPE',422);
+    if(payload.companyId!==undefined&&typeof payload.companyId!=='string')throw securityError('companyId måste vara text.','INVALID_INPUT_TYPE',422);
+  }
+  if((method==='POST'&&pathname==='/api/v1/customers')||(method==='PUT'&&/^\/api\/v1\/customers\/[^/]+$/.test(pathname))){
+    for(const field of ['name','email','orgNumber','address'])if(payload[field]!==undefined&&typeof payload[field]!=='string')throw securityError(`${field} måste vara text.`,'INVALID_INPUT_TYPE',422);
+    if(payload.reminderFeeAgreed!==undefined&&typeof payload.reminderFeeAgreed!=='boolean')throw securityError('reminderFeeAgreed måste vara true eller false.','INVALID_INPUT_TYPE',422);
+  }
+  for(const field of ['amountOre','totalOre','vatOre','quantityMilli','unitCostOre','countedQuantityMilli','paymentTermsDays','expectedRevision','expectedPublishedVersion','grossSalaryOre','withheldTaxOre','employerContributionsOre','netPayOre','vacationLiabilityChangeOre']){
+    if(payload[field]!==undefined&&!Number.isSafeInteger(payload[field]))throw securityError(`${field} måste vara ett säkert heltal.`,'INVALID_INPUT_TYPE',422);
+  }
+}
 
 function schemaFor(method,pathname){
   return BODY_RULES.find(([verb,pattern])=>verb===method&&pattern.test(pathname))?.[2]||null;
@@ -229,6 +311,8 @@ function validateJsonInput(req,payload){
   const clean=sanitizeJson(payload);
   const unexpected=Object.keys(clean).filter(key=>!allowed.has(key));
   if(unexpected.length)throw securityError(`Begäran innehåller oväntade fält: ${unexpected.slice(0,5).join(', ')}.`,'UNEXPECTED_FIELDS',422);
+  assertPrimitiveTypes(req,clean);
+  assertNestedSchema(req,clean);
   return clean;
 }
 function validateRequestTarget(req){
