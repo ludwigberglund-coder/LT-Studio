@@ -185,6 +185,8 @@ const BODY_RULES=Object.freeze([
   ['PUT',/^\/api\/v1\/profile\/security$/,new Set(['sessionDurationMinutes'])],
   ['PUT',/^\/api\/v1\/access\/members\/[^/]+\/role$/,new Set(['role'])],
   ['POST',/^\/api\/operator\/v1\/auth\/login$/,new Set(['username','password','totp'])],
+  ['POST',/^\/api\/operator\/v1\/companies\/[^/]+\/users$/,new Set(['username','displayName','password','role','sessionDurationMinutes'])],
+  ['PUT',/^\/api\/operator\/v1\/companies\/[^/]+\/users\/[^/]+$/,new Set(['action','role','password','disabled'])],
   ['POST',/^\/api\/v1\/customers$/,new Set(['requestId','name','email','orgNumber','address','reminderFeeAgreed'])],
   ['PUT',/^\/api\/v1\/customers\/[^/]+$/,new Set(['name','email','orgNumber','address','reminderFeeAgreed'])],
   ['PUT',/^\/api\/v1\/customer-invoices\/draft$/,new Set(['requestId','draft'])],
@@ -328,6 +330,20 @@ function assertPrimitiveTypes(req,payload){
     assertTextField(payload,'password',256);
     assertTextField(payload,'totp',8,{pattern:/^\d{6}$/});
     assertTextField(payload,'companyId',200);
+  }
+  if(method==='POST'&&/^\/api\/operator\/v1\/companies\/[^/]+\/users$/.test(pathname)){
+    assertTextField(payload,'username',120);
+    assertTextField(payload,'displayName',160);
+    assertTextField(payload,'password',256);
+    assertTextField(payload,'role',20,{pattern:/^(?:admin|accountant|approver|readonly)$/});
+    if(payload.sessionDurationMinutes!==null&&payload.sessionDurationMinutes!=='session'&&!Number.isSafeInteger(payload.sessionDurationMinutes))throw securityError('sessionDurationMinutes måste vara null eller ett säkert heltal.','INVALID_INPUT_TYPE',422);
+    if(payload.sessionDurationMinutes!==null&&payload.sessionDurationMinutes!=='session'&&![120,240,360,480].includes(payload.sessionDurationMinutes))throw securityError('sessionDurationMinutes måste vara 120, 240, 360 eller 480.','INVALID_INPUT_FORMAT',422);
+  }
+  if(method==='PUT'&&/^\/api\/operator\/v1\/companies\/[^/]+\/users\/[^/]+$/.test(pathname)){
+    assertTextField(payload,'action',20,{pattern:/^(?:role|password|status)$/});
+    if(payload.role!==undefined)assertTextField(payload,'role',20,{pattern:/^(?:admin|accountant|approver|readonly)$/});
+    if(payload.password!==undefined)assertTextField(payload,'password',256);
+    if(payload.disabled!==undefined&&typeof payload.disabled!=='boolean')throw securityError('disabled måste vara true eller false.','INVALID_INPUT_TYPE',422);
   }
   if(method==='PUT'&&pathname==='/api/v1/profile/security'){
     if(payload.sessionDurationMinutes!==null&&payload.sessionDurationMinutes!=='session'&&!Number.isSafeInteger(payload.sessionDurationMinutes))throw securityError('sessionDurationMinutes måste vara null eller ett säkert heltal.','INVALID_INPUT_TYPE',422);
