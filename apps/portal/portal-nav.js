@@ -1,5 +1,6 @@
 'use strict';
 (function(root){
+  const LT_STUDIO_FAVICON='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAADxElEQVR42p1WPU8jSRCt193jmTHDWQQkOL8VXIqERACChD+AWJ2lY1PQbcAv2SPZk8iIF6M9ICQAERERHSeRO0HaE8OJFXg8XXVBj2fGX9hsBZbH7qnqqnrvVYGZaawJEWgiGzip3vyOvHp44B4jA4jI8Hcw+h7DTA36dUUDUMQoe5EBp/Ja4P4AzKy1BsDMAIZXQHof8VoSqu/uxpi7u7u1tbXz83MA1tohMTCuATIQIE1TpZTW+uDgYHV19fLyMo7jibra4x+DoFDu7p7ntVqtrffvd3Z2vn9/0lobY4p7yQRIK772nDYiAuD4+Hhvb6/VatVqNSKy1iqlxiOn94BzDaCchFFKXV1dbW5uBkFQq9XSNNVaE5GwvIJgpZSI9DNEJMMFCgIZIvr27zciCsMw6XSA7IyMqAszM7O1lgDqenSAzt8kkIhorUEwRGS0yXBZYtgQEnRB7FKcxJjZ5Nk5K7qvVF8ebK025vr6+ubmxvd9ZhYSEupLwj2+vLysr6/Pz8+bIjUi154BeAgR0jT1PO/s7KzRaDw9PY1pOSAinz79sbCwYMoYEyH08ghA7v3r178ajV8BzMzMMDOhC/wBCBijHx//m5qaIiJThjFALkS5B877ly9H29u/aa2M8ZIkAdDDqIIr4uqUpqkI5wFKNy4SQs7Bo6OjDx+2K5WKNpotG6Nd5QbEKgOuNlpr7UTTlOVQSNB91Fq5En3+/OfHj78TKEmS8dMJBILW2lrbbid9GQClVNM0Zeb7+/tm82h5eTmKpgkkDjkEBQDKFSEvkEvI6WOSJO/e/ZwFcH902ZdlHUWRUqper19cXNCPWsYD10+RYpoopf6+va3X6+12u2CoCACllLXW9/2FhV/yFgCQLmdyWmScEJGTkxMiqtV+iqKpKIrcZxAE1Wo1DEPf9/3AD4IgDMIg8J0a7u7uikgn7VhrecDKPxYlktKIEhLjmazbRmfoEjHGj+N4a2trf3/fKS7GKW1JkzMEdfGcq6kQiTCz53lxHG9sbBweHlYqFQDDvUtXsaUbwBULirrfCQAUypPA88zDw8PKykqz2QzDME3TnAQ9siilQQ3KUMTMIiIsQ2EuIsaYOH5cWlpqNptRFFlry4LaQzf0r1KGiKrVqkNOGIYiAqVIMpFTABE9Pz8vLi6enp7Ozs7mE6lnwoxev8DMSafzz+2t7/thGHYlSfJ7AGi323Nzc9PT09ayUnjT6jhi/xnBmnLdy/PrFSt6MFTWSUqjvO+vsvfRYTDRdv1jm/ak23Xf7oU3rGJE9D8ZRgrgk8hmDQAAAABJRU5ErkJggg==';
   const groups=[
     {id:'workspace',label:'Arbetsyta',items:[['overview','Översikt','portal/dashboard.html']]},
     {id:'economy',label:'Ekonomi',items:[
@@ -34,6 +35,13 @@
     return groups.map(group=>({...group,items:group.items.filter(([id])=>!demoOnlyIds.has(id)&&(!requiredPermission[id]||allowed.has(requiredPermission[id]))).map(item=>item[0]==='receivables'?[item[0],item[1],'portal/index.html']:item)})).filter(group=>group.items.length);
   }
   if(typeof module==='object'&&module.exports){module.exports={groups,visibleGroups};return;}
+  function ensureFavicon(){
+    if(document.querySelector('link[rel~="icon"]'))return;
+    const link=document.createElement('link');
+    link.rel='icon';link.type='image/png';link.href=LT_STUDIO_FAVICON;
+    document.head.appendChild(link);
+  }
+  ensureFavicon();
   if(root.RollandsNavigation)return;
   const base=new URL('../',document.currentScript.src);
   const demo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
