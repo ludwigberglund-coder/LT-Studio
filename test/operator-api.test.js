@@ -74,9 +74,18 @@ test('operator-API kräver separat operatörssession och läcker inte kundernas 
   assert.equal(securityResponse.status,200);
   const security=await securityResponse.json();
   assert.equal(security.events.length,1);
-  assert.deepEqual(Object.keys(security.events[0]).sort(),['createdAt','kind','severity']);
+  assert.deepEqual(Object.keys(security.events[0]).sort(),['companyId','companyName','createdAt','kind','severity']);
+  assert.equal(security.events[0].companyId,null);
+  assert.equal(security.events[0].companyName,null);
   assert.equal(security.events[0].kind,'LOGIN_FAILURE_THRESHOLD');
   assert.doesNotMatch(JSON.stringify(security),/aaaaaaaa|192\.0\.2\.44|must-not-leak/);
+
+  const auditResponse=await fetch(base+'/api/operator/v1/operator-audit',{headers:{Cookie:signed.cookie}});
+  assert.equal(auditResponse.status,200);
+  const auditBody=await auditResponse.json();
+  assert.ok(auditBody.events.length>=1);
+  assert.deepEqual(Object.keys(auditBody.events[0]).sort(),['action','afterRole','beforeRole','companyId','companyName','createdAt','operatorName','role','targetUserName']);
+  assert.doesNotMatch(JSON.stringify(auditBody),/passwordHash|mfaSecret|csrf|tokenHash|detailsJson/);
 
   const readiness=await fetch(base+'/api/operator/v1/readiness',{headers:{Cookie:signed.cookie}});
   assert.ok([200,503].includes(readiness.status));
