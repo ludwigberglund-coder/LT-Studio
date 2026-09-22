@@ -96,7 +96,9 @@ function createServer(options = {}) {
   const api = createApiApp({db,secureCookies,authEncryptionKey,operationalLogger,operationalRuntimeId:runtimeId,clientIp});
   const automationReview = createAutomationReviewRouter({db}); const bank = createBankRouter({db}); const payables = createPayablesRouter({db}); const supplierMasterdata = createSupplierMasterdataRouter({db}); const paymentRelease = createPaymentReleaseRouter({db}); const paymentConfirmation = createPaymentConfirmationRouter({db}); const inventory = createInventoryRouter({db}); const reports = createReportsRouter({db}); const exportsRouter=createExportsRouter({db}); const payroll = createPayrollRouter({db}); const documents = createDocumentsRouter({db}); const openingMigrationImport=createOpeningMigrationImportRouter({db}); const accounting = createAccountingAdminRouter({db}); const websiteCms = createWebsiteCmsRouter({db});
   const protectedMode=protectedRuntimeMode(process.env);
-  const stagingMode=String(process.env.ROLLANDS_ENV||'').trim()==='staging';
+  const runtimeMode=String(process.env.ROLLANDS_ENV||'').trim();
+  const stagingMode=runtimeMode==='staging';
+  const customerDataMode=['pilot','production'].includes(runtimeMode);
   const readinessPayload=({includeMonitoring=true}={})=>{
     const report=readinessReport({
       db,
@@ -120,7 +122,7 @@ function createServer(options = {}) {
       requireStagingEvidenceConsistency:stagingMode,
       requireMonitoringEvidence:protectedMode&&includeMonitoring,
       requireAuditAnchorEvidence:protectedMode,
-      requirePlatformAdmin:protectedMode,
+      requirePlatformAdmin:customerDataMode,
       authEncryptionKey
     });
     return {
