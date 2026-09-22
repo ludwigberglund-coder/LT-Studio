@@ -336,6 +336,70 @@ function assertPrimitiveTypes(req,payload){
     assertTextField(payload,'reason',500);
     assertTextField(payload,'requestId',100);
   }
+  if(method==='POST'&&pathname==='/api/v1/documents'){
+    assertTextField(payload,'requestId',100);
+    assertTextField(payload,'title',180);
+    assertTextField(payload,'category',40);
+    assertTextField(payload,'note',1000);
+    assertTextField(payload,'fileName',180);
+    assertTextField(payload,'mimeType',100);
+    assertTextField(payload,'entityType',80);
+    assertTextField(payload,'entityId',200);
+    assertTextField(payload,'linkLabel',180);
+  }
+  if(method==='POST'&&/^\/api\/v1\/documents\/[^/]+\/links$/.test(pathname)){
+    assertTextField(payload,'entityType',80);
+    assertTextField(payload,'entityId',200);
+    assertTextField(payload,'label',180);
+  }
+  if(method==='PUT'&&/^\/api\/v1\/suppliers\/[^/]+\/profile$/.test(pathname)){
+    assertTextField(payload,'requestId',100);
+    assertTextField(payload,'name',160);
+    assertTextField(payload,'orgNumber',40);
+    assertTextField(payload,'email',254,{pattern:/^[^\s@]+@[^\s@]+\.[^\s@]+$/});
+    assertTextField(payload,'defaultCostAccount',4,{pattern:/^\d{4}$/});
+  }
+  if(method==='POST'&&/^\/api\/v1\/suppliers\/[^/]+\/payment-details$/.test(pathname)){
+    assertTextField(payload,'requestId',100);
+    assertTextField(payload,'bankgiro',50);
+    assertTextField(payload,'plusgiro',50);
+  }
+  if(method==='POST'&&/^\/api\/v1\/suppliers\/changes\/[^/]+\/reject$/.test(pathname))assertTextField(payload,'reason',1000);
+  if(method==='POST'&&/^\/api\/v1\/automation\/proposals\/[^/]+\/reclassify$/.test(pathname)){
+    assertTextField(payload,'targetInvoiceId',200);
+    assertTextField(payload,'requestId',100);
+    assertTextField(payload,'correctionDate',10,{pattern:/^\d{4}-\d{2}-\d{2}$/});
+    assertTextField(payload,'reason',500);
+  }
+  if(method==='POST'&&/^\/api\/v1\/automation\/proposals\/[^/]+\/reject$/.test(pathname))assertTextField(payload,'reason',1000);
+  if(method==='POST'&&/^\/api\/v1\/accounting\/entries\/[^/]+\/correct$/.test(pathname)){
+    assertTextField(payload,'postingDate',10,{pattern:/^\d{4}-\d{2}-\d{2}$/});
+    assertTextField(payload,'reason',1000);
+  }
+  if(method==='POST'&&/^\/api\/v1\/accounting\/periods\/\d{4}-\d{2}\/unlock-request$/.test(pathname))assertTextField(payload,'reason',1000);
+  if(method==='POST'&&/^\/api\/v1\/accounting\/unlock-requests\/[^/]+\/(?:approve|reject)$/.test(pathname))assertTextField(payload,'reason',1000);
+  if(method==='POST'&&/^\/api\/v1\/payables\/payments\/[^/]+\/confirm-post$/.test(pathname)){
+    assertTextField(payload,'confirmationReference',200);
+    assertTextField(payload,'postingDate',10,{pattern:/^\d{4}-\d{2}-\d{2}$/});
+  }
+  if(method==='POST'&&/^\/api\/v1\/payables\/payments\/[^/]+\/correct$/.test(pathname)){
+    assertTextField(payload,'requestId',100);
+    assertTextField(payload,'correctionDate',10,{pattern:/^\d{4}-\d{2}-\d{2}$/});
+    assertTextField(payload,'reason',500);
+  }
+  if(method==='POST'&&pathname==='/api/v1/payroll/runs'){
+    assertTextField(payload,'period',7,{pattern:/^\d{4}-\d{2}$/});
+    assertTextField(payload,'payDate',10,{pattern:/^\d{4}-\d{2}-\d{2}$/});
+    assertTextField(payload,'sourceName',120);
+  }
+  if(method==='POST'&&/^\/api\/v1\/invoices\/[^/]+\/reminders(?:\/preview)?$/.test(pathname)){
+    assertTextField(payload,'sentDate',10,{pattern:/^\d{4}-\d{2}-\d{2}$/});
+    assertTextField(payload,'kind',50);
+    assertTextField(payload,'note',1000);
+    for(const field of ['includeReminderFee','includeInterest','includeBusinessLatePaymentCompensation']){
+      if(payload[field]!==undefined&&typeof payload[field]!=='boolean')throw securityError(`${field} måste vara true eller false.`,'INVALID_INPUT_TYPE',422);
+    }
+  }
   if(method==='POST'&&/^\/api\/v1\/customer-invoices\/[^/]+\/credit$/.test(pathname)){
     assertTextField(payload,'requestId',100);
     assertTextField(payload,'creditDate',10,{pattern:/^\d{4}-\d{2}-\d{2}$/});
