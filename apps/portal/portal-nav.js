@@ -122,6 +122,20 @@
     element.prepend(iconoir(name));
     element.classList.add('ui-with-icon');
   }
+  function textNavigationIcon(element){
+    const text=String(element.textContent||'').trim().toLowerCase();
+    if(/översikt/.test(text))return'home';
+    if(/kund|användare|leverantör/.test(text))return'group';
+    if(/faktura|dokument|innehåll/.test(text))return'page';
+    if(/bank/.test(text))return'bank';
+    if(/bokför|verifikation|konto/.test(text))return'book';
+    if(/rapport|statistik|projekt/.test(text))return'stats';
+    if(/lager|modul/.test(text))return'package';
+    if(/säker|audit|test/.test(text))return'shield';
+    if(/inställ|automation/.test(text))return'settings';
+    if(/hjälp|assistent/.test(text))return'help';
+    return'page';
+  }
   function semanticButtonIcon(element){
     const text=[element.getAttribute?.('aria-label'),element.getAttribute?.('title'),element.textContent].filter(Boolean).join(' ').trim().toLowerCase();
     if(/logga ut/.test(text))return'logout';
@@ -144,6 +158,11 @@
   }
   function decorateUi(){
     document.querySelectorAll('[data-nav-id]').forEach(link=>addIcon(link,NAV_ICONS[link.dataset.navId]||'page'));
+    document.querySelectorAll('.nav-item').forEach(link=>{
+      const legacy=link.querySelector(':scope > span:first-child');
+      if(legacy&&/^[^\p{L}\p{N}]+$/u.test(String(legacy.textContent||'').trim()))legacy.remove();
+      addIcon(link,textNavigationIcon(link));
+    });
     document.querySelectorAll('.shared-user-dropdown a,.shared-user-dropdown button').forEach(el=>addIcon(el,semanticButtonIcon(el)||'profile'));
     document.querySelectorAll('.shared-foot>a').forEach(el=>addIcon(el,'home'));
     document.querySelectorAll('.comment-badge').forEach(el=>addIcon(el,'chat'));
