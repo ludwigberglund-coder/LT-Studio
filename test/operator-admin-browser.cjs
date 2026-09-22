@@ -116,6 +116,18 @@ const out=path.join(__dirname,'..','test-artifacts');
 
     await page.getByRole('button',{name:'← Alla företag',exact:true}).click();
     await page.getByRole('heading',{name:'Kunder & företag',exact:true}).waitFor();
+    const companySearch=page.locator('[data-company-search]');
+    await companySearch.fill('saknas-helt');
+    await page.getByText('Inga företag matchar filtret.').waitFor();
+    await companySearch.fill('Browser Kund');
+    assert.equal(await page.locator('[data-company-id="'+company.id+'"]').count(),1);
+    await page.locator('[data-company-filter]').selectOption('unconfigured');
+    await page.getByText('Inga företag matchar filtret.').waitFor();
+    await page.locator('[data-company-filter]').selectOption('all');
+    await page.locator('[data-company-sort]').selectOption('invoices');
+    assert.equal(await page.locator('[data-company-id="'+company.id+'"]').count(),1);
+    checks.push({kind:'company-filter-and-sort'});
+
     await page.getByRole('button',{name:'Uppdatera',exact:true}).click();
     checks.push({kind:'refresh'});
 
