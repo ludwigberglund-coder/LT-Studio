@@ -129,36 +129,62 @@ function companiesView(){
   <section class="panel"><div class="panel-head"><div><span class="eyebrow">FÖRETAG</span><h2>Alla kunder & företag</h2><p>Öppna ett företag för användare, behörigheter och statistik.</p></div></div><div class="table-wrap"><table><thead><tr><th>Företag</th><th>Org.nr</th><th>Användare</th><th>Status</th><th>Sessioner</th><th>Fakturor</th><th>Senaste aktivitet</th></tr></thead><tbody>${companyRows()}</tbody></table></div></section>`,'Kunder & företag','Central administration för varje kundmiljö.');
 }
 function statisticsView(){
-  const companies=overview?.companies||[];
-  const invoiceTotal=companies.reduce((sum,c)=>sum+Number(c.invoiceRecordCount||0),0);
-  const customerTotal=companies.reduce((sum,c)=>sum+Number(c.customerRecordCount||0),0);
-  const usersTotal=companies.reduce((sum,c)=>sum+Number(c.memberCount||0),0);
-  shell(`<section class="status-grid"><article class="metric"><span>Kundföretag</span><strong>${companies.length}</strong><small>registrerade miljöer</small></article><article class="metric"><span>Användarmedlemskap</span><strong>${usersTotal}</strong><small>över alla företag</small></article><article class="metric"><span>Kundposter</span><strong>${customerTotal}</strong><small>i kundregistren</small></article><article class="metric"><span>Fakturaposter</span><strong>${invoiceTotal}</strong><small>över hela plattformen</small></article></section>
-  <section class="panel"><div class="panel-head"><div><h2>Företagsstatistik</h2><p>Operativ metadata utan att visa fakturainnehåll eller annan ekonomisk detaljdata.</p></div></div><div class="table-wrap"><table><thead><tr><th>Företag</th><th>Användare</th><th>Kunder</th><th>Fakturor</th><th>Aktiva sessioner</th></tr></thead><tbody>${companies.map(c=>`<tr><td><strong>${esc(c.displayName)}</strong></td><td>${c.memberCount}</td><td>${c.customerRecordCount}</td><td>${c.invoiceRecordCount}</td><td>${c.activeSessionCount}</td></tr>`).join('')}</tbody></table></div></section>`,'Statistik','Nyckeltal som hjälper LT Studio att följa användning och kundmiljöer.');
+  const companies=overview?.companies||[],totals=overview?.totals||{};
+  const avgUsers=overview?.companyCount?totals.members/overview.companyCount:0,avgInvoices=overview?.companyCount?totals.invoices/overview.companyCount:0;
+  shell(`<section class="status-grid six">
+    ${kpiCard('Företag',num(overview?.companyCount),'totalt')}
+    ${kpiCard('Användare',num(totals.members),'medlemskap')}
+    ${kpiCard('Snitt användare',avgUsers.toLocaleString('sv-SE',{maximumFractionDigits:1}),'per företag')}
+    ${kpiCard('Kundposter',num(totals.customers),'totalt')}
+    ${kpiCard('Fakturor',num(totals.invoices),'totalt')}
+    ${kpiCard('Snitt fakturor',avgInvoices.toLocaleString('sv-SE',{maximumFractionDigits:1}),'per företag')}
+  </section>
+  <section class="trend-grid">
+    ${trendCard('Systemaktivitet','Audit-händelser som visar användning av systemet.','activity','händelser')}
+    ${trendCard('Fakturor','Nya fakturaposter som skapats i systemet.','invoices','fakturor')}
+    ${trendCard('Kundregister','Nya kundposter i kundföretagens register.','customers','kunder')}
+    ${trendCard('Användare','Nya företagsmedlemskap i plattformen.','memberships','medlemskap')}
+  </section>
+  <section class="dashboard-grid equal">
+    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">FÖRETAG</span><h2>Fakturavolym</h2><p>Fakturaposter per kundföretag.</p></div></div><div class="chart-pad">${miniBars(companies,'invoiceRecordCount','fakturor')}</div></article>
+    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">FÖRETAG</span><h2>Användare</h2><p>Antal medlemskap per kundföretag.</p></div></div><div class="chart-pad">${miniBars(companies,'memberCount','användare')}</div></article>
+  </section>
+  <section class="dashboard-grid equal">
+    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">ROLLER</span><h2>Behörighetsfördelning</h2><p>Fördelning över alla kundföretag.</p></div></div><div class="role-bars roomy">${roleBars()}</div></article>
+    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">KONTOKVALITET</span><h2>Aktivering & konto-status</h2><p>Översikt över hur färdig kundbasen är.</p></div></div><div class="stat-stack"><div><span>Företag med användare</span><strong>${percent(totals.configuredCompanies,overview?.companyCount)}%</strong><meter min="0" max="100" value="${percent(totals.configuredCompanies,overview?.companyCount)}"></meter></div><div><span>Aktiva företag senaste 30 dagar</span><strong>${percent(totals.activeCompanies30d,overview?.companyCount)}%</strong><meter min="0" max="100" value="${percent(totals.activeCompanies30d,overview?.companyCount)}"></meter></div><div><span>Inaktiverade användarkonton</span><strong>${num(totals.disabledUsers)}</strong><small>konton</small></div></div></article>
+  </section>
+  <section class="panel"><div class="panel-head"><div><span class="eyebrow">DETALJER</span><h2>Företagsstatistik</h2><p>Operativ metadata utan fakturainnehåll eller ekonomiska belopp.</p></div></div><div class="table-wrap"><table><thead><tr><th>Företag</th><th>Användare</th><th>Kunder</th><th>Fakturor</th><th>Sessioner</th><th>Senaste aktivitet</th></tr></thead><tbody>${companies.map(c=>`<tr class="click-row" data-company-id="${esc(c.id)}"><td><div class="company-cell"><span class="company-avatar">${initials(c.displayName)}</span><strong>${esc(c.displayName)}</strong></div></td><td>${c.memberCount}</td><td>${c.customerRecordCount}</td><td>${c.invoiceRecordCount}</td><td>${c.activeSessionCount}</td><td>${dateTime(c.lastActivityAt)}</td></tr>`).join('')}</tbody></table></div></section>`,'Statistik','Mätbara nyckeltal och trender för hela LT Studio-plattformen.');
 }
 function securityView(){
-  shell(`<section class="panel callout-panel"><div><span class="eyebrow">Nästa etapp</span><h2>Säkerhetsportal</h2><p>Den fulla säkerhetsportalen byggs som nästa separata del. Här ska incidenter, inloggningsförsök, hälsokontroller, backup, R2, audit, övervakning och säkerhetsåtgärder samlas.</p></div></section>
-  <section class="panel"><div class="panel-head"><div><h2>Nuvarande säkerhetshändelser</h2><p>Den befintliga read-only-vyn finns kvar tills säkerhetsportalen byggs färdigt.</p></div></div><div class="event-list">${securityEvents()}</div></section>`,'Säkerhetsportal','Planerad separat säkerhetsyta för LT Studio.');
+  const sec=overview?.security||{},risk=Math.min(100,Number(sec.critical||0)*35+Number(sec.warning||0)*10),health=readinessScore();
+  shell(`<section class="security-hero"><div><span class="eyebrow">SÄKERHETSPORTAL · NÄSTA ETAPP</span><h2>En samlad säkerhetsyta för hela LT Studio.</h2><p>Den fulla säkerhetsportalen byggs separat. Den här förhandsvyn använder redan aktuella säkerhetshändelser och tekniska hälsokontroller.</p></div><div class="hero-gauges compact">${ringGauge(health,'Drift','Tekniska kontroller')}${ringGauge(100-risk,'Risknivå','Baserat på 24 h',toneForPercent(100-risk))}</div></section>
+  <section class="status-grid"><article class="metric"><span>Kritiska händelser</span><strong class="critical">${num(sec.critical)}</strong><small>senaste 24 timmar</small></article><article class="metric"><span>Varningar</span><strong class="warning">${num(sec.warning)}</strong><small>senaste 24 timmar</small></article><article class="metric"><span>Information</span><strong>${num(sec.info)}</strong><small>senaste 24 timmar</small></article><article class="metric"><span>Senaste händelse</span><strong class="small-value">${esc(dateTime(sec.latestEventAt))}</strong><small>säkerhetslogg</small></article></section>
+  <section class="dashboard-grid equal"><article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">SÄKERHET</span><h2>Aktuella händelser</h2><p>Redigerad vy utan känsliga tekniska detaljer.</p></div></div><div class="event-list">${securityEvents()}</div></article><article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">DRIFT</span><h2>Skydd & hälsa</h2><p>Kontroller som säkerhetsportalen kommer övervaka.</p></div></div><div class="health-list">${readinessChecks()}</div></article></section>`,'Säkerhetsportal','Förhandsvy inför den separata säkerhetsetappen.');
 }
 function memberRows(detail){
-  return (detail.members||[]).map(m=>`<tr><td><strong>${esc(m.displayName)}</strong><br><small>${esc(m.username)}</small></td><td><select data-role-user="${esc(m.userId)}">${['admin','accountant','approver','readonly'].map(r=>`<option value="${r}" ${m.role===r?'selected':''}>${roleLabel(r)}</option>`).join('')}</select></td><td>${m.disabled?'Inaktiv':'Aktiv'}</td><td><button class="button secondary small" data-action="reset-password" data-user-id="${esc(m.userId)}" data-user-name="${esc(m.displayName)}">Byt lösenord</button> <button class="button danger small" data-action="remove-user" data-user-id="${esc(m.userId)}" data-user-name="${esc(m.displayName)}">Ta bort åtkomst</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Inga användare i företaget.</td></tr>';
+  return (detail.members||[]).map(m=>`<tr><td><div class="company-cell"><span class="company-avatar user">${initials(m.displayName)}</span><div><strong>${esc(m.displayName)}</strong><small>${esc(m.username)}</small></div></div></td><td><select data-role-user="${esc(m.userId)}">${['admin','accountant','approver','readonly'].map(r=>`<option value="${r}" ${m.role===r?'selected':''}>${roleLabel(r)}</option>`).join('')}</select></td><td>${m.disabled?'<span class="status-pill"><span class="dot critical"></span>Inaktiv</span>':'<span class="status-pill"><span class="dot ok"></span>Aktiv</span>'}</td><td><div class="row-actions"><button class="button secondary small" data-action="reset-password" data-user-id="${esc(m.userId)}" data-user-name="${esc(m.displayName)}">Byt lösenord</button><button class="button danger small" data-action="remove-user" data-user-id="${esc(m.userId)}" data-user-name="${esc(m.displayName)}">Ta bort åtkomst</button></div></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Inga användare i företaget.</td></tr>';
 }
 function companyDetailView(detail){
   selectedCompany=detail;
-  const c=detail.company,s=detail.stats||{};
+  const c=detail.company,s=detail.stats||{},memberCount=Number(s.memberCount||0);
+  const userActivity=memberCount?Math.min(100,Math.round(Number(s.activeSessionCount||0)/memberCount*100)):0;
   shell(`<div class="detail-back"><button class="button secondary" data-action="back-companies">← Alla företag</button></div>
-  <section class="detail-hero"><div><span class="eyebrow">Kundföretag</span><h2>${esc(c.displayName)}</h2><p>${esc(c.legalName)} · ${esc(c.orgNumber)}</p></div></section>
-  <section class="status-grid"><article class="metric"><span>Användare</span><strong>${s.memberCount||0}</strong></article><article class="metric"><span>Aktiva sessioner</span><strong>${s.activeSessionCount||0}</strong></article><article class="metric"><span>Kunder</span><strong>${s.customerRecordCount||0}</strong></article><article class="metric"><span>Fakturor</span><strong>${s.invoiceRecordCount||0}</strong></article></section>
-  <section class="panel"><div class="panel-head"><div><h2>Användare & behörigheter</h2><p>Endast LT Studio kan skapa, ändra eller ta bort användare.</p></div></div><div class="table-wrap"><table><thead><tr><th>Användare</th><th>Roll</th><th>Status</th><th>Åtgärder</th></tr></thead><tbody>${memberRows(detail)}</tbody></table></div></section>
-  <section class="panel"><div class="panel-head"><div><h2>Lägg till användare</h2><p>Minst 8 tecken, stora och små bokstäver samt minst en siffra eller ett specialtecken. MFA skapas samtidigt.</p></div></div>
+  <section class="detail-hero"><div><span class="eyebrow">KUNDFÖRETAG</span><h2>${esc(c.displayName)}</h2><p>${esc(c.legalName)} · ${esc(c.orgNumber)}</p></div><div class="detail-hero-meta"><span><small>Skapad</small><strong>${dateTime(c.createdAt)}</strong></span><span><small>Senaste aktivitet</small><strong>${dateTime(s.lastActivityAt)}</strong></span></div></section>
+  <section class="status-grid"><article class="metric"><span>Användare</span><strong>${num(s.memberCount)}</strong><small>konton med åtkomst</small></article><article class="metric"><span>Aktiva sessioner</span><strong>${num(s.activeSessionCount)}</strong><small>${userActivity}% av användarna</small></article><article class="metric"><span>Kundposter</span><strong>${num(s.customerRecordCount)}</strong><small>i kundregistret</small></article><article class="metric"><span>Fakturor</span><strong>${num(s.invoiceRecordCount)}</strong><small>registrerade poster</small></article></section>
+  <section class="dashboard-grid equal">
+    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">ANVÄNDNING</span><h2>Aktivitet</h2><p>Snabb indikator för kundmiljön.</p></div></div><div class="instrument-pad">${ringGauge(userActivity,'Inloggade',`${s.activeSessionCount||0} aktiva sessioner av ${memberCount} användare.`)}</div></article>
+    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">MILJÖDATA</span><h2>Volym</h2><p>Operativ metadata för kundmiljön.</p></div></div><div class="stat-stack"><div><span>Kundposter</span><strong>${num(s.customerRecordCount)}</strong></div><div><span>Fakturaposter</span><strong>${num(s.invoiceRecordCount)}</strong></div><div><span>Senaste aktivitet</span><strong class="date-stat">${dateTime(s.lastActivityAt)}</strong></div></div></article>
+  </section>
+  <section class="panel"><div class="panel-head"><div><span class="eyebrow">ÅTKOMST</span><h2>Användare & behörigheter</h2><p>Endast LT Studio kan skapa, ändra eller ta bort användare.</p></div><span class="panel-stat">${memberCount} användare</span></div><div class="table-wrap"><table><thead><tr><th>Användare</th><th>Roll</th><th>Status</th><th>Åtgärder</th></tr></thead><tbody>${memberRows(detail)}</tbody></table></div></section>
+  <section class="panel add-user-panel"><div class="panel-head"><div><span class="eyebrow">NY ANVÄNDARE</span><h2>Lägg till användare</h2><p>Minst 8 tecken, stora och små bokstäver samt minst en siffra eller ett specialtecken. MFA skapas samtidigt.</p></div></div>
     <form id="add-user-form" class="form-grid compact-form">
-      <label class="field"><span>Namn</span><input name="displayName" required maxlength="120"></label>
-      <label class="field"><span>Användarnamn / e-post</span><input name="username" required maxlength="120"></label>
-      <label class="field"><span>Tillfälligt lösenord</span><input name="password" type="password" required minlength="8"></label>
+      <label class="field"><span>Namn</span><input name="displayName" required maxlength="120" placeholder="För- och efternamn"></label>
+      <label class="field"><span>Användarnamn / e-post</span><input name="username" required maxlength="120" placeholder="namn@foretag.se"></label>
+      <label class="field"><span>Tillfälligt lösenord</span><input name="password" type="password" required minlength="8" placeholder="Minst 8 tecken"></label>
       <label class="field"><span>Behörighet</span><select name="role"><option value="readonly">Läsbehörighet · säker standard</option><option value="approver">Attestant</option><option value="accountant">Ekonom</option><option value="admin">Admin</option></select></label>
       <div><button class="button" type="submit">Skapa användare</button></div>
     </form><div id="mfa-result"></div>
-  </section>`,'Företagsadmin',`Inställningar och åtgärder för ${c.displayName}.`);
+  </section>`,'Företagsadmin',`Inställningar, användare och statistik för ${c.displayName}.`);
 }
 function render(){if(selectedCompany)return companyDetailView(selectedCompany);if(view==='companies')return companiesView();if(view==='statistics')return statisticsView();if(view==='security')return securityView();return overviewView()}
 async function loadData(){
