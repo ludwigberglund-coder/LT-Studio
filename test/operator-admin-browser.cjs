@@ -14,7 +14,7 @@ const out=path.join(__dirname,'..','test-artifacts');
 
 (async()=>{
   fs.mkdirSync(out,{recursive:true});
-  const runtime=createServer({databasePath:':memory:',db:Db.openDatabase(':memory:'),secureCookies:false,authEncryptionKey:ENCRYPTION_KEY});
+  const runtime=createServer({databasePath:':memory:',db:Db.openDatabase(':memory:'),secureCookies:false,authEncryptionKey:ENCRYPTION_KEY,securityScanIntervalMs:5000});
   let browser,page;
   const checks=[];
   try{
@@ -90,9 +90,23 @@ const out=path.join(__dirname,'..','test-artifacts');
     await page.getByRole('button',{name:'Säkerhetsportal',exact:true}).first().click();
     await page.getByRole('heading',{name:'Säkerhetsportal',exact:true}).waitFor();
     const securityBody=await page.locator('body').innerText();
+    assert.match(securityBody,/Aktiv säkerhetsövervakning/i);
+    assert.match(securityBody,/Systemet söker löpande efter risker och fel/i);
+    assert.match(securityBody,/Aktiva flaggor/i);
+    assert.match(securityBody,/Aktiva användare saknar MFA/i);
     assert.match(securityBody,/Många felaktiga kundinloggningar/);
     assert.doesNotMatch(securityBody,/LOGIN FAILURE THRESHOLD|never-in-ui|cccccccc/);
-    checks.push({kind:'security-preview'});
+    const monitorPayload=await page.evaluate(()=>fetch('/api/operator/v1/security-monitor',{credentials:'same-origin'}).then(r=>r.json()));
+    assert.equal(monitorPayload.active,true);
+    assert.ok(Number(monitorPayload.counts?.warning||0)>=1);
+    checks.push({kind:'security-active-monitor',initialWarnings:monitorPayload.counts.warning});
+
+    Db.appendSecurityEvent(runtime.db,{kind:'OPERATOR_LOGIN_FAILURE_THRESHOLD',severity:'critical',fingerprintHash:'d'.repeat(64),details:{private:'live-secret-must-not-render'}});
+    await page.getByText(/Kritiska säkerhetshändelser har registrerats/).waitFor({timeout:12000});
+    await page.locator('.security-live-alert.critical').waitFor({state:'visible',timeout:12000});
+    const liveSecurityBody=await page.locator('body').innerText();
+    assert.doesNotMatch(liveSecurityBody,/live-secret-must-not-render|dddddddddddddddd/);
+    checks.push({kind:'security-live-auto-update'});
 
     await page.getByRole('button',{name:'Kunder & företag',exact:true}).first().click();
     await page.getByRole('heading',{name:'Kunder & företag',exact:true}).waitFor();
