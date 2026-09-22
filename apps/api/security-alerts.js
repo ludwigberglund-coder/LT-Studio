@@ -38,7 +38,7 @@ function privateIpLiteral(hostname){
   }
   if(family===6){
     const compact=host.replace(/^0+(?=[0-9a-f])/,'');
-    return host==='::'||host==='::1'||/^f[cd][0-9a-f]{2}:/i.test(host)||/^fe[89ab][0-9a-f]:/i.test(host)||/^ff/i.test(compact);
+    return host==='::'||host==='::1'||host.startsWith('::ffff:')||/^f[cd][0-9a-f]{2}:/i.test(host)||/^fe[89ab][0-9a-f]:/i.test(host)||/^ff/i.test(compact);
   }
   return false;
 }
