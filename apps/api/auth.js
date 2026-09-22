@@ -4,6 +4,14 @@ const crypto = require('node:crypto');
 
 const PASSWORD_PREFIX = 'scrypt-v2';
 const LEGACY_PASSWORD_PREFIX = 'scrypt-v1';
+const PASSWORD_REQUIREMENTS = Object.freeze({
+  minLength: 8,
+  maxLength: 256,
+  requireUppercase: true,
+  requireLowercase: true,
+  requireDigitOrSpecial: true,
+  message: 'Lösenordet måste vara minst 8 tecken och innehålla både stor och liten bokstav samt minst en siffra eller ett specialtecken.'
+});
 // OWASP minimum-equivalent scrypt profile: N=2^14, r=8, p=5.
 const SCRYPT = Object.freeze({N: 16384, r: 8, p: 5, keyLength: 64, saltLength: 16, maxmem: 64 * 1024 * 1024});
 const LEGACY_SCRYPT = Object.freeze({N: 16384, r: 8, p: 1, keyLength: 64, saltLength: 16, maxmem: 64 * 1024 * 1024});
@@ -23,7 +31,19 @@ function normalizeUsername(value) {
 
 function assertPassword(value) {
   const password = String(value || '');
-  if (password.length < 14 || password.length > 256) throw authError('Lösenordet måste vara minst 14 tecken.', 'WEAK_PASSWORD', 422);
+  const hasUppercase=/\p{Lu}/u.test(password);
+  const hasLowercase=/\p{Ll}/u.test(password);
+  const hasDigit=/\p{N}/u.test(password);
+  const hasSpecial=/[^\p{L}\p{N}\s]/u.test(password);
+  if (
+    password.length < PASSWORD_REQUIREMENTS.minLength ||
+    password.length > PASSWORD_REQUIREMENTS.maxLength ||
+    !hasUppercase ||
+    !hasLowercase ||
+    (!hasDigit && !hasSpecial)
+  ) {
+    throw authError(PASSWORD_REQUIREMENTS.message, 'WEAK_PASSWORD', 422);
+  }
   return password;
 }
 
@@ -174,6 +194,7 @@ function decryptSecret(encoded, keyMaterial) {
 }
 
 module.exports = Object.freeze({
+  PASSWORD_REQUIREMENTS,
   normalizeUsername,
   assertPassword,
   hashPassword,
