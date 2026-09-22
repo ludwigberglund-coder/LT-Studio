@@ -47,10 +47,10 @@
     rgb(0 0 0 / 0.1) 0 1px 3px 0,
     rgb(0 0 0 / 0.1) 0 1px 2px -1px;
 
-  --forest: var(--color-ink);
-  --forest-deep: var(--color-ink-soft);
-  --leaf: var(--color-mid-gray);
-  --lime: #f5f5f5;
+  --forest: var(--color-brand);
+  --forest-deep: #102f26;
+  --leaf: var(--color-leaf);
+  --lime: var(--color-lime);
   --cream: var(--color-canvas);
   --paper: var(--color-paper);
   --warm: #c5653f;
@@ -151,13 +151,13 @@ b {
 .shared-navigation .shared-links a:hover,
 .shared-navigation summary:hover {
   color: var(--color-ink) !important;
-  background: #f0f0f0 !important;
+  background: #edf4ea !important;
 }
 
 .nav-item.active,
 .shared-navigation .shared-links a[aria-current="page"] {
   color: var(--color-paper) !important;
-  background: var(--color-ink) !important;
+  background: linear-gradient(135deg,var(--color-brand),var(--color-brand-2)) !important;
   font-weight: var(--font-weight-medium) !important;
 }
 
@@ -354,7 +354,7 @@ textarea:focus,
 
 input[type="checkbox"],
 input[type="radio"] {
-  accent-color: var(--color-ink);
+  accent-color: var(--color-brand-2);
 }
 
 /* Shared account menu injected by the static navigation shell. */
@@ -574,3 +574,13 @@ th {
 .button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 8px 22px rgb(0 0 0 / .12)}
 .button:active:not(:disabled),.nav-item:active{transform:translateY(1px) scale(.98);box-shadow:0 2px 7px rgb(0 0 0 / .10)}
 :where(.module-card,.metric-card,.panel):active{transform:translateY(1px) scale(.995)}
+
+
+/* LT Studio brand accents for project administration. */
+.crumb,.kicker,.module-id{color:var(--color-warm)}
+.metric-card:nth-child(4n+1){border-top:3px solid var(--color-leaf)}
+.metric-card:nth-child(4n+2){border-top:3px solid var(--color-warm)}
+.metric-card:nth-child(4n+3){border-top:3px solid #76a9a1}
+.metric-card:nth-child(4n){border-top:3px solid #a0b966}
+:where(.metric-card,.panel,.module-card,.workflow-card,.access-role-card){transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+:where(.metric-card,.panel,.module-card,.workflow-card,.access-role-card):hover{border-color:#cad8c7;box-shadow:0 12px 30px rgb(23 63 50 / .08)}
