@@ -74,7 +74,9 @@ Lägg aldrig in:
 - krypterade eller okrypterade produktionsbackuper,
 - privata UAT-/signoff-/monitorerings-/audit-evidensfiler.
 
-Om en riktig hemlighet misstänks ha committats ska den behandlas som komprometterad tills motsatsen är verifierad. Historikradering ersätter inte credential-rotation.
+Om en riktig hemlighet misstänks ha committats ska den behandlas som komprometterad tills motsatsen är verifierad. Historikradering ersätter inte credential-rotation. Följ den konkreta rotationsrutinen i `docs/SECRET-ROTATION.md`.
+
+Utvecklings- och agentreglerna som förhindrar nya exponeringar finns i `AGENTS.md`. Cloudflare-arkitekturen och dess begränsningar finns i `docs/CLOUDFLARE-FREE-SECURITY.md`.
 
 ## Supported versions
 
