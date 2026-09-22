@@ -16,18 +16,22 @@
     {id:'operations',label:'Register & verksamhet',items:[['customers','Kunder','portal/customers.html'],['suppliers','Leverantörer','portal/suppliers.html'],['inventory','Lager & svinn','portal/inventory.html']]},
     {id:'administration',label:'Systemadministration',items:[
       ['website','Webbplats & innehåll','portal/website.html'],['documents','Dokument','portal/documents.html'],
-      ['access','Inloggning & företag','admin/#/access'],['decisions','Verksamhetsbeslut','admin/#/decisions'],
+      ['access','Användare & behörigheter','portal/access.html'],['decisions','Verksamhetsbeslut','admin/#/decisions'],
       ['modules','Systemmoduler','admin/#/modules'],['project','Projektöversikt','admin/#/overview'],
       ['content','Innehållsförhandsvisning','admin/#/content'],
       ['audit','Revisionslogg (äldre demo)','legacy/#/audit'],['settings','Inställningar (äldre demo)','legacy/#/settings']
     ]},
     {id:'help',label:'Test & hjälp',items:[['uat','Testa systemet','portal/uat.html'],['legacy','Tidigare system','legacy/#/overview'],['assistant','Hjälp & chatbot (äldre demo)','legacy/#/assistant']]}
   ];
-  const demoOnlyIds=new Set(['money','journal','res-tools','batches','inbox','audit','settings','legacy','assistant','access','decisions','modules','project','content','uat','receivables-details']);
-  function visibleGroups({authenticated=false,demo=false}={}){
+  const demoOnlyIds=new Set(['money','journal','res-tools','batches','inbox','audit','settings','legacy','assistant','decisions','modules','project','content','uat','receivables-details']);
+  const requiredPermission=Object.freeze({
+    invoices:'customer-invoice.view',receivables:'customer-invoice.view',payables:'supplier-invoice.view',payments:'payment.view',bank:'bank.view',automation:'accounting.view',accounting:'accounting.view',reports:'reports.view',accounts:'accounting.view',payroll:'payroll.view',customers:'customer-invoice.view',suppliers:'supplier.view',inventory:'inventory.view',website:'website.manage',documents:'documents.view',access:'users.manage'
+  });
+  function visibleGroups({authenticated=false,demo=false,permissions=[]}={}){
     if(demo)return groups;
     if(!authenticated)return [];
-    return groups.map(group=>({...group,items:group.items.filter(([id])=>!demoOnlyIds.has(id)).map(item=>item[0]==='receivables'?[item[0],item[1],'portal/index.html']:item)})).filter(group=>group.items.length);
+    const allowed=new Set(Array.isArray(permissions)?permissions:[]);
+    return groups.map(group=>({...group,items:group.items.filter(([id])=>!demoOnlyIds.has(id)&&(!requiredPermission[id]||allowed.has(requiredPermission[id]))).map(item=>item[0]==='receivables'?[item[0],item[1],'portal/index.html']:item)})).filter(group=>group.items.length);
   }
   if(typeof module==='object'&&module.exports){module.exports={groups,visibleGroups};return;}
   if(root.RollandsNavigation)return;
@@ -62,7 +66,7 @@
     try{
       const response=await fetch('/api/v1/session',{credentials:'same-origin',cache:'no-store'});
       const session=response.ok?await response.json():null;
-      return{groups:visibleGroups({authenticated:session?.authenticated===true}),session};
+      return{groups:visibleGroups({authenticated:session?.authenticated===true,permissions:session?.permissions||[]}),session};
     }catch{return{groups:[],session:null}}
   }
   function avatarInitials(name){return String(name||'Användare').trim().split(/\s+/).filter(Boolean).map(part=>part[0]).join('').slice(0,2).toUpperCase()||'AN';}
@@ -98,7 +102,7 @@
       const caret=document.createElement('span');caret.className='shared-user-caret';caret.textContent='▾';caret.setAttribute('aria-hidden','true');
       button.append(avatar,label,caret);
       const menu=document.createElement('div');menu.className='shared-user-dropdown';menu.hidden=true;
-      const profile=document.createElement('a');profile.href=href('portal/dashboard.html');profile.textContent='Profil & översikt';menu.append(profile);
+      const profile=document.createElement('a');profile.href=href('portal/profile.html');profile.textContent='Min profil & inloggning';menu.append(profile);
       if(demo){
         const leave=document.createElement('a');leave.href=href('./');leave.textContent='Lämna demon';menu.append(leave);
       }else if(context.session?.authenticated===true){
@@ -155,7 +159,7 @@
     }
     const foot=document.createElement('div');foot.className='shared-foot';
     const home=document.createElement('a');home.href=href(demo?'./':'portal/dashboard.html');home.textContent=demo?'Visa företagets hemsida':'Till arbetsöversikten';foot.append(home);
-    const note=document.createElement('p');note.textContent=demo?'Äldre referensverktyg har separat demodata.':'Alla medlemmar i företaget har samma verktyg. Servern kontrollerar varje skyddad åtgärd.';foot.append(note);
+    const note=document.createElement('p');note.textContent=demo?'Äldre referensverktyg har separat demodata.':'Menyn följer din roll. Servern kontrollerar varje skyddad åtgärd oavsett vad som visas här.';foot.append(note);
     sidebar.replaceChildren(brand,info,nav,foot);
     try{sidebar.scrollTop=Number(sessionStorage.getItem(key+':scroll')||0)}catch{}
     if(!sidebar.dataset.scrollBound){sidebar.addEventListener('scroll',()=>{try{sessionStorage.setItem(key+':scroll',String(sidebar.scrollTop))}catch{}});sidebar.dataset.scrollBound='1';}
