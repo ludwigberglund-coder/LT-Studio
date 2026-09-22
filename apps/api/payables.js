@@ -4,6 +4,7 @@ const crypto=require('node:crypto');
 const Domain=require('../../packages/payables/supplier-invoices.js');
 const PrivateObject=require('./private-object-contract.js');
 const StoreFactory=require('./private-object-store-factory.js');
+const PdfSecurity=require('./pdf-upload-security.js');
 
 function err(message,code='PAYABLES_ERROR',statusCode=422,details){const e=new Error(message);e.code=code;e.statusCode=statusCode;if(details)e.details=details;return e}
 function id(prefix){return `${prefix}_${crypto.randomUUID()}`}
@@ -114,8 +115,7 @@ function storeDocument(db,{companyId,invoiceId,name,mime='application/pdf',bytes
   if(!['registered','coding-review','coded'].includes(invoice.status))throw err('PDF-underlaget kan inte bytas efter attest.','DOCUMENT_LOCKED',409);
   if(!Buffer.isBuffer(bytes)||!bytes.length)throw err('PDF-dokument saknas.','MISSING_DOCUMENT');
   if(mime!=='application/pdf')throw err('Endast PDF stöds för leverantörsfakturor i denna version.','UNSUPPORTED_DOCUMENT_TYPE');
-  if(bytes.length>10*1024*1024)throw err('PDF-filen får vara högst 10 MB.','DOCUMENT_TOO_LARGE',413);
-  if(bytes.length<5||bytes.subarray(0,5).toString('ascii')!=='%PDF-')throw err('Filen ser inte ut att vara en giltig PDF.','INVALID_PDF');
+  PdfSecurity.assertSafePdf(bytes,{fileName:text(name)||'leverantorsfaktura.pdf',maxBytes:PdfSecurity.MAX_PDF_BYTES});
   const sha=crypto.createHash('sha256').update(bytes).digest('hex');
   const duplicate=duplicateDocument(db,companyId,sha,invoiceId);
   if(duplicate)throw err(`Samma PDF-underlag används redan på faktura ${duplicate.supplierInvoiceNumber}.`,'DUPLICATE_SUPPLIER_DOCUMENT',409,{existingInvoiceId:duplicate.id});
@@ -155,8 +155,7 @@ function storeDocumentIdempotent(db,input){
   if(!invoice)throw err('Leverantörsfakturan hittades inte.','INVOICE_NOT_FOUND',404);
   if(!Buffer.isBuffer(bytes)||!bytes.length)throw err('PDF-dokument saknas.','MISSING_DOCUMENT');
   if(mime!=='application/pdf')throw err('Endast PDF stöds för leverantörsfakturor i denna version.','UNSUPPORTED_DOCUMENT_TYPE');
-  if(bytes.length>10*1024*1024)throw err('PDF-filen får vara högst 10 MB.','DOCUMENT_TOO_LARGE',413);
-  if(bytes.length<5||bytes.subarray(0,5).toString('ascii')!=='%PDF-')throw err('Filen ser inte ut att vara en giltig PDF.','INVALID_PDF');
+  PdfSecurity.assertSafePdf(bytes,{fileName:name,maxBytes:PdfSecurity.MAX_PDF_BYTES});
   const sha=crypto.createHash('sha256').update(bytes).digest('hex');
   if(invoice.documentSha256===sha&&invoice.documentName===name&&invoice.documentMime===mime){
     const existing=document(db,companyId,invoiceId);
@@ -176,6 +175,7 @@ function document(db,companyId,invoiceId){
   }
   if(!row||!row.bytes)throw err('PDF-underlaget hittades inte.','DOCUMENT_NOT_FOUND',404);
   const actual=crypto.createHash('sha256').update(row.bytes).digest('hex');
+  PdfSecurity.assertSafePdf(row.bytes,{fileName:row.name||'leverantorsfaktura.pdf',maxBytes:PdfSecurity.MAX_PDF_BYTES});
   if(row.mime!=='application/pdf'||actual!==row.sha256){
     throw err('PDF-underlaget stämmer inte med sitt sparade digitala fingeravtryck. Dokumentet måste granskas innan det kan visas eller attesteras.','DOCUMENT_INTEGRITY_ERROR',409);
   }
