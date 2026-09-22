@@ -46,3 +46,32 @@ test('publika kundbeslutsdokument beskriver data som demo eller privat verifieri
   assert.match(decisions,/syntetisk demokonfiguration/i);
   assert.match(evidence,/inte längre verifieringsbevis|publika repositoryt/i);
 });
+
+test('publika demoidentiteter använder bara syntetiska organisations- och kontaktuppgifter',()=>{
+  const files=[
+    'content/company.json',
+    'content/site.json',
+    'content/admin.json',
+    'config/rolands-business-decisions.json',
+    'public/demo-state.js',
+    'public/app.js',
+    'public/finance.js',
+    'public/workspace.js',
+    'test/fixtures/invoice-example.js'
+  ];
+  const source=files.map(file=>read(file)).join('\n');
+
+  const orgNumbers=source.match(/\b\d{6}-\d{4}\b/g)||[];
+  assert.ok(orgNumbers.length>0);
+  assert.deepEqual([...new Set(orgNumbers)],['000000-0000']);
+
+  const vatNumbers=source.match(/\bSE\d{12}\b/g)||[];
+  assert.ok(vatNumbers.length>0);
+  assert.deepEqual([...new Set(vatNumbers)],['SE000000000001']);
+
+  const emails=source.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/ig)||[];
+  for(const email of emails){
+    const host=email.toLowerCase().split('@')[1]||'';
+    assert.ok(host.endsWith('.invalid')||host.endsWith('.example'),`publik demo innehåller e-post på icke-reserverad domän: ${email}`);
+  }
+});
