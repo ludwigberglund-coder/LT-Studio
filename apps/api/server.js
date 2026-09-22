@@ -120,7 +120,8 @@ function createServer(options = {}) {
       requireStagingEvidenceConsistency:stagingMode,
       requireMonitoringEvidence:protectedMode&&includeMonitoring,
       requireAuditAnchorEvidence:protectedMode,
-      requirePlatformAdmin:protectedMode
+      requirePlatformAdmin:protectedMode,
+      authEncryptionKey
     });
     return {
       ok:report.ok,
