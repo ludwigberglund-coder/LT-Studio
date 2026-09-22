@@ -326,19 +326,51 @@ function companyById(db, companyId) {
   return db.prepare('SELECT id,legal_name AS legalName,org_number AS orgNumber,display_name AS displayName,created_at AS createdAt FROM companies WHERE id=?').get(companyId) || null;
 }
 
-function createUser(db, {id: userId = id('user'), username, displayName, passwordHash, mfaSecretEncrypted = null, disabled = false}) {
+function listCompanies(db) {
+  return db.prepare('SELECT id,legal_name AS legalName,org_number AS orgNumber,display_name AS displayName,created_at AS createdAt FROM companies ORDER BY display_name,legal_name,id').all();
+}
+
+function createUser(db, {id: userId = id('user'), username, displayName, passwordHash, mfaSecretEncrypted = null, disabled = false, platformAdmin = false, sessionDurationMinutes = 480}) {
   const createdAt = nowIso();
-  db.prepare('INSERT INTO users(id,username,display_name,password_hash,mfa_secret_encrypted,disabled,created_at) VALUES(?,?,?,?,?,?,?)')
-    .run(userId, username, String(displayName || '').trim(), passwordHash, mfaSecretEncrypted, disabled ? 1 : 0, createdAt);
+  const duration=normalizeSessionDuration(sessionDurationMinutes);
+  db.prepare('INSERT INTO users(id,username,display_name,password_hash,mfa_secret_encrypted,disabled,platform_admin,session_duration_minutes,created_at) VALUES(?,?,?,?,?,?,?,?,?)')
+    .run(userId, username, String(displayName || '').trim(), passwordHash, mfaSecretEncrypted, disabled ? 1 : 0, platformAdmin ? 1 : 0, duration, createdAt);
   return userById(db, userId);
 }
 
 function userById(db, userId) {
-  return db.prepare('SELECT id,username,display_name AS displayName,password_hash AS passwordHash,mfa_secret_encrypted AS mfaSecretEncrypted,disabled,created_at AS createdAt FROM users WHERE id=?').get(userId) || null;
+  const row=db.prepare('SELECT id,username,display_name AS displayName,password_hash AS passwordHash,mfa_secret_encrypted AS mfaSecretEncrypted,disabled,platform_admin AS platformAdmin,session_duration_minutes AS sessionDurationMinutes,created_at AS createdAt FROM users WHERE id=?').get(userId) || null;
+  return row?{...row,disabled:Boolean(row.disabled),platformAdmin:Boolean(row.platformAdmin)}:null;
 }
 
 function userByUsername(db, username) {
-  return db.prepare('SELECT id,username,display_name AS displayName,password_hash AS passwordHash,mfa_secret_encrypted AS mfaSecretEncrypted,disabled,created_at AS createdAt FROM users WHERE username=?').get(username) || null;
+  const row=db.prepare('SELECT id,username,display_name AS displayName,password_hash AS passwordHash,mfa_secret_encrypted AS mfaSecretEncrypted,disabled,platform_admin AS platformAdmin,session_duration_minutes AS sessionDurationMinutes,created_at AS createdAt FROM users WHERE username=?').get(username) || null;
+  return row?{...row,disabled:Boolean(row.disabled),platformAdmin:Boolean(row.platformAdmin)}:null;
+}
+
+const SESSION_DURATION_MINUTES=Object.freeze([120,240,360,480]);
+function normalizeSessionDuration(value) {
+  if(value===null||value==='session') return null;
+  const minutes=Number(value);
+  if(!Number.isSafeInteger(minutes)||!SESSION_DURATION_MINUTES.includes(minutes)) throw databaseError('Inloggningstiden måste vara varje gång, 2, 4, 6 eller 8 timmar.','INVALID_SESSION_DURATION',400);
+  return minutes;
+}
+
+function setUserSessionDuration(db,{userId,sessionDurationMinutes}) {
+  const duration=normalizeSessionDuration(sessionDurationMinutes);
+  const result=db.prepare('UPDATE users SET session_duration_minutes=? WHERE id=? AND disabled=0').run(duration,String(userId||'').trim());
+  if(Number(result.changes||0)!==1) throw databaseError('Användarkontot hittades inte.','USER_NOT_FOUND',404);
+  return userById(db,userId);
+}
+
+function setUserPlatformAdmin(db,{userId,enabled}) {
+  const result=db.prepare('UPDATE users SET platform_admin=? WHERE id=? AND disabled=0').run(enabled?1:0,String(userId||'').trim());
+  if(Number(result.changes||0)!==1) throw databaseError('Användarkontot hittades inte.','USER_NOT_FOUND',404);
+  return userById(db,userId);
+}
+
+function deleteSessionsForUser(db,userId) {
+  return Number(db.prepare('DELETE FROM sessions WHERE user_id=?').run(String(userId||'').trim()).changes||0);
 }
 
 function updateUserPasswordHash(db,{userId,passwordHash}) {
@@ -391,9 +423,11 @@ function sessionByTokenHash(db, tokenHash) {
   const now = nowIso();
   const row = db.prepare(`SELECT s.token_hash AS tokenHash,s.csrf_hash AS csrfHash,s.user_id AS userId,s.company_id AS companyId,
       s.expires_at AS expiresAt,s.absolute_expires_at AS absoluteExpiresAt,s.created_at AS createdAt,s.last_seen_at AS lastSeenAt,
-      u.username,u.display_name AS displayName,u.disabled,m.role
-    FROM sessions s JOIN users u ON u.id=s.user_id JOIN memberships m ON m.user_id=s.user_id AND m.company_id=s.company_id
-    WHERE s.token_hash=? AND s.expires_at>? AND s.absolute_expires_at>?`).get(tokenHash,now,now);
+      u.username,u.display_name AS displayName,u.disabled,u.platform_admin AS platformAdmin,u.session_duration_minutes AS sessionDurationMinutes,
+      COALESCE(m.role,'admin') AS role
+    FROM sessions s JOIN users u ON u.id=s.user_id
+    LEFT JOIN memberships m ON m.user_id=s.user_id AND m.company_id=s.company_id
+    WHERE s.token_hash=? AND s.expires_at>? AND s.absolute_expires_at>? AND (u.platform_admin=1 OR m.user_id IS NOT NULL)`).get(tokenHash,now,now);
   if (!row) return null;
   return row;
 }
@@ -763,9 +797,15 @@ module.exports = Object.freeze({
   transaction,
   createCompany,
   companyById,
+  listCompanies,
   createUser,
   userById,
   userByUsername,
+  SESSION_DURATION_MINUTES,
+  normalizeSessionDuration,
+  setUserSessionDuration,
+  setUserPlatformAdmin,
+  deleteSessionsForUser,
   updateUserPasswordHash,
   MEMBERSHIP_ROLES,
   membershipRole,
