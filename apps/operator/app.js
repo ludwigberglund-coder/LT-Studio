@@ -36,6 +36,12 @@ function roleBars(){
   const roles=overview?.roleDistribution||{},total=Object.values(roles).reduce((sum,value)=>sum+Number(value||0),0),max=Math.max(1,...Object.values(roles).map(Number));
   return ['admin','accountant','approver','readonly'].map(role=>`<div class="role-row"><div><strong>${roleLabel(role)}</strong><span>${num(roles[role])} · ${percent(roles[role],total)}%</span></div><meter min="0" max="${max}" value="${Number(roles[role]||0)}"></meter></div>`).join('');
 }
+function memberRoleBars(detail){
+  const roles={admin:0,accountant:0,approver:0,readonly:0};
+  for(const member of detail?.members||[])if(Object.hasOwn(roles,member.role))roles[member.role]+=1;
+  const total=Object.values(roles).reduce((sum,value)=>sum+value,0),max=Math.max(1,...Object.values(roles));
+  return ['admin','accountant','approver','readonly'].map(role=>`<div class="role-row"><div><strong>${roleLabel(role)}</strong><span>${num(roles[role])} · ${percent(roles[role],total)}%</span></div><meter min="0" max="${max}" value="${roles[role]}"></meter></div>`).join('');
+}
 function kpiCard(label,value,caption,detail=''){
   return `<article class="metric"><div class="metric-top"><span>${esc(label)}</span>${detail?`<em>${esc(detail)}</em>`:''}</div><strong>${esc(value)}</strong><small>${esc(caption)}</small></article>`;
 }
@@ -182,10 +188,11 @@ function companyDetailView(detail){
   const userActivity=memberCount?Math.min(100,Math.round(Number(s.activeSessionCount||0)/memberCount*100)):0;
   shell(`<div class="detail-back"><button class="button secondary" data-action="back-companies">← Alla företag</button></div>
   <section class="detail-hero"><div><span class="eyebrow">KUNDFÖRETAG</span><h2>${esc(c.displayName)}</h2><p>${esc(c.legalName)} · ${esc(c.orgNumber)}</p></div><div class="detail-hero-meta"><span><small>Skapad</small><strong>${dateTime(c.createdAt)}</strong></span><span><small>Senaste aktivitet</small><strong>${dateTime(s.lastActivityAt)}</strong></span></div></section>
-  <section class="status-grid"><article class="metric"><span>Användare</span><strong>${num(s.memberCount)}</strong><small>konton med åtkomst</small></article><article class="metric"><span>Aktiva sessioner</span><strong>${num(s.activeSessionCount)}</strong><small>${userActivity}% av användarna</small></article><article class="metric"><span>Kundposter</span><strong>${num(s.customerRecordCount)}</strong><small>i kundregistret</small></article><article class="metric"><span>Fakturor</span><strong>${num(s.invoiceRecordCount)}</strong><small>registrerade poster</small></article></section>
+  <section class="status-grid"><article class="metric"><span>Användare</span><strong>${num(s.memberCount)}</strong><small>konton med åtkomst</small></article><article class="metric"><span>Aktiva sessioner</span><strong>${num(s.activeSessionCount)}</strong><small>aktiva kundsessioner</small></article><article class="metric"><span>Kundposter</span><strong>${num(s.customerRecordCount)}</strong><small>i kundregistret</small></article><article class="metric"><span>Fakturor</span><strong>${num(s.invoiceRecordCount)}</strong><small>registrerade poster</small></article></section>
   <section class="dashboard-grid equal">
-    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">ANVÄNDNING</span><h2>Aktivitet</h2><p>Snabb indikator för kundmiljön.</p></div></div><div class="instrument-pad">${ringGauge(userActivity,'Inloggade',`${s.activeSessionCount||0} aktiva sessioner av ${memberCount} användare.`)}</div></article>
+    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">ANVÄNDNING</span><h2>Aktivitet</h2><p>Snabb indikator för kundmiljön.</p></div></div><div class="instrument-pad">${ringGauge(userActivity,'Sessionstäthet',`${s.activeSessionCount||0} aktiva sessioner för ${memberCount} användare.`)}</div></article>
     <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">MILJÖDATA</span><h2>Volym</h2><p>Operativ metadata för kundmiljön.</p></div></div><div class="stat-stack"><div><span>Kundposter</span><strong>${num(s.customerRecordCount)}</strong></div><div><span>Fakturaposter</span><strong>${num(s.invoiceRecordCount)}</strong></div><div><span>Senaste aktivitet</span><strong class="date-stat">${dateTime(s.lastActivityAt)}</strong></div></div></article>
+    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">ROLLER</span><h2>Behörigheter</h2><p>Rollfördelning i just detta företag.</p></div></div><div class="role-bars roomy">${memberRoleBars(detail)}</div></article>
   </section>
   <section class="panel"><div class="panel-head"><div><span class="eyebrow">ÅTKOMST</span><h2>Användare & behörigheter</h2><p>Endast LT Studio kan skapa, ändra eller ta bort användare.</p></div><span class="panel-stat">${memberCount} användare</span></div><div class="table-wrap"><table><thead><tr><th>Användare</th><th>Roll</th><th>Status</th><th>Åtgärder</th></tr></thead><tbody>${memberRows(detail)}</tbody></table></div></section>
   <section class="panel add-user-panel"><div class="panel-head"><div><span class="eyebrow">NY ANVÄNDARE</span><h2>Lägg till användare</h2><p>Minst 8 tecken, stora och små bokstäver samt minst en siffra eller ett specialtecken. MFA skapas samtidigt.</p></div></div>
