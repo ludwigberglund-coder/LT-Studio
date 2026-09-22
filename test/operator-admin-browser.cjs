@@ -219,7 +219,7 @@ const out=path.join(__dirname,'..','test-artifacts');
     assert.equal(await page.locator('#mfa-result code').count(),0);
     checks.push({kind:'existing-user-linked-to-second-company'});
 
-    await page.getByRole('button',{name:'← Alla företag',exact:true}).click();
+    await page.getByRole('button',{name:'Alla företag',exact:true}).click();
     await page.getByRole('heading',{name:'Kunder & företag',exact:true}).waitFor();
     const refreshedCompanyRow=page.locator('[data-company-id="'+company.id+'"]');
     assert.equal((await refreshedCompanyRow.locator('td').nth(2).innerText()).trim(),'3');
@@ -278,7 +278,7 @@ const out=path.join(__dirname,'..','test-artifacts');
     await page.getByRole('button',{name:'Avbryt',exact:true}).click();
     checks.push({kind:'remove-access-modal'});
 
-    await page.getByRole('button',{name:'← Alla företag',exact:true}).click();
+    await page.getByRole('button',{name:'Alla företag',exact:true}).click();
     await page.getByRole('heading',{name:'Kunder & företag',exact:true}).waitFor();
     const companySearch=page.locator('[data-company-search]');
     await companySearch.fill('saknas-helt');
