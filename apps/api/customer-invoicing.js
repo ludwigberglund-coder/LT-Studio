@@ -12,6 +12,7 @@ const {protectAppendOnly}=require('./history-guards.js');
 
 function invoiceError(message,code='CUSTOMER_INVOICE_ERROR',statusCode=422){const e=new Error(message);e.code=code;e.statusCode=statusCode;return e}
 function text(value){return String(value??'').trim()}
+const CUSTOMER_REFUND_ACCOUNTS=Object.freeze({'1920':'PlusGiro','1930':'Företagskonto/checkkonto','1940':'Övriga bankkonton'});
 function initializeCustomerInvoicing(db){
   Accounting.initializeAccountingStore(db);
   InvoiceSettings.initializeInvoiceSettings(db);
@@ -77,6 +78,41 @@ function initializeCustomerInvoicing(db){
       UNIQUE(company_id,original_invoice_id),
       UNIQUE(company_id,credit_invoice_id)
     ) STRICT;
+    CREATE TABLE IF NOT EXISTS customer_invoice_credit_adjustments(
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      request_id TEXT NOT NULL,
+      original_invoice_id TEXT NOT NULL REFERENCES invoices(id) ON DELETE RESTRICT,
+      credit_invoice_id TEXT NOT NULL REFERENCES invoices(id) ON DELETE RESTRICT,
+      reason TEXT NOT NULL,
+      credit_amount_ore INTEGER NOT NULL CHECK(credit_amount_ore>0),
+      offset_amount_ore INTEGER NOT NULL CHECK(offset_amount_ore>=0),
+      refund_due_ore INTEGER NOT NULL CHECK(refund_due_ore>=0),
+      created_by TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY(company_id,request_id),
+      UNIQUE(company_id,credit_invoice_id)
+    ) STRICT;
+    CREATE INDEX IF NOT EXISTS idx_customer_credit_adjustments_original
+      ON customer_invoice_credit_adjustments(company_id,original_invoice_id,created_at);
+    CREATE TABLE IF NOT EXISTS customer_credit_refunds(
+      company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      request_id TEXT NOT NULL,
+      credit_invoice_id TEXT NOT NULL REFERENCES invoices(id) ON DELETE RESTRICT,
+      original_invoice_id TEXT NOT NULL REFERENCES invoices(id) ON DELETE RESTRICT,
+      amount_ore INTEGER NOT NULL CHECK(amount_ore>0),
+      refund_date TEXT NOT NULL,
+      refund_account TEXT NOT NULL CHECK(refund_account IN ('1920','1930','1940')),
+      bank_reference TEXT NOT NULL,
+      accounting_entry_id TEXT NOT NULL REFERENCES accounting_entries(id) ON DELETE RESTRICT,
+      invoice_transaction_id TEXT NOT NULL REFERENCES invoice_transactions(id) ON DELETE RESTRICT,
+      created_by TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY(company_id,request_id),
+      UNIQUE(company_id,credit_invoice_id),
+      UNIQUE(company_id,bank_reference)
+    ) STRICT;
+    CREATE INDEX IF NOT EXISTS idx_customer_credit_refunds_original
+      ON customer_credit_refunds(company_id,original_invoice_id,created_at);
     CREATE INDEX IF NOT EXISTS idx_customer_invoice_documents_company ON customer_invoice_documents(company_id,created_at);
     CREATE INDEX IF NOT EXISTS idx_customer_invoice_pdf_archives_company ON customer_invoice_pdf_archives(company_id,created_at);
     CREATE INDEX IF NOT EXISTS idx_customer_invoice_reservations_status ON customer_invoice_number_reservations(company_id,status,created_at);
@@ -85,11 +121,26 @@ function initializeCustomerInvoicing(db){
       WHEN NOT EXISTS(SELECT 1 FROM invoices WHERE id=NEW.original_invoice_id AND company_id=NEW.company_id)
         OR NOT EXISTS(SELECT 1 FROM invoices WHERE id=NEW.credit_invoice_id AND company_id=NEW.company_id)
       BEGIN SELECT RAISE(ABORT,'TENANT_RELATION_VIOLATION'); END;
+    CREATE TRIGGER IF NOT EXISTS tenant_customer_credit_adjustments_insert BEFORE INSERT ON customer_invoice_credit_adjustments
+      WHEN NOT EXISTS(SELECT 1 FROM invoices WHERE id=NEW.original_invoice_id AND company_id=NEW.company_id)
+        OR NOT EXISTS(SELECT 1 FROM invoices WHERE id=NEW.credit_invoice_id AND company_id=NEW.company_id)
+      BEGIN SELECT RAISE(ABORT,'TENANT_RELATION_VIOLATION'); END;
+    CREATE TRIGGER IF NOT EXISTS tenant_customer_credit_refunds_insert BEFORE INSERT ON customer_credit_refunds
+      WHEN NOT EXISTS(SELECT 1 FROM invoices WHERE id=NEW.original_invoice_id AND company_id=NEW.company_id)
+        OR NOT EXISTS(SELECT 1 FROM invoices WHERE id=NEW.credit_invoice_id AND company_id=NEW.company_id)
+      BEGIN SELECT RAISE(ABORT,'TENANT_RELATION_VIOLATION'); END;
   `);
+  db.prepare(`INSERT OR IGNORE INTO customer_invoice_credit_adjustments(
+      company_id,request_id,original_invoice_id,credit_invoice_id,reason,credit_amount_ore,offset_amount_ore,refund_due_ore,created_by,created_at
+    )
+    SELECT c.company_id,c.request_id,c.original_invoice_id,c.credit_invoice_id,c.reason,ABS(i.total_ore),ABS(i.total_ore),0,c.created_by,c.created_at
+      FROM customer_invoice_credits c JOIN invoices i ON i.id=c.credit_invoice_id AND i.company_id=c.company_id`).run();
   protectAppendOnly(db,'customer_invoice_documents');
   protectAppendOnly(db,'customer_invoice_pdf_archives');
   protectAppendOnly(db,'customer_invoice_issue_requests');
   protectAppendOnly(db,'customer_invoice_credits');
+  protectAppendOnly(db,'customer_invoice_credit_adjustments');
+  protectAppendOnly(db,'customer_credit_refunds');
   db.exec(`CREATE TRIGGER IF NOT EXISTS history_invoice_reservation_identity BEFORE UPDATE ON customer_invoice_number_reservations
     WHEN NEW.company_id IS NOT OLD.company_id OR NEW.request_id IS NOT OLD.request_id OR NEW.purpose IS NOT OLD.purpose
       OR NEW.invoice_number IS NOT OLD.invoice_number OR NEW.payload_sha256 IS NOT OLD.payload_sha256
