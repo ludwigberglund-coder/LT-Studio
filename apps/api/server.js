@@ -40,6 +40,7 @@ const repositoryRoot = path.resolve(__dirname,'..','..');
 const {validateRuntime,protectedRuntimeMode,demoRequest,resolveStaticRequest,serveStatic} = require('./private-runtime.js');
 const {readinessReport}=require('./readiness.js');
 const OperationalLog=require('./operational-log.js');
+const RequestSecurity=require('./request-security.js');
 
 function normalizeHostname(value) {
   const raw = String(value || '').trim().toLowerCase().replace(/\.$/, '');
@@ -65,9 +66,11 @@ function createServer(options = {}) {
   const secureCookies = options.secureCookies ?? (process.env.ROLLANDS_API_SECURE_COOKIE !== '0');
   const authEncryptionKey = options.authEncryptionKey ?? process.env.ROLLANDS_AUTH_ENCRYPTION_KEY ?? '';
   const configuredAllowedHosts = options.allowedHosts || String(process.env.ROLLANDS_ALLOWED_HOSTS || '').split(',').map(value=>value.trim()).filter(Boolean);
+  const trustCloudflare = options.trustCloudflare ?? (process.env.ROLLANDS_TRUST_CLOUDFLARE === '1');
   const runtimeId = crypto.randomUUID();
   const operationalLogger=OperationalLog.createOperationalLogger({writer:options.operationalLogWriter??OperationalLog.defaultWriter(process.env)});
   if (!Number.isSafeInteger(port) || port < 1 || port > 65535) throw new Error('PORT måste vara ett heltal mellan 1 och 65535.');
+  if (trustCloudflare && !isLoopback(host)) throw new Error('Cloudflare-klient-IP får bara betros när origin-servern är bunden till loopback, exempelvis bakom Cloudflare Tunnel.');
   if (!isLoopback(host)) {
     if (!secureCookies) throw new Error('Säkra cookies måste vara aktiverade när API:t exponeras utanför den lokala datorn.');
     if (String(authEncryptionKey).length < 32) throw new Error('ROLLANDS_AUTH_ENCRYPTION_KEY måste vara minst 32 tecken innan API:t exponeras utanför den lokala datorn.');
@@ -85,7 +88,9 @@ function createServer(options = {}) {
   }
   PrivateObjectCopyLedger.initializePrivateObjectCopyLedger(db);
   Queues.initializeQueues(db); ReminderOutbox.initializeReminderOutbox(db); Bank.initializeBankPayments(db); Payables.initializePayables(db); SupplierMasterdata.initializeSupplierMasterdata(db); PaymentConfirmation.initializePaymentConfirmation(db); Inventory.initializeInventory(db); Payroll.initializePayroll(db); Documents.initializeDocuments(db); AccountingAdmin.initializeAccountingAdmin(db); WebsiteCms.initializeWebsiteCms(db);
-  const api = createApiApp({db,secureCookies,authEncryptionKey,operationalLogger,operationalRuntimeId:runtimeId});
+  const clientIp=req=>RequestSecurity.clientIp(req,{trustCloudflare});
+  const rateLimiter=RequestSecurity.createRateLimiter({env:process.env,db,trustCloudflare});
+  const api = createApiApp({db,secureCookies,authEncryptionKey,operationalLogger,operationalRuntimeId:runtimeId,clientIp});
   const automationReview = createAutomationReviewRouter({db}); const bank = createBankRouter({db}); const payables = createPayablesRouter({db}); const supplierMasterdata = createSupplierMasterdataRouter({db}); const paymentRelease = createPaymentReleaseRouter({db}); const paymentConfirmation = createPaymentConfirmationRouter({db}); const inventory = createInventoryRouter({db}); const reports = createReportsRouter({db}); const exportsRouter=createExportsRouter({db}); const payroll = createPayrollRouter({db}); const documents = createDocumentsRouter({db}); const openingMigrationImport=createOpeningMigrationImportRouter({db}); const accounting = createAccountingAdminRouter({db}); const websiteCms = createWebsiteCmsRouter({db});
   const protectedMode=protectedRuntimeMode(process.env);
   const stagingMode=String(process.env.ROLLANDS_ENV||'').trim()==='staging';
@@ -128,7 +133,7 @@ function createServer(options = {}) {
       auditAnchorAgeMinutes:report.auditAnchorAgeMs===null?null:Math.floor(report.auditAnchorAgeMs/60000)
     };
   };
-  const operator=createOperatorRouter({db,secureCookies,authEncryptionKey,readinessProvider:readinessPayload});
+  const operator=createOperatorRouter({db,secureCookies,authEncryptionKey,readinessProvider:readinessPayload,clientIp});
 
   // Apply guards after every router has initialized its tables, before accepting requests.
   require('./tenant-integrity.js').installTenantGuards(db);
@@ -153,6 +158,9 @@ function createServer(options = {}) {
       });
     });
     try{
+    RequestSecurity.validateRequestTarget(req);
+    const rateLimit=rateLimiter.check(req);
+    if(!rateLimit.allowed){operationalCode='RATE_LIMITED';return RequestSecurity.sendRateLimited(res,rateLimit,requestId);}
     if (!allowedHost(req,host,configuredAllowedHosts)) { operationalCode='HOST_NOT_ALLOWED'; res.writeHead(421,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}); return res.end(JSON.stringify({error:'Värdnamnet är inte tillåtet.',code:'HOST_NOT_ALLOWED'})); }
     if (demoRequest(req.url || '/')) { operationalCode='DEMO_DISABLED'; res.writeHead(400,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}); return res.end(JSON.stringify({error:'Demoläge är inte tillåtet på den privata servern. Använd den separata demon.',code:'DEMO_DISABLED'})); }
     if (String(req.url || '').split('?')[0] === '/_runtime-version') {
@@ -196,9 +204,14 @@ function createServer(options = {}) {
         code:operationalCode||'REQUEST_HANDLER_ERROR'
       });
       if(!res.headersSent){
+        const status=Number(error?.statusCode||500);
         operationalCode=operationalCode||'REQUEST_HANDLER_ERROR';
-        res.writeHead(500,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
-        return res.end(JSON.stringify({error:'Ett internt fel inträffade.',code:'INTERNAL_ERROR'}));
+        res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
+        return res.end(JSON.stringify({
+          error:status>=500?'Ett internt fel inträffade.':String(error?.message||'Begäran kunde inte behandlas.'),
+          code:error?.code||'INTERNAL_ERROR',
+          requestId
+        }));
       }
       res.destroy();
     }
