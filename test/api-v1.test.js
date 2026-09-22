@@ -158,6 +158,14 @@ test('ändrad personlig sessionstid återkallar befintliga sessioner och kräver
 
 test('LT Studio global admin kan välja alla företag och får adminroll utan kundmedlemskap', async () => withApi(async ({base,password,db,user,co2}) => {
   Db.setUserPlatformAdmin(db,{userId:user.id,enabled:true});
+  const withoutMfa=await fetch(base+'/api/v1/auth/login',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:'sara.test',password,totp:'000000'})
+  });
+  const withoutMfaBody=await withoutMfa.json();
+  assert.equal(withoutMfa.status,401);
+  assert.equal(withoutMfaBody.code,'INVALID_MFA');
+  assert.equal('companies' in withoutMfaBody,false);
   const response=await fetch(base+'/api/v1/auth/login',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
