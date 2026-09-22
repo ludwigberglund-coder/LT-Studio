@@ -263,6 +263,16 @@ async function loadData(){
   overview=o;readiness=r;security=s;
 }
 async function openCompany(id){errorMessage='';try{selectedCompany=await api('/companies/'+encodeURIComponent(id));render()}catch(error){errorMessage=error.message;selectedCompany=null;render()}}
+async function reloadSelectedCompanyOverview(){
+  if(!selectedCompany)return;
+  const companyId=selectedCompany.company.id;
+  const [detail,nextOverview]=await Promise.all([
+    api('/companies/'+encodeURIComponent(companyId)),
+    api('/overview')
+  ]);
+  selectedCompany=detail;
+  overview=nextOverview;
+}
 async function refresh(){errorMessage='';try{await loadData();if(selectedCompany)selectedCompany=await api('/companies/'+encodeURIComponent(selectedCompany.company.id))}catch(error){errorMessage=error.message}render()}
 async function mutate(path,options){return api(path,{...options,headers:{'Content-Type':'application/json','X-CSRF-Token':csrf(),...(options?.headers||{})}})}
 document.addEventListener('input',event=>{
@@ -276,11 +286,11 @@ document.addEventListener('submit',async event=>{
   }
   if(event.target.id==='add-user-form'){
     event.preventDefault();const data=Object.fromEntries(new FormData(event.target).entries());const button=event.target.querySelector('button[type="submit"]');if(button)button.disabled=true;
-    try{const created=await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users',{method:'POST',body:JSON.stringify(data)});selectedCompany=await api('/companies/'+encodeURIComponent(selectedCompany.company.id));uiNotice=created.linkedExisting?'Befintligt konto kopplades till företaget. Lösenord och MFA ändrades inte.':'Användaren skapades.';render();const box=document.getElementById('mfa-result');if(box&&created.mfaSecret)box.innerHTML=`<div class="success-box"><strong>MFA-hemlighet – visas bara nu</strong><p><code>${esc(created.mfaSecret)}</code></p><p>Ge koden direkt till användaren och spara den inte i GitHub eller delade dokument.</p></div>`}catch(error){errorMessage=error.message;render()}return;
+    try{const created=await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users',{method:'POST',body:JSON.stringify(data)});await reloadSelectedCompanyOverview();uiNotice=created.linkedExisting?'Befintligt konto kopplades till företaget. Lösenord och MFA ändrades inte.':'Användaren skapades.';render();const box=document.getElementById('mfa-result');if(box&&created.mfaSecret)box.innerHTML=`<div class="success-box"><strong>MFA-hemlighet – visas bara nu</strong><p><code>${esc(created.mfaSecret)}</code></p><p>Ge koden direkt till användaren och spara den inte i GitHub eller delade dokument.</p></div>`}catch(error){errorMessage=error.message;render()}return;
   }
   if(event.target.id==='reset-password-form'){
     event.preventDefault();if(!modal||modal.kind!=='password')return;const data=Object.fromEntries(new FormData(event.target).entries());const button=event.target.querySelector('button[type="submit"]');if(button)button.disabled=true;
-    try{await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users/'+encodeURIComponent(modal.userId)+'/password',{method:'PUT',body:JSON.stringify({password:data.password})});selectedCompany=await api('/companies/'+encodeURIComponent(selectedCompany.company.id));modal=null;uiNotice='Lösenordet ändrades och användarens tidigare sessioner avslutades.';errorMessage='';render()}catch(error){errorMessage=error.message;modal=null;render()}return;
+    try{await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users/'+encodeURIComponent(modal.userId)+'/password',{method:'PUT',body:JSON.stringify({password:data.password})});await reloadSelectedCompanyOverview();modal=null;uiNotice='Lösenordet ändrades och användarens tidigare sessioner avslutades.';errorMessage='';render()}catch(error){errorMessage=error.message;modal=null;render()}return;
   }
 });
 document.addEventListener('change',async event=>{
@@ -288,7 +298,7 @@ document.addEventListener('change',async event=>{
   if(event.target.matches?.('[data-company-sort]')){companySort=event.target.value;updateCompanyTable();return}
   const userId=event.target.dataset.roleUser;if(!userId||!selectedCompany)return;
   event.target.disabled=true;
-  try{await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users/'+encodeURIComponent(userId)+'/role',{method:'PUT',body:JSON.stringify({role:event.target.value})});selectedCompany=await api('/companies/'+encodeURIComponent(selectedCompany.company.id));uiNotice='Behörigheten uppdaterades och användarens tidigare sessioner avslutades.';errorMessage='';render()}catch(error){errorMessage=error.message;render()}
+  try{await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users/'+encodeURIComponent(userId)+'/role',{method:'PUT',body:JSON.stringify({role:event.target.value})});await reloadSelectedCompanyOverview();uiNotice='Behörigheten uppdaterades och användarens tidigare sessioner avslutades.';errorMessage='';render()}catch(error){errorMessage=error.message;render()}
 });
 document.addEventListener('keydown',async event=>{
   const row=event.target.closest?.('[data-company-id]');if(!row||!['Enter',' '].includes(event.key))return;
@@ -311,7 +321,7 @@ document.addEventListener('click',async event=>{
   if(action==='dismiss-notice'){uiNotice='';render();return}
   if(action==='confirm-remove-user'){
     if(!modal||modal.kind!=='remove')return;button.disabled=true;
-    try{await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users/'+encodeURIComponent(modal.userId),{method:'DELETE',body:'{}'});selectedCompany=await api('/companies/'+encodeURIComponent(selectedCompany.company.id));modal=null;uiNotice='Användarens åtkomst till företaget togs bort och aktiva sessioner avslutades.';errorMessage='';render()}catch(error){errorMessage=error.message;modal=null;render()}return;
+    try{await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users/'+encodeURIComponent(modal.userId),{method:'DELETE',body:'{}'});await reloadSelectedCompanyOverview();modal=null;uiNotice='Användarens åtkomst till företaget togs bort och aktiva sessioner avslutades.';errorMessage='';render()}catch(error){errorMessage=error.message;modal=null;render()}return;
   }
   if(action==='logout'){
     try{await mutate('/auth/logout',{method:'POST',body:'{}'})}catch{}
