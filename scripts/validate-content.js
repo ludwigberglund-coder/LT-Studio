@@ -50,7 +50,8 @@ function validate(company, site, admin, decisions, access) {
   if (!/^\d{6}-\d{4}$/.test(company.orgNumber || '')) errors.push('content/company.json: orgNumber ska ha formatet 000000-0000.');
   if (!/^SE\d{12}$/.test(company.vatNumber || '')) errors.push('content/company.json: vatNumber ska ha svenskt VAT-format.');
   if (!/^\+\d{8,15}$/.test(company.contact?.phoneHref || '')) errors.push('content/company.json: contact.phoneHref ska vara ett internationellt telefonnummer utan mellanslag.');
-  if (company.dataClassification !== 'synthetic-demo') errors.push('content/company.json: publicerat GitHub-innehåll måste vara klassat som synthetic-demo.');
+  if (company.orgNumber !== '000000-0000') errors.push('content/company.json: publik demo måste använda det omöjliga demo-organisationsnumret 000000-0000.');
+  if (company.vatNumber !== 'SE000000000001') errors.push('content/company.json: publik demo måste använda demo-VAT SE000000000001.');
   if (!String(company.contact?.email || '').toLowerCase().endsWith('.invalid')) errors.push('content/company.json: publik demo-e-post måste använda reserverad .invalid-domän.');
   try {
     const website = new URL(String(company.website || ''));
