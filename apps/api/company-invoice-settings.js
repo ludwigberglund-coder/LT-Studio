@@ -129,15 +129,16 @@ function privateProfile(db,companyId,publicProfile={}){
   if(stored){
     base.invoice.bankgiro=stored.bankgiro;
     base.invoice.taxStatus=stored.taxStatus;
-    base.vatNumber=stored.vatNumber||'';
-    base.address={...base.address,full:stored.address||''};
-    base.contact={...base.contact,email:stored.email||'',phone:stored.phone||''};
-    base.website=stored.website||'';
+    base.vatNumber=stored.vatNumber||base.vatNumber||'';
+    if(stored.address)base.address={...base.address,full:stored.address};
+    if(stored.email)base.contact={...base.contact,email:stored.email};
+    if(stored.phone)base.contact={...base.contact,phone:stored.phone};
+    if(stored.website)base.website=stored.website;
   }else{
     base.invoice.bankgiro='';
     base.invoice.taxStatus='';
   }
-  return{profile:base,configured:Boolean(stored&&stored.bankgiro&&stored.taxStatus&&stored.vatNumber&&stored.address)};
+  return{profile:base,configured:Boolean(stored&&stored.bankgiro&&stored.taxStatus&&stored.vatNumber)};
 }
 module.exports=Object.freeze({
   initializeInvoiceSettings,normalizeBankgiro,normalizeTaxStatus,normalizeVatNumber,expectedVatNumberForOrgNumber,vatNumberMatchesOrgNumber,
