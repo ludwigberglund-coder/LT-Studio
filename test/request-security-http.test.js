@@ -2,6 +2,7 @@
 
 const test=require('node:test');
 const assert=require('node:assert/strict');
+const http=require('node:http');
 const {createServer}=require('../apps/api/server.js');
 
 async function withServer(options,run){
@@ -74,4 +75,43 @@ test('bodyless action accepts empty JSON but rejects unexpected fields before au
   assert.equal(rejected.status,422);
   assert.equal(body.code,'UNEXPECTED_REQUEST_BODY');
   assert.ok(body.requestId);
+}));
+
+
+function rawGet(base,hostHeader){
+  const target=new URL('/_runtime-version',base);
+  return new Promise((resolve,reject)=>{
+    const req=http.request({
+      hostname:target.hostname,
+      port:target.port,
+      path:target.pathname,
+      method:'GET',
+      headers:{Host:hostHeader}
+    },res=>{
+      const chunks=[];
+      res.on('data',chunk=>chunks.push(chunk));
+      res.on('end',()=>{
+        const raw=Buffer.concat(chunks).toString('utf8');
+        resolve({status:res.statusCode,body:raw?JSON.parse(raw):{}});
+      });
+    });
+    req.on('error',reject);
+    req.end();
+  });
+}
+
+test('public origin rejects spoofed loopback Host but accepts configured host',()=>withServer({
+  host:'0.0.0.0',
+  secureCookies:true,
+  authEncryptionKey:'test-only-encryption-key-longer-than-thirty-two-chars',
+  allowedHosts:['portal.example.test']
+},async base=>{
+  const spoofed=await rawGet(base,'127.0.0.1');
+  assert.equal(spoofed.status,421);
+  assert.equal(spoofed.body.code,'HOST_NOT_ALLOWED');
+
+  const allowed=await rawGet(base,'portal.example.test');
+  assert.equal(allowed.status,200);
+  assert.equal(typeof allowed.body.runtimeId,'string');
+  assert.ok(allowed.body.runtimeId.length>10);
 }));
