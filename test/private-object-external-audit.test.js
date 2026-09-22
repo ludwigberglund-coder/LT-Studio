@@ -47,7 +47,7 @@ async function plannedFixture(){
   Documents.storeContent(f.db,{
     companyId:f.a.id,
     documentId:document.id,
-    bytes:Buffer.from('%PDF-1.4\nexternal audit document\n','ascii')
+    bytes:Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\nexternal audit document\n%%EOF\n','ascii')
   });
 
   Planner.planVerifiedPrivateObjectCopies(f.db,{
