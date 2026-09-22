@@ -1,4 +1,4 @@
-# Projektbrief – komplett småföretagsplattform med Rolands som referenskund
+# Projektbrief – komplett småföretagsplattform med referenskunden som referenskund
 
 ## Huvudmål
 
@@ -11,7 +11,7 @@ Plattformen ska kombinera:
 - en privat admin- och företagsportal,
 - ekonomi, fakturering, bank, lager, dokument, rapporter och andra verksamhetsmoduler.
 
-Rolands Frukt o Grönt Aktiebolag är den första kompletta referenskunden. Vi bygger ett verkligt slutresultat för Rolands, men den gemensamma kärnan ska kunna användas av andra företag utan att kopieras eller byggas om från början.
+den första referenskunden är den första kompletta referenskunden. Vi bygger ett verkligt slutresultat för referenskunden, men den gemensamma kärnan ska kunna användas av andra företag utan att kopieras eller byggas om från början.
 
 Den fullständiga produktvisionen finns i [PRODUCT-VISION.md](PRODUCT-VISION.md). En enkel förklaring av nuläge, arkitektur och plan finns i [SYSTEM-OVERVIEW.md](SYSTEM-OVERVIEW.md).
 
@@ -121,7 +121,7 @@ Detta är en utvecklingsgrund, inte färdig produktionsdrift.
 6. Rapporter, moms, SIE och bokslutsnära kontroller.
 7. Personal- och löneintegration.
 8. Webbplats-CMS, dokumentflöden, uppgifter och branschmoduler.
-9. Säkerhets-, drift- och redovisningsgranskning före skarp Rolands-miljö.
+9. Säkerhets-, drift- och redovisningsgranskning före skarp referenskunden-miljö.
 10. Standardiserat införandeflöde för nästa kund.
 
 ## Godkännandekriterium för plattformen

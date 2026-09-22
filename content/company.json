@@ -1,31 +1,31 @@
 {
-  "legalName": "Rolands Frukt o Grönt Aktiebolag",
-  "displayName": "Rollands Saluhall",
-  "orgNumber": "556406-5059",
-  "vatNumber": "SE556406505901",
+  "legalName": "Demo Handel AB",
+  "displayName": "Demo Saluhall",
+  "orgNumber": "000000-0000",
+  "vatNumber": "SE000000000001",
   "registeredOffice": "Göteborg",
   "address": {
-    "street": "Bolshedens Industriväg 22",
-    "postalCode": "427 50",
-    "city": "Billdal",
-    "full": "Bolshedens Industriväg 22, 427 50 Billdal"
+    "street": "Exempelgatan 1",
+    "postalCode": "411 00",
+    "city": "Göteborg",
+    "full": "Exempelgatan 1, 411 00 Göteborg"
   },
   "contact": {
-    "phone": "031-91 32 23",
-    "phoneHref": "+4631913223",
-    "email": "frukt@rollands.se"
+    "phone": "031-000 00 00",
+    "phoneHref": "+4631000000",
+    "email": "kontakt@demo.example.invalid"
   },
-  "website": "https://rollands.se",
+  "website": "https://demo.example.invalid",
   "invoice": {
     "bankgiro": "DEMO-EJ-BETALNING",
     "taxStatus": "Demo – verifiera skattestatus före skarp drift"
   },
   "business": {
-    "sni": "47210",
-    "description": "Detaljhandel med frukt och grönsaker",
+    "sni": "47199",
+    "description": "Fiktiv detaljhandel för demo",
     "currency": "SEK"
   },
   "links": {
-    "maps": "https://www.google.com/maps/search/?api=1&query=Bolshedens+Industriv%C3%A4g+22+Billdal"
+    "maps": "https://www.google.com/maps/search/?api=1&query=Exempelgatan+1+Goteborg"
   }
 }

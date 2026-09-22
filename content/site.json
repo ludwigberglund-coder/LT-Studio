@@ -1,27 +1,57 @@
 {
   "meta": {
-    "title": "Rollands Saluhall | Frukt, grönt och service i Billdal",
-    "description": "Rollands Saluhall i Billdal erbjuder frukt, grönsaker, företagsfrukt och personlig service.",
+    "title": "Demo Saluhall | LT Studio demo",
+    "description": "Fiktiv demosida för LT Studios företagsplattform.",
     "language": "sv"
   },
   "navigation": [
-    { "label": "Hem", "href": "#hem" },
-    { "label": "Erbjudande", "href": "#erbjudande" },
-    { "label": "Om Rollands", "href": "#om" },
-    { "label": "Kontakt", "href": "#kontakt" },
-    { "label": "Demoportal", "href": "./portal/dashboard.html?demo=1" }
+    {
+      "label": "Hem",
+      "href": "#hem"
+    },
+    {
+      "label": "Erbjudande",
+      "href": "#erbjudande"
+    },
+    {
+      "label": "Om demoföretaget",
+      "href": "#om"
+    },
+    {
+      "label": "Kontakt",
+      "href": "#kontakt"
+    },
+    {
+      "label": "Demoportal",
+      "href": "./portal/dashboard.html?demo=1"
+    }
   ],
   "hero": {
-    "eyebrow": "Frukt, grönt och omtanke i Billdal",
+    "eyebrow": "Fiktivt demoföretag",
     "title": "Bra råvaror. Personlig service. Enklare vardag.",
-    "body": "Hos Rollands möter du ett lokalt sortiment med fokus på frukt, grönt och service för både privatpersoner och företag.",
-    "primaryCta": { "label": "Kontakta oss", "href": "#kontakt" },
-    "secondaryCta": { "label": "Öppna demoportalen", "href": "./portal/dashboard.html?demo=1" }
+    "body": "Detta är syntetiskt demoinnehåll för LT Studio. Inga uppgifter här tillhör en riktig kund.",
+    "primaryCta": {
+      "label": "Kontakta oss",
+      "href": "#kontakt"
+    },
+    "secondaryCta": {
+      "label": "Öppna demoportalen",
+      "href": "./portal/dashboard.html?demo=1"
+    }
   },
   "highlights": [
-    { "value": "Billdal", "label": "lokalt läge" },
-    { "value": "Företag", "label": "frukt och leveranser" },
-    { "value": "Butik", "label": "råvaror och vardagsservice" }
+    {
+      "value": "Demo",
+      "label": "syntetiska uppgifter"
+    },
+    {
+      "value": "Företag",
+      "label": "exempelflöden"
+    },
+    {
+      "value": "Portal",
+      "label": "ekonomi och administration"
+    }
   ],
   "services": {
     "eyebrow": "Vårt erbjudande",
@@ -49,7 +79,7 @@
     ]
   },
   "story": {
-    "eyebrow": "Om Rollands",
+    "eyebrow": "Om demot",
     "title": "En tydlig plats för både butik och verksamhet",
     "body": "Den nya webbplatsen byggs innehållsdrivet. Företagsuppgifter och texter ligger separat från kod och design, vilket gör framtida ändringar snabbare och säkrare.",
     "points": [
@@ -62,13 +92,16 @@
   "contact": {
     "eyebrow": "Kontakt",
     "title": "Välkommen att höra av dig",
-    "body": "Kontakta Rollands för frågor om sortiment, företagsfrukt eller beställningar.",
+    "body": "Kontaktuppgifterna i demon är syntetiska och kan inte användas för verkliga beställningar.",
     "openingHours": [
-      { "days": "Vardagar", "hours": "Kontakta butiken för aktuella öppettider" }
+      {
+        "days": "Vardagar",
+        "hours": "Kontakta butiken för aktuella öppettider"
+      }
     ]
   },
   "footer": {
-    "tagline": "Frukt, grönt och personlig service i Billdal.",
+    "tagline": "Syntetisk demo för LT Studio.",
     "adminLabel": "Öppna projektadmin"
   }
 }

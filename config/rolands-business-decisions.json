@@ -1,7 +1,7 @@
 {
   "company": {
-    "legalName": "Rolands Frukt o Grönt Aktiebolag",
-    "orgNumber": "556406-5059",
+    "legalName": "Demo Handel AB",
+    "orgNumber": "000000-0000",
     "currency": "SEK"
   },
   "accounting": {
@@ -9,28 +9,25 @@
       "type": "calendar-year",
       "start": "01-01",
       "end": "12-31",
-      "decision": "verified-public-record",
-      "verifiedThrough": "2024-12-31",
-      "evidence": [
-        "https://www.allabolag.se/foretag/rolands-frukt-o-gr%C3%B6nt-aktiebolag/billdal/livsmedel/2K0P82RI5YFWD",
-        "https://krafman.se/rolands-frukt-o-gront-aktiebolag/5564065059/sammanfattning"
-      ]
+      "decision": "synthetic-demo",
+      "verifiedThrough": null,
+      "evidence": []
     },
     "framework": {
       "value": "K2",
-      "decision": "target-unverified",
-      "productionGate": "Verify against the latest signed annual report before production use.",
+      "decision": "demo-target",
+      "productionGate": "Verify the real customer's signed annual report outside the public repository before production use.",
       "verified": false,
-      "evidenceStatus": "No public evidence reviewed on 2026-09-20 was sufficient to establish the latest signed annual report framework."
+      "evidenceStatus": "Synthetic demo configuration only; no real customer evidence is stored in GitHub."
     },
     "vatPeriod": {
       "value": "monthly",
-      "decision": "target-unverified",
-      "productionGate": "Verify the registered VAT reporting period with Skatteverket before filing or production use.",
+      "decision": "demo-target",
+      "productionGate": "Verify the real customer's registered VAT period outside the public repository before production use.",
       "verified": false,
-      "evidenceStatus": "VAT registration is public, but the registered filing frequency was not established from the reviewed public sources.",
-      "publicRegistrationVerified": true,
-      "publicRegistrationEvidence": "https://www.allabolag.se/foretag/rolands-frukt-o-gr%C3%B6nt-aktiebolag/billdal/livsmedel/2K0P82RI5YFWD"
+      "evidenceStatus": "Synthetic demo configuration only; no real customer registration evidence is stored in GitHub.",
+      "publicRegistrationVerified": false,
+      "publicRegistrationEvidence": null
     },
     "moneyPrecision": {
       "storageUnit": "ore",
@@ -65,7 +62,8 @@
       "inventory-change-postings"
     ]
   },
-  "approvedAt": "2026-09-15",
-  "status": "business-decisions-recorded",
-  "verifiedAt": "2026-09-20"
+  "approvedAt": null,
+  "status": "synthetic-demo-decisions",
+  "verifiedAt": null,
+  "dataClassification": "synthetic-demo"
 }

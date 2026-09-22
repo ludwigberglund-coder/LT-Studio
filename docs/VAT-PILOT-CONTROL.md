@@ -1,8 +1,8 @@
-# Moms – pilotkontroll för Rolands
+# Moms – pilotkontroll för referenskunden
 
 Senast verifierad: 2026-09-21.
 
-Detta dokument beskriver den tekniska momsavstämningen inför Rolands pilot. Det är inte ett intyg om att systemet kan skapa eller lämna en fullständig svensk momsdeklaration.
+Detta dokument beskriver den tekniska momsavstämningen inför referenskunden pilot. Det är inte ett intyg om att systemet kan skapa eller lämna en fullständig svensk momsdeklaration.
 
 ## Primära källor
 
@@ -13,7 +13,7 @@ Detta dokument beskriver den tekniska momsavstämningen inför Rolands pilot. De
 - Mervärdesskattelag (2023:200):
   https://www.riksdagen.se/sv/dokument-och-lagar/dokument/svensk-forfattningssamling/mervardesskattelag-2023200_sfs-2023-200/
 
-## Regler som direkt påverkar Rolands
+## Regler som direkt påverkar referenskunden
 
 Från och med 1 april 2026 är momsen normalt 6 procent på livsmedel. Fram till och med 31 mars 2026 var den normalt 12 procent. Restaurang- och cateringtjänster är fortsatt 12 procent. Normalskattesatsen är 25 procent.
 

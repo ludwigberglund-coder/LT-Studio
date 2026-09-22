@@ -1,4 +1,4 @@
-# Demoguide – Rollands företagsplattform
+# Demoguide – referenskunden företagsplattform
 
 Den här guiden används när ägarna testar den sammanhängande demon. GitHub Pages är endast en öppen granskningsmiljö med exempeldata. Riktiga kund-, bank-, faktura-, personal- eller bokföringsuppgifter får inte läggas in där.
 

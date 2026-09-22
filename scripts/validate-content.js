@@ -50,6 +50,13 @@ function validate(company, site, admin, decisions, access) {
   if (!/^\d{6}-\d{4}$/.test(company.orgNumber || '')) errors.push('content/company.json: orgNumber ska ha formatet 000000-0000.');
   if (!/^SE\d{12}$/.test(company.vatNumber || '')) errors.push('content/company.json: vatNumber ska ha svenskt VAT-format.');
   if (!/^\+\d{8,15}$/.test(company.contact?.phoneHref || '')) errors.push('content/company.json: contact.phoneHref ska vara ett internationellt telefonnummer utan mellanslag.');
+  if (company.orgNumber !== '000000-0000') errors.push('content/company.json: publik demo måste använda det omöjliga demo-organisationsnumret 000000-0000.');
+  if (company.vatNumber !== 'SE000000000001') errors.push('content/company.json: publik demo måste använda demo-VAT SE000000000001.');
+  if (!String(company.contact?.email || '').toLowerCase().endsWith('.invalid')) errors.push('content/company.json: publik demo-e-post måste använda reserverad .invalid-domän.');
+  try {
+    const website = new URL(String(company.website || ''));
+    if (!website.hostname.toLowerCase().endsWith('.invalid')) errors.push('content/company.json: publik demo-webbplats måste använda reserverad .invalid-domän.');
+  } catch { errors.push('content/company.json: website måste vara en giltig demo-URL.'); }
 
   for (const keyPath of [
     'meta.title', 'meta.description', 'hero.eyebrow', 'hero.title', 'hero.body',
@@ -79,6 +86,7 @@ function validate(company, site, admin, decisions, access) {
   for (const duplicate of duplicates((admin.navigation || []).map(item => item.id))) errors.push(`content/admin.json: dubblerat navigation-id ${duplicate}.`);
   for (const duplicate of duplicates((admin.modules || []).map(item => item.id))) errors.push(`content/admin.json: dubblerat modul-id ${duplicate}.`);
 
+  if (decisions?.dataClassification !== 'synthetic-demo') errors.push('config: publika verksamhetsbeslut måste vara klassade som synthetic-demo.');
   if (decisions?.company?.orgNumber !== company.orgNumber) errors.push('config och company.json innehåller olika organisationsnummer.');
   if (decisions?.accounting?.moneyPrecision?.storageUnit !== 'ore') errors.push('config: penningprecision ska vara ore.');
   if (decisions?.inventory?.mode !== 'integrated-in-rollands') errors.push('config: lager ska vara integrerat i Rollands.');

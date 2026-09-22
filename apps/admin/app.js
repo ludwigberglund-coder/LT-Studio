@@ -201,7 +201,7 @@ function decisionsView() {
 
   return layout('decisions', 'Verksamhetsbeslut', 'Fastställda riktningar för hur det nya systemet ska byggas.', `
     <section class="panel">
-      <div class="panel-heading"><div><span class="kicker">Rolands Frukt o Grönt Aktiebolag</span><h2>Beslut som styr arkitekturen</h2><p>Vissa myndighetsuppgifter är markerade för kontroll före skarp drift.</p></div></div>
+      <div class="panel-heading"><div><span class="kicker">Demo Handel AB</span><h2>Beslut som styr arkitekturen</h2><p>Vissa myndighetsuppgifter är markerade för kontroll före skarp drift.</p></div></div>
       <div class="table-wrap"><table><tbody>${rows}</tbody></table></div>
     </section>
   `);

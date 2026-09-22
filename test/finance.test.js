@@ -61,13 +61,13 @@ test('Fakturarader: blandad moms, heltalsavrundning, egna konton och kredit vän
 
 test('Ny faktura sparar PDF, kontakt och adress; återförsök och samtidighet ger unika fakturanummer',async()=>{
   async function post(url,data){const r=await fetch(base+url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});return {status:r.status,data:await r.json()};}
-  let r=await post('/api/invoice-settings',{invoiceContact:'Anna Åberg',registeredOffice:'Göteborg',paymentAccount:'TESTKONTO 123-456',vatNumber:'SE556406505901'});assert.equal(r.status,200);
+  let r=await post('/api/invoice-settings',{invoiceContact:'Demo Referens',registeredOffice:'Göteborg',paymentAccount:'TESTKONTO 123-456',vatNumber:'SE000000000001'});assert.equal(r.status,200);
   const payload={customer:'PDF-kund AB',address:'Äppelvägen 22\n412 50 Göteborg',reference:'Östen',date:'2026-09-14',paymentTerms:30,idempotencyKey:'PDF-TEST-1',lines:[{description:'Frukt till kontoret',amount:100,account:'3052',vatRate:12},{description:'Leverans',amount:50,account:'3041',vatRate:25}]};
   const [a,b]=await Promise.all([post('/api/invoices',payload),post('/api/invoices',payload)]);
   assert.equal(a.status,201);assert.equal(b.status,200);assert.equal(a.data.invoice.number,b.data.invoice.number);
-  const invoice=a.data.invoice;assert.equal(invoice.ourContact,'Anna Åberg');assert.equal(invoice.address,payload.address);assert.equal(invoice.dueDate,'2026-10-14');assert.equal(invoice.total,175);
+  const invoice=a.data.invoice;assert.equal(invoice.ourContact,'Demo Referens');assert.equal(invoice.address,payload.address);assert.equal(invoice.dueDate,'2026-10-14');assert.equal(invoice.total,175);
   const pdf=await fetch(base+'/api/invoices/'+invoice.id+'/pdf');assert.equal(pdf.headers.get('content-type'),'application/pdf');const bytes=Buffer.from(await pdf.arrayBuffer());assert.ok(bytes.subarray(0,5).equals(Buffer.from('%PDF-')));
-  await post('/api/invoice-settings',{invoiceContact:'Ny kontakt',registeredOffice:'Billdal',paymentAccount:'NYTT TESTKONTO',vatNumber:'SE556406505901'});
+  await post('/api/invoice-settings',{invoiceContact:'Ny kontakt',registeredOffice:'Göteborg',paymentAccount:'NYTT TESTKONTO',vatNumber:'SE000000000001'});
   const again=Buffer.from(await (await fetch(base+'/api/invoices/'+invoice.id+'/pdf')).arrayBuffer());assert.deepEqual(again,bytes);
   const count=(await (await fetch(base+'/api/state')).json()).invoices.length;
   r=await post('/api/invoices',{...payload,idempotencyKey:'INVALID',address:''});assert.equal(r.status,422);

@@ -67,20 +67,20 @@ function xmlText(xml, tag) {
 function emptyState() {
   return {
     business: {
-      name: 'Rollands Frukt och Grönt AB',
-      displayName: 'Rollands Saluhall',
-      orgNumber: '556406-5059',
-      address: 'Bolshedens Industriväg 22, 427 50 Billdal',
-      phone: '031-91 32 23',
-      email: 'frukt@rollands.se',
+      name: 'Demo Handel AB',
+      displayName: 'Demo Saluhall',
+      orgNumber: '000000-0000',
+      address: 'Exempelgatan 1, 411 00 Göteborg',
+      phone: '031-000 00 00',
+      email: 'kontakt@demo.example.invalid',
       sni: '47210 – Detaljhandel med frukt och grönsaker',
-      vatNumber: 'SE556406505901'
+      vatNumber: 'SE000000000001'
     },
     settings: {
       fiscalYear: currentFiscalYear(),
       bankAccount: '1930 Företagskonto',
       aiAutoBookLimit: 0.92,
-      emailInbox: 'fakturor@rollands.se',
+      emailInbox: 'fakturor@demo.example.invalid',
       attestResponsible: 'Ej angiven',
       attestSubstitute: 'Ej angiven',
       lastBankImport: '',
@@ -100,22 +100,22 @@ function emptyState() {
 function seedState() {
   return {
     business: {
-      name: 'Rollands Frukt och Grönt AB',
-      displayName: 'Rollands Saluhall',
-      orgNumber: '556406-5059',
-      address: 'Bolshedens Industriväg 22, 427 50 Billdal',
-      phone: '031-91 32 23',
-      email: 'frukt@rollands.se',
+      name: 'Demo Handel AB',
+      displayName: 'Demo Saluhall',
+      orgNumber: '000000-0000',
+      address: 'Exempelgatan 1, 411 00 Göteborg',
+      phone: '031-000 00 00',
+      email: 'kontakt@demo.example.invalid',
       sni: '47210 – Detaljhandel med frukt och grönsaker',
-      vatNumber: 'SE556406505901'
+      vatNumber: 'SE000000000001'
     },
     settings: {
       fiscalYear: '2026-01-01 – 2026-12-31',
       bankAccount: '1930 Företagskonto',
       aiAutoBookLimit: 0.92,
-      emailInbox: 'fakturor@rollands.se',
-      attestResponsible: 'Odd Stefan Arne Svensson',
-      attestSubstitute: 'Anna Åberg',
+      emailInbox: 'fakturor@demo.example.invalid',
+      attestResponsible: 'Demo Ansvarig',
+      attestSubstitute: 'Demo Referens',
       lastBankImport: '2026-09-10',
       lastInvoiceEmail: '2026-09-09',
       lockedPeriods: []
@@ -161,7 +161,7 @@ function addExpandedTestData(store) {
     ['test_i05','310005','Lindholmen Tech AB',9900,'2026-09-03','2026-10-03','Kontorsfrukt och dryck',12],
     ['test_i06','310006','Änggårdens Förskola',1680,'2026-09-05','2026-10-05','Ekologisk frukt',12],
     ['test_i07','310007','Södra Hamnens Bygg AB',5440,'2026-09-07','2026-10-07','Leverans byggbodar',25],
-    ['test_i08','310008','Billdals IF',-650,'2026-09-08','2026-10-08','Kredit för returpallar',12],
+    ['test_i08','310008','Demo Idrottsförening',-650,'2026-09-08','2026-10-08','Kredit för returpallar',12],
     ['test_i09','310009','Västkustens Media AB',3120,'2026-09-09','2026-10-09','Fruktavtal september',6],
     ['test_i10','310010','Kustnära Konsult AB',8750,'2026-09-11','2026-10-11','Kickoff och delibrickor',25],
     ['test_i11','310011','Göta Redovisning AB',2490,'2026-09-12','2026-10-12','Fruktleverans september',12],
@@ -173,14 +173,14 @@ function addExpandedTestData(store) {
     const vat = total - net;
     const paid = index % 4 === 0 ? Math.max(0, total) : index % 4 === 1 ? Math.max(0, Math.round(total / 2)) : 0;
     const payments = paid ? [{ id: `${idValue}_pay`, amount: paid, date: '2026-09-14', method: index % 2 ? 'Bankgiro' : 'Bank', reference: `TEST-HB-${String(index + 1).padStart(3, '0')}`, journalNumber: `A${180 + index}` }] : [];
-    return { id: idValue, number: String(310001 + index), ocr: String(310001 + index), customerNumber, customer, address: `Testgatan ${10 + index}, 4${11 + index} 50 Göteborg`, reference, ourContact: 'Anna Åberg', date, dueDate, total, net, vat, vatRate, status: total < 0 ? 'Kredit' : paid >= total ? 'Betald' : paid ? 'Delbetald' : 'Bokförd', paid: paid >= total, payments };
+    return { id: idValue, number: String(310001 + index), ocr: String(310001 + index), customerNumber, customer, address: `Testgatan ${10 + index}, 4${11 + index} 50 Göteborg`, reference, ourContact: 'Demo Referens', date, dueDate, total, net, vat, vatRate, status: total < 0 ? 'Kredit' : paid >= total ? 'Betald' : paid ? 'Delbetald' : 'Bokförd', paid: paid >= total, payments };
   });
   const suppliers = [
     ['test_s01','L-4101','Frukt & Grönt Grossisten Väst AB','FGV-60101',4820,'2026-09-05','2026-09-19','4010 Inköp av varor','Attest väntar'],
     ['test_s02','L-4102','Bergs Kaffe & Te AB','BKT-88412',2140,'2026-09-07','2026-09-21','4010 Inköp av varor','Bokförd'],
     ['test_s03','L-4103','Göteborgs Kylservice AB','GK-202609',3380,'2026-09-08','2026-09-22','5500 Reparation och underhåll','Attest väntar'],
     ['test_s04','L-4104','Västfrakt Logistik AB','VF-77102',7650,'2026-09-09','2026-09-23','5710 Frakter och transporter','Bokförd'],
-    ['test_s05','L-4105','Billdal Kontorsmaterial AB','BK-44381',1280,'2026-09-10','2026-09-24','5460 Förbrukningsmaterial','Attest väntar'],
+    ['test_s05','L-4105','Demo Kontorsmaterial AB','BK-44381',1280,'2026-09-10','2026-09-24','5460 Förbrukningsmaterial','Attest väntar'],
     ['test_s06','L-4106','Handelsbanken Företag','HB-09-2026',920,'2026-09-11','2026-09-25','6570 Bankkostnader','Bokförd'],
     ['test_s07','L-4107','Ren Stad Göteborg AB','RS-99201',1890,'2026-09-12','2026-09-26','5060 Städning och renhållning','Attest väntar'],
     ['test_s08','L-4108','Matgrossisten Väst AB','MG-77119',6380,'2026-09-13','2026-09-27','4010 Inköp av varor','Bokförd']
@@ -194,7 +194,7 @@ function addExpandedTestData(store) {
     {id:'test_b05',date:'2026-09-12',amount:-2460,text:'OKÄND UTBETALNING',reference:'',transactionRef:'TEST-BANK-005',status:'Granska',proposal:'Ingen säker bokning',reason:'Beloppet kan inte kopplas till öppet underlag',confidence:.42},
     {id:'test_b06',date:'2026-09-11',amount:1250,text:'SWISH FÖRSÄLJNING TEST',reference:'',transactionRef:'TEST-BANK-006',status:'Granska',proposal:'AI föreslår 3052 Försäljning varor 12 %',reason:'Manuell kontroll av dagskassa krävs',confidence:.84},
     {id:'test_b07',date:'2026-09-10',amount:-920,text:'HANDELSBANKEN AVGIFT HB-09-2026',reference:'HB-09-2026',transactionRef:'TEST-BANK-007',status:'Bokförd',proposal:'Bokförd på 6570 Bankkostnader',account:'6570 Bankkostnader'},
-    {id:'test_b08',date:'2026-09-09',amount:650,text:'ÖVERBETALNING BILLDALS IF',reference:'310008',transactionRef:'TEST-BANK-008',status:'Matchad',proposal:'Tillgodohavande på kreditfaktura',account:'1510 Kundfordringar'}
+    {id:'test_b08',date:'2026-09-09',amount:650,text:'ÖVERBETALNING DEMO IDROTTSFÖRENING',reference:'310008',transactionRef:'TEST-BANK-008',status:'Matchad',proposal:'Tillgodohavande på kreditfaktura',account:'1510 Kundfordringar'}
   ];
   const journals = invoiceRows.map((invoice, index) => ({id:`test_v${String(index+1).padStart(2,'0')}`,date:invoice.date,series:'A',number:`A${180+index}`,description:`Kundfaktura ${invoice.number} – ${invoice.customer}`,source:'Kundfaktura',rows:[{account:'1510 Kundfordringar',debit:invoice.total > 0 ? invoice.total : 0,credit:invoice.total < 0 ? Math.abs(invoice.total) : 0},{account:`3052 Försäljning varor ${invoice.vatRate} %`,debit:invoice.total < 0 ? Math.abs(invoice.net) : 0,credit:invoice.total > 0 ? invoice.net : 0},{account:invoice.vatRate===25?'2611 Utgående moms 25 %':'2621 Utgående moms 12 %',debit:invoice.total < 0 ? Math.abs(invoice.vat) : 0,credit:invoice.total > 0 ? invoice.vat : 0}]}));
   store.invoices.push(...invoiceRows);
