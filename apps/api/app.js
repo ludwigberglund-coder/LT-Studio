@@ -284,12 +284,14 @@ function createApiApp(options) {
       noteLoginFailure(req,username);
       return send(res,401,{error:'Användarnamn eller lösenord är fel.',code:'INVALID_CREDENTIALS'});
     }
-    const memberships=Db.membershipsForUser(db,user.id);
+    const memberships=user.platformAdmin
+      ? Db.listCompanies(db).map(company=>({companyId:company.id,role:'admin',legalName:company.legalName,displayName:company.displayName}))
+      : Db.membershipsForUser(db,user.id);
     if(!memberships.length) return send(res,403,{error:'Användaren saknar företagsåtkomst.',code:'NO_COMPANY_ACCESS'});
     let selected;
     if(payload.companyId) selected=memberships.find(item=>item.companyId===String(payload.companyId));
     else if(memberships.length===1) selected=memberships[0];
-    else return send(res,409,{error:'Välj företag för inloggningen.',code:'COMPANY_REQUIRED',companies:memberships.map(item=>({id:item.companyId,name:item.displayName}))});
+    else return send(res,409,{error:'Välj företag för inloggningen.',code:'COMPANY_REQUIRED',companies:memberships.map(item=>({id:item.companyId,name:item.displayName,role:item.role}))});
     if(!selected) return send(res,403,{error:'Användaren saknar åtkomst till valt företag.',code:'COMPANY_ACCESS_DENIED'});
 
     const mfaRequired=true;
@@ -308,6 +310,9 @@ function createApiApp(options) {
     }
 
     const upgradedPasswordHash=Auth.passwordHashNeedsUpgrade(user.passwordHash)?Auth.hashPassword(payload.password):'';
+    const configuredDuration=user.sessionDurationMinutes===null?null:Number(user.sessionDurationMinutes||sessionMaxMinutes);
+    const absoluteMinutes=configuredDuration===null?sessionMaxMinutes:Math.min(configuredDuration,sessionMaxMinutes);
+    const persistentCookie=configuredDuration!==null;
     const now=Date.now();
     const sessionToken=Auth.randomToken(32), csrfToken=Auth.randomToken(24);
     Db.transaction(db,()=>{
@@ -315,18 +320,19 @@ function createApiApp(options) {
       if(upgradedPasswordHash) Db.updateUserPasswordHash(db,{userId:user.id,passwordHash:upgradedPasswordHash});
       Db.createSession(db,{
         tokenHash:Auth.hashToken(sessionToken),csrfHash:Auth.hashToken(csrfToken),userId:user.id,companyId:selected.companyId,
-        expiresAt:sessionExpiryIso(sessionIdleMinutes,now),absoluteExpiresAt:sessionExpiryIso(sessionMaxMinutes,now)
+        expiresAt:sessionExpiryIso(Math.min(sessionIdleMinutes,absoluteMinutes),now),absoluteExpiresAt:sessionExpiryIso(absoluteMinutes,now)
       });
-      Db.appendAudit(db,{companyId:selected.companyId,userId:user.id,action:'SESSION_LOGIN',entityType:'session',details:{username:user.username,mfaRequired,sessionIdleMinutes,sessionMaxMinutes,passwordHashUpgraded:Boolean(upgradedPasswordHash)}});
+      Db.appendAudit(db,{companyId:selected.companyId,userId:user.id,action:'SESSION_LOGIN',entityType:'session',details:{username:user.username,mfaRequired,sessionIdleMinutes:Math.min(sessionIdleMinutes,absoluteMinutes),sessionMaxMinutes:absoluteMinutes,sessionPersistence:persistentCookie?'fixed-hours':'browser-session',platformAdmin:Boolean(user.platformAdmin),role:selected.role,passwordHashUpgraded:Boolean(upgradedPasswordHash)}});
     });
     Db.clearLoginAttempts(db,loginKey(req,username));
     Db.clearLoginAttempts(db,loginAccountKey(username));
     return send(res,200,{
       authenticated:true,
       csrfToken,
-      user:{id:user.id,username:user.username,displayName:user.displayName},
-      company:{id:selected.companyId,name:selected.displayName}
-    },{'Set-Cookie':Auth.sessionCookie(sessionToken,{secure:secureCookies,maxAgeSeconds:sessionMaxMinutes*60})});
+      user:{id:user.id,username:user.username,displayName:user.displayName,platformAdmin:Boolean(user.platformAdmin),sessionDurationMinutes:user.sessionDurationMinutes},
+      company:{id:selected.companyId,name:selected.displayName},
+      role:selected.role
+    },{'Set-Cookie':Auth.sessionCookie(sessionToken,{secure:secureCookies,maxAgeSeconds:persistentCookie?absoluteMinutes*60:null})});
   }
 
   async function handle(req,res) {
@@ -348,7 +354,9 @@ function createApiApp(options) {
         if(!session) return send(res,200,{authenticated:false});
         Db.touchSession(db,session.tokenHash,sessionExpiryIso(sessionIdleMinutes));
         const company=Db.companyById(db,session.companyId);
-        return send(res,200,{authenticated:true,user:{id:session.userId,username:session.username,displayName:session.displayName},companyId:session.companyId,
+        const permissions=[...Access.permissionsForActor(accessModel,session.actor)];
+        return send(res,200,{authenticated:true,user:{id:session.userId,username:session.username,displayName:session.displayName,platformAdmin:Boolean(session.platformAdmin),sessionDurationMinutes:session.sessionDurationMinutes},companyId:session.companyId,
+          role:session.role,permissions,
           company:{id:session.companyId,name:company?.displayName||company?.legalName||'Företaget',legalName:company?.legalName||''}});
       }
 
@@ -360,6 +368,45 @@ function createApiApp(options) {
         Db.deleteSession(db,session.tokenHash);
         Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'SESSION_LOGOUT',entityType:'session',details:{}});
         return send(res,200,{authenticated:false},{'Set-Cookie':Auth.clearSessionCookie({secure:secureCookies})});
+      }
+
+      if(req.method==='GET' && url.pathname==='/api/v1/profile/security') {
+        const user=Db.userById(db,session.userId);
+        return send(res,200,{sessionDurationMinutes:user.sessionDurationMinutes,allowedSessionDurationMinutes:Db.SESSION_DURATION_MINUTES,sessionMode:user.sessionDurationMinutes===null?'browser-session':'fixed-hours'});
+      }
+
+      if(req.method==='PUT' && url.pathname==='/api/v1/profile/security') {
+        const payload=await readJson(req,res); if(!payload) return;
+        const before=Db.userById(db,session.userId);
+        const requested=payload.sessionDurationMinutes===null||payload.sessionDurationMinutes==='session'?null:Number(payload.sessionDurationMinutes);
+        Db.transaction(db,()=>{
+          const updated=Db.setUserSessionDuration(db,{userId:session.userId,sessionDurationMinutes:requested});
+          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'USER_SESSION_DURATION_CHANGED',entityType:'user',entityId:session.userId,details:{before:before.sessionDurationMinutes,after:updated.sessionDurationMinutes}});
+          Db.deleteSessionsForUser(db,session.userId);
+        });
+        return send(res,200,{saved:true,reauthenticate:true,sessionDurationMinutes:requested},{'Set-Cookie':Auth.clearSessionCookie({secure:secureCookies})});
+      }
+
+      if(req.method==='GET' && url.pathname==='/api/v1/access/members') {
+        requirePermission(session,'users.manage');
+        return send(res,200,{members:Db.membershipsForCompany(db,session.companyId),roles:accessConfig.roles.map(role=>({id:role.id,label:role.label,description:role.description}))});
+      }
+
+      const roleMatch=url.pathname.match(/^\/api\/v1\/access\/members\/([^/]+)\/role$/);
+      if(roleMatch && req.method==='PUT') {
+        requirePermission(session,'users.manage');
+        const targetUserId=roleMatch[1];
+        if(targetUserId===session.userId) throw apiError('Du kan inte ändra din egen roll från den här sidan. Använd en annan administratör.','SELF_ROLE_CHANGE_BLOCKED',409);
+        const payload=await readJson(req,res); if(!payload) return;
+        const before=Db.membership(db,session.companyId,targetUserId);
+        if(!before) throw apiError('Användaren är inte medlem i det inloggade företaget.','MEMBERSHIP_NOT_FOUND',404);
+        let updated;
+        Db.transaction(db,()=>{
+          updated=Db.setMembershipRole(db,{companyId:session.companyId,userId:targetUserId,role:payload.role});
+          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'MEMBERSHIP_ROLE_CHANGED',entityType:'user',entityId:targetUserId,details:{before:before.role,after:updated.role}});
+          Db.deleteSessionsForUser(db,targetUserId);
+        });
+        return send(res,200,{membership:updated,sessionsRevoked:true});
       }
 
       if(req.method==='GET' && url.pathname==='/api/v1/customers') {
