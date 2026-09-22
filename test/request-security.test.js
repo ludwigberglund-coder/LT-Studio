@@ -2,6 +2,7 @@
 
 const test=require('node:test');
 const assert=require('node:assert/strict');
+const {Readable}=require('node:stream');
 const Security=require('../apps/api/request-security.js');
 
 function request(url,{method='GET',headers={},ip='127.0.0.1'}={}){
@@ -61,4 +62,45 @@ test('autentiserad användare har egen rate-limit utöver IP-gränsen',()=>{
   const req=request('/api/v1/customers',{headers:{cookie:'rollands_session=test-token'},ip:'198.51.100.10'});
   for(let i=0;i<20;i+=1)assert.equal(limiter.check(req).allowed,true);
   assert.equal(limiter.check(req).allowed,false);
+});
+
+
+function streamedRequest(url,{method='POST',body='',contentType='application/json'}={}){
+  const req=Readable.from(body?[Buffer.from(body,'utf8')]:[]);
+  req.url=url;
+  req.method=method;
+  req.headers={};
+  if(body){
+    req.headers['content-type']=contentType;
+    req.headers['content-length']=String(Buffer.byteLength(body));
+  }
+  req.socket={remoteAddress:'127.0.0.1'};
+  return req;
+}
+
+test('body policy skiljer JSON, binär upload och bodylösa actions',()=>{
+  assert.equal(Security.bodyPolicyFor(request('/api/v1/customers',{method:'POST'})),'json');
+  assert.equal(Security.bodyPolicyFor(request('/api/v1/documents/doc-1/content',{method:'PUT'})),'binary');
+  assert.equal(Security.bodyPolicyFor(request('/api/v1/bank/payments/p-1/match',{method:'POST'})),'empty-json');
+  assert.equal(Security.bodyPolicyFor(request('/api/v1/health',{method:'GET'})),'none');
+});
+
+test('bodylösa actions accepterar ingen body eller exakt tomt JSON-objekt',async()=>{
+  await assert.doesNotReject(()=>Security.validateRequestBody(streamedRequest('/api/v1/bank/payments/p-1/match',{method:'POST'})));
+  await assert.doesNotReject(()=>Security.validateRequestBody(streamedRequest('/api/v1/bank/payments/p-1/match',{method:'POST',body:'{}'})));
+  await assert.rejects(
+    ()=>Security.validateRequestBody(streamedRequest('/api/v1/bank/payments/p-1/match',{method:'POST',body:'{"admin":true}'})),
+    error=>error?.code==='UNEXPECTED_REQUEST_BODY'&&error?.statusCode===422
+  );
+  await assert.rejects(
+    ()=>Security.validateRequestBody(streamedRequest('/api/v1/bank/payments/p-1/match',{method:'POST',body:'{}',contentType:'text/plain'})),
+    error=>error?.code==='UNSUPPORTED_MEDIA_TYPE'&&error?.statusCode===415
+  );
+});
+
+test('GET och HEAD avvisar request-body',async()=>{
+  await assert.rejects(
+    ()=>Security.validateRequestBody(streamedRequest('/api/v1/health',{method:'GET',body:'x',contentType:'text/plain'})),
+    error=>error?.code==='UNEXPECTED_REQUEST_BODY'&&error?.statusCode===400
+  );
 });
