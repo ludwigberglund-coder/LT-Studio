@@ -31,7 +31,7 @@ function openDemoInvoice(invoice) {
   const popup = window.open('', '_blank');
   if (!popup) { toast('Tillåt popup-fönster för att öppna PDF-fakturan.'); return; }
   const rows = (invoice.lines || []).map(line => `<tr><td>${escapeHtml(line.description || '')}</td><td>${Math.round(line.net || line.amount || 0)} kr</td><td>${line.vatRate || 0} %</td></tr>`).join('');
-  popup.document.write(`<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>Faktura ${escapeHtml(invoice.number)}</title><style>body{font:14px Arial;color:#153b2e;margin:48px}header{display:flex;justify-content:space-between;border-bottom:3px solid #153b2e;padding-bottom:18px}table{width:100%;border-collapse:collapse;margin-top:35px}th,td{text-align:left;padding:10px;border-bottom:1px solid #d9e2d4}footer{margin-top:50px;border-top:1px solid #153b2e;padding-top:15px}</style></head><body><header><div><h1>Rollands</h1><p>${escapeHtml(invoice.customer || '')}</p><p>${escapeHtml(invoice.address || '')}</p></div><div><h1>${invoice.credit ? 'KREDITFAKTURA' : 'FAKTURA'}</h1><p>Fakturanummer: <b>${escapeHtml(invoice.number)}</b></p><p>OCR: <b>${escapeHtml(invoice.ocr || invoice.number)}</b></p><p>Bokföringsdag: ${escapeHtml(invoice.postingDate || invoice.date || '')}</p></div></header><table><thead><tr><th>Fakturatext</th><th>Belopp</th><th>Moms</th></tr></thead><tbody>${rows}</tbody></table><h2>Att betala: ${Math.round(invoice.total || 0)} kr</h2><footer>Vid betalning efter förfallodagen debiteras dröjsmålsränta med referensränta + 8 %.</footer></body></html>`);
+  popup.document.write(`<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>Faktura ${escapeHtml(invoice.number)}</title><style>body{font:14px Arial;color:#153b2e;margin:48px}header{display:flex;justify-content:space-between;border-bottom:3px solid #153b2e;padding-bottom:18px}table{width:100%;border-collapse:collapse;margin-top:35px}th,td{text-align:left;padding:10px;border-bottom:1px solid #d9e2d4}footer{margin-top:50px;border-top:1px solid #153b2e;padding-top:15px}</style></head><body><header><div><h1>Demo Handel AB</h1><p>${escapeHtml(invoice.customer || '')}</p><p>${escapeHtml(invoice.address || '')}</p></div><div><h1>${invoice.credit ? 'KREDITFAKTURA' : 'FAKTURA'}</h1><p>Fakturanummer: <b>${escapeHtml(invoice.number)}</b></p><p>OCR: <b>${escapeHtml(invoice.ocr || invoice.number)}</b></p><p>Bokföringsdag: ${escapeHtml(invoice.postingDate || invoice.date || '')}</p></div></header><table><thead><tr><th>Fakturatext</th><th>Belopp</th><th>Moms</th></tr></thead><tbody>${rows}</tbody></table><h2>Att betala: ${Math.round(invoice.total || 0)} kr</h2><footer>Vid betalning efter förfallodagen debiteras dröjsmålsränta med referensränta + 8 %.</footer></body></html>`);
   popup.document.close();
   setTimeout(() => popup.print(), 100);
 }
@@ -42,7 +42,7 @@ async function api(path, options = {}, mayAuthenticate = true) {
   try { response = await fetch(path, request); }
   catch (error) { if (demoMode && path === '/api/state') return {store: window.ROLLANDS_DEMO}; throw error; }
   if (response.status === 401 && mayAuthenticate && path !== '/api/session') {
-    const token = window.prompt('Ange administratörsnyckeln för Rollands Ekonomi. Nyckeln sparas inte i webbläsaren.');
+    const token = window.prompt('Ange administratörsnyckeln för LT Studio Demo. Nyckeln sparas inte i webbläsaren.');
     if (!token) throw new Error('Autentisering avbröts.');
     const login = await fetch('/api/session', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({token})});
     const loginData = await login.json().catch(() => ({}));
@@ -148,7 +148,7 @@ function publicPage() {
         </div>
       </section>
       <section class="public-section tinted" id="foretagsfrukt"><div class="section-inner">
-        <div class="section-title"><div class="eyebrow">Rollands för företag</div><h2>Färsk energi till arbetsplatsen.</h2><p>Vi levererar företagsfrukt och frukosttillbehör till företag i Göteborg och Kungsbacka.</p></div>
+        <div class="section-title"><div class="eyebrow">Demo för företag</div><h2>Färsk energi till arbetsplatsen.</h2><p>Vi levererar företagsfrukt och frukosttillbehör till företag i Göteborg och Kungsbacka.</p></div>
         <div class="service-grid"><article class="service-card"><div class="mark">◉</div><h3>Frukt på jobbet</h3><p>Välfyllda fruktleveranser som passar kontorets rytm och säsong.</p></article><article class="service-card"><div class="mark">✦</div><h3>Delibrickor</h3><p>Väl valda ostar, charkuterier och tillbehör för möten och firanden.</p></article><article class="service-card" id="catering"><div class="mark">⌁</div><h3>Catering</h3><p>Mat med bra råvaror och omsorg för små och stora tillfällen.</p></article></div>
       </div></section>
       <section class="public-section"><div class="section-inner values"><p class="quote">"Kvalitet och kunskap är våra <span>ledord.</span>"</p><ul class="check-list"><li><b>01</b>Handplockat från producenter och grossister</li><li><b>02</b>Frukt, grönt och delikatesser med kvalitet i fokus</li><li><b>03</b>Personlig hjälp – från vardagsmiddag till present</li></ul></div></section>
