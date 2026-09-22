@@ -163,3 +163,8 @@ meter::-moz-meter-bar{background:#738a78;border-radius:999px}
   .mobile-nav .nav-icon{width:auto;color:inherit}
   .mobile-nav .nav-badge{display:none}
 }
+
+.ring-value.neutral{stroke:#789080}
+.dashboard-grid.detail-analytics{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:1180px){.dashboard-grid.detail-analytics{grid-template-columns:1fr 1fr}.dashboard-grid.detail-analytics>article:last-child{grid-column:1/-1}}
+@media(max-width:760px){.dashboard-grid.detail-analytics{grid-template-columns:1fr}.dashboard-grid.detail-analytics>article:last-child{grid-column:auto}}
