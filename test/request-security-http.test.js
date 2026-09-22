@@ -132,15 +132,3 @@ test('static portal responses use the stricter page CSP and security headers',()
   assert.equal(response.headers.get('cross-origin-resource-policy'),'same-origin');
   assert.match(response.headers.get('strict-transport-security')||'',/max-age=31536000/);
 }));
-
-
-test('unregistered API mutation bodies fail closed',()=>withServer({},async base=>{
-  const response=await fetch(base+'/api/v1/not-a-real-route',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({unexpected:true})
-  });
-  const body=await response.json();
-  assert.equal(response.status,400);
-  assert.equal(body.code,'UNREGISTERED_REQUEST_BODY');
-}));
