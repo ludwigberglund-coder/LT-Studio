@@ -156,6 +156,29 @@ test('ändrad personlig sessionstid återkallar befintliga sessioner och kräver
   assert.equal((await after.json()).authenticated,false);
 }));
 
+test('LT Studio global admin behåller adminroll även om ett vanligt kundmedlemskap har lägre roll', async () => withApi(async ({base,password,db,user,co1}) => {
+  Db.setMembershipRole(db,{companyId:co1.id,userId:user.id,role:'readonly'});
+  Db.setUserPlatformAdmin(db,{userId:user.id,enabled:true});
+
+  const response=await fetch(base+'/api/v1/auth/login',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:'sara.test',password,totp:Auth.totpCode(TEST_MFA_SECRET),companyId:co1.id})
+  });
+  const body=await response.json();
+  assert.equal(response.status,200);
+  assert.equal(body.role,'admin');
+
+  const cookie=String(response.headers.get('set-cookie')||'').split(';')[0];
+  const sessionResponse=await fetch(base+'/api/v1/session',{headers:{Cookie:cookie}});
+  const session=await sessionResponse.json();
+  assert.equal(session.authenticated,true);
+  assert.equal(session.user.platformAdmin,true);
+  assert.equal(session.role,'admin');
+  assert.ok(session.permissions.includes('users.manage'));
+  assert.ok(session.permissions.includes('payroll.view'));
+}));
+
 test('LT Studio global admin kan välja alla företag och får adminroll utan kundmedlemskap', async () => withApi(async ({base,password,db,user,co2}) => {
   Db.setUserPlatformAdmin(db,{userId:user.id,enabled:true});
   const withoutMfa=await fetch(base+'/api/v1/auth/login',{
