@@ -65,6 +65,18 @@ function loginView(){
 }
 function readinessState(){if(!readiness)return{label:'Laddar',kind:'warning'};return readiness.ok?{label:'OK',kind:'ok'}:{label:'Varning',kind:'critical'}}
 function securityState(){const critical=Number(overview?.security?.critical||0),warning=Number(overview?.security?.warning||0);if(critical)return{label:`${critical} kritiska`,kind:'critical'};if(warning)return{label:`${warning} varningar`,kind:'warning'};return{label:'Ingen aktiv varning',kind:'ok'}}
+function modalMarkup(){
+  if(!modal)return '';
+  if(modal.kind==='password')return `<div class="modal-backdrop" data-modal-backdrop><section class="modal-card portal-modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><div><span class="eyebrow">SÄKER ÅTGÄRD</span><h2 id="modal-title">Byt lösenord</h2><p>${esc(modal.userName)}</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div><form id="reset-password-form"><label class="field"><span>Nytt tillfälligt lösenord</span><input name="password" type="password" required minlength="8" autocomplete="new-password" autofocus></label><p class="form-help">Minst 8 tecken, stor och liten bokstav samt minst en siffra eller ett specialtecken. Alla tidigare sessioner avslutas efter bytet.</p><div class="modal-actions"><button class="button secondary" type="button" data-action="close-modal">Avbryt</button><button class="button" type="submit">Byt lösenord</button></div></form></section></div>`;
+  if(modal.kind==='remove')return `<div class="modal-backdrop" data-modal-backdrop><section class="modal-card portal-modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><div><span class="eyebrow">BEKRÄFTA ÅTGÄRD</span><h2 id="modal-title">Ta bort åtkomst?</h2><p>${esc(modal.userName)}</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div><p class="modal-copy">Användaren tas bort från just detta företag och aktiva sessioner avslutas. Kontot påverkas inte i andra företag där personen har åtkomst.</p><div class="modal-actions"><button class="button secondary" type="button" data-action="close-modal">Avbryt</button><button class="button danger solid" type="button" data-action="confirm-remove-user">Ta bort åtkomst</button></div></section></div>`;
+  return '';
+}
+function successNotice(){
+  return uiNotice?`<div class="notice success"><span>${esc(uiNotice)}</span><button type="button" data-action="dismiss-notice" aria-label="Stäng meddelande">×</button></div>`:'';
+}
+function focusModal(){
+  requestAnimationFrame(()=>document.querySelector('.modal-card input, .modal-card button')?.focus());
+}
 function nav(){
   const items=[['overview','Översikt','⌂'],['companies','Kunder & företag','◇'],['statistics','Statistik','▥'],['security','Säkerhetsportal','◈']];
   return items.map(([id,label,icon])=>`<button class="${view===id?'active':''}" data-view="${id}"><span class="nav-label"><span class="nav-icon">${icon}</span>${label}</span>${id==='security'?'<span class="nav-badge">nästa</span>':''}</button>`).join('');
@@ -73,7 +85,7 @@ function shell(body,title,subtitle){
   const operator=session?.operator||{};
   root.innerHTML=`<div class="operator-shell"><aside class="sidebar"><div><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div class="side-copy">ADMIN CONTROL CENTER</div></div><nav class="side-nav">${nav()}</nav><div class="side-spacer"></div><div class="side-status"><span class="live-dot"></span><div><strong>Operatorportal aktiv</strong><small>Separat säkerhetsgräns</small></div></div><div class="side-footer">Endast LT Studio-operatörer.<br>Alla administrativa ändringar loggas.</div></aside>
   <section class="main"><header class="topbar"><div><span class="page-kicker">LT STUDIO / ADMIN</span><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div><div class="actions"><div class="operator-user"><span class="avatar">${initials(operator.displayName)}</span><div><strong>${esc(operator.displayName||operator.username||'Operatör')}</strong><small>LT Studio-operatör</small></div></div><button class="icon-button" data-action="refresh" title="Uppdatera">↻</button><button class="button secondary" data-action="logout">Logga ut</button></div></header>
-  ${errorMessage?`<div class="notice">${esc(errorMessage)}</div>`:''}${body}<footer class="portal-footer"><span>LT Studio Admin</span><span>Senast uppdaterad ${dateTime(overview?.generatedAt)}</span></footer></section></div>`;
+  ${errorMessage?`<div class="notice">${esc(errorMessage)}</div>`:''}${successNotice()}${body}<footer class="portal-footer"><span>LT Studio Admin</span><span>Senast uppdaterad ${dateTime(overview?.generatedAt)}</span></footer></section></div>${modalMarkup()}`;
 }
 function companyRows(){
   const rows=overview?.companies||[];
