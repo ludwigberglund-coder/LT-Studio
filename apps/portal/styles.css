@@ -38,3 +38,10 @@
 .ui-action-confirmed{animation:ui-confirm-pulse .4s cubic-bezier(.2,.8,.2,1)}
 @keyframes ui-confirm-pulse{0%{box-shadow:0 0 0 0 rgba(31,92,73,.24)}55%{box-shadow:0 0 0 6px rgba(31,92,73,0)}100%{box-shadow:0 5px 14px rgba(18,60,49,.16)}}
 @media(prefers-reduced-motion:reduce){.button,.shared-links a,.shared-user-trigger,.metric,.panel,.module-card,.task-card{transition:none!important}.ui-action-confirmed{animation:none!important}}
+
+/* Global LT Studio surface polish: applies across every customer-portal module. */
+:where(.sales-metric,.sales-panel,.invoice-section,.invoice-preview-card,.invoice-panel-footer,.attention,.roadmap-strip,.dash-hero,.dash-metric,.notice-box,.entry-detail,.health-card,.report-card,.payable-card,.supplier-card,.inventory-card,.document-card,.cms-card){box-shadow:0 8px 26px rgba(28,52,43,.07);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+:where(.sales-metric,.invoice-section,.invoice-preview-card,.dash-metric,.report-card,.payable-card,.supplier-card,.inventory-card,.document-card,.cms-card):hover{box-shadow:0 13px 34px rgba(28,52,43,.105)}
+:where(button,a,.column-picker summary,.invoice-section>summary){-webkit-tap-highlight-color:transparent}
+:where(.modal,.modal-sales,.access-recovery-card,.login-card){box-shadow:0 24px 70px rgba(18,42,34,.16)}
+:where(input,select,textarea):focus-visible{outline:3px solid rgba(31,92,73,.2);outline-offset:2px}
