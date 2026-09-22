@@ -14,8 +14,8 @@ test('publik företagsprofil är uttryckligen syntetisk',()=>{
   assert.equal(company.dataClassification,'synthetic-demo');
   assert.equal(company.legalName,'Demo Handel AB');
   assert.equal(company.displayName,'Demo Saluhall');
-  assert.equal(company.orgNumber,'559999-0000');
-  assert.equal(company.vatNumber,'SE559999000001');
+  assert.equal(company.orgNumber,'000000-0000');
+  assert.equal(company.vatNumber,'SE000000000001');
   assert.ok(String(company.contact.email).toLowerCase().endsWith('.invalid'));
   assert.ok(new URL(company.website).hostname.toLowerCase().endsWith('.invalid'));
   assert.match(company.invoice.bankgiro,/^DEMO-/);
@@ -25,7 +25,7 @@ test('publika verksamhetsbeslut innehåller bara demoklassificering och inga ext
   const decisions=readJson('config/rolands-business-decisions.json');
   assert.equal(decisions.dataClassification,'synthetic-demo');
   assert.equal(decisions.company.legalName,'Demo Handel AB');
-  assert.equal(decisions.company.orgNumber,'559999-0000');
+  assert.equal(decisions.company.orgNumber,'000000-0000');
   assert.deepEqual(decisions.accounting.fiscalYear.evidence,[]);
   assert.equal(decisions.accounting.vatPeriod.publicRegistrationVerified,false);
   assert.equal(decisions.accounting.vatPeriod.publicRegistrationEvidence,null);
