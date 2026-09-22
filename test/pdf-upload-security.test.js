@@ -42,3 +42,26 @@ test('PDF upload security enforces the 10 MB ceiling',()=>{
   Buffer.from('%PDF-').copy(bytes,0);
   assert.throws(()=>PdfSecurity.assertSafePdf(bytes,{fileName:'stor.pdf'}),e=>e.code==='DOCUMENT_TOO_LARGE'&&e.statusCode===413);
 });
+
+test('PDF upload security rejects undersized and truncated pseudo-PDFs',()=>{
+  assert.throws(()=>PdfSecurity.assertSafePdf(Buffer.from('%PDF-1.4\n%%EOF','latin1'),{fileName:'for-liten.pdf'}),e=>e.code==='DOCUMENT_TOO_SMALL'&&e.statusCode===415);
+  const truncated=Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\n','latin1');
+  assert.throws(()=>PdfSecurity.assertSafePdf(truncated,{fileName:'avhuggen.pdf'}),e=>e.code==='INVALID_PDF_EOF'&&e.statusCode===415);
+});
+
+test('PDF upload security accepts trailing PDF whitespace after EOF',()=>{
+  const bytes=Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\n%%EOF\n\r\t ','latin1');
+  assert.deepEqual(PdfSecurity.assertSafePdf(bytes,{fileName:'faktura.pdf'}),{sizeBytes:bytes.length});
+});
+
+test('PDF upload security rejects deceptive executable-style filenames',()=>{
+  const bytes=pdf();
+  for(const name of ['faktura.html.pdf','bilaga.js.pdf','underlag.exe.pdf','arkiv.zip.pdf','macro.docm.pdf']){
+    assert.throws(()=>PdfSecurity.assertSafePdf(bytes,{fileName:name}),e=>e.code==='DECEPTIVE_PDF_FILENAME'&&e.statusCode===415);
+  }
+});
+
+test('PDF upload security requires a supported PDF version header',()=>{
+  const bad=Buffer.from('%PDF-x.y\n1 0 obj << /Type /Catalog >> endobj\n%%EOF','latin1');
+  assert.throws(()=>PdfSecurity.assertSafePdf(bad,{fileName:'faktura.pdf'}),e=>e.code==='INVALID_PDF_SIGNATURE'&&e.statusCode===415);
+});
