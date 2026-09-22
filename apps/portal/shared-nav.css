@@ -26,7 +26,10 @@
  .shared-sidebar .shared-company{padding:7px 0}
  .shared-navigation .shared-links{grid-template-columns:repeat(2,minmax(0,1fr))}
  .shared-sidebar .shared-foot{margin-top:0}
- .shared-workspace-shell .topbar{position:relative;min-height:74px;height:auto;gap:12px;padding:14px 18px}
+ .shared-workspace-shell .topbar{position:relative;min-height:74px;height:auto;gap:12px;padding:14px 18px;min-width:0}
+ .shared-user-menu{min-width:0;max-width:48px;flex:0 0 auto}
+ .shared-user-trigger{width:42px;max-width:42px;gap:0;padding:4px;justify-content:center;overflow:hidden}
+ .shared-user-label,.shared-user-caret{display:none}
 }
-@media(max-width:420px){.shared-navigation .shared-links{grid-template-columns:1fr}}
+@media(max-width:420px){.shared-navigation .shared-links{grid-template-columns:1fr}.shared-user-menu,.shared-user-trigger{max-width:44px}.shared-user-caret{display:none}}
 @media print{.sidebar.shared-sidebar{display:none!important}.shared-workspace-shell{display:block!important}}
