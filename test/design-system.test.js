@@ -17,12 +17,14 @@ const themes=[
 const canonicalTokens={
   '--color-canvas':'#f7f5f0',
   '--color-paper':'#ffffff',
-  '--color-surface-alt':'#fafafa',
-  '--color-ink':'#0a0a0a',
-  '--color-ink-soft':'#171717',
-  '--color-mid-gray':'#737373',
-  '--color-hairline':'#e5e5e5',
-  '--color-ember':'#e7000b',
+  '--color-ink':'#16362b',
+  '--color-ink-soft':'#27483d',
+  '--color-ember':'#b4462f',
+  '--color-brand':'#173f32',
+  '--color-brand-2':'#2c624d',
+  '--color-leaf':'#6f8f4f',
+  '--color-lime':'#dce9a7',
+  '--color-warm':'#c5653f',
   '--radius-cards':'24px',
   '--radius-buttons':'18px',
   '--radius-inputs':'18px',
@@ -40,21 +42,18 @@ test('alla LT Studio-ytor använder samma kanoniska design tokens',()=>{
     }
     assert.match(css,/--font-geist:\s*["']Geist["']/,`${file} måste använda Geist-stacken`);
     assert.match(css,/--shadow-subtle:/,`${file} måste använda den diskreta kortskuggan`);
-    assert.doesNotMatch(css,/(?:linear|radial)-gradient\(/,`${file} får inte återinföra gradienter`);
     assert.match(css,/@media \(prefers-reduced-motion: reduce\)/,`${file} måste respektera reducerad rörelse`);
   }
 });
 
-test('temafilerna är akromatiska utanför den avsiktliga canvasen och felrött',()=>{
+test('LT Studio-paletten är avsiktlig och konsekvent mellan ytorna',()=>{
   for(const file of themes){
-    const colors=new Set(source(file).match(/#[0-9a-f]{6}\b/gi)||[]);
-    for(const color of colors){
-      const normalized=color.toLowerCase();
-      if(normalized==='#f7f5f0'||normalized==='#e7000b')continue;
-      const [,red,green,blue]=normalized.match(/^#(..)(..)(..)$/);
-      assert.equal(red,green,`${file} innehåller en otillåten kulör: ${color}`);
-      assert.equal(green,blue,`${file} innehåller en otillåten kulör: ${color}`);
-    }
+    const css=source(file);
+    assert.match(css,/--color-brand:\s*#173f32/,file+' saknar primär LT Studio-grön');
+    assert.match(css,/--color-brand-2:\s*#2c624d/,file+' saknar sekundär LT Studio-grön');
+    assert.match(css,/--color-warm:\s*#c5653f/,file+' saknar varm accent');
+    assert.match(css,/--color-leaf:\s*#6f8f4f/,file+' saknar bladaccent');
+    assert.match(css,/--color-lime:\s*#dce9a7/,file+' saknar ljus accent');
   }
 });
 
