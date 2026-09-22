@@ -26,6 +26,14 @@ const out=path.join(__dirname,'..','test-artifacts');
     });
     const company=Db.createCompany(runtime.db,{legalName:'Browser Kund AB',displayName:'Browser Kund',orgNumber:'559900-9201'});
     const secondCompany=Db.createCompany(runtime.db,{legalName:'Annan Kund AB',displayName:'Annan Kund',orgNumber:'559900-9202'});
+    const globalAdminUser=Db.createUser(runtime.db,{
+      username:'global.admin',
+      displayName:'LT Global Admin',
+      passwordHash:Auth.hashPassword('Global admin testlosenord 2026!'),
+      mfaSecretEncrypted:Auth.encryptSecret(MFA_SECRET,ENCRYPTION_KEY),
+      platformAdmin:true
+    });
+    Db.addMembership(runtime.db,{companyId:company.id,userId:globalAdminUser.id,role:'readonly'});
     const customerUser=Db.createUser(runtime.db,{username:'browser.user',displayName:'Browser Användare',passwordHash:Auth.hashPassword('Browser kundlosenord 2026!')});
     Db.addMembership(runtime.db,{companyId:company.id,userId:customerUser.id,role:'readonly'});
     const sharedPassword='Delat konto losenord 2026!';
@@ -94,6 +102,16 @@ const out=path.join(__dirname,'..','test-artifacts');
     await page.getByRole('heading',{name:'Företagsadmin',exact:true}).waitFor();
     assert.match(await page.locator('body').innerText(),/Användare & behörigheter|Lägg till användare/);
     assert.equal(await page.locator('#add-user-form select[name="role"]').inputValue(),'readonly');
+    const globalPanel=page.locator('section.panel').filter({has:page.getByRole('heading',{name:'Övergripande global åtkomst',exact:true})});
+    await globalPanel.getByText('global.admin',{exact:true}).waitFor();
+    assert.match(await globalPanel.innerText(),/MFA konfigurerad/);
+    assert.match(await globalPanel.innerText(),/Alla företag/);
+    const localAccessPanel=page.locator('section.panel').filter({has:page.getByRole('heading',{name:'Användare & behörigheter',exact:true})});
+    const globalMemberRow=localAccessPanel.locator('tr').filter({hasText:'global.admin'});
+    assert.match(await globalMemberRow.innerText(),/LT Studio global admin/);
+    assert.equal(await globalMemberRow.locator('select').count(),0);
+    assert.equal(await globalMemberRow.getByRole('button',{name:'Ta bort åtkomst',exact:true}).count(),0);
+    checks.push({kind:'global-admin-visible-and-protected'});
     checks.push({kind:'company-admin-keyboard',company:'Browser Kund',safeDefaultRole:'readonly'});
 
     await page.locator('#add-user-form input[name="username"]').fill('shared.user');

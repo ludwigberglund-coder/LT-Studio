@@ -212,8 +212,26 @@ function securityView(){
   <section class="status-grid"><article class="metric"><span>Kritiska händelser</span><strong class="critical">${num(sec.critical)}</strong><small>senaste 24 timmar</small></article><article class="metric"><span>Varningar</span><strong class="warning">${num(sec.warning)}</strong><small>senaste 24 timmar</small></article><article class="metric"><span>Information</span><strong>${num(sec.info)}</strong><small>senaste 24 timmar</small></article><article class="metric"><span>Senaste händelse</span><strong class="small-value">${esc(dateTime(sec.latestEventAt))}</strong><small>säkerhetslogg</small></article></section>
   <section class="dashboard-grid equal"><article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">SÄKERHET</span><h2>Aktuella händelser</h2><p>Redigerad vy utan känsliga tekniska detaljer.</p></div></div><div class="event-list">${securityEvents()}</div></article><article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">DRIFT</span><h2>Skydd & hälsa</h2><p>Kontroller som säkerhetsportalen kommer övervaka.</p></div></div><div class="health-list">${readinessChecks()}</div></article></section>`,'Säkerhetsportal','Förhandsvy inför den separata säkerhetsetappen.');
 }
+function globalAdminRows(detail){
+  const admins=detail.platformAdmins||[];
+  if(!admins.length)return '<tr><td colspan="4" class="empty">Inga LT Studio-globaladmins är registrerade.</td></tr>';
+  return admins.map(admin=>{
+    const status=admin.disabled?'<span class="status-pill"><span class="dot critical"></span>Inaktiv</span>':'<span class="status-pill"><span class="dot ok"></span>Aktiv</span>';
+    const mfa=admin.mfaConfigured?'<span class="status-pill"><span class="dot ok"></span>MFA konfigurerad</span>':'<span class="status-pill"><span class="dot critical"></span>MFA saknas</span>';
+    return `<tr><td><div class="company-cell"><span class="company-avatar user">${initials(admin.displayName)}</span><div><strong>${esc(admin.displayName)}</strong><small>${esc(admin.username)}</small></div></div></td><td>${status}</td><td>${mfa}</td><td><span class="status-pill"><span class="dot ok"></span>Alla företag</span></td></tr>`;
+  }).join('');
+}
 function memberRows(detail){
-  return (detail.members||[]).map(m=>`<tr><td><div class="company-cell"><span class="company-avatar user">${initials(m.displayName)}</span><div><strong>${esc(m.displayName)}</strong><small>${esc(m.username)}</small></div></div></td><td><select data-role-user="${esc(m.userId)}">${['admin','accountant','approver','readonly'].map(r=>`<option value="${r}" ${m.role===r?'selected':''}>${roleLabel(r)}</option>`).join('')}</select></td><td>${m.disabled?'<span class="status-pill"><span class="dot critical"></span>Inaktiv</span>':'<span class="status-pill"><span class="dot ok"></span>Aktiv</span>'}</td><td><div class="row-actions"><button class="button secondary small" data-action="reset-password" data-user-id="${esc(m.userId)}" data-user-name="${esc(m.displayName)}">Byt lösenord</button><button class="button danger small" data-action="remove-user" data-user-id="${esc(m.userId)}" data-user-name="${esc(m.displayName)}">Ta bort åtkomst</button></div></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Inga användare i företaget.</td></tr>';
+  return (detail.members||[]).map(m=>{
+    const status=m.disabled?'<span class="status-pill"><span class="dot critical"></span>Inaktiv</span>':'<span class="status-pill"><span class="dot ok"></span>Aktiv</span>';
+    const roleControl=m.platformAdmin
+      ?`<div><span class="status-pill"><span class="dot ok"></span>LT Studio global admin</span><small>Lokalt medlemskap: ${esc(roleLabel(m.role))}</small></div>`
+      :`<select data-role-user="${esc(m.userId)}">${['admin','accountant','approver','readonly'].map(r=>`<option value="${r}" ${m.role===r?'selected':''}>${roleLabel(r)}</option>`).join('')}</select>`;
+    const actions=m.platformAdmin
+      ?'<span class="status-pill"><span class="dot warning"></span>Global åtkomst styrs separat</span>'
+      :`<div class="row-actions"><button class="button secondary small" data-action="reset-password" data-user-id="${esc(m.userId)}" data-user-name="${esc(m.displayName)}">Byt lösenord</button><button class="button danger small" data-action="remove-user" data-user-id="${esc(m.userId)}" data-user-name="${esc(m.displayName)}">Ta bort åtkomst</button></div>`;
+    return `<tr><td><div class="company-cell"><span class="company-avatar user">${initials(m.displayName)}</span><div><strong>${esc(m.displayName)}</strong><small>${esc(m.username)}</small></div></div></td><td>${roleControl}</td><td>${status}</td><td>${actions}</td></tr>`;
+  }).join('')||'<tr><td colspan="4" class="empty">Inga användare i företaget.</td></tr>';
 }
 function companyDetailView(detail){
   selectedCompany=detail;
@@ -227,7 +245,8 @@ function companyDetailView(detail){
     <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">MILJÖDATA</span><h2>Volym</h2><p>Operativ metadata för kundmiljön.</p></div></div><div class="stat-stack"><div><span>Kundposter</span><strong>${num(s.customerRecordCount)}</strong></div><div><span>Fakturaposter</span><strong>${num(s.invoiceRecordCount)}</strong></div><div><span>Senaste aktivitet</span><strong class="date-stat">${dateTime(s.lastActivityAt)}</strong></div></div></article>
     <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">ROLLER</span><h2>Behörigheter</h2><p>Rollfördelning i just detta företag.</p></div></div><div class="role-bars roomy">${memberRoleBars(detail)}</div></article>
   </section>
-  <section class="panel"><div class="panel-head"><div><span class="eyebrow">ÅTKOMST</span><h2>Användare & behörigheter</h2><p>Endast LT Studio kan skapa, ändra eller ta bort användare.</p></div><span class="panel-stat">${memberCount} användare</span></div><div class="table-wrap"><table><thead><tr><th>Användare</th><th>Roll</th><th>Status</th><th>Åtgärder</th></tr></thead><tbody>${memberRows(detail)}</tbody></table></div></section>
+  <section class="panel"><div class="panel-head"><div><span class="eyebrow">LT STUDIO</span><h2>Övergripande global åtkomst</h2><p>Dessa LT Studio-konton har åtkomst till alla kundföretag oberoende av lokalt medlemskap. Den globala behörigheten hanteras separat från kundroller.</p></div><span class="panel-stat">${num(s.activePlatformAdminCount)} aktiva</span></div><div class="table-wrap"><table><thead><tr><th>LT Studio-konto</th><th>Status</th><th>MFA</th><th>Omfattning</th></tr></thead><tbody>${globalAdminRows(detail)}</tbody></table></div></section>
+${target}
   <section class="panel add-user-panel"><div class="panel-head"><div><span class="eyebrow">ANVÄNDARÅTKOMST</span><h2>Lägg till användare</h2><p>Om användarnamnet redan finns kopplas det befintliga kontot till företaget. Då ändras inte personens lösenord eller MFA.</p></div></div>
     <form id="add-user-form" class="form-grid compact-form">
       <label class="field"><span>Namn · nytt konto</span><input name="displayName" maxlength="120" placeholder="För- och efternamn"></label>

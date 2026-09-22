@@ -80,6 +80,16 @@ function companyAdminDetail(db,companyId){
     (SELECT COUNT(*) FROM customers WHERE company_id=?) AS customerRecordCount,
     (SELECT COUNT(*) FROM invoices WHERE company_id=?) AS invoiceRecordCount,
     (SELECT MAX(created_at) FROM audit_events WHERE company_id=?) AS lastActivityAt`).get(companyId,companyId,now,now,companyId,companyId,companyId);
+  const platformAdmins=db.prepare(`SELECT id AS userId,username,display_name AS displayName,disabled,
+    mfa_secret_encrypted AS mfaSecretEncrypted,created_at AS createdAt
+    FROM users WHERE platform_admin=1 ORDER BY disabled,display_name,username,id`).all().map(admin=>({
+      userId:admin.userId,
+      username:admin.username,
+      displayName:admin.displayName,
+      disabled:Boolean(admin.disabled),
+      mfaConfigured:Boolean(String(admin.mfaSecretEncrypted||'').trim()),
+      createdAt:admin.createdAt
+    }));
   return {
     company,
     stats:{
@@ -87,12 +97,14 @@ function companyAdminDetail(db,companyId){
       activeSessionCount:Number(stats.activeSessionCount||0),
       customerRecordCount:Number(stats.customerRecordCount||0),
       invoiceRecordCount:Number(stats.invoiceRecordCount||0),
-      lastActivityAt:stats.lastActivityAt||null
+      lastActivityAt:stats.lastActivityAt||null,
+      activePlatformAdminCount:platformAdmins.filter(admin=>!admin.disabled&&admin.mfaConfigured).length
     },
     members:Db.membershipsForCompany(db,companyId).map(member=>({
       userId:member.userId,username:member.username,displayName:member.displayName,role:member.role,
       disabled:Boolean(member.disabled),platformAdmin:Boolean(member.platformAdmin),createdAt:member.createdAt
     })),
+    platformAdmins,
     roles:[
       {id:'admin',label:'Admin'},
       {id:'accountant',label:'Ekonom'},
