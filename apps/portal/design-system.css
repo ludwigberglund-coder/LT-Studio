@@ -1,0 +1,987 @@
+/*
+ * LT Studio interface theme
+ *
+ * Canonical design tokens adapted from the supplied shadcn/ui reference.
+ * This file is loaded after module styles so every portal route shares one
+ * visual language without coupling presentation to business logic.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Colors */
+  --color-canvas: #f7f5f0;
+  --color-paper: #ffffff;
+  --color-surface-alt: #fafafa;
+  --color-ink: #0a0a0a;
+  --color-ink-soft: #171717;
+  --color-mid-gray: #737373;
+  --color-hairline: #e5e5e5;
+  --color-ember: #e7000b;
+
+  /* Typography */
+  --font-geist: "Geist", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --text-caption: 12px;
+  --leading-caption: 1.33;
+  --tracking-caption: 0.6px;
+  --text-body: 14px;
+  --leading-body: 1.43;
+  --text-body-lg: 16px;
+  --leading-body-lg: 1.5;
+  --text-subheading: 18px;
+  --leading-subheading: 1.56;
+  --text-heading-sm: 24px;
+  --leading-heading-sm: 1.33;
+  --tracking-heading-sm: -0.6px;
+  --text-heading: 30px;
+  --leading-heading: 1.2;
+  --tracking-heading: -0.75px;
+  --text-heading-lg: 36px;
+  --leading-heading-lg: 1.11;
+  --tracking-heading-lg: -0.9px;
+  --text-display: 48px;
+  --leading-display: 1.1;
+  --tracking-display: -2.4px;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  /* Spacing and layout */
+  --spacing-unit: 4px;
+  --spacing-4: 4px;
+  --spacing-8: 8px;
+  --spacing-12: 12px;
+  --spacing-16: 16px;
+  --spacing-20: 20px;
+  --spacing-24: 24px;
+  --spacing-48: 48px;
+  --page-max-width: 1280px;
+  --section-gap: clamp(48px, 6vw, 80px);
+  --card-padding: 20px;
+  --element-gap: 8px;
+
+  /* Shapes */
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
+  --radius-3xl: 24px;
+  --radius-cards: 24px;
+  --radius-small: 6px;
+  --radius-badges: 18px;
+  --radius-inputs: 18px;
+  --radius-nested: 10px;
+  --radius-buttons: 18px;
+
+  /* Elevation */
+  --shadow-subtle: oklab(0.145 -0.00000143796 0.00000340492 / 0.05)
+      0 0 0 1px,
+    rgb(0 0 0 / 0.1) 0 1px 3px 0,
+    rgb(0 0 0 / 0.1) 0 1px 2px -1px;
+  --shadow-subtle-2: lab(2.75381 0 0) 0 0 0 0;
+
+  /* Named surfaces */
+  --surface-canvas: var(--color-canvas);
+  --surface-sidebar: var(--color-surface-alt);
+  --surface-card: var(--color-paper);
+  --surface-alt: var(--color-surface-alt);
+  --surface-input-fill: #f5f5f5;
+
+  /* Compatibility aliases used by the existing portal modules. */
+  --green: var(--color-ink);
+  --green2: var(--color-ink-soft);
+  --line: var(--color-hairline);
+  --muted: var(--color-mid-gray);
+  --paper: var(--color-paper);
+  --danger: var(--color-ember);
+  --warm: var(--color-mid-gray);
+  --shadow: var(--shadow-subtle);
+}
+
+html {
+  background: var(--surface-canvas);
+}
+
+body {
+  color: var(--color-ink);
+  background: var(--surface-canvas);
+  font-family: var(--font-geist);
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--leading-body);
+  font-feature-settings: "ss01" 1, "cv11" 1;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+strong,
+b {
+  color: var(--color-ink);
+  font-weight: var(--font-weight-semibold);
+}
+
+a {
+  color: inherit;
+}
+
+::selection {
+  color: var(--color-paper);
+  background: var(--color-ink);
+}
+
+/* App shells and page rhythm */
+.portal,
+.dash-shell,
+.payables-shell,
+.reports-shell,
+.supplier-shell,
+.inventory-shell,
+.accounting-shell,
+.documents-shell,
+.payroll-shell,
+.uat-shell,
+.shared-workspace-shell {
+  background: var(--surface-canvas);
+}
+
+.content,
+.accounting-content {
+  width: min(100%, var(--page-max-width));
+  margin-inline: auto;
+  padding: var(--spacing-48) var(--spacing-24);
+}
+
+.page-heading,
+.sales-head,
+.invoice-toolbar {
+  margin-bottom: var(--spacing-24);
+}
+
+.page-heading h2,
+.sales-head h2,
+.invoice-toolbar h2,
+.dash-hero h2 {
+  margin-block: var(--spacing-4) var(--spacing-8);
+  color: var(--color-ink);
+  font-family: var(--font-geist);
+  font-size: var(--text-heading);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-heading);
+  letter-spacing: var(--tracking-heading);
+}
+
+.page-heading p,
+.sales-head p,
+.invoice-toolbar p,
+.dash-hero p {
+  color: var(--color-mid-gray);
+}
+
+.eyebrow,
+.module-state,
+.task-state,
+.step-status {
+  color: var(--color-mid-gray);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-caption);
+  letter-spacing: var(--tracking-caption);
+}
+
+/* Sidebar and navigation */
+.sidebar,
+.sidebar.shared-sidebar {
+  color: var(--color-ink) !important;
+  background: var(--surface-sidebar) !important;
+  border-right: 1px solid var(--color-hairline);
+  box-shadow: none;
+  scrollbar-color: var(--color-mid-gray) var(--surface-sidebar) !important;
+}
+
+.logo strong,
+.shared-sidebar .shared-brand,
+.shared-sidebar .shared-brand strong {
+  color: var(--color-ink) !important;
+  font-family: var(--font-geist) !important;
+  font-size: var(--text-heading-sm) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  line-height: var(--leading-heading-sm) !important;
+  letter-spacing: var(--tracking-heading-sm) !important;
+}
+
+.logo small,
+.shared-sidebar .shared-brand small {
+  color: var(--color-mid-gray) !important;
+  font-family: var(--font-geist) !important;
+  font-size: var(--text-caption) !important;
+  font-weight: var(--font-weight-medium) !important;
+  letter-spacing: var(--tracking-caption) !important;
+}
+
+.company-pill,
+.shared-sidebar .shared-company {
+  color: var(--color-ink-soft) !important;
+  background: var(--surface-canvas) !important;
+  border: 1px solid var(--color-hairline) !important;
+  border-radius: var(--radius-nested);
+  font-family: var(--font-geist) !important;
+}
+
+.shared-navigation details {
+  border-color: var(--color-hairline) !important;
+}
+
+.side-group > span,
+.shared-navigation summary {
+  color: var(--color-mid-gray) !important;
+  background: transparent !important;
+  border-radius: var(--radius-small) !important;
+  font-family: var(--font-geist) !important;
+  font-weight: var(--font-weight-medium) !important;
+}
+
+.side-link,
+.shared-navigation .shared-links a {
+  color: var(--color-ink-soft) !important;
+  background: transparent !important;
+  border-radius: var(--radius-nested) !important;
+  font-family: var(--font-geist) !important;
+  font-size: var(--text-body) !important;
+  font-weight: var(--font-weight-regular) !important;
+}
+
+.side-link:hover,
+.shared-navigation .shared-links a:hover,
+.shared-navigation summary:hover {
+  color: var(--color-ink) !important;
+  background: #f0f0f0 !important;
+}
+
+.side-link.active,
+.payables-nav a.active,
+.reports-nav a.active,
+.supplier-nav a.active,
+.inventory-nav a.active,
+.payroll-nav a.active,
+.documents-nav a.active,
+.shared-navigation .shared-links a.active,
+.shared-navigation .shared-links a[aria-current="page"] {
+  color: var(--color-paper) !important;
+  background: var(--color-ink) !important;
+  font-weight: var(--font-weight-medium) !important;
+}
+
+.shared-navigation summary:focus-visible,
+.shared-navigation a:focus-visible,
+.shared-foot a:focus-visible {
+  outline: 2px solid var(--color-ink) !important;
+  outline-offset: 2px;
+}
+
+.sidebar-footer,
+.shared-sidebar .shared-foot,
+.shared-foot p,
+.shared-foot a {
+  color: var(--color-mid-gray) !important;
+  font-family: var(--font-geist) !important;
+}
+
+/* Top bar and account menu */
+.topbar {
+  color: var(--color-ink);
+  background: rgb(255 255 255 / 0.92);
+  border-color: var(--color-hairline);
+  backdrop-filter: blur(12px);
+}
+
+.topbar h1 {
+  color: var(--color-ink);
+  font-size: var(--text-subheading);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-subheading);
+}
+
+.topbar p,
+.shared-user-label small,
+.shared-user-caret {
+  color: var(--color-mid-gray);
+}
+
+.avatar,
+.shared-user-avatar {
+  color: var(--color-paper);
+  background: var(--color-ink);
+  font-weight: var(--font-weight-semibold);
+}
+
+.shared-user-trigger {
+  border-radius: var(--radius-buttons);
+}
+
+.shared-user-trigger:hover,
+.shared-user-trigger[aria-expanded="true"] {
+  background: var(--surface-input-fill);
+}
+
+.shared-user-dropdown,
+.column-menu,
+.context-menu {
+  color: var(--color-ink);
+  background: var(--surface-card);
+  border-color: var(--color-hairline);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-subtle);
+}
+
+.shared-user-dropdown a,
+.shared-user-dropdown button,
+.context-menu button {
+  color: var(--color-ink);
+  border-radius: var(--radius-nested);
+}
+
+.shared-user-dropdown a:hover,
+.shared-user-dropdown button:hover,
+.context-menu button:hover,
+.column-menu label:hover {
+  background: var(--surface-input-fill);
+}
+
+.shared-user-dropdown button {
+  color: var(--color-ember);
+}
+
+/* Cards and elevated containers */
+.login-card,
+.panel,
+.metric,
+.dash-hero,
+.dash-metric,
+.attention,
+.roadmap-strip,
+.module-card,
+.task-card,
+.queue-panel,
+.pdf-panel,
+.coding-panel,
+.payments-panel,
+.report-toolbar,
+.report-panel,
+.vat-panel,
+.inventory-panel,
+.documents-toolbar,
+.documents-panel,
+.payroll-panel,
+.automation-card,
+.proposal,
+.automation-empty,
+.cms-card,
+.sales-metric,
+.sales-panel,
+.invoice-section,
+.invoice-preview-card,
+.invoice-panel-footer,
+.access-recovery-card,
+.uat-step {
+  color: var(--color-ink);
+  background: var(--surface-card);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-cards);
+  box-shadow: var(--shadow-subtle);
+}
+
+.metrics .metric,
+.dash-metrics .dash-metric,
+.report-summary article,
+.inventory-summary article,
+.bank-summary article,
+.payroll-summary article,
+.uat-summary article {
+  color: var(--color-ink);
+  background: var(--surface-card);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-cards);
+  box-shadow: var(--shadow-subtle);
+  padding: var(--card-padding);
+}
+
+.metric span,
+.dash-metric span,
+.report-summary span,
+.inventory-summary span,
+.bank-summary span,
+.payroll-summary span,
+.automation-card span,
+.cms-card span,
+.uat-summary span,
+.sales-metric span {
+  color: var(--color-mid-gray);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-caption);
+  letter-spacing: var(--tracking-caption);
+}
+
+.metric strong,
+.dash-metric strong,
+.report-summary strong,
+.inventory-summary strong,
+.bank-summary strong,
+.payroll-summary strong,
+.automation-card strong,
+.cms-card strong,
+.uat-summary strong,
+.sales-metric strong {
+  color: var(--color-ink);
+  font-size: var(--text-heading);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-heading);
+  letter-spacing: var(--tracking-heading);
+}
+
+.dash-hero {
+  background: var(--surface-card);
+}
+
+.module-card,
+.task-card,
+.modules-secondary .module-card {
+  background: var(--surface-card);
+}
+
+.module-card:hover,
+.task-card:hover {
+  background: var(--surface-alt);
+  border-color: var(--color-ink-soft);
+  transform: translateY(-1px);
+}
+
+.module-card > strong,
+.task-card > strong {
+  color: var(--color-ink);
+}
+
+.task-card.high {
+  border-left-color: var(--color-ember);
+}
+
+/* Buttons and interactive pills */
+.button,
+.queue-tab.active,
+.report-tab.active,
+.automation-filter button.active {
+  min-height: 36px;
+  padding: 8px 16px;
+  color: var(--color-paper);
+  background: var(--color-ink);
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-buttons);
+  box-shadow: none;
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-body);
+}
+
+.button:hover,
+.queue-tab.active:hover,
+.report-tab.active:hover,
+.automation-filter button.active:hover {
+  color: var(--color-paper);
+  background: var(--color-ink-soft);
+  border-color: var(--color-ink-soft);
+}
+
+.button.ghost,
+.button.secondary,
+.queue-tab,
+.report-tab,
+.automation-filter button,
+.column-picker summary,
+.hero-date,
+.intake-close {
+  min-height: 36px;
+  color: var(--color-ink);
+  background: var(--surface-input-fill);
+  border: 1px solid transparent;
+  border-radius: var(--radius-buttons);
+  box-shadow: none;
+  font-weight: var(--font-weight-medium);
+}
+
+.button.ghost:hover,
+.button.secondary:hover,
+.queue-tab:hover,
+.report-tab:hover,
+.automation-filter button:hover,
+.column-picker summary:hover,
+.intake-close:hover {
+  color: var(--color-ink);
+  background: var(--color-hairline);
+}
+
+.button.danger,
+.button.danger:hover {
+  color: var(--color-ember);
+  background: var(--color-paper);
+  border-color: var(--color-ember);
+}
+
+.button.small {
+  min-height: 32px;
+  padding: 6px 12px;
+  font-size: var(--text-caption);
+}
+
+.button:disabled,
+.invoice-workspace #invoice-form button[type="submit"]:disabled,
+.invoice-workspace #invoice-form button[type="submit"]:disabled:hover {
+  color: var(--color-mid-gray);
+  background: var(--color-hairline);
+  border-color: var(--color-hairline);
+  box-shadow: none;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+/* Form controls */
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+select,
+textarea,
+.queue-search,
+.invoice-search,
+.proposal-actions .reason-input {
+  color: var(--color-ink);
+  background: var(--surface-input-fill);
+  border: 1px solid transparent;
+  border-radius: var(--radius-inputs);
+  box-shadow: inset 0 0 0 1px transparent;
+  font-family: inherit;
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-regular);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-mid-gray);
+  opacity: 1;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):hover,
+select:hover,
+textarea:hover {
+  box-shadow: inset 0 0 0 1px var(--color-hairline);
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):focus,
+select:focus,
+textarea:focus,
+.invoice-workspace input:focus-visible,
+.invoice-workspace textarea:focus-visible,
+.invoice-workspace select:focus-visible {
+  border-color: var(--color-hairline);
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--color-ink);
+}
+
+label,
+.field,
+.invoice-grid label,
+.intake-grid label,
+.accounting-form label {
+  color: var(--color-ink-soft);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Tables */
+table {
+  color: var(--color-ink);
+}
+
+.res-table th,
+.queue-table th,
+.report-table th,
+.inventory-table th,
+.documents-table th,
+.payroll-table th,
+.accounts-table th,
+.booking-title {
+  color: var(--color-mid-gray);
+  background: var(--surface-alt);
+  border-color: var(--color-hairline);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-caption);
+  letter-spacing: var(--tracking-caption);
+}
+
+.res-table td,
+.queue-table td,
+.report-table td,
+.inventory-table td,
+.documents-table td,
+.payroll-table td,
+.sales-table td,
+.sales-table th,
+.accounting-table td,
+.accounting-table th,
+.accounts-table td,
+.coding-table td,
+.coding-table th,
+.booking-row,
+.payment-row,
+.movement-row,
+.adjustment-row,
+.supplier-row,
+.history article,
+.pending-row {
+  border-color: var(--color-hairline);
+}
+
+.res-table tr.invoice-row:hover,
+.queue-row:hover,
+.queue-row.selected,
+.inventory-table tr[data-item-id]:hover,
+.inventory-table tr.selected,
+.supplier-row:hover,
+.supplier-row.selected,
+.accounting-table tr[data-entry]:hover {
+  background: var(--surface-alt);
+}
+
+.customer-cell,
+.res-table tr.invoice-row > .customer-cell {
+  background: var(--surface-card);
+  box-shadow: 1px 0 0 var(--color-hairline);
+}
+
+.res-table th.customer-cell {
+  background: var(--surface-alt);
+}
+
+.res-table tr.invoice-row:hover > .customer-cell,
+.res-table tr.transaction-row,
+.res-table tr.transaction-row > .customer-cell {
+  color: var(--color-mid-gray);
+  background: var(--surface-alt);
+}
+
+/* Badges and statuses stay achromatic; red is reserved for errors/destruction. */
+.comment-badge,
+.status,
+.status-pill,
+.payment-status,
+.work-pill,
+.bank-status,
+.payroll-status,
+.movement-type,
+.adjustment-status,
+.doc-category,
+.action-kind,
+.proposal-status,
+.roadmap-tags span,
+.queue-tab span {
+  color: var(--color-ink-soft);
+  background: var(--surface-input-fill);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-badges);
+  font-size: var(--text-caption);
+  font-weight: var(--font-weight-medium);
+}
+
+.work-pill.registered,
+.work-pill.coding-review,
+.work-pill.coded,
+.work-pill.approved,
+.work-pill.payment-prepared,
+.work-pill.paid,
+.status-pill.approved,
+.status-pill.coded,
+.status-pill.payment-prepared,
+.payment-status.prepared,
+.payment-status.released,
+.payment-status.paid,
+.bank-status.unmatched,
+.bank-status.proposal-created,
+.bank-status.reviewed,
+.bank-status.posted,
+.bank-status.ignored,
+.payroll-status.validated,
+.payroll-status.posted,
+.movement-type.receipt,
+.movement-type.sale,
+.movement-type.adjustment,
+.adjustment-status.pending,
+.adjustment-status.approved,
+.action-kind.bank-payment-match,
+.action-kind.supplier-payment-preparation,
+.action-kind.supplier-invoice-coding,
+.action-kind.booking-account-suggestion,
+.proposal-status.ready-for-approval,
+.proposal-status.manual-review,
+.proposal-status.approved,
+.proposal-status.superseded {
+  color: var(--color-ink-soft);
+  background: var(--surface-input-fill);
+  border-color: var(--color-hairline);
+}
+
+.status-pill.pending,
+.queue-tab.active span {
+  color: var(--color-ink-soft);
+  background: var(--surface-input-fill);
+  border-color: var(--color-hairline);
+}
+
+.overdue,
+.queue-row .overdue,
+.proposal-status.rejected,
+.movement-type.waste,
+.status-pill.locked,
+.form-error,
+.intake-error,
+.cms-message.error {
+  color: var(--color-ember);
+}
+
+.proposal-status.rejected,
+.movement-type.waste,
+.status-pill.locked {
+  background: var(--color-paper);
+  border-color: var(--color-ember);
+}
+
+/* Nested surfaces, notices and empty states */
+.invoice-meta div,
+.payment-summary article,
+.vat-grid article,
+.action-facts span,
+.target-editor,
+.booking-head,
+.no-booking,
+.evidence-row,
+.service-editor,
+.version-row,
+.new-supplier-fields,
+.invoice-line-editor,
+.invoice-line-fields .account-field,
+.invoice-totals,
+.comment,
+.worklist-empty,
+.opening-line-row,
+.opening-confirm {
+  color: var(--color-ink);
+  background: var(--surface-alt);
+  border-color: var(--color-hairline);
+  border-radius: var(--radius-nested);
+}
+
+.notice,
+.notice-box,
+.notice-box.warning,
+.warning,
+.payment-alert,
+.demo-banner,
+.queue-overdue,
+.ai-box,
+.critical-box,
+.execution-warning,
+.automation-note,
+.approval-confirmation,
+.publish-warning,
+.identity-note,
+.cms-message,
+.inline-note,
+.documents-note,
+.payroll-note,
+.inventory-note {
+  color: var(--color-ink-soft);
+  background: var(--surface-alt);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-nested);
+  box-shadow: none;
+}
+
+.invoice-alert,
+.intake-error,
+.cms-message.error {
+  color: var(--color-ember);
+  background: var(--color-paper);
+  border-color: var(--color-ember);
+  border-radius: var(--radius-nested);
+}
+
+/* Module-specific text must not leak the previous green/amber palette. */
+.queue-overdue span,
+.supplier-row span:last-child,
+.pending-row p,
+.panel p,
+.opening-meta span,
+.proposal-head .action-description,
+.action-panel > h4,
+.booking-head > span,
+.dirty-note,
+.uat-step p,
+.field > span,
+.service-editor legend {
+  color: var(--color-mid-gray);
+}
+
+.queue-overdue strong,
+.technical-details summary {
+  color: var(--color-ink);
+}
+
+.invoice-section > summary {
+  color: var(--color-ink);
+  background: var(--color-surface-alt);
+}
+
+.empty,
+.empty-state,
+.report-empty,
+.documents-empty,
+.automation-empty,
+.invoice-help,
+.invoice-muted,
+.field small {
+  color: var(--color-mid-gray);
+}
+
+/* Dialogs */
+.modal-backdrop,
+.modal-backdrop-sales,
+.documents-modal-backdrop,
+.intake-backdrop {
+  background: rgb(10 10 10 / 0.56);
+  backdrop-filter: blur(4px);
+}
+
+.modal,
+.modal-sales,
+.documents-modal,
+.intake-modal {
+  color: var(--color-ink);
+  background: var(--surface-card);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-cards);
+  box-shadow: 0 24px 80px rgb(0 0 0 / 0.18);
+}
+
+.modal-head,
+.documents-modal header,
+.intake-modal > header,
+.panel-head,
+.queue-head,
+.report-head,
+.inventory-head,
+.documents-head,
+.payroll-head,
+.proposal-head,
+.toolbar {
+  border-color: var(--color-hairline);
+}
+
+.pdf-frame {
+  background: var(--surface-input-fill);
+}
+
+.confidence {
+  background: var(--color-hairline);
+}
+
+.confidence > span {
+  background: var(--color-ink-soft);
+}
+
+.uat-shell {
+  background: var(--surface-canvas);
+}
+
+.uat-step {
+  border-left: 5px solid var(--color-mid-gray);
+}
+
+.uat-step.ok,
+.uat-step.change {
+  border-left-color: var(--color-ink-soft);
+}
+
+.uat-step.issue {
+  border-left-color: var(--color-ember);
+}
+
+/* Login */
+.login-panel {
+  background: var(--surface-canvas);
+}
+
+.login-brand {
+  color: var(--color-paper);
+  background: var(--color-ink);
+}
+
+.login-brand h1 {
+  color: var(--color-paper);
+  font-size: clamp(42px, 6vw, var(--text-display));
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-display);
+  letter-spacing: var(--tracking-display);
+}
+
+.login-brand p,
+.login-brand .eyebrow {
+  color: #d4d4d4;
+}
+
+/* Consistent keyboard focus */
+:where(a, button, summary):focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .content,
+  .accounting-content {
+    padding: var(--spacing-24) var(--spacing-16);
+  }
+
+  .sidebar.shared-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-hairline);
+  }
+
+  .shared-navigation .shared-links {
+    gap: var(--spacing-4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

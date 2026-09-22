@@ -41,17 +41,17 @@ test('innehållskontrollen stoppar dubblerad navigation och felaktigt organisati
 test('statisk byggnad innehåller webbplats, projektadmin, sammanhängande företagsportal, domänkärnor och tidigare demo', () => {
   const target = buildStatic();
   for (const relativePath of [
-    'index.html', 'app.js', 'styles.css',
-    'admin/index.html', 'admin/app.js', 'admin/money-view.js', 'admin/money.css',
+    'index.html', 'app.js', 'styles.css', 'design-system.css',
+    'admin/index.html', 'admin/app.js', 'admin/money-view.js', 'admin/money.css', 'admin/design-system.css',
     'admin/access-view.js', 'admin/access.css', 'admin/journal-view.js', 'admin/journal.css',
     'portal/dashboard.html', 'portal/dashboard.js', 'portal/dashboard.css', 'portal/portal-nav.js',
-    'portal/index.html', 'portal/app.js', 'portal/styles.css',
+    'portal/index.html', 'portal/app.js', 'portal/styles.css', 'portal/design-system.css',
     'portal/payables.html', 'portal/bank.html', 'portal/automation.html', 'portal/suppliers.html',
     'shared/content.js', 'shared/accounting/money.js', 'shared/accounting/journal.js',
     'shared/access-control/authorization.js', 'shared/receivables/customer-receivables.js',
     'content/site.json', 'content/company.json', 'content/admin.json',
     'config/rolands-business-decisions.json', 'config/access-control.json', 'config/legal-rates.json',
-    'legacy/index.html', '.nojekyll'
+    'legacy/index.html', 'legacy/design-system.css', '.nojekyll'
   ]) assert.equal(fs.existsSync(path.join(target, relativePath)), true, `${relativePath} saknas`);
   assert.equal(fs.existsSync(path.join(target, 'store.json')), false);
   assert.equal(fs.existsSync(path.join(target, 'platform.sqlite')), false);
