@@ -112,6 +112,79 @@ test('absolut sessionstid kan inte förlängas av fortsatt aktivitet', async () 
   assert.equal(body.authenticated,false);
 }));
 
+test('personlig tvåtimmarsgräns styr både cookie och absolut serversession', async () => withApi(async ({base,password,db,user}) => {
+  Db.setUserSessionDuration(db,{userId:user.id,sessionDurationMinutes:120});
+  const signed=await login(base,password);
+  assert.equal(signed.response.status,200);
+  assert.match(String(signed.response.headers.get('set-cookie')||''),/Max-Age=7200/);
+  const rawToken=decodeURIComponent(signed.cookie.slice(signed.cookie.indexOf('=')+1));
+  const row=db.prepare('SELECT created_at AS createdAt,absolute_expires_at AS absoluteExpiresAt FROM sessions WHERE token_hash=?').get(Auth.hashToken(rawToken));
+  const durationMinutes=(Date.parse(row.absoluteExpiresAt)-Date.parse(row.createdAt))/60000;
+  assert.ok(durationMinutes>=119.9&&durationMinutes<=120.1);
+}));
+
+test('varje gång ger sessionscookie utan permanent Max-Age och behåller serverns säkerhetstak', async () => withApi(async ({base,password,db,user}) => {
+  Db.setUserSessionDuration(db,{userId:user.id,sessionDurationMinutes:null});
+  const signed=await login(base,password);
+  assert.equal(signed.response.status,200);
+  assert.doesNotMatch(String(signed.response.headers.get('set-cookie')||''),/Max-Age=/);
+  const rawToken=decodeURIComponent(signed.cookie.slice(signed.cookie.indexOf('=')+1));
+  const row=db.prepare('SELECT created_at AS createdAt,absolute_expires_at AS absoluteExpiresAt FROM sessions WHERE token_hash=?').get(Auth.hashToken(rawToken));
+  const durationMinutes=(Date.parse(row.absoluteExpiresAt)-Date.parse(row.createdAt))/60000;
+  assert.ok(durationMinutes>=479.9&&durationMinutes<=480.1);
+}));
+
+test('ändrad personlig sessionstid återkallar befintliga sessioner och kräver ny login', async () => withApi(async ({base,password,db,user}) => {
+  const signed=await login(base,password);
+  const before=await fetch(base+'/api/v1/profile/security',{headers:{Cookie:signed.cookie}});
+  assert.equal(before.status,200);
+  assert.equal((await before.json()).sessionDurationMinutes,480);
+
+  const changed=await fetch(base+'/api/v1/profile/security',{
+    method:'PUT',
+    headers:{Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken},
+    body:JSON.stringify({sessionDurationMinutes:240})
+  });
+  const body=await changed.json();
+  assert.equal(changed.status,200);
+  assert.equal(body.reauthenticate,true);
+  assert.equal(Db.userById(db,user.id).sessionDurationMinutes,240);
+  assert.equal(db.prepare('SELECT count(*) AS n FROM sessions WHERE user_id=?').get(user.id).n,0);
+  assert.match(String(changed.headers.get('set-cookie')||''),/Max-Age=0/);
+
+  const after=await fetch(base+'/api/v1/session',{headers:{Cookie:signed.cookie}});
+  assert.equal((await after.json()).authenticated,false);
+}));
+
+test('LT Studio global admin kan välja alla företag och får adminroll utan kundmedlemskap', async () => withApi(async ({base,password,db,user,co2}) => {
+  Db.setUserPlatformAdmin(db,{userId:user.id,enabled:true});
+  const response=await fetch(base+'/api/v1/auth/login',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:'sara.test',password,totp:Auth.totpCode(TEST_MFA_SECRET),companyId:co2.id})
+  });
+  const body=await response.json();
+  assert.equal(response.status,200);
+  assert.equal(body.company.id,co2.id);
+  assert.equal(body.role,'admin');
+  assert.equal(body.user.platformAdmin,true);
+  const cookie=String(response.headers.get('set-cookie')||'').split(';')[0];
+
+  const sessionResponse=await fetch(base+'/api/v1/session',{headers:{Cookie:cookie}});
+  const session=await sessionResponse.json();
+  assert.equal(session.authenticated,true);
+  assert.equal(session.companyId,co2.id);
+  assert.equal(session.role,'admin');
+  assert.equal(session.user.platformAdmin,true);
+  assert.ok(session.permissions.includes('users.manage'));
+
+  const customers=await fetch(base+'/api/v1/customers',{headers:{Cookie:cookie}});
+  const listed=await customers.json();
+  assert.equal(customers.status,200);
+  assert.equal(listed.customers.length,1);
+  assert.equal(listed.customers[0].companyId,co2.id);
+}));
+
 test('mutation utan CSRF stoppas och kommentar blir synlig efter godkänd mutation', async () => withApi(async ({base,password,inv1}) => {
   const signed=await login(base,password);
   const missing=await fetch(`${base}/api/v1/invoices/${inv1.id}/comments`,{method:'POST',headers:{Cookie:signed.cookie,'Content-Type':'application/json'},body:JSON.stringify({text:'Ring kunden'})});
