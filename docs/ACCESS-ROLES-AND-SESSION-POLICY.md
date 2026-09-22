@@ -55,6 +55,12 @@ npm run platform:set-global-admin -- --enable --apply
 
 Avaktivering görs med `--disable --apply`. Kommandot återkallar användarens aktiva sessioner.
 
+### Readiness för verklig kunddata
+
+I pilot och produktion rapporteras systemet inte som ready om det saknas minst ett aktivt LT Studio global-admin-konto vars MFA-hemlighet kan dekrypteras och valideras med den aktuella servernyckeln. Staging använder syntetisk data och blockeras därför inte av denna kontroll.
+
+Detta förhindrar ett falskt grönt läge där ett global-admin-konto ser korrekt ut i databasen men i praktiken inte går att använda för säker inloggning.
+
 ## Personlig inloggningstid
 
 Varje personligt konto kan välja:
