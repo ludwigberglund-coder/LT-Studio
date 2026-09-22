@@ -125,6 +125,26 @@ const Settings=require('../apps/api/company-invoice-settings.js');
     checks.push('Blocked customer invoice issue action stays disabled after editor actions');
     Settings.setInvoiceSettings(f.db,{companyId:f.a.id,bankgiro:'123-4567',taxStatus:'Testunderlag',vatNumber:'SE559900100101',updatedBy:f.admin.id});
     await page.goto(f.base+'/portal/invoices.html');
+    await page.getByRole('button',{name:'+ Ny kundfaktura',exact:true}).click();
+    await page.locator('#invoice-form [name="customerNumber"]').selectOption('K-1001');
+    await page.locator('[data-row-field="description"]').fill('Enter-skydd test');
+    await page.locator('[data-row-field="quantity"]').fill('1');
+    const unitPrice=page.locator('[data-row-field="unitPrice"]');
+    await unitPrice.fill('100,00');
+    await page.locator('[data-row-field="vatTreatment"]').selectOption('se-standard-25');
+    await page.locator('[data-row-field="revenueAccount"]').selectOption('3051');
+    const invoiceCountBeforeEnter=Invoicing.listCustomerInvoices(f.db,f.a.id).length;
+    await unitPrice.press('Enter');
+    await page.waitForTimeout(250);
+    assert.equal(Invoicing.listCustomerInvoices(f.db,f.a.id).length,invoiceCountBeforeEnter);
+    await page.getByRole('heading',{name:'Ny kundfaktura',exact:true}).waitFor();
+    checks.push('Enter in customer invoice price field cannot issue or book the invoice');
+    await unitPrice.fill('-100,00');
+    await page.getByRole('button',{name:'Skapa och bokför faktura',exact:true}).click();
+    await page.waitForFunction(()=>/negativ/i.test(document.querySelector('#invoice-alert')?.textContent||''));
+    assert.equal(Invoicing.listCustomerInvoices(f.db,f.a.id).length,invoiceCountBeforeEnter);
+    checks.push('Ordinary customer invoice still rejects a negative price line');
+    await page.goto(f.base+'/portal/invoices.html');
     await page.locator(`[data-preview="${f.issued.invoice.id}"]`).click();
     const [pdfTab]=await Promise.all([
       page.waitForEvent('popup'),
