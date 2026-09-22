@@ -333,7 +333,7 @@ function validateRequestTarget(req){
     seen.add(key);
     if(key.length>80||!/^[A-Za-z][A-Za-z0-9_-]*$/.test(key))throw securityError('Ogiltigt query-fältnamn.','INVALID_QUERY_PARAMETER',422);
     if(value.length>500||/[\u0000-\u001f\u007f]/.test(value))throw securityError('Ogiltigt query-värde.','INVALID_QUERY_VALUE',422);
-    if(!rule||!rule[2].has(key))throw securityError(`Query-parametern ${key} stöds inte på den här rutten.`,'UNEXPECTED_QUERY_PARAMETER',422);
+    if(url.pathname.startsWith('/api/')&&(!rule||!rule[2].has(key)))throw securityError(`Query-parametern ${key} stöds inte på den här rutten.`,'UNEXPECTED_QUERY_PARAMETER',422);
   }
   return url;
 }
