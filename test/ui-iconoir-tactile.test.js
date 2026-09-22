@@ -55,3 +55,16 @@ test('disabled fakturaknapp behåller nya designsystemets blockerade state',()=>
   assert.match(browser,/backgroundColor:'rgb\(229, 229, 229\)'/);
   assert.match(browser,/color:'rgb\(115, 115, 115\)'/);
 });
+
+
+test('användarmenyn renderar Iconoir som DOM och webbplatsens mobilmeny behåller responsiv synlighet',()=>{
+  const portal=read('apps/portal/portal-nav.js');
+  const websiteCss=read('apps/website/design-system.css');
+  const baseWebsiteCss=read('apps/website/styles.css');
+
+  assert.match(portal,/caret\.append\(iconoir\('navArrowDown'\)\)/);
+  assert.doesNotMatch(portal,/caret\.innerHTML=iconoir/);
+  assert.doesNotMatch(websiteCss,/\.site-with-icon\{display:inline-flex!important/);
+  assert.match(baseWebsiteCss,/\.menu-button \{ display: none; \}/);
+  assert.match(baseWebsiteCss,/\.menu-button \{ display: inline-flex;/);
+});

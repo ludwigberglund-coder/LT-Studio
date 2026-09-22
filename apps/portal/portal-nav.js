@@ -225,7 +225,7 @@
       const name=document.createElement('strong');name.textContent=displayName;
       const company=document.createElement('small');company.textContent=demo?'Demoläge':String(context.session?.company?.name||'Företaget');
       label.append(name,company);
-      const caret=document.createElement('span');caret.className='shared-user-caret';caret.innerHTML=iconoir('navArrowDown');caret.setAttribute('aria-hidden','true');
+      const caret=document.createElement('span');caret.className='shared-user-caret';caret.append(iconoir('navArrowDown'));caret.setAttribute('aria-hidden','true');
       button.append(avatar,label,caret);
       const menu=document.createElement('div');menu.className='shared-user-dropdown';menu.hidden=true;
       const profile=document.createElement('a');profile.href=href('portal/profile.html');profile.textContent='Min profil & inloggning';menu.append(profile);
