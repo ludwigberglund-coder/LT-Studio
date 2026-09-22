@@ -1,6 +1,6 @@
 const root=document.getElementById('operator-app');
 const csrfKey='lt-operator-csrf';
-let session=null,overview=null,readiness=null,security=null,operatorAudit=null,securityMonitor=null,securityPollTimer=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='',companyQuery='',companyStatus='all',companySort='name',securitySeverity='all',securityPeriod='24h',securityCompany='all';
+let session=null,overview=null,readiness=null,security=null,operatorAudit=null,securityMonitor=null,securityPollTimer=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='',companyQuery='',companyStatus='all',companySort='name',securitySeverity='all',securityPeriod='24h',securityCompany='all',securityIncidentStatus='all';
 
 function esc(value=''){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
 function initials(name='LT'){return String(name).trim().split(/\s+/).filter(Boolean).map(part=>part[0]).join('').slice(0,2).toUpperCase()||'LT'}
@@ -210,12 +210,26 @@ function securityCompanyOptions(){
   const companies=overview?.companies||[];
   return ['<option value="all" '+(securityCompany==='all'?'selected':'')+'>Alla företag</option>','<option value="platform" '+(securityCompany==='platform'?'selected':'')+'>Plattformsnivå</option>',...companies.map(company=>`<option value="${esc(company.id)}" ${securityCompany===company.id?'selected':''}>${esc(company.displayName)}</option>`)].join('');
 }
+function incidentStatusLabel(status){
+  return ({new:'Ny',reviewed:'Granskad',investigating:'Utreds',resolved:'Åtgärdad'})[String(status||'new')]||'Ny';
+}
+function incidentStatusOptions(selected){
+  return ['new','reviewed','investigating','resolved'].map(status=>`<option value="${status}" ${selected===status?'selected':''}>${incidentStatusLabel(status)}</option>`).join('');
+}
+function incidentMeta(event){
+  const status=event.incidentStatus||'new';
+  if(status==='new')return 'Inte granskad ännu';
+  const who=event.incidentUpdatedBy?` av ${event.incidentUpdatedBy}`:'';
+  const when=event.incidentUpdatedAt?` · ${dateTime(event.incidentUpdatedAt)}`:'';
+  return `${incidentStatusLabel(status)}${who}${when}`;
+}
 function filteredSecurityEvents(){
   const events=security?.events||[];
   const hours=securityPeriod==='24h'?24:securityPeriod==='7d'?24*7:securityPeriod==='30d'?24*30:null;
   const cutoff=hours===null?null:Date.now()-hours*60*60*1000;
   return events.filter(event=>{
     if(securitySeverity!=='all'&&event.severity!==securitySeverity)return false;
+    if(securityIncidentStatus!=='all'&&(event.incidentStatus||'new')!==securityIncidentStatus)return false;
     if(securityCompany==='platform'&&event.companyId)return false;
     if(!['all','platform'].includes(securityCompany)&&event.companyId!==securityCompany)return false;
     if(cutoff===null)return true;
@@ -226,7 +240,10 @@ function filteredSecurityEvents(){
 function securityEvents(){
   const events=filteredSecurityEvents();
   if(!events.length)return '<div class="empty">Inga säkerhetshändelser matchar filtret.</div>';
-  return events.map(event=>`<div class="event security-event"><span class="status-pill"><span class="dot ${esc(event.severity)}"></span>${esc(({critical:'Kritisk',warning:'Varning',info:'Information'})[event.severity]||event.severity)}</span><div class="event-copy"><strong>${esc(securityEventLabel(event.kind))}</strong><small>${esc(event.companyName||'Plattformsnivå')}</small></div><time>${dateTime(event.createdAt)}</time></div>`).join('');
+  return events.map(event=>{
+    const incidentStatus=event.incidentStatus||'new';
+    return `<div class="event security-event" data-security-event-row="${esc(event.id)}"><span class="status-pill"><span class="dot ${esc(event.severity)}"></span>${esc(({critical:'Kritisk',warning:'Varning',info:'Information'})[event.severity]||event.severity)}</span><div class="event-copy"><strong>${esc(securityEventLabel(event.kind))}</strong><small>${esc(event.companyName||'Plattformsnivå')} · ${esc(incidentMeta(event))}</small></div><label class="incident-state-control"><span>Incidentstatus</span><select data-incident-status data-security-event-id="${esc(event.id)}">${incidentStatusOptions(incidentStatus)}</select></label><time>${dateTime(event.createdAt)}</time></div>`;
+  }).join('');
 }
 function operatorAuditLabel(action){
   return ({
@@ -236,11 +253,13 @@ function operatorAuditLabel(action){
     CUSTOMER_EXISTING_USER_ADDED:'Befintlig användare fick åtkomst',
     CUSTOMER_USER_ROLE_CHANGED:'Behörighet ändrades',
     CUSTOMER_USER_PASSWORD_RESET:'Lösenord byttes',
-    CUSTOMER_USER_REMOVED:'Åtkomst togs bort'
+    CUSTOMER_USER_REMOVED:'Åtkomst togs bort',
+    SECURITY_INCIDENT_STATUS_CHANGED:'Incidentstatus ändrades'
   })[String(action||'')]||'Administrativ åtgärd';
 }
 function operatorAuditDetail(event){
   if(event.action==='CUSTOMER_USER_ROLE_CHANGED'&&event.beforeRole&&event.afterRole)return `${roleLabel(event.beforeRole)} → ${roleLabel(event.afterRole)}`;
+  if(event.action==='SECURITY_INCIDENT_STATUS_CHANGED'&&event.beforeStatus&&event.afterStatus)return `${incidentStatusLabel(event.beforeStatus)} → ${incidentStatusLabel(event.afterStatus)}`;
   if(event.role)return roleLabel(event.role);
   return event.targetUserName||'—';
 }
@@ -319,7 +338,7 @@ function securityView(){
   <section class="panel findings-panel"><div class="panel-head"><div><span class="eyebrow">AKTIVA FLAGGOR</span><h2>Det här behöver er uppmärksamhet</h2><p>Fynd från readiness, autentisering, MFA och nya säkerhetshändelser. Inga hemligheter eller råa tekniska detaljer visas.</p></div><span class="panel-stat ${monitorTone}">${monitor.active===false?'Skanning fel':'Live'}</span></div>${securityFindings()}</section>
   <section class="panel security-readiness-panel"><div class="panel-head"><div><span class="eyebrow">SKYDD & DRIFT</span><h2>Hälsokontroller och verifieringsbevis</h2><p>Databas, backup, R2, restore, monitoring, audit-ankare och global admin. Bevisålder visas där backend har verifierbar evidens.</p></div><span class="panel-stat ${readiness?.ok?'ok':'critical'}">${okCount} av ${known.length||entries.length} OK</span></div><div class="table-wrap"><table class="security-check-table"><thead><tr><th>Kontroll</th><th>Status</th><th>Senaste bevis</th><th>Rekommenderad åtgärd</th></tr></thead><tbody>${securityReadinessTable()}</tbody></table></div></section>
   <section class="dashboard-grid equal security-lower-grid">
-    <article class="panel dashboard-panel"><div class="panel-head security-events-head"><div><span class="eyebrow">INCIDENTER</span><h2>Säkerhetshändelser</h2><p>Redigerad logg utan IP-adresser, fingeravtryck eller hemliga tekniska detaljer. Filtren gäller de senast hämtade händelserna.</p></div></div><div class="security-toolbar"><label><span>Allvarlighetsgrad</span><select data-security-severity><option value="all" ${securitySeverity==='all'?'selected':''}>Alla</option><option value="critical" ${securitySeverity==='critical'?'selected':''}>Kritisk</option><option value="warning" ${securitySeverity==='warning'?'selected':''}>Varning</option><option value="info" ${securitySeverity==='info'?'selected':''}>Information</option></select></label><label><span>Tidsperiod</span><select data-security-period><option value="24h" ${securityPeriod==='24h'?'selected':''}>24 timmar</option><option value="7d" ${securityPeriod==='7d'?'selected':''}>7 dagar</option><option value="30d" ${securityPeriod==='30d'?'selected':''}>30 dagar</option><option value="all" ${securityPeriod==='all'?'selected':''}>Alla hämtade</option></select></label><label><span>Företag</span><select data-security-company>${securityCompanyOptions()}</select></label><span class="security-filter-count">${num(events.length)} händelser</span></div><div class="event-list" id="security-event-list">${securityEvents()}</div></article>
+    <article class="panel dashboard-panel"><div class="panel-head security-events-head"><div><span class="eyebrow">INCIDENTER</span><h2>Säkerhetshändelser</h2><p>Redigerad logg utan IP-adresser, fingeravtryck eller hemliga tekniska detaljer. Filtren gäller de senast hämtade händelserna.</p></div></div><div class="security-toolbar"><label><span>Allvarlighetsgrad</span><select data-security-severity><option value="all" ${securitySeverity==='all'?'selected':''}>Alla</option><option value="critical" ${securitySeverity==='critical'?'selected':''}>Kritisk</option><option value="warning" ${securitySeverity==='warning'?'selected':''}>Varning</option><option value="info" ${securitySeverity==='info'?'selected':''}>Information</option></select></label><label><span>Tidsperiod</span><select data-security-period><option value="24h" ${securityPeriod==='24h'?'selected':''}>24 timmar</option><option value="7d" ${securityPeriod==='7d'?'selected':''}>7 dagar</option><option value="30d" ${securityPeriod==='30d'?'selected':''}>30 dagar</option><option value="all" ${securityPeriod==='all'?'selected':''}>Alla hämtade</option></select></label><label><span>Företag</span><select data-security-company>${securityCompanyOptions()}</select></label><label><span>Incidentstatus</span><select data-security-incident-filter><option value="all" ${securityIncidentStatus==='all'?'selected':''}>Alla statusar</option><option value="new" ${securityIncidentStatus==='new'?'selected':''}>Ny</option><option value="reviewed" ${securityIncidentStatus==='reviewed'?'selected':''}>Granskad</option><option value="investigating" ${securityIncidentStatus==='investigating'?'selected':''}>Utreds</option><option value="resolved" ${securityIncidentStatus==='resolved'?'selected':''}>Åtgärdad</option></select></label><span class="security-filter-count">${num(events.length)} händelser</span></div><div class="event-list" id="security-event-list">${securityEvents()}</div></article>
     <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">ÅTGÄRDSLISTA</span><h2>Det som behöver uppmärksamhet</h2><p>Konkreta rekommendationer från kontroller som inte rapporterar OK.</p></div></div><div class="security-actions">${unresolvedSecurityActions()}</div><div class="security-privacy-note"><strong>Dataminimerad vy</strong><p>Säkerhetsportalen visar inte lösenord, MFA-hemligheter, IP-adresser, kundernas dokument eller ekonomiska detaljdata.</p></div></article>
   </section>
   <section class="panel operator-audit-panel"><div class="panel-head"><div><span class="eyebrow">OPERATÖRER</span><h2>Administratörslogg</h2><p>Read-only historik över vad LT Studio-operatörer har gjort. Endast nödvändig företags-, användar- och rollmetadata visas.</p></div><span class="panel-stat ${operatorAudit?.unavailable?'warning':''}">${operatorAudit?.unavailable?'Tillfälligt otillgänglig':num(operatorAudit?.events?.length||0)+' loggposter'}</span></div><div class="audit-list">${operatorAudit?.unavailable?'<div class="empty">Administratörsloggen kunde inte läsas just nu. Övriga adminfunktioner påverkas inte.</div>':operatorAuditRows()}</div></section>`,'Säkerhetsportal','Aktiv risk- och felövervakning för hela LT Studio-plattformen.');
@@ -440,9 +459,23 @@ document.addEventListener('submit',async event=>{
   }
 });
 document.addEventListener('change',async event=>{
+  if(event.target.matches?.('[data-incident-status]')){
+    const select=event.target,eventId=select.dataset.securityEventId,nextStatus=select.value;
+    select.disabled=true;errorMessage='';
+    try{
+      const result=await mutate('/security-events/'+encodeURIComponent(eventId)+'/status',{method:'PUT',body:JSON.stringify({status:nextStatus})});
+      const row=(security?.events||[]).find(item=>item.id===eventId);
+      if(row){row.incidentStatus=result.incident?.status||nextStatus;row.incidentUpdatedAt=result.incident?.updatedAt||null;row.incidentUpdatedBy=result.incident?.updatedBy||session?.operator?.displayName||null}
+      await loadOperatorAudit();
+      uiNotice=result.changed?'Incidentstatusen uppdaterades och audit-loggades.':'Incidentstatusen var redan vald.';
+      render();
+    }catch(error){errorMessage=error.message;render()}
+    return;
+  }
   if(event.target.matches?.('[data-security-severity]')){securitySeverity=event.target.value;render();return}
   if(event.target.matches?.('[data-security-period]')){securityPeriod=event.target.value;render();return}
   if(event.target.matches?.('[data-security-company]')){securityCompany=event.target.value;render();return}
+  if(event.target.matches?.('[data-security-incident-filter]')){securityIncidentStatus=event.target.value;render();return}
   if(event.target.matches?.('[data-company-filter]')){companyStatus=event.target.value;updateCompanyTable();return}
   if(event.target.matches?.('[data-company-sort]')){companySort=event.target.value;updateCompanyTable();return}
   const userId=event.target.dataset.roleUser;if(!userId||!selectedCompany)return;
