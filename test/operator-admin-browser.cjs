@@ -145,6 +145,26 @@ const out=path.join(__dirname,'..','test-artifacts');
     assert.equal(await page.locator('.security-check-table').count(),1);
     checks.push({kind:'security-portal-filters-and-audit',companyCorrelation:true,operatorAudit:true,evidenceAgeColumn:true});
 
+    await companyFilter.selectOption('all');
+    const customerIncidentRow=page.locator('.security-event').filter({hasText:'Många felaktiga kundinloggningar'});
+    await customerIncidentRow.locator('[data-incident-status]').selectOption('investigating');
+    await page.getByText(/Incidentstatusen uppdaterades och audit-loggades/).waitFor();
+    const customerSecurityEvent=Db.securityEvents(runtime.db,{limit:20}).find(event=>event.kind==='LOGIN_FAILURE_THRESHOLD');
+    assert.ok(customerSecurityEvent);
+    assert.equal(Db.securityIncidentState(runtime.db,customerSecurityEvent.id).status,'investigating');
+    securityBody=await page.locator('body').innerText();
+    assert.match(securityBody,/Incidentstatus ändrades/);
+    assert.match(securityBody,/Ny → Utreds/);
+    assert.match(securityBody,/Utreds av LT Browser Operator/);
+
+    const incidentFilter=page.locator('[data-security-incident-filter]');
+    await incidentFilter.selectOption('investigating');
+    securityBody=await page.locator('body').innerText();
+    assert.match(securityBody,/Många felaktiga kundinloggningar/);
+    assert.doesNotMatch(securityBody,/Många felaktiga LT Studio-admininloggningar/);
+    await incidentFilter.selectOption('all');
+    checks.push({kind:'security-incident-lifecycle',status:'investigating',auditLogged:true});
+
     Db.appendSecurityEvent(runtime.db,{kind:'OPERATOR_ACCOUNT_LOGIN_FAILURE_THRESHOLD',severity:'critical',fingerprintHash:'e'.repeat(64),details:{private:'live-monitor-secret-must-not-render'}});
     await page.getByText(/2 kritiska säkerhetshändelser har registrerats/).waitFor({timeout:12000});
     await page.locator('.security-live-alert.critical').waitFor({state:'visible',timeout:12000});
