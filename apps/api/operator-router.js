@@ -296,8 +296,8 @@ function createOperatorRouter(options={}){
         if(!before)throw operatorError('Användaren finns inte i kundföretaget.','MEMBERSHIP_NOT_FOUND',404);
         let revokedSessionCount=0;
         Db.transaction(db,()=>{
-          db.prepare('DELETE FROM memberships WHERE company_id=? AND user_id=?').run(companyId,userId);
           revokedSessionCount=Db.deleteSessionsForUserCompany(db,{userId,companyId});
+          db.prepare('DELETE FROM memberships WHERE company_id=? AND user_id=?').run(companyId,userId);
           Db.appendPlatformOperatorAudit(db,{operatorId:session.operatorId,action:'CUSTOMER_USER_REMOVED',details:{companyId,userId,role:before.role,revokedSessionCount}});
         });
         send(res,200,{removed:true,sessionsRevoked:true,revokedSessionCount,sessionScope:'company'});return true;
