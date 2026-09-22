@@ -29,7 +29,7 @@
     store.settings ||= {};
     store.settings.attestResponsible ||= 'Odd Stefan Arne Svensson';
     store.settings.attestSubstitute ||= 'Anna Åberg';
-    store.settings.emailInbox ||= 'fakturor@rollands.se';
+    store.settings.emailInbox ||= 'fakturor@demo.example.invalid';
     store.settings.lastBankImport ||= '';
     store.settings.lastInvoiceEmail ||= '';
     store.settings.lockedPeriods ||= [];
