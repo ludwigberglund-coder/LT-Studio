@@ -188,7 +188,7 @@ test('upprepade felinloggningar skapar en pseudonymiserad plattformss√§kerhetsh√
   assert.equal(events[0].kind,'LOGIN_FAILURE_THRESHOLD');
   assert.equal(events[0].severity,'warning');
   assert.match(events[0].fingerprintHash,/^[a-f0-9]{64}$/);
-  assert.deepEqual(events[0].details,{failureCount:5,windowMinutes:15,retryAfterSeconds:900});
+  assert.deepEqual(events[0].details,{scope:'ip-user',failureCount:5,windowMinutes:15,retryAfterSeconds:900});
   const serialized=JSON.stringify(events[0]);
   assert.doesNotMatch(serialized,/sara\.test|127\.0\.0\.1|felaktigt testlosenord/i);
 }));
