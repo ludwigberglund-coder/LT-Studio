@@ -23,15 +23,15 @@ const MIGRATIONS=Object.freeze([
     version:3,
     id:'membership-role-2026-09-22-v3',
     name:'company-membership-role-2026-09-22',
-    description:'Add one explicit least-privilege role per company membership. Existing memberships migrate to admin to preserve current access.',
-    sql:"ALTER TABLE memberships ADD COLUMN role TEXT NOT NULL DEFAULT 'admin' CHECK(role IN ('admin','accountant','approver','readonly'));"
+    description:'Record the compatible membership-role schema upgrade after startup has ensured the additive role column exists.',
+    sql:''
   }),
   Object.freeze({
     version:4,
     id:'user-security-preferences-2026-09-22-v4',
     name:'platform-admin-and-session-duration-2026-09-22',
-    description:'Add explicit LT Studio global-admin status and per-user absolute login duration. Existing users keep the current eight-hour maximum.',
-    sql:"ALTER TABLE users ADD COLUMN platform_admin INTEGER NOT NULL DEFAULT 0 CHECK(platform_admin IN (0,1)); ALTER TABLE users ADD COLUMN session_duration_minutes INTEGER DEFAULT 480 CHECK(session_duration_minutes IS NULL OR session_duration_minutes IN (120,240,360,480));"
+    description:'Record the compatible global-admin and personal-session schema upgrade after startup has ensured the additive user columns exist.',
+    sql:''
   })
 ]);
 
