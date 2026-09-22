@@ -324,15 +324,50 @@ function createOperatorRouter(options={}){
         const events=Db.securityEvents(db,{limit}).map(event=>{
           const companyId=String(event.details?.companyId||'').trim();
           const company=companyId?Db.companyById(db,companyId):null;
+          const incident=Db.securityIncidentState(db,event.id);
           return {
+            id:event.id,
             kind:event.kind,
             severity:event.severity,
             createdAt:event.createdAt,
             companyId:company?.id||null,
-            companyName:company?.displayName||company?.legalName||null
+            companyName:company?.displayName||company?.legalName||null,
+            incidentStatus:incident?.status||'new',
+            incidentUpdatedAt:incident?.updatedAt||null,
+            incidentUpdatedBy:incident?.updatedByDisplayName||incident?.updatedByUsername||null
           };
         });
         send(res,200,{events});return true;
+      }
+      const incidentStatusMatch=url.pathname.match(/^\/api\/operator\/v1\/security-events\/([^/]+)\/status$/);
+      if(req.method==='PUT'&&incidentStatusMatch){
+        const eventId=decodeURIComponent(incidentStatusMatch[1]);
+        const securityEvent=Db.securityEventById(db,eventId);
+        if(!securityEvent)throw operatorError('Säkerhetshändelsen hittades inte.','SECURITY_EVENT_NOT_FOUND',404);
+        const payload=await readJson(req,res);if(!payload)return true;
+        const nextStatus=String(payload.status||'').trim();
+        if(!Db.SECURITY_INCIDENT_STATUSES.includes(nextStatus))throw operatorError('Ogiltig incidentstatus.','INVALID_SECURITY_INCIDENT_STATUS',422);
+        const previous=Db.securityIncidentState(db,eventId);
+        const beforeStatus=previous?.status||'new';
+        if(beforeStatus===nextStatus){
+          send(res,200,{changed:false,incident:{status:beforeStatus,updatedAt:previous?.updatedAt||null,updatedBy:previous?.updatedByDisplayName||previous?.updatedByUsername||null}});return true;
+        }
+        const rawCompanyId=String(securityEvent.details?.companyId||'').trim();
+        const company=rawCompanyId?Db.companyById(db,rawCompanyId):null;
+        let state;
+        Db.transaction(db,()=>{
+          state=Db.setSecurityIncidentStatus(db,{eventId,status:nextStatus,operatorId:session.operatorId});
+          Db.appendPlatformOperatorAudit(db,{
+            operatorId:session.operatorId,
+            action:'SECURITY_INCIDENT_STATUS_CHANGED',
+            details:{securityEventId:eventId,companyId:company?.id||null,beforeStatus,afterStatus:nextStatus}
+          });
+        });
+        send(res,200,{changed:true,incident:{
+          status:nextStatus,
+          updatedAt:state?.updatedAt||null,
+          updatedBy:session.displayName||session.username||'LT Studio-operatör'
+        }});return true;
       }
       if(req.method==='GET'&&url.pathname==='/api/operator/v1/security-monitor'){
         if(!securityMonitor){send(res,503,{error:'Aktiv säkerhetsövervakning är inte tillgänglig.',code:'SECURITY_MONITOR_UNAVAILABLE'});return true}
@@ -357,7 +392,9 @@ function createOperatorRouter(options={}){
             targetUserName:user?.displayName||null,
             beforeRole:typeof details.before==='string'?details.before:null,
             afterRole:typeof details.after==='string'?details.after:null,
-            role:typeof details.role==='string'?details.role:null
+            role:typeof details.role==='string'?details.role:null,
+            beforeStatus:typeof details.beforeStatus==='string'?details.beforeStatus:null,
+            afterStatus:typeof details.afterStatus==='string'?details.afterStatus:null
           };
         });
         send(res,200,{events});return true;
