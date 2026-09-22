@@ -31,6 +31,7 @@
     "platform:rotate-mfa": "node scripts/rotate-mfa.js",
     "security:history-scan": "node scripts/scan-git-history-secrets.js",
     "security:client-scan": "node scripts/scan-client-secrets.js",
+    "security:runtime-code-scan": "node scripts/scan-dangerous-runtime-code.js",
     "pilot:backup:retention": "node scripts/pilot-backup-retention.js",
     "pilot:restore:drill": "node scripts/pilot-restore-drill.js",
     "platform:rotate-auth-key": "node scripts/rotate-auth-encryption-key.js",
