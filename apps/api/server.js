@@ -185,14 +185,16 @@ function createServer(options = {}) {
     }
     if (String(req.url || '').split('?')[0] === '/api/v1/readiness/core') {
       if (!['GET','HEAD'].includes(req.method || 'GET')) { res.writeHead(405,{'Allow':'GET, HEAD','Cache-Control':'no-store'}); return res.end(); }
-      const payload=readinessPayload({includeMonitoring:false});
+      const internal=readinessPayload({includeMonitoring:false});
+      const payload={ok:Boolean(internal.ok),service:internal.service,checks:internal.checks};
       const body=Buffer.from(JSON.stringify(payload));
       res.writeHead(payload.ok?200:503,{'Content-Type':'application/json; charset=utf-8','Content-Length':body.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
       return res.end(req.method==='HEAD'?undefined:body);
     }
     if (String(req.url || '').split('?')[0] === '/api/v1/readiness') {
       if (!['GET','HEAD'].includes(req.method || 'GET')) { res.writeHead(405,{'Allow':'GET, HEAD','Cache-Control':'no-store'}); return res.end(); }
-      const payload=readinessPayload({includeMonitoring:true});
+      const internal=readinessPayload({includeMonitoring:true});
+      const payload={ok:Boolean(internal.ok),service:internal.service};
       const body=Buffer.from(JSON.stringify(payload));
       res.writeHead(payload.ok?200:503,{'Content-Type':'application/json; charset=utf-8','Content-Length':body.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
       return res.end(req.method==='HEAD'?undefined:body);

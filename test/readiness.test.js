@@ -124,13 +124,19 @@ test('HTTP readiness svarar utan autentisering men lämnar inte ut lagringssökv
     assert.equal(response.status,200);
     const body=await response.json();
     assert.equal(body.ok,true);assert.equal(body.service,'rollands-api-v1');
+    assert.deepEqual(Object.keys(body).sort(),['ok','service']);
     assert.equal(JSON.stringify(body).includes('/tmp/'),false);
 
     const coreResponse=await fetch(`http://127.0.0.1:${address.port}/api/v1/readiness/core`);
     assert.equal(coreResponse.status,200);
     const core=await coreResponse.json();
     assert.equal(core.ok,true);assert.equal(core.service,'rollands-api-v1');
+    assert.deepEqual(Object.keys(core).sort(),['checks','ok','service']);
+    assert.equal(typeof core.checks,'object');
     assert.equal(JSON.stringify(core).includes('/tmp/'),false);
+    for(const key of ['freeMiB','backupAgeMinutes','offsiteBackupAgeMinutes','restoreDrillAgeMinutes','monitoringAgeMinutes','alertTestAgeMinutes']){
+      assert.equal(key in core,false,key);
+    }
   }finally{await new Promise(resolve=>runtime.close(resolve))}
 });
 
