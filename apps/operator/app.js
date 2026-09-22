@@ -16,7 +16,9 @@ const OPERATOR_ICONOIR=Object.freeze({
   key:'<path d="M10 12C10 14.2091 8.20914 16 6 16C3.79086 16 2 14.2091 2 12C2 9.79086 3.79086 8 6 8C8.20914 8 10 9.79086 10 12ZM10 12H22V15M18 12V15"/>',
   trash:'<path d="M20 9L18.005 20.3463C17.8369 21.3026 17.0062 22 16.0353 22H7.96474C6.99379 22 6.1631 21.3026 5.99496 20.3463L4 9M21 6H15.375M3 6H8.625M8.625 6V4C8.625 2.89543 9.52043 2 10.625 2H13.375C14.4796 2 15.375 2.89543 15.375 4V6M8.625 6H15.375"/>',
   xmark:'<path d="M6.75827 17.2426L12.0009 12M17.2435 6.75736L12.0009 12M12.0009 12L6.75827 6.75736M12.0009 12L17.2435 17.2426"/>',
-  arrowLeft:'<path d="M21 12H3M3 12L11.5 3.5M3 12L11.5 20.5"/>'
+  arrowLeft:'<path d="M21 12H3M3 12L11.5 3.5M3 12L11.5 20.5"/>',
+  arrowRight:'<path d="M3 12H21M21 12L12.5 3.5M21 12L12.5 20.5"/>',
+  checkCircle:'<path d="M7 12.5L10 15.5L17 8.5M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"/>'
 });
 function operatorIcon(name){return '<span class="op-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" focusable="false">'+(OPERATOR_ICONOIR[name]||OPERATOR_ICONOIR.check)+'</svg></span>'}
 function operatorSemanticIcon(element){
@@ -141,7 +143,7 @@ function securityAlertStrip(){
   if(!critical&&!warning)return '';
   const tone=critical?'critical':'warning',count=critical||warning;
   const label=critical?`${count} kritisk${count===1?'':'a'} säkerhetsflagga${count===1?'':'r'}`:`${count} säkerhetsvarning${count===1?'':'ar'}`;
-  return `<button class="security-live-alert ${tone}" type="button" data-view="security"><span class="security-pulse" aria-hidden="true"></span><strong>${esc(label)}</strong><span>Öppna Säkerhetsportalen för detaljer</span><span aria-hidden="true">→</span></button>`;
+  return `<button class="security-live-alert ${tone}" type="button" data-view="security"><span class="security-pulse" aria-hidden="true"></span><strong>${esc(label)}</strong><span>Öppna Säkerhetsportalen för detaljer</span>${operatorIcon('arrowRight')}</button>`;
 }
 function updateSecurityChrome(){
   document.querySelectorAll('[data-security-badge]').forEach(node=>{
@@ -151,7 +153,7 @@ function updateSecurityChrome(){
 }
 function securityFindings(){
   const findings=securityMonitor?.findings||[];
-  if(!findings.length)return '<div class="security-clear live-clear"><span class="clear-check" aria-hidden="true">✓</span><div><strong>Inga aktiva säkerhetsflaggor</strong><p>Senaste skanningen hittade inga regler som kräver åtgärd.</p></div></div>';
+  if(!findings.length)return '<div class="security-clear live-clear"><span class="clear-check" aria-hidden="true">${operatorIcon('checkCircle')}</span><div><strong>Inga aktiva säkerhetsflaggor</strong><p>Senaste skanningen hittade inga regler som kräver åtgärd.</p></div></div>';
   return `<div class="finding-list">${findings.map(item=>`<article class="security-finding ${esc(item.severity)}"><div class="finding-top"><span class="status-pill"><span class="dot ${esc(item.severity)}"></span>${esc(({critical:'Kritisk',warning:'Varning',info:'Information'})[item.severity]||item.severity)}</span><span class="finding-category">${esc(item.category)}</span></div><h3>${esc(item.title)}</h3><p>${esc(item.message)}</p></article>`).join('')}</div>`;
 }
 function modalMarkup(){
