@@ -53,12 +53,12 @@ async function api(path,options={}){
 function csrf(){return sessionStorage.getItem(csrfKey)||''}
 function loginView(){
   root.innerHTML=`<section class="login-shell">
-    <div class="login-brand"><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div><h1>Adminportal för hela plattformen.</h1><p>Här hanterar LT Studio kundföretag, användare, behörigheter, statistik och drift. Kundernas användare har aldrig tillgång till denna portal.</p></div><small>Separat LT Studio-inloggning · MFA · spårbar administratörslogg</small></div>
-    <div class="login-panel"><form class="card" id="login-form"><h2>LT Studio-inloggning</h2><p>Logga in med ert separata operatörskonto.</p>
+    <div class="login-brand"><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div><span class="login-kicker">ADMIN CONTROL CENTER</span><h1>Allt viktigt.<br>På ett ställe.</h1><p>Administrera kundföretag, användare, behörigheter, statistik och drift från en separat, MFA-skyddad LT Studio-portal.</p></div><small>Separat LT Studio-inloggning · MFA · spårbar administratörslogg</small></div>
+    <div class="login-panel"><form class="card login-card" id="login-form"><div class="login-card-mark"><span class="mark-icon"></span></div><h2>LT Studio-inloggning</h2><p>Logga in med ert separata operatörskonto.</p>
       <label class="field"><span>Användarnamn</span><input name="username" autocomplete="username" required></label>
       <label class="field"><span>Lösenord</span><input name="password" type="password" autocomplete="current-password" required></label>
       <label class="field"><span>MFA-kod</span><input name="totp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></label>
-      <button class="button" type="submit">Logga in</button>
+      <button class="button full-button" type="submit">Logga in</button>
       ${errorMessage?`<div class="error">${esc(errorMessage)}</div>`:''}
     </form></div>
   </section>`;
