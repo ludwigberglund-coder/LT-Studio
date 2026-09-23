@@ -219,6 +219,9 @@ function sameOriginAsset(url,base){
         }
 
         if(surface.id==='portal-index'){
+          const totalBalanceMetric=page.locator('.metrics .metric').filter({hasText:'Totalt kundsaldo'}).first();
+          assert.equal(await totalBalanceMetric.count(),1,`receivables must show a Totalt kundsaldo metric on ${viewport.id}`);
+          assert.ok((await totalBalanceMetric.locator('strong').innerText()).trim().length>0,`Totalt kundsaldo must have a value on ${viewport.id}`);
           const search=page.locator('#receivable-search-input');
           assert.equal(await search.count(),1,`portal-index ${viewport.id} must expose receivables search`);
           await search.fill('310002');
