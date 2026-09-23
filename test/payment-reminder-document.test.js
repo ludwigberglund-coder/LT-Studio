@@ -7,6 +7,8 @@ const Db=require('../apps/api/database.js');
 const Auth=require('../apps/api/auth.js');
 const CustomerInvoicing=require('../apps/api/customer-invoicing.js');
 const ReminderDocuments=require('../apps/api/payment-reminder-documents.js');
+const Inventory=require('../apps/api/private-object-inventory.js');
+const PrivateObject=require('../apps/api/private-object-contract.js');
 
 test('betalningspåminnelse får eget nummer, arkiverad PDF och referens till originalfaktura',{timeout:15000},async()=>{
   const db=Db.openDatabase(':memory:');
@@ -47,5 +49,13 @@ test('betalningspåminnelse får eget nummer, arkiverad PDF och referens till or
     const restored=ReminderDocuments.pdfArchive(db,{companyId:company.id,invoiceId:invoice.id,reminderId:reminder.id});
     assert.equal(restored.pdfSha256,archive.pdfSha256);
     assert.equal(restored.bytes.equals(archive.pdfBytes),true);
+
+    const inventory=Inventory.buildPrivateObjectInventory(db,{generatedAt:'2026-09-23T12:30:00.000Z'});
+    const reminderObject=inventory.objects.find(object=>object.kind===PrivateObject.PRIVATE_OBJECT_KINDS.PAYMENT_REMINDER_PDF&&object.objectId===reminder.id);
+    assert.ok(reminderObject);
+    assert.equal(reminderObject.verified,true);
+    assert.equal(reminderObject.sha256,archive.pdfSha256);
+    assert.equal(reminderObject.sizeBytes,archive.pdfSizeBytes);
+    assert.equal(Object.hasOwn(reminderObject,'bytes'),false);
   }finally{db.close()}
 });
