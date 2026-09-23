@@ -184,6 +184,7 @@ const QUERY_RULES=Object.freeze([
 const BODY_RULES=Object.freeze([
   ['POST',/^\/api\/v1\/auth\/login$/,new Set(['username','password','totp','companyId'])],
   ['PUT',/^\/api\/v1\/profile\/security$/,new Set(['sessionDurationMinutes'])],
+  ['PUT',/^\/api\/v1\/company-settings$/,new Set(['address','email','phone','website','vatNumber','bankgiro','taxStatus'])],
   ['POST',/^\/api\/operator\/v1\/auth\/login$/,new Set(['username','password','totp'])],
   ['POST',/^\/api\/operator\/v1\/companies\/[^/]+\/users$/,new Set(['username','displayName','password','role'])],
   ['PUT',/^\/api\/operator\/v1\/companies\/[^/]+\/users\/[^/]+\/role$/,new Set(['role'])],
@@ -193,7 +194,8 @@ const BODY_RULES=Object.freeze([
   ['PUT',/^\/api\/v1\/customers\/[^/]+$/,new Set(['name','email','orgNumber','address','reminderFeeAgreed'])],
   ['PUT',/^\/api\/v1\/customer-invoices\/draft$/,new Set(['requestId','draft'])],
   ['POST',/^\/api\/v1\/customer-invoices$/,new Set(['requestId','customerNumber','invoiceDate','postingDate','dueDate','paymentTermsDays','ourReference','yourReference','notes','lines'])],
-  ['POST',/^\/api\/v1\/customer-invoices\/[^/]+\/credit$/,new Set(['requestId','creditDate','reason'])],
+  ['POST',/^\/api\/v1\/customer-invoices\/[^/]+\/credit$/,new Set(['requestId','creditDate','reason','creditAmountOre'])],
+  ['POST',/^\/api\/v1\/customer-invoices\/[^/]+\/refund$/,new Set(['requestId','refundDate','refundAccount','bankReference'])],
   ['POST',/^\/api\/v1\/invoices\/[^/]+\/comments$/,new Set(['text'])],
   ['POST',/^\/api\/v1\/invoices\/[^/]+\/reminders\/preview$/,new Set(['sentDate','includeReminderFee','includeInterest','includeBusinessLatePaymentCompensation'])],
   ['POST',/^\/api\/v1\/invoices\/[^/]+\/reminders$/,new Set(['sentDate','includeReminderFee','includeInterest','includeBusinessLatePaymentCompensation','kind','note'])],
@@ -352,6 +354,15 @@ function assertPrimitiveTypes(req,payload){
     if(payload.sessionDurationMinutes!==null&&payload.sessionDurationMinutes!=='session'&&!Number.isSafeInteger(payload.sessionDurationMinutes))throw securityError('sessionDurationMinutes måste vara null eller ett säkert heltal.','INVALID_INPUT_TYPE',422);
     if(payload.sessionDurationMinutes!==null&&payload.sessionDurationMinutes!=='session'&&![120,240,360,480].includes(payload.sessionDurationMinutes))throw securityError('sessionDurationMinutes måste vara 120, 240, 360 eller 480.','INVALID_INPUT_FORMAT',422);
   }
+  if(method==='PUT'&&pathname==='/api/v1/company-settings'){
+    assertTextField(payload,'address',500);
+    assertTextField(payload,'email',254,{pattern:/^[^\s@]+@[^\s@]+\.[^\s@]+$/});
+    assertTextField(payload,'phone',60);
+    assertTextField(payload,'website',240);
+    assertTextField(payload,'vatNumber',14,{pattern:/^SE\d{12}$/i});
+    assertTextField(payload,'bankgiro',12,{pattern:/^(?:\d{3}-?\d{4}|\d{4}-?\d{4})$/});
+    assertTextField(payload,'taxStatus',120);
+  }
   if((method==='POST'&&pathname==='/api/v1/customers')||(method==='PUT'&&/^\/api\/v1\/customers\/[^/]+$/.test(pathname))){
     assertTextField(payload,'requestId',200);
     assertTextField(payload,'name',160);
@@ -485,6 +496,14 @@ function assertPrimitiveTypes(req,payload){
     assertTextField(payload,'requestId',100);
     assertTextField(payload,'creditDate',10,{pattern:/^\d{4}-\d{2}-\d{2}$/});
     assertTextField(payload,'reason',500);
+    if(payload.creditAmountOre!==undefined&&(!Number.isSafeInteger(payload.creditAmountOre)||payload.creditAmountOre<=0))
+      throw securityError('creditAmountOre måste vara ett positivt säkert heltal.','INVALID_INPUT_TYPE',422);
+  }
+  if(method==='POST'&&/^\/api\/v1\/customer-invoices\/[^/]+\/refund$/.test(pathname)){
+    assertTextField(payload,'requestId',100);
+    assertTextField(payload,'refundDate',10,{pattern:/^\d{4}-\d{2}-\d{2}$/});
+    assertTextField(payload,'refundAccount',4,{pattern:/^(?:1920|1930|1940)$/});
+    assertTextField(payload,'bankReference',120);
   }
   if(method==='POST'&&/^\/api\/v1\/invoices\/[^/]+\/comments$/.test(pathname))assertTextField(payload,'text',2000);
   for(const field of ['amountOre','totalOre','vatOre','quantityMilli','unitCostOre','countedQuantityMilli','paymentTermsDays','expectedRevision','expectedPublishedVersion','grossSalaryOre','withheldTaxOre','employerContributionsOre','netPayOre','vacationLiabilityChangeOre']){

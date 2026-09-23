@@ -15,3 +15,74 @@
 .shared-user-dropdown button{color:var(--danger)}
 @media(max-width:720px){.shared-user-label small{display:none}.shared-user-trigger{padding:4px}}
 .unlock-self-row{align-items:flex-start}.unlock-self-row>div:first-child{min-width:0}.unlock-self-row .notice-box{margin:12px 0}.self-unlock-form{margin-top:12px;max-width:560px}.self-unlock-form label{display:grid;gap:6px}.self-unlock-form input,.self-unlock-form textarea{width:100%}
+
+
+/* Kundreskontra: kundöversikt, sökning och gemensam restbeloppskälla */
+.receivable-search{display:flex;align-items:end;gap:12px;padding:16px;margin-bottom:16px}
+.receivable-search label{display:grid;gap:7px;flex:1;min-width:0;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.receivable-search input{width:100%;min-height:46px;border:1px solid var(--line);border-radius:12px;padding:0 14px;background:#fff;color:var(--ink);font:inherit;font-size:14px;text-transform:none;letter-spacing:0;outline:none;transition:border-color .2s ease,box-shadow .2s ease}
+.receivable-search input:focus{border-color:#999;box-shadow:0 0 0 3px rgba(0,0,0,.06)}
+.receivable-overview{margin-bottom:18px;padding:18px}
+.receivable-overview-head{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:14px}
+.receivable-overview-head h3{margin:3px 0;font-size:22px;letter-spacing:-.03em}
+.receivable-overview-head p{margin:0;color:var(--muted);font-size:12px;line-height:1.5;max-width:720px}
+.receivable-count{font-size:12px;color:var(--muted);white-space:nowrap}
+.receivable-customer-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.receivable-customer-card{display:flex;align-items:center;justify-content:space-between;gap:16px;min-width:0;border:1px solid var(--line);border-radius:14px;background:#fff;padding:14px;text-align:left;color:var(--ink);cursor:pointer;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.receivable-customer-card:hover{transform:translateY(-1px);border-color:#bbb;box-shadow:0 7px 18px rgba(0,0,0,.06)}
+.receivable-customer-card.active{border-color:#111;box-shadow:0 0 0 1px #111}
+.receivable-customer-main{display:grid;gap:4px;min-width:0}
+.receivable-customer-main b{overflow:hidden;text-overflow:ellipsis}
+.receivable-customer-main small{color:var(--muted);font-size:11px}
+.receivable-customer-balance{display:grid;justify-items:end;gap:2px;white-space:nowrap}
+.receivable-customer-balance small{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.receivable-customer-balance strong{font-size:17px;font-variant-numeric:tabular-nums}
+.receivable-customer-balance em{font-style:normal;font-size:10px;color:var(--muted)}
+.customer-summary-row td{background:#f7f7f5!important;border-top:2px solid #deded9;border-bottom:1px solid #d7d7d2;font-weight:700}
+.customer-summary-row .customer-cell{z-index:4}
+.customer-identity{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.customer-identity>span:first-child{display:grid;gap:2px;min-width:0}
+.customer-identity strong{font-size:12px;overflow:hidden;text-overflow:ellipsis}
+.customer-identity small{font-size:10px;color:var(--muted);font-weight:500}
+.customer-rest-badge{display:grid;justify-items:end;gap:1px;padding-left:10px;border-left:1px solid #d8d8d2;white-space:nowrap}
+.customer-rest-badge small{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700}
+.customer-rest-badge b,.customer-total-rest b{font-variant-numeric:tabular-nums}
+.customer-summary-empty{color:#bbb;text-align:center}
+.invoice-customer-cell{color:var(--muted);font-size:11px}
+@media(max-width:720px){
+  .receivable-search{align-items:stretch;flex-direction:column}
+  .receivable-search .button{width:100%}
+  .receivable-overview-head{align-items:start;flex-direction:column}
+  .receivable-customer-grid{grid-template-columns:1fr}
+  .customer-cell{min-width:240px;width:240px;max-width:240px}
+}
+
+
+/* Kundreskontra: radnivån visar fakturans eget restbelopp */
+.invoice-customer-identity{min-width:0}
+.invoice-rest-badge{display:grid;justify-items:end;gap:1px;padding-left:10px;border-left:1px solid #d8d8d2;white-space:nowrap}
+.invoice-rest-badge small{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700}
+.invoice-rest-badge b{font-variant-numeric:tabular-nums;font-size:12px;color:var(--ink)}
+
+
+/* Stabil Kundreskontra: målade delytor, kommentarer och påminnelseposter */
+.is-hidden{display:none!important}
+#receivable-overview-region,#receivable-metrics-region,#receivable-table-region{contain:layout style}
+.reminder-row td{background:#fbfaf6!important;border-top:1px dashed #d8d4ca;color:#343434}
+.reminder-row .customer-cell{z-index:3}
+.reminder-cell{display:flex;align-items:center;justify-content:space-between;gap:14px;min-width:0}
+.reminder-cell>span:first-child{display:grid;gap:2px;min-width:0}
+.reminder-cell strong{font-size:11px}
+.reminder-cell small{font-size:10px;color:var(--muted);white-space:normal}
+.reminder-actions{display:grid;justify-items:end;gap:5px;white-space:nowrap}
+.reminder-actions>b{font-size:11px;font-variant-numeric:tabular-nums}
+.reminder-pdf-link{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:0 9px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);font-size:10px;font-weight:800;text-decoration:none}
+.reminder-pdf-link:hover{border-color:#aaa;background:#f5f5f2}
+.context-menu{min-width:230px}
+.comments{max-height:280px;overflow:auto;overscroll-behavior:contain}
+.comment{padding:12px 0;border-bottom:1px solid var(--line)}
+.comment:last-child{border-bottom:0}
+@media(max-width:720px){
+  .reminder-cell{align-items:flex-start;flex-direction:column}
+  .reminder-actions{justify-items:start}
+}

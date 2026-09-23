@@ -5,6 +5,7 @@ const StoreContract=require('./private-object-store-contract.js');
 const DocumentProvider=require('./sqlite-document-private-object-provider.js');
 const SupplierInvoiceProvider=require('./sqlite-supplier-invoice-private-object-provider.js');
 const CustomerInvoiceProvider=require('./sqlite-customer-invoice-private-object-provider.js');
+const PaymentReminderProvider=require('./sqlite-payment-reminder-private-object-provider.js');
 
 const DEFAULT_PROVIDER='sqlite';
 const SUPPORTED_PROVIDERS=Object.freeze([DEFAULT_PROVIDER]);
@@ -38,6 +39,8 @@ function sqliteProviderForKind(db,kind){
       return SupplierInvoiceProvider.createSqliteSupplierInvoicePrivateObjectProvider(db);
     case PrivateObject.PRIVATE_OBJECT_KINDS.CUSTOMER_INVOICE_PDF:
       return CustomerInvoiceProvider.createSqliteCustomerInvoicePrivateObjectProvider(db);
+    case PrivateObject.PRIVATE_OBJECT_KINDS.PAYMENT_REMINDER_PDF:
+      return PaymentReminderProvider.createSqlitePaymentReminderPrivateObjectProvider(db);
     default:
       throw factoryError(
         `Privat objekttyp "${String(kind??'')}" stöds inte av lagringsfactoryn.`,

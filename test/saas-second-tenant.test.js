@@ -149,7 +149,7 @@ test('kund nummer två kan ställa ut egen faktura först efter verifierad ident
   const legacyConfig=await legacyConfigResponse.json();
   assert.equal(legacyConfigResponse.status,200);
   assert.equal(legacyConfig.issuanceReady,false);
-  assert.match(legacyConfig.blocker,/VAT-nummer/i);
+  assert.match(legacyConfig.blocker,/Privata fakturainställningar/i);
 
   Settings.setInvoiceSettings(f.db,{
     companyId:f.b.id,
