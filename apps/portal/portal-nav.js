@@ -265,6 +265,7 @@
     return overlay;
   }
   function mountSidebarToggle(){
+    document.documentElement.classList.add('shared-navigation-enabled');
     document.body.classList.add('shared-navigation-enabled');
     const topbar=document.querySelector('.topbar');
     const sidebar=document.querySelector('.sidebar.shared-sidebar');
