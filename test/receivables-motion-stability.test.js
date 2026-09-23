@@ -10,9 +10,11 @@ const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 
 test('kundreskontrans sökning filtrerar befintlig DOM utan helomrendering per tecken',()=>{
   const app=read('apps/portal/app.js');
+  const inputHandler=app.match(/document\.addEventListener\('input',event=>\{([\s\S]*?)\n\}\);/);
 
-  assert.match(app,/if\(event\.target\.id==='receivable-search-input'\)\{[\s\S]*?applyReceivableFilterDom\(\);return;/);
-  assert.doesNotMatch(app,/if\(event\.target\.id==='receivable-search-input'\)\{[\s\S]*?renderReceivableResults\(\)/);
+  assert.ok(inputHandler,'input-handlern ska finnas');
+  assert.match(inputHandler[1],/if\(event\.target\.id==='receivable-search-input'\)\{[\s\S]*?applyReceivableFilterDom\(\);return;/);
+  assert.doesNotMatch(inputHandler[1],/renderReceivableResults\(\)/);
 });
 
 test('fakturakommentar behåller utkast medan användaren skriver',()=>{
