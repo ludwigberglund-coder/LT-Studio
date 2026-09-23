@@ -38,6 +38,11 @@ test('customer delete and invoice credit use LT Studio modal flows instead of br
   const creditFlow=invoices.slice(creditStart,creditEnd);
   assert.match(customers,/function customerDeleteModal\(\)/);
   assert.doesNotMatch(customerDelete,/\bconfirm\s*\(/);
+  const confirmIndex=customerDelete.indexOf("const confirmDelete=event.target.closest('[data-customer-delete-confirm]')");
+  const cancelIndex=customerDelete.indexOf("const cancelDelete=event.target.closest('button[data-customer-delete-cancel]')");
+  assert.ok(confirmIndex>=0&&cancelIndex>confirmIndex,'Bekräfta måste hanteras före avbryt');
+  assert.match(customerDelete,/event\.target\.matches\?\.\('\.modal-backdrop\[data-customer-delete-cancel\]'\)/);
+  assert.doesNotMatch(customerDelete,/event\.target\.closest\('\[data-customer-delete-cancel\]'\)/);
   assert.match(invoices,/function creditInvoiceModal\(\)/);
   assert.match(invoices,/id="credit-invoice-form"/);
   assert.doesNotMatch(creditFlow,/\b(?:confirm|prompt)\s*\(/);
