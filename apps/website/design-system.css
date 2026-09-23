@@ -742,3 +742,17 @@ h1{
   border-radius:999px;
   background:linear-gradient(90deg,var(--brand-peach),var(--brand-gold),var(--brand-leaf));
 }
+
+
+/* Mobile overflow guard for vivid brand accents. */
+.eyebrow{
+  width:fit-content;
+  max-width:100%;
+  white-space:normal;
+  flex-wrap:wrap;
+}
+@media(max-width:560px){
+  html,body{overflow-x:hidden}
+  .hero,.section-shell,.site-footer{max-width:100%}
+  .highlight{min-width:0}
+}
