@@ -222,7 +222,11 @@ function sameOriginAsset(url,base){
           const totalBalanceMetric=page.locator('.metrics .metric').filter({hasText:'Totalt kundsaldo'}).first();
           assert.equal(await totalBalanceMetric.count(),1,`receivables must show a Totalt kundsaldo metric on ${viewport.id}`);
           assert.ok((await totalBalanceMetric.locator('strong').innerText()).trim().length>0,`Totalt kundsaldo must have a value on ${viewport.id}`);
-          await page.evaluate(()=>{document.querySelector('.portal').dataset.stabilityProbe='kept'});
+          await page.evaluate(()=>{
+            document.querySelector('.portal').dataset.stabilityProbe='kept';
+            document.querySelector('.invoice-row[data-invoice-id="demo-i2"]').dataset.stabilityProbe='same-row';
+            document.querySelector('.receivable-customer-card[data-customer-id="K-1002"]').dataset.stabilityProbe='same-card';
+          });
           const search=page.locator('#receivable-search-input');
           assert.equal(await search.count(),1,`portal-index ${viewport.id} must expose receivables search`);
           await search.fill('3');
@@ -230,16 +234,18 @@ function sameOriginAsset(url,base){
           assert.equal(await page.locator('.portal').getAttribute('data-stability-probe'),'kept',`typing in receivables search must not replace the portal DOM on ${viewport.id}`);
           await search.fill('310002');
           await page.waitForTimeout(80);
-          assert.equal(await page.locator('.invoice-row').count(),1,`invoice-number search should resolve to the matching customer's invoice rows on ${viewport.id}`);
+          assert.equal(await page.locator('.invoice-row:visible').count(),1,`invoice-number search should resolve to the matching customer's invoice rows on ${viewport.id}`);
+          assert.equal(await page.locator('.invoice-row[data-invoice-id="demo-i2"]').getAttribute('data-stability-probe'),'same-row',`search must preserve the existing invoice row node on ${viewport.id}`);
+          assert.equal(await page.locator('.receivable-customer-card[data-customer-id="K-1002"]').getAttribute('data-stability-probe'),'same-card',`search must preserve the existing customer card node on ${viewport.id}`);
           assert.match(await page.locator('.invoice-row').first().innerText(),/Nordic Office Göteborg AB/);
           await search.fill('222222-2222');
           await page.waitForTimeout(80);
-          assert.equal(await page.locator('.invoice-row').count(),1,`organisation-number search should resolve to the matching customer's invoice rows on ${viewport.id}`);
+          assert.equal(await page.locator('.invoice-row:visible').count(),1,`organisation-number search should resolve to the matching customer's invoice rows on ${viewport.id}`);
           assert.match(await page.locator('.invoice-row').first().innerText(),/Nordic Office Göteborg AB/);
           await search.fill('Nordic Office');
           await page.waitForTimeout(80);
-          assert.equal(await page.locator('.invoice-row').count(),1,`customer-name search should resolve to the matching customer's invoice rows on ${viewport.id}`);
-          const row=page.locator('.invoice-row').first();
+          assert.equal(await page.locator('.invoice-row:visible').count(),1,`customer-name search should resolve to the matching customer's invoice rows on ${viewport.id}`);
+          const row=page.locator('.invoice-row:visible').first();
           const badge=row.locator('.invoice-rest-badge b');
           const headers=await page.locator('.res-table thead th').allTextContents();
           const restIndex=headers.findIndex(label=>label.trim()==='Restbelopp');
@@ -248,7 +254,7 @@ function sameOriginAsset(url,base){
           assert.equal((await badge.innerText()).trim(),(await restCell.innerText()).trim(),`invoice balance beside customer and Restbelopp column must match on ${viewport.id}`);
           await search.fill('');
           await page.waitForTimeout(80);
-          assert.ok(await page.locator('.invoice-row').count()>=4,`clearing search should restore invoice rows on ${viewport.id}`);
+          assert.ok(await page.locator('.invoice-row:visible').count()>=4,`clearing search should restore invoice rows on ${viewport.id}`);
 
           const commentRow=page.locator('.invoice-row[data-invoice-id="demo-i1"]');
           await commentRow.click({button:'right'});
