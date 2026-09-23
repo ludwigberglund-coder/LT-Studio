@@ -23,7 +23,7 @@ async function createSupplier(form){
   if(!String(payload.supplierNumber||'').trim())throw new Error('Ange leverantörsnummer.');
   if(isDemo){
     const supplier={id:crypto.randomUUID(),supplierNumber:String(payload.supplierNumber).trim(),name:String(payload.name).trim(),orgNumber:String(payload.orgNumber||'').trim(),email:String(payload.email||'').trim(),defaultCostAccount:String(payload.defaultCostAccount||'').trim(),bankgiro:String(payload.bankgiro||'').trim(),plusgiro:String(payload.plusgiro||'').trim()};
-    Demo.patch(state=>{state.suppliers=[...(state.suppliers||[]),supplier];state.supplierHistory[supplier.id]=[]});
+    Demo.patch(state=>{state.suppliers=[...(state.suppliers||[]),supplier];state.supplierHistory??={};state.supplierHistory[supplier.id]=[]});
     syncDemo();selected=suppliers.find(s=>s.id===supplier.id)||null;creating=false;message='Leverantören skapades i det gemensamma demoscenariot.';await loadHistory();return;
   }
   const result=await api('/payables/suppliers',{method:'POST',body:payload});
