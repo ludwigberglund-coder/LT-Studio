@@ -786,7 +786,7 @@ function listReceivables(db,companyId) {
   const invoices = db.prepare(`SELECT i.id,i.company_id AS companyId,i.customer_id AS customerId,i.invoice_number AS invoiceNumber,i.ocr,i.invoice_date AS invoiceDate,
     i.posting_date AS postingDate,i.due_date AS dueDate,i.total_ore AS totalOre,i.remaining_ore AS remainingOre,i.vat_ore AS vatOre,i.status,
     i.payment_method AS paymentMethod,i.payment_account AS paymentAccount,i.invoice_account AS invoiceAccount,i.batch_number AS batchNumber,i.journal_number AS journalNumber,
-    c.customer_number AS customerNumber,c.name AS customerName,c.customer_type AS customerType,c.reminder_fee_agreed AS reminderFeeAgreed
+    c.customer_number AS customerNumber,c.name AS customerName,c.org_number AS customerOrgNumber,c.customer_type AS customerType,c.reminder_fee_agreed AS reminderFeeAgreed
     FROM invoices i JOIN customers c ON c.id=i.customer_id AND c.company_id=i.company_id WHERE i.company_id=? ORDER BY c.name,i.invoice_date DESC,i.invoice_number DESC`).all(companyId);
   const transactionStmt = db.prepare(`SELECT id,transaction_type AS transactionType,payment_method AS paymentMethod,payment_date AS paymentDate,posting_date AS postingDate,
     batch_number AS batchNumber,journal_number AS journalNumber,amount_ore AS amountOre,approved,account,bank_reference AS bankReference,created_at AS createdAt
@@ -805,6 +805,27 @@ function listReceivables(db,companyId) {
     reminders:reminderStmt.all(companyId,invoice.id),
     commentCount:Number(commentCountStmt.get(companyId,invoice.id).count || 0)
   }));
+}
+
+function listCustomerReceivableSummaries(db,companyId) {
+  return db.prepare(`SELECT
+      c.id AS customerId,
+      c.customer_number AS customerNumber,
+      c.name AS customerName,
+      c.org_number AS orgNumber,
+      COUNT(i.id) AS invoiceCount,
+      COALESCE(SUM(i.remaining_ore),0) AS remainingOre,
+      COALESCE(SUM(CASE WHEN i.remaining_ore<>0 THEN 1 ELSE 0 END),0) AS openInvoiceCount
+    FROM customers c
+    LEFT JOIN invoices i ON i.company_id=c.company_id AND i.customer_id=c.id
+    WHERE c.company_id=? AND c.archived_at IS NULL
+    GROUP BY c.id,c.customer_number,c.name,c.org_number
+    ORDER BY c.name,c.customer_number`).all(companyId).map(row=>({
+      ...row,
+      invoiceCount:Number(row.invoiceCount||0),
+      openInvoiceCount:Number(row.openInvoiceCount||0),
+      remainingOre:Number(row.remainingOre||0)
+    }));
 }
 
 function addComment(db, comment) {
@@ -932,6 +953,7 @@ module.exports = Object.freeze({
   transactionById,
   transactionsForInvoice,
   listReceivables,
+  listCustomerReceivableSummaries,
   addComment,
   commentsForInvoice,
   addReminder,

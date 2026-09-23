@@ -218,6 +218,27 @@ function sameOriginAsset(url,base){
           }
         }
 
+        if(surface.id==='portal-index'){
+          const search=page.locator('#receivable-search-input');
+          assert.equal(await search.count(),1,`portal-index ${viewport.id} must expose receivables search`);
+          await search.fill('310002');
+          await page.waitForTimeout(80);
+          assert.equal(await page.locator('.customer-summary-row').count(),1,`invoice-number search should resolve to one customer on ${viewport.id}`);
+          assert.match(await page.locator('.customer-summary-row').innerText(),/Nordic Office Göteborg AB/);
+          await search.fill('222222-2222');
+          await page.waitForTimeout(80);
+          assert.equal(await page.locator('.customer-summary-row').count(),1,`organisation-number search should resolve to one customer on ${viewport.id}`);
+          assert.match(await page.locator('.customer-summary-row').innerText(),/Nordic Office Göteborg AB/);
+          await search.fill('Nordic Office');
+          await page.waitForTimeout(80);
+          assert.equal(await page.locator('.customer-summary-row').count(),1,`customer-name search should resolve to one customer on ${viewport.id}`);
+          const badge=page.locator('.customer-summary-row .customer-rest-badge b');
+          const restCell=page.locator('.customer-summary-row .customer-total-rest b');
+          assert.equal(await badge.innerText(),await restCell.innerText(),`customer badge and receivables total must match on ${viewport.id}`);
+          await search.fill('');
+          await page.waitForTimeout(80);
+          assert.ok(await page.locator('.customer-summary-row').count()>=4,`clearing search should restore customer overview on ${viewport.id}`);
+        }
         checks.push({surface:surface.id,viewport:viewport.id,...state});
         await page.close();
       }
