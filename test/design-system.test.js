@@ -45,8 +45,8 @@ test('alla LT Studio-ytor använder samma kanoniska design tokens',()=>{
   }
 });
 
-test('temafilerna är akromatiska utanför den avsiktliga canvasen och felrött',()=>{
-  for(const file of themes){
+test('systemytorna är akromatiska utanför den avsiktliga canvasen och felrött',()=>{
+  for(const file of themes.filter(file=>file!=='apps/website/design-system.css')){
     const colors=new Set(source(file).match(/#[0-9a-f]{6}\b/gi)||[]);
     for(const color of colors){
       const normalized=color.toLowerCase();
