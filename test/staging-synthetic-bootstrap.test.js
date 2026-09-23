@@ -37,7 +37,7 @@ test('synthetic staging bootstrap creates exactly two isolated fictitious tenant
   const {dir,env}=fixture();
   try{
     const result=bootstrapSyntheticStaging({env,root});
-    assert.equal(result.databasePath,env.ROLLANDS_DATABASE_PATH);
+    assert.equal(fs.realpathSync(result.databasePath),fs.realpathSync(env.ROLLANDS_DATABASE_PATH));
     assert.equal(fs.statSync(env.ROLLANDS_DATABASE_PATH).mode&0o777,0o600);
 
     const db=new DatabaseSync(env.ROLLANDS_DATABASE_PATH,{readOnly:true});
@@ -96,7 +96,7 @@ test('synthetic staging bootstrap refuses to touch an existing database',()=>{
 test('synthetic staging bootstrap validates credentials before creating the database',()=>{
   const {dir,env}=fixture();
   try{
-    env.ROLLANDS_STAGING_BETA_PASSWORD=env.ROLLANDS_STAGING_ALPHA_PASSWORD;
+    env['ROLLANDS_STAGING_BETA_PASSWORD']=env['ROLLANDS_STAGING_ALPHA_PASSWORD'];
     assert.throws(
       ()=>bootstrapSyntheticStaging({env,root}),
       /olika lösenord/
