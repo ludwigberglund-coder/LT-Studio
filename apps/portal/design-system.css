@@ -1065,7 +1065,7 @@ table {
 .shared-workspace-shell.shared-sidebar-collapsed>.sidebar.shared-sidebar{
   transform:translateX(calc(-100% - 18px))!important;opacity:0;pointer-events:none!important;
 }
-body.shared-navigation-enabled{overflow-x:hidden}
+html.shared-navigation-enabled,body.shared-navigation-enabled{overflow-x:clip}
 body.shared-mobile-nav-lock{overflow:hidden}
 @media(max-width:760px){
   .shared-workspace-shell{grid-template-columns:minmax(0,1fr)!important}
