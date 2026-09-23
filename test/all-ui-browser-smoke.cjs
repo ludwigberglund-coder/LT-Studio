@@ -222,8 +222,12 @@ function sameOriginAsset(url,base){
           const totalBalanceMetric=page.locator('.metrics .metric').filter({hasText:'Totalt kundsaldo'}).first();
           assert.equal(await totalBalanceMetric.count(),1,`receivables must show a Totalt kundsaldo metric on ${viewport.id}`);
           assert.ok((await totalBalanceMetric.locator('strong').innerText()).trim().length>0,`Totalt kundsaldo must have a value on ${viewport.id}`);
+          await page.evaluate(()=>{document.querySelector('.portal').dataset.stabilityProbe='kept'});
           const search=page.locator('#receivable-search-input');
           assert.equal(await search.count(),1,`portal-index ${viewport.id} must expose receivables search`);
+          await search.fill('3');
+          await page.waitForTimeout(50);
+          assert.equal(await page.locator('.portal').getAttribute('data-stability-probe'),'kept',`typing in receivables search must not replace the portal DOM on ${viewport.id}`);
           await search.fill('310002');
           await page.waitForTimeout(80);
           assert.equal(await page.locator('.invoice-row').count(),1,`invoice-number search should resolve to the matching customer's invoice rows on ${viewport.id}`);
@@ -245,6 +249,34 @@ function sameOriginAsset(url,base){
           await search.fill('');
           await page.waitForTimeout(80);
           assert.ok(await page.locator('.invoice-row').count()>=4,`clearing search should restore invoice rows on ${viewport.id}`);
+
+          const commentRow=page.locator('.invoice-row[data-invoice-id="demo-i1"]');
+          await commentRow.click({button:'right'});
+          await page.getByRole('button',{name:'Skriv kommentar'}).click();
+          const commentDraft=page.locator('#invoice-comment-draft');
+          await commentDraft.fill('UAT-kommentar som ska ligga kvar.');
+          assert.equal(await page.locator('.portal').getAttribute('data-stability-probe'),'kept',`typing a comment must not replace the portal DOM on ${viewport.id}`);
+          assert.equal(await commentDraft.isVisible(),true,`comment composer must remain visible while typing on ${viewport.id}`);
+          await page.getByRole('button',{name:'Spara kommentar'}).click();
+          await page.waitForTimeout(80);
+          assert.match(await page.locator('.comments').innerText(),/UAT-kommentar som ska ligga kvar/);
+          await page.getByRole('button',{name:'Stäng'}).click();
+          await commentRow.click({button:'right'});
+          await page.getByRole('button',{name:'Visa kommentar'}).click();
+          assert.match(await page.locator('.comments').innerText(),/UAT-kommentar som ska ligga kvar/,`saved comment must reopen from context menu on ${viewport.id}`);
+          await page.getByRole('button',{name:'Stäng'}).click();
+
+          await commentRow.click({button:'right'});
+          await page.getByRole('button',{name:'Skapa betalningspåminnelse'}).click();
+          const reminderModal=page.locator('.modal').filter({hasText:'Betalningspåminnelse'});
+          await reminderModal.locator('input[name="includeReminderFee"]').check();
+          await reminderModal.getByRole('button',{name:'Beräkna'}).click();
+          await page.waitForTimeout(80);
+          await reminderModal.getByRole('button',{name:'Registrera påminnelse'}).click();
+          await page.waitForTimeout(80);
+          assert.ok(await page.locator('.reminder-row').count()>=1,`registered reminder must appear directly under its invoice on ${viewport.id}`);
+          assert.match(await page.locator('.reminder-row').first().innerText(),/Betalningspåminnelse/);
+
         }
         checks.push({surface:surface.id,viewport:viewport.id,...state});
         await page.close();
