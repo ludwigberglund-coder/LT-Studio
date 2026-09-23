@@ -1186,3 +1186,34 @@ body.shared-mobile-nav-lock{overflow:hidden}
     transform:none!important;
   }
 }
+
+
+/* Kundreskontra: stabil arbetsyta.
+ * Stora paneler ska inte flytta sig under sökning, tabellarbete eller högerklick.
+ * Rörelse ligger i stället på kort, knappar, menyer och dialoger.
+ */
+.receivable-search.panel,
+.receivable-overview.panel,
+.content > .panel {
+  will-change: auto;
+}
+.receivable-search.panel:hover,
+.receivable-overview.panel:hover,
+.content > .panel:hover {
+  transform: none;
+  box-shadow: var(--shadow-subtle);
+}
+.receivable-customer-card {
+  transition:
+    transform var(--motion-fast) var(--motion-spring),
+    box-shadow var(--motion-base) var(--motion-ease),
+    border-color var(--motion-base) ease,
+    background-color var(--motion-base) ease;
+}
+.receivable-customer-card:active {
+  transform: translateY(1px) scale(.985);
+  transition-duration: 80ms;
+}
+.res-table .invoice-row {
+  will-change: auto;
+}
