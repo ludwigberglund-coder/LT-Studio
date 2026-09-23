@@ -40,13 +40,13 @@ test('alla LT Studio-ytor använder samma kanoniska design tokens',()=>{
     }
     assert.match(css,/--font-geist:\s*["']Geist["']/,`${file} måste använda Geist-stacken`);
     assert.match(css,/--shadow-subtle:/,`${file} måste använda den diskreta kortskuggan`);
-    assert.doesNotMatch(css,/(?:linear|radial)-gradient\(/,`${file} får inte återinföra gradienter`);
+    if(file!=='apps/website/design-system.css')assert.doesNotMatch(css,/(?:linear|radial)-gradient\(/,`${file} får inte återinföra gradienter`);
     assert.match(css,/@media \(prefers-reduced-motion: reduce\)/,`${file} måste respektera reducerad rörelse`);
   }
 });
 
-test('temafilerna är akromatiska utanför den avsiktliga canvasen och felrött',()=>{
-  for(const file of themes){
+test('systemytorna är akromatiska utanför den avsiktliga canvasen och felrött',()=>{
+  for(const file of themes.filter(file=>file!=='apps/website/design-system.css')){
     const colors=new Set(source(file).match(/#[0-9a-f]{6}\b/gi)||[]);
     for(const color of colors){
       const normalized=color.toLowerCase();
@@ -56,6 +56,16 @@ test('temafilerna är akromatiska utanför den avsiktliga canvasen och felrött'
       assert.equal(green,blue,`${file} innehåller en otillåten kulör: ${color}`);
     }
   }
+});
+
+test('publika hemsidan får använda den kontrollerade LT Studio-paletten och mjuka gradienter',()=>{
+  const website=source('apps/website/design-system.css');
+  for(const token of ['--brand-forest:#173f32','--brand-peach:#f2b18e','--brand-lime:#dfe9ad','--brand-sky:#dcecf2']){
+    assert.match(website,new RegExp(token.replace('#','\\#')),`hemsidan saknar godkänd varumärkesfärg: ${token}`);
+  }
+  assert.match(website,/(?:linear|radial)-gradient\(/,'hemsidan ska få använda mjuka gradienter');
+  assert.match(website,/--brand-ink:#18342b/,'hemsidan ska använda den mörka gröna textfärgen för kontrast');
+  assert.match(website,/prefers-reduced-motion/,'hemsidan ska fortfarande respektera reducerad rörelse');
 });
 
 test('högspecificerade äldre ytor har uttryckliga moderna överstyrningar',()=>{
