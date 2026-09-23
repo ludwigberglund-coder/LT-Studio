@@ -70,7 +70,7 @@ async function prepareArchive(db,{companyId,invoice,reminder}){
   return Object.freeze({
     reminderNumber,
     documentJson:JSON.stringify(document),
-    createdAt:new Date().toISOString(),
+    createdAt:String(reminder.createdAt||new Date().toISOString()),
     pdfBytes:bytes,
     pdfSha256,
     pdfSizeBytes:bytes.length,
