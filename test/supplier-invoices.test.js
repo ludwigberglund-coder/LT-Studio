@@ -6,6 +6,7 @@ const Domain=require('../packages/payables/supplier-invoices.js');
 const Db=require('../apps/api/database.js');
 const Auth=require('../apps/api/auth.js');
 const Payables=require('../apps/api/payables.js');
+const PayablesRouter=require('../apps/api/payables-router.js');
 const SupplierDocumentStore=require('../apps/api/supplier-invoice-document-store.js');
 const SupplierAccounting=require('../apps/api/supplier-accounting.js');
 
@@ -64,3 +65,20 @@ test('leverantörsfakturans PDF kan beskrivas med provider-neutral företagsisol
   const other=Db.createCompany(db,{legalName:'Leverantör Metadata B AB',displayName:'Metadata B',orgNumber:'559901-4004'});
   assert.equal(Payables.privateObjectMetadata(db,other.id,invoice.id),null);
 }finally{db.close()}});
+
+
+test('sole-user approval exception only applies when current admin/accountant is the only active eligible approver',()=>{
+  const db=Db.openDatabase(':memory:');
+  try{
+    const company=Db.createCompany(db,{legalName:'Ensam UAT AB',displayName:'Ensam UAT',orgNumber:'559900-7788'});
+    const passwordHash=Auth.hashPassword('Sakert testlosenord 2026!');
+    const only=Db.createUser(db,{username:'only-approver',displayName:'Enda användaren',passwordHash});
+    Db.addMembership(db,{companyId:company.id,userId:only.id,role:'admin'});
+    assert.equal(PayablesRouter.soleUserApprovalAllowed(db,{companyId:company.id,userId:only.id,role:'admin'}),true);
+    assert.equal(PayablesRouter.soleUserApprovalAllowed(db,{companyId:company.id,userId:only.id,role:'approver'}),false);
+
+    const second=Db.createUser(db,{username:'second-approver',displayName:'Andra attestanten',passwordHash});
+    Db.addMembership(db,{companyId:company.id,userId:second.id,role:'approver'});
+    assert.equal(PayablesRouter.soleUserApprovalAllowed(db,{companyId:company.id,userId:only.id,role:'admin'}),false);
+  }finally{db.close()}
+});
