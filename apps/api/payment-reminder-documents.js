@@ -47,7 +47,7 @@ function buildDocument(db,{companyId,invoice,reminder,reminderNumber}){
     customerNumber:invoice.customerNumber,
     seller,
     buyer,
-    ocr:original.ocr||invoice.ocr||invoice.invoiceNumber,
+    ocr:original?.ocr||invoice.ocr||invoice.invoiceNumber,
     principalOre:reminder.principalOre,
     interestOre:reminder.interestOre,
     reminderFeeOre:reminder.reminderFeeOre,
