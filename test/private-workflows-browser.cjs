@@ -101,9 +101,18 @@ const Settings=require('../apps/api/company-invoice-settings.js');
     assert.equal(Cms.listRevisions(f.db,f.a.id).length,1);checks.push('CMS publication has one revision and honestly describes external publication boundary');
     assert.deepEqual(await page.evaluate(()=>window.__cspFailures),[]);
     await page.goto(f.base+'/portal/payables.html');
-    // Uploaded supplier PDFs must never render inline from the LT Studio origin.
+    // Supplier PDFs stay private and sandboxed. Users may either open them in a separate PDF tab or download the original.
     await page.getByText('Säker PDF-hantering:').waitFor();
     assert.equal(await page.locator('iframe.pdf-frame').count(),0);
+    const openLink=page.getByRole('link',{name:'Öppna PDF',exact:true});
+    const inlineHref=await openLink.getAttribute('href');
+    const inlineUrl=new URL(inlineHref,f.base);
+    assert.equal(inlineUrl.searchParams.get('view'),'inline');
+    const inline=await context.request.get(inlineUrl.toString());
+    assert.equal(inline.status(),200);
+    assert.match(inline.headers()['content-disposition']||'',/^inline;/);
+    assert.match(inline.headers()['content-security-policy']||'',/sandbox/);
+    assert.deepEqual(await inline.body(),f.pdf);
     const downloadLink=page.getByRole('link',{name:'Ladda ner original-PDF',exact:true});
     const href=await downloadLink.getAttribute('href');
     const documentUrl=new URL(href,f.base);
@@ -116,7 +125,7 @@ const Settings=require('../apps/api/company-invoice-settings.js');
     assert.deepEqual(await page.evaluate(()=>window.__cspFailures),[]);
     fs.writeFileSync(path.join(out,'private-supplier-original.pdf'),await original.body());
     await page.screenshot({path:path.join(out,'private-supplier-download-view.png'),fullPage:false});
-    checks.push('Original supplier PDF is private, byte-exact and download-only without inline rendering');
+    checks.push('Original supplier PDF is private, byte-exact and supports separate-tab inline view plus download');
     f.db.prepare('DELETE FROM company_invoice_settings WHERE company_id=?').run(f.a.id);
     await page.goto(f.base+'/portal/invoices.html');
     await page.getByRole('button',{name:'Ny kundfaktura',exact:true}).click();
