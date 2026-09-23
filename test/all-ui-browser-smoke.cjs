@@ -237,11 +237,11 @@ function sameOriginAsset(url,base){
           assert.equal(await page.locator('.invoice-row:visible').count(),1,`invoice-number search should resolve to the matching customer's invoice rows on ${viewport.id}`);
           assert.equal(await page.locator('.invoice-row[data-invoice-id="demo-i2"]').getAttribute('data-stability-probe'),'same-row',`search must preserve the existing invoice row node on ${viewport.id}`);
           assert.equal(await page.locator('.receivable-customer-card[data-customer-id="K-1002"]').getAttribute('data-stability-probe'),'same-card',`search must preserve the existing customer card node on ${viewport.id}`);
-          assert.match(await page.locator('.invoice-row').first().innerText(),/Nordic Office Göteborg AB/);
+          assert.match(await page.locator('.invoice-row:visible').first().innerText(),/Nordic Office Göteborg AB/);
           await search.fill('222222-2222');
           await page.waitForTimeout(80);
           assert.equal(await page.locator('.invoice-row:visible').count(),1,`organisation-number search should resolve to the matching customer's invoice rows on ${viewport.id}`);
-          assert.match(await page.locator('.invoice-row').first().innerText(),/Nordic Office Göteborg AB/);
+          assert.match(await page.locator('.invoice-row:visible').first().innerText(),/Nordic Office Göteborg AB/);
           await search.fill('Nordic Office');
           await page.waitForTimeout(80);
           assert.equal(await page.locator('.invoice-row:visible').count(),1,`customer-name search should resolve to the matching customer's invoice rows on ${viewport.id}`);
