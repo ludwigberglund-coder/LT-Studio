@@ -191,6 +191,28 @@ function sameOriginAsset(url,base){
 
         if(surface.kind==='portal'){
           assert.ok(state.navLinks>=5,`${surface.id} ${viewport.id} rendered too few shared navigation links (${state.navLinks})`);
+          const toggle=page.locator('.shared-menu-toggle');
+          const sidebar=page.locator('.sidebar.shared-sidebar');
+          if(await sidebar.count()){
+            assert.equal(await toggle.count(),1,`${surface.id} ${viewport.id} must render exactly one shared menu toggle`);
+            assert.equal(await toggle.isVisible(),true,`${surface.id} ${viewport.id} menu toggle must always be visible`);
+            if(viewport.id==='mobile'){
+              await toggle.click();
+              await page.waitForTimeout(380);
+              assert.equal(await toggle.getAttribute('aria-expanded'),'true',`${surface.id} mobile menu did not open`);
+              assert.equal(await page.locator('.shared-workspace-shell').evaluate(el=>el.classList.contains('shared-mobile-menu-open')),true,`${surface.id} mobile shell did not enter open state`);
+              await page.keyboard.press('Escape');
+              await page.waitForTimeout(80);
+              assert.equal(await toggle.getAttribute('aria-expanded'),'false',`${surface.id} mobile menu did not close with Escape`);
+            }else{
+              await toggle.click();
+              await page.waitForTimeout(80);
+              assert.equal(await page.locator('.shared-workspace-shell').evaluate(el=>el.classList.contains('shared-sidebar-collapsed')),true,`${surface.id} desktop menu did not collapse`);
+              await toggle.click();
+              await page.waitForTimeout(80);
+              assert.equal(await page.locator('.shared-workspace-shell').evaluate(el=>el.classList.contains('shared-sidebar-collapsed')),false,`${surface.id} desktop menu did not reopen`);
+            }
+          }
         }
 
         checks.push({surface:surface.id,viewport:viewport.id,...state});
