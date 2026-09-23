@@ -705,3 +705,14 @@ td,
 .button:not(:disabled),.icon-button:not(:disabled),.customer-system-link{box-shadow:var(--shadow-subtle)}
 .button:hover:not(:disabled),.icon-button:hover:not(:disabled),.customer-system-link:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgb(0 0 0 / .12)}
 .button:active:not(:disabled),.icon-button:active:not(:disabled),.side-nav button:active,.mobile-nav button:active,.customer-system-link:active{transform:translateY(1px) scale(.98);box-shadow:0 2px 7px rgb(0 0 0 / .10)}
+
+
+/* LT Studio Motion polish — shared interaction layer. */
+:root{--motion-fast:140ms;--motion-base:220ms;--motion-slow:360ms;--motion-ease:cubic-bezier(.22,1,.36,1);--motion-spring:cubic-bezier(.34,1.56,.64,1)}
+@keyframes ltEnter{from{opacity:0;transform:translateY(10px) scale(.992)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes ltMenuIn{from{opacity:0;transform:translateY(-6px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+:where(.button,button:not(:disabled),.side-nav button,.mobile-nav button,.click-row,.panel,.metric){transition:transform var(--motion-fast) var(--motion-ease),box-shadow var(--motion-base) var(--motion-ease),background-color var(--motion-base) ease,border-color var(--motion-base) ease}
+:where(.button,button:not(:disabled),.side-nav button,.mobile-nav button):active{transform:translateY(1px) scale(.975);transition-duration:80ms}
+:where(.panel,.metric):hover{transform:translateY(-2px);box-shadow:0 12px 30px rgb(0 0 0 / .075)}
+:where(.shared-user-dropdown,.column-menu,.context-menu){transform-origin:top right;animation:ltMenuIn var(--motion-base) var(--motion-spring) both}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}:where(.panel,.metric,.side-nav button):hover{transform:none!important}}
