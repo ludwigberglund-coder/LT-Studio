@@ -117,3 +117,18 @@ test('gemensam hamburgarmeny fungerar på mobil och desktop med tillgänglig st�
   assert.match(css,/position:fixed;left:16px;top:calc\(14px \+ env\(safe-area-inset-top\)\)/);
   assert.match(css,/@keyframes lt-sidebar-item-in/);
 });
+
+
+test('sidomenyn värmer nästa portalsida och delar sessionshämtning för snabb navigation',()=>{
+  const js=fs.readFileSync(path.join(portal,'portal-nav.js'),'utf8');
+  assert.match(js,/navigationContextPromise/);
+  assert.match(js,/if\(navigationContextPromise\)return navigationContextPromise/);
+  assert.match(js,/function warmNavigationTarget\(targetHref\)/);
+  assert.match(js,/link\.rel='prefetch'/);
+  assert.match(js,/function bindNavigationWarmup\(link\)/);
+  assert.match(js,/pointerenter/);
+  assert.match(js,/pointerdown/);
+  assert.match(js,/function warmVisibleNavigation\(\)/);
+  assert.match(js,/requestIdleCallback/);
+  assert.match(js,/a\.setAttribute\('aria-current','page'\)/);
+});
