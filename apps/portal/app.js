@@ -159,7 +159,7 @@ function table(){
 function contextHtml(){
   if(!contextMenu)return '';
   const invoice=invoiceById(contextMenu.invoiceId),hasComments=Number(invoice?.commentCount||0)>0;
-  return `<div class="context-menu" style="left:${contextMenu.x}px;top:${contextMenu.y}px">${hasComments?`<button data-action="show-comments" data-id="${escapeHtml(contextMenu.invoiceId)}">👁 Visa kommentar</button>`:''}<button data-action="comment" data-id="${escapeHtml(contextMenu.invoiceId)}">💬 Skriv kommentar</button><button data-action="reminder" data-id="${escapeHtml(contextMenu.invoiceId)}">↗ Skapa betalningspåminnelse</button><button data-action="close-context">Avbryt</button></div>`;
+  return `<div class="context-menu" style="left:${contextMenu.x}px;top:${contextMenu.y}px">${hasComments?`<button data-action="show-comments" data-id="${escapeHtml(contextMenu.invoiceId)}">Visa kommentar</button>`:''}<button data-action="comment" data-id="${escapeHtml(contextMenu.invoiceId)}">Skriv kommentar</button><button data-action="reminder" data-id="${escapeHtml(contextMenu.invoiceId)}">Skapa betalningspåminnelse</button><button data-action="close-context">Avbryt</button></div>`;
 }
 
 function commentsModal(){
