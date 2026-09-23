@@ -24,7 +24,7 @@ Exempel som kan importeras:
 
 Anledningen är att ett totalsaldo på 1510 eller 2440 utan de bakomliggande kund- eller leverantörsfakturorna skulle kunna få huvudboken att se korrekt ut samtidigt som reskontran är tom eller felaktig.
 
-Öppna kundfordringar och leverantörsskulder vid systemstart kräver därför ett separat framtida importflöde där varje öppen post och huvudbokssaldot kontrolleras tillsammans.
+Öppna kundfordringar och leverantörsskulder vid systemstart ska därför inte gå genom denna enkla totalsaldoimport. Det finns ett separat systembytesflöde där varje öppen post och huvudbokssaldot kontrolleras och importeras tillsammans.
 
 ## Regler
 
@@ -50,11 +50,11 @@ Kräver personlig session, CSRF och bokföringsåtkomst. Body innehåller `posti
 
 ## Pilotgräns
 
-Detta löser import av vanliga balanskonton. Det löser inte ännu:
+Detta endpoint löser endast import av vanliga balanskonton. Öppna kund- och leverantörsfakturor vid systemstart hanteras i stället av det separata, källanknutna systembytesflödet i `docs/OPENING-MIGRATION-IMPORT.md`.
 
-- öppna kundfakturor vid systemstart,
-- öppna leverantörsfakturor vid systemstart,
-- historiska betalningar,
-- komplett migrering från ett annat ekonomisystem.
+Fortfarande utanför den automatiska första versionen ligger bland annat:
 
-Dessa delar ska byggas och avstämmas som separata, källanknutna flöden.
+- historiska betalningstransaktioner före systemstart,
+- historiska kreditfakturor och negativa öppna saldon,
+- komplett historisk huvudbok från ett annat ekonomisystem,
+- SIE-import.
