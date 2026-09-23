@@ -756,3 +756,12 @@ h1{
   .hero,.section-shell,.site-footer{max-width:100%}
   .highlight{min-width:0}
 }
+
+
+/* Keep decorative hero blobs from expanding the mobile page canvas. */
+@media(max-width:900px){
+  .hero{
+    overflow:hidden;
+    overflow:clip;
+  }
+}
