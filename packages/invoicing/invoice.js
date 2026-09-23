@@ -92,7 +92,7 @@
       const label=`Rad ${index+1}`,revenueAccount=text(row.revenueAccount,`${label}: intäktskonto`,4,true);
       if(!lookup.has(revenueAccount))throw new Error(`${label}: välj ett intäktskonto från kontoplanen.`);
       const quantityMilli=Money.parseQuantityMilli(row.quantity,{label:`${label}: antal`});
-      const unitPriceOre=Money.parseOre(row.unitPrice,{label:`${label}: à-pris`,allowNegative:false});
+      const unitPriceOre=Money.parseOre(row.unitPrice,{label:`${label}: à-pris`,allowNegative:true});
       const vatTreatment=text(row.vatTreatment,`${label}: typ av försäljning`,40,false);
       let vatRate;
       if(vatTreatment){
@@ -112,16 +112,36 @@
     const netOre=Money.sumOre(lines.map(r=>r.netOre)),vatOre=Money.sumOre(lines.map(r=>r.vatOre)),grossOre=Money.sumOre([netOre,vatOre]);
     const totalOre=Money.roundDivide(grossOre,100)*100; // Öresutjämning sker alltid automatiskt.
     Money.assertSafeInteger(totalOre,'Fakturabeloppet');
-    if(totalOre<=0)throw new Error('En kundfaktura måste ha ett positivt totalbelopp.');
+    if(totalOre===0)throw new Error('En kundfaktura får inte ha totalbelopp 0 kr.');
     const invoiceNumber=text(options.invoiceNumber||'UTKAST','Fakturanummer',30,true);
     const result={schemaVersion:3,documentType:'FAKTURA',demo:options.demo!==false,invoiceNumber,ocr:invoiceNumber,seller,buyer,customerNumber:text(input.customerNumber,'Kundnummer',50,true),invoiceDate,dueDate,postingDate,paymentTermsDays,currency:'SEK',lines,netOre,vatOre,totalOre,roundingOre:totalOre-grossOre,freightOre:Money.sumOre(lines.filter(r=>r.kind==='freight').map(r=>r.netOre)),administrationOre:Money.sumOre(lines.filter(r=>r.kind==='administration').map(r=>r.netOre)),vatBreakdown:[25,12,6,0].map(rate=>({rate,netOre:Money.sumOre(lines.filter(r=>r.vatRate===rate).map(r=>r.netOre)),vatOre:Money.sumOre(lines.filter(r=>r.vatRate===rate).map(r=>r.vatOre))})),interestText:INTEREST_TEXT,ourReference:text(input.ourReference,'Vår referens',600),yourReference:text(input.yourReference,'Er referens',600),notes:text(input.notes,'Meddelande på faktura',3000),warnings:[]};
     return result;
   }
+  function signedJournalLine(account,text,amountOre,{positiveSide='credit'}={}){
+    const amount=Number(amountOre||0);
+    if(!amount)return null;
+    const positive=amount>0,abs=Math.abs(amount);
+    const credit=(positiveSide==='credit'&&positive)||(positiveSide==='debit'&&!positive);
+    return {account,text,debitOre:credit?0:abs,creditOre:credit?abs:0};
+  }
   function journalLines(document){
-    const d=document,result=[{account:'1510',text:'Kundfordringar',debitOre:d.totalOre,creditOre:0}],sales=new Map();
-    for(const row of d.lines){const old=sales.get(row.revenueAccount)||{account:row.revenueAccount,text:row.revenueAccountName,debitOre:0,creditOre:0};old.creditOre=Money.sumOre([old.creditOre,row.netOre]);sales.set(row.revenueAccount,old);}
-    result.push(...[...sales.values()].filter(row=>row.creditOre!==0));
-    for(const row of d.vatBreakdown){if(row.vatOre)result.push({account:VAT_ACCOUNTS[row.rate],text:`Utgående moms ${row.rate} %`,debitOre:0,creditOre:row.vatOre});}
+    const d=document,result=[];
+    const receivable=signedJournalLine('1510','Kundfordringar',d.totalOre,{positiveSide:'debit'});
+    if(receivable)result.push(receivable);
+    const sales=new Map();
+    for(const row of d.lines){
+      const current=sales.get(row.revenueAccount)||{account:row.revenueAccount,text:row.revenueAccountName,amountOre:0};
+      current.amountOre=Money.sumOre([current.amountOre,row.netOre]);
+      sales.set(row.revenueAccount,current);
+    }
+    for(const row of sales.values()){
+      const line=signedJournalLine(row.account,row.text,row.amountOre,{positiveSide:'credit'});
+      if(line)result.push(line);
+    }
+    for(const row of d.vatBreakdown){
+      const line=signedJournalLine(VAT_ACCOUNTS[row.rate],`Utgående moms ${row.rate} %`,row.vatOre,{positiveSide:'credit'});
+      if(line)result.push(line);
+    }
     if(d.roundingOre)result.push({account:'3740',text:'Öresutjämning',debitOre:Math.max(0,-d.roundingOre),creditOre:Math.max(0,d.roundingOre)});
     if(Money.sumOre(result.map(r=>r.debitOre))!==Money.sumOre(result.map(r=>r.creditOre)))throw new Error('Verifikationen balanserar inte. Ingen faktura har sparats.');
     return result;

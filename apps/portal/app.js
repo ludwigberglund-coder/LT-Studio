@@ -171,6 +171,7 @@ function receivableSearchBar(){
 }
 function reminderRow(invoice,reminder,columns,visible=true){
   const reminderNumber=reminder.reminderNumber||'Äldre påminnelse';
+  const reminderChargeOre=Number(reminder.reminderFeeOre||0)+Number(reminder.interestOre||0)+Number(reminder.businessCompensationOre||reminder.businessLatePaymentCompensationOre||0);
   const row={
     period:String(reminder.reminderDate||'').slice(0,7),
     aviType:'Betalningspåminnelse',
@@ -178,7 +179,7 @@ function reminderRow(invoice,reminder,columns,visible=true){
     paymentAccount:invoice.paymentAccount||'',
     invoiceNumber:reminderNumber,
     invoicePostingDate:reminder.reminderDate||'',
-    invoiceAmountOre:Number(reminder.totalDueOre||0),
+    invoiceAmountOre:reminderChargeOre,
     dueDate:invoice.dueDate||'',
     latestReminderDate:reminder.reminderDate||'',
     invoiceAccount:'',
@@ -187,14 +188,14 @@ function reminderRow(invoice,reminder,columns,visible=true){
     transactionPostingDate:reminder.reminderDate||'',
     bookingType:'Påminnelse',
     transactionNumber:'',
-    transactionAmountOre:Number(reminder.reminderFeeOre||0)+Number(reminder.interestOre||0)+Number(reminder.businessCompensationOre||reminder.businessLatePaymentCompensationOre||0),
+    transactionAmountOre:reminderChargeOre,
     transactionApproved:'Ja',
     transactionAccount:'',
-    remainingOre:Number(reminder.totalDueOre||0)
+    remainingOre:reminderChargeOre
   };
   const pdf=reminder.pdfSha256?`<a class="button ghost small reminder-pdf-link" href="/api/v1/invoices/${encodeURIComponent(invoice.id)}/reminders/${encodeURIComponent(reminder.id)}/pdf" target="_blank" rel="noopener">Visa PDF</a>`:'';
-  const detail=[reminder.reminderFeeOre?`Påminnelseavgift ${ore(reminder.reminderFeeOre)}`:'',reminder.interestOre?`Ränta ${ore(reminder.interestOre)}`:''].filter(Boolean).join(' · ');
-  return `<tr class="reminder-row" data-reminder-id="${escapeHtml(reminder.id)}" data-customer-id="${escapeHtml(invoice.customerId||'')}" ${visible?'':'hidden'}><td class="customer-cell"><div class="reminder-cell"><span><b>↳ Betalningspåminnelse</b><strong>${escapeHtml(reminderNumber)}</strong><small>Avser faktura ${escapeHtml(invoice.invoiceNumber||'—')}${detail?` · ${escapeHtml(detail)}`:''}</small></span><span class="reminder-actions"><b>${ore(reminder.totalDueOre)}</b>${pdf}</span></div></td>${columns.map(column=>cell(column,row)).join('')}</tr>`;
+  const detail=[reminder.reminderFeeOre?`Påminnelseavgift ${ore(reminder.reminderFeeOre)}`:'',reminder.interestOre?`Ränta ${ore(reminder.interestOre)}`:'',Number(reminder.businessCompensationOre||reminder.businessLatePaymentCompensationOre||0)?`Förseningsersättning ${ore(reminder.businessCompensationOre||reminder.businessLatePaymentCompensationOre)}`:''].filter(Boolean).join(' · ');
+  return `<tr class="reminder-row" data-reminder-id="${escapeHtml(reminder.id)}" data-customer-id="${escapeHtml(invoice.customerId||'')}" ${visible?'':'hidden'}><td class="customer-cell"><div class="reminder-cell"><span><b>↳ Betalningspåminnelse</b><strong>${escapeHtml(reminderNumber)}</strong><small>Avser faktura ${escapeHtml(invoice.invoiceNumber||'—')}${detail?` · ${escapeHtml(detail)}`:''}</small></span><span class="reminder-actions"><small>Påminnelsebelopp</small><b>${ore(reminderChargeOre)}</b>${pdf}</span></div></td>${columns.map(column=>cell(column,row)).join('')}</tr>`;
 }
 function table(){
   const columns=R.RECEIVABLE_COLUMNS.filter(column=>visibleColumns.has(column.id)),ids=matchingCustomerIds();
