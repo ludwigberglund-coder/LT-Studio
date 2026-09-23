@@ -83,7 +83,19 @@ function loginView(error=''){
 
 function sidebar(){return `<aside class="sidebar"><div class="logo"><strong>${escapeHtml(session?.company?.name||'Företaget')}</strong><small>LT STUDIO</small></div><div class="company-pill">${escapeHtml(session?.company?.name||'Företaget')}<br>${mode==='demo'?'Demoföretag':'Skyddad företagsmiljö'}</div><div class="side-group"><span>Arbetsyta</span><button class="side-link disabled">Översikt</button></div><div class="side-group"><span>Försäljning</span><button class="side-link active">Kundreskontra</button><button class="side-link disabled">Kundfakturor</button><button class="side-link disabled">Kunder</button></div><div class="side-group"><span>Ekonomi</span><button class="side-link disabled">Bank & avstämning</button><button class="side-link disabled">Bokföring</button><button class="side-link disabled">Rapporter</button></div><div class="sidebar-footer">${mode==='demo'?'Öppen GitHub Pages-demo. Inga riktiga företagsuppgifter får användas här.':'Servervaliderad session · default deny'}</div></aside>`}
 
-function metrics(){const list=visibleReceivableInvoices().map(withDemoState);const open=list.filter(i=>i.remainingOre>0);const overdue=open.filter(i=>i.dueDate<today());const comments=list.reduce((sum,i)=>sum+(i.commentCount||0),0);return `<section class="metrics"><article class="metric"><span>Totalt kundsaldo</span><strong>${ore(list.reduce((n,i)=>n+Number(i.remainingOre||0),0))}</strong></article><article class="metric"><span>Förfallet</span><strong>${ore(overdue.reduce((n,i)=>n+i.remainingOre,0))}</strong></article><article class="metric"><span>Öppna fakturor</span><strong>${open.length}</strong></article><article class="metric"><span>Interna kommentarer</span><strong>${comments}</strong></article></section>`}
+function metricValues(){
+  const list=visibleReceivableInvoices().map(withDemoState),open=list.filter(i=>i.remainingOre>0),overdue=open.filter(i=>i.dueDate<today());
+  return{
+    total:ore(list.reduce((n,i)=>n+Number(i.remainingOre||0),0)),
+    overdue:ore(overdue.reduce((n,i)=>n+Number(i.remainingOre||0),0)),
+    open:String(open.length),
+    comments:String(list.reduce((sum,i)=>sum+Number(i.commentCount||0),0))
+  };
+}
+function metrics(){
+  const value=metricValues();
+  return `<section class="metrics"><article class="metric"><span>Totalt kundsaldo</span><strong id="receivable-total-balance">${value.total}</strong></article><article class="metric"><span>Förfallet</span><strong id="receivable-overdue-balance">${value.overdue}</strong></article><article class="metric"><span>Öppna fakturor</span><strong id="receivable-open-count">${value.open}</strong></article><article class="metric"><span>Interna kommentarer</span><strong id="receivable-comment-count">${value.comments}</strong></article></section>`;
+}
 
 function columnPicker(){return `<details class="column-picker"><summary>☷ Välj kolumner</summary><div class="column-menu">${R.RECEIVABLE_COLUMNS.map(column=>`<label><input type="checkbox" data-column="${escapeHtml(column.id)}" ${visibleColumns.has(column.id)?'checked':''}>${escapeHtml(column.label)}</label>`).join('')}<button class="button ghost small" data-action="reset-columns" type="button">Återställ alla</button></div></details>`}
 
@@ -91,16 +103,19 @@ function cell(column,row){let value=row[column.id];if(column.money)return `<td c
 function mappedTransaction(transaction){return {...transaction,type:transaction.transactionType==='payment'?'payment':transaction.transactionType,method:transaction.paymentMethod,date:transaction.paymentDate,postingDate:transaction.postingDate,batch:transaction.batchNumber,transactionNumber:transaction.journalNumber,bookingType:transaction.transactionType==='payment'?'Inbetalning':transaction.transactionType,amountOre:transaction.amountOre}}
 
 function customerOverview(){
-  const visible=visibleReceivableCustomers();
-  const active=selectedReceivableCustomerId;
-  const cards=visible.map(customer=>`<button type="button" class="receivable-customer-card ${String(customer.customerId)===String(active)?'active':''}" data-action="filter-customer" data-customer-id="${escapeHtml(customer.customerId)}"><span class="receivable-customer-main"><b>${escapeHtml(customer.customerName||'Okänd kund')}</b><small>${escapeHtml(customer.customerNumber||'—')}${customer.orgNumber?` · ${escapeHtml(customer.orgNumber)}`:''}</small></span><span class="receivable-customer-balance"><small>Restbelopp</small><strong>${ore(customer.remainingOre)}</strong><em>${Number(customer.openInvoiceCount||0)} öppna</em></span></button>`).join('');
-  return `<section class="receivable-overview panel"><div class="receivable-overview-head"><div><span class="eyebrow">Kundöversikt</span><h3>Alla kunder</h3><p>Kundidentiteten hämtas från Kunder. Fakturor används endast för saldo och för att hitta vilken kund ett fakturanummer tillhör.</p></div><span class="receivable-count">${visible.length} av ${receivableCustomers.length} kunder</span></div><div class="receivable-customer-grid">${cards||'<p class="empty">Ingen kund matchar sökningen.</p>'}</div></section>`;
+  const ids=matchingCustomerIds(),active=selectedReceivableCustomerId;
+  const cards=receivableCustomers.map(customer=>{
+    const visible=ids.has(String(customer.customerId));
+    return `<button type="button" class="receivable-customer-card ${String(customer.customerId)===String(active)?'active':''}" data-action="filter-customer" data-customer-id="${escapeHtml(customer.customerId)}" ${visible?'':'hidden'}><span class="receivable-customer-main"><b>${escapeHtml(customer.customerName||'Okänd kund')}</b><small>${escapeHtml(customer.customerNumber||'—')}${customer.orgNumber?` · ${escapeHtml(customer.orgNumber)}`:''}</small></span><span class="receivable-customer-balance"><small>Restbelopp</small><strong>${ore(customer.remainingOre)}</strong><em>${Number(customer.openInvoiceCount||0)} öppna</em></span></button>`;
+  }).join('');
+  const visibleCount=receivableCustomers.filter(customer=>ids.has(String(customer.customerId))).length;
+  return `<section class="receivable-overview panel"><div class="receivable-overview-head"><div><span class="eyebrow">Kundöversikt</span><h3>Alla kunder</h3><p>Kundidentiteten hämtas från Kunder. Fakturor används endast för saldo och för att hitta vilken kund ett fakturanummer tillhör.</p></div><span id="receivable-customer-count" class="receivable-count">${visibleCount} av ${receivableCustomers.length} kunder</span></div><div class="receivable-customer-grid">${cards}<p id="receivable-customers-empty" class="empty" ${visibleCount?'hidden':''}>Ingen kund matchar sökningen.</p></div></section>`;
 }
 function receivableSearchBar(){
   const filtered=Boolean(normalizeSearch(receivableSearch)||selectedReceivableCustomerId);
   return `<section class="receivable-search panel"><label for="receivable-search-input"><span>Sök kundreskontra</span><input id="receivable-search-input" type="search" autocomplete="off" value="${escapeHtml(receivableSearch)}" placeholder="Sök på kund, organisationsnummer eller fakturanummer"></label><button id="clear-receivable-filter" class="button ghost small ${filtered?'':'is-hidden'}" type="button" data-action="clear-receivable-filter">Visa alla kunder</button></section>`;
 }
-function reminderRow(invoice,reminder,columns){
+function reminderRow(invoice,reminder,columns,visible=true){
   const reminderNumber=reminder.reminderNumber||'Äldre påminnelse';
   const row={
     period:String(reminder.reminderDate||'').slice(0,7),
@@ -125,25 +140,22 @@ function reminderRow(invoice,reminder,columns){
   };
   const pdf=reminder.pdfSha256?`<a class="reminder-pdf-link" href="/api/v1/invoices/${encodeURIComponent(invoice.id)}/reminders/${encodeURIComponent(reminder.id)}/pdf" target="_blank" rel="noopener">Visa PDF</a>`:'';
   const detail=[reminder.reminderFeeOre?`Påminnelseavgift ${ore(reminder.reminderFeeOre)}`:'',reminder.interestOre?`Ränta ${ore(reminder.interestOre)}`:''].filter(Boolean).join(' · ');
-  return `<tr class="reminder-row" data-reminder-id="${escapeHtml(reminder.id)}"><td class="customer-cell"><div class="reminder-cell"><span><b>↳ Betalningspåminnelse</b><strong>${escapeHtml(reminderNumber)}</strong><small>Avser faktura ${escapeHtml(invoice.invoiceNumber||'—')}${detail?` · ${escapeHtml(detail)}`:''}</small></span><span class="reminder-actions"><b>${ore(reminder.totalDueOre)}</b>${pdf}</span></div></td>${columns.map(column=>cell(column,row)).join('')}</tr>`;
+  return `<tr class="reminder-row" data-reminder-id="${escapeHtml(reminder.id)}" data-customer-id="${escapeHtml(invoice.customerId||'')}" ${visible?'':'hidden'}><td class="customer-cell"><div class="reminder-cell"><span><b>↳ Betalningspåminnelse</b><strong>${escapeHtml(reminderNumber)}</strong><small>Avser faktura ${escapeHtml(invoice.invoiceNumber||'—')}${detail?` · ${escapeHtml(detail)}`:''}</small></span><span class="reminder-actions"><b>${ore(reminder.totalDueOre)}</b>${pdf}</span></div></td>${columns.map(column=>cell(column,row)).join('')}</tr>`;
 }
 function table(){
-  const columns=R.RECEIVABLE_COLUMNS.filter(column=>visibleColumns.has(column.id));
+  const columns=R.RECEIVABLE_COLUMNS.filter(column=>visibleColumns.has(column.id)),ids=matchingCustomerIds();
   const head=columns.map(c=>`<th>${escapeHtml(c.label)}</th>`).join('');
-  const visible=visibleReceivableInvoices().map(withDemoState);
-  const bodies=visible.map(invoice=>{
-    const customer=customerSummary(invoice.customerId);
-    const base=R.receivableRow(invoice);
-    const comments=invoice.commentCount||0;
-    const invoiceRest=Number(invoice.remainingOre||0);
-    const invoiceRow=`<tr class="invoice-row" data-invoice-id="${escapeHtml(invoice.id)}"><td class="customer-cell"><div class="customer-identity invoice-customer-identity"><span><b>${escapeHtml(customer.customerNumber||'—')}</b><strong>${escapeHtml(customer.customerName||'Okänd kund')}</strong>${customer.orgNumber?`<small>Org.nr ${escapeHtml(customer.orgNumber)}</small>`:''}</span><span class="invoice-rest-badge"><small>Restbelopp</small><b>${ore(invoiceRest)}</b></span></div>${comments?`<span class="comment-badge">💬 ${comments}</span>`:''}</td>${columns.map(c=>cell(c,base)).join('')}</tr>`;
-    const reminderRows=(invoice.reminders||[]).map(reminder=>reminderRow(invoice,reminder,columns)).join('');
-    const txRows=(invoice.transactions||[]).map(tx=>{const row=R.receivableRow(invoice,mappedTransaction(tx));return `<tr class="transaction-row"><td class="customer-cell"><span>↳ transaktion</span></td>${columns.map(c=>cell(c,row)).join('')}</tr>`}).join('');
+  const bodies=invoices.map(rawInvoice=>{
+    const invoice=withDemoState(rawInvoice),visible=ids.has(String(invoice.customerId)),hidden=visible?'':'hidden';
+    const customer=customerSummary(invoice.customerId),base=R.receivableRow(invoice),comments=invoice.commentCount||0,invoiceRest=Number(invoice.remainingOre||0);
+    const invoiceRow=`<tr class="invoice-row" data-invoice-id="${escapeHtml(invoice.id)}" data-customer-id="${escapeHtml(invoice.customerId||'')}" ${hidden}><td class="customer-cell"><div class="customer-identity invoice-customer-identity"><span><b>${escapeHtml(customer.customerNumber||'—')}</b><strong>${escapeHtml(customer.customerName||'Okänd kund')}</strong>${customer.orgNumber?`<small>Org.nr ${escapeHtml(customer.orgNumber)}</small>`:''}</span><span class="invoice-rest-badge"><small>Restbelopp</small><b>${ore(invoiceRest)}</b></span></div>${comments?`<span class="comment-badge">💬 ${comments}</span>`:''}</td>${columns.map(c=>cell(c,base)).join('')}</tr>`;
+    const reminderRows=(invoice.reminders||[]).map(reminder=>reminderRow(invoice,reminder,columns,visible)).join('');
+    const txRows=(invoice.transactions||[]).map(tx=>{const row=R.receivableRow(invoice,mappedTransaction(tx));return `<tr class="transaction-row" data-customer-id="${escapeHtml(invoice.customerId||'')}" ${hidden}><td class="customer-cell"><span>↳ transaktion</span></td>${columns.map(c=>cell(c,row)).join('')}</tr>`}).join('');
     return invoiceRow+reminderRows+txRows;
   }).join('');
-  return `<div class="table-scroll"><table class="res-table"><thead><tr><th class="customer-cell">Kund</th>${head}</tr></thead><tbody>${bodies||`<tr><td colspan="${columns.length+1}" class="empty">Ingen kundreskontra matchar sökningen.</td></tr>`}</tbody></table></div>`;
+  const visibleCount=invoices.filter(invoice=>ids.has(String(invoice.customerId))).length;
+  return `<div class="table-scroll"><table class="res-table"><thead><tr><th class="customer-cell">Kund</th>${head}</tr></thead><tbody>${bodies}<tr id="receivable-table-empty" ${visibleCount?'hidden':''}><td colspan="${columns.length+1}" class="empty">Ingen kundreskontra matchar sökningen.</td></tr></tbody></table></div>`;
 }
-
 function contextHtml(){
   if(!contextMenu)return '';
   const invoice=invoiceById(contextMenu.invoiceId),hasComments=Number(invoice?.commentCount||0)>0;
@@ -170,10 +182,31 @@ function syncSearchControls(){
   const clear=document.getElementById('clear-receivable-filter');
   if(clear)clear.classList.toggle('is-hidden',!(normalizeSearch(receivableSearch)||selectedReceivableCustomerId));
 }
+function updateReceivableMetricsDom(){
+  const value=metricValues(),pairs=[['receivable-total-balance',value.total],['receivable-overdue-balance',value.overdue],['receivable-open-count',value.open],['receivable-comment-count',value.comments]];
+  for(const [id,textValue] of pairs){const node=document.getElementById(id);if(node)node.textContent=textValue}
+}
+function applyReceivableFilterDom(){
+  const ids=matchingCustomerIds();
+  let customerCount=0,invoiceCount=0;
+  for(const card of document.querySelectorAll('.receivable-customer-card[data-customer-id]')){
+    const visible=ids.has(String(card.dataset.customerId||''));card.hidden=!visible;if(visible)customerCount+=1;
+    card.classList.toggle('active',String(card.dataset.customerId||'')===String(selectedReceivableCustomerId||''));
+  }
+  for(const row of document.querySelectorAll('.invoice-row[data-customer-id],.reminder-row[data-customer-id],.transaction-row[data-customer-id]')){
+    const visible=ids.has(String(row.dataset.customerId||''));row.hidden=!visible;
+    if(visible&&row.classList.contains('invoice-row'))invoiceCount+=1;
+  }
+  const customerCountNode=document.getElementById('receivable-customer-count');
+  if(customerCountNode)customerCountNode.textContent=customerCount+' av '+receivableCustomers.length+' kunder';
+  const customersEmpty=document.getElementById('receivable-customers-empty');
+  if(customersEmpty)customersEmpty.hidden=customerCount>0;
+  const tableEmpty=document.getElementById('receivable-table-empty');
+  if(tableEmpty)tableEmpty.hidden=invoiceCount>0;
+  updateReceivableMetricsDom();syncSearchControls();
+}
 function renderReceivableResults(){
-  const overview=document.getElementById('receivable-overview-region');
-  const metricRegion=document.getElementById('receivable-metrics-region');
-  const tableRegion=document.getElementById('receivable-table-region');
+  const overview=document.getElementById('receivable-overview-region'),metricRegion=document.getElementById('receivable-metrics-region'),tableRegion=document.getElementById('receivable-table-region');
   if(overview)overview.innerHTML=customerOverview();
   if(metricRegion)metricRegion.innerHTML=metrics();
   if(tableRegion)tableRegion.innerHTML=table();
@@ -253,7 +286,7 @@ document.addEventListener('submit',async event=>{
 
 document.addEventListener('input',event=>{
   if(event.target.id==='receivable-search-input'){
-    receivableSearch=event.target.value;selectedReceivableCustomerId='';renderReceivableResults();return;
+    receivableSearch=event.target.value;selectedReceivableCustomerId='';applyReceivableFilterDom();return;
   }
   if(event.target.id==='invoice-comment-draft'&&modal?.type==='comments'){
     modal.draftText=event.target.value;return;
@@ -267,8 +300,8 @@ document.addEventListener('click',async event=>{
   if(!button){if(contextMenu){contextMenu=null;renderOverlays()}return}
   const action=button.dataset.action;
   try{
-    if(action==='filter-customer'){selectedReceivableCustomerId=button.dataset.customerId||'';receivableSearch='';renderReceivableResults();return}
-    if(action==='clear-receivable-filter'){selectedReceivableCustomerId='';receivableSearch='';renderReceivableResults();return}
+    if(action==='filter-customer'){selectedReceivableCustomerId=button.dataset.customerId||'';receivableSearch='';applyReceivableFilterDom();return}
+    if(action==='clear-receivable-filter'){selectedReceivableCustomerId='';receivableSearch='';applyReceivableFilterDom();return}
     if(action==='close-context'){contextMenu=null;renderOverlays();return}
     if(action==='comment'){await openComments(button.dataset.id,{compose:true});return}
     if(action==='show-comments'){await openComments(button.dataset.id,{compose:false});return}
