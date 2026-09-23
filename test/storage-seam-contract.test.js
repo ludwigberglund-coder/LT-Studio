@@ -9,7 +9,8 @@ const API_DIR=path.join(__dirname,'..','apps','api');
 const STORE_FILES=new Set([
   'document-content-store.js',
   'supplier-invoice-document-store.js',
-  'customer-invoice-pdf-archive-store.js'
+  'customer-invoice-pdf-archive-store.js',
+  'payment-reminder-pdf-archive-store.js'
 ]);
 const SCHEMA_FILES=new Map([
   ['documents.js','content_blob'],
@@ -52,7 +53,7 @@ test('binärt dokumentinnehåll går endast genom godkända lagringsgränser i r
   }
 });
 
-test('alla tre privata filflöden har en explicit SQLite-lagringsadapter',()=>{
+test('alla privata filflöden har en explicit SQLite-lagringsadapter',()=>{
   for(const name of STORE_FILES){
     const source=fs.readFileSync(path.join(API_DIR,name),'utf8');
     assert.match(source,/function\s+put\s*\(/,name+' saknar put()');
@@ -89,5 +90,15 @@ test('kundfakturans PDF-runtime använder den centrala provider-factoryn',()=>{
   assert.doesNotMatch(source,/require\('\.\/private-object-store-contract\.js'\)/);
   assert.doesNotMatch(source,/require\('\.\/sqlite-customer-invoice-private-object-provider\.js'\)/);
   assert.doesNotMatch(source,/require\('\.\/customer-invoice-pdf-archive-store\.js'\)/);
+  assert.match(source,/createPrivateObjectStore/);
+});
+
+
+test('betalningspåminnelsens PDF-runtime använder den centrala provider-factoryn',()=>{
+  const source=fs.readFileSync(path.join(API_DIR,'payment-reminder-documents.js'),'utf8');
+  assert.match(source,/require\('\.\/private-object-store-factory\.js'\)/);
+  assert.doesNotMatch(source,/require\('\.\/private-object-store-contract\.js'\)/);
+  assert.doesNotMatch(source,/require\('\.\/sqlite-payment-reminder-private-object-provider\.js'\)/);
+  assert.doesNotMatch(source,/require\('\.\/payment-reminder-pdf-archive-store\.js'\)/);
   assert.match(source,/createPrivateObjectStore/);
 });

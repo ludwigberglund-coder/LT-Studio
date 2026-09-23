@@ -83,7 +83,19 @@ function loginView(error=''){
 
 function sidebar(){return `<aside class="sidebar"><div class="logo"><strong>${escapeHtml(session?.company?.name||'Företaget')}</strong><small>LT STUDIO</small></div><div class="company-pill">${escapeHtml(session?.company?.name||'Företaget')}<br>${mode==='demo'?'Demoföretag':'Skyddad företagsmiljö'}</div><div class="side-group"><span>Arbetsyta</span><button class="side-link disabled">Översikt</button></div><div class="side-group"><span>Försäljning</span><button class="side-link active">Kundreskontra</button><button class="side-link disabled">Kundfakturor</button><button class="side-link disabled">Kunder</button></div><div class="side-group"><span>Ekonomi</span><button class="side-link disabled">Bank & avstämning</button><button class="side-link disabled">Bokföring</button><button class="side-link disabled">Rapporter</button></div><div class="sidebar-footer">${mode==='demo'?'Öppen GitHub Pages-demo. Inga riktiga företagsuppgifter får användas här.':'Servervaliderad session · default deny'}</div></aside>`}
 
-function metrics(){const list=visibleReceivableInvoices().map(withDemoState);const open=list.filter(i=>i.remainingOre>0);const overdue=open.filter(i=>i.dueDate<today());const comments=list.reduce((sum,i)=>sum+(i.commentCount||0),0);return `<section class="metrics"><article class="metric"><span>Totalt kundsaldo</span><strong>${ore(list.reduce((n,i)=>n+Number(i.remainingOre||0),0))}</strong></article><article class="metric"><span>Förfallet</span><strong>${ore(overdue.reduce((n,i)=>n+i.remainingOre,0))}</strong></article><article class="metric"><span>Öppna fakturor</span><strong>${open.length}</strong></article><article class="metric"><span>Interna kommentarer</span><strong>${comments}</strong></article></section>`}
+function metricValues(){
+  const list=visibleReceivableInvoices().map(withDemoState),open=list.filter(i=>i.remainingOre>0),overdue=open.filter(i=>i.dueDate<today());
+  return{
+    total:ore(list.reduce((n,i)=>n+Number(i.remainingOre||0),0)),
+    overdue:ore(overdue.reduce((n,i)=>n+Number(i.remainingOre||0),0)),
+    open:String(open.length),
+    comments:String(list.reduce((sum,i)=>sum+Number(i.commentCount||0),0))
+  };
+}
+function metrics(){
+  const value=metricValues();
+  return `<section class="metrics"><article class="metric"><span>Totalt kundsaldo</span><strong id="receivable-total-balance">${value.total}</strong></article><article class="metric"><span>Förfallet</span><strong id="receivable-overdue-balance">${value.overdue}</strong></article><article class="metric"><span>Öppna fakturor</span><strong id="receivable-open-count">${value.open}</strong></article><article class="metric"><span>Interna kommentarer</span><strong id="receivable-comment-count">${value.comments}</strong></article></section>`;
+}
 
 function columnPicker(){return `<details class="column-picker"><summary>☷ Välj kolumner</summary><div class="column-menu">${R.RECEIVABLE_COLUMNS.map(column=>`<label><input type="checkbox" data-column="${escapeHtml(column.id)}" ${visibleColumns.has(column.id)?'checked':''}>${escapeHtml(column.label)}</label>`).join('')}<button class="button ghost small" data-action="reset-columns" type="button">Återställ alla</button></div></details>`}
 
@@ -91,43 +103,145 @@ function cell(column,row){let value=row[column.id];if(column.money)return `<td c
 function mappedTransaction(transaction){return {...transaction,type:transaction.transactionType==='payment'?'payment':transaction.transactionType,method:transaction.paymentMethod,date:transaction.paymentDate,postingDate:transaction.postingDate,batch:transaction.batchNumber,transactionNumber:transaction.journalNumber,bookingType:transaction.transactionType==='payment'?'Inbetalning':transaction.transactionType,amountOre:transaction.amountOre}}
 
 function customerOverview(){
-  const visible=visibleReceivableCustomers();
-  const active=selectedReceivableCustomerId;
-  const cards=visible.map(customer=>`<button type="button" class="receivable-customer-card ${String(customer.customerId)===String(active)?'active':''}" data-action="filter-customer" data-customer-id="${escapeHtml(customer.customerId)}"><span class="receivable-customer-main"><b>${escapeHtml(customer.customerName||'Okänd kund')}</b><small>${escapeHtml(customer.customerNumber||'—')}${customer.orgNumber?` · ${escapeHtml(customer.orgNumber)}`:''}</small></span><span class="receivable-customer-balance"><small>Restbelopp</small><strong>${ore(customer.remainingOre)}</strong><em>${Number(customer.openInvoiceCount||0)} öppna</em></span></button>`).join('');
-  return `<section class="receivable-overview panel"><div class="receivable-overview-head"><div><span class="eyebrow">Kundöversikt</span><h3>Alla kunder</h3><p>Restbeloppet är summan av kundens fakturor och kommer från samma reskontradata som tabellen nedan.</p></div><span class="receivable-count">${visible.length} av ${receivableCustomers.length} kunder</span></div><div class="receivable-customer-grid">${cards||'<p class="empty">Ingen kund matchar sökningen.</p>'}</div></section>`;
+  const ids=matchingCustomerIds(),active=selectedReceivableCustomerId;
+  const cards=receivableCustomers.map(customer=>{
+    const visible=ids.has(String(customer.customerId));
+    return `<button type="button" class="receivable-customer-card ${String(customer.customerId)===String(active)?'active':''}" data-action="filter-customer" data-customer-id="${escapeHtml(customer.customerId)}" ${visible?'':'hidden'}><span class="receivable-customer-main"><b>${escapeHtml(customer.customerName||'Okänd kund')}</b><small>${escapeHtml(customer.customerNumber||'—')}${customer.orgNumber?` · ${escapeHtml(customer.orgNumber)}`:''}</small></span><span class="receivable-customer-balance"><small>Restbelopp</small><strong>${ore(customer.remainingOre)}</strong><em>${Number(customer.openInvoiceCount||0)} öppna</em></span></button>`;
+  }).join('');
+  const visibleCount=receivableCustomers.filter(customer=>ids.has(String(customer.customerId))).length;
+  return `<section class="receivable-overview panel"><div class="receivable-overview-head"><div><span class="eyebrow">Kundöversikt</span><h3>Alla kunder</h3><p>Kundidentiteten hämtas från Kunder. Fakturor används endast för saldo och för att hitta vilken kund ett fakturanummer tillhör.</p></div><span id="receivable-customer-count" class="receivable-count">${visibleCount} av ${receivableCustomers.length} kunder</span></div><div class="receivable-customer-grid">${cards}<p id="receivable-customers-empty" class="empty" ${visibleCount?'hidden':''}>Ingen kund matchar sökningen.</p></div></section>`;
 }
 function receivableSearchBar(){
   const filtered=Boolean(normalizeSearch(receivableSearch)||selectedReceivableCustomerId);
-  return `<section class="receivable-search panel"><label for="receivable-search-input"><span>Sök kundreskontra</span><input id="receivable-search-input" type="search" autocomplete="off" value="${escapeHtml(receivableSearch)}" placeholder="Sök på kund, organisationsnummer eller fakturanummer"></label>${filtered?'<button class="button ghost small" type="button" data-action="clear-receivable-filter">Visa alla kunder</button>':''}</section>`;
+  return `<section class="receivable-search panel"><label for="receivable-search-input"><span>Sök kundreskontra</span><input id="receivable-search-input" type="search" autocomplete="off" value="${escapeHtml(receivableSearch)}" placeholder="Sök på kund, organisationsnummer eller fakturanummer"></label><button id="clear-receivable-filter" class="button ghost small ${filtered?'':'is-hidden'}" type="button" data-action="clear-receivable-filter">Visa alla kunder</button></section>`;
+}
+function reminderRow(invoice,reminder,columns,visible=true){
+  const reminderNumber=reminder.reminderNumber||'Äldre påminnelse';
+  const row={
+    period:String(reminder.reminderDate||'').slice(0,7),
+    aviType:'Betalningspåminnelse',
+    paymentMethod:invoice.paymentMethod||'Bankgiro',
+    paymentAccount:invoice.paymentAccount||'',
+    invoiceNumber:reminderNumber,
+    invoicePostingDate:reminder.reminderDate||'',
+    invoiceAmountOre:Number(reminder.totalDueOre||0),
+    dueDate:invoice.dueDate||'',
+    latestReminderDate:reminder.reminderDate||'',
+    invoiceAccount:'',
+    batchNumber:'',
+    paymentDate:'',
+    transactionPostingDate:reminder.reminderDate||'',
+    bookingType:'Påminnelse',
+    transactionNumber:'',
+    transactionAmountOre:Number(reminder.reminderFeeOre||0)+Number(reminder.interestOre||0)+Number(reminder.businessCompensationOre||reminder.businessLatePaymentCompensationOre||0),
+    transactionApproved:'Ja',
+    transactionAccount:'',
+    remainingOre:Number(reminder.totalDueOre||0)
+  };
+  const pdf=reminder.pdfSha256?`<a class="button ghost small reminder-pdf-link" href="/api/v1/invoices/${encodeURIComponent(invoice.id)}/reminders/${encodeURIComponent(reminder.id)}/pdf" target="_blank" rel="noopener">Visa PDF</a>`:'';
+  const detail=[reminder.reminderFeeOre?`Påminnelseavgift ${ore(reminder.reminderFeeOre)}`:'',reminder.interestOre?`Ränta ${ore(reminder.interestOre)}`:''].filter(Boolean).join(' · ');
+  return `<tr class="reminder-row" data-reminder-id="${escapeHtml(reminder.id)}" data-customer-id="${escapeHtml(invoice.customerId||'')}" ${visible?'':'hidden'}><td class="customer-cell"><div class="reminder-cell"><span><b>↳ Betalningspåminnelse</b><strong>${escapeHtml(reminderNumber)}</strong><small>Avser faktura ${escapeHtml(invoice.invoiceNumber||'—')}${detail?` · ${escapeHtml(detail)}`:''}</small></span><span class="reminder-actions"><b>${ore(reminder.totalDueOre)}</b>${pdf}</span></div></td>${columns.map(column=>cell(column,row)).join('')}</tr>`;
 }
 function table(){
-  const columns=R.RECEIVABLE_COLUMNS.filter(column=>visibleColumns.has(column.id));
+  const columns=R.RECEIVABLE_COLUMNS.filter(column=>visibleColumns.has(column.id)),ids=matchingCustomerIds();
   const head=columns.map(c=>`<th>${escapeHtml(c.label)}</th>`).join('');
-  const visible=visibleReceivableInvoices().map(withDemoState);
-  const bodies=visible.map(invoice=>{
-    const base=R.receivableRow(invoice);
-    const comments=invoice.commentCount||0;
-    const invoiceRest=Number(invoice.remainingOre||0);
-    const invoiceRow=`<tr class="invoice-row" data-invoice-id="${escapeHtml(invoice.id)}"><td class="customer-cell"><div class="customer-identity invoice-customer-identity"><span><b>${escapeHtml(invoice.customerNumber||'—')}</b><strong>${escapeHtml(invoice.customerName||'Okänd kund')}</strong>${invoice.customerOrgNumber?`<small>Org.nr ${escapeHtml(invoice.customerOrgNumber)}</small>`:''}</span><span class="invoice-rest-badge"><small>Restbelopp</small><b>${ore(invoiceRest)}</b></span></div>${comments?`<span class="comment-badge">💬 ${comments}</span>`:''}</td>${columns.map(c=>cell(c,base)).join('')}</tr>`;
-    const txRows=(invoice.transactions||[]).map(tx=>{const row=R.receivableRow(invoice,mappedTransaction(tx));return `<tr class="transaction-row"><td class="customer-cell"><span>↳ transaktion</span></td>${columns.map(c=>cell(c,row)).join('')}</tr>`}).join('');
-    return invoiceRow+txRows;
+  const bodies=invoices.map(rawInvoice=>{
+    const invoice=withDemoState(rawInvoice),visible=ids.has(String(invoice.customerId)),hidden=visible?'':'hidden';
+    const customer=customerSummary(invoice.customerId),base=R.receivableRow(invoice),comments=invoice.commentCount||0,invoiceRest=Number(invoice.remainingOre||0);
+    const invoiceRow=`<tr class="invoice-row" data-invoice-id="${escapeHtml(invoice.id)}" data-customer-id="${escapeHtml(invoice.customerId||'')}" ${hidden}><td class="customer-cell"><div class="customer-identity invoice-customer-identity"><span><b>${escapeHtml(customer.customerNumber||'—')}</b><strong>${escapeHtml(customer.customerName||'Okänd kund')}</strong>${customer.orgNumber?`<small>Org.nr ${escapeHtml(customer.orgNumber)}</small>`:''}</span><span class="invoice-rest-badge"><small>Restbelopp</small><b>${ore(invoiceRest)}</b></span></div>${comments?`<span class="comment-badge">💬 ${comments}</span>`:''}</td>${columns.map(c=>cell(c,base)).join('')}</tr>`;
+    const reminderRows=(invoice.reminders||[]).map(reminder=>reminderRow(invoice,reminder,columns,visible)).join('');
+    const txRows=(invoice.transactions||[]).map(tx=>{const row=R.receivableRow(invoice,mappedTransaction(tx));return `<tr class="transaction-row" data-customer-id="${escapeHtml(invoice.customerId||'')}" ${hidden}><td class="customer-cell"><span>↳ transaktion</span></td>${columns.map(c=>cell(c,row)).join('')}</tr>`}).join('');
+    return invoiceRow+reminderRows+txRows;
   }).join('');
-  return `<div class="table-scroll"><table class="res-table"><thead><tr><th class="customer-cell">Kund</th>${head}</tr></thead><tbody>${bodies||`<tr><td colspan="${columns.length+1}" class="empty">Ingen kundreskontra matchar sökningen.</td></tr>`}</tbody></table></div>`;
+  const visibleCount=invoices.filter(invoice=>ids.has(String(invoice.customerId))).length;
+  return `<div class="table-scroll"><table class="res-table"><thead><tr><th class="customer-cell">Kund</th>${head}</tr></thead><tbody>${bodies}<tr id="receivable-table-empty" ${visibleCount?'hidden':''}><td colspan="${columns.length+1}" class="empty">Ingen kundreskontra matchar sökningen.</td></tr></tbody></table></div>`;
+}
+function contextHtml(){
+  if(!contextMenu)return '';
+  const invoice=invoiceById(contextMenu.invoiceId),hasComments=Number(invoice?.commentCount||0)>0;
+  return `<div class="context-menu" style="left:${contextMenu.x}px;top:${contextMenu.y}px">${hasComments?`<button data-action="show-comments" data-id="${escapeHtml(contextMenu.invoiceId)}">Visa kommentar</button>`:''}<button data-action="comment" data-id="${escapeHtml(contextMenu.invoiceId)}">Skriv kommentar</button><button data-action="reminder" data-id="${escapeHtml(contextMenu.invoiceId)}">Skapa betalningspåminnelse</button><button data-action="close-context">Avbryt</button></div>`;
 }
 
-function contextHtml(){if(!contextMenu)return '';return `<div class="context-menu" style="left:${contextMenu.x}px;top:${contextMenu.y}px"><button data-action="comment" data-id="${escapeHtml(contextMenu.invoiceId)}">💬 Skriv fakturakommentar</button><button data-action="reminder" data-id="${escapeHtml(contextMenu.invoiceId)}">↗ Skapa betalningspåminnelse</button><button data-action="close-context">Avbryt</button></div>`}
-
-function commentsModal(){const invoice=invoiceById(modal.invoiceId);const list=modal.comments||[];return `<div class="modal-backdrop" data-action="close-modal"><section class="modal" data-stop><header class="modal-head"><div><span class="eyebrow">${escapeHtml(invoice?.invoiceNumber||'Faktura')}</span><h3>Fakturakommentar</h3></div><button data-action="close-modal" aria-label="Stäng">×</button></header><div class="modal-body"><div class="notice">Kommentarer är interna. I skarp drift visas de endast för behöriga användare i samma företag och sparas med namn och tid.</div><div class="comments">${list.map(c=>`<article class="comment"><p>${escapeHtml(c.text)}</p><small>${escapeHtml(c.authorName)} · ${escapeHtml(new Date(c.createdAt).toLocaleString('sv-SE'))}</small></article>`).join('')||'<p class="empty">Ingen kommentar ännu.</p>'}</div><form data-form="comment"><label class="field">Ny kommentar<textarea name="text" maxlength="2000" rows="4" required placeholder="Skriv vad andra behöriga användare behöver känna till…"></textarea></label><p class="form-error"></p><div class="modal-actions"><button type="button" class="button ghost" data-action="close-modal">Avbryt</button><button class="button" type="submit">Spara kommentar</button></div></form></div></section></div>`}
+function commentsModal(){
+  const invoice=invoiceById(modal.invoiceId),list=modal.comments||[],compose=modal.compose===true;
+  const composer=compose?`<form data-form="comment"><label class="field">Ny kommentar<textarea id="invoice-comment-draft" name="text" maxlength="2000" rows="4" required placeholder="Skriv vad andra behöriga användare behöver känna till…">${escapeHtml(modal.draftText||'')}</textarea></label><p class="form-error"></p><div class="modal-actions"><button type="button" class="button ghost" data-action="close-modal">Avbryt</button><button class="button" type="submit">Spara kommentar</button></div></form>`:`<div class="modal-actions"><button type="button" class="button ghost" data-action="close-modal">Stäng</button><button type="button" class="button" data-action="new-comment">Skriv ny kommentar</button></div>`;
+  return `<div class="modal-backdrop" data-action="close-modal"><section class="modal" data-stop><header class="modal-head"><div><span class="eyebrow">${escapeHtml(invoice?.invoiceNumber||'Faktura')}</span><h3>${compose?'Skriv fakturakommentar':'Visa kommentar'}</h3></div><button data-action="close-modal" aria-label="Stäng">×</button></header><div class="modal-body"><div class="notice">Kommentarer är interna och visas endast för behöriga användare i samma företag.</div><div class="comments">${list.map(c=>`<article class="comment"><p>${escapeHtml(c.text)}</p><small>${escapeHtml(c.authorName)} · ${escapeHtml(new Date(c.createdAt).toLocaleString('sv-SE'))}</small></article>`).join('')||'<p class="empty">Ingen kommentar ännu.</p>'}</div>${composer}</div></section></div>`;
+}
 
 function reminderBreakdown(preview){if(!preview)return '<p class="notice warning">Välj datum och inställningar och klicka på Beräkna innan påminnelsen registreras.</p>';return `<div class="reminder-summary"><span>Utestående kapital</span><strong>${ore(preview.principalOre)}</strong><span>Dröjsmålsränta</span><strong>${ore(preview.interestOre)}</strong><span>Påminnelseavgift</span><strong>${ore(preview.reminderFeeOre)}</strong><span>Förseningsersättning</span><strong>${ore(preview.businessLatePaymentCompensationOre)}</strong><span>Totalt enligt underlaget</span><strong>${ore(preview.totalDueOre)}</strong><span>Årsränta vid påminnelsedatum</span><strong>${(preview.statutoryRateOnSentDateBasisPoints/100).toFixed(2).replace('.',',')} %</strong></div>`}
-function reminderModal(){const invoice=invoiceById(modal.invoiceId);const canFee=Boolean(invoice?.reminderFeeAgreed);return `<div class="modal-backdrop" data-action="close-modal"><section class="modal" data-stop><header class="modal-head"><div><span class="eyebrow">${escapeHtml(invoice?.invoiceNumber||'Faktura')}</span><h3>Betalningspåminnelse</h3></div><button data-action="close-modal">×</button></header><div class="modal-body"><div class="notice">Dröjsmålsränta beräknas bara när systemet kan verifiera räntegrunden från den utställda fakturans sparade förfallodatum. Påminnelseavgift kan bara väljas när avgiften är dokumenterat avtalad.</div><form data-form="reminder"><label class="field">Påminnelsedatum<input name="sentDate" type="date" value="${escapeHtml(modal.sentDate||today())}" required></label><label class="field"><span><input name="includeInterest" type="checkbox" checked> Beräkna dröjsmålsränta</span></label><label class="field"><span><input name="includeReminderFee" type="checkbox" ${canFee?'':'disabled'}> Lägg till påminnelseavgift 60 kr ${canFee?'':'(inte avtalad för denna kund)'}</span></label><label class="field"><span><input name="includeBusinessLatePaymentCompensation" type="checkbox"> Lägg till förseningsersättning 450 kr vid B2B-eskalering</span></label><label class="field">Anteckning<textarea name="note" maxlength="1000" rows="3"></textarea></label>${reminderBreakdown(modal.preview)}<p class="form-error">${escapeHtml(modal.error||'')}</p><div class="modal-actions"><button type="button" class="button ghost" data-action="preview-reminder">Beräkna</button><button class="button" type="submit" ${modal.preview?'':'disabled'}>Registrera påminnelse</button></div></form>${mode==='demo'?'<p class="notice warning">Demo: ingen e-post skickas. I backend registreras påminnelsen först; faktisk leverans kopplas senare till e-posttjänst.</p>':''}</div></section></div>`}
+function reminderModal(){
+  const invoice=invoiceById(modal.invoiceId),canFee=Boolean(invoice?.reminderFeeAgreed);
+  const values=modal.formValues||{sentDate:modal.sentDate||today(),includeInterest:true,includeReminderFee:false,includeBusinessLatePaymentCompensation:false,note:''};
+  return `<div class="modal-backdrop" data-action="close-modal"><section class="modal" data-stop><header class="modal-head"><div><span class="eyebrow">${escapeHtml(invoice?.invoiceNumber||'Faktura')}</span><h3>Betalningspåminnelse</h3></div><button data-action="close-modal">×</button></header><div class="modal-body"><div class="notice">Påminnelsen blir en egen underpost till originalfakturan och får ett eget påminnelsenummer samt en utskriftsbar PDF. Dokumentet märks tydligt som betalningspåminnelse och refererar alltid originalfakturan.</div><form data-form="reminder"><label class="field">Påminnelsedatum<input name="sentDate" type="date" value="${escapeHtml(values.sentDate||today())}" required></label><label class="field"><span><input name="includeInterest" type="checkbox" ${values.includeInterest!==false?'checked':''}> Beräkna dröjsmålsränta</span></label><label class="field"><span><input name="includeReminderFee" type="checkbox" ${values.includeReminderFee?'checked':''} ${canFee?'':'disabled'}> Lägg till påminnelseavgift 60 kr ${canFee?'':'(inte avtalad för denna kund)'}</span></label><label class="field"><span><input name="includeBusinessLatePaymentCompensation" type="checkbox" ${values.includeBusinessLatePaymentCompensation?'checked':''}> Lägg till förseningsersättning 450 kr vid B2B-eskalering</span></label><label class="field">Anteckning<textarea name="note" maxlength="1000" rows="3">${escapeHtml(values.note||'')}</textarea></label>${reminderBreakdown(modal.preview)}<p class="form-error">${escapeHtml(modal.error||'')}</p><div class="modal-actions"><button type="button" class="button ghost" data-action="preview-reminder">Beräkna</button><button class="button" type="submit" ${modal.preview?'':'disabled'}>Registrera påminnelse</button></div></form></div></section></div>`;
+}
 function modalHtml(){if(!modal)return '';if(modal.type==='comments')return commentsModal();if(modal.type==='reminder')return reminderModal();return ''}
 
-function portalView(){const userName=session?.user?.displayName || 'Demoanvändare';app.innerHTML=`<div class="portal">${sidebar()}<section class="main"><header class="topbar"><div><h1>Kundreskontra</h1><p>${escapeHtml(session?.company?.name||'Företaget')} / Försäljning / Kundreskontra</p></div><div class="user-chip"><div><b>${escapeHtml(userName)}</b><br><small>${mode==='demo'?'Demo':'Inloggad'}</small></div><div class="avatar">${escapeHtml(initials(userName))}</div>${mode==='api'?'<button class="button ghost small" data-action="logout">Logga ut</button>':''}</div></header><main class="content">${mode==='demo'?'<div class="demo-banner"><b>GitHub Pages-demo.</b> Kommentarer och kolumnval sparas bara i din webbläsare. Riktiga företagsuppgifter ska aldrig användas här.</div>':''}<div class="page-heading"><div><span class="eyebrow">Kundfordringar</span><h2>Fakturor och inbetalningar</h2><p>Överblick per kund samt totalt kundsaldo. Sök på kund, organisationsnummer eller fakturanummer för att öppna endast den kundens reskontra. På varje fakturarad visas fakturans eget restbelopp direkt bredvid kunden.</p></div></div>${receivableSearchBar()}${customerOverview()}${metrics()}<section class="panel"><div class="toolbar"><span class="hint">Varje fakturarad visar fakturans restbelopp både bredvid kunden och i kolumnen Restbelopp.</span>${columnPicker()}</div>${table()}</section></main></section></div>${contextHtml()}${modalHtml()}`}
-
+function syncSearchControls(){
+  const input=document.getElementById('receivable-search-input');
+  if(input&&input.value!==receivableSearch)input.value=receivableSearch;
+  const clear=document.getElementById('clear-receivable-filter');
+  if(clear)clear.classList.toggle('is-hidden',!(normalizeSearch(receivableSearch)||selectedReceivableCustomerId));
+}
+function updateReceivableMetricsDom(){
+  const value=metricValues(),pairs=[['receivable-total-balance',value.total],['receivable-overdue-balance',value.overdue],['receivable-open-count',value.open],['receivable-comment-count',value.comments]];
+  for(const [id,textValue] of pairs){const node=document.getElementById(id);if(node)node.textContent=textValue}
+}
+function applyReceivableFilterDom(){
+  const ids=matchingCustomerIds();
+  let customerCount=0,invoiceCount=0;
+  for(const card of document.querySelectorAll('.receivable-customer-card[data-customer-id]')){
+    const visible=ids.has(String(card.dataset.customerId||''));card.hidden=!visible;if(visible)customerCount+=1;
+    card.classList.toggle('active',String(card.dataset.customerId||'')===String(selectedReceivableCustomerId||''));
+  }
+  for(const row of document.querySelectorAll('.invoice-row[data-customer-id],.reminder-row[data-customer-id],.transaction-row[data-customer-id]')){
+    const visible=ids.has(String(row.dataset.customerId||''));row.hidden=!visible;
+    if(visible&&row.classList.contains('invoice-row'))invoiceCount+=1;
+  }
+  const customerCountNode=document.getElementById('receivable-customer-count');
+  if(customerCountNode)customerCountNode.textContent=customerCount+' av '+receivableCustomers.length+' kunder';
+  const customersEmpty=document.getElementById('receivable-customers-empty');
+  if(customersEmpty)customersEmpty.hidden=customerCount>0;
+  const tableEmpty=document.getElementById('receivable-table-empty');
+  if(tableEmpty)tableEmpty.hidden=invoiceCount>0;
+  updateReceivableMetricsDom();syncSearchControls();
+}
+function renderReceivableResults(){
+  const overview=document.getElementById('receivable-overview-region'),metricRegion=document.getElementById('receivable-metrics-region'),tableRegion=document.getElementById('receivable-table-region');
+  if(overview)overview.innerHTML=customerOverview();
+  if(metricRegion)metricRegion.innerHTML=metrics();
+  if(tableRegion)tableRegion.innerHTML=table();
+  syncSearchControls();
+}
+function renderOverlays(){
+  const host=document.getElementById('portal-overlays');
+  if(host)host.innerHTML=contextHtml()+modalHtml();
+}
+function portalView(){
+  const userName=session?.user?.displayName || 'Demoanvändare';
+  app.innerHTML=`<div class="portal">${sidebar()}<section class="main"><header class="topbar"><div><h1>Kundreskontra</h1><p>${escapeHtml(session?.company?.name||'Företaget')} / Försäljning / Kundreskontra</p></div><div class="user-chip"><div><b>${escapeHtml(userName)}</b><br><small>${mode==='demo'?'Demo':'Inloggad'}</small></div><div class="avatar">${escapeHtml(initials(userName))}</div>${mode==='api'?'<button class="button ghost small" data-action="logout">Logga ut</button>':''}</div></header><main class="content">${mode==='demo'?'<div class="demo-banner"><b>GitHub Pages-demo.</b> Kommentarer och kolumnval sparas bara i din webbläsare. Riktiga företagsuppgifter ska aldrig användas här.</div>':''}<div class="page-heading"><div><span class="eyebrow">Kundfordringar</span><h2>Fakturor och inbetalningar</h2><p>Kundsökningen bygger på kundregistret. Fakturanummer och OCR används endast för att hitta vilken registrerad kund fakturan tillhör.</p></div></div>${receivableSearchBar()}<div id="receivable-overview-region">${customerOverview()}</div><div id="receivable-metrics-region">${metrics()}</div><section class="panel"><div class="toolbar"><span class="hint">Högerklicka på en faktura för kommentarer eller betalningspåminnelse.</span>${columnPicker()}</div><div id="receivable-table-region">${table()}</div></section></main></section></div><div id="portal-overlays"></div>`;
+  renderOverlays();
+}
 async function loadReceivables(){const data=await api('/receivables');invoices=data.invoices||[];receivableCustomers=data.customers||[];portalView()}
-async function openComments(invoiceId){contextMenu=null;let comments;if(mode==='demo')comments=demoComments(invoiceId);else comments=(await api(`/invoices/${encodeURIComponent(invoiceId)}/comments`)).comments;modal={type:'comments',invoiceId,comments};portalView()}
-async function previewReminder(form){const invoice=invoiceById(modal.invoiceId);const values=Object.fromEntries(new FormData(form));const options={sentDate:values.sentDate,includeInterest:values.includeInterest==='on',includeReminderFee:values.includeReminderFee==='on',includeBusinessLatePaymentCompensation:values.includeBusinessLatePaymentCompensation==='on',customerType:invoice.customerType,reminderFeeAgreed:Boolean(invoice.reminderFeeAgreed)};try{const preview=mode==='demo'?R.reminderPreview({...invoice,reminders:[...(invoice.reminders||[]),...demoReminders(invoice.id)]},options,legalRates):(await api(`/invoices/${encodeURIComponent(invoice.id)}/reminders/preview`,{method:'POST',body:options})).preview;modal={...modal,preview,error:'',sentDate:values.sentDate,formValues:values};portalView()}catch(error){modal={...modal,preview:null,error:error.message,sentDate:values.sentDate};portalView()}}
+async function openComments(invoiceId,{compose=false}={}){
+  contextMenu=null;
+  const comments=mode==='demo'?demoComments(invoiceId):(await api('/invoices/'+encodeURIComponent(invoiceId)+'/comments')).comments;
+  modal={type:'comments',invoiceId,comments,draftText:'',compose};
+  renderOverlays();
+  if(compose)requestAnimationFrame(()=>document.getElementById('invoice-comment-draft')?.focus());
+}
+async function previewReminder(form){
+  const invoice=invoiceById(modal.invoiceId);
+  const raw=Object.fromEntries(new FormData(form));
+  const formValues={sentDate:raw.sentDate,includeInterest:raw.includeInterest==='on',includeReminderFee:raw.includeReminderFee==='on',includeBusinessLatePaymentCompensation:raw.includeBusinessLatePaymentCompensation==='on',note:raw.note||''};
+  const options={...formValues,customerType:invoice.customerType,reminderFeeAgreed:Boolean(invoice.reminderFeeAgreed)};
+  try{
+    const preview=mode==='demo'?R.reminderPreview({...invoice,reminders:[...(invoice.reminders||[]),...demoReminders(invoice.id)]},options,legalRates):(await api('/invoices/'+encodeURIComponent(invoice.id)+'/reminders/preview',{method:'POST',body:options})).preview;
+    modal={...modal,preview,error:'',sentDate:formValues.sentDate,formValues};
+  }catch(error){
+    modal={...modal,preview:null,error:error.message,sentDate:formValues.sentDate,formValues};
+  }
+  renderOverlays();
+}
 
 function accessRecoveryView(message='Du saknar behörighet för den här arbetsytan.'){
   app.innerHTML=`<main class="access-recovery"><section class="access-recovery-card"><span class="eyebrow">Behörighet</span><h1>Den här arbetsytan är inte tillgänglig</h1><p>${escapeHtml(message)}</p><p>Du är fortfarande säkert inloggad. Logga ut och byt konto, eller gå till företagets översikt.</p><div class="access-recovery-actions"><button class="button" data-action="logout" type="button">Logga ut och byt konto</button><a class="button ghost" href="./dashboard.html">Gå till översikten</a></div></section></main>`;
@@ -138,21 +252,68 @@ async function boot(){
 document.addEventListener('submit',async event=>{
   const form=event.target;
   if(form.id==='login-form'){event.preventDefault();const values=Object.fromEntries(new FormData(form));try{const data=await api('/auth/login',{method:'POST',body:values});csrfToken=data.csrfToken;sessionStorage.setItem('rollands-csrf',csrfToken);session={user:data.user,company:data.company};loginCompanies=[];await loadReceivables()}catch(error){if(error.code==='COMPANY_REQUIRED'){loginCompanies=error.data.companies||[];loginView('Välj vilket företag du vill öppna.')}else loginView(error.message)}return}
-  if(form.dataset.form==='comment'){event.preventDefault();const text=String(new FormData(form).get('text')||'');try{if(mode==='demo'){const actor={id:'demo-user',name:'Demoanvändare'};const comment=R.createInvoiceComment({invoiceId:modal.invoiceId,companyId:'demo-company',actor,text});const list=[...demoComments(modal.invoiceId),comment];setDemoComments(modal.invoiceId,list);const invoice=invoiceById(modal.invoiceId);invoice.commentCount=list.length;modal={...modal,comments:list};portalView()}else{await api(`/invoices/${encodeURIComponent(modal.invoiceId)}/comments`,{method:'POST',body:{text}});await openComments(modal.invoiceId);await loadReceivables();modal={type:'comments',invoiceId:modal?.invoiceId,comments:(await api(`/invoices/${encodeURIComponent(modal?.invoiceId)}/comments`)).comments};portalView()}}catch(error){const el=form.querySelector('.form-error');if(el)el.textContent=error.message}return}
-  if(form.dataset.form==='reminder'){event.preventDefault();if(!modal.preview)return;const invoice=invoiceById(modal.invoiceId);const values=Object.fromEntries(new FormData(form));const body={sentDate:values.sentDate,includeInterest:values.includeInterest==='on',includeReminderFee:values.includeReminderFee==='on',includeBusinessLatePaymentCompensation:values.includeBusinessLatePaymentCompensation==='on',kind:values.includeBusinessLatePaymentCompensation==='on'?'escalation':'payment-reminder',note:values.note||''};try{if(mode==='demo'){const record=R.createReminderRecord({invoice:{...invoice,reminders:[...(invoice.reminders||[]),...demoReminders(invoice.id)]},companyId:'demo-company',actor:{id:'demo-user',name:'Demoanvändare'},options:{...body,reminderFeeAgreed:Boolean(invoice.reminderFeeAgreed),customerType:invoice.customerType},config:legalRates});setDemoReminders(invoice.id,[...demoReminders(invoice.id),record]);modal=null;portalView()}else{await api(`/invoices/${encodeURIComponent(invoice.id)}/reminders`,{method:'POST',body});modal=null;await loadReceivables()}}catch(error){modal={...modal,error:error.message};portalView()}return}
+  if(form.dataset.form==='comment'){
+    event.preventDefault();
+    const text=String(new FormData(form).get('text')||'');
+    try{
+      let comment;
+      if(mode==='demo'){
+        const actor={id:'demo-user',name:'Demoanvändare'};
+        comment=R.createInvoiceComment({invoiceId:modal.invoiceId,companyId:'demo-company',actor,text});
+        const list=[...demoComments(modal.invoiceId),comment];setDemoComments(modal.invoiceId,list);
+      }else comment=(await api('/invoices/'+encodeURIComponent(modal.invoiceId)+'/comments',{method:'POST',body:{text}})).comment;
+      const invoice=invoiceById(modal.invoiceId);
+      const list=[...(modal.comments||[]),comment];
+      if(invoice)invoice.commentCount=list.length;
+      modal={...modal,comments:list,draftText:'',compose:false,error:''};
+      renderReceivableResults();renderOverlays();
+    }catch(error){const el=form.querySelector('.form-error');if(el)el.textContent=error.message}
+    return;
+  }
+  if(form.dataset.form==='reminder'){
+    event.preventDefault();if(!modal.preview)return;
+    const invoice=invoiceById(modal.invoiceId),raw=Object.fromEntries(new FormData(form));
+    const body={sentDate:raw.sentDate,includeInterest:raw.includeInterest==='on',includeReminderFee:raw.includeReminderFee==='on',includeBusinessLatePaymentCompensation:raw.includeBusinessLatePaymentCompensation==='on',kind:raw.includeBusinessLatePaymentCompensation==='on'?'escalation':'payment-reminder',note:raw.note||''};
+    try{
+      if(mode==='demo'){
+        const record={...R.createReminderRecord({invoice:{...invoice,reminders:[...(invoice.reminders||[]),...demoReminders(invoice.id)]},companyId:'demo-company',actor:{id:'demo-user',name:'Demoanvändare'},options:{...body,reminderFeeAgreed:Boolean(invoice.reminderFeeAgreed),customerType:invoice.customerType},config:legalRates}),reminderNumber:'P-'+invoice.invoiceNumber+'-DEMO01',pdfSha256:''};
+        setDemoReminders(invoice.id,[...demoReminders(invoice.id),record]);modal=null;renderReceivableResults();renderOverlays();
+      }else{await api('/invoices/'+encodeURIComponent(invoice.id)+'/reminders',{method:'POST',body});modal=null;await loadReceivables()}
+    }catch(error){modal={...modal,error:error.message};renderOverlays()}
+    return;
+  }
 });
 
 document.addEventListener('input',event=>{
-  if(event.target.id!=='receivable-search-input')return;
-  receivableSearch=event.target.value;
-  selectedReceivableCustomerId='';
-  const caret=event.target.selectionStart;
-  portalView();
-  const input=document.getElementById('receivable-search-input');
-  if(input){input.focus({preventScroll:true});if(Number.isInteger(caret))input.setSelectionRange(caret,caret);}
+  if(event.target.id==='receivable-search-input'){
+    receivableSearch=event.target.value;selectedReceivableCustomerId='';applyReceivableFilterDom();return;
+  }
+  if(event.target.id==='invoice-comment-draft'&&modal?.type==='comments'){
+    modal.draftText=event.target.value;return;
+  }
 });
-document.addEventListener('change',event=>{const id=event.target.dataset.column;if(!id)return;if(event.target.checked)visibleColumns.add(id);else visibleColumns.delete(id);saveJson(COLUMN_KEY,[...visibleColumns]);portalView()});
-document.addEventListener('contextmenu',event=>{const row=event.target.closest('[data-invoice-id]');if(!row)return;event.preventDefault();contextMenu={invoiceId:row.dataset.invoiceId,x:Math.min(event.clientX,innerWidth-255),y:Math.min(event.clientY,innerHeight-150)};portalView()});
-document.addEventListener('click',async event=>{if(event.target.matches('[data-stop]')||event.target.closest('[data-stop]'))event.stopPropagation();const button=event.target.closest('[data-action]');if(!button){if(contextMenu){contextMenu=null;portalView()}return}const action=button.dataset.action;try{if(action==='filter-customer'){selectedReceivableCustomerId=button.dataset.customerId||'';receivableSearch='';portalView();return}if(action==='clear-receivable-filter'){selectedReceivableCustomerId='';receivableSearch='';portalView();return}if(action==='close-context'){contextMenu=null;portalView()}if(action==='comment')await openComments(button.dataset.id);if(action==='reminder'){contextMenu=null;modal={type:'reminder',invoiceId:button.dataset.id,preview:null,error:'',sentDate:today()};portalView()}if(action==='close-modal'){modal=null;portalView()}if(action==='reset-columns'){visibleColumns=new Set(R.RECEIVABLE_COLUMNS.map(c=>c.id));saveJson(COLUMN_KEY,[...visibleColumns]);portalView()}if(action==='preview-reminder'){const form=button.closest('form');await previewReminder(form)}if(action==='logout'&&mode==='api'){if(csrfToken)await api('/auth/logout',{method:'POST',body:{}}).catch(()=>{});sessionStorage.removeItem('rollands-csrf');csrfToken='';session=null;loginView()}}catch(error){if(modal){modal={...modal,error:error.message};portalView()}}});
+document.addEventListener('change',event=>{const id=event.target.dataset.column;if(!id)return;if(event.target.checked)visibleColumns.add(id);else visibleColumns.delete(id);saveJson(COLUMN_KEY,[...visibleColumns]);renderReceivableResults()});
+document.addEventListener('contextmenu',event=>{const row=event.target.closest('[data-invoice-id]');if(!row)return;event.preventDefault();contextMenu={invoiceId:row.dataset.invoiceId,x:Math.min(event.clientX,innerWidth-270),y:Math.min(event.clientY,innerHeight-190)};renderOverlays()});
+document.addEventListener('click',async event=>{
+  const stopRoot=event.target.closest('[data-stop]');
+  if(stopRoot)event.stopPropagation();
+  const button=event.target.closest('[data-action]');
+  if(stopRoot&&button&&!stopRoot.contains(button))return;
+  if(!button){if(contextMenu){contextMenu=null;renderOverlays()}return}
+  const action=button.dataset.action;
+  try{
+    if(action==='filter-customer'){selectedReceivableCustomerId=button.dataset.customerId||'';receivableSearch='';applyReceivableFilterDom();return}
+    if(action==='clear-receivable-filter'){selectedReceivableCustomerId='';receivableSearch='';applyReceivableFilterDom();return}
+    if(action==='close-context'){contextMenu=null;renderOverlays();return}
+    if(action==='comment'){await openComments(button.dataset.id,{compose:true});return}
+    if(action==='show-comments'){await openComments(button.dataset.id,{compose:false});return}
+    if(action==='new-comment'){modal={...modal,compose:true,draftText:''};renderOverlays();requestAnimationFrame(()=>document.getElementById('invoice-comment-draft')?.focus());return}
+    if(action==='reminder'){contextMenu=null;modal={type:'reminder',invoiceId:button.dataset.id,preview:null,error:'',sentDate:today(),formValues:{sentDate:today(),includeInterest:true,includeReminderFee:false,includeBusinessLatePaymentCompensation:false,note:''}};renderOverlays();return}
+    if(action==='close-modal'){modal=null;renderOverlays();return}
+    if(action==='reset-columns'){visibleColumns=new Set(R.RECEIVABLE_COLUMNS.map(c=>c.id));saveJson(COLUMN_KEY,[...visibleColumns]);renderReceivableResults();return}
+    if(action==='preview-reminder'){await previewReminder(button.closest('form'));return}
+    if(action==='logout'&&mode==='api'){if(csrfToken)await api('/auth/logout',{method:'POST',body:{}}).catch(()=>{});sessionStorage.removeItem('rollands-csrf');csrfToken='';session=null;loginView()}
+  }catch(error){if(modal){modal={...modal,error:error.message};renderOverlays()}}
+});
 
 boot();
