@@ -321,9 +321,10 @@ async function previewReminder(form){
   const invoice=invoiceById(modal.invoiceId);
   const raw=Object.fromEntries(new FormData(form));
   const formValues={sentDate:raw.sentDate,includeInterest:raw.includeInterest==='on',includeReminderFee:raw.includeReminderFee==='on',includeBusinessLatePaymentCompensation:raw.includeBusinessLatePaymentCompensation==='on',note:raw.note||''};
-  const options={...formValues,customerType:invoice.customerType,reminderFeeAgreed:Boolean(invoice.reminderFeeAgreed)};
+  const requestOptions={sentDate:formValues.sentDate,includeInterest:formValues.includeInterest,includeReminderFee:formValues.includeReminderFee,includeBusinessLatePaymentCompensation:formValues.includeBusinessLatePaymentCompensation};
+  const demoOptions={...requestOptions,note:formValues.note,customerType:invoice.customerType,reminderFeeAgreed:Boolean(invoice.reminderFeeAgreed)};
   try{
-    const preview=mode==='demo'?R.reminderPreview({...invoice,reminders:[...(invoice.reminders||[]),...demoReminders(invoice.id)]},options,legalRates):(await api('/invoices/'+encodeURIComponent(invoice.id)+'/reminders/preview',{method:'POST',body:options})).preview;
+    const preview=mode==='demo'?R.reminderPreview({...invoice,reminders:[...(invoice.reminders||[]),...demoReminders(invoice.id)]},demoOptions,legalRates):(await api('/invoices/'+encodeURIComponent(invoice.id)+'/reminders/preview',{method:'POST',body:requestOptions})).preview;
     modal={...modal,preview,error:'',sentDate:formValues.sentDate,formValues};
   }catch(error){
     modal={...modal,preview:null,error:error.message,sentDate:formValues.sentDate,formValues};
