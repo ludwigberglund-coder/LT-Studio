@@ -244,7 +244,7 @@ document.addEventListener('submit',async event=>{
     try{
       if(mode==='demo'){
         const record={...R.createReminderRecord({invoice:{...invoice,reminders:[...(invoice.reminders||[]),...demoReminders(invoice.id)]},companyId:'demo-company',actor:{id:'demo-user',name:'Demoanvändare'},options:{...body,reminderFeeAgreed:Boolean(invoice.reminderFeeAgreed),customerType:invoice.customerType},config:legalRates}),reminderNumber:'P-'+invoice.invoiceNumber+'-DEMO01',pdfSha256:''};
-        setDemoReminders(invoice.id,[...demoReminders(invoice.id),record]);invoice.reminders=[...(invoice.reminders||[]),record];modal=null;renderReceivableResults();renderOverlays();
+        setDemoReminders(invoice.id,[...demoReminders(invoice.id),record]);modal=null;renderReceivableResults();renderOverlays();
       }else{await api('/invoices/'+encodeURIComponent(invoice.id)+'/reminders',{method:'POST',body});modal=null;await loadReceivables()}
     }catch(error){modal={...modal,error:error.message};renderOverlays()}
     return;
