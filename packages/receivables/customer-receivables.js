@@ -203,7 +203,22 @@
     if (!hasLaterPayment && storedRemainingOre !== principalOre) {
       throw domainError('Fakturans restbelopp stämmer inte med den sparade betalningshistoriken. Ränta blockeras tills reskontran är avstämd.', 'BALANCE_HISTORY_MISMATCH', 409);
     }
-    return Object.freeze({dueDate,totalOre,balanceOre:principalOre,events:Object.freeze(events)});
+  
+  function normalizeReceivableSearch(value) {
+    return String(value || '').trim().toLocaleLowerCase('sv-SE');
+  }
+
+  function customerMatchesReceivableSearch(customer, invoices, query) {
+    const needle=normalizeReceivableSearch(query);
+    if(!needle)return true;
+    const identity=[customer?.customerName,customer?.customerNumber,customer?.orgNumber].map(normalizeReceivableSearch);
+    if(identity.some(value=>value.includes(needle)))return true;
+    return (Array.isArray(invoices)?invoices:[]).some(invoice=>
+      [invoice?.invoiceNumber,invoice?.ocr].map(normalizeReceivableSearch).some(value=>value.includes(needle))
+    );
+  }
+
+  return Object.freeze({dueDate,totalOre,balanceOre:principalOre,events:Object.freeze(events)});
   }
 
   function verifiedInterestStart(invoice) {
@@ -413,6 +428,8 @@
 
   return Object.freeze({
     RECEIVABLE_COLUMNS,
+    normalizeReceivableSearch,
+    customerMatchesReceivableSearch,
     assertIsoDate,
     assertOre,
     daysBetween,
