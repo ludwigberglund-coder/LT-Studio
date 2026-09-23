@@ -29,6 +29,12 @@ function rowsForKind(db,kind){
         pdf_sha256 AS sha256,size_bytes AS sizeBytes,created_at AS createdAt,'archived' AS sourceState
         FROM customer_invoice_pdf_archives
         ORDER BY company_id,invoice_id`).all();
+    case PrivateObject.PRIVATE_OBJECT_KINDS.PAYMENT_REMINDER_PDF:
+      return db.prepare(`SELECT id AS objectId,company_id AS companyId,'application/pdf' AS mimeType,
+        pdf_sha256 AS sha256,pdf_size_bytes AS sizeBytes,created_at AS createdAt,'archived' AS sourceState
+        FROM invoice_reminders
+        WHERE pdf_sha256 IS NOT NULL AND pdf_size_bytes IS NOT NULL
+        ORDER BY company_id,id`).all();
     default:
       throw inventoryError('Objekttypen stöds inte av inventeringen.','PRIVATE_OBJECT_INVENTORY_KIND_UNSUPPORTED');
   }
