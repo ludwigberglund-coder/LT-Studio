@@ -8,6 +8,7 @@ const Receivables = require('../../packages/receivables/customer-receivables.js'
 const Auth = require('./auth.js');
 const Db = require('./database.js');
 const CustomerInvoicing = require('./customer-invoicing.js');
+const PaymentReminderDocuments = require('./payment-reminder-documents.js');
 const CompanySettings = require('./company-invoice-settings.js');
 const WebsiteCms = require('./website-cms.js');
 const RequestSecurity = require('./request-security.js');
@@ -680,15 +681,27 @@ function createApiApp(options) {
           config:legalRates
         });
         const requestFingerprint=reminderRequestFingerprint(reminder);
+        const prior=Db.reminderByFingerprint(db,session.companyId,invoice.id,requestFingerprint);
+        if(prior)return send(res,200,{reminder:prior,deliveryStatus:prior.deliveryStatus||'not-sent',duplicate:true});
+        const archive=await PaymentReminderDocuments.prepareArchive(db,{companyId:session.companyId,invoice,reminder});
         const result=Db.transaction(db,()=>{
-          const prior=Db.reminderByFingerprint(db,session.companyId,invoice.id,requestFingerprint);
-          if(prior)return{reminder:prior,duplicate:true};
-          const storedReminder={...reminder,requestFingerprint};
+          const duplicate=Db.reminderByFingerprint(db,session.companyId,invoice.id,requestFingerprint);
+          if(duplicate)return{reminder:duplicate,duplicate:true};
+          const storedReminder={...reminder,...archive,requestFingerprint};
           Db.addReminder(db,storedReminder);
-          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'PAYMENT_REMINDER_CREATED',entityType:'invoice',entityId:invoice.id,details:{reminderId:reminder.id,requestFingerprint,totalDueOre:reminder.totalDueOre,deliveryStatus:'not-sent',interestStartBasis:reminder.interestStartBasis,interestStartEvidenceSource:reminder.interestStartEvidenceSource}});
-          return{reminder:storedReminder,duplicate:false};
+          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'PAYMENT_REMINDER_CREATED',entityType:'invoice',entityId:invoice.id,details:{reminderId:reminder.id,reminderNumber:archive.reminderNumber,requestFingerprint,totalDueOre:reminder.totalDueOre,deliveryStatus:'not-sent',pdfSha256:archive.pdfSha256,interestStartBasis:reminder.interestStartBasis,interestStartEvidenceSource:reminder.interestStartEvidenceSource}});
+          return{reminder:{...storedReminder,pdfBytes:undefined,documentJson:undefined},duplicate:false};
         });
         return send(res,result.duplicate?200:201,{reminder:result.reminder,deliveryStatus:result.reminder.deliveryStatus||'not-sent',duplicate:result.duplicate});
+      }
+
+      const reminderPdfMatch=url.pathname.match(/^\/api\/v1\/invoices\/([^/]+)\/reminders\/([^/]+)\/pdf$/);
+      if(reminderPdfMatch && req.method==='GET') {
+        requirePermission(session,'customer-invoice.view');
+        requireInvoice(session,reminderPdfMatch[1]);
+        const archive=PaymentReminderDocuments.pdfArchive(db,{companyId:session.companyId,invoiceId:reminderPdfMatch[1],reminderId:reminderPdfMatch[2]});
+        res.writeHead(200,{...securityHeaders(),'Content-Type':'application/pdf','Content-Disposition':'inline; filename="'+archive.fileName+'"','Content-Length':archive.sizeBytes,'X-Document-SHA256':archive.pdfSha256,'X-Frame-Options':'SAMEORIGIN','Content-Security-Policy':"default-src 'none'; frame-ancestors 'self'; base-uri 'none'"});
+        res.end(archive.bytes);return;
       }
 
       return send(res,404,{error:'Hittades inte.',code:'NOT_FOUND'});
