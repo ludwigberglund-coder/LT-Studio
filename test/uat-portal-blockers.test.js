@@ -56,7 +56,7 @@ test('payables actions give visible feedback and receivables search stays below 
   const payables=read('apps/portal/payables.js');
   const styles=read('apps/portal/styles.css');
   assert.match(payables,/Konteringen har sparats\. Fakturan väntar nu på attest\./);
-  assert.match(payables,/coding-feedback/);
+  assert.match(payables,/scrollIntoView/);
   assert.match(styles,/\.sidebar\{[^}]*z-index:20/);
   assert.match(styles,/\.topbar\{[^}]*z-index:10/);
   assert.match(styles,/\.receivable-search\{position:relative;z-index:5/);
