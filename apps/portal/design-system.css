@@ -1100,3 +1100,89 @@ body.shared-mobile-nav-lock{overflow:hidden}
   from{opacity:0;transform:translateX(-10px)}
   to{opacity:1;transform:translateX(0)}
 }
+
+
+/* LT Studio Motion polish — tactile, fast and intentionally subtle.
+ * Inspired by Motion's spring/tap/stagger interaction patterns.
+ */
+:root{
+  --motion-fast:140ms;
+  --motion-base:220ms;
+  --motion-slow:360ms;
+  --motion-ease:cubic-bezier(.22,1,.36,1);
+  --motion-spring:cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes ltEnter{
+  from{opacity:0;transform:translateY(10px) scale(.992)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes ltMenuIn{
+  from{opacity:0;transform:translateY(-6px) scale(.985)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes ltModalIn{
+  from{opacity:0;transform:translateY(14px) scale(.975)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes ltBackdropIn{from{opacity:0}to{opacity:1}}
+@keyframes ltPulseSoft{
+  0%,100%{box-shadow:0 0 0 0 rgb(10 10 10 / 0)}
+  50%{box-shadow:0 0 0 5px rgb(10 10 10 / .055)}
+}
+
+:where(.content,.accounting-content,.main>main,.main-content) > :where(.page-heading,.dash-hero,.metrics,.panel,.attention,.roadmap-strip,.queue-panel,.report-panel,.inventory-panel,.documents-panel,.payroll-panel,.sales-panel,.invoice-section,.uat-step){
+  animation:ltEnter var(--motion-slow) var(--motion-ease) both;
+}
+:where(.content,.accounting-content,.main>main,.main-content) > :nth-child(2){animation-delay:35ms}
+:where(.content,.accounting-content,.main>main,.main-content) > :nth-child(3){animation-delay:70ms}
+:where(.content,.accounting-content,.main>main,.main-content) > :nth-child(4){animation-delay:105ms}
+
+:where(.button,button:not(:disabled),.side-link,.shared-links a,.shared-user-trigger,.queue-tab,.report-tab,.automation-filter button,.column-picker summary,.metric,.dash-metric,.module-card,.task-card,.panel,.click-row,.invoice-row){
+  transition:
+    transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-base) var(--motion-ease),
+    border-color var(--motion-base) ease,
+    background-color var(--motion-base) ease,
+    opacity var(--motion-fast) ease;
+  will-change:transform;
+}
+:where(.button,button:not(:disabled),.side-link,.shared-links a,.shared-user-trigger,.queue-tab,.report-tab,.automation-filter button,.column-picker summary):active{
+  transform:translateY(1px) scale(.975);
+  transition-duration:80ms;
+}
+:where(.metric,.dash-metric,.module-card,.task-card,.panel):hover{
+  transform:translateY(-2px);
+  box-shadow:0 12px 30px rgb(0 0 0 / .075);
+}
+:where(.side-link,.shared-links a,.shared-user-trigger,.queue-tab,.report-tab,.automation-filter button):hover{
+  transform:translateX(2px);
+}
+:where(.shared-user-dropdown,.column-menu,.context-menu){
+  transform-origin:top right;
+  animation:ltMenuIn var(--motion-base) var(--motion-spring) both;
+}
+.modal-backdrop{
+  animation:ltBackdropIn var(--motion-base) ease both;
+}
+:where(.modal,.modal-card){
+  transform-origin:center;
+  animation:ltModalIn 300ms var(--motion-spring) both;
+}
+:where(.status-pill,.comment-badge,.nav-badge,.work-pill)[data-live="true"],
+:where(.live-dot,.security-pulse){
+  animation:ltPulseSoft 2.4s ease-in-out infinite;
+}
+:where(input,select,textarea):focus{
+  transition:box-shadow var(--motion-base) var(--motion-ease),outline-color var(--motion-base) ease,border-color var(--motion-base) ease;
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.01ms!important;
+    scroll-behavior:auto!important;
+  }
+  :where(.metric,.dash-metric,.module-card,.task-card,.panel,.side-link,.shared-links a,.shared-user-trigger):hover{
+    transform:none!important;
+  }
+}
