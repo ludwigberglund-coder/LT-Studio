@@ -405,3 +405,49 @@ h3 {
 .header-action:hover,.button:hover,.menu-button:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgb(0 0 0 / .12)}
 .header-action:active,.button:active,.menu-button:active,.map-link:active,.site-navigation a:active{transform:translateY(1px) scale(.98);box-shadow:0 2px 7px rgb(0 0 0 / .10)}
 .service-card:active{transform:translateY(1px) scale(.995)}
+
+
+/* LT Studio Motion polish — tactile, fast and intentionally subtle.
+ * Inspired by Motion's spring/tap/stagger interaction patterns.
+ */
+:root{
+  --motion-fast:140ms;
+  --motion-base:220ms;
+  --motion-slow:420ms;
+  --motion-ease:cubic-bezier(.22,1,.36,1);
+  --motion-spring:cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes siteRise{
+  from{opacity:0;transform:translateY(14px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@keyframes siteFloat{
+  0%,100%{transform:translateY(0) rotate(-2deg)}
+  50%{transform:translateY(-7px) rotate(-1deg)}
+}
+.hero>div:first-child>*{
+  animation:siteRise var(--motion-slow) var(--motion-ease) both;
+}
+.hero>div:first-child>:nth-child(2){animation-delay:55ms}
+.hero>div:first-child>:nth-child(3){animation-delay:110ms}
+.hero>div:first-child>:nth-child(4){animation-delay:165ms}
+.hero>div:first-child>:nth-child(5){animation-delay:220ms}
+.hero-visual{animation:siteRise 560ms var(--motion-ease) 90ms both}
+.visual-card{animation:siteFloat 5.5s ease-in-out 700ms infinite}
+:where(.header-action,.button,.menu-button,.map-link,.site-navigation a,.service-card,.contact-card){
+  transition:
+    transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-base) var(--motion-ease),
+    background-color var(--motion-base) ease,
+    border-color var(--motion-base) ease;
+  will-change:transform;
+}
+:where(.header-action,.button,.menu-button,.map-link):active{transform:translateY(1px) scale(.97);transition-duration:80ms}
+.service-card:hover{transform:translateY(-4px);box-shadow:0 14px 32px rgb(0 0 0 / .08)}
+.site-navigation a:hover{transform:translateY(-1px)}
+.contact-card:hover{transform:translateY(-2px);box-shadow:0 18px 38px rgb(0 0 0 / .18)}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  .visual-card{animation:none!important}
+  :where(.service-card,.contact-card,.site-navigation a):hover{transform:none!important}
+}
