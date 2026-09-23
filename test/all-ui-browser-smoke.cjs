@@ -260,11 +260,11 @@ function sameOriginAsset(url,base){
           await page.getByRole('button',{name:'Spara kommentar'}).click();
           await page.waitForTimeout(80);
           assert.match(await page.locator('.comments').innerText(),/UAT-kommentar som ska ligga kvar/);
-          await page.getByRole('button',{name:'Stäng'}).click();
+          await page.locator('.modal-actions [data-action="close-modal"]').click();
           await commentRow.click({button:'right'});
           await page.getByRole('button',{name:'Visa kommentar'}).click();
           assert.match(await page.locator('.comments').innerText(),/UAT-kommentar som ska ligga kvar/,`saved comment must reopen from context menu on ${viewport.id}`);
-          await page.getByRole('button',{name:'Stäng'}).click();
+          await page.locator('.modal-actions [data-action="close-modal"]').click();
 
           await commentRow.click({button:'right'});
           await page.getByRole('button',{name:'Skapa betalningspåminnelse'}).click();
