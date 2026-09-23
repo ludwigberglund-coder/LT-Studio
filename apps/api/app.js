@@ -610,7 +610,8 @@ function createApiApp(options) {
       if(req.method==='GET' && url.pathname==='/api/v1/receivables') {
         requirePermission(session,'customer-invoice.view');
         const invoices=Db.listReceivables(db,session.companyId);
-        return send(res,200,{columns:Receivables.RECEIVABLE_COLUMNS,invoices});
+        const customers=Db.listCustomerReceivableSummaries(db,session.companyId);
+        return send(res,200,{columns:Receivables.RECEIVABLE_COLUMNS,invoices,customers});
       }
 
       if(req.method==='GET' && url.pathname==='/api/v1/audit') {
