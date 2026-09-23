@@ -1031,3 +1031,71 @@ table {
 ::view-transition-new(root) {
   animation: none;
 }
+
+
+/* Global collapsible navigation — mobile drawer + desktop focus mode.
+   Motion-inspired transform/opacity timing, with reduced-motion handled globally above. */
+.shared-menu-toggle{
+  width:44px;height:44px;min-width:44px;display:inline-grid;place-items:center;
+  border:1px solid var(--color-hairline,#dedede);border-radius:14px;
+  background:var(--color-paper,#fff);color:var(--color-ink,#0a0a0a);
+  box-shadow:0 4px 14px rgb(0 0 0 / .07);cursor:pointer;flex:0 0 auto;
+  -webkit-tap-highlight-color:transparent;
+  transition:transform .24s cubic-bezier(.22,1,.36,1),box-shadow .24s ease,background-color .2s ease;
+}
+.shared-menu-toggle:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgb(0 0 0 / .11)}
+.shared-menu-toggle:active{transform:scale(.94)}
+.shared-menu-toggle .ui-icon{width:22px;height:22px;transition:transform .34s cubic-bezier(.22,1,.36,1)}
+.shared-menu-toggle[aria-expanded="true"] .ui-icon{transform:rotate(90deg) scale(.94)}
+.shared-menu-overlay{
+  position:fixed;inset:0;z-index:78;border:0;margin:0;padding:0;background:rgb(10 10 10 / .34);
+  opacity:0;visibility:hidden;pointer-events:none;backdrop-filter:blur(2px);
+  transition:opacity .28s cubic-bezier(.22,1,.36,1),visibility 0s linear .28s;
+}
+.shared-workspace-shell{
+  transition:grid-template-columns .34s cubic-bezier(.22,1,.36,1);
+}
+.shared-workspace-shell>.sidebar.shared-sidebar{
+  transition:transform .34s cubic-bezier(.22,1,.36,1),opacity .24s ease,box-shadow .34s ease!important;
+  will-change:transform;
+}
+.shared-workspace-shell.shared-sidebar-collapsed{
+  grid-template-columns:0 minmax(0,1fr)!important;
+}
+.shared-workspace-shell.shared-sidebar-collapsed>.sidebar.shared-sidebar{
+  transform:translateX(calc(-100% - 18px))!important;opacity:0;pointer-events:none!important;
+}
+body.shared-mobile-nav-lock{overflow:hidden}
+@media(max-width:760px){
+  .shared-workspace-shell{grid-template-columns:minmax(0,1fr)!important}
+  .shared-workspace-shell>.sidebar.shared-sidebar{
+    display:flex!important;position:fixed!important;inset:0 auto 0 0!important;
+    width:min(86vw,320px)!important;max-width:320px!important;height:100dvh!important;max-height:100dvh!important;
+    padding:calc(76px + env(safe-area-inset-top)) 18px 22px!important;
+    transform:translateX(calc(-100% - 18px))!important;opacity:1!important;
+    pointer-events:none!important;z-index:88!important;box-shadow:22px 0 60px rgb(0 0 0 / .18);
+    overflow-y:auto!important;overscroll-behavior:contain;
+  }
+  .shared-workspace-shell.shared-mobile-menu-open>.sidebar.shared-sidebar{
+    transform:translateX(0)!important;pointer-events:auto!important;
+  }
+  body.shared-mobile-nav-lock .shared-menu-overlay{
+    opacity:1;visibility:visible;pointer-events:auto;transition-delay:0s;
+  }
+  .shared-menu-toggle{
+    position:fixed;left:16px;top:calc(14px + env(safe-area-inset-top));z-index:110;
+    width:46px;height:46px;border-radius:15px;
+  }
+  .shared-workspace-shell .topbar{padding-left:78px!important}
+  .shared-mobile-menu-open .shared-navigation details{
+    animation:lt-sidebar-item-in .36s cubic-bezier(.22,1,.36,1) both;
+  }
+  .shared-mobile-menu-open .shared-navigation details:nth-child(2){animation-delay:.035s}
+  .shared-mobile-menu-open .shared-navigation details:nth-child(3){animation-delay:.07s}
+  .shared-mobile-menu-open .shared-navigation details:nth-child(4){animation-delay:.105s}
+  .shared-mobile-menu-open .shared-navigation details:nth-child(5){animation-delay:.14s}
+}
+@keyframes lt-sidebar-item-in{
+  from{opacity:0;transform:translateX(-10px)}
+  to{opacity:1;transform:translateX(0)}
+}
