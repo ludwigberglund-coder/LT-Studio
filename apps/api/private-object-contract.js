@@ -3,13 +3,15 @@
 const PRIVATE_OBJECT_KINDS=Object.freeze({
   DOCUMENT:'document',
   SUPPLIER_INVOICE:'supplier-invoice',
-  CUSTOMER_INVOICE_PDF:'customer-invoice-pdf'
+  CUSTOMER_INVOICE_PDF:'customer-invoice-pdf',
+  PAYMENT_REMINDER_PDF:'payment-reminder-pdf'
 });
 
 const KIND_PATHS=Object.freeze({
   [PRIVATE_OBJECT_KINDS.DOCUMENT]:'documents',
   [PRIVATE_OBJECT_KINDS.SUPPLIER_INVOICE]:'supplier-invoices',
-  [PRIVATE_OBJECT_KINDS.CUSTOMER_INVOICE_PDF]:'customer-invoices'
+  [PRIVATE_OBJECT_KINDS.CUSTOMER_INVOICE_PDF]:'customer-invoices',
+  [PRIVATE_OBJECT_KINDS.PAYMENT_REMINDER_PDF]:'payment-reminders'
 });
 
 const MAX_PRIVATE_OBJECT_BYTES=15*1024*1024;

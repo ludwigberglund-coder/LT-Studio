@@ -69,6 +69,38 @@ jobs:
   assert.ok(rules.includes('pr-checkout-must-disable-persisted-credentials'));
 });
 
+test('CI trust boundary requires full history checkout for history secret scans',()=>{
+  const shallow=`name: pages
+on:
+  push:
+    branches: [main]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: npm run security:history-scan
+`;
+  const full=`name: pages
+on:
+  push:
+    branches: [main]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: npm run security:history-scan
+`;
+  assert.ok(findingsInWorkflow(shallow).some(hit=>hit.rule==='history-scan-requires-full-checkout'));
+  assert.equal(findingsInWorkflow(full).some(hit=>hit.rule==='history-scan-requires-full-checkout'),false);
+});
+
 test('write permissions are allowed for workflows that cannot run on pull requests',()=>{
   const workflow=`name: deploy
 on:

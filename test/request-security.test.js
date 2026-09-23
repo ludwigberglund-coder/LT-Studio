@@ -66,6 +66,30 @@ test('nästlade faktura- och CMS-fält är allowlistade',()=>{
   assert.throws(()=>Security.validateJsonInput(cms,{expectedRevision:1,site:{...site,script:'alert(1)'},company}),{code:'UNEXPECTED_FIELDS'});
 });
 
+test('kredit och återbetalning har strikt separata inputschema',()=>{
+  const credit=request('/api/v1/customer-invoices/invoice-1/credit',{method:'POST'});
+  assert.doesNotThrow(()=>Security.validateJsonInput(credit,{
+    requestId:'credit-request-0001',creditDate:'2026-09-22',reason:'Delkredit efter prisjustering.',creditAmountOre:50000
+  }));
+  assert.throws(()=>Security.validateJsonInput(credit,{
+    requestId:'credit-request-0001',creditDate:'2026-09-22',reason:'Delkredit efter prisjustering.',creditAmountOre:-1
+  }),{code:'INVALID_INPUT_TYPE'});
+  assert.throws(()=>Security.validateJsonInput(credit,{
+    requestId:'credit-request-0001',creditDate:'2026-09-22',reason:'Delkredit efter prisjustering.',creditAmountOre:50000,refundAccount:'1930'
+  }),{code:'UNEXPECTED_FIELDS'});
+
+  const refund=request('/api/v1/customer-invoices/credit-1/refund',{method:'POST'});
+  assert.doesNotThrow(()=>Security.validateJsonInput(refund,{
+    requestId:'refund-request-0001',refundDate:'2026-09-22',refundAccount:'1930',bankReference:'BANK-REF-1001'
+  }));
+  assert.throws(()=>Security.validateJsonInput(refund,{
+    requestId:'refund-request-0001',refundDate:'2026-09-22',refundAccount:'1910',bankReference:'BANK-REF-1001'
+  }),{code:'INVALID_INPUT_FORMAT'});
+  assert.throws(()=>Security.validateJsonInput(refund,{
+    requestId:'refund-request-0001',refundDate:'2026-09-22',refundAccount:'1930',bankReference:'BANK-REF-1001',amountOre:50000
+  }),{code:'UNEXPECTED_FIELDS'});
+});
+
 test('PDF-uppladdningar har en separat strikt rate-limit-klass',()=>{
   const documentUpload=request('/api/v1/documents/doc-1/content',{method:'PUT'});
   const supplierUpload=request('/api/v1/payables/invoices/inv-1/document',{method:'PUT'});
@@ -156,4 +180,27 @@ test('periodupplåsning har strikt schema för återautentisering',()=>{
   const reject=request('/api/v1/accounting/unlock-requests/request-1/reject',{method:'POST'});
   assert.doesNotThrow(()=>Security.validateJsonInput(reject,{reason:'Begäran avslås efter kontroll'}));
   assert.throws(()=>Security.validateJsonInput(reject,{reason:'Begäran avslås efter kontroll',password:'ska inte tillåtas'}),{code:'UNEXPECTED_FIELDS'});
+});
+
+
+test('företagsinställningar har registrerat strikt inputschema',()=>{
+  const req=request('/api/v1/company-settings',{method:'PUT'});
+  const payload={
+    address:'Testgatan 1, 411 00 Göteborg',
+    email:'ekonomi@example.invalid',
+    phone:'+46 31 000 00 00',
+    website:'https://example.invalid/',
+    vatNumber:'SE000000000001',
+    bankgiro:'0000-0000',
+    taxStatus:'Godkänd för F-skatt'
+  };
+  assert.deepEqual(Security.validateJsonInput(req,payload),payload);
+  assert.throws(
+    ()=>Security.validateJsonInput(req,{...payload,bankgiro:'12'}),
+    error=>error?.code==='INVALID_INPUT_FORMAT'
+  );
+  assert.throws(
+    ()=>Security.validateJsonInput(req,{...payload,unexpected:'x'}),
+    error=>error?.code==='UNEXPECTED_FIELDS'
+  );
 });

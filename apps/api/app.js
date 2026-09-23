@@ -8,6 +8,8 @@ const Receivables = require('../../packages/receivables/customer-receivables.js'
 const Auth = require('./auth.js');
 const Db = require('./database.js');
 const CustomerInvoicing = require('./customer-invoicing.js');
+const PaymentReminderDocuments = require('./payment-reminder-documents.js');
+const CompanySettings = require('./company-invoice-settings.js');
 const WebsiteCms = require('./website-cms.js');
 const RequestSecurity = require('./request-security.js');
 
@@ -390,6 +392,43 @@ function createApiApp(options) {
         return send(res,200,{saved:true,reauthenticate:true,sessionDurationMinutes:requested},{'Set-Cookie':Auth.clearSessionCookie({secure:secureCookies})});
       }
 
+      if(req.method==='GET' && url.pathname==='/api/v1/company-settings') {
+        requirePermission(session,'platform.settings.manage');
+        const company=Db.companyById(db,session.companyId);
+        const stored=CompanySettings.getInvoiceSettings(db,session.companyId);
+        const resolved=CompanySettings.privateProfile(db,session.companyId,companyProfileFor(session.companyId)||{}).profile;
+        return send(res,200,{
+          company:{id:company.id,legalName:company.legalName,displayName:company.displayName,orgNumber:company.orgNumber},
+          settings:{
+            address:String(stored?.address||resolved.address?.full||''),
+            email:String(stored?.email||resolved.contact?.email||''),
+            phone:String(stored?.phone||resolved.contact?.phone||''),
+            website:String(stored?.website||resolved.website||''),
+            vatNumber:String(stored?.vatNumber||resolved.vatNumber||''),
+            bankgiro:String(stored?.bankgiro||''),
+            taxStatus:String(stored?.taxStatus||'')
+          },
+          expectedVatNumber:CompanySettings.expectedVatNumberForOrgNumber(company.orgNumber),
+          configured:Boolean(stored)
+        });
+      }
+
+      if(req.method==='PUT' && url.pathname==='/api/v1/company-settings') {
+        requirePermission(session,'platform.settings.manage');
+        const payload=await readJson(req,res); if(!payload) return;
+        let settings;
+        Db.transaction(db,()=>{
+          settings=CompanySettings.setCompanySettings(db,{
+            companyId:session.companyId,
+            address:payload.address,email:payload.email,phone:payload.phone,website:payload.website,
+            vatNumber:payload.vatNumber,bankgiro:payload.bankgiro,taxStatus:payload.taxStatus,updatedBy:session.userId
+          });
+          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'COMPANY_SETTINGS_UPDATED',entityType:'company',entityId:session.companyId,
+            details:{fields:['address','email','phone','website','vatNumber','bankgiro','taxStatus']}});
+        });
+        return send(res,200,{saved:true,settings});
+      }
+
       if(req.method==='GET' && url.pathname==='/api/v1/customers') {
         requirePermission(session,'customer-invoice.view');
         const includeArchived=url.searchParams.get('includeArchived')==='1';
@@ -545,6 +584,14 @@ function createApiApp(options) {
         return send(res,result.duplicate?200:201,result);
       }
 
+      const customerCreditRefundMatch=url.pathname.match(/^\/api\/v1\/customer-invoices\/([^/]+)\/refund$/);
+      if(customerCreditRefundMatch && req.method==='POST') {
+        requirePermission(session,'customer-invoice.credit');
+        const payload=await readJson(req,res); if(!payload) return;
+        const result=Db.transaction(db,()=>CustomerInvoicing.registerCreditRefund(db,{companyId:session.companyId,userId:session.userId,creditInvoiceId:customerCreditRefundMatch[1],payload}));
+        return send(res,result.duplicate?200:201,result);
+      }
+
       const customerInvoicePdfMatch=url.pathname.match(/^\/api\/v1\/customer-invoices\/([^/]+)\/pdf$/);
       if(customerInvoicePdfMatch && req.method==='GET') {
         requirePermission(session,'customer-invoice.view');
@@ -564,7 +611,8 @@ function createApiApp(options) {
       if(req.method==='GET' && url.pathname==='/api/v1/receivables') {
         requirePermission(session,'customer-invoice.view');
         const invoices=Db.listReceivables(db,session.companyId);
-        return send(res,200,{columns:Receivables.RECEIVABLE_COLUMNS,invoices});
+        const customers=Db.listCustomerReceivableSummaries(db,session.companyId);
+        return send(res,200,{columns:Receivables.RECEIVABLE_COLUMNS,invoices,customers});
       }
 
       if(req.method==='GET' && url.pathname==='/api/v1/audit') {
@@ -633,15 +681,28 @@ function createApiApp(options) {
           config:legalRates
         });
         const requestFingerprint=reminderRequestFingerprint(reminder);
+        const prior=Db.reminderByFingerprint(db,session.companyId,invoice.id,requestFingerprint);
+        if(prior)return send(res,200,{reminder:prior,deliveryStatus:prior.deliveryStatus||'not-sent',duplicate:true});
+        const archive=await PaymentReminderDocuments.prepareArchive(db,{companyId:session.companyId,invoice,reminder});
         const result=Db.transaction(db,()=>{
-          const prior=Db.reminderByFingerprint(db,session.companyId,invoice.id,requestFingerprint);
-          if(prior)return{reminder:prior,duplicate:true};
-          const storedReminder={...reminder,requestFingerprint};
+          const duplicate=Db.reminderByFingerprint(db,session.companyId,invoice.id,requestFingerprint);
+          if(duplicate)return{reminder:duplicate,duplicate:true};
+          const storedReminder={...reminder,...archive,requestFingerprint};
           Db.addReminder(db,storedReminder);
-          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'PAYMENT_REMINDER_CREATED',entityType:'invoice',entityId:invoice.id,details:{reminderId:reminder.id,requestFingerprint,totalDueOre:reminder.totalDueOre,deliveryStatus:'not-sent',interestStartBasis:reminder.interestStartBasis,interestStartEvidenceSource:reminder.interestStartEvidenceSource}});
-          return{reminder:storedReminder,duplicate:false};
+          PaymentReminderDocuments.storeArchive(db,{companyId:session.companyId,reminderId:reminder.id,archive});
+          Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'PAYMENT_REMINDER_CREATED',entityType:'invoice',entityId:invoice.id,details:{reminderId:reminder.id,reminderNumber:archive.reminderNumber,requestFingerprint,totalDueOre:reminder.totalDueOre,deliveryStatus:'not-sent',pdfSha256:archive.pdfSha256,interestStartBasis:reminder.interestStartBasis,interestStartEvidenceSource:reminder.interestStartEvidenceSource}});
+          return{reminder:{...storedReminder,pdfBytes:undefined,documentJson:undefined},duplicate:false};
         });
         return send(res,result.duplicate?200:201,{reminder:result.reminder,deliveryStatus:result.reminder.deliveryStatus||'not-sent',duplicate:result.duplicate});
+      }
+
+      const reminderPdfMatch=url.pathname.match(/^\/api\/v1\/invoices\/([^/]+)\/reminders\/([^/]+)\/pdf$/);
+      if(reminderPdfMatch && req.method==='GET') {
+        requirePermission(session,'customer-invoice.view');
+        requireInvoice(session,reminderPdfMatch[1]);
+        const archive=PaymentReminderDocuments.pdfArchive(db,{companyId:session.companyId,invoiceId:reminderPdfMatch[1],reminderId:reminderPdfMatch[2]});
+        res.writeHead(200,{...securityHeaders(),'Content-Type':'application/pdf','Content-Disposition':'inline; filename="'+archive.fileName+'"','Content-Length':archive.sizeBytes,'X-Document-SHA256':archive.pdfSha256,'X-Frame-Options':'SAMEORIGIN','Content-Security-Policy':"default-src 'none'; frame-ancestors 'self'; base-uri 'none'"});
+        res.end(archive.bytes);return;
       }
 
       return send(res,404,{error:'Hittades inte.',code:'NOT_FOUND'});

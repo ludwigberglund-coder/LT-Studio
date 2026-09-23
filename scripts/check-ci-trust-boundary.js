@@ -15,6 +15,7 @@ function findingsInWorkflow(text,filename='workflow.yml'){
   const lines=source.split(/\r?\n/);
   const hasPullRequest=lines.some(line=>/^\s{2}pull_request\s*:/.test(line));
   const hasPullRequestTarget=lines.some(line=>/^\s{2}pull_request_target\s*:/.test(line));
+  const historyScanLine=lines.findIndex(line=>/\bsecurity:history-scan\b/.test(line));
 
   if(hasPullRequestTarget){
     findings.push({rule:'pull-request-target-forbidden',filename,line:lines.findIndex(line=>/^\s{2}pull_request_target\s*:/.test(line))+1});
@@ -49,6 +50,9 @@ function findingsInWorkflow(text,filename='workflow.yml'){
 
   if(hasPullRequest&&/uses:\s*actions\/checkout@/i.test(source)&&!/persist-credentials:\s*false/i.test(source)){
     findings.push({rule:'pr-checkout-must-disable-persisted-credentials',filename,line:1});
+  }
+  if(historyScanLine>=0&&(!/uses:\s*actions\/checkout@/i.test(source)||!/^\s+fetch-depth:\s*0\s*(?:#.*)?$/im.test(source))){
+    findings.push({rule:'history-scan-requires-full-checkout',filename,line:historyScanLine+1});
   }
   return findings;
 }

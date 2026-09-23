@@ -262,20 +262,82 @@ test('obetald kundfaktura kan helkrediteras atomiskt med omvänd moms och kundfo
   assert.equal(conflictBody.code,'CREDIT_IDEMPOTENCY_CONFLICT');
 }));
 
-test('helkreditering stoppar delbetald faktura och lämnar originalet oförändrat',async()=>withApi(async({base,password,db,co1})=>{
+test('obetald faktura kan delkrediteras flera gånger med proportionell moms och öppet saldo',async()=>withApi(async({base,password,db,co1})=>{
   const signed=await login(base,password),headers={Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken};
-  const issuedResponse=await fetch(base+'/api/v1/customer-invoices',{method:'POST',headers,body:JSON.stringify(invoicePayload('invoice-request-credit-partial-01'))});
-  const issued=await issuedResponse.json();
-  assert.equal(issuedResponse.status,201);
+  const issuedResponse=await fetch(base+'/api/v1/customer-invoices',{method:'POST',headers,body:JSON.stringify(invoicePayload('invoice-request-partial-credit-source-01'))});
+  const issued=await issuedResponse.json();assert.equal(issuedResponse.status,201);
+  const firstResponse=await fetch(base+`/api/v1/customer-invoices/${issued.invoice.id}/credit`,{method:'POST',headers,body:JSON.stringify({
+    requestId:'credit-request-partial-one-0001',creditDate:'2026-09-18',reason:'Prisjustering på del av leveransen.',creditAmountOre:50000
+  })});
+  const first=await firstResponse.json();assert.equal(firstResponse.status,201,JSON.stringify(first));
+  assert.equal(first.document.creditMode,'partial');assert.equal(first.document.totalOre,-50000);
+  assert.equal(first.invoice.totalOre,-50000);assert.equal(first.credit.offsetAmountOre,50000);assert.equal(first.credit.refundDueOre,0);
+  assert.equal(first.original.remainingOre,75000);assert.equal(first.original.status,'Delvis krediterad');
+  const firstEntry=Accounting.entryBySource(db,co1.id,'customer-credit-note',first.invoice.id);
+  assert.equal(firstEntry.lines.find(row=>row.account==='1510').creditOre,50000);
+  assert.equal(firstEntry.lines.reduce((sum,row)=>sum+row.debitOre-row.creditOre,0),0);
+
+  const secondResponse=await fetch(base+`/api/v1/customer-invoices/${issued.invoice.id}/credit`,{method:'POST',headers,body:JSON.stringify({
+    requestId:'credit-request-partial-two-0002',creditDate:'2026-09-18',reason:'Ytterligare prisavdrag efter överenskommelse.',creditAmountOre:25000
+  })});
+  const second=await secondResponse.json();assert.equal(secondResponse.status,201);
+  assert.equal(second.original.remainingOre,50000);assert.equal(second.original.status,'Delvis krediterad');
+  const original=Invoicing.invoiceBundle(db,co1.id,issued.invoice.id);
+  assert.equal(original.creditSummary.creditedOre,75000);assert.equal(original.creditSummary.creditableOre,50000);assert.equal(original.creditSummary.creditCount,2);
+  const vatChecks=Reports.customerVatSourceChecks(db,co1.id,{from:'2026-09-01',to:'2026-09-30'});
+  assert.ok(vatChecks.every(row=>row.differenceOre===0));
+}));
+
+test('delbetald faktura kan helkrediteras och överskjutande kundkredit återbetalas från valt bankkonto',async()=>withApi(async({base,password,db,co1,user})=>{
+  const signed=await login(base,password),headers={Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken};
+  const issuedResponse=await fetch(base+'/api/v1/customer-invoices',{method:'POST',headers,body:JSON.stringify(invoicePayload('invoice-request-credit-partial-paid-01'))});
+  const issued=await issuedResponse.json();assert.equal(issuedResponse.status,201);
   Db.transaction(db,()=>{
-    Db.addInvoiceTransaction(db,{companyId:co1.id,invoiceId:issued.invoice.id,transactionType:'payment',paymentMethod:'Bankgiro',paymentDate:'2026-09-18',postingDate:'2026-09-18',amountOre:-25000,approved:true,account:'1930',bankReference:'partial-credit-test-01'});
+    const payment=Accounting.postEntry(db,{companyId:co1.id,postingDate:'2026-09-18',description:'Test kundinbetalning delbetalning',sourceType:'test-customer-payment',sourceId:issued.invoice.id,createdBy:user.id,series:'A',lines:[
+      {account:'1930',text:'Bank',debitOre:25000,creditOre:0},{account:'1510',text:'Kundfordran',debitOre:0,creditOre:25000}
+    ]});
+    Db.addInvoiceTransaction(db,{companyId:co1.id,invoiceId:issued.invoice.id,transactionType:'payment',paymentMethod:'Bankgiro',paymentDate:'2026-09-18',postingDate:'2026-09-18',journalNumber:payment.entry.number,amountOre:-25000,approved:true,account:'1930',bankReference:'partial-paid-credit-test-01'});
     db.prepare('UPDATE invoices SET remaining_ore=?,status=?,updated_at=? WHERE company_id=? AND id=?').run(100000,'Delbetald',new Date().toISOString(),co1.id,issued.invoice.id);
   });
-  const response=await fetch(base+`/api/v1/customer-invoices/${issued.invoice.id}/credit`,{method:'POST',headers,body:JSON.stringify({requestId:'credit-request-partial-0001',creditDate:'2026-09-18',reason:'Försök att kreditera delbetald faktura.'})});
-  const body=await response.json();
-  assert.equal(response.status,409);
-  assert.equal(body.code,'CREDIT_AFTER_PAYMENT_REQUIRES_REFUND_ACCOUNT');
-  const original=Invoicing.invoiceBundle(db,co1.id,issued.invoice.id);
-  assert.equal(original.invoice.remainingOre,100000);
-  assert.equal(Accounting.listEntries(db,co1.id).filter(row=>row.sourceType==='customer-credit-note').length,0);
+  const response=await fetch(base+`/api/v1/customer-invoices/${issued.invoice.id}/credit`,{method:'POST',headers,body:JSON.stringify({
+    requestId:'credit-request-partial-paid-0001',creditDate:'2026-09-18',reason:'Fakturan ska krediteras helt efter delbetalning.',creditAmountOre:125000
+  })});
+  const credited=await response.json();assert.equal(response.status,201,JSON.stringify(credited));
+  assert.equal(credited.original.remainingOre,0);assert.equal(credited.original.status,'Krediterad');
+  assert.equal(credited.credit.offsetAmountOre,100000);assert.equal(credited.credit.refundDueOre,25000);assert.equal(credited.credit.refundStatus,'pending');
+  const refundResponse=await fetch(base+`/api/v1/customer-invoices/${credited.invoice.id}/refund`,{method:'POST',headers,body:JSON.stringify({
+    requestId:'refund-request-partial-paid-01',refundDate:'2026-09-19',refundAccount:'1930',bankReference:'refund-partial-paid-01'
+  })});
+  const refunded=await refundResponse.json();assert.equal(refundResponse.status,201);
+  assert.equal(refunded.credit.refundStatus,'refunded');assert.equal(refunded.credit.refundPaidOre,25000);
+  const refundEntry=Accounting.entryBySource(db,co1.id,'customer-credit-refund',credited.invoice.id);
+  assert.equal(refundEntry.lines.find(row=>row.account==='1510').debitOre,25000);
+  assert.equal(refundEntry.lines.find(row=>row.account==='1930').creditOre,25000);
+  assert.equal(refundEntry.lines.reduce((sum,row)=>sum+row.debitOre-row.creditOre,0),0);
+  assert.ok(Db.transactionsForInvoice(db,co1.id,credited.invoice.id).some(row=>row.transactionType==='refund'&&row.amountOre===25000));
+  assert.ok(Db.auditForCompany(db,co1.id).some(event=>event.action==='CUSTOMER_CREDIT_REFUND_REGISTERED'&&event.entityId===credited.invoice.id));
+}));
+
+test('helt betald faktura kan delkrediteras och hela kreditbeloppet blir återbetalning',async()=>withApi(async({base,password,db,co1,user})=>{
+  const signed=await login(base,password),headers={Cookie:signed.cookie,'Content-Type':'application/json','X-CSRF-Token':signed.body.csrfToken};
+  const issuedResponse=await fetch(base+'/api/v1/customer-invoices',{method:'POST',headers,body:JSON.stringify(invoicePayload('invoice-request-credit-paid-source-01'))});
+  const issued=await issuedResponse.json();assert.equal(issuedResponse.status,201);
+  Db.transaction(db,()=>{
+    const payment=Accounting.postEntry(db,{companyId:co1.id,postingDate:'2026-09-18',description:'Test kundinbetalning full betalning',sourceType:'test-customer-payment-full',sourceId:issued.invoice.id,createdBy:user.id,series:'A',lines:[
+      {account:'1930',text:'Bank',debitOre:125000,creditOre:0},{account:'1510',text:'Kundfordran',debitOre:0,creditOre:125000}
+    ]});
+    Db.addInvoiceTransaction(db,{companyId:co1.id,invoiceId:issued.invoice.id,transactionType:'payment',paymentMethod:'Bankgiro',paymentDate:'2026-09-18',postingDate:'2026-09-18',journalNumber:payment.entry.number,amountOre:-125000,approved:true,account:'1930',bankReference:'paid-credit-test-01'});
+    db.prepare('UPDATE invoices SET remaining_ore=0,status=?,updated_at=? WHERE company_id=? AND id=?').run('Betald',new Date().toISOString(),co1.id,issued.invoice.id);
+  });
+  const response=await fetch(base+`/api/v1/customer-invoices/${issued.invoice.id}/credit`,{method:'POST',headers,body:JSON.stringify({
+    requestId:'credit-request-paid-partial-01',creditDate:'2026-09-18',reason:'Delvis prisavdrag efter full betalning.',creditAmountOre:50000
+  })});
+  const credited=await response.json();assert.equal(response.status,201,JSON.stringify(credited));
+  assert.equal(credited.document.totalOre,-50000);assert.equal(credited.credit.offsetAmountOre,0);assert.equal(credited.credit.refundDueOre,50000);
+  assert.equal(credited.original.remainingOre,0);assert.equal(credited.original.status,'Delvis krediterad');
+  const refundResponse=await fetch(base+`/api/v1/customer-invoices/${credited.invoice.id}/refund`,{method:'POST',headers,body:JSON.stringify({
+    requestId:'refund-request-paid-partial-01',refundDate:'2026-09-19',refundAccount:'1940',bankReference:'refund-paid-partial-01'
+  })});
+  const refunded=await refundResponse.json();assert.equal(refundResponse.status,201);
+  assert.equal(refunded.credit.refundStatus,'refunded');assert.equal(refunded.refund.refundAccount,'1940');
 }));

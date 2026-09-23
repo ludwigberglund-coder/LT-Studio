@@ -7,7 +7,7 @@ const Db=require('../apps/api/database.js');
 async function run(callback){const f=await fixture();try{await callback(f);}finally{await f.close();}}
 async function json(base,path,headers,method='GET',body){const res=await fetch(base+path,{method,headers,body:body?JSON.stringify(body):undefined});return{res,data:await res.json()};}
 test('private preview requires authentication and active company membership for HTML and assets',()=>run(async f=>{
-  for(const route of ['/website-preview/','/website-preview/app.js','/website-preview/shared/content.js']){
+  for(const route of ['/website-preview/','/website-preview/app.js','/website-preview/styles.css','/website-preview/design-system.css','/website-preview/shared/content.js']){
     assert.equal((await fetch(f.base+route)).status,401);
     assert.equal((await fetch(f.base+route,{headers:await f.login(f.auditor.username)})).status,200);
     const res=await fetch(f.base+route,{headers:await f.login()});assert.equal(res.status,200);assert.equal(res.headers.get('cache-control'),'no-store');

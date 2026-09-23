@@ -1,8 +1,8 @@
 'use strict';
 
 const EXPECTED_STAGING_COMPANIES=Object.freeze([
-  Object.freeze({legalName:'Synthetic Staging Company Alpha',displayName:'Synthetic Alpha',orgNumber:'SYNTHETIC-STAGING-ALPHA'}),
-  Object.freeze({legalName:'Synthetic Staging Company Beta',displayName:'Synthetic Beta',orgNumber:'SYNTHETIC-STAGING-BETA'})
+  Object.freeze({legalName:'Synthetic Staging Company Alpha',displayName:'Synthetic Alpha',orgNumber:'000000-0000'}),
+  Object.freeze({legalName:'Synthetic Staging Company Beta',displayName:'Synthetic Beta',orgNumber:'000000-0018'})
 ]);
 
 function stagingDataError(message){

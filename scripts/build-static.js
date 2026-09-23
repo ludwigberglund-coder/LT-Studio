@@ -14,7 +14,11 @@ function installWorkspaceNavigation(directory){
     let html=fs.readFileSync(file,'utf8');
     html=html.replace(/<script\b[^>]*src=["'][^"']*portal-nav\.js["'][^>]*>\s*<\/script>/gi,'');
     html=html.replace(/<link\b[^>]*href=["'][^"']*shared-nav\.css["'][^>]*>/gi,'');
-    html=html.replace('</head>',`<link rel="stylesheet" href="${relative}/shared-nav.css">\n</head>`);
+    const sharedNavigation=`<link rel="stylesheet" href="${relative}/shared-nav.css">`;
+    const designSystem=/<link\b[^>]*href=["'][^"']*design-system\.css(?:\?[^"']*)?["'][^>]*>/i;
+    html=designSystem.test(html)
+      ? html.replace(designSystem,match=>`${sharedNavigation}\n${match}`)
+      : html.replace('</head>',`${sharedNavigation}\n</head>`);
     html=html.replace('</body>',`<script src="${relative}/portal-nav.js"></script>\n</body>`);
     fs.writeFileSync(file,html);
   }
@@ -40,10 +44,10 @@ function buildStatic(){
   fs.writeFileSync(path.join(target,'.nojekyll'),'');
   fs.writeFileSync(path.join(target,'build-info.json'),`${JSON.stringify({source:'GitHub main',commit:process.env.GITHUB_SHA||'local',generatedAt:new Date().toISOString(),demoOnly:true},null,2)}\n`);
   const required=[
-    'index.html','app.js','styles.css','admin/index.html','admin/app.js','admin/money-view.js','admin/money.css',
+    'index.html','app.js','styles.css','design-system.css','admin/index.html','admin/app.js','admin/money-view.js','admin/money.css','admin/design-system.css',
     'admin/access-view.js','admin/access.css','admin/journal-view.js','admin/journal.css',
-    'portal/dashboard.html','portal/dashboard.js','portal/dashboard.css','portal/portal-nav.js','portal/shared-nav.css','portal/profile.html','portal/profile.js',
-    'portal/index.html','portal/app.js','portal/styles.css','portal/automation-link.js',
+    'portal/dashboard.html','portal/dashboard.js','portal/dashboard.css','portal/portal-nav.js','portal/shared-nav.css','portal/profile.html','portal/profile.js','portal/company-settings.html','portal/company-settings.js','portal/company-settings.css',
+    'portal/index.html','portal/app.js','portal/styles.css','portal/design-system.css','portal/automation-link.js',
     'portal/customers.html','portal/customers.js','portal/invoices.html','portal/invoices.js','portal/receivables.html','portal/receivables.js','portal/sales.css',
     'portal/accounts.html','portal/accounts.js','portal/invoice-editor.css',
     'portal/demo-scenario.js','portal/demo-workflows.js','portal/uat.html','portal/uat.js','portal/uat.css',
@@ -56,7 +60,7 @@ function buildStatic(){
     'shared/accounting/money.js','shared/accounting/journal.js','shared/access-control/authorization.js','shared/receivables/customer-receivables.js',
     'shared/invoicing/invoice.js','shared/invoicing/pdf.js','shared/vendor/pdf-lib.min.js',
     'content/company.json','content/site.json','content/admin.json','config/rolands-business-decisions.json','config/access-control.json',
-    'config/legal-rates.json','config/accounting-accounts.json','legacy/index.html'
+    'config/legal-rates.json','config/accounting-accounts.json','legacy/index.html','legacy/design-system.css'
   ];
   for(const name of required)if(!fs.existsSync(path.join(target,name)))throw new Error(`Byggfil saknas: ${name}`);
   console.log(`Ny statisk demo byggd: ${target}`);return target;
