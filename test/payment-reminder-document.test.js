@@ -38,6 +38,7 @@ test('betalningspåminnelse får eget nummer, arkiverad PDF och referens till or
     assert.equal(archive.pdfSha256,crypto.createHash('sha256').update(archive.pdfBytes).digest('hex'));
 
     Db.addReminder(db,{...reminder,...archive,requestFingerprint:'a'.repeat(64)});
+    ReminderDocuments.storeArchive(db,{companyId:company.id,reminderId:reminder.id,archive});
     const stored=Db.remindersForInvoice(db,company.id,invoice.id)[0];
     assert.equal(stored.reminderNumber,archive.reminderNumber);
     assert.equal(stored.pdfSha256,archive.pdfSha256);
