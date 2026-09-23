@@ -11,7 +11,10 @@ let legalRates=null;
 let invoices=[];
 let receivableCustomers=[];
 let receivableSearch='';
+let receivableSuggestionsOpen=false;
+let receivableSuggestionIndex=-1;
 let selectedReceivableCustomerId='';
+let selectedReceivableInvoiceId='';
 let loginCompanies=[];
 let contextMenu=null;
 let modal=null;
@@ -45,6 +48,41 @@ function customerSummary(customerId){
   const list=invoicesForCustomer(customerId);
   const first=list[0]||{};
   return{customerId,customerNumber:first.customerNumber||'',customerName:first.customerName||'',orgNumber:first.customerOrgNumber||'',invoiceCount:list.length,openInvoiceCount:list.filter(i=>Number(i.remainingOre)!==0).length,remainingOre:list.reduce((sum,i)=>sum+Number(i.remainingOre||0),0)};
+}
+function matchRank(value,query){
+  const text=normalizeSearch(value);
+  if(!text||!query)return Number.POSITIVE_INFINITY;
+  if(text===query)return 0;
+  if(text.startsWith(query))return 1;
+  if(text.split(/[^a-z0-9åäö]+/i).some(part=>part.startsWith(query)))return 2;
+  if(text.includes(query))return 3;
+  return Number.POSITIVE_INFINITY;
+}
+function receivableSearchSuggestionData(){
+  const query=normalizeSearch(receivableSearch);
+  if(!query)return{customers:[],invoices:[]};
+  const customers=receivableCustomers.map(customer=>{
+    const rank=Math.min(
+      matchRank(customer.customerName,query),
+      matchRank(customer.customerNumber,query),
+      matchRank(customer.orgNumber,query)
+    );
+    return{customer,rank};
+  }).filter(item=>Number.isFinite(item.rank))
+    .sort((a,b)=>a.rank-b.rank||String(a.customer.customerName||'').localeCompare(String(b.customer.customerName||''),'sv'));
+  const invoicesFound=invoices.map(invoice=>{
+    const customer=customerSummary(invoice.customerId);
+    const directRank=Math.min(matchRank(invoice.invoiceNumber,query),matchRank(invoice.ocr,query));
+    const customerRank=Math.min(
+      matchRank(customer.customerName,query),
+      matchRank(customer.customerNumber,query),
+      matchRank(customer.orgNumber,query)
+    );
+    const rank=Math.min(directRank,Number.isFinite(customerRank)?customerRank+4:Number.POSITIVE_INFINITY);
+    return{invoice,customer,rank};
+  }).filter(item=>Number.isFinite(item.rank))
+    .sort((a,b)=>a.rank-b.rank||String(a.invoice.invoiceNumber||'').localeCompare(String(b.invoice.invoiceNumber||''),'sv'));
+  return{customers,invoices:invoicesFound};
 }
 function matchingCustomerIds(){
   if(selectedReceivableCustomerId)return new Set([selectedReceivableCustomerId]);
@@ -111,9 +149,25 @@ function customerOverview(){
   const visibleCount=receivableCustomers.filter(customer=>ids.has(String(customer.customerId))).length;
   return `<section class="receivable-overview panel"><div class="receivable-overview-head"><div><span class="eyebrow">Kundöversikt</span><h3>Alla kunder</h3><p>Kundidentiteten hämtas från Kunder. Fakturor används endast för saldo och för att hitta vilken kund ett fakturanummer tillhör.</p></div><span id="receivable-customer-count" class="receivable-count">${visibleCount} av ${receivableCustomers.length} kunder</span></div><div class="receivable-customer-grid">${cards}<p id="receivable-customers-empty" class="empty" ${visibleCount?'hidden':''}>Ingen kund matchar sökningen.</p></div></section>`;
 }
+function receivableSearchSuggestionsHtml(){
+  const query=normalizeSearch(receivableSearch);
+  if(!query||!receivableSuggestionsOpen)return'';
+  const {customers,invoices:invoiceMatches}=receivableSearchSuggestionData();
+  let optionIndex=0;
+  const customerOptions=customers.map(({customer})=>{
+    const index=optionIndex++;
+    return `<button id="receivable-search-option-${index}" class="receivable-search-option" role="option" aria-selected="${index===receivableSuggestionIndex}" style="--result-index:${index}" data-action="select-receivable-search" data-kind="customer" data-customer-id="${escapeHtml(customer.customerId)}" data-search-value="${escapeHtml(customer.customerName||customer.customerNumber||'')}"><span class="receivable-search-option-type">Kund</span><span class="receivable-search-option-main"><b>${escapeHtml(customer.customerName||'Okänd kund')}</b><small>Kundnr ${escapeHtml(customer.customerNumber||'—')}${customer.orgNumber?` · Org.nr ${escapeHtml(customer.orgNumber)}`:''}</small></span><span class="receivable-search-option-meta">${Number(customer.openInvoiceCount||0)} öppna</span></button>`;
+  }).join('');
+  const invoiceOptions=invoiceMatches.map(({invoice,customer})=>{
+    const index=optionIndex++;
+    return `<button id="receivable-search-option-${index}" class="receivable-search-option" role="option" aria-selected="${index===receivableSuggestionIndex}" style="--result-index:${index}" data-action="select-receivable-search" data-kind="invoice" data-customer-id="${escapeHtml(invoice.customerId||'')}" data-invoice-id="${escapeHtml(invoice.id)}" data-search-value="${escapeHtml(invoice.invoiceNumber||'')}"><span class="receivable-search-option-type">Faktura</span><span class="receivable-search-option-main"><b>Faktura ${escapeHtml(invoice.invoiceNumber||'—')}</b><small>${escapeHtml(customer.customerName||'Okänd kund')} · Kundnr ${escapeHtml(customer.customerNumber||'—')}</small></span><span class="receivable-search-option-meta">${ore(invoice.remainingOre)}</span></button>`;
+  }).join('');
+  if(!customerOptions&&!invoiceOptions)return'<div class="receivable-search-no-results">Ingen kund eller faktura matchar sökningen.</div>';
+  return `${customerOptions?`<div class="receivable-search-group-label">Kunder</div>${customerOptions}`:''}${invoiceOptions?`<div class="receivable-search-group-label">Fakturor</div>${invoiceOptions}`:''}`;
+}
 function receivableSearchBar(){
   const filtered=Boolean(normalizeSearch(receivableSearch)||selectedReceivableCustomerId);
-  return `<section class="receivable-search panel"><label for="receivable-search-input"><span>Sök kundreskontra</span><input id="receivable-search-input" type="search" autocomplete="off" value="${escapeHtml(receivableSearch)}" placeholder="Sök på kund, organisationsnummer eller fakturanummer"></label><button id="clear-receivable-filter" class="button ghost small ${filtered?'':'is-hidden'}" type="button" data-action="clear-receivable-filter">Visa alla kunder</button></section>`;
+  return `<section class="receivable-search panel"><div class="receivable-search-field"><label for="receivable-search-input"><span>Sök kundreskontra</span><input id="receivable-search-input" type="search" role="combobox" aria-autocomplete="list" aria-controls="receivable-search-results" aria-expanded="${Boolean(normalizeSearch(receivableSearch)&&receivableSuggestionsOpen)}" autocomplete="off" value="${escapeHtml(receivableSearch)}" placeholder="Sök på kund, kundnummer, organisationsnummer eller fakturanummer"></label><div id="receivable-search-results" class="receivable-search-results" role="listbox" ${normalizeSearch(receivableSearch)&&receivableSuggestionsOpen?'':'hidden'}>${receivableSearchSuggestionsHtml()}</div></div><button id="clear-receivable-filter" class="button ghost small ${filtered?'':'is-hidden'}" type="button" data-action="clear-receivable-filter">Visa alla kunder</button></section>`;
 }
 function reminderRow(invoice,reminder,columns,visible=true){
   const reminderNumber=reminder.reminderNumber||'Äldre påminnelse';
@@ -179,8 +233,38 @@ function modalHtml(){if(!modal)return '';if(modal.type==='comments')return comme
 function syncSearchControls(){
   const input=document.getElementById('receivable-search-input');
   if(input&&input.value!==receivableSearch)input.value=receivableSearch;
+  if(input){
+    input.setAttribute('aria-expanded',String(Boolean(normalizeSearch(receivableSearch)&&receivableSuggestionsOpen)));
+    if(receivableSuggestionIndex>=0)input.setAttribute('aria-activedescendant','receivable-search-option-'+receivableSuggestionIndex);
+    else input.removeAttribute('aria-activedescendant');
+  }
   const clear=document.getElementById('clear-receivable-filter');
   if(clear)clear.classList.toggle('is-hidden',!(normalizeSearch(receivableSearch)||selectedReceivableCustomerId));
+}
+function renderReceivableSearchSuggestions(){
+  const host=document.getElementById('receivable-search-results');
+  if(!host)return;
+  const visible=Boolean(normalizeSearch(receivableSearch)&&receivableSuggestionsOpen);
+  host.hidden=!visible;
+  host.innerHTML=visible?receivableSearchSuggestionsHtml():'';
+  syncSearchControls();
+  if(visible){
+    const active=host.querySelector('[aria-selected="true"]');
+    active?.scrollIntoView?.({block:'nearest'});
+  }
+}
+function searchSuggestionButtons(){return[...document.querySelectorAll('#receivable-search-results .receivable-search-option')]}
+function moveReceivableSuggestion(delta){
+  const buttons=searchSuggestionButtons();
+  if(!buttons.length){receivableSuggestionIndex=-1;syncSearchControls();return}
+  receivableSuggestionIndex=(receivableSuggestionIndex+delta+buttons.length)%buttons.length;
+  buttons.forEach((button,index)=>{
+    const active=index===receivableSuggestionIndex;
+    button.classList.toggle('active',active);
+    button.setAttribute('aria-selected',String(active));
+  });
+  syncSearchControls();
+  buttons[receivableSuggestionIndex]?.scrollIntoView?.({block:'nearest'});
 }
 function updateReceivableMetricsDom(){
   const value=metricValues(),pairs=[['receivable-total-balance',value.total],['receivable-overdue-balance',value.overdue],['receivable-open-count',value.open],['receivable-comment-count',value.comments]];
@@ -203,6 +287,9 @@ function applyReceivableFilterDom(){
   if(customersEmpty)customersEmpty.hidden=customerCount>0;
   const tableEmpty=document.getElementById('receivable-table-empty');
   if(tableEmpty)tableEmpty.hidden=invoiceCount>0;
+  for(const row of document.querySelectorAll('.invoice-row[data-invoice-id]')){
+    row.classList.toggle('search-selected',Boolean(selectedReceivableInvoiceId)&&row.dataset.invoiceId===selectedReceivableInvoiceId);
+  }
   updateReceivableMetricsDom();syncSearchControls();
 }
 function renderReceivableResults(){
@@ -210,6 +297,7 @@ function renderReceivableResults(){
   if(overview)overview.innerHTML=customerOverview();
   if(metricRegion)metricRegion.innerHTML=metrics();
   if(tableRegion)tableRegion.innerHTML=table();
+  renderReceivableSearchSuggestions();
   syncSearchControls();
 }
 function renderOverlays(){
@@ -286,7 +374,14 @@ document.addEventListener('submit',async event=>{
 
 document.addEventListener('input',event=>{
   if(event.target.id==='receivable-search-input'){
-    receivableSearch=event.target.value;selectedReceivableCustomerId='';applyReceivableFilterDom();return;
+    receivableSearch=event.target.value;
+    selectedReceivableCustomerId='';
+    selectedReceivableInvoiceId='';
+    receivableSuggestionsOpen=Boolean(normalizeSearch(receivableSearch));
+    receivableSuggestionIndex=-1;
+    applyReceivableFilterDom();
+    renderReceivableSearchSuggestions();
+    return;
   }
   if(event.target.id==='invoice-comment-draft'&&modal?.type==='comments'){
     modal.draftText=event.target.value;return;
@@ -294,6 +389,33 @@ document.addEventListener('input',event=>{
 });
 document.addEventListener('change',event=>{const id=event.target.dataset.column;if(!id)return;if(event.target.checked)visibleColumns.add(id);else visibleColumns.delete(id);saveJson(COLUMN_KEY,[...visibleColumns]);renderReceivableResults()});
 document.addEventListener('contextmenu',event=>{const row=event.target.closest('[data-invoice-id]');if(!row)return;event.preventDefault();contextMenu={invoiceId:row.dataset.invoiceId,x:Math.min(event.clientX,innerWidth-270),y:Math.min(event.clientY,innerHeight-190)};renderOverlays()});
+document.addEventListener('focusin',event=>{
+  if(event.target.id!=='receivable-search-input'||selectedReceivableCustomerId)return;
+  if(normalizeSearch(receivableSearch)){receivableSuggestionsOpen=true;renderReceivableSearchSuggestions()}
+});
+document.addEventListener('keydown',event=>{
+  if(event.target.id!=='receivable-search-input')return;
+  if(event.key==='ArrowDown'||event.key==='ArrowUp'){
+    event.preventDefault();
+    if(!normalizeSearch(receivableSearch))return;
+    if(!receivableSuggestionsOpen){receivableSuggestionsOpen=true;receivableSuggestionIndex=-1;renderReceivableSearchSuggestions()}
+    moveReceivableSuggestion(event.key==='ArrowDown'?1:-1);
+    return;
+  }
+  if(event.key==='Enter'&&receivableSuggestionsOpen&&receivableSuggestionIndex>=0){
+    event.preventDefault();
+    searchSuggestionButtons()[receivableSuggestionIndex]?.click();
+    return;
+  }
+  if(event.key==='Escape'&&receivableSuggestionsOpen){
+    event.preventDefault();receivableSuggestionsOpen=false;receivableSuggestionIndex=-1;renderReceivableSearchSuggestions();return;
+  }
+  if(event.key==='Tab'&&receivableSuggestionsOpen){receivableSuggestionsOpen=false;receivableSuggestionIndex=-1;renderReceivableSearchSuggestions()}
+});
+document.addEventListener('pointerdown',event=>{
+  if(!receivableSuggestionsOpen||event.target.closest('.receivable-search-field'))return;
+  receivableSuggestionsOpen=false;receivableSuggestionIndex=-1;renderReceivableSearchSuggestions();
+});
 document.addEventListener('click',async event=>{
   const stopRoot=event.target.closest('[data-stop]');
   if(stopRoot)event.stopPropagation();
@@ -302,8 +424,26 @@ document.addEventListener('click',async event=>{
   if(!button){if(contextMenu){contextMenu=null;renderOverlays()}return}
   const action=button.dataset.action;
   try{
-    if(action==='filter-customer'){selectedReceivableCustomerId=button.dataset.customerId||'';receivableSearch='';applyReceivableFilterDom();return}
-    if(action==='clear-receivable-filter'){selectedReceivableCustomerId='';receivableSearch='';applyReceivableFilterDom();return}
+    if(action==='select-receivable-search'){
+      selectedReceivableCustomerId=button.dataset.customerId||'';
+      selectedReceivableInvoiceId=button.dataset.kind==='invoice'?(button.dataset.invoiceId||''):'';
+      receivableSearch=button.dataset.searchValue||'';
+      receivableSuggestionsOpen=false;
+      receivableSuggestionIndex=-1;
+      applyReceivableFilterDom();
+      renderReceivableSearchSuggestions();
+      requestAnimationFrame(()=>{
+        const input=document.getElementById('receivable-search-input');
+        input?.focus?.({preventScroll:true});
+        if(selectedReceivableInvoiceId){
+          const row=document.querySelector('.invoice-row[data-invoice-id="'+CSS.escape(selectedReceivableInvoiceId)+'"]');
+          row?.scrollIntoView?.({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+        }
+      });
+      return;
+    }
+    if(action==='filter-customer'){selectedReceivableCustomerId=button.dataset.customerId||'';selectedReceivableInvoiceId='';receivableSearch='';receivableSuggestionsOpen=false;receivableSuggestionIndex=-1;applyReceivableFilterDom();renderReceivableSearchSuggestions();return}
+    if(action==='clear-receivable-filter'){selectedReceivableCustomerId='';selectedReceivableInvoiceId='';receivableSearch='';receivableSuggestionsOpen=false;receivableSuggestionIndex=-1;applyReceivableFilterDom();renderReceivableSearchSuggestions();return}
     if(action==='close-context'){contextMenu=null;renderOverlays();return}
     if(action==='comment'){await openComments(button.dataset.id,{compose:true});return}
     if(action==='show-comments'){await openComments(button.dataset.id,{compose:false});return}
