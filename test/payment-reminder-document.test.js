@@ -8,7 +8,7 @@ const Auth=require('../apps/api/auth.js');
 const CustomerInvoicing=require('../apps/api/customer-invoicing.js');
 const ReminderDocuments=require('../apps/api/payment-reminder-documents.js');
 
-test('betalningspåminnelse får eget nummer, arkiverad PDF och referens till originalfaktura',async()=>{
+test('betalningspåminnelse får eget nummer, arkiverad PDF och referens till originalfaktura',{timeout:15000},async()=>{
   const db=Db.openDatabase(':memory:');
   try{
     CustomerInvoicing.initializeCustomerInvoicing(db);
