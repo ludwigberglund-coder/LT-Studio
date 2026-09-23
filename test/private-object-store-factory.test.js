@@ -29,7 +29,7 @@ test('okänd lagringsprovider stoppas fail-closed',()=>{
   }
 });
 
-test('factoryn mappar alla tre privata objekttyper till kontrakterade SQLite-stores',()=>{
+test('factoryn mappar alla privata objekttyper till kontrakterade SQLite-stores',()=>{
   const db={};
   for(const kind of Object.values(PrivateObject.PRIVATE_OBJECT_KINDS)){
     const store=Factory.createPrivateObjectStore({db,kind,provider:'sqlite'});
