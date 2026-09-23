@@ -702,8 +702,8 @@ h1{
   color:var(--brand-forest);
 }
 @media(max-width:560px){
-  .hero::before{width:130px;height:130px;left:-75px;top:90px}
-  .hero::after{width:100px;height:100px;right:-30px;bottom:20px}
+  .hero::before{width:130px;height:130px;left:0;top:90px}
+  .hero::after{width:100px;height:100px;right:0;bottom:20px}
 }
 
 
