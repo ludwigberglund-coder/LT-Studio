@@ -56,3 +56,10 @@
   .receivable-customer-grid{grid-template-columns:1fr}
   .customer-cell{min-width:240px;width:240px;max-width:240px}
 }
+
+
+/* Kundreskontra: radnivån visar fakturans eget restbelopp */
+.invoice-customer-identity{min-width:0}
+.invoice-rest-badge{display:grid;justify-items:end;gap:1px;padding-left:10px;border-left:1px solid #d8d8d2;white-space:nowrap}
+.invoice-rest-badge small{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700}
+.invoice-rest-badge b{font-variant-numeric:tabular-nums;font-size:12px;color:var(--ink)}
