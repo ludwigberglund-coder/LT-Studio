@@ -63,3 +63,26 @@
 .invoice-rest-badge{display:grid;justify-items:end;gap:1px;padding-left:10px;border-left:1px solid #d8d8d2;white-space:nowrap}
 .invoice-rest-badge small{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700}
 .invoice-rest-badge b{font-variant-numeric:tabular-nums;font-size:12px;color:var(--ink)}
+
+
+/* Stabil Kundreskontra: målade delytor, kommentarer och påminnelseposter */
+.is-hidden{display:none!important}
+#receivable-overview-region,#receivable-metrics-region,#receivable-table-region{contain:layout style}
+.reminder-row td{background:#fbfaf6!important;border-top:1px dashed #d8d4ca;color:#343434}
+.reminder-row .customer-cell{z-index:3}
+.reminder-cell{display:flex;align-items:center;justify-content:space-between;gap:14px;min-width:0}
+.reminder-cell>span:first-child{display:grid;gap:2px;min-width:0}
+.reminder-cell strong{font-size:11px}
+.reminder-cell small{font-size:10px;color:var(--muted);white-space:normal}
+.reminder-actions{display:grid;justify-items:end;gap:5px;white-space:nowrap}
+.reminder-actions>b{font-size:11px;font-variant-numeric:tabular-nums}
+.reminder-pdf-link{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:0 9px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);font-size:10px;font-weight:800;text-decoration:none}
+.reminder-pdf-link:hover{border-color:#aaa;background:#f5f5f2}
+.context-menu{min-width:230px}
+.comments{max-height:280px;overflow:auto;overscroll-behavior:contain}
+.comment{padding:12px 0;border-bottom:1px solid var(--line)}
+.comment:last-child{border-bottom:0}
+@media(max-width:720px){
+  .reminder-cell{align-items:flex-start;flex-direction:column}
+  .reminder-actions{justify-items:start}
+}
