@@ -101,6 +101,7 @@
     refresh:'<path d="M21.8883 13.5C21.1645 18.3113 17.013 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C16.1006 2 19.6248 4.46819 21.1679 8M17 8H21.4C21.7314 8 22 7.73137 22 7.4V3"/>',
     download:'<path d="M6 20H18M12 4V16M12 16L15.5 12.5M12 16L8.5 12.5"/>',
     edit:'<path d="M14.3632 5.65156L15.8431 4.17157C16.6242 3.39052 17.8905 3.39052 18.6716 4.17157L20.0858 5.58579C20.8668 6.36683 20.8668 7.63316 20.0858 8.41421L18.6058 9.8942M14.3632 5.65156L4.74749 15.2672C4.41542 15.5993 4.21079 16.0376 4.16947 16.5054L3.92738 19.2459C3.87261 19.8659 4.39148 20.3848 5.0115 20.33L7.75191 20.0879C8.21972 20.0466 8.65806 19.8419 8.99013 19.5099L18.6058 9.8942M14.3632 5.65156L18.6058 9.8942"/>',
+    menu:'<path d="M3 6H21M3 12H21M3 18H21"/>',
     xmark:'<path d="M6.75827 17.2426L12.0009 12M17.2435 6.75736L12.0009 12M12.0009 12L6.75827 6.75736M12.0009 12L17.2435 17.2426"/>',
     trash:'<path d="M20 9L18.005 20.3463C17.8369 21.3026 17.0062 22 16.0353 22H7.96474C6.99379 22 6.1631 21.3026 5.99496 20.3463L4 9M21 6H15.375M3 6H8.625M8.625 6V4C8.625 2.89543 9.52043 2 10.625 2H13.375C14.4796 2 15.375 2.89543 15.375 4V6M8.625 6H15.375"/>',
     key:'<path d="M10 12C10 14.2091 8.20914 16 6 16C3.79086 16 2 14.2091 2 12C2 9.79086 3.79086 8 6 8C8.20914 8 10 9.79086 10 12ZM10 12H22V15M18 12V15"/>',
@@ -203,6 +204,109 @@
     setTimeout(()=>target.classList.remove('ui-action-confirmed'),420);
   });
 
+  const sidebarMedia=matchMedia('(max-width: 760px)');
+  function sidebarParts(){
+    const sidebar=document.querySelector('.sidebar.shared-sidebar');
+    const workspace=sidebar?.parentElement||null;
+    const toggle=document.querySelector('.shared-menu-toggle');
+    return{sidebar,workspace,toggle};
+  }
+  function sidebarOpen(){
+    const {workspace}=sidebarParts();if(!workspace)return false;
+    return sidebarMedia.matches?workspace.classList.contains('shared-mobile-menu-open'):!workspace.classList.contains('shared-sidebar-collapsed');
+  }
+  function updateSidebarToggle(open){
+    const {toggle}=sidebarParts();if(!toggle)return;
+    toggle.setAttribute('aria-expanded',String(open));
+    toggle.setAttribute('aria-label',open?'Stäng huvudmeny':'Öppna huvudmeny');
+    toggle.title=open?'Stäng huvudmeny':'Öppna huvudmeny';
+  }
+  function setSidebarOpen(open,{persistDesktop=true,focus=true}={}){
+    const {sidebar,workspace,toggle}=sidebarParts();if(!sidebar||!workspace)return;
+    const mobile=sidebarMedia.matches;
+    if(mobile){
+      workspace.classList.toggle('shared-mobile-menu-open',Boolean(open));
+      workspace.classList.remove('shared-sidebar-collapsed');
+      document.body.classList.toggle('shared-mobile-nav-lock',Boolean(open));
+    }else{
+      workspace.classList.remove('shared-mobile-menu-open');
+      document.body.classList.remove('shared-mobile-nav-lock');
+      workspace.classList.toggle('shared-sidebar-collapsed',!open);
+      if(persistDesktop){const state=read();state.sidebarCollapsed=!open;persist(state);}
+    }
+    updateSidebarToggle(Boolean(open));
+    if(!focus)return;
+    if(open&&mobile){
+      requestAnimationFrame(()=>{
+        const preferred=sidebar.querySelector('[aria-current="page"]')||sidebar.querySelector('a[href],summary,button');
+        preferred?.focus?.({preventScroll:true});
+      });
+    }else if(!open&&toggle){
+      toggle.focus?.({preventScroll:true});
+    }
+  }
+  function applySidebarPreference(){
+    const {sidebar,workspace}=sidebarParts();if(!sidebar||!workspace)return;
+    sidebar.id='shared-primary-sidebar';
+    if(sidebarMedia.matches)setSidebarOpen(false,{persistDesktop:false,focus:false});
+    else setSidebarOpen(read().sidebarCollapsed!==true,{persistDesktop:false,focus:false});
+  }
+  function ensureMenuOverlay(){
+    let overlay=document.querySelector('.shared-menu-overlay');
+    if(overlay)return overlay;
+    overlay=document.createElement('button');
+    overlay.type='button';
+    overlay.className='shared-menu-overlay';
+    overlay.tabIndex=-1;
+    overlay.setAttribute('aria-label','Stäng huvudmeny');
+    overlay.setAttribute('aria-hidden','true');
+    overlay.addEventListener('click',()=>setSidebarOpen(false));
+    document.body.append(overlay);
+    return overlay;
+  }
+  function mountSidebarToggle(){
+    const topbar=document.querySelector('.topbar');
+    const sidebar=document.querySelector('.sidebar.shared-sidebar');
+    if(!topbar||!sidebar)return;
+    sidebar.id='shared-primary-sidebar';
+    const existing=[...document.querySelectorAll('.shared-menu-toggle')];
+    existing.slice(1).forEach(button=>button.remove());
+    let button=topbar.querySelector('.shared-menu-toggle')||existing[0];
+    if(!button){
+      button=document.createElement('button');
+      button.type='button';
+      button.className='shared-menu-toggle';
+      button.setAttribute('aria-controls','shared-primary-sidebar');
+      button.append(iconoir('menu'));
+      button.addEventListener('click',()=>setSidebarOpen(!sidebarOpen()));
+      topbar.prepend(button);
+    }else if(button.parentElement!==topbar){
+      topbar.prepend(button);
+    }
+    ensureMenuOverlay();
+    applySidebarPreference();
+  }
+  function mobileFocusables(){
+    const {sidebar,toggle}=sidebarParts();
+    if(!sidebar||!toggle)return[];
+    return[toggle,...sidebar.querySelectorAll('a[href],button:not([disabled]),summary,[tabindex]:not([tabindex="-1"])')]
+      .filter((element,index,list)=>list.indexOf(element)===index&&element.getClientRects().length>0);
+  }
+  document.addEventListener('keydown',event=>{
+    if(event.key==='Escape'&&sidebarOpen()){
+      event.preventDefault();setSidebarOpen(false);return;
+    }
+    if(event.key!=='Tab'||!sidebarMedia.matches||!sidebarOpen())return;
+    const focusables=mobileFocusables();if(!focusables.length)return;
+    const first=focusables[0],last=focusables[focusables.length-1];
+    if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+    else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+  });
+  document.addEventListener('click',event=>{
+    if(sidebarMedia.matches&&event.target.closest('.sidebar.shared-sidebar .shared-links a'))setSidebarOpen(false,{focus:false});
+  });
+  sidebarMedia.addEventListener?.('change',()=>applySidebarPreference());
+
   function avatarInitials(name){return String(name||'Användare').trim().split(/\s+/).filter(Boolean).map(part=>part[0]).join('').slice(0,2).toUpperCase()||'AN';}
   async function mountUserMenu(){
     const topbar=document.querySelector('.topbar');if(!topbar)return;
@@ -294,12 +398,12 @@
     const foot=document.createElement('div');foot.className='shared-foot';
     const home=document.createElement('a');home.href=href(demo?'./':'portal/dashboard.html');home.textContent=demo?'Visa företagets hemsida':'Till arbetsöversikten';foot.append(home);
     const note=document.createElement('p');note.textContent=demo?'Äldre referensverktyg har separat demodata.':'Menyn följer din roll. Servern kontrollerar varje skyddad åtgärd oavsett vad som visas här.';foot.append(note);
-    sidebar.replaceChildren(brand,info,nav,foot);decorateUi();
+    sidebar.replaceChildren(brand,info,nav,foot);decorateUi();applySidebarPreference();
     try{sidebar.scrollTop=Number(sessionStorage.getItem(key+':scroll')||0)}catch{}
     if(!sidebar.dataset.scrollBound){sidebar.addEventListener('scroll',()=>{try{sessionStorage.setItem(key+':scroll',String(sidebar.scrollTop))}catch{}});sidebar.dataset.scrollBound='1';}
   }
   let pending=false;
-  function schedule(){if(pending)return;pending=true;queueMicrotask(async()=>{pending=false;await Promise.all([mount(),mountUserMenu()]);decorateUi();});}
+  function schedule(){if(pending)return;pending=true;queueMicrotask(async()=>{pending=false;await Promise.all([mount(),mountUserMenu()]);mountSidebarToggle();decorateUi();});}
   // Renders can replace the entire sidebar. Stay subscribed instead of disconnecting after boot.
   new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true});
   addEventListener('hashchange',schedule);
@@ -307,5 +411,5 @@
   addEventListener('focus',ensureFreshRuntime);
   addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')ensureFreshRuntime();});
   setInterval(ensureFreshRuntime,30000);
-  root.RollandsNavigation={groups,mount,mountUserMenu,href};ensureFreshRuntime();mount();mountUserMenu();decorateUi();
+  root.RollandsNavigation={groups,mount,mountUserMenu,mountSidebarToggle,setSidebarOpen,href};ensureFreshRuntime();mount();mountUserMenu();mountSidebarToggle();decorateUi();
 })(globalThis);
