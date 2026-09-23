@@ -689,6 +689,7 @@ function createApiApp(options) {
           if(duplicate)return{reminder:duplicate,duplicate:true};
           const storedReminder={...reminder,...archive,requestFingerprint};
           Db.addReminder(db,storedReminder);
+          PaymentReminderDocuments.storeArchive(db,{companyId:session.companyId,reminderId:reminder.id,archive});
           Db.appendAudit(db,{companyId:session.companyId,userId:session.userId,action:'PAYMENT_REMINDER_CREATED',entityType:'invoice',entityId:invoice.id,details:{reminderId:reminder.id,reminderNumber:archive.reminderNumber,requestFingerprint,totalDueOre:reminder.totalDueOre,deliveryStatus:'not-sent',pdfSha256:archive.pdfSha256,interestStartBasis:reminder.interestStartBasis,interestStartEvidenceSource:reminder.interestStartEvidenceSource}});
           return{reminder:{...storedReminder,pdfBytes:undefined,documentJson:undefined},duplicate:false};
         });
