@@ -86,3 +86,60 @@
   .reminder-cell{align-items:flex-start;flex-direction:column}
   .reminder-actions{justify-items:start}
 }
+
+
+/* Kundreskontra: live-söklista inspirerad av Motion.dev list/dropdown + stagger */
+.receivable-search{position:relative;z-index:35;overflow:visible}
+.receivable-search-field{position:relative;flex:1;min-width:0}
+.receivable-search-field>label{margin:0}
+.receivable-search-results{
+  position:absolute;left:0;right:0;top:calc(100% + 8px);z-index:70;
+  max-height:min(440px,58vh);overflow:auto;overscroll-behavior:contain;
+  padding:8px;background:#fff;border:1px solid var(--line);border-radius:14px;
+  box-shadow:0 22px 60px rgba(0,0,0,.14);
+  transform-origin:50% 0;
+  animation:receivable-search-pop .18s cubic-bezier(.22,1,.36,1) both;
+}
+.receivable-search-results[hidden]{display:none}
+.receivable-search-group-label{
+  padding:8px 10px 6px;font-size:10px;font-weight:900;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--muted)
+}
+.receivable-search-option{
+  width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;gap:11px;border:0;border-radius:11px;background:transparent;color:var(--ink);
+  padding:10px;text-align:left;cursor:pointer;opacity:0;
+  animation:receivable-search-result-in .24s cubic-bezier(.22,1,.36,1) forwards;
+  animation-delay:calc(var(--result-index,0) * 28ms);
+}
+.receivable-search-option:hover,.receivable-search-option.active,.receivable-search-option[aria-selected="true"]{
+  background:#f3f4f1;transform:translateX(2px)
+}
+.receivable-search-option-type{
+  min-width:54px;padding:4px 7px;border-radius:999px;background:#f1f1ee;
+  font-size:9px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);text-align:center
+}
+.receivable-search-option-main{display:grid;gap:2px;min-width:0}
+.receivable-search-option-main b{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.receivable-search-option-main small{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.receivable-search-option-meta{font-size:11px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+.receivable-search-no-results{padding:18px 12px;color:var(--muted);font-size:12px;text-align:center}
+.invoice-row.search-selected td{background:#f4f6f2}
+.invoice-row.search-selected>.customer-cell{box-shadow:inset 3px 0 0 #111,1px 0 0 var(--line),8px 0 12px rgba(0,0,0,.06)}
+@keyframes receivable-search-pop{
+  from{opacity:0;transform:translateY(-4px) scale(.985)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes receivable-search-result-in{
+  from{opacity:0;transform:translateY(7px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@media(prefers-reduced-motion:reduce){
+  .receivable-search-results,.receivable-search-option{animation:none!important;transition:none!important;opacity:1!important}
+}
+@media(max-width:720px){
+  .receivable-search-field{width:100%}
+  .receivable-search-results{max-height:min(420px,52vh)}
+  .receivable-search-option{grid-template-columns:auto minmax(0,1fr)}
+  .receivable-search-option-meta{grid-column:2}
+}
