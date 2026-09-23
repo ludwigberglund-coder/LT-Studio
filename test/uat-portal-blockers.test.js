@@ -15,7 +15,8 @@ test('UAT portal scripts remain syntactically valid',()=>{
     'apps/portal/customers.js',
     'apps/portal/invoices.js',
     'apps/portal/suppliers.js',
-    'apps/portal/payables.js'
+    'apps/portal/payables.js',
+    'apps/portal/documents.js'
   ]){
     assert.doesNotThrow(()=>new vm.Script(read(relative),{filename:relative}),relative);
   }
@@ -88,4 +89,47 @@ test('supplier register offers prefix-search dropdown, save toast and customer-s
   assert.match(css,/\.supplier-toast/);
   assert.match(css,/@keyframes supplier-toast-in/);
   assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
+});
+
+
+test('every portal search box exposes an interactive dropdown contract',()=>{
+  const portalDir=path.join(root,'apps','portal');
+  const files=fs.readdirSync(portalDir).filter(name=>/\.(?:js|html)$/.test(name));
+  const searchFiles=[];
+  for(const name of files){
+    const relative=path.join('apps','portal',name);
+    const source=read(relative);
+    if(!/type=["']search["']/i.test(source))continue;
+    searchFiles.push(name);
+    assert.match(source,/role=["']combobox["']/i,`${name} search must expose a combobox`);
+    assert.match(source,/role=["']listbox["']/i,`${name} search must expose a dropdown listbox`);
+    assert.match(source,/aria-controls=/i,`${name} search must connect input and dropdown`);
+  }
+  assert.deepEqual(searchFiles.sort(),['app.js','documents.js','invoices.js','payables.js','suppliers.js']);
+});
+
+test('payables UI blocks unbalanced coding and visibly confirms approval',()=>{
+  const source=read('apps/portal/payables.js');
+  const css=read('apps/portal/payables.css');
+  assert.match(source,/function codingBalance/);
+  assert.match(source,/function assertBalancedCoding/);
+  assert.match(source,/Måste balansera före attest/);
+  assert.match(source,/data-balance-debit/);
+  assert.match(source,/data-balance-credit/);
+  assert.match(source,/button\.disabled=!state\.ok/);
+  assert.match(source,/Fakturan är attesterad och konteringen är låst/);
+  assert.match(source,/payables-action-toast/);
+  assert.match(css,/\.coding-balance\.balanced/);
+  assert.match(css,/\.coding-balance\.unbalanced/);
+  assert.match(css,/\.payables-action-toast/);
+});
+
+test('supplier invoice workspace offers separate safe open-PDF and download actions',()=>{
+  const source=read('apps/portal/payables.js');
+  const router=read('apps/api/payables-router.js');
+  assert.match(source,/Öppna PDF/);
+  assert.match(source,/\?view=inline/);
+  assert.match(source,/Ladda ner original-PDF/);
+  assert.match(router,/inline=url\.searchParams\.get\('view'\)==='inline'/);
+  assert.match(router,/inline\?'inline':'attachment'/);
 });
