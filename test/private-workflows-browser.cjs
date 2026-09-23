@@ -160,13 +160,12 @@ const Settings=require('../apps/api/company-invoice-settings.js');
     await pdfTab.close();
     assert.deepEqual(await page.evaluate(()=>window.__cspFailures),[]);checks.push('Customer PDF button uses real API invoice and local pinned PDF library');
     page.removeAllListeners('dialog');
-    page.on('dialog',dialog=>{
-      const message=dialog.message();
-      if(dialog.type()==='prompt'&&/Belopp att kreditera/i.test(message))return dialog.accept('1250,00');
-      if(dialog.type()==='prompt'&&/orsaken till krediteringen/i.test(message))return dialog.accept('Felaktig testfaktura ska krediteras.');
-      return dialog.accept();
-    });
     await page.getByRole('button',{name:'Kreditera faktura',exact:true}).click();
+    const creditForm=page.locator('#credit-invoice-form');
+    await creditForm.waitFor({timeout:10000});
+    await creditForm.locator('input[name="creditAmount"]').fill('1250,00');
+    await creditForm.locator('textarea[name="reason"]').fill('Felaktig testfaktura ska krediteras.');
+    await creditForm.getByRole('button',{name:'Skapa kreditfaktura',exact:true}).click();
     await page.getByRole('heading',{name:/Kreditfaktura /}).waitFor({timeout:30000});
     const creditedOriginal=Db.invoiceById(f.db,f.a.id,f.issued.invoice.id);
     assert.equal(creditedOriginal.status,'Krediterad');
