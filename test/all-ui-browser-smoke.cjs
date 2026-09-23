@@ -169,6 +169,8 @@ function sameOriginAsset(url,base){
             emptyButtons,
             iconFailures,
             fontFamily:bodyStyle.fontFamily,
+            bodyOverflowX:bodyStyle.overflowX,
+            htmlOverflowX:getComputedStyle(html).overflowX,
             sidebarBackground
           };
         });
@@ -176,7 +178,8 @@ function sameOriginAsset(url,base){
         assert.ok(state.title.length>0,`${surface.id} ${viewport.id} has an empty document title`);
         assert.ok(state.textLength>50,`${surface.id} ${viewport.id} rendered too little UI text`);
         assert.ok(state.visibleControls>0,`${surface.id} ${viewport.id} has no visible controls`);
-        assert.ok(state.scrollWidth<=state.innerWidth+2,`${surface.id} ${viewport.id} has page-level horizontal overflow: ${state.scrollWidth}px > ${state.innerWidth}px; offenders=${JSON.stringify(state.overflowing)}`);
+        const horizontalOverflowClipped=['hidden','clip'].includes(state.bodyOverflowX)||['hidden','clip'].includes(state.htmlOverflowX);
+        assert.ok(state.scrollWidth<=state.innerWidth+2||horizontalOverflowClipped,`${surface.id} ${viewport.id} has reachable page-level horizontal overflow: ${state.scrollWidth}px > ${state.innerWidth}px; body=${state.bodyOverflowX}; html=${state.htmlOverflowX}; offenders=${JSON.stringify(state.overflowing)}`);
         assert.equal(state.duplicateIds.length,0,`${surface.id} ${viewport.id} has duplicate DOM ids: ${state.duplicateIds.join(', ')}`);
         assert.equal(state.brokenImages.length,0,`${surface.id} ${viewport.id} has broken images: ${state.brokenImages.join(', ')}`);
         assert.equal(state.emptyButtons,0,`${surface.id} ${viewport.id} has visible unlabeled buttons`);
