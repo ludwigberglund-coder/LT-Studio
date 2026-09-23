@@ -9,3 +9,36 @@
   .supplier-create-form{grid-template-columns:1fr}
   .supplier-create-form .critical-box,.supplier-create-form .modal-actions{grid-column:auto}
 }
+
+
+/* UAT supplier register alignment with customer register */
+.supplier-page-head{margin-bottom:18px}
+.supplier-layout{display:grid;grid-template-columns:minmax(320px,.85fr) minmax(520px,1.35fr);gap:18px;align-items:start}
+.supplier-list,.supplier-detail{border-radius:18px;overflow:visible}
+.supplier-count{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.supplier-count strong{font-size:22px}.supplier-count small{color:var(--muted)}
+.supplier-search-wrap{position:relative;padding:16px;border-bottom:1px solid var(--line);z-index:6}
+.supplier-search-label{display:block;margin-bottom:7px;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.supplier-search-control{position:relative;display:flex;align-items:center}
+.supplier-search-control input{width:100%;border:1px solid #cfd7d0;border-radius:14px;padding:12px 42px 12px 40px;font:inherit;background:#fbfcfb;transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease,background .18s ease}
+.supplier-search-control input:focus{outline:none;border-color:#6d8f7b;box-shadow:0 0 0 4px rgba(87,124,103,.14);background:#fff;transform:translateY(-1px)}
+.supplier-search-icon{position:absolute;left:14px;z-index:2;font-size:19px;color:#607067;pointer-events:none}
+.supplier-search-pulse{position:absolute;right:14px;width:8px;height:8px;border-radius:50%;background:#6f9b80;opacity:0;transform:scale(.4);pointer-events:none}
+.supplier-search-control:focus-within .supplier-search-pulse{animation:supplier-search-pulse 1.2s ease-in-out infinite}
+@keyframes supplier-search-pulse{0%,100%{opacity:.2;transform:scale(.65)}50%{opacity:.9;transform:scale(1)}}
+.supplier-search-results{position:absolute;left:16px;right:16px;top:88px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 45px rgba(20,40,31,.16);overflow:hidden;transform-origin:top;animation:supplier-search-open .16s ease-out;z-index:30}
+@keyframes supplier-search-open{from{opacity:0;transform:translateY(-6px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+.supplier-search-option{width:100%;border:0;border-bottom:1px solid #edf0ed;background:#fff;padding:11px 13px;display:flex;justify-content:space-between;gap:14px;text-align:left;font:inherit;cursor:pointer}
+.supplier-search-option:last-child{border-bottom:0}.supplier-search-option:hover,.supplier-search-option.active{background:#eef7f2}
+.supplier-search-option span:first-child{display:flex;flex-direction:column;gap:2px}.supplier-search-option small{color:var(--muted)}
+.supplier-search-option span:last-child{font-size:12px;color:#46564d;white-space:nowrap}
+.supplier-search-empty{padding:14px;color:var(--muted);font-size:13px}
+.supplier-rows{max-height:62vh;overflow:auto}
+.supplier-row{transition:background .15s ease,transform .15s ease}.supplier-row:hover{transform:translateX(2px)}
+.supplier-toast{position:fixed;right:22px;bottom:22px;z-index:100;min-width:220px;max-width:min(360px,calc(100vw - 32px));display:flex;align-items:center;gap:11px;background:#173c2c;color:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 16px 40px rgba(20,42,32,.24);animation:supplier-toast-in .2s ease-out}
+.supplier-toast-check{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.16);font-weight:900}
+.supplier-toast span:last-child{display:flex;flex-direction:column;gap:1px}.supplier-toast small{opacity:.82}
+@keyframes supplier-toast-in{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(prefers-reduced-motion:reduce){.supplier-search-control input,.supplier-row{transition:none}.supplier-search-results,.supplier-toast,.supplier-search-pulse{animation:none!important}}
+@media(max-width:1000px){.supplier-layout{grid-template-columns:1fr}.supplier-rows{max-height:none}}
+@media(max-width:760px){.supplier-search-results{left:12px;right:12px}.supplier-toast{right:16px;bottom:16px;left:16px;max-width:none}}
