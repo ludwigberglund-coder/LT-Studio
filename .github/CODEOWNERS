@@ -1,0 +1,17 @@
+# LT Studio code ownership
+#
+# CODEOWNERS identifies the two human repository owners/developers for review
+# routing and ownership visibility. During active development the main ruleset
+# does not require code-owner approval; required CI remains the merge gate.
+# Code-owner approval is intended to be re-enabled as part of final launch
+# readiness together with the general approval gate documented in SECURITY.md.
+
+* @ludwigberglund-coder @theodornilo-web
+
+# Security-sensitive repository controls and workflows.
+.github/ @ludwigberglund-coder @theodornilo-web
+SECURITY.md @ludwigberglund-coder @theodornilo-web
+AGENTS.md @ludwigberglund-coder @theodornilo-web
+
+# Authentication, tenant isolation, security monitoring and accounting core.
+apps/api/ @ludwigberglund-coder @theodornilo-web
