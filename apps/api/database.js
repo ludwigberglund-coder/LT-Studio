@@ -244,7 +244,6 @@ function initializeSchema(db) {
       request_fingerprint TEXT NOT NULL DEFAULT '',
       reminder_number TEXT,
       document_json TEXT,
-      pdf_blob BLOB,
       pdf_sha256 TEXT,
       pdf_size_bytes INTEGER,
       pdf_file_name TEXT,
@@ -303,7 +302,6 @@ function initializeSchema(db) {
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_reminders_request_fingerprint ON invoice_reminders(company_id,invoice_id,request_fingerprint) WHERE request_fingerprint<>''");
   if (!hasColumn(db,'invoice_reminders','reminder_number')) db.exec('ALTER TABLE invoice_reminders ADD COLUMN reminder_number TEXT');
   if (!hasColumn(db,'invoice_reminders','document_json')) db.exec('ALTER TABLE invoice_reminders ADD COLUMN document_json TEXT');
-  if (!hasColumn(db,'invoice_reminders','pdf_blob')) db.exec('ALTER TABLE invoice_reminders ADD COLUMN pdf_blob BLOB');
   if (!hasColumn(db,'invoice_reminders','pdf_sha256')) db.exec('ALTER TABLE invoice_reminders ADD COLUMN pdf_sha256 TEXT');
   if (!hasColumn(db,'invoice_reminders','pdf_size_bytes')) db.exec('ALTER TABLE invoice_reminders ADD COLUMN pdf_size_bytes INTEGER');
   if (!hasColumn(db,'invoice_reminders','pdf_file_name')) db.exec('ALTER TABLE invoice_reminders ADD COLUMN pdf_file_name TEXT');
@@ -853,10 +851,10 @@ function commentsForInvoice(db, companyId, invoiceId) {
 }
 
 function addReminder(db, reminder) {
-  db.prepare(`INSERT INTO invoice_reminders(id,company_id,invoice_id,user_id,kind,request_fingerprint,reminder_number,document_json,pdf_blob,pdf_sha256,pdf_size_bytes,pdf_file_name,sent_at,reminder_date,delivery_status,delivered_at,rate_config_version,rate_verified_at,principal_ore,reminder_fee_ore,interest_ore,business_compensation_ore,total_due_ore,annual_rate_basis_points,interest_start_basis,interest_start_evidence_source,interest_start_verified_at,interest_segments_json,note,created_at)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+  db.prepare(`INSERT INTO invoice_reminders(id,company_id,invoice_id,user_id,kind,request_fingerprint,reminder_number,document_json,pdf_sha256,pdf_size_bytes,pdf_file_name,sent_at,reminder_date,delivery_status,delivered_at,rate_config_version,rate_verified_at,principal_ore,reminder_fee_ore,interest_ore,business_compensation_ore,total_due_ore,annual_rate_basis_points,interest_start_basis,interest_start_evidence_source,interest_start_verified_at,interest_segments_json,note,created_at)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
       reminder.id,reminder.companyId,reminder.invoiceId,reminder.createdBy,reminder.kind,reminder.requestFingerprint||'',
-      reminder.reminderNumber||null,reminder.documentJson||null,reminder.pdfBytes||null,reminder.pdfSha256||null,reminder.pdfSizeBytes||null,reminder.pdfFileName||null,
+      reminder.reminderNumber||null,reminder.documentJson||null,reminder.pdfSha256||null,reminder.pdfSizeBytes||null,reminder.pdfFileName||null,
       reminder.sentAt,reminder.reminderDate || String(reminder.sentAt || '').slice(0,10),reminder.deliveryStatus || 'not-sent',reminder.deliveredAt || null,
       reminder.rateConfigVersion || '',reminder.rateVerifiedAt || '',reminder.principalOre,reminder.reminderFeeOre,reminder.interestOre,
       reminder.businessLatePaymentCompensationOre,reminder.totalDueOre,reminder.annualRateBasisPoints,
