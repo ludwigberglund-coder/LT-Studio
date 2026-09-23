@@ -98,3 +98,22 @@ test('leverantörsbetalningsuppgifter sparas direkt utan separat godkännandepan
   assert.doesNotMatch(js,/Väntar godkännande/);
   assert.doesNotMatch(js,/Begär ändring/);
 });
+
+
+test('gemensam hamburgarmeny fungerar på mobil och desktop med tillgänglig stängning',()=>{
+  const js=fs.readFileSync(path.join(portal,'portal-nav.js'),'utf8');
+  const css=fs.readFileSync(path.join(portal,'design-system.css'),'utf8');
+  assert.match(js,/menu:'<path d="M3 6H21M3 12H21M3 18H21"\/>/);
+  assert.match(js,/shared-menu-toggle/);
+  assert.match(js,/aria-controls','shared-primary-sidebar/);
+  assert.match(js,/shared-menu-overlay/);
+  assert.match(js,/sidebarCollapsed/);
+  assert.match(js,/event\.key==='Escape'/);
+  assert.match(js,/event\.key!=='Tab'/);
+  assert.match(js,/shared-mobile-menu-open/);
+  assert.match(js,/shared-mobile-nav-lock/);
+  assert.match(css,/\.shared-workspace-shell\.shared-sidebar-collapsed/);
+  assert.match(css,/\.shared-workspace-shell\.shared-mobile-menu-open>\.sidebar\.shared-sidebar/);
+  assert.match(css,/position:fixed;left:16px;top:calc\(14px \+ env\(safe-area-inset-top\)\)/);
+  assert.match(css,/@keyframes lt-sidebar-item-in/);
+});
