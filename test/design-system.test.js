@@ -61,7 +61,7 @@ test('temafilerna är akromatiska utanför den avsiktliga canvasen och felrött'
 test('publika hemsidan får använda den kontrollerade LT Studio-paletten och mjuka gradienter',()=>{
   const website=source('apps/website/design-system.css');
   for(const token of ['--brand-forest:#173f32','--brand-peach:#f2b18e','--brand-lime:#dfe9ad','--brand-sky:#dcecf2']){
-    assert.match(website,new RegExp(token.replace('#','\\#')),\`hemsidan saknar godkänd varumärkesfärg: \${token}\`);
+    assert.match(website,new RegExp(token.replace('#','\\#')),`hemsidan saknar godkänd varumärkesfärg: ${token}`);
   }
   assert.match(website,/(?:linear|radial)-gradient\\(/,'hemsidan ska få använda mjuka gradienter');
   assert.match(website,/--brand-ink:#18342b/,'hemsidan ska använda den mörka gröna textfärgen för kontrast');
