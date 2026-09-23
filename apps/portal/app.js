@@ -295,8 +295,10 @@ document.addEventListener('input',event=>{
 document.addEventListener('change',event=>{const id=event.target.dataset.column;if(!id)return;if(event.target.checked)visibleColumns.add(id);else visibleColumns.delete(id);saveJson(COLUMN_KEY,[...visibleColumns]);renderReceivableResults()});
 document.addEventListener('contextmenu',event=>{const row=event.target.closest('[data-invoice-id]');if(!row)return;event.preventDefault();contextMenu={invoiceId:row.dataset.invoiceId,x:Math.min(event.clientX,innerWidth-270),y:Math.min(event.clientY,innerHeight-190)};renderOverlays()});
 document.addEventListener('click',async event=>{
-  if(event.target.matches('[data-stop]')||event.target.closest('[data-stop]'))event.stopPropagation();
+  const stopRoot=event.target.closest('[data-stop]');
+  if(stopRoot)event.stopPropagation();
   const button=event.target.closest('[data-action]');
+  if(stopRoot&&button&&!stopRoot.contains(button))return;
   if(!button){if(contextMenu){contextMenu=null;renderOverlays()}return}
   const action=button.dataset.action;
   try{
