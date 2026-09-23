@@ -67,3 +67,25 @@ test('payables actions give visible feedback and receivables search stays below 
   assert.match(styles,/\.receivable-search\{position:relative;z-index:5/);
   assert.match(styles,/@media\(max-width:720px\)\{\s*\.receivable-search\{display:grid/);
 });
+
+
+test('supplier register offers prefix-search dropdown, save toast and customer-style layout',()=>{
+  const source=read('apps/portal/suppliers.js');
+  const css=read('apps/portal/suppliers.css');
+  assert.match(source,/function supplierMatchesPrefix/);
+  assert.match(source,/\.startsWith\(q\)/);
+  assert.match(source,/role="combobox"/);
+  assert.match(source,/role="listbox"/);
+  assert.match(source,/data-supplier-suggestion/);
+  assert.match(source,/ArrowDown/);
+  assert.match(source,/ArrowUp/);
+  assert.match(source,/supplier-toast/);
+  assert.match(source,/Sparad/);
+  assert.match(source,/supplier-page-head/);
+  assert.match(source,/Leverantörsregister & betalningsuppgifter/);
+  assert.match(css,/\.supplier-search-results/);
+  assert.match(css,/@keyframes supplier-search-open/);
+  assert.match(css,/\.supplier-toast/);
+  assert.match(css,/@keyframes supplier-toast-in/);
+  assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
+});
