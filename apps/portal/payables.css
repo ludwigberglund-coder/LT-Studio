@@ -15,9 +15,6 @@
 @keyframes payablesToastIn{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 @media(max-width:760px){.coding-balance{grid-template-columns:1fr 1fr}.coding-balance>strong{grid-column:1/-1;justify-self:start}.payables-action-toast{left:16px;right:16px;bottom:16px;max-width:none}}
 
-.coding-balance [data-balance-status-unbalanced]{display:none}
-.coding-balance.unbalanced [data-balance-status-balanced]{display:none}
-.coding-balance.unbalanced [data-balance-status-unbalanced]{display:block}
 
 .coding-actions .coding-action-blocked{opacity:.58;cursor:not-allowed;box-shadow:none;filter:saturate(.55)}
 .coding-actions .coding-action-blocked:hover{transform:none;box-shadow:none}
