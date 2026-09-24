@@ -30,3 +30,13 @@ test('operator company search uses a live accessible dropdown',()=>{
   assert.match(css,/\.company-search-option/);
   assert.match(css,/@keyframes operatorSearchDrop/);
 });
+
+
+test('operator refresh bypasses cache and gives visible completion feedback',()=>{
+  const source=read('apps/operator/app.js');
+  assert.match(source,/operatorRefreshing/);
+  assert.match(source,/cache:'no-store'/);
+  assert.match(source,/Uppdaterar…/);
+  assert.match(source,/Adminvyn är uppdaterad/);
+  assert.match(source,/data-action="refresh"/);
+});
