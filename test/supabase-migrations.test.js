@@ -32,3 +32,9 @@ test('Supabase identity compatibility preserves prefixed application IDs', () =>
   assert.match(sql, /foreign key \(user_id, auth_user_id\)/i);
   assert.match(sql, /auth_user_id\s*=\s*\(select auth\.uid\(\)\)/i);
 });
+
+
+test('Supabase membership identity foreign key has a covering index', () => {
+  const sql = migration('20260924212600_index_membership_identity_fk.sql');
+  assert.match(sql, /company_memberships\(user_id, auth_user_id\)/i);
+});
