@@ -42,15 +42,21 @@ test('synthetic staging bootstrap creates exactly two isolated fictitious tenant
 
     const db=new DatabaseSync(env.ROLLANDS_DATABASE_PATH,{readOnly:true});
     try{
-      const companies=db.prepare('SELECT legal_name AS legalName,org_number AS orgNumber,display_name AS displayName FROM companies ORDER BY display_name').all();
+      const companies=db.prepare('SELECT id,legal_name AS legalName,org_number AS orgNumber,display_name AS displayName FROM companies ORDER BY display_name').all();
       const users=db.prepare('SELECT username,display_name AS displayName FROM users ORDER BY username').all();
       const memberships=db.prepare('SELECT company_id AS companyId,user_id AS userId FROM memberships').all();
       const audits=db.prepare("SELECT action,details_json AS detailsJson FROM audit_events WHERE action='SYNTHETIC_STAGING_BOOTSTRAP'").all();
+      const customers=db.prepare('SELECT company_id AS companyId,customer_number AS customerNumber,name FROM customers ORDER BY company_id,customer_number').all();
+      const invoices=db.prepare('SELECT company_id AS companyId,invoice_number AS invoiceNumber,remaining_ore AS remainingOre FROM invoices ORDER BY company_id,invoice_number').all();
+      const bankPayments=db.prepare('SELECT company_id AS companyId,external_id AS externalId,amount_ore AS amountOre,reference,payer_name AS payerName,status FROM bank_payments ORDER BY company_id,external_id').all();
 
       assert.equal(companies.length,2);
       assert.equal(users.length,2);
       assert.equal(memberships.length,2);
       assert.equal(audits.length,2);
+      assert.equal(customers.length,6);
+      assert.equal(invoices.length,6);
+      assert.equal(bankPayments.length,4);
       assert.deepEqual(companies.map(row=>row.orgNumber).sort(),SYNTHETIC_TENANTS.map(row=>row.orgNumber).sort());
       assert.ok(companies.every(row=>row.legalName.startsWith('Synthetic Staging Company ')));
       assert.ok(users.every(row=>row.username.startsWith('staging-')));
@@ -59,6 +65,21 @@ test('synthetic staging bootstrap creates exactly two isolated fictitious tenant
       for(const membership of memberships){
         const count=db.prepare('SELECT COUNT(*) AS n FROM memberships WHERE user_id=?').get(membership.userId).n;
         assert.equal(count,1);
+      }
+
+      for(const company of companies){
+        const exact=bankPayments.find(row=>row.companyId===company.id&&row.externalId.startsWith('UAT-BANK-EXACT-'));
+        const ambiguous=bankPayments.find(row=>row.companyId===company.id&&row.externalId.startsWith('UAT-BANK-AMBIGUOUS-'));
+        assert.ok(exact,'varje UAT-företag ska ha en exakt bankmatchning');
+        assert.ok(ambiguous,'varje UAT-företag ska ha ett tvetydigt bankscenario');
+        assert.equal(exact.status,'unmatched');
+        assert.equal(ambiguous.status,'unmatched');
+        const exactInvoice=invoices.find(invoice=>invoice.companyId===company.id&&invoice.invoiceNumber===exact.reference);
+        assert.ok(exactInvoice,'exakt bankreferens ska peka på en syntetisk faktura');
+        assert.equal(exact.amountOre,exactInvoice.remainingOre);
+        const ambiguousCandidates=db.prepare(`SELECT COUNT(*) AS n FROM invoices i JOIN customers c ON c.id=i.customer_id AND c.company_id=i.company_id
+          WHERE i.company_id=? AND i.remaining_ore=? AND c.name='UAT Delad Betalare AB'`).get(company.id,ambiguous.amountOre).n;
+        assert.equal(ambiguousCandidates,2);
       }
     }finally{db.close()}
   }finally{fs.rmSync(dir,{recursive:true,force:true})}
