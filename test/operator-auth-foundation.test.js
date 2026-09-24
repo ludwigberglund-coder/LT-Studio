@@ -6,6 +6,7 @@ const Db=require('../apps/api/database.js');
 const Auth=require('../apps/api/auth.js');
 const OperatorAuth=require('../apps/api/operator-auth.js');
 const {bootstrapOperator}=require('../scripts/bootstrap-operator.js');
+const {bootstrapConfiguredStagingOperator}=require('../apps/api/server.js');
 
 const MFA_SECRET='GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 const ENCRYPTION_KEY='operator-auth-test-key-longer-than-thirty-two-characters';
@@ -100,5 +101,27 @@ test('operator-bootstrap skapar konto atomiskt utan att skriva över befintlig o
     assert.equal(audit[0].operatorId,stored.id);
     assert.throws(()=>bootstrapOperator(db,input),/finns redan/i);
     assert.equal(db.prepare('SELECT COUNT(*) AS n FROM platform_operators').get().n,1);
+  }finally{db.close()}
+});
+
+
+test('staging-startup-bootstrap skapar ett operatörskonto högst en gång och är spärrad utanför staging',()=>{
+  const db=Db.openDatabase(':memory:');
+  try{
+    const env={
+      ROLLANDS_ENV:'staging',
+      ROLLANDS_OPERATOR_BOOTSTRAP_ON_START:'1',
+      ROLLANDS_OPERATOR_BOOTSTRAP_USERNAME:'staging.one-time.operator',
+      ROLLANDS_OPERATOR_BOOTSTRAP_DISPLAY_NAME:'Tillfällig stagingoperatör',
+      ROLLANDS_OPERATOR_BOOTSTRAP_PASSWORD:'Tillfalligt starkt operatorlosenord 2026!',
+      ROLLANDS_OPERATOR_BOOTSTRAP_MFA_SECRET:MFA_SECRET
+    };
+    const first=bootstrapConfiguredStagingOperator(db,{env,authEncryptionKey:ENCRYPTION_KEY});
+    assert.equal(first.created,true);
+    assert.equal(Auth.verifyPassword(env.ROLLANDS_OPERATOR_BOOTSTRAP_PASSWORD,Db.platformOperatorByUsername(db,env.ROLLANDS_OPERATOR_BOOTSTRAP_USERNAME).passwordHash),true);
+    const second=bootstrapConfiguredStagingOperator(db,{env,authEncryptionKey:ENCRYPTION_KEY});
+    assert.equal(second.created,false);
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM platform_operators').get().n,1);
+    assert.throws(()=>bootstrapConfiguredStagingOperator(db,{env:{...env,ROLLANDS_ENV:'pilot'},authEncryptionKey:ENCRYPTION_KEY}),/endast köras i staging/i);
   }finally{db.close()}
 });
