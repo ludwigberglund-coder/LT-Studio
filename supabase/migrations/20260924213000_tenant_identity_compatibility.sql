@@ -17,7 +17,9 @@ alter table public.companies
   alter column id type text using id::text;
 
 alter table public.company_memberships
-  alter column company_id type text using company_id::text,
+  alter column company_id type text using company_id::text;
+
+alter table public.company_memberships
   rename column user_id to auth_user_id;
 
 create table if not exists public.app_users (
