@@ -34,6 +34,10 @@ test('plattformsoverview listar företag och aggregerad säkerhet utan affärsde
     const alpha=result.companies[0],beta=result.companies[1];
     assert.equal(alpha.memberCount,1);
     assert.equal(alpha.activeMemberCount,1);
+    assert.equal(alpha.mfaProtectedMemberCount,1);
+    assert.equal(alpha.activity30dCount,1);
+    assert.equal(alpha.securityEventCount24h,0);
+    assert.equal(alpha.criticalSecurityCount24h,0);
     assert.equal(alpha.activeSessionCount,1);
     assert.equal(alpha.customerRecordCount,1);
     assert.equal(alpha.invoiceRecordCount,1);
@@ -56,6 +60,9 @@ test('plattformsoverview listar företag och aggregerad säkerhet utan affärsde
     assert.equal(result.totals.configuredCompanies,1);
     assert.equal(result.totals.activeUsers,1);
     assert.equal(result.totals.mfaProtectedUsers,1);
+    assert.equal(result.totals.activity30d,1);
+    assert.equal(result.totals.companySecurityEvents24h,0);
+    assert.equal(result.totals.companyCriticalSecurity24h,0);
     assert.equal(result.roleDistribution.admin,1);
     assert.equal(result.roleDistribution.readonly,1);
     assert.equal(result.monthly.length,6);
