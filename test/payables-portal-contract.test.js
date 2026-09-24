@@ -25,7 +25,8 @@ test('payables.js använder gemensamma demo-workflows för leverantörsbetalning
   assert.match(source,/Workflows\.postSupplierInvoice\(selected\.id\)/);
   assert.match(source,/Workflows\.prepareSupplierPayment\(selected\.id\)/);
   assert.match(source,/Workflows\.releaseSupplierPayment\(paymentId\)/);
-  assert.match(source,/Workflows\.confirmSupplierPayment\(paymentId,reference\)/);
+  assert.match(source,/Workflows\.confirmSupplierPayment\(paymentId,safeReference\)/);
+  assert.match(source,/function paymentConfirmationModal/);
 });
 
 test('leverantörsfakturans detaljvy visar både fakturadatum och förfallodatum',()=>{
@@ -36,7 +37,7 @@ test('leverantörsfakturans detaljvy visar både fakturadatum och förfallodatum
 
 test('leverantörsfakturasidan versionsmärker huvudskriptet för att undvika gammal cache',()=>{
   const html=fs.readFileSync(htmlPath,'utf8');
-  assert.match(html,/src="\.\/payables\.js\?v=20260920-3"/);
+  assert.match(html,/src="\.\/payables\.js\?v=20260924-1"/);
 });
 
 test('leverantörsfakturalistan visar fakturadatum och förfallodatum sida vid sida',()=>{
