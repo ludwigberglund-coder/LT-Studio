@@ -80,6 +80,14 @@ Miljövariabler och säkra sökvägar beskrivs i `.env.example` och [backup-guid
 
 Vid `TENANT_INTEGRITY_ERROR` ska uppstarten stoppas och historiken bevaras för utredning. Radera inte poster eller stäng av kontrollerna för att få servern att starta.
 
+## Rolands Mac-arkiv
+
+Den äldre Mac-versionen är bevarad i GitHub-branchen `archive/rollands-mac-20260924` och kan öppnas som en separat syntetisk webbmiljö här:
+
+**[Öppna Rolands Mac-versionen](https://rollands-mac-archive-production.up.railway.app/)**
+
+Miljön kör exakt arkivcommit `2b14c053a1d3379eacf77ec49e3daf39157e3fca` och använder endast syntetisk testdata. Den är separat från dagens LT Studio-`main` och får inte användas som pilot- eller produktionsmiljö.
+
 ## Offentlig demo och redigering
 
 [Publik webbplats](https://ludwigberglund-coder.github.io/LT-Studio/) och [företagsportalens demo](https://ludwigberglund-coder.github.io/LT-Studio/portal/dashboard.html?demo=1) använder fiktiva uppgifter. Demoändringar kan ligga enbart i den egna webbläsaren och är inte delad, säker företagsdata.
