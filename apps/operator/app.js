@@ -1,6 +1,6 @@
 const root=document.getElementById('operator-app');
 const csrfKey='lt-operator-csrf';
-let session=null,overview=null,readiness=null,security=null,operatorAudit=null,securityMonitor=null,securityAlerts=null,securityPollTimer=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='',companyQuery='',companyStatus='all',companySort='name',securitySeverity='all',securityPeriod='24h',securityCompany='all',securityIncidentStatus='all';
+let session=null,overview=null,readiness=null,security=null,operatorAudit=null,securityMonitor=null,securityAlerts=null,securityPollTimer=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='',companyQuery='',companyStatus='all',companySort='name',companySearchOpen=false,companySearchActiveIndex=-1,securitySeverity='all',securityPeriod='24h',securityCompany='all',securityIncidentStatus='all';
 
 
 const OPERATOR_ICONOIR=Object.freeze({
@@ -192,11 +192,34 @@ function filteredCompanies(){
     return String(a.displayName||'').localeCompare(String(b.displayName||''),'sv');
   });
 }
+function companySearchSuggestions(){
+  if(!companyQuery.trim())return[];
+  return filteredCompanies().slice(0,8);
+}
+function companySearchResults(){
+  const rows=companySearchSuggestions();
+  if(!rows.length)return '<div class="company-search-empty">Inga företag matchar sökningen.</div>';
+  return rows.map((company,index)=>`<button type="button" class="company-search-option ${index===companySearchActiveIndex?'active':''}" role="option" aria-selected="${index===companySearchActiveIndex?'true':'false'}" data-company-search-id="${esc(company.id)}"><span class="company-avatar">${initials(company.displayName)}</span><span class="company-search-copy"><strong>${esc(company.displayName)}</strong><small>${esc(company.legalName||company.displayName)} · ${esc(company.orgNumber||'Org.nr saknas')}</small></span><span class="company-search-meta">${num(company.memberCount)} anv.</span></button>`).join('');
+}
+function updateCompanySearchDropdown(){
+  const field=document.querySelector('[data-company-search]'),results=document.getElementById('operator-company-search-results');
+  if(!field||!results)return;
+  const open=Boolean(companySearchOpen&&companyQuery.trim());
+  field.setAttribute('aria-expanded',open?'true':'false');
+  results.hidden=!open;
+  if(open)results.innerHTML=companySearchResults();
+}
+function closeCompanySearch(){
+  companySearchOpen=false;companySearchActiveIndex=-1;
+  const field=document.querySelector('[data-company-search]'),results=document.getElementById('operator-company-search-results');
+  field?.setAttribute('aria-expanded','false');if(results)results.hidden=true;
+}
 function updateCompanyTable(){
   const tbody=document.getElementById('company-table-body'),count=document.getElementById('company-result-count');
   const rows=filteredCompanies();
   if(tbody)tbody.innerHTML=companyRows(rows);
   if(count)count.textContent=`${rows.length} av ${overview?.companyCount||0} företag`;
+  updateCompanySearchDropdown();
 }
 function companyRows(source){
   const rows=source||overview?.companies||[];
@@ -362,7 +385,7 @@ function companiesView(){
   const totals=overview?.totals||{},configuredPct=percent(totals.configuredCompanies,overview?.companyCount||0);
   shell(`<section class="page-intro-card"><div><span class="eyebrow">KUNDBAS</span><h2>${num(overview?.companyCount)} företag använder plattformen</h2><p>Härifrån öppnar ni varje kundmiljö och hanterar användare, behörigheter och teknisk statistik.</p></div><div class="intro-stats"><div><strong>${configuredPct}%</strong><span>aktiverade</span></div><div><strong>${num(totals.activeCompanies30d)}</strong><span>aktiva 30d</span></div><div><strong>${num(totals.members)}</strong><span>användare</span></div></div></section>
   <section class="panel"><div class="panel-head company-panel-head"><div><span class="eyebrow">FÖRETAG</span><h2>Alla kunder & företag</h2><p>Öppna ett företag för användare, behörigheter och statistik.</p></div><span class="panel-stat" id="company-result-count">${filteredCompanies().length} av ${overview?.companyCount||0} företag</span></div>
-  <div class="company-toolbar"><label class="search-field"><span class="sr-only">Sök företag</span><input data-company-search value="${esc(companyQuery)}" placeholder="Sök namn eller organisationsnummer…"></label><label><span class="sr-only">Filtrera status</span><select data-company-filter><option value="all" ${companyStatus==='all'?'selected':''}>Alla statusar</option><option value="active" ${companyStatus==='active'?'selected':''}>Aktiverade</option><option value="unconfigured" ${companyStatus==='unconfigured'?'selected':''}>Saknar användare</option></select></label><label><span class="sr-only">Sortera företag</span><select data-company-sort><option value="name" ${companySort==='name'?'selected':''}>Sortera: namn</option><option value="users" ${companySort==='users'?'selected':''}>Flest användare</option><option value="invoices" ${companySort==='invoices'?'selected':''}>Flest fakturor</option><option value="activity" ${companySort==='activity'?'selected':''}>Senast aktiva</option></select></label></div>
+  <div class="company-toolbar"><div class="company-search-shell"><label class="search-field"><span class="sr-only">Sök företag</span><input type="search" role="combobox" aria-autocomplete="list" aria-controls="operator-company-search-results" aria-expanded="${companySearchOpen&&companyQuery.trim()?'true':'false'}" autocomplete="off" data-company-search value="${esc(companyQuery)}" placeholder="Sök namn eller organisationsnummer…"></label><div id="operator-company-search-results" class="company-search-results" role="listbox" ${companySearchOpen&&companyQuery.trim()?'':'hidden'}>${companySearchOpen&&companyQuery.trim()?companySearchResults():''}</div></div><label><span class="sr-only">Filtrera status</span><select data-company-filter><option value="all" ${companyStatus==='all'?'selected':''}>Alla statusar</option><option value="active" ${companyStatus==='active'?'selected':''}>Aktiverade</option><option value="unconfigured" ${companyStatus==='unconfigured'?'selected':''}>Saknar användare</option></select></label><label><span class="sr-only">Sortera företag</span><select data-company-sort><option value="name" ${companySort==='name'?'selected':''}>Sortera: namn</option><option value="users" ${companySort==='users'?'selected':''}>Flest användare</option><option value="invoices" ${companySort==='invoices'?'selected':''}>Flest fakturor</option><option value="activity" ${companySort==='activity'?'selected':''}>Senast aktiva</option></select></label></div>
   <div class="table-wrap"><table><thead><tr><th>Företag</th><th>Org.nr</th><th>Användare</th><th>Status</th><th>Sessioner</th><th>Fakturor</th><th>Senaste aktivitet</th></tr></thead><tbody id="company-table-body">${companyRows(filteredCompanies())}</tbody></table></div></section>`,'Kunder & företag','Central administration för varje kundmiljö.');
 }
 function statisticsView(){
@@ -511,7 +534,27 @@ async function refresh(){errorMessage='';try{await loadData();if(selectedCompany
 async function mutate(path,options){return api(path,{...options,headers:{'Content-Type':'application/json','X-CSRF-Token':csrf(),...(options?.headers||{})}})}
 document.addEventListener('input',event=>{
   if(!event.target.matches?.('[data-company-search]'))return;
-  companyQuery=event.target.value;updateCompanyTable();
+  companyQuery=event.target.value;companySearchOpen=Boolean(companyQuery.trim());companySearchActiveIndex=-1;updateCompanyTable();
+});
+document.addEventListener('focusin',event=>{
+  if(event.target.matches?.('[data-company-search]')&&companyQuery.trim()){companySearchOpen=true;updateCompanySearchDropdown()}
+});
+document.addEventListener('keydown',async event=>{
+  if(!event.target.matches?.('[data-company-search]'))return;
+  const rows=companySearchSuggestions();
+  if(event.key==='Escape'){closeCompanySearch();return}
+  if(!rows.length)return;
+  if(event.key==='ArrowDown'||event.key==='ArrowUp'){
+    event.preventDefault();companySearchOpen=true;
+    const step=event.key==='ArrowDown'?1:-1;
+    companySearchActiveIndex=(companySearchActiveIndex+step+rows.length)%rows.length;
+    updateCompanySearchDropdown();return;
+  }
+  if(event.key==='Enter'&&companySearchOpen){
+    event.preventDefault();
+    const company=rows[Math.max(0,companySearchActiveIndex)];
+    if(company){closeCompanySearch();await openCompany(company.id)}
+  }
 });
 document.addEventListener('submit',async event=>{
   if(event.target.id==='login-form'){
@@ -560,7 +603,9 @@ document.addEventListener('keydown',event=>{
 });
 document.addEventListener('click',async event=>{
   if(event.target.matches?.('[data-modal-backdrop]')){modal=null;render();return}
-  const companyRow=event.target.closest('[data-company-id]');if(companyRow){await openCompany(companyRow.dataset.companyId);return}
+  const companySuggestion=event.target.closest('[data-company-search-id]');if(companySuggestion){closeCompanySearch();await openCompany(companySuggestion.dataset.companySearchId);return}
+  if(companySearchOpen&&!event.target.closest('.company-search-shell'))closeCompanySearch();
+  const companyRow=event.target.closest('[data-company-id]');if(companyRow){closeCompanySearch();await openCompany(companyRow.dataset.companyId);return}
   const viewButton=event.target.closest('[data-view]');if(viewButton){selectedCompany=null;view=viewButton.dataset.view;if(view==='security')await loadOperatorAudit();render();return}
   const button=event.target.closest('[data-action]');if(!button)return;
   const action=button.dataset.action;
