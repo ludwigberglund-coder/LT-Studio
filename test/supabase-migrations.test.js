@@ -22,3 +22,13 @@ test('Supabase tenant foundation enables RLS and scopes membership reads', () =>
   assert.match(sql, /m\.company_id\s*=\s*companies\.id/i);
   assert.doesNotMatch(sql, /grant\s+(?:all|insert|update|delete)[^;]*to\s+anon/i);
 });
+
+
+test('Supabase identity compatibility preserves prefixed application IDs', () => {
+  const sql = migration('20260924213000_tenant_identity_compatibility.sql');
+  assert.match(sql, /alter column id type text using id::text/i);
+  assert.match(sql, /create table if not exists public\.app_users/i);
+  assert.match(sql, /auth_user_id uuid not null unique references auth\.users/i);
+  assert.match(sql, /foreign key \(user_id, auth_user_id\)/i);
+  assert.match(sql, /auth_user_id\s*=\s*\(select auth\.uid\(\)\)/i);
+});
