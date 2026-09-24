@@ -16,6 +16,9 @@ test('UAT portal scripts remain syntactically valid',()=>{
     'apps/portal/invoices.js',
     'apps/portal/suppliers.js',
     'apps/portal/payables.js',
+    'apps/portal/payments.js',
+    'apps/portal/reports.js',
+    'apps/portal/bank.js',
     'apps/portal/documents.js'
   ]){
     assert.doesNotThrow(()=>new vm.Script(read(relative),{filename:relative}),relative);
@@ -105,7 +108,7 @@ test('every portal search box exposes an interactive dropdown contract',()=>{
     assert.match(source,/role=["']listbox["']/i,`${name} search must expose a dropdown listbox`);
     assert.match(source,/aria-controls=/i,`${name} search must connect input and dropdown`);
   }
-  assert.deepEqual(searchFiles.sort(),['app.js','documents.js','invoices.js','payables.js','suppliers.js']);
+  assert.deepEqual(searchFiles.sort(),['app.js','documents.js','invoices.js','payables.js','payments.js','suppliers.js']);
 });
 
 test('payables UI blocks unbalanced coding and visibly confirms approval',()=>{
@@ -136,4 +139,41 @@ test('supplier invoice workspace offers separate safe open-PDF and download acti
   assert.match(source,/Ladda ner original-PDF/);
   assert.match(router,/inline=url\.searchParams\.get\('view'\)==='inline'/);
   assert.match(router,/inline\?'inline':'attachment'/);
+});
+
+
+test('payments live search, refresh feedback and financial table alignment are enforced',()=>{
+  const payments=read('apps/portal/payments.js');
+  const reports=read('apps/portal/reports.js');
+  const design=read('apps/portal/design-system.css');
+  assert.match(payments,/id="payments-search-results"/);
+  assert.match(payments,/function paymentSearchSuggestions/);
+  assert.match(payments,/function updateSearchUi/);
+  assert.match(payments,/Uppdaterar…/);
+  assert.match(payments,/Betalningarna är uppdaterade/);
+  assert.match(reports,/Uppdaterar…/);
+  assert.match(reports,/Rapporten är uppdaterad/);
+  assert.match(design,/Financial tables: center headers and numeric values/);
+  assert.match(design,/\.report-table th[\s\S]*text-align:\s*center/);
+  assert.match(design,/\.report-table \.money[\s\S]*text-align:\s*center !important/);
+  assert.match(design,/font-variant-numeric:\s*tabular-nums/);
+});
+
+test('supplier payment bank reference uses LT Studio modal instead of browser prompt',()=>{
+  const source=read('apps/portal/payables.js');
+  const start=source.indexOf('async function confirmPayment');
+  const end=source.indexOf("document.addEventListener('input'",start);
+  const paymentFlow=source.slice(start,end);
+  assert.match(source,/function paymentConfirmationModal/);
+  assert.match(source,/id="payment-confirm-form"/);
+  assert.match(source,/Bankens betalningsreferens/);
+  assert.doesNotMatch(paymentFlow,/\bprompt\s*\(/);
+});
+
+test('bank page has an explicit working refresh action for UAT data',()=>{
+  const source=read('apps/portal/bank.js');
+  assert.match(source,/data-action="refresh-bank"/);
+  assert.match(source,/async function refreshPayments/);
+  assert.match(source,/Bankhändelserna är uppdaterade/);
+  assert.match(source,/cache:'no-store'/);
 });
