@@ -88,9 +88,9 @@ Miljövariabler och säkra sökvägar beskrivs i `.env.example` och [backup-guid
 
 Vid `TENANT_INTEGRITY_ERROR` ska uppstarten stoppas och historiken bevaras för utredning. Radera inte poster eller stäng av kontrollerna för att få servern att starta.
 
-## Offentlig demo och redigering
+## Offentlig webbplats och gemensam företagsportal
 
-[Publik webbplats](https://ludwigberglund-coder.github.io/LT-Studio/) och [företagsportalens demo](https://ludwigberglund-coder.github.io/LT-Studio/portal/dashboard.html?demo=1) använder fiktiva uppgifter. Demoändringar kan ligga enbart i den egna webbläsaren och är inte delad, säker företagsdata.
+[Publik webbplats (GitHub Pages)](https://ludwigberglund-coder.github.io/LT-Studio/) och [gemensam företagsportal (Railway)](https://lt-studio-staging-production.up.railway.app/portal/) är olika miljöer. Portalen kör server och delad stagingdatabas med enbart fiktiva uppgifter; varje person använder egen inloggning och MFA. [Statiska portaldemon](https://ludwigberglund-coder.github.io/LT-Studio/portal/dashboard.html?demo=1) är separat och sparar ändringar enbart i den egna webbläsaren.
 
 Offentliga texter finns i `content/site.json` och `content/company.json`. Se [redigeringsguiden](docs/EDITING.md). Företagets juridiska/ekonomiska inställningar ska inte ändras via ett offentligt CMS.
 
