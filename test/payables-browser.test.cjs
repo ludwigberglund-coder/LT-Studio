@@ -83,7 +83,12 @@ function net2440(entries){return entries.flatMap(entry=>entry.lines||[]).filter(
     await page.getByRole('button',{name:'Förbered betalning idag'}).click();
 
     await setSession(approverSession);await page.getByRole('button',{name:'Frisläpp'}).click();
-    await setSession(accountantSession);page.once('dialog',dialog=>dialog.accept('BANK-BKS-771-BROWSER'));await page.getByRole('button',{name:'Bekräfta & bokför'}).click();await page.getByText(/Betalningen är bokförd som/).waitFor({timeout:10000});
+    await setSession(accountantSession);await page.getByRole('button',{name:'Bekräfta & bokför'}).click();
+    const confirmDialog=page.getByRole('dialog',{name:'Bekräfta genomförd betalning'});
+    await confirmDialog.waitFor({state:'visible'});
+    await confirmDialog.locator('input[name="reference"]').fill('BANK-BKS-771-BROWSER');
+    await confirmDialog.getByRole('button',{name:'Bekräfta & bokför'}).click();
+    await page.locator('.payables-action-toast').getByText(/Bankreferensen är sparad och betalningen är bokförd/).waitFor({timeout:10000});
 
     const invoice=db.prepare(`SELECT id,status,open_amount_ore AS openAmountOre,accounting_status AS accountingStatus FROM supplier_invoices WHERE company_id=? AND supplier_invoice_number='BKS-771'`).get(company.id);assert.ok(invoice);assert.equal(invoice.status,'paid');assert.equal(invoice.accountingStatus,'paid');assert.equal(invoice.openAmountOre,0);
     const payment=db.prepare(`SELECT id,status,amount_ore AS amountOre,confirmation_reference AS confirmationReference FROM supplier_payments WHERE company_id=? AND supplier_invoice_id=?`).get(company.id,invoice.id);assert.ok(payment);assert.equal(payment.status,'paid');assert.equal(payment.amountOre,125000);assert.equal(payment.confirmationReference,'BANK-BKS-771-BROWSER');
