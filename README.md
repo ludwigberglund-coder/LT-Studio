@@ -17,6 +17,14 @@ Börja här:
 - [Flerföretagsaudit och luckor för kund nummer två](docs/MULTI-TENANT-GAP-AUDIT-2026-09-20.md)
 - [PostgreSQL-migreringsplan](docs/POSTGRESQL-MIGRATION-PLAN.md)
 
+## Gemensam testmiljö – Railway
+
+[Öppna företagsportalen i staging](https://lt-studio-staging-production.up.railway.app/portal/) · [Öppna operatörsportalen](https://lt-studio-staging-production.up.railway.app/operator/)
+
+Detta är den skyddade Node/SQLite-miljön där två personliga användare i samma testföretag kan se samma sparade uppgifter. Var och en loggar in med sitt eget konto och MFA. Staging innehåller enbart syntetiska uppgifter; inga verkliga kundfakturor eller kunddata får läggas här.
+
+Länken är en stabil adress till den körande tjänsten, inte en länk till en viss kodcommit. En ny `main`-commit syns på adressen först när den har driftsatts och tjänsten är frisk. Kontrollera [Railways driftsättningar](https://railway.com/project/f587786f-cb1a-4924-bf57-15ed6602fe91) mot [senaste `main`](https://github.com/ludwigberglund-coder/LT-Studio/commits/main) om exakt version är viktig. En misslyckad driftsättning får aldrig beskrivas som senaste versionen.
+
 ## GitHub är vår gemensamma källa
 
 GitHub innehåller kod, tester, offentlig konfiguration, dokumentation och ändringshistorik. Produktionsdatabasen och skyddad dokumentlagring är källan för verksamhetsdata. Kunduppgifter, löner, bankuppgifter, originalfakturor, databasfiler och riktiga hemligheter får inte läggas i det publika repot eller GitHub Pages.
