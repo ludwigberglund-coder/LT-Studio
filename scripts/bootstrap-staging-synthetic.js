@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const Auth=require('../apps/api/auth.js');
 const Db=require('../apps/api/database.js');
+const Bank=require('../apps/api/bank-payments.js');
 
 const SYNTHETIC_TENANTS=Object.freeze([
   Object.freeze({
@@ -31,6 +32,107 @@ function required(env,name){
   if(!value)throw new Error(`${name} måste anges.`);
   return value;
 }
+
+function stockholmDate(now=new Date()){
+  return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
+}
+
+function seedSyntheticUatBusinessData(db,{company,user,index,bookingDate=stockholmDate()}){
+  const suffix=String(index+1).padStart(2,'0');
+  const exactCustomer=Db.createCustomer(db,{
+    companyId:company.id,
+    customerNumber:`K-UAT-${suffix}01`,
+    name:`UAT Bankkund ${suffix} AB`,
+    orgNumber:`000000-${String(1100+index).padStart(4,'0')}`,
+    email:`uat-bank-${suffix}@example.invalid`,
+    address:{street:'Syntetgatan 1',postalCode:'000 00',city:'Teststad'},
+    customerType:'business',
+    reminderFeeAgreed:true
+  });
+  const exactInvoice=Db.createInvoice(db,{
+    companyId:company.id,
+    customerId:exactCustomer.id,
+    invoiceNumber:`UAT-BANK-${suffix}-1001`,
+    ocr:`9900${suffix}1001`,
+    invoiceDate:bookingDate,
+    postingDate:bookingDate,
+    dueDate:bookingDate,
+    totalOre:125000,
+    remainingOre:125000,
+    vatOre:25000,
+    status:'Bokförd',
+    paymentMethod:'Bankgiro',
+    paymentAccount:'999-8888',
+    invoiceAccount:'1510'
+  });
+  const exactPayment=Bank.create(db,{
+    companyId:company.id,
+    externalId:`UAT-BANK-EXACT-${suffix}`,
+    bookingDate,
+    valueDate:bookingDate,
+    amountOre:125000,
+    reference:exactInvoice.invoiceNumber,
+    message:`Syntetisk exakt UAT-matchning ${exactInvoice.invoiceNumber}`,
+    payerName:exactCustomer.name,
+    payerAccount:`UAT-PAYER-${suffix}`,
+    createdBy:user.id
+  }).payment;
+
+  const ambiguousCustomers=[1,2].map(number=>Db.createCustomer(db,{
+    companyId:company.id,
+    customerNumber:`K-UAT-${suffix}1${number}`,
+    name:'UAT Delad Betalare AB',
+    orgNumber:`000000-${String(1200+index*10+number).padStart(4,'0')}`,
+    email:`uat-ambiguous-${suffix}-${number}@example.invalid`,
+    address:{street:`Testvägen ${number}`,postalCode:'000 00',city:'Teststad'},
+    customerType:'business'
+  }));
+  const ambiguousInvoices=ambiguousCustomers.map((customer,number)=>Db.createInvoice(db,{
+    companyId:company.id,
+    customerId:customer.id,
+    invoiceNumber:`UAT-AMB-${suffix}-${number+1}`,
+    ocr:`8800${suffix}${number+1}001`,
+    invoiceDate:bookingDate,
+    postingDate:bookingDate,
+    dueDate:bookingDate,
+    totalOre:75000,
+    remainingOre:75000,
+    vatOre:15000,
+    status:'Bokförd',
+    paymentMethod:'Bankgiro',
+    paymentAccount:'999-8888',
+    invoiceAccount:'1510'
+  }));
+  const ambiguousPayment=Bank.create(db,{
+    companyId:company.id,
+    externalId:`UAT-BANK-AMBIGUOUS-${suffix}`,
+    bookingDate,
+    valueDate:bookingDate,
+    amountOre:75000,
+    reference:'UAT-MANUELL-GRANSKNING',
+    message:'Syntetisk betalning med två likvärdiga fakturakandidater',
+    payerName:'UAT Delad Betalare AB',
+    payerAccount:`UAT-AMB-PAYER-${suffix}`,
+    createdBy:user.id
+  }).payment;
+
+  Db.appendAudit(db,{
+    companyId:company.id,
+    userId:user.id,
+    action:'SYNTHETIC_UAT_BUSINESS_DATA_SEEDED',
+    entityType:'bank-payment',
+    entityId:exactPayment.id,
+    details:{
+      dataClassification:'synthetic',
+      exactInvoiceId:exactInvoice.id,
+      exactBankPaymentId:exactPayment.id,
+      ambiguousInvoiceIds:ambiguousInvoices.map(invoice=>invoice.id),
+      ambiguousBankPaymentId:ambiguousPayment.id
+    }
+  });
+  return{exactCustomer,exactInvoice,exactPayment,ambiguousCustomers,ambiguousInvoices,ambiguousPayment};
+}
+
 
 function assertSyntheticStaging(env){
   if(String(env.ROLLANDS_ENV||'').trim()!=='staging')throw new Error('Synthetic staging-bootstrap får endast köras när ROLLANDS_ENV=staging.');
@@ -81,8 +183,10 @@ function bootstrapSyntheticStaging({env=process.env,root=path.resolve(__dirname,
   let db=null;
   try{
     db=Db.openDatabase(databasePath);
+    Bank.initializeBankPayments(db);
+    const fixtureDate=stockholmDate();
     Db.transaction(db,()=>{
-      for(const {tenant,password,mfaSecret} of credentials){
+      for(const [index,{tenant,password,mfaSecret}] of credentials.entries()){
         const company=Db.createCompany(db,{
           legalName:tenant.legalName,
           displayName:tenant.displayName,
@@ -103,6 +207,7 @@ function bootstrapSyntheticStaging({env=process.env,root=path.resolve(__dirname,
           entityId:company.id,
           details:{dataClassification:'synthetic',fixtureName:tenant.displayName}
         });
+        seedSyntheticUatBusinessData(db,{company,user,index,bookingDate:fixtureDate});
       }
     });
     db.close();db=null;
@@ -139,4 +244,4 @@ if(require.main===module){
   try{main()}catch(error){console.error(error.message);process.exitCode=1}
 }
 
-module.exports={SYNTHETIC_TENANTS,assertSyntheticStaging,assertFreshDatabasePath,bootstrapSyntheticStaging,cleanupDatabaseFiles};
+module.exports={SYNTHETIC_TENANTS,assertSyntheticStaging,assertFreshDatabasePath,bootstrapSyntheticStaging,cleanupDatabaseFiles,stockholmDate,seedSyntheticUatBusinessData};

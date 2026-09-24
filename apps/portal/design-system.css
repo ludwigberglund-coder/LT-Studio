@@ -1235,3 +1235,47 @@ body.shared-mobile-nav-lock{overflow:hidden}
 .shared-search-empty{padding:13px;font-size:.86rem}
 @keyframes ltSearchResultsIn{from{opacity:0;transform:translateY(-7px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
 @media(max-width:760px){.shared-search-shell{width:100%;min-width:0}}
+
+
+/* Financial tables: center headers and numeric values so headings map clearly to figures. */
+.report-table th,
+.accounting-table th,
+.queue-table th,
+.coding-table th,
+.bank-table th,
+.accounts-table th,
+.inventory-table th,
+.payroll-table th,
+.sales-table th,
+.res-table th {
+  text-align: center;
+}
+
+.report-table .money,
+.report-table .account,
+.report-table .numeric,
+.accounting-table .money,
+.accounting-table .account,
+.accounting-table .numeric,
+.queue-table .money,
+.queue-table .account,
+.queue-table .numeric,
+.coding-table .amount,
+.coding-table .money,
+.bank-table .money,
+.bank-table .numeric,
+.accounts-table .money,
+.accounts-table .account,
+.accounts-table .numeric,
+.inventory-table .money,
+.inventory-table .numeric,
+.payroll-table .money,
+.payroll-table .numeric,
+.sales-table .money,
+.sales-table .numeric,
+.res-table .money,
+.res-table .numeric,
+.payment-row .money {
+  text-align: center !important;
+  font-variant-numeric: tabular-nums;
+}
