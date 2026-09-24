@@ -17,13 +17,13 @@ Börja här:
 - [Flerföretagsaudit och luckor för kund nummer två](docs/MULTI-TENANT-GAP-AUDIT-2026-09-20.md)
 - [PostgreSQL-migreringsplan](docs/POSTGRESQL-MIGRATION-PLAN.md)
 
-## Gemensam testmiljö – Railway
+## Öppna gränssnittet via GitHub
 
-[Öppna företagsportalen i staging](https://lt-studio-staging-production.up.railway.app/portal/) · [Öppna operatörsportalen](https://lt-studio-staging-production.up.railway.app/operator/)
+[**Öppna webbplatsen**](https://ludwigberglund-coder.github.io/LT-Studio/) · [**Öppna portaldemon direkt**](https://ludwigberglund-coder.github.io/LT-Studio/portal/dashboard.html?demo=1) · [**Se publiceringsstatus**](https://github.com/ludwigberglund-coder/LT-Studio/actions/workflows/pages.yml)
 
-Detta är den skyddade Node/SQLite-miljön där två personliga användare i samma testföretag kan se samma sparade uppgifter. Var och en loggar in med sitt eget konto och MFA. Staging innehåller enbart syntetiska uppgifter; inga verkliga kundfakturor eller kunddata får läggas här.
+GitHub Actions bygger och publicerar automatiskt den statiska demon från varje uppdatering av `main` till **samma länk**. Ni behöver alltså inte byta länk i README för varje ändring. En ny version syns när dess publicering har lyckats; vid ett misslyckat bygge ligger den tidigare publicerade versionen kvar. Kontrollera statuslänken om ni vill verifiera exakt publicering.
 
-Länken är en stabil adress till den körande tjänsten, inte en länk till en viss kodcommit. En ny `main`-commit syns på adressen först när den har driftsatts och tjänsten är frisk. Kontrollera [Railways driftsättningar](https://railway.com/project/f587786f-cb1a-4924-bf57-15ed6602fe91) mot [senaste `main`](https://github.com/ludwigberglund-coder/LT-Studio/commits/main) om exakt version är viktig. En misslyckad driftsättning får aldrig beskrivas som senaste versionen.
+**Viktigt:** Den här portaldemon körs i webbläsaren och sparar demoändringar lokalt hos varje person. En faktura som skapas där visas inte automatiskt på den andra datorn. Systemets delade fakturor kräver en körande API-server och en gemensam, beständig databas. GitHub Pages kan inte köra den backenden. Använd enbart fiktiva uppgifter i demon; plattformen är ännu inte godkänd för verkliga ekonomiska data.
 
 ## GitHub är vår gemensamma källa
 
@@ -88,9 +88,9 @@ Miljövariabler och säkra sökvägar beskrivs i `.env.example` och [backup-guid
 
 Vid `TENANT_INTEGRITY_ERROR` ska uppstarten stoppas och historiken bevaras för utredning. Radera inte poster eller stäng av kontrollerna för att få servern att starta.
 
-## Offentlig webbplats och gemensam företagsportal
+## Offentlig webbplats och portaldemo
 
-[Publik webbplats (GitHub Pages)](https://ludwigberglund-coder.github.io/LT-Studio/) och [gemensam företagsportal (Railway)](https://lt-studio-staging-production.up.railway.app/portal/) är olika miljöer. Portalen kör server och delad stagingdatabas med enbart fiktiva uppgifter; varje person använder egen inloggning och MFA. [Statiska portaldemon](https://ludwigberglund-coder.github.io/LT-Studio/portal/dashboard.html?demo=1) är separat och sparar ändringar enbart i den egna webbläsaren.
+[Webbplatsen](https://ludwigberglund-coder.github.io/LT-Studio/) och [portaldemon](https://ludwigberglund-coder.github.io/LT-Studio/portal/dashboard.html?demo=1) publiceras av GitHub Pages. Demon är endast en förhandsvisning av gränssnittet; uppgifter som ni matar in delas inte mellan era webbläsare.
 
 Offentliga texter finns i `content/site.json` och `content/company.json`. Se [redigeringsguiden](docs/EDITING.md). Företagets juridiska/ekonomiska inställningar ska inte ändras via ett offentligt CMS.
 
