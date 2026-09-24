@@ -157,7 +157,7 @@ function createServer(options = {}) {
   const securityMonitor=SecurityMonitor.createSecurityMonitor({
     db,
     readinessProvider:readinessPayload,
-    scanIntervalMs:options.securityScanIntervalMs??30_000
+    scanIntervalMs:options.securityScanIntervalMs??15_000
   });
   securityAlerts.start({
     snapshotProvider:()=>securityMonitor.snapshot(),
