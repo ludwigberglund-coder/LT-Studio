@@ -9,6 +9,7 @@ They intentionally contain no real hostname, customer identity, password, MFA se
 - `staging.env.example` – public environment-variable template. Copy it to `/etc/lt-studio/staging.env` on the server and replace placeholders only there.
 - `lt-studio-staging.service` – hardened systemd service for the Node.js API.
 - `Caddyfile.example` – same-origin HTTPS reverse proxy template.
+- `RAILWAY.md` – non-secret profile for the current Railway staging deployment.
 
 The full sequence is documented in `docs/STAGING-DEPLOYMENT.md`.
 
@@ -47,6 +48,8 @@ sudo systemctl daemon-reload
 Configure Caddy with a private staging hostname by replacing `<STAGING_HOST>` in `Caddyfile.example`. Do not commit the real hostname if it is intended to remain private.
 
 Before starting the service, run the staging preflight and create the database only with the synthetic bootstrap described in `docs/STAGING-DEPLOYMENT.md`.
+
+For Railway, follow `RAILWAY.md` instead of copying the systemd/Caddy installation literally. The same synthetic-only, secret-handling and evidence rules still apply.
 
 ## Important
 
