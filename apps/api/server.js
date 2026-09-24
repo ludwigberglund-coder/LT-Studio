@@ -21,6 +21,8 @@ const {createAccountingAdminRouter} = require('./accounting-admin-router.js');
 const {createOpeningMigrationImportRouter} = require('./opening-migration-import-router.js');
 const {createWebsiteCmsRouter} = require('./website-cms-router.js');
 const Db = require('./database.js');
+const Auth=require('./auth.js');
+const {bootstrapOperator}=require('../../scripts/bootstrap-operator.js');
 const Queues = require('./queues.js');
 const ReminderOutbox = require('./reminder-outbox.js');
 const Bank = require('./bank-payments.js');
@@ -63,6 +65,22 @@ function allowedHost(req, host, configuredAllowedHosts) {
   if (!['0.0.0.0','::'].includes(bound)) allowed.add(bound);
   return allowed.has(requested);
 }
+function bootstrapConfiguredStagingOperator(db,{env=process.env,authEncryptionKey}={}){
+  if(String(env.ROLLANDS_OPERATOR_BOOTSTRAP_ON_START||'')!=='1')return null;
+  if(String(env.ROLLANDS_ENV||'').trim()!=='staging')throw new Error('Engångsbootstrap för operatör får endast köras i staging.');
+  const username=Auth.normalizeUsername(String(env.ROLLANDS_OPERATOR_BOOTSTRAP_USERNAME||''));
+  const existing=Db.platformOperatorByUsername(db,username);
+  if(existing)return{operatorId:existing.id,username:existing.username,displayName:existing.displayName,created:false};
+  const result=bootstrapOperator(db,{
+    username,
+    displayName:String(env.ROLLANDS_OPERATOR_BOOTSTRAP_DISPLAY_NAME||'').trim(),
+    password:String(env.ROLLANDS_OPERATOR_BOOTSTRAP_PASSWORD||''),
+    mfaSecret:String(env.ROLLANDS_OPERATOR_BOOTSTRAP_MFA_SECRET||'').trim(),
+    encryptionKey:authEncryptionKey
+  });
+  return{...result,created:true};
+}
+
 function createServer(options = {}) {
   const host = String(options.host || process.env.ROLLANDS_API_HOST || '127.0.0.1').trim();
   const port = Number(options.port ?? process.env.PORT ?? 4180);
@@ -91,6 +109,8 @@ function createServer(options = {}) {
     try{db.close()}catch{}
     throw error;
   }
+  const bootstrapResult=bootstrapConfiguredStagingOperator(db,{env:process.env,authEncryptionKey});
+  if(bootstrapResult?.created)console.log(`Tillfällig staging-operatör skapad: ${bootstrapResult.username}`);
   PrivateObjectCopyLedger.initializePrivateObjectCopyLedger(db);
   Queues.initializeQueues(db); ReminderOutbox.initializeReminderOutbox(db); Bank.initializeBankPayments(db); Payables.initializePayables(db); SupplierMasterdata.initializeSupplierMasterdata(db); PaymentConfirmation.initializePaymentConfirmation(db); Inventory.initializeInventory(db); Payroll.initializePayroll(db); Documents.initializeDocuments(db); AccountingAdmin.initializeAccountingAdmin(db); WebsiteCms.initializeWebsiteCms(db);
   const clientIp=req=>RequestSecurity.clientIp(req,{trustCloudflare});
@@ -281,4 +301,4 @@ if (require.main === module) {
   });
   for (const signal of ['SIGINT','SIGTERM']) process.once(signal,() => runtime.close(() => process.exit(0)));
 }
-module.exports=Object.freeze({createServer,normalizeHostname,isLoopback,allowedHost,resolveStaticRequest,serveStatic});
+module.exports=Object.freeze({createServer,bootstrapConfiguredStagingOperator,normalizeHostname,isLoopback,allowedHost,resolveStaticRequest,serveStatic});
