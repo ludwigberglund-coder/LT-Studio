@@ -22,6 +22,9 @@ test('API-query avvisar oväntade och duplicerade parametrar men bevarar statisk
   assert.doesNotThrow(()=>Security.validateRequestTarget(request('/api/v1/reports/payments-overview?mode=month&date=2026-09-22&query=BG%2F123')));
   assert.doesNotThrow(()=>Security.validateRequestTarget(request('/api/v1/session?demo=1')));
   assert.doesNotThrow(()=>Security.validateRequestTarget(request('/api/v1/reports/payments-overview?query=INV%2F2026')));
+  assert.doesNotThrow(()=>Security.validateRequestTarget(request('/api/v1/payables/invoices/invoice-1/document?view=inline')));
+  assert.throws(()=>Security.validateRequestTarget(request('/api/v1/payables/invoices/invoice-1/document?view=download')),{code:'INVALID_QUERY_VALUE'});
+  assert.throws(()=>Security.validateRequestTarget(request('/api/v1/payables/invoices/invoice-1/document?extra=1')),{code:'UNEXPECTED_QUERY_PARAMETER'});
   assert.throws(()=>Security.validateRequestTarget(request('/portal/%2e%2e%2fpackage.json')),{code:'INVALID_URL_ENCODING'});
 });
 

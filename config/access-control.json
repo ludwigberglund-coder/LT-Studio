@@ -241,7 +241,7 @@
           "label": "Attesterad av"
         }
       ],
-      "reason": "Den som registrerar leverantörsfakturan får inte ensam attestera samma faktura."
+      "reason": "Den som registrerar leverantörsfakturan ska normalt inte ensam attestera samma faktura. Om företaget endast har en aktiv behörig attestant får en admin eller ekonom attestera själv; undantaget loggas uttryckligen i revisionsspåret."
     },
     {
       "id": "supplier-bank-change",

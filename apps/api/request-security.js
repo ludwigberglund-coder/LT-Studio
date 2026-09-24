@@ -159,6 +159,7 @@ const QUERY_RULES=Object.freeze([
   ['GET',/^\/api\/v1\/inventory\/movements$/,new Set(['itemId'])],
   ['GET',/^\/api\/v1\/inventory\/adjustments$/,new Set(['status'])],
   ['GET',/^\/api\/v1\/payables\/payments$/,new Set(['date'])],
+  ['GET',/^\/api\/v1\/payables\/invoices\/[^/]+\/document$/,new Set(['view'])],
   ['GET',/^\/api\/v1\/payroll\/runs$/,new Set(['period'])],
   ['GET',/^\/api\/v1\/accounting\/entries$/,new Set(['limit'])],
   ['GET',/^\/api\/v1\/accounting\/periods$/,new Set(['year'])],
@@ -573,6 +574,7 @@ function validateQueryValue(pathname,key,value){
   if(key==='direction'&&value&&!['in','out'].includes(value))throw securityError('direction måste vara in eller out.','INVALID_QUERY_VALUE',422);
   if(key==='sort'&&value&&!['date','amount','counterparty'].includes(value))throw securityError('sort har ett ogiltigt värde.','INVALID_QUERY_VALUE',422);
   if(key==='order'&&value&&!['asc','desc'].includes(value))throw securityError('order måste vara asc eller desc.','INVALID_QUERY_VALUE',422);
+  if(key==='view'&&value!=='inline')throw securityError('view måste vara inline.','INVALID_QUERY_VALUE',422);
   const perFieldMax={status:80,category:40,entityType:80,entityId:200,itemId:200,query:200};
   if(perFieldMax[key]&&value.length>perFieldMax[key])throw securityError(`Query-parametern ${key} är för lång.`,'INVALID_QUERY_VALUE',422);
 }

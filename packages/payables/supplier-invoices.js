@@ -39,14 +39,14 @@ function codingHash(lines){
   const normalized=canonicalCoding(lines).map(line=>({account:line.account,debitOre:line.debitOre,creditOre:line.creditOre,text:line.text,vatCode:line.vatCode}));
   return crypto.createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
 }
-function assertApproval(invoice,actorId,lines){
+function assertApproval(invoice,actorId,lines,{allowSameActor=false}={}){
   const actor=text(actorId);
   if(!actor)throw domainError('Personlig användaridentitet krävs för attest.','PERSONAL_IDENTITY_REQUIRED',401);
   if(!invoice)throw domainError('Leverantörsfakturan saknas.','INVOICE_NOT_FOUND',404);
-  if(invoice.registeredBy===actor)throw domainError('Den som registrerade fakturan får inte ensam attestera samma faktura.','SEPARATION_OF_DUTIES_FAILED',409);
+  if(invoice.registeredBy===actor&&!allowSameActor)throw domainError('Den som registrerade fakturan får inte ensam attestera samma faktura.','SEPARATION_OF_DUTIES_FAILED',409);
   if(!['registered','coding-review','coded'].includes(invoice.status))throw domainError('Fakturan kan inte attesteras i nuvarande status.','INVALID_INVOICE_STATUS',409);
   const coding=validateCoding({totalOre:invoice.totalOre,lines});
-  return Object.freeze({coding,codingHash:codingHash(coding.lines)});
+  return Object.freeze({coding,codingHash:codingHash(coding.lines),sameActor:invoice.registeredBy===actor});
 }
 function paymentSummary(payments,date){
   const target=text(date);

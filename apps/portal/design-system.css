@@ -1217,3 +1217,21 @@ body.shared-mobile-nav-lock{overflow:hidden}
 .res-table .invoice-row {
   will-change: auto;
 }
+
+
+/* Shared live-search dropdowns across LT Studio. */
+.shared-search-shell{position:relative;min-width:min(340px,100%);z-index:12}
+.shared-search-shell>input[type="search"]{width:100%;border:1px solid var(--color-hairline);border-radius:12px;padding:10px 13px;font:inherit;background:var(--color-paper);transition:border-color var(--motion-fast,140ms) ease,box-shadow var(--motion-base,220ms) ease,transform var(--motion-fast,140ms) ease}
+.shared-search-shell>input[type="search"]:focus{outline:none;border-color:var(--color-mid-gray);box-shadow:0 0 0 4px rgb(0 0 0 / .10);transform:translateY(-1px)}
+.shared-search-results{position:absolute;left:0;right:0;top:calc(100% + 7px);z-index:95;background:var(--color-paper);border:1px solid var(--color-hairline);border-radius:14px;box-shadow:0 18px 46px rgb(0 0 0 / .17);overflow:hidden;max-height:min(420px,55vh);overflow-y:auto;transform-origin:top;animation:ltSearchResultsIn 180ms var(--motion-ease,cubic-bezier(.22,1,.36,1)) both}
+.shared-search-results[hidden]{display:none!important}
+.shared-search-option{width:100%;display:flex;justify-content:space-between;align-items:center;gap:14px;text-align:left;border:0;border-bottom:1px solid var(--color-hairline);background:var(--color-paper);padding:11px 13px;font:inherit;cursor:pointer}
+.shared-search-option:last-child{border-bottom:0}
+.shared-search-option:hover,.shared-search-option.active,.shared-search-option[aria-selected="true"]{background:var(--color-surface-alt)}
+.shared-search-option>span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.shared-search-option b,.shared-search-option small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shared-search-option small,.shared-search-empty{color:var(--color-mid-gray)}
+.shared-search-option>strong{white-space:nowrap;font-size:.88rem}
+.shared-search-empty{padding:13px;font-size:.86rem}
+@keyframes ltSearchResultsIn{from{opacity:0;transform:translateY(-7px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(max-width:760px){.shared-search-shell{width:100%;min-width:0}}

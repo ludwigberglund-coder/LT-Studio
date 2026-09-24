@@ -6,6 +6,7 @@ const Domain=require('../packages/payables/supplier-invoices.js');
 const Db=require('../apps/api/database.js');
 const Auth=require('../apps/api/auth.js');
 const Payables=require('../apps/api/payables.js');
+const PayablesRouter=require('../apps/api/payables-router.js');
 const SupplierDocumentStore=require('../apps/api/supplier-invoice-document-store.js');
 const SupplierAccounting=require('../apps/api/supplier-accounting.js');
 
@@ -19,6 +20,7 @@ test('felaktig kontering stoppas',()=>{assert.throws(()=>Domain.validateCoding({
 test('attest kräver PDF-underlag',()=>{const {db,company,approver,invoice}=seed();try{const coding=Domain.buildCoding({totalOre:125000,vatOre:25000});Payables.saveCoding(db,{companyId:company.id,invoiceId:invoice.id,lines:coding.lines});assert.throws(()=>approveCurrent(db,company.id,invoice.id,approver.id),e=>e.code==='DOCUMENT_REQUIRED_FOR_APPROVAL');}finally{db.close()}});
 test('leverantörsfakturor blockerar aktiva PDF-funktioner och fel filändelse',()=>{const {db,company,invoice}=seed();try{const active=Buffer.from('%PDF-1.4\n1 0 obj << /OpenAction 2 0 R /JavaScript (app.alert(1)) >> endobj\n%%EOF','latin1');assert.throws(()=>Payables.storeDocument(db,{companyId:company.id,invoiceId:invoice.id,name:'faktura.pdf',mime:'application/pdf',bytes:active}),e=>e.code==='ACTIVE_PDF_CONTENT_NOT_ALLOWED'&&e.statusCode===415);assert.throws(()=>Payables.storeDocument(db,{companyId:company.id,invoiceId:invoice.id,name:'faktura.exe',mime:'application/pdf',bytes:pdf()}),e=>e.code==='PDF_EXTENSION_REQUIRED'&&e.statusCode===415);}finally{db.close()}});
 test('registrerad användare får inte attestera sin egen faktura',()=>{const {db,company,registrar,invoice}=seed();try{attachPdf(db,company.id,invoice.id);const coding=Domain.buildCoding({totalOre:125000,vatOre:25000});Payables.saveCoding(db,{companyId:company.id,invoiceId:invoice.id,lines:coding.lines});assert.throws(()=>approveCurrent(db,company.id,invoice.id,registrar.id),e=>e.code==='SEPARATION_OF_DUTIES_FAILED');}finally{db.close()}});
+test('ensam behörig användare kan attestera sin egen faktura endast via uttryckligt undantag',()=>{const {db,company,registrar,invoice}=seed();try{attachPdf(db,company.id,invoice.id);const coding=Domain.buildCoding({totalOre:125000,vatOre:25000});Payables.saveCoding(db,{companyId:company.id,invoiceId:invoice.id,lines:coding.lines});const current=Payables.invoiceById(db,company.id,invoice.id);const approved=Payables.approve(db,{companyId:company.id,invoiceId:invoice.id,actorId:registrar.id,expectedCodingSha256:current.codingSha256,expectedDocumentSha256:current.documentSha256,allowSameActor:true});assert.equal(approved.status,'approved');assert.equal(approved.approvedBy,registrar.id);}finally{db.close()}});
 test('attest låser konteringen och betalning kräver först bokförd leverantörsskuld',()=>{const {db,company,registrar,approver,accountant,invoice}=seed();try{attachPdf(db,company.id,invoice.id);const coding=Domain.buildCoding({totalOre:125000,vatOre:25000});Payables.saveCoding(db,{companyId:company.id,invoiceId:invoice.id,lines:coding.lines});const approved=approveCurrent(db,company.id,invoice.id,approver.id);assert.equal(approved.status,'approved');assert.equal(approved.approvedBy,approver.id);assert.match(approved.codingSha256,/^[a-f0-9]{64}$/);assert.throws(()=>Payables.saveCoding(db,{companyId:company.id,invoiceId:invoice.id,lines:coding.lines}),e=>e.code==='CODING_LOCKED');assert.throws(()=>Payables.preparePayment(db,{companyId:company.id,invoiceId:invoice.id,paymentDate:'2026-09-16',amountOre:125000,account:'1930',preparedBy:registrar.id}),e=>e.code==='INVOICE_LIABILITY_NOT_POSTED');SupplierAccounting.postSupplierInvoice(db,{companyId:company.id,invoiceId:invoice.id,actorId:accountant.id});const payment=Payables.preparePayment(db,{companyId:company.id,invoiceId:invoice.id,paymentDate:'2026-09-16',amountOre:125000,account:'1930',preparedBy:registrar.id});assert.equal(payment.status,'prepared');assert.equal(payment.amountOre,125000);}finally{db.close()}});
 
 test('attest kräver versionsuppgifter för kontering och PDF',()=>{const {db,company,approver,invoice}=seed();try{attachPdf(db,company.id,invoice.id);const coding=Domain.buildCoding({totalOre:125000,vatOre:25000});Payables.saveCoding(db,{companyId:company.id,invoiceId:invoice.id,lines:coding.lines});assert.throws(()=>Payables.approve(db,{companyId:company.id,invoiceId:invoice.id,actorId:approver.id}),e=>e.code==='APPROVAL_PRECONDITION_REQUIRED'&&e.statusCode===428);}finally{db.close()}});
@@ -63,3 +65,20 @@ test('leverantörsfakturans PDF kan beskrivas med provider-neutral företagsisol
   const other=Db.createCompany(db,{legalName:'Leverantör Metadata B AB',displayName:'Metadata B',orgNumber:'559901-4004'});
   assert.equal(Payables.privateObjectMetadata(db,other.id,invoice.id),null);
 }finally{db.close()}});
+
+
+test('sole-user approval exception only applies when current admin/accountant is the only active eligible approver',()=>{
+  const db=Db.openDatabase(':memory:');
+  try{
+    const company=Db.createCompany(db,{legalName:'Ensam UAT AB',displayName:'Ensam UAT',orgNumber:'559900-7788'});
+    const passwordHash=Auth.hashPassword('Sakert testlosenord 2026!');
+    const only=Db.createUser(db,{username:'only-approver',displayName:'Enda användaren',passwordHash});
+    Db.addMembership(db,{companyId:company.id,userId:only.id,role:'admin'});
+    assert.equal(PayablesRouter.soleUserApprovalAllowed(db,{companyId:company.id,userId:only.id,role:'admin'}),true);
+    assert.equal(PayablesRouter.soleUserApprovalAllowed(db,{companyId:company.id,userId:only.id,role:'approver'}),false);
+
+    const second=Db.createUser(db,{username:'second-approver',displayName:'Andra attestanten',passwordHash});
+    Db.addMembership(db,{companyId:company.id,userId:second.id,role:'approver'});
+    assert.equal(PayablesRouter.soleUserApprovalAllowed(db,{companyId:company.id,userId:only.id,role:'admin'}),false);
+  }finally{db.close()}
+});
