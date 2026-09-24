@@ -25,7 +25,7 @@ test('Supabase tenant foundation enables RLS and scopes membership reads', () =>
 
 
 test('Supabase identity compatibility preserves prefixed application IDs', () => {
-  const sql = migration('20260924213000_tenant_identity_compatibility.sql');
+  const sql = migration('20260924212520_tenant_identity_compatibility.sql');
   assert.match(sql, /alter column id type text using id::text/i);
   assert.match(sql, /create table if not exists public\.app_users/i);
   assert.match(sql, /auth_user_id uuid not null unique references auth\.users/i);
@@ -35,6 +35,6 @@ test('Supabase identity compatibility preserves prefixed application IDs', () =>
 
 
 test('Supabase membership identity foreign key has a covering index', () => {
-  const sql = migration('20260924212600_index_membership_identity_fk.sql');
+  const sql = migration('20260924212546_index_membership_identity_fk.sql');
   assert.match(sql, /company_memberships\(user_id, auth_user_id\)/i);
 });
