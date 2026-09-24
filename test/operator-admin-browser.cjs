@@ -88,8 +88,9 @@ const out=path.join(__dirname,'..','test-artifacts');
     await page.getByRole('heading',{name:'Statistik',exact:true}).waitFor();
     assert.equal(await page.locator('.chart-card').count(),4);
     assert.ok(await page.locator('.sparkline').count()>=4);
-    assert.match(await page.locator('body').innerText(),/Fakturavolym|Behörighetsfördelning|Aktivering/);
-    checks.push({kind:'statistics-dashboard',trendCharts:4});
+    assert.match(await page.locator('body').innerText(),/Live hälsa|Aktivitet per bolag|Användare per bolag/);
+    assert.equal(await page.locator('[data-statistics-company]').count(),1,'statistikvyn ska kunna filtreras per kundföretag');
+    checks.push({kind:'statistics-dashboard',trendCharts:4,companyFilter:true});
 
     const auditProbe=await page.evaluate(async()=>{
       const response=await fetch('/api/operator/v1/operator-audit?limit=100',{credentials:'same-origin'});
