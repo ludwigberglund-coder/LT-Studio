@@ -116,12 +116,16 @@ test('payables UI blocks unbalanced coding and visibly confirms approval',()=>{
   assert.match(source,/Måste balansera före attest/);
   assert.match(source,/data-balance-debit/);
   assert.match(source,/data-balance-credit/);
-  assert.match(source,/button\.disabled=!state\.ok/);
+  assert.match(source,/coding-action-blocked/);
+  assert.match(source,/aria-disabled/);
+  assert.match(source,/Konteringen måste balansera före/);
   assert.match(source,/Fakturan är attesterad och konteringen är låst/);
   assert.match(source,/payables-action-toast/);
   assert.match(css,/\.coding-balance\.balanced/);
   assert.match(css,/\.coding-balance\.unbalanced/);
   assert.match(css,/\.payables-action-toast/);
+  assert.match(css,/\.coding-action-blocked/);
+  assert.match(css,/\.payables-action-toast\.is-error/);
 });
 
 test('supplier invoice workspace offers separate safe open-PDF and download actions',()=>{
