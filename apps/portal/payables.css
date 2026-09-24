@@ -18,3 +18,8 @@
 .coding-balance [data-balance-status-unbalanced]{display:none}
 .coding-balance.unbalanced [data-balance-status-balanced]{display:none}
 .coding-balance.unbalanced [data-balance-status-unbalanced]{display:block}
+
+.coding-actions .coding-action-blocked{opacity:.58;cursor:not-allowed;box-shadow:none;filter:saturate(.55)}
+.coding-actions .coding-action-blocked:hover{transform:none;box-shadow:none}
+.payables-action-toast.is-error{background:#6f2f2f}
+.payables-action-toast.is-error .payables-action-toast-icon{background:rgb(255 255 255 / .18)}
