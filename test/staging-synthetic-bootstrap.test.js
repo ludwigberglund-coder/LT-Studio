@@ -10,6 +10,8 @@ const {spawnSync}=require('node:child_process');
 const {bootstrapSyntheticStaging,SYNTHETIC_TENANTS}=require('../scripts/bootstrap-staging-synthetic.js');
 const {assertSyntheticStagingDatabase}=require('../apps/api/staging-data-policy.js');
 const Db=require('../apps/api/database.js');
+const Bank=require('../apps/api/bank-payments.js');
+const Matcher=require('../packages/automation/bank-payment-matcher.js');
 const {verifyDatabase}=require('../scripts/pilot-restore-verify.js');
 
 const root=path.resolve(__dirname,'..');
@@ -80,6 +82,31 @@ test('synthetic staging bootstrap creates exactly two isolated fictitious tenant
         const ambiguousCandidates=db.prepare(`SELECT COUNT(*) AS n FROM invoices i JOIN customers c ON c.id=i.customer_id AND c.company_id=i.company_id
           WHERE i.company_id=? AND i.remaining_ore=? AND c.name='UAT Delad Betalare AB'`).get(company.id,ambiguous.amountOre).n;
         assert.equal(ambiguousCandidates,2);
+      }
+    }finally{db.close()}
+  }finally{fs.rmSync(dir,{recursive:true,force:true})}
+});
+
+test('synthetic staging bank fixtures exercise exact and ambiguous reconciliation paths',()=>{
+  const {dir,env}=fixture();
+  try{
+    bootstrapSyntheticStaging({env,root});
+    const db=Db.openDatabase(env.ROLLANDS_DATABASE_PATH);
+    try{
+      const companies=db.prepare('SELECT id FROM companies ORDER BY org_number').all();
+      for(const company of companies){
+        const exact=db.prepare("SELECT external_id AS externalId FROM bank_payments WHERE company_id=? AND external_id LIKE 'UAT-BANK-EXACT-%'").get(company.id);
+        const ambiguous=db.prepare("SELECT external_id AS externalId FROM bank_payments WHERE company_id=? AND external_id LIKE 'UAT-BANK-AMBIGUOUS-%'").get(company.id);
+        assert.ok(exact);assert.ok(ambiguous);
+        const invoices=Db.listReceivables(db,company.id);
+        const exactAnalysis=Matcher.analyzeIncomingPayment(Bank.byExternalId(db,company.id,exact.externalId),invoices);
+        assert.equal(exactAnalysis.status,'proposal');
+        assert.equal(exactAnalysis.deterministic,true);
+        assert.equal(exactAnalysis.ambiguous,false);
+        const ambiguousAnalysis=Matcher.analyzeIncomingPayment(Bank.byExternalId(db,company.id,ambiguous.externalId),invoices);
+        assert.equal(ambiguousAnalysis.status,'manual-review');
+        assert.equal(ambiguousAnalysis.ambiguous,true);
+        assert.ok(ambiguousAnalysis.candidates.length>=2);
       }
     }finally{db.close()}
   }finally{fs.rmSync(dir,{recursive:true,force:true})}
