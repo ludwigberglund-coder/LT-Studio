@@ -37,6 +37,9 @@ function platformOverview(db,{nowMs=Date.now(),securityWindowHours=24}={}){
       c.created_at AS createdAt,
       (SELECT COUNT(*) FROM memberships m WHERE m.company_id=c.id) AS memberCount,
       (SELECT COUNT(*) FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.company_id=c.id AND u.disabled=0) AS activeMemberCount,
+      (SELECT COUNT(*) FROM memberships m JOIN users u ON u.id=m.user_id
+        WHERE m.company_id=c.id AND u.disabled=0 AND u.mfa_secret_encrypted IS NOT NULL AND trim(u.mfa_secret_encrypted)<>'') AS mfaProtectedMemberCount,
+      (SELECT COUNT(*) FROM audit_events a WHERE a.company_id=c.id AND a.created_at>=?) AS activity30dCount,
       (SELECT COUNT(*) FROM sessions s
         WHERE s.company_id=c.id AND s.expires_at>? AND s.absolute_expires_at>?) AS activeSessionCount,
       (SELECT COUNT(*) FROM customers customer WHERE customer.company_id=c.id) AS customerRecordCount,
@@ -44,7 +47,7 @@ function platformOverview(db,{nowMs=Date.now(),securityWindowHours=24}={}){
       (SELECT MAX(a.created_at) FROM audit_events a WHERE a.company_id=c.id) AS lastActivityAt
     FROM companies c
     ORDER BY COALESCE(NULLIF(c.display_name,''),c.legal_name),c.id
-  `).all(nowIso,nowIso).map(row=>({
+  `).all(active30SinceIso,nowIso,nowIso).map(row=>({
     id:row.id,
     legalName:row.legalName,
     displayName:row.displayName||row.legalName,
@@ -52,12 +55,37 @@ function platformOverview(db,{nowMs=Date.now(),securityWindowHours=24}={}){
     createdAt:row.createdAt,
     memberCount:Number(row.memberCount||0),
     activeMemberCount:Number(row.activeMemberCount||0),
+    mfaProtectedMemberCount:Number(row.mfaProtectedMemberCount||0),
+    activity30dCount:Number(row.activity30dCount||0),
+    securityEventCount24h:0,
+    criticalSecurityCount24h:0,
     activeSessionCount:Number(row.activeSessionCount||0),
     customerRecordCount:Number(row.customerRecordCount||0),
     invoiceRecordCount:Number(row.invoiceRecordCount||0),
     lastActivityAt:row.lastActivityAt||null,
     accessConfigured:Number(row.activeMemberCount||0)>0
   }));
+
+  const companySecurityCounts=new Map(companies.map(company=>[company.id,{total:0,critical:0}]));
+  const companySecurityRows=db.prepare(`SELECT severity,details_json AS detailsJson
+    FROM security_events WHERE created_at>=? AND created_at<=?`).all(securitySinceIso,nowIso);
+  for(const row of companySecurityRows){
+    let details={};
+    try{
+      const parsed=JSON.parse(String(row.detailsJson||'{}'));
+      if(parsed&&typeof parsed==='object'&&!Array.isArray(parsed))details=parsed;
+    }catch{}
+    const companyId=String(details.companyId||'').trim();
+    const bucket=companySecurityCounts.get(companyId);
+    if(!bucket)continue;
+    bucket.total+=1;
+    if(row.severity==='critical')bucket.critical+=1;
+  }
+  for(const company of companies){
+    const counts=companySecurityCounts.get(company.id);
+    company.securityEventCount24h=Number(counts?.total||0);
+    company.criticalSecurityCount24h=Number(counts?.critical||0);
+  }
 
   const userSecurity=db.prepare(`SELECT
     COUNT(*) AS activeUsers,
@@ -74,7 +102,10 @@ function platformOverview(db,{nowMs=Date.now(),securityWindowHours=24}={}){
     newCompanies30d:companies.filter(row=>row.createdAt>=active30SinceIso).length,
     disabledUsers:Number(db.prepare('SELECT COUNT(*) AS count FROM users WHERE disabled=1').get()?.count||0),
     activeUsers:Number(userSecurity.activeUsers||0),
-    mfaProtectedUsers:Number(userSecurity.mfaProtectedUsers||0)
+    mfaProtectedUsers:Number(userSecurity.mfaProtectedUsers||0),
+    activity30d:companies.reduce((sum,row)=>sum+row.activity30dCount,0),
+    companySecurityEvents24h:companies.reduce((sum,row)=>sum+row.securityEventCount24h,0),
+    companyCriticalSecurity24h:companies.reduce((sum,row)=>sum+row.criticalSecurityCount24h,0)
   });
 
   const roleRows=db.prepare('SELECT role,COUNT(*) AS count FROM memberships GROUP BY role ORDER BY role').all();

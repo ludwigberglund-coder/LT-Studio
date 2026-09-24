@@ -1,6 +1,6 @@
 const root=document.getElementById('operator-app');
 const csrfKey='lt-operator-csrf';
-let session=null,overview=null,readiness=null,security=null,operatorAudit=null,securityMonitor=null,securityAlerts=null,securityPollTimer=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='',companyQuery='',companyStatus='all',companySort='name',companySearchOpen=false,companySearchActiveIndex=-1,securitySeverity='all',securityPeriod='24h',securityCompany='all',securityIncidentStatus='all';
+let session=null,overview=null,readiness=null,security=null,operatorAudit=null,securityMonitor=null,securityAlerts=null,securityPollTimer=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='',companyQuery='',companyStatus='all',companySort='name',companySearchOpen=false,companySearchActiveIndex=-1,securitySeverity='all',securityPeriod='24h',securityCompany='all',securityIncidentStatus='all',statisticsCompany='all';
 
 
 const OPERATOR_ICONOIR=Object.freeze({
@@ -388,32 +388,48 @@ function companiesView(){
   <div class="company-toolbar"><div class="company-search-shell"><label class="search-field"><span class="sr-only">Sök företag</span><input type="search" role="combobox" aria-autocomplete="list" aria-controls="operator-company-search-results" aria-expanded="${companySearchOpen&&companyQuery.trim()?'true':'false'}" autocomplete="off" data-company-search value="${esc(companyQuery)}" placeholder="Sök namn eller organisationsnummer…"></label><div id="operator-company-search-results" class="company-search-results" role="listbox" ${companySearchOpen&&companyQuery.trim()?'':'hidden'}>${companySearchOpen&&companyQuery.trim()?companySearchResults():''}</div></div><label><span class="sr-only">Filtrera status</span><select data-company-filter><option value="all" ${companyStatus==='all'?'selected':''}>Alla statusar</option><option value="active" ${companyStatus==='active'?'selected':''}>Aktiverade</option><option value="unconfigured" ${companyStatus==='unconfigured'?'selected':''}>Saknar användare</option></select></label><label><span class="sr-only">Sortera företag</span><select data-company-sort><option value="name" ${companySort==='name'?'selected':''}>Sortera: namn</option><option value="users" ${companySort==='users'?'selected':''}>Flest användare</option><option value="invoices" ${companySort==='invoices'?'selected':''}>Flest fakturor</option><option value="activity" ${companySort==='activity'?'selected':''}>Senast aktiva</option></select></label></div>
   <div class="table-wrap"><table><thead><tr><th>Företag</th><th>Org.nr</th><th>Användare</th><th>Status</th><th>Sessioner</th><th>Fakturor</th><th>Senaste aktivitet</th></tr></thead><tbody id="company-table-body">${companyRows(filteredCompanies())}</tbody></table></div></section>`,'Kunder & företag','Central administration för varje kundmiljö.');
 }
+function statisticsCompanyOptions(){
+  const companies=overview?.companies||[];
+  return ['<option value="all" '+(statisticsCompany==='all'?'selected':'')+'>Alla kundföretag</option>',...companies.map(company=>`<option value="${esc(company.id)}" ${statisticsCompany===company.id?'selected':''}>${esc(company.displayName)}</option>`)].join('');
+}
 function statisticsView(){
   const companies=overview?.companies||[],totals=overview?.totals||{};
-  const avgUsers=overview?.companyCount?totals.members/overview.companyCount:0,avgInvoices=overview?.companyCount?totals.invoices/overview.companyCount:0;
-  shell(`<section class="status-grid six">
-    ${kpiCard('Företag',num(overview?.companyCount),'totalt')}
-    ${kpiCard('Användare',num(totals.members),'medlemskap')}
-    ${kpiCard('Snitt användare',avgUsers.toLocaleString('sv-SE',{maximumFractionDigits:1}),'per företag')}
-    ${kpiCard('Kundposter',num(totals.customers),'totalt')}
-    ${kpiCard('Fakturor',num(totals.invoices),'totalt')}
-    ${kpiCard('Snitt fakturor',avgInvoices.toLocaleString('sv-SE',{maximumFractionDigits:1}),'per företag')}
+  const selected=statisticsCompany==='all'?null:companies.find(company=>company.id===statisticsCompany)||null;
+  const scoped=selected?[selected]:companies;
+  const scopeName=selected?selected.displayName:'Alla kundföretag';
+  const memberCount=selected?selected.memberCount:totals.members;
+  const activeMemberCount=selected?selected.activeMemberCount:totals.activeUsers;
+  const mfaCount=selected?selected.mfaProtectedMemberCount:totals.mfaProtectedUsers;
+  const sessions=selected?selected.activeSessionCount:totals.activeSessions;
+  const activity30d=selected?selected.activity30dCount:totals.activity30d;
+  const security24h=selected?selected.securityEventCount24h:totals.companySecurityEvents24h;
+  const critical24h=selected?selected.criticalSecurityCount24h:totals.companyCriticalSecurity24h;
+  const mfaPct=percent(mfaCount,activeMemberCount),sessionPct=percent(sessions,Math.max(1,activeMemberCount));
+  const health=readinessScore(),monitor=securityMonitor||{},monitorTone=monitor.status==='critical'?'critical':monitor.status==='attention'?'warning':'ok';
+  shell(`<section class="statistics-live-hero">
+    <div><span class="eyebrow">LIVE STATISTIK</span><h2>${esc(scopeName)}</h2><p>Användning, företagsaktivitet och säkerhetsläge uppdateras automatiskt. Inga ekonomiska detaljuppgifter visas här.</p><div class="live-ribbon"><span class="live-orb ${monitorTone}"></span><strong>Live</strong><span>Senaste säkerhetsskanning ${dateTime(monitor.checkedAt)}</span><span>· nästa kontroll inom cirka ${num(monitor.scanIntervalSeconds||15)} sek</span></div></div>
+    <label class="statistics-company-filter"><span>Visa statistik för</span><select data-statistics-company>${statisticsCompanyOptions()}</select></label>
   </section>
-  <section class="trend-grid">
+  <section class="status-grid six live-metrics">
+    ${kpiCard('Användare',num(memberCount),selected?'i bolaget':'företagsmedlemskap')}
+    ${kpiCard('Aktiva användare',num(activeMemberCount),'aktiva konton')}
+    ${kpiCard('Aktiva sessioner',num(sessions),'inloggade just nu',`${sessionPct}%`)}
+    ${kpiCard('Aktivitet 30d',num(activity30d),'audit-händelser')}
+    ${kpiCard('Säkerhet 24h',num(security24h),'företagskopplade händelser',critical24h?`${critical24h} kritiska`:'0 kritiska')}
+    ${kpiCard('MFA-skydd',`${mfaPct}%`,`${num(mfaCount)} av ${num(activeMemberCount)} aktiva användare`)}
+  </section>
+  <section class="dashboard-grid statistics-instruments">
+    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">SÄKERHET</span><h2>Live hälsa</h2><p>Tekniska kontroller och säkerhetsmotor.</p></div><span class="panel-stat ${monitorTone}">${health}% kontroller OK</span></div><div class="instrument-pad live-rings">${ringGauge(health,'Drift','Readiness och tekniska skydd.')}${ringGauge(mfaPct,'MFA','Aktiva användare med MFA.')}${ringGauge(Math.max(0,100-Math.min(100,critical24h*25)),'Säkerhet',critical24h?'Kritiska händelser kräver granskning.':'Inga kritiska bolagshändelser senaste 24 h.',critical24h?'critical':'ok')}</div></article>
+    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">ANVÄNDNING</span><h2>Aktivitet per bolag</h2><p>Senaste 30 dagarnas systemaktivitet.</p></div></div><div class="chart-pad">${miniBars(scoped,'activity30dCount','händelser')}</div></article>
+    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">ANVÄNDARE</span><h2>Användare per bolag</h2><p>Konton med företagsåtkomst.</p></div></div><div class="chart-pad">${miniBars(scoped,'memberCount','användare')}</div></article>
+  </section>
+  ${selected?'':`<section class="trend-grid">
     ${trendCard('Systemaktivitet','Audit-händelser som visar användning av systemet.','activity','händelser')}
     ${trendCard('Fakturor','Nya fakturaposter som skapats i systemet.','invoices','fakturor')}
     ${trendCard('Kundregister','Nya kundposter i kundföretagens register.','customers','kunder')}
     ${trendCard('Användare','Nya företagsmedlemskap i plattformen.','memberships','medlemskap')}
-  </section>
-  <section class="dashboard-grid equal">
-    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">FÖRETAG</span><h2>Fakturavolym</h2><p>Fakturaposter per kundföretag.</p></div></div><div class="chart-pad">${miniBars(companies,'invoiceRecordCount','fakturor')}</div></article>
-    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">FÖRETAG</span><h2>Användare</h2><p>Antal medlemskap per kundföretag.</p></div></div><div class="chart-pad">${miniBars(companies,'memberCount','användare')}</div></article>
-  </section>
-  <section class="dashboard-grid equal">
-    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">ROLLER</span><h2>Behörighetsfördelning</h2><p>Fördelning över alla kundföretag.</p></div></div><div class="role-bars roomy">${roleBars()}</div></article>
-    <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">KONTOKVALITET</span><h2>Aktivering & konto-status</h2><p>Översikt över hur färdig kundbasen är.</p></div></div><div class="stat-stack"><div><span>Företag med aktiv användare</span><strong>${percent(totals.configuredCompanies,overview?.companyCount)}%</strong><meter min="0" max="100" value="${percent(totals.configuredCompanies,overview?.companyCount)}"></meter></div><div><span>Aktiva företag senaste 30 dagar</span><strong>${percent(totals.activeCompanies30d,overview?.companyCount)}%</strong><meter min="0" max="100" value="${percent(totals.activeCompanies30d,overview?.companyCount)}"></meter></div><div><span>Inaktiverade användarkonton</span><strong>${num(totals.disabledUsers)}</strong><small>konton</small></div></div></article>
-  </section>
-  <section class="panel"><div class="panel-head"><div><span class="eyebrow">DETALJER</span><h2>Företagsstatistik</h2><p>Operativ metadata utan fakturainnehåll eller ekonomiska belopp.</p></div></div><div class="table-wrap"><table><thead><tr><th>Företag</th><th>Användare</th><th>Kunder</th><th>Fakturor</th><th>Sessioner</th><th>Senaste aktivitet</th></tr></thead><tbody>${companies.map(c=>`<tr class="click-row" data-company-id="${esc(c.id)}" tabindex="0" role="button"><td><div class="company-cell"><span class="company-avatar">${initials(c.displayName)}</span><strong>${esc(c.displayName)}</strong></div></td><td>${c.memberCount}</td><td>${c.customerRecordCount}</td><td>${c.invoiceRecordCount}</td><td>${c.activeSessionCount}</td><td>${dateTime(c.lastActivityAt)}</td></tr>`).join('')}</tbody></table></div></section>`,'Statistik','Mätbara nyckeltal och trender för hela LT Studio-plattformen.');
+  </section>`}
+  <section class="panel statistics-company-table"><div class="panel-head"><div><span class="eyebrow">FÖRETAGSVY</span><h2>${selected?'Valt bolag':'Alla kundföretag'}</h2><p>Jämför användning, aktivitet, MFA och säkerhet utan att öppna kundernas ekonomidata.</p></div><span class="panel-stat">${scoped.length} bolag</span></div><div class="table-wrap"><table><thead><tr><th>Företag</th><th>Användare</th><th>MFA</th><th>Sessioner</th><th>Aktivitet 30d</th><th>Säkerhet 24h</th><th>Senast aktiv</th></tr></thead><tbody>${scoped.map(company=>`<tr class="click-row" data-company-id="${esc(company.id)}" tabindex="0" role="button"><td><div class="company-cell"><span class="company-avatar">${initials(company.displayName)}</span><strong>${esc(company.displayName)}</strong></div></td><td>${num(company.memberCount)}</td><td>${percent(company.mfaProtectedMemberCount,company.activeMemberCount)}%</td><td>${num(company.activeSessionCount)}</td><td>${num(company.activity30dCount)}</td><td><span class="status-pill"><span class="dot ${company.criticalSecurityCount24h?'critical':company.securityEventCount24h?'warning':'ok'}"></span>${num(company.securityEventCount24h)} · ${num(company.criticalSecurityCount24h)} kritiska</span></td><td>${dateTime(company.lastActivityAt)}</td></tr>`).join('')}</tbody></table></div></section>`,'Statistik','Live nyckeltal för användare, kundaktivitet, drift och säkerhet.');
 }
 function securityView(){
   const totals=overview?.totals||{},mfaPct=percent(totals.mfaProtectedUsers,totals.activeUsers),entries=readinessEntries(),known=entries.filter(item=>item.known),okCount=known.filter(item=>item.ok).length,events=filteredSecurityEvents(),monitor=securityMonitor||{},counts=monitor.counts||{};
@@ -499,7 +515,7 @@ async function pollSecurity(){
   if(!session?.authenticated)return;
   try{
     securityMonitor=await api('/security-monitor');
-    if(view==='security'&&!selectedCompany&&!modal){
+    if((view==='security'||view==='statistics')&&!selectedCompany&&!modal){
       const [o,r,s,a]=await Promise.all([
         api('/overview'),
         api('/readiness').catch(err=>err.data&&typeof err.data==='object'?err.data:{ok:false,error:err.message,checks:{}}),
@@ -513,7 +529,7 @@ async function pollSecurity(){
   }catch{}
   finally{
     if(session?.authenticated){
-      const delay=Math.max(5000,Math.min(60000,Number(securityMonitor?.scanIntervalSeconds||30)*1000));
+      const delay=Math.max(5000,Math.min(15000,Number(securityMonitor?.scanIntervalSeconds||15)*1000));
       securityPollTimer=setTimeout(pollSecurity,delay);
     }
   }
@@ -584,6 +600,7 @@ document.addEventListener('change',async event=>{
     }catch(error){errorMessage=error.message;render()}
     return;
   }
+  if(event.target.matches?.('[data-statistics-company]')){statisticsCompany=event.target.value;render();return}
   if(event.target.matches?.('[data-security-severity]')){securitySeverity=event.target.value;render();return}
   if(event.target.matches?.('[data-security-period]')){securityPeriod=event.target.value;render();return}
   if(event.target.matches?.('[data-security-company]')){securityCompany=event.target.value;render();return}
