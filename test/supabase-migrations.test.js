@@ -38,3 +38,16 @@ test('Supabase membership identity foreign key has a covering index', () => {
   const sql = migration('20260924212546_index_membership_identity_fk.sql');
   assert.match(sql, /company_memberships\(user_id, auth_user_id\)/i);
 });
+
+
+test('Supabase customer invoice core enforces tenant-safe relations and read-only Data API access', () => {
+  const sql = migration('20260924212715_customer_invoice_core.sql');
+  assert.match(sql, /foreign key \(company_id, customer_id\)[\s\S]*references public\.customers\(company_id, id\)/i);
+  assert.match(sql, /foreign key \(company_id, invoice_id\)[\s\S]*references public\.invoices\(company_id, id\)/i);
+  assert.match(sql, /alter table public\.customers enable row level security/i);
+  assert.match(sql, /alter table public\.invoices enable row level security/i);
+  assert.match(sql, /alter table public\.invoice_transactions enable row level security/i);
+  assert.match(sql, /grant select on table public\.invoices to authenticated/i);
+  assert.doesNotMatch(sql, /grant\s+(?:insert|update|delete|all)[^;]*public\.invoices[^;]*authenticated/i);
+  assert.match(sql, /m\.auth_user_id\s*=\s*\(select auth\.uid\(\)\)/i);
+});
