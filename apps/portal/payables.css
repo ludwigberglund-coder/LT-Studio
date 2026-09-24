@@ -20,3 +20,17 @@
 .coding-actions .coding-action-blocked:hover{transform:none;box-shadow:none}
 .payables-action-toast.is-error{background:#6f2f2f}
 .payables-action-toast.is-error .payables-action-toast-icon{background:rgb(255 255 255 / .18)}
+
+
+.payment-confirm-backdrop{position:fixed;inset:0;z-index:140;display:grid;place-items:center;padding:20px;background:rgb(10 10 10 / .56);backdrop-filter:blur(4px)}
+.payment-confirm-modal{width:min(560px,100%);padding:22px;background:var(--surface-card,#fff);border:1px solid var(--color-hairline,#ddd);border-radius:18px;box-shadow:0 22px 60px rgb(0 0 0 / .22)}
+.payment-confirm-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.payment-confirm-head h3{margin:4px 0 0}
+.payment-confirm-modal>p{color:var(--muted);line-height:1.5}
+.payment-confirm-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:16px 0}
+.payment-confirm-summary span{display:flex;flex-direction:column;gap:3px;padding:10px;border-radius:10px;background:var(--surface-alt,#f7f7f7);font-size:12px;color:var(--muted)}
+.payment-confirm-summary b{color:var(--color-ink,#111);font-size:14px}
+#payment-confirm-form label{display:grid;gap:7px;font-weight:700}
+#payment-confirm-form input{width:100%;padding:11px 12px}
+.payment-confirm-modal .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+@media(max-width:620px){.payment-confirm-summary{grid-template-columns:1fr}.payment-confirm-modal{padding:18px}}
