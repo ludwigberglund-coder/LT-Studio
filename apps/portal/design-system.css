@@ -1279,3 +1279,122 @@ body.shared-mobile-nav-lock{overflow:hidden}
   text-align: center !important;
   font-variant-numeric: tabular-nums;
 }
+
+
+/* 2026-09-25 UAT navigation + payments polish.
+ * Colour is functional: green=incoming/active, amber=outgoing, blue=net.
+ * Motion stays short and respects prefers-reduced-motion.
+ */
+.sidebar.shared-sidebar{
+  background:linear-gradient(180deg,#fdfefd 0%,#f7fbf9 56%,#f8f8fc 100%)!important;
+  box-shadow:10px 0 30px rgb(15 23 42 / .025);
+}
+.shared-sidebar .shared-company{
+  background:linear-gradient(135deg,#eef8f2 0%,#f1f5fb 100%)!important;
+  border-color:#d9e8df!important;
+}
+.shared-navigation .shared-links a.ui-with-icon{
+  display:flex!important;
+  align-items:center!important;
+  gap:12px!important;
+}
+.shared-navigation .shared-links a:hover{
+  background:linear-gradient(90deg,#edf7f2 0%,#f2f6fb 100%)!important;
+}
+.shared-navigation .shared-links a.active,
+.shared-navigation .shared-links a[aria-current="page"]{
+  color:#173d31!important;
+  background:linear-gradient(100deg,#e2f3e9 0%,#e8f1fb 100%)!important;
+  box-shadow:inset 3px 0 0 #2f8a63,0 7px 18px rgb(33 86 66 / .08)!important;
+  font-weight:var(--font-weight-semibold)!important;
+}
+.shared-navigation .shared-links a>.ui-icon{
+  width:18px;
+  height:18px;
+  min-width:18px;
+  opacity:.76;
+}
+.shared-navigation .shared-links a[aria-current="page"]>.ui-icon{
+  color:#227a57;
+  opacity:1;
+  animation:lt-nav-icon-arrive .34s var(--motion-spring) both;
+}
+.shared-navigation a[data-nav-id="payments"]>.ui-icon,
+.shared-navigation a[data-nav-id="bank"]>.ui-icon{color:#3b6fd8}
+.shared-navigation a[data-nav-id="invoices"]>.ui-icon,
+.shared-navigation a[data-nav-id="receivables"]>.ui-icon,
+.shared-navigation a[data-nav-id="payables"]>.ui-icon{color:#25825e}
+.shared-navigation a[data-nav-id="accounting"]>.ui-icon,
+.shared-navigation a[data-nav-id="reports"]>.ui-icon{color:#7657b5}
+.shared-navigation a[data-nav-id="automation"]>.ui-icon{color:#b36a2f}
+@keyframes lt-nav-icon-arrive{
+  from{transform:translateX(-4px) scale(.88);opacity:.35}
+  to{transform:translateX(0) scale(1);opacity:1}
+}
+
+.payments-live-banner{
+  display:flex;
+  align-items:center;
+  gap:11px;
+  margin-bottom:18px;
+  padding:11px 14px;
+  color:#235544;
+  background:linear-gradient(100deg,#ebf8f0,#edf4fb);
+  border:1px solid #d4e8dc;
+  border-radius:14px;
+  box-shadow:0 7px 22px rgb(31 93 67 / .055);
+}
+.payments-live-banner>div{display:grid;gap:1px}
+.payments-live-banner b{font-size:13px}
+.payments-live-banner small{color:#5f716a;font-size:11px}
+.payments-live-dot{
+  width:9px;height:9px;border-radius:999px;background:#2f9c6b;flex:0 0 auto;
+  box-shadow:0 0 0 0 rgb(47 156 107 / .24);
+  animation:lt-payments-live 2.6s ease-in-out infinite;
+}
+@keyframes lt-payments-live{
+  0%,100%{box-shadow:0 0 0 0 rgb(47 156 107 / .18)}
+  50%{box-shadow:0 0 0 6px rgb(47 156 107 / 0)}
+}
+.payments-toolbar{
+  background:linear-gradient(135deg,#fff 0%,#f7fafc 52%,#f5faf7 100%)!important;
+  border-color:#dfe7e2!important;
+}
+.payments-summary>article{
+  position:relative;
+  overflow:hidden;
+  border-top-width:3px!important;
+  animation:lt-payment-card-in .4s var(--motion-ease) both;
+}
+.payments-summary>article:nth-child(1){border-top-color:#3a9d72!important;background:linear-gradient(180deg,#f4fbf7,#fff 44%)!important}
+.payments-summary>article:nth-child(2){border-top-color:#d58a43!important;background:linear-gradient(180deg,#fff8f1,#fff 44%)!important;animation-delay:35ms}
+.payments-summary>article:nth-child(3){border-top-color:#4d78d0!important;background:linear-gradient(180deg,#f3f7ff,#fff 44%)!important;animation-delay:70ms}
+.payments-summary>article:nth-child(4){border-top-color:#8466bb!important;background:linear-gradient(180deg,#f8f5fc,#fff 44%)!important;animation-delay:105ms}
+@keyframes lt-payment-card-in{
+  from{opacity:0;transform:translateY(8px) scale(.992)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+.payments-panel-view{
+  animation:lt-payment-panel-in .42s var(--motion-ease) both;
+  animation-delay:90ms;
+}
+@keyframes lt-payment-panel-in{
+  from{opacity:0;transform:translateY(8px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.payment-table-row{
+  transition:background-color .16s ease,box-shadow .16s ease;
+}
+.payment-table-row:hover{background:#f8faf9}
+.payment-row-in td:first-child{box-shadow:inset 3px 0 0 #70b996}
+.payment-row-out td:first-child{box-shadow:inset 3px 0 0 #e2aa72}
+.payments-content .notice{
+  border-left:3px solid #4d78d0;
+  background:#f5f8ff;
+}
+@media(prefers-reduced-motion:reduce){
+  .shared-navigation .shared-links a[aria-current="page"]>.ui-icon,
+  .payments-live-dot,
+  .payments-summary>article,
+  .payments-panel-view{animation:none!important}
+}
