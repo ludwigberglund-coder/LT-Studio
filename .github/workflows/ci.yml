@@ -139,3 +139,15 @@ jobs:
           if-no-files-found: error
           retention-days: 7
           include-hidden-files: true
+
+  required-status-compat:
+    name: Quality and security checks
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Quality and security checks compatibility
+        shell: bash
+        run: |
+          test "${{ needs.test.result }}" = "success"
