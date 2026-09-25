@@ -139,7 +139,7 @@ revoke all on function public.reserve_customer_invoice_number(text,text,text,tex
 grant execute on function public.reserve_customer_invoice_number(text,text,text,text,text) to authenticated;
 
 create or replace function public.finalize_customer_invoice(
-  p_company_id text,p_request_id text,p_customer_number text,p_invoice_date date,p_posting_date date,p_due_date date,
+  p_company_id text,p_request_id text,p_payload_sha256 text,p_customer_number text,p_invoice_date date,p_posting_date date,p_due_date date,
   p_total_ore bigint,p_vat_ore bigint,p_payment_account text,p_document_json jsonb,p_document_sha256 text,p_pdf_sha256 text,
   p_object_path text,p_file_name text,p_size_bytes bigint,p_journal_lines jsonb
 )
@@ -152,6 +152,7 @@ declare
 begin
   if v_uid is null then raise exception 'AUTH_REQUIRED'; end if;
   if not exists(select 1 from public.company_memberships m where m.company_id=p_company_id and m.auth_user_id=v_uid and m.role in ('admin','accountant')) then raise exception 'ACCESS_DENIED'; end if;
+  if p_payload_sha256 !~ '^[0-9a-f]{64}$' then raise exception 'INVALID_PAYLOAD_HASH'; end if;
   if p_total_ore=0 or p_vat_ore<0 or abs(p_vat_ore)>abs(p_total_ore) then raise exception 'INVALID_INVOICE_AMOUNT'; end if;
   if p_document_sha256 !~ '^[0-9a-f]{64}$' or p_pdf_sha256 !~ '^[0-9a-f]{64}$' then raise exception 'INVALID_DOCUMENT_HASH'; end if;
   if p_size_bytes<=0 or p_size_bytes>10485760 then raise exception 'INVALID_PDF_SIZE'; end if;
@@ -159,6 +160,7 @@ begin
   select * into v_res from public.customer_invoice_number_reservations r where r.company_id=p_company_id and r.request_id=p_request_id and r.status in ('reserved','issued') for update;
   if not found then raise exception 'INVOICE_RESERVATION_NOT_FOUND'; end if;
   if v_res.purpose<>'invoice' then raise exception 'INVALID_RESERVATION_PURPOSE'; end if;
+  if v_res.payload_sha256<>p_payload_sha256 then raise exception 'INVOICE_IDEMPOTENCY_CONFLICT'; end if;
   if v_res.status='issued' and v_res.issued_invoice_id is not null then return query select i.id,i.invoice_number,i.journal_number,'duplicate'::text from public.invoices i where i.company_id=p_company_id and i.id=v_res.issued_invoice_id; return; end if;
   select c.id,c.name into v_customer_id,v_customer_name from public.customers c where c.company_id=p_company_id and c.customer_number=p_customer_number and c.archived_at is null;
   if not found then raise exception 'CUSTOMER_NOT_FOUND'; end if;
@@ -193,5 +195,5 @@ begin
   return query select v_invoice_id,v_res.invoice_number,'F'||v_seq,'issued'::text;
 end;
 $$;
-revoke all on function public.finalize_customer_invoice(text,text,text,date,date,date,bigint,bigint,text,jsonb,text,text,text,text,bigint,jsonb) from public,anon;
-grant execute on function public.finalize_customer_invoice(text,text,text,date,date,date,bigint,bigint,text,jsonb,text,text,text,text,bigint,jsonb) to authenticated;
+revoke all on function public.finalize_customer_invoice(text,text,text,text,date,date,date,bigint,bigint,text,jsonb,text,text,text,text,bigint,jsonb) from public,anon;
+grant execute on function public.finalize_customer_invoice(text,text,text,text,date,date,date,bigint,bigint,text,jsonb,text,text,text,text,bigint,jsonb) to authenticated;
