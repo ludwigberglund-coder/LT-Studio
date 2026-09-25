@@ -84,7 +84,7 @@ begin
   end if;
   insert into public.accounting_periods(company_id,period,status,locked_by,locked_at)
   values(p_company_id,p_period,'locked',v_uid,now())
-  on conflict(company_id,period) do update set status='locked',locked_by=v_uid,locked_at=now();
+  on conflict on constraint accounting_periods_pkey do update set status='locked',locked_by=v_uid,locked_at=now();
   return query select ap.period,ap.status,ap.locked_by,ap.locked_at,false from public.accounting_periods ap where ap.company_id=p_company_id and ap.period=p_period;
 end;
 $$;
