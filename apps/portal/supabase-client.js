@@ -6,7 +6,7 @@
     const response=await fetch(cfg.url+path,Object.assign({},options,{headers:headers(options.token,options.headers)}));
     const text=await response.text(); let data=null;
     if(text){try{data=JSON.parse(text);}catch{data=text;}}
-    if(!response.ok) throw new Error((data&&data.message)||('Supabase request failed: '+response.status));
+    if(!response.ok) throw new Error((data&&(data.error||data.message))||('Supabase request failed: '+response.status));
     return data;
   }
   async function storageRequest(path,token,options={}){
@@ -24,6 +24,7 @@
     mfaChallenge:(token,factorId)=>request('/auth/v1/factors/'+encodeURIComponent(factorId)+'/challenge',{method:'POST',token,body:JSON.stringify({})}),
     mfaVerify:(token,factorId,challengeId,code)=>request('/auth/v1/factors/'+encodeURIComponent(factorId)+'/verify',{method:'POST',token,body:JSON.stringify({challenge_id:challengeId,code:String(code||'')})}),
     rpc:(name,args,token)=>request('/rest/v1/rpc/'+encodeURIComponent(name),{method:'POST',token,headers:{Prefer:'return=representation'},body:JSON.stringify(args||{})}),
+    functions:{invoke:(name,body,token)=>request('/functions/v1/'+encodeURIComponent(name),{method:'POST',token,body:JSON.stringify(body||{})})},
     from:(table,token)=>({
       select:(query='*',filters='')=>request('/rest/v1/'+encodeURIComponent(table)+'?select='+encodeURIComponent(query)+(filters?'&'+filters:''),{token}),
       insert:(rows)=>request('/rest/v1/'+encodeURIComponent(table),{method:'POST',token,headers:{Prefer:'return=representation'},body:JSON.stringify(rows)}),
