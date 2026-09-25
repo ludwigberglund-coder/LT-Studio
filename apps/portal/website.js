@@ -1,5 +1,5 @@
 const app=document.getElementById('website-app');
-const isDemo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
+const isDemo=location.hostname==='ludwigberglund-coder.github.io'||new URLSearchParams(location.search).has('demo');
 let busy=false,dirty=false;
 const DEMO_KEY='rollands-website-cms-demo-v1';
 const SITE_PREVIEW_KEY='rollands-site-content-preview-v1';

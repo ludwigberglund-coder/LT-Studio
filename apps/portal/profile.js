@@ -1,5 +1,5 @@
 const app=document.getElementById('profile-app');
-const isDemo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
+const isDemo=location.hostname==='ludwigberglund-coder.github.io'||new URLSearchParams(location.search).has('demo');
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 async function api(path,options={}){

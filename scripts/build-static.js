@@ -28,6 +28,7 @@ function buildStatic(){
   fs.rmSync(target,{recursive:true,force:true});fs.mkdirSync(target,{recursive:true});
   copyDirectory(path.join(root,'apps','website'),target);
   copyDirectory(path.join(root,'apps','admin'),path.join(target,'admin'));
+  copyDirectory(path.join(root,'apps','operator'),path.join(target,'operator'));
   copyDirectory(path.join(root,'apps','portal'),path.join(target,'portal'));
   copyDirectory(path.join(root,'packages','shared','browser'),path.join(target,'shared'));
   copyFile(path.join(root,'packages','accounting','money.js'),path.join(target,'shared','accounting','money.js'));
@@ -42,12 +43,12 @@ function buildStatic(){
   for(const workspace of ['portal','admin','legacy'])installWorkspaceNavigation(path.join(target,workspace));
   copyFile(path.join(root,'apps','website','index.html'),path.join(target,'404.html'));
   fs.writeFileSync(path.join(target,'.nojekyll'),'');
-  fs.writeFileSync(path.join(target,'build-info.json'),`${JSON.stringify({source:'GitHub main',commit:process.env.GITHUB_SHA||'local',generatedAt:new Date().toISOString(),demoOnly:true},null,2)}\n`);
+  fs.writeFileSync(path.join(target,'build-info.json'),`${JSON.stringify({source:'GitHub',commit:process.env.GITHUB_SHA||'local',generatedAt:new Date().toISOString(),demoOnly:false,runtime:'supabase-uat'},null,2)}\n`);
   const required=[
-    'index.html','app.js','styles.css','design-system.css','admin/index.html','admin/app.js','admin/money-view.js','admin/money.css','admin/design-system.css',
+    'index.html','app.js','styles.css','design-system.css','operator/index.html','operator/app.js','operator/styles.css','operator/design-system.css','admin/index.html','admin/app.js','admin/money-view.js','admin/money.css','admin/design-system.css',
     'admin/access-view.js','admin/access.css','admin/journal-view.js','admin/journal.css',
     'portal/dashboard.html','portal/dashboard.js','portal/dashboard.css','portal/portal-nav.js','portal/shared-nav.css','portal/profile.html','portal/profile.js','portal/company-settings.html','portal/company-settings.js','portal/company-settings.css',
-    'portal/index.html','portal/app.js','portal/styles.css','portal/design-system.css','portal/automation-link.js',
+    'portal/index.html','portal/app.js','portal/styles.css','portal/design-system.css','portal/automation-link.js','portal/supabase-config.js','portal/supabase-client.js','portal/supabase-session.js','portal/uat-setup.html','portal/uat-setup.js',
     'portal/customers.html','portal/customers.js','portal/invoices.html','portal/invoices.js','portal/receivables.html','portal/receivables.js','portal/sales.css',
     'portal/accounts.html','portal/accounts.js','portal/invoice-editor.css',
     'portal/demo-scenario.js','portal/demo-workflows.js','portal/uat.html','portal/uat.js','portal/uat.css',

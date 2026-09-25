@@ -1,11 +1,48 @@
 const app=document.getElementById('automation-app');
-const isDemo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
+const isDemo=new URLSearchParams(location.search).get('demo')==='1';
+const isSupabase=location.hostname==='ludwigberglund-coder.github.io'&&!isDemo;
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 const Demo=globalThis.RollandsDemoScenario;
-let session=null,proposals=[],accounts=[],filter='open',message='',confirmation=null;
+let session=null,proposals=[],accounts=[],filter='open',message='',confirmation=null,supabaseCtx=null;
 const reclassRequests=new Map();
 const fallbackAccounts=[['1510','Kundfordringar','Fordringar'],['1930','Företagskonto / bank','Likvida medel'],['2440','Leverantörsskulder','Skulder'],['2641','Ingående moms','Moms'],['4010','Inköp varor och material','Varuinköp'],['5010','Lokalhyra','Lokalkostnader'],['5410','Förbrukningsinventarier','Övriga kostnader'],['5460','Förbrukningsmaterial','Övriga kostnader'],['5510','Reparation och underhåll','Övriga kostnader'],['5910','Annonsering','Marknadsföring'],['6110','Kontorsmaterial','Kontorskostnader'],['6212','Mobiltelefon','Telekommunikation'],['6230','Datakommunikation / internet','Telekommunikation'],['6540','IT-tjänster','Externa tjänster'],['6570','Bankkostnader','Finansiella kostnader']].map(([number,name,group])=>({number,name,group}));
 function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+async function supabaseContext(){supabaseCtx=supabaseCtx?.authenticated?supabaseCtx:await window.LTSupabaseUat.context();if(!supabaseCtx?.authenticated||!supabaseCtx.company){location.href='./index.html';throw new Error('Ingen aktiv Supabase-session.')}return supabaseCtx}
+function mapSupabaseProposal(row,executions,bankRows,invoiceRows,customers,latestReclassByBank){
+  const suggestion=row.suggestion_json||{},bank=bankRows.get(String(row.source_id))||{},invoice=invoiceRows.get(String(suggestion.invoiceId||''))||{},customer=customers.get(String(invoice.customer_id||''))||{},execution=executions.get(String(row.id)),latestReclass=execution?latestReclassByBank.get(String(execution.bank_payment_id)):null;
+  const amountOre=Number(suggestion.amountOre||bank.amount_ore||execution?.amount_ore||0),bookingDate=suggestion.bookingDate||bank.booking_date||execution?.posting_date||'',currentInvoiceId=latestReclass?.target_invoice_id||execution?.invoice_id||suggestion.invoiceId||'',currentInvoice=invoiceRows.get(String(currentInvoiceId))||{},currentCustomer=customers.get(String(currentInvoice.customer_id||''))||{};
+  const exactOptions=execution&&Number(currentInvoice.remaining_ore||0)===0&&String(currentInvoice.status||'')==='Betald'
+    ?[...invoiceRows.values()].filter(r=>String(r.id)!==String(currentInvoiceId)&&Number(r.total_ore||0)>0&&Number(r.remaining_ore||0)===Number(execution.amount_ore||0)&&String(r.invoice_account||'1510')==='1510').map(r=>{const cu=customers.get(String(r.customer_id))||{};return{id:r.id,invoiceNumber:r.invoice_number,customerName:cu.name||'Okänd kund',remainingOre:Number(r.remaining_ore||0)}}).sort((a,b)=>String(a.invoiceNumber).localeCompare(String(b.invoiceNumber)))
+    :[];
+  return{
+    id:row.id,companyId:row.company_id,type:row.proposal_type,sourceId:row.source_id,status:row.status,
+    confidence:Number(row.confidence_ppm||0)/1000000,deterministic:Boolean(row.deterministic),ambiguous:Boolean(row.ambiguous),
+    reason:row.reason,decisionReason:row.decision_reason,evidence:row.evidence_json||[],suggestion,
+    engine:row.engine_json||{},createdBy:row.created_by,createdAt:row.created_at,approvedBy:row.approved_by,approvedAt:row.approved_at,
+    rejectedBy:row.rejected_by,rejectedAt:row.rejected_at,rejectionReason:row.rejection_reason,
+    review:{amountOre,bookingDate,accountingLines:(suggestion.accountingLines||[]).map(line=>({...line,editable:false})),editable:{accounts:false,targetInvoice:false},target:{invoiceId:suggestion.invoiceId||'',invoiceNumber:suggestion.invoiceNumber||''},actionLabel:'Granska bankmatchning',actionDescription:row.reason},
+    context:{payerName:bank.payer_name||'',invoiceNumber:suggestion.invoiceNumber||'',invoiceOptions:exactOptions},
+    executionStatus:execution?'executed':'not-executed',
+    partialPayment:Boolean(execution&&Number(currentInvoice.remaining_ore||0)>0),
+    reclassificationAllowed:Boolean(execution&&Number(currentInvoice.remaining_ore||0)===0&&String(currentInvoice.status||'')==='Betald'),
+    currentAllocation:execution?{invoiceId:currentInvoiceId,invoiceNumber:currentInvoice.invoice_number||'',customerName:currentCustomer.name||'',remainingOre:Number(currentInvoice.remaining_ore||0),sequence:Number(latestReclass?.sequence||0)}:null
+  };
+}
+async function loadSupabaseAutomation(){
+  const ctx=await supabaseContext(),filter='company_id=eq.'+encodeURIComponent(ctx.company.id);
+  const [proposalRows,executionRows,reclassRows,bankRowsRaw,invoiceRowsRaw,customerRows]=await Promise.all([
+    window.LTSupabase.from('automation_proposals',ctx.accessToken).select('*',filter+'&order=created_at.desc'),
+    window.LTSupabase.from('customer_payment_executions',ctx.accessToken).select('*',filter),
+    window.LTSupabase.from('customer_payment_reclassifications',ctx.accessToken).select('*',filter+'&order=sequence.desc,corrected_at.desc'),
+    window.LTSupabase.from('bank_payments',ctx.accessToken).select('*',filter),
+    window.LTSupabase.from('invoices',ctx.accessToken).select('*',filter),
+    window.LTSupabase.from('customers',ctx.accessToken).select('*',filter)
+  ]);
+  const executions=new Map((executionRows||[]).map(r=>[String(r.proposal_id),r])),banks=new Map((bankRowsRaw||[]).map(r=>[String(r.id),r])),invoices=new Map((invoiceRowsRaw||[]).map(r=>[String(r.id),r])),customers=new Map((customerRows||[]).map(r=>[String(r.id),r])),latestReclassByBank=new Map();
+  for(const row of reclassRows||[]){const key=String(row.bank_payment_id);if(!latestReclassByBank.has(key)||Number(row.sequence)>Number(latestReclassByBank.get(key)?.sequence||0))latestReclassByBank.set(key,row)}
+  proposals=(proposalRows||[]).map(row=>mapSupabaseProposal(row,executions,banks,invoices,customers,latestReclassByBank));
+  accounts=structuredClone(fallbackAccounts);session={user:ctx.user,company:ctx.company};
+}
 function initials(name){return String(name||'Användare').split(/\s+/).map(x=>x[0]).join('').slice(0,2).toUpperCase()}
 function percent(v){return `${Math.round(Number(v||0)*100)} %`}
 function money(v){return new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK',minimumFractionDigits:2}).format(Number(v||0)/100)}
@@ -40,9 +77,9 @@ function render(){const name=session?.user?.displayName||(isDemo?'Demoanvändare
 function collect(id){const p=proposals.find(x=>x.id===id),el=document.querySelector(`[data-proposal="${CSS.escape(id)}"]`);if(!p||!el)throw new Error('Förslaget hittades inte.');const accountingLines=(p.review?.accountingLines||[]).map((row,i)=>({account:el.querySelector(`[data-account="${CSS.escape(id)}"][data-line="${i}"]`)?.value||row.account,debitOre:Number(row.debitOre||0),creditOre:Number(row.creditOre||0),text:row.label||''}));const target=el.querySelector(`[data-target-invoice="${CSS.escape(id)}"]`);return{accountingLines,...(target?{invoiceId:target.value}:{})}}
 function persistDemo(){if(!Demo)return;Demo.patch(state=>{state.automationProposals=structuredClone(proposals)})}
 async function saveSuggestion(id,{silent=false}={}){const p=proposals.find(x=>x.id===id);if(!p||!isOpen(p))return;const edits=collect(id);if(isDemo){p.review.accountingLines=edits.accountingLines.map(row=>({...row,accountName:accountName(row.account),label:row.text,editable:true}));p.suggestion.accountingLines=structuredClone(edits.accountingLines);if(edits.invoiceId){const target=(p.context?.invoiceOptions||[]).find(row=>row.id===edits.invoiceId);if(target){p.suggestion.invoiceId=target.id;p.suggestion.invoiceNumber=target.invoiceNumber;p.suggestion.customerName=target.customerName;p.review.target.invoiceId=target.id;p.review.target.invoiceNumber=target.invoiceNumber}}p.status='manual-review';p.deterministic=false;p.ambiguous=true;p.decisionReason='Förslaget ändrades manuellt och behöver därför granskas på nytt.';persistDemo();if(!silent)message='Ändringarna sparades i det gemensamma demoscenariot.';render();return}const data=await api(`/automation/proposals/${encodeURIComponent(id)}/suggestion`,{method:'PUT',body:edits});const index=proposals.findIndex(x=>x.id===id);if(index>=0)proposals[index]=data.proposal;if(!silent)message=data.message||'Ändringarna sparades.';render()}
-async function approve(id){const current=proposals.find(x=>x.id===id),el=document.querySelector(`[data-proposal="${CSS.escape(id)}"]`);if(el?.dataset.dirty==='1')await saveSuggestion(id,{silent:true});if(isDemo){const p=proposals.find(x=>x.id===id);if(p){p.status='approved';p.approvedBy='demo-user';p.approvedAt=new Date().toISOString();persistDemo();confirmation={title:'Förslaget har godkänts',detail:'Ingen bokföring eller betalning genomfördes automatiskt.'};message=''}render();return}const data=await api(`/automation/proposals/${encodeURIComponent(id)}/approve`,{method:'POST',body:{}});if(current?.type==='bank-payment-match')filter='approved';confirmation=data.executionStatus==='not-executed'?{title:'Förslaget har godkänts',detail:'Förslaget är godkänt för nästa kontrollerade steg. Ingen bokföring eller betalning genomfördes.'}:{title:'Åtgärden är klar',detail:data.message||'Åtgärden genomfördes.'};message='';await load()}
-async function reject(id,reason){if(!String(reason||'').trim())throw new Error('Skriv varför förslaget avvisas.');if(isDemo){const p=proposals.find(x=>x.id===id);if(p){p.status='rejected';p.rejectionReason=String(reason).trim();p.rejectedAt=new Date().toISOString();persistDemo();message='Förslaget avvisades i demon.'}render();return}await api(`/automation/proposals/${encodeURIComponent(id)}/reject`,{method:'POST',body:{reason:String(reason).trim()}});message='Förslaget avvisades.';await load()}
-async function executeApproved(id){const data=await api(`/automation/proposals/${encodeURIComponent(id)}/execute`,{method:'POST',body:{}});confirmation={title:'Kundbetalningen är bokförd',detail:data.message||'Kundbetalningen bokfördes och kundreskontran har uppdaterats.'};message='';await load()}
+async function approve(id){const current=proposals.find(x=>x.id===id),el=document.querySelector(`[data-proposal="${CSS.escape(id)}"]`);if(el?.dataset.dirty==='1'&&!isSupabase)await saveSuggestion(id,{silent:true});if(isDemo){const p=proposals.find(x=>x.id===id);if(p){p.status='approved';p.approvedBy='demo-user';p.approvedAt=new Date().toISOString();persistDemo();confirmation={title:'Förslaget har godkänts',detail:'Ingen bokföring eller betalning genomfördes automatiskt.'};message=''}render();return}if(isSupabase){const ctx=await supabaseContext();await window.LTSupabase.rpc('decide_automation_proposal',{p_company_id:ctx.company.id,p_proposal_id:id,p_decision:'approve',p_reason:null},ctx.accessToken);if(current?.type==='bank-payment-match')filter='approved';confirmation={title:'Förslaget har godkänts',detail:'Ingen bokföring genomfördes automatiskt. Kundbetalningen kan nu bokföras i nästa kontrollerade steg.'};message='';await load();return}const data=await api(`/automation/proposals/${encodeURIComponent(id)}/approve`,{method:'POST',body:{}});if(current?.type==='bank-payment-match')filter='approved';confirmation=data.executionStatus==='not-executed'?{title:'Förslaget har godkänts',detail:'Förslaget är godkänt för nästa kontrollerade steg. Ingen bokföring eller betalning genomfördes.'}:{title:'Åtgärden är klar',detail:data.message||'Åtgärden genomfördes.'};message='';await load()}
+async function reject(id,reason){if(!String(reason||'').trim())throw new Error('Skriv varför förslaget avvisas.');if(isDemo){const p=proposals.find(x=>x.id===id);if(p){p.status='rejected';p.rejectionReason=String(reason).trim();p.rejectedAt=new Date().toISOString();persistDemo();message='Förslaget avvisades i demon.'}render();return}if(isSupabase){const ctx=await supabaseContext();await window.LTSupabase.rpc('decide_automation_proposal',{p_company_id:ctx.company.id,p_proposal_id:id,p_decision:'reject',p_reason:String(reason).trim()},ctx.accessToken);message='Förslaget avvisades.';await load();return}await api(`/automation/proposals/${encodeURIComponent(id)}/reject`,{method:'POST',body:{reason:String(reason).trim()}});message='Förslaget avvisades.';await load()}
+async function executeApproved(id){if(isSupabase){const ctx=await supabaseContext(),result=(await window.LTSupabase.rpc('execute_customer_payment',{p_company_id:ctx.company.id,p_proposal_id:id},ctx.accessToken))?.[0];if(!result)throw new Error('Kundbetalningen kunde inte bokföras i Supabase.');confirmation={title:'Kundbetalningen är bokförd',detail:'Verifikation '+result.journal_number+' skapades och kundreskontran uppdaterades.'};message='';await load();return}const data=await api(`/automation/proposals/${encodeURIComponent(id)}/execute`,{method:'POST',body:{}});confirmation={title:'Kundbetalningen är bokförd',detail:data.message||'Kundbetalningen bokfördes och kundreskontran har uppdaterats.'};message='';await load()}
 function reclassRequest(id,payload){const signature=JSON.stringify([payload.targetInvoiceId,payload.correctionDate,payload.reason]);const existing=reclassRequests.get(id);if(existing?.signature===signature)return existing.requestId;const requestId=`customer-reclass-${crypto.randomUUID()}`;reclassRequests.set(id,{signature,requestId});return requestId}
 async function reclassify(id){
   const targetInvoiceId=document.querySelector(`[data-reclass-target="${CSS.escape(id)}"]`)?.value||'';
@@ -53,10 +90,25 @@ async function reclassify(id){
   if(String(reason).trim().length<5)throw new Error('Skriv varför betalningen ska omföras.');
   const payload={targetInvoiceId,correctionDate,reason:String(reason).trim()};
   const requestId=reclassRequest(id,payload);
+  if(isSupabase){
+    const ctx=await supabaseContext();
+    const result=(await window.LTSupabase.rpc('reclassify_customer_payment',{
+      p_company_id:ctx.company.id,
+      p_proposal_id:id,
+      p_target_invoice_id:targetInvoiceId,
+      p_request_id:requestId,
+      p_correction_date:correctionDate,
+      p_reason:String(reason).trim()
+    },ctx.accessToken))?.[0];
+    if(!result)throw new Error('Kundbetalningen kunde inte omföras i Supabase.');
+    reclassRequests.delete(id);
+    message='Kundbetalningen omfördes. Verifikation '+result.journal_number+' skapades.';
+    await load();return;
+  }
   const data=await api(`/automation/proposals/${encodeURIComponent(id)}/reclassify`,{method:'POST',body:{...payload,requestId}});
   reclassRequests.delete(id);message=data.message||'Kundbetalningen omfördes.';await load();
 }
-async function load(){if(isDemo){if(!Demo)throw new Error('Det gemensamma demoscenariot kunde inte laddas.');session={user:{displayName:'Demoanvändare'}};accounts=structuredClone(fallbackAccounts);proposals=Demo.section('automationProposals');render();return}const state=await api('/session');if(!state.authenticated){location.href='./index.html';return}session=state;const data=await api('/automation/proposals');proposals=data.proposals||[];accounts=data.accounts||fallbackAccounts;render()}
+async function load(){if(isDemo){if(!Demo)throw new Error('Det gemensamma demoscenariot kunde inte laddas.');session={user:{displayName:'Demoanvändare'}};accounts=structuredClone(fallbackAccounts);proposals=Demo.section('automationProposals');render();return}if(isSupabase){await loadSupabaseAutomation();render();return}const state=await api('/session');if(!state.authenticated){location.href='./index.html';return}session=state;const data=await api('/automation/proposals');proposals=data.proposals||[];accounts=data.accounts||fallbackAccounts;render()}
 document.addEventListener('change',event=>{const editor=event.target.closest('[data-account],[data-target-invoice]');if(!editor)return;const card=editor.closest('[data-proposal]');if(card){card.dataset.dirty='1';const note=card.querySelector('[data-dirty-note]');if(note)note.textContent='Osparade ändringar – de sparas automatiskt om du godkänner.'}});
 document.addEventListener('click',async event=>{const f=event.target.closest('[data-filter]');if(f){filter=f.dataset.filter;render();return}const b=event.target.closest('[data-action]');if(!b)return;b.disabled=true;try{if(b.dataset.action==='save')await saveSuggestion(b.dataset.id);if(b.dataset.action==='approve')await approve(b.dataset.id);if(b.dataset.action==='reject')await reject(b.dataset.id,document.querySelector(`[data-reason="${CSS.escape(b.dataset.id)}"]`)?.value||'');if(b.dataset.action==='execute')await executeApproved(b.dataset.id);if(b.dataset.action==='reclassify')await reclassify(b.dataset.id)}catch(error){message=error.message;if(b.dataset.action==='reclassify'){b.disabled=false;const card=b.closest('[data-proposal]');let notice=card?.querySelector('.reclass-error');if(!notice&&card){notice=document.createElement('div');notice.className='notice reclass-error';b.closest('footer')?.prepend(notice)}if(notice)notice.textContent=message}else render()}});
 load().catch(error=>{app.innerHTML=`<main class="boot"><strong>Kunde inte ladda automationskön</strong><span>${esc(error.message)}</span></main>`});

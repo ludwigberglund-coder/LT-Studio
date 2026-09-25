@@ -1,5 +1,5 @@
 const app=document.getElementById('dashboard-app');
-const isDemo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
+const isDemo=location.hostname==='ludwigberglund-coder.github.io'||new URLSearchParams(location.search).has('demo');
 const Demo=globalThis.RollandsDemoScenario;
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 let session=null;

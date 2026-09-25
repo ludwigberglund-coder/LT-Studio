@@ -1,4 +1,4 @@
-name: Publish GitHub Pages demo
+name: Publish GitHub Pages UAT
 
 on:
   push:
@@ -61,13 +61,13 @@ jobs:
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 
-      - name: Build static demo
+      - name: Build static UAT
         run: npm run build:static
 
       - name: Scan generated browser artifacts for secrets
         run: npm run security:client-scan
 
-      - name: Verify generated demo contains no private runtime files
+      - name: Verify generated UAT contains no private runtime files
         shell: bash
         run: |
           set -Eeuo pipefail

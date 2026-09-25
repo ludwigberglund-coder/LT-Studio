@@ -1,6 +1,6 @@
 const app=document.getElementById('receivables-app');
 const Demo=globalThis.RollandsDemoScenario;
-const isDemo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
+const isDemo=location.hostname==='ludwigberglund-coder.github.io'||new URLSearchParams(location.search).has('demo');
 let message='';
 function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function ore(v){return new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK',minimumFractionDigits:2}).format(Number(v||0)/100)}
