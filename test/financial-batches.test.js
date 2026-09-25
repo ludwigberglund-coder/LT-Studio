@@ -32,12 +32,12 @@ test('gränssnittet stöder massregistrering, ångra och rollstyrt godkännande'
  assert.match(js,/Massregistrera/);
  assert.match(js,/Ångra osparade ändringar/);
  assert.match(js,/const canEdit=.*accountant/);
- assert.match(js,/const canApprove=.*approver/);
+ assert.match(js,/const canApprove=.*accountant.*approver/);
  assert.match(js,/reject_financial_batch/);
  assert.match(js,/transaction_number/);
 });
 
-test('härdningen ger radspårning och separerar skapare från godkännare',()=>{
+test('härdningen ger radspårning och egen-godkännande styrs av sista migrationen',()=>{
  const sql=read('supabase/migrations/20260925_financial_batches_hardening.sql');
  assert.match(sql,/audit_financial_batch_transaction/);
  assert.match(sql,/audit_financial_batch_line/);
@@ -46,4 +46,9 @@ test('härdningen ger radspårning och separerar skapare från godkännare',()=>
  assert.match(sql,/reject_financial_batch/);
  assert.match(sql,/financial_batches_created_by_idx/);
  assert.doesNotMatch(sql,/for all to authenticated/);
+ const selfApproval=read('supabase/migrations/20260925_financial_batches_self_approval.sql');
+ assert.match(selfApproval,/m\.role in \('admin','accountant','approver'\)/);
+ assert.doesNotMatch(selfApproval,/SEPARATION_OF_DUTIES_FAILED/);
+ assert.match(selfApproval,/'selfApproval',v_self_approval/);
+ assert.match(js,/Du kan godkänna även en bunt du själv har skapat/);
 });
