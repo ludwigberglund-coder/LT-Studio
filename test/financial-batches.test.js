@@ -94,3 +94,28 @@ test('kundfakturor går via en källstyrd bunt före huvudbok och reskontra',()=
  assert.match(batches,/const sourceBatch=selected\.kind==='source'/);
  assert.match(batches,/Innehållet är låst; godkännande aktiverar bokföring och reskontra atomiskt/);
 });
+
+
+test('leverantörsskuld och lön går via källstyrda buntar',()=>{
+ const sql=read('supabase/migrations/20260925_financial_batch_supplier_payroll_gating.sql');
+ const payables=read('apps/portal/payables.js');
+ const payroll=read('apps/portal/payroll.js');
+ assert.match(sql,/supplier-liability/);
+ assert.match(sql,/payroll-run/);
+ const supplier=sql.slice(sql.indexOf('create or replace function public.post_supplier_invoice_liability'),sql.indexOf('create or replace function public.post_payroll_run'));
+ assert.match(supplier,/stage_source_financial_batch/);
+ assert.match(supplier,/'pending-batch'/);
+ assert.doesNotMatch(supplier,/insert into public\.journal_entries/);
+ const payrollFn=sql.slice(sql.indexOf('create or replace function public.post_payroll_run'));
+ assert.match(payrollFn,/stage_source_financial_batch/);
+ assert.match(payrollFn,/'L'/);
+ assert.match(payrollFn,/'pending-batch'/);
+ assert.doesNotMatch(payrollFn,/insert into public\.journal_entries/);
+ const approve=sql.slice(sql.indexOf('create or replace function public.approve_financial_batch'),sql.indexOf('create or replace function public.post_supplier_invoice_liability'));
+ assert.match(approve,/activation_type='supplier-liability'/);
+ assert.match(approve,/liability_accounting_entry_id=v_entry/);
+ assert.match(approve,/activation_type='payroll-run'/);
+ assert.match(approve,/accounting_entry_id=v_entry/);
+ assert.match(payables,/väntar på godkännande i bunt/);
+ assert.match(payroll,/väntar på godkännande i bunt/);
+});
