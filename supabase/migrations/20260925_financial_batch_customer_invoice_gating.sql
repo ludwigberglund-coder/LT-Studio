@@ -396,6 +396,7 @@ begin
     end if;
 
     v_series=coalesce(nullif(v_tx.journal_series,''),'A');
+    if v_batch.kind='manual' and v_series<>'A' then raise exception 'MANUAL_BATCH_SERIES_NOT_ALLOWED'; end if;
     v_year=to_char(v_tx.posting_date,'YYYY');
     perform pg_advisory_xact_lock(hashtextextended(p_company_id||':'||v_series||':'||v_year,0));
     insert into public.accounting_sequences(company_id,series,fiscal_year,last_number)
