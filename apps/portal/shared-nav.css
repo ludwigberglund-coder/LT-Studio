@@ -12,7 +12,7 @@
 .shared-navigation details[open]>summary{list-style-type:disclosure-open}
 .shared-navigation summary:hover{background:#214b3b}
 .shared-navigation .shared-links{padding:0 0 9px;display:grid;gap:3px}
-.shared-navigation .shared-links a{display:block!important;position:static!important;opacity:1!important;visibility:visible!important;text-decoration:none!important;color:#e1ebe6!important;background:transparent!important;padding:10px 12px!important;border:0!important;border-radius:8px!important;white-space:normal!important;overflow-wrap:anywhere;text-align:left!important;font:400 13px/1.4 system-ui,sans-serif!important}
+.shared-navigation .shared-links a{display:flex!important;align-items:center!important;gap:12px!important;position:static!important;opacity:1!important;visibility:visible!important;text-decoration:none!important;color:#e1ebe6!important;background:transparent!important;padding:10px 12px!important;border:0!important;border-radius:8px!important;white-space:normal!important;overflow-wrap:anywhere;text-align:left!important;font:400 13px/1.4 system-ui,sans-serif!important}
 .shared-navigation .shared-links a:hover{background:#2c5644!important}
 .shared-navigation .shared-links a[aria-current=page]{background:#dce79a!important;color:#143c30!important;font-weight:750!important}
 .shared-navigation summary:focus-visible,.shared-navigation a:focus-visible,.shared-foot a:focus-visible{outline:3px solid #e6f0b1;outline-offset:2px}
@@ -102,3 +102,8 @@ body.shared-mobile-nav-lock{overflow:hidden}
   from{opacity:0;transform:translateX(-10px)}
   to{opacity:1;transform:translateX(0)}
 }
+
+/* Icon/text rhythm: icons keep a stable column so labels never touch the pictogram. */
+.shared-navigation .shared-links a>.ui-icon{width:18px;height:18px;min-width:18px;opacity:.72;transition:transform .2s cubic-bezier(.22,1,.36,1),opacity .2s ease,color .2s ease}
+.shared-navigation .shared-links a:hover>.ui-icon{opacity:1;transform:translateX(2px)}
+.shared-navigation .shared-links a[aria-current=page]>.ui-icon{opacity:1}
