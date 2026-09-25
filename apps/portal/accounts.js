@@ -1,6 +1,6 @@
 const app=document.getElementById('accounts-app');
 const Demo=globalThis.RollandsDemoScenario,Invoice=globalThis.RollandsInvoice;
-const isDemo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
+const isDemo=location.hostname==='ludwigberglund-coder.github.io'||new URLSearchParams(location.search).has('demo');
 let base=[],message='';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function revenue(){return Invoice.revenueAccounts(isDemo?Demo.state().invoiceRevenueAccounts||[]:[]);}
