@@ -2,7 +2,7 @@ const app=document.getElementById('payables-app');
 const Queue=globalThis.RollandsPayablesQueue;
 if(!Queue)throw new Error('Arbetskömodulen kunde inte laddas.');
 const isDemo=new URLSearchParams(location.search).get('demo')==='1';
-const isSupabase=location.hostname.endsWith('github.io')&&!isDemo;
+const isSupabase=location.hostname==='ludwigberglund-coder.github.io'&&!isDemo;
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 const Demo=globalThis.RollandsDemoScenario;
 const Workflows=globalThis.RollandsDemoWorkflows;
