@@ -3,7 +3,7 @@ const isDemo=new URLSearchParams(location.search).get('demo')==='1';
 const isSupabase=location.hostname==='ludwigberglund-coder.github.io'&&!isDemo;
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 let Demo=globalThis.RollandsDemoScenario;
-let session=null,entries=[],periods=[],unlockRequests=[],unlockPolicy={eligibleCustomerApprovers:0,selfUnlockAllowed:false},selectedEntry=null,openingYear=today().slice(0,4),openingBalance=null,openingMessage='';
+let session=null,entries=[],periods=[],unlockRequests=[],unlockPolicy={eligibleCustomerApprovers:0,selfUnlockAllowed:false},selectedEntry=null,openingYear=today().slice(0,4),openingBalance=null,openingBatch=null,openingMessage='';
 function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function ore(v){return new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK',minimumFractionDigits:2}).format(Number(v||0)/100)}
 function today(){return isDemo&&Demo?Demo.AS_OF_DATE:new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
@@ -42,20 +42,21 @@ function openingBalancePanel(){
       <div class="notice-box warning">1510 Kundfordringar och 2440 Leverantörsskulder måste importeras tillsammans med öppna reskontraposter och ingår därför inte i denna totalsaldoimport.</div>
     </article>`;
   }
+  if(openingBatch){return `<article class="panel opening-panel"><div class="section-head"><div><span class="eyebrow">Ingående balans</span><h2>Väntar i bunt #${esc(String(openingBatch.batchNumber||'').padStart(5,'0'))}</h2><p>Startsaldot är validerat men påverkar ännu inte huvudboken.</p></div>${selector}</div><div class="notice-box"><b>Ekonomisk kvalitetskontroll:</b> öppna Buntar och godkänn bunten. Först därefter skapas IB-verifikationen.</div></article>`}
   return `<article class="panel opening-panel"><div class="section-head"><div><span class="eyebrow">Ingående balans</span><h2>Importera startsaldo</h2><p>För vanliga balanskonton när ett företag börjar använda LT Studio.</p></div>${selector}</div>
     ${openingMessage?`<div class="notice-box warning">${esc(openingMessage)}</div>`:''}
     <div class="notice-box warning"><b>Viktigt:</b> 1510 och 2440 är blockerade här. Öppna kund- och leverantörsfakturor måste importeras tillsammans med reskontran.</div>
     <form class="accounting-form" id="opening-balance-form">
       <div class="opening-meta"><label>Bokföringsdatum<input value="${esc(openingYear)}-01-01" disabled></label><span>Importen måste göras innan andra verifikationer finns i året.</span></div>
       <div class="opening-lines" id="opening-lines">${openingLineRow(0)}${openingLineRow(1)}</div>
-      <label class="opening-confirm"><input type="checkbox" name="confirm" required> Jag har kontrollerat underlaget och att debet och kredit balanserar. Importen skapar en spårbar IB-verifikation.</label>
+      <label class="opening-confirm"><input type="checkbox" name="confirm" required> Jag har kontrollerat underlaget och att debet och kredit balanserar. Importen skapar först en bunt och därefter, efter godkännande, en spårbar IB-verifikation.</label>
       <div class="toolbar"><button class="button ghost" data-action="add-opening-line" type="button">Lägg till rad</button><button class="button" type="submit">Importera ingående balans</button></div>
       <p class="form-error"></p>
     </form>
   </article>`;
 }
 async function loadOpeningBalance(){
-  if(isSupabase){openingBalance=entries.find(entry=>entry.sourceType==='opening-balance'&&String(entry.sourceId)===String(openingYear))||null;openingMessage='';return}
+  if(isSupabase){openingBalance=entries.find(entry=>entry.sourceType==='opening-balance'&&String(entry.sourceId)===String(openingYear))||null;openingBatch=null;openingMessage='';if(openingBalance)return;const ctx=await window.LTSupabaseUat.context(),filter='company_id=eq.'+encodeURIComponent(ctx.company.id);const txRows=await window.LTSupabase.from('financial_batch_transactions',ctx.accessToken).select('*',filter+'&source_type=eq.opening-balance&source_id=eq.'+encodeURIComponent(openingYear)+'&activation_type=eq.opening-balance');const tx=txRows?.[0];if(tx){const batchRows=await window.LTSupabase.from('financial_batches',ctx.accessToken).select('*',filter+'&id=eq.'+encodeURIComponent(tx.batch_id));const batch=batchRows?.[0];if(batch&&batch.status==='ready')openingBatch={id:batch.id,batchNumber:batch.batch_number,status:batch.status}}return}
   if(isDemo){openingBalance=null;return}
   try{openingBalance=(await api(`/accounting/opening-balances/${encodeURIComponent(openingYear)}`)).entry;openingMessage=''}
   catch(error){
@@ -251,7 +252,7 @@ function bind(){
       const debit=lines.reduce((sum,line)=>sum+line.debitOre,0);
       const credit=lines.reduce((sum,line)=>sum+line.creditOre,0);
       if(!Number.isSafeInteger(debit)||!Number.isSafeInteger(credit)||debit<=0||debit!==credit)throw new Error(`Debet och kredit måste balansera exakt. Debet ${ore(debit)}, kredit ${ore(credit)}.`);
-      if(isSupabase){const ctx=await window.LTSupabaseUat.context();await window.LTSupabase.rpc('import_opening_balance',{p_company_id:ctx.company.id,p_year:openingYear,p_posting_date:`${openingYear}-01-01`,p_lines:lines},ctx.accessToken);openingMessage='';await loadSupabaseAccounting();render();return}
+      if(isSupabase){const ctx=await window.LTSupabaseUat.context();const result=(await window.LTSupabase.rpc('import_opening_balance',{p_company_id:ctx.company.id,p_year:openingYear,p_posting_date:`${openingYear}-01-01`,p_lines:lines},ctx.accessToken))?.[0];openingMessage=result?.journal_number?.startsWith('BUNT-')?`Ingående balans väntar i ${result.journal_number}.`:'';await loadSupabaseAccounting();render();return}
       await api(`/accounting/opening-balances/${encodeURIComponent(openingYear)}`,{method:'POST',body:{postingDate:`${openingYear}-01-01`,lines}});
       openingMessage='';
       await loadApi();
