@@ -37,7 +37,9 @@ async function submit(form){const data=new FormData(form);const file=data.get('p
         size_bytes:file.size,sha256,source_type:'supplier-invoice',source_id:invoiceId,uploaded_by:ctx.authUser.id
       }]);
     }catch(error){
-      if(inserted&&!uploaded)await window.LTSupabase.from('supplier_invoices',ctx.accessToken).delete('id=eq.'+encodeURIComponent(invoiceId)+'&company_id=eq.'+encodeURIComponent(ctx.company.id)).catch(()=>{});
+      if(uploaded)await window.LTSupabase.storage.remove('lt-documents',[path],ctx.accessToken).catch(()=>{});
+      await window.LTSupabase.from('documents',ctx.accessToken).delete('source_type=eq.supplier-invoice&source_id=eq.'+encodeURIComponent(invoiceId)+'&company_id=eq.'+encodeURIComponent(ctx.company.id)).catch(()=>{});
+      if(inserted)await window.LTSupabase.from('supplier_invoices',ctx.accessToken).delete('id=eq.'+encodeURIComponent(invoiceId)+'&company_id=eq.'+encodeURIComponent(ctx.company.id)).catch(()=>{});
       throw error;
     }
     closeModal();location.reload();return;
