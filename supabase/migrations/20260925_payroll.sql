@@ -137,8 +137,8 @@ begin
     values('jline_'||replace(gen_random_uuid()::text,'-',''),p_company_id,v_entry_id,v_line_no,v_line->>'account',left(coalesce(v_line->>'text',''),240),
       coalesce((v_line->>'debitOre')::bigint,0),coalesce((v_line->>'creditOre')::bigint,0));
   end loop;
-  update public.payroll_runs set status='posted',posted_by=v_uid,posted_at=now(),accounting_entry_id=v_entry_id
-  where company_id=p_company_id and id=v_run.id and status='validated';
+  update public.payroll_runs as r set status='posted',posted_by=v_uid,posted_at=now(),accounting_entry_id=v_entry_id
+  where r.company_id=p_company_id and r.id=v_run.id and r.status='validated';
   if not found then raise exception 'PAYROLL_POSTING_CONFLICT'; end if;
   return query select v_run.id,'L'||v_seq,'posted'::text,false;
 end;
