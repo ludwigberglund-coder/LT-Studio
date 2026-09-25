@@ -1,6 +1,6 @@
 const app=document.getElementById('accounting-app');
 const isDemo=new URLSearchParams(location.search).get('demo')==='1';
-const isSupabase=location.hostname.endsWith('github.io')&&!isDemo;
+const isSupabase=location.hostname==='ludwigberglund-coder.github.io'&&!isDemo;
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 let Demo=globalThis.RollandsDemoScenario;
 let session=null,entries=[],periods=[],unlockRequests=[],unlockPolicy={eligibleCustomerApprovers:0,selfUnlockAllowed:false},selectedEntry=null,openingYear=today().slice(0,4),openingBalance=null,openingMessage='';
