@@ -1,6 +1,7 @@
 'use strict';
 const fs=require('node:fs');
 const path=require('node:path');
+const {stampRelease}=require('./static-release.js');
 const {validateContent}=require('./validate-content.js');
 const root=path.resolve(__dirname,'..'),target=path.join(root,'dist');
 function copyDirectory(source,destination){if(!fs.existsSync(source))throw new Error(`Källkatalog saknas: ${path.relative(root,source)}`);fs.mkdirSync(destination,{recursive:true});fs.cpSync(source,destination,{recursive:true});}
@@ -39,11 +40,12 @@ function buildStatic(){
   copyFile(require.resolve('pdf-lib/dist/pdf-lib.min.js'),path.join(target,'shared','vendor','pdf-lib.min.js'));
   copyDirectory(path.join(root,'content'),path.join(target,'content'));
   copyDirectory(path.join(root,'config'),path.join(target,'config'));
-  copyDirectory(path.join(root,'public'),path.join(target,'legacy'));
-  for(const workspace of ['portal','admin','legacy'])installWorkspaceNavigation(path.join(target,workspace));
+  copyFile(path.join(root,'scripts','legacy-redirect.html'),path.join(target,'legacy','index.html'));
+  for(const workspace of ['portal','admin'])installWorkspaceNavigation(path.join(target,workspace));
   copyFile(path.join(root,'apps','website','index.html'),path.join(target,'404.html'));
   fs.writeFileSync(path.join(target,'.nojekyll'),'');
-  fs.writeFileSync(path.join(target,'build-info.json'),`${JSON.stringify({source:'GitHub',commit:process.env.GITHUB_SHA||'local',generatedAt:new Date().toISOString(),demoOnly:false,runtime:'supabase-uat'},null,2)}\n`);
+  const commit=process.env.GITHUB_SHA||require('node:child_process').execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
+  fs.writeFileSync(path.join(target,'build-info.json'),`${JSON.stringify({source:'GitHub',commit,generatedAt:new Date().toISOString(),demoOnly:false,runtime:'supabase-uat'},null,2)}\n`);
   const required=[
     'index.html','app.js','styles.css','design-system.css','operator/index.html','operator/app.js','operator/styles.css','operator/design-system.css','admin/index.html','admin/app.js','admin/money-view.js','admin/money.css','admin/design-system.css',
     'admin/access-view.js','admin/access.css','admin/journal-view.js','admin/journal.css',
@@ -61,9 +63,10 @@ function buildStatic(){
     'shared/accounting/money.js','shared/accounting/journal.js','shared/access-control/authorization.js','shared/receivables/customer-receivables.js',
     'shared/invoicing/invoice.js','shared/invoicing/pdf.js','shared/vendor/pdf-lib.min.js',
     'content/company.json','content/site.json','content/admin.json','config/rolands-business-decisions.json','config/access-control.json',
-    'config/legal-rates.json','config/accounting-accounts.json','legacy/index.html','legacy/design-system.css'
+    'config/legal-rates.json','config/accounting-accounts.json','legacy/index.html'
   ];
   for(const name of required)if(!fs.existsSync(path.join(target,name)))throw new Error(`Byggfil saknas: ${name}`);
+  stampRelease(target,commit);
   console.log(`Ny statisk demo byggd: ${target}`);return target;
 }
 if(require.main===module){try{buildStatic();}catch(error){console.error(error.message);process.exitCode=1;}}

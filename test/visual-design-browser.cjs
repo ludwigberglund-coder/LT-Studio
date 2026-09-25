@@ -16,7 +16,6 @@ const surfaces=[
   {id:'invoices',route:'portal/invoices.html?demo=1'},
   {id:'cms',route:'portal/website.html?demo=1'},
   {id:'project-admin',route:'admin/?demo=1#/overview'},
-  {id:'legacy',route:'legacy/?demo=1#/overview'},
   {id:'website',route:'index.html'}
 ];
 const viewports=[

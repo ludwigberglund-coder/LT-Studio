@@ -107,7 +107,7 @@ function overviewView() {
     </section>
     <section class="panel callout">
       <div><span class="kicker">Verifikations- och periodmotor</span><h2>Prova balansering, periodlås och motverifikationer</h2><p>Den nya bokföringskärnan använder både öresmodellen och reglerna för personlig identitet. Alla ändringar i demon sparas endast i den egna webbläsaren.</p></div>
-      <a class="button primary" href="#/journal">Öppna verifikationsdemon</a>
+      <a class="button primary" href="../portal/accounting.html?demo=1">Öppna bokföring</a>
     </section>
     <section class="panel callout">
       <div><span class="kicker">Exakta ekonomivärden</span><h2>Testa belopp och blandad moms</h2><p>Öreskalkylatorn använder samma fristående penningmodell som fakturering, lager och bokföring bygger på.</p></div>
@@ -244,6 +244,7 @@ function showMessage(message, error = false) {
 
 function render() {
   const view = currentView();
+  if (view === 'journal') { location.replace('../portal/accounting.html?demo=1'); return; }
   if (view === 'content') app.innerHTML = contentView();
   else if (view === 'money') app.innerHTML = layout('money', 'Öreskalkylator', 'Testa den gemensamma penningmodellen med exakta belopp och blandad moms.', moneyView());
   else if (view === 'access') app.innerHTML = layout('access', 'Inloggning och företagsmedlemskap', 'Granska personlig inloggning, MFA, företagsisolering och personliga kontrollsteg.', accessView());
