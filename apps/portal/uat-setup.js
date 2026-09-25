@@ -20,7 +20,8 @@
     const user=await window.LTSupabase.getUser(token);
     const verified=(user?.factors||[]).find(f=>f.factor_type==='totp'&&f.status==='verified');
     if(verified){
-      target.innerHTML='<div class="result"><strong>MFA är redan registrerad.</strong><p>Kontot är redo. Driftadmin kommer kräva en aktuell TOTP-kod vid inloggning.</p><div class="actions"><a class="button" href="./index.html">Öppna kundportalen</a><a class="button ghost" href="../operator/">Öppna driftadmin</a></div></div>';
+      activeFactor=verified;
+      target.innerHTML='<div class="mfa-box"><strong>MFA är redan registrerad.</strong><p>Verifiera den aktuella sexsiffriga koden för att uppgradera den här nya sessionen till AAL2.</p><form id="verify-mfa-form"><label>TOTP-kod<input name="code" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" required autocomplete="one-time-code"></label><div class="actions"><button class="button" type="submit">Verifiera MFA och fortsätt</button></div></form><div id="verify-result"></div></div>';
       return;
     }
     const factor=await window.LTSupabase.mfaEnroll(token,'LT Studio UAT');
