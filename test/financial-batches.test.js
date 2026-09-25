@@ -62,7 +62,7 @@ test('buntgodkännande använder kontrollerad och append-only revisionslogg',()=
  assert.match(sql,/revoke all on public\.audit_events from anon/);
  assert.match(sql,/revoke update,delete,truncate,trigger,references on public\.audit_events from authenticated/);
  assert.match(sql,/grant select,insert on public\.audit_events to authenticated/);
- assert.match(sql,/as restrictive[\s\S]*for insert[\s\S]*app\.audit_event_write/);
+ assert.match(sql,/as permissive[\s\S]*for insert[\s\S]*app\.audit_event_write/);
  assert.match(sql,/actor_user_id=\(select auth\.uid\(\)\)/);
  assert.match(sql,/m\.company_id=audit_events\.company_id/);
  assert.match(sql,/perform set_config\('app\.audit_event_write','1',true\)/);
