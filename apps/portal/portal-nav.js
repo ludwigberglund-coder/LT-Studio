@@ -44,12 +44,13 @@
   ensureFavicon();
   if(root.RollandsNavigation)return;
   const base=new URL('../',document.currentScript.src);
-  const demo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
+  const demo=new URLSearchParams(location.search).get('demo')==='1';
+  const supabaseUat=location.hostname.endsWith('github.io')&&!demo;
   const key='rollands-navigation-v2:'+base.pathname;
   const runtimeKey='rollands-runtime-id:'+base.pathname;
   let runtimeCheckInFlight=false;
   async function ensureFreshRuntime(){
-    if(demo||runtimeCheckInFlight)return false;
+    if(demo||supabaseUat||runtimeCheckInFlight)return false;
     runtimeCheckInFlight=true;
     try{
       const response=await fetch('/_runtime-version',{credentials:'same-origin',cache:'no-store'});
@@ -71,6 +72,19 @@
   function active(path){const u=new URL(path,base);return normalizePath(u.pathname)===normalizePath(location.pathname)&&(!u.hash||u.hash===(location.hash||'#/overview'));}
   async function navigationContext(){
     if(demo)return{groups,session:null};
+    if(supabaseUat&&root.LTSupabaseUat){
+      try{
+        const context=await root.LTSupabaseUat.context();
+        if(!context?.authenticated)return{groups:[],session:null};
+        const role=context.membership?.role||'readonly';
+        const permissions=role==='admin'
+          ? Object.values(requiredPermission)
+          : role==='accountant'
+            ? ['customer-invoice.view','supplier-invoice.view','payment.view','bank.view','accounting.view','reports.view','supplier.view','inventory.view','documents.view']
+            : ['customer-invoice.view','supplier-invoice.view','reports.view','supplier.view','documents.view'];
+        return{groups:visibleGroups({authenticated:true,permissions}),session:{authenticated:true,user:context.user,company:context.company}};
+      }catch{return{groups:[],session:null}}
+    }
     try{
       const response=await fetch('/api/v1/session',{credentials:'same-origin',cache:'no-store'});
       const session=response.ok?await response.json():null;
