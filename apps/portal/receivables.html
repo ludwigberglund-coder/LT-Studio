@@ -4,15 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f7f5f0">
-  <title>LT Studio Företagsportal · Kundreskontra</title>
+  <title>Kundreskontra · LT Studio</title>
   <link rel="stylesheet" href="./styles.css">
-  <link rel="stylesheet" href="./sales.css">
-  <link rel="stylesheet" href="./design-system.css">
+  <link rel="stylesheet" href="./design-system.css?v=20260925-1">
+  <meta http-equiv="refresh" content="0; url=./index.html">
+  <script>
+    const target=new URL('./index.html',location.href);
+    for(const [key,value] of new URLSearchParams(location.search))target.searchParams.set(key,value);
+    target.hash=location.hash;
+    location.replace(target.href);
+  </script>
 </head>
 <body>
-  <div id="receivables-app"><main class="boot"><strong>LT Studio</strong><span>Kundreskontran laddas…</span></main></div>
-  <script src="./demo-scenario.js"></script>
-  <script src="./portal-nav.js"></script>
-  <script type="module" src="./receivables.js"></script>
+  <main class="boot"><strong>LT Studio</strong><span>Kundreskontran öppnas…</span></main>
 </body>
 </html>
