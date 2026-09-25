@@ -81,7 +81,9 @@
           ? Object.values(requiredPermission)
           : role==='accountant'
             ? ['customer-invoice.view','supplier-invoice.view','payment.view','bank.view','accounting.view','reports.view','supplier.view','inventory.view','documents.view']
-            : ['customer-invoice.view','supplier-invoice.view','reports.view','supplier.view','documents.view'];
+            : role==='approver'
+              ? ['supplier-invoice.view','payment.view','accounting.view','reports.view','documents.view']
+              : ['customer-invoice.view','supplier-invoice.view','reports.view','supplier.view','documents.view'];
         return{groups:visibleGroups({authenticated:true,permissions}),session:{authenticated:true,user:context.user,company:context.company}};
       }catch{return{groups:[],session:null}}
     }
