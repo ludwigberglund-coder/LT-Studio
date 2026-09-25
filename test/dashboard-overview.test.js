@@ -32,3 +32,10 @@ test('översikten är medvetet gles och visar högst sex viktiga uppgifter',()=>
   assert.match(css,/welcome-motion/);
   assert.match(css,/prefers-reduced-motion:reduce/);
 });
+
+
+test('delad navigation startar om med öppen desktopmeny efter UAT-fixen',()=>{
+  const nav=read('apps/portal/portal-nav.js');
+  assert.match(nav,/rollands-navigation-v3/);
+  assert.match(nav,/read\(\)\.sidebarCollapsed!==true/);
+});
