@@ -1,7 +1,7 @@
 const app=document.getElementById('customers-app');
 const Demo=globalThis.RollandsDemoScenario;
 const isDemo=new URLSearchParams(location.search).get('demo')==='1';
-const isSupabase=location.hostname.endsWith('github.io')&&!isDemo;
+const isSupabase=location.hostname==='ludwigberglund-coder.github.io'&&!isDemo;
 let editing=null,message='',privateCustomers=[],csrfToken=sessionStorage.getItem('rollands-csrf')||'',createRequestId='',showArchived=false,pendingCustomerDelete=null;
 const copy=value=>JSON.parse(JSON.stringify(value));
 function esc(v=''){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
