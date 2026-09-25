@@ -29,6 +29,10 @@ test('Supabase kundfaktura verifierar faktisk PDF via Edge före finalisering',(
   assert.match(edge,/storage\.from\(["']lt-documents["']\)\.download\(objectPath\)/);
   assert.match(edge,/storage\.from\(["']lt-documents["']\)\.list\(folder/);
   assert.match(edge,/isPdfMagic\(bytes\)/);
+  assert.match(edge,/PDFDocument\.load\(bytes/);
+  assert.match(edge,/ACTIVE_PDF_CONTENT_NOT_ALLOWED/);
+  assert.match(edge,/ENCRYPTED_PDF_NOT_ALLOWED/);
+  assert.match(edge,/INVALID_PDF_EOF/);
   assert.match(edge,/calculatedPdfSha!==pdfSha256/);
   assert.match(edge,/calculatedDocumentSha!==documentSha256/);
   assert.match(edge,/storage_object_id:objectInfo\.id/);
@@ -42,7 +46,7 @@ test('verifieringsbiljetter kan inte skapas av browserrollen och konsumeras av d
   assert.match(sql,/grant select,delete on public\.document_upload_verifications to authenticated/i);
   assert.doesNotMatch(sql,/grant\s+[^;]*insert[^;]*document_upload_verifications\s+to\s+authenticated/i);
   assert.match(sql,/grant select,insert,delete on public\.document_upload_verifications to service_role/i);
-  assert.match(sql,/coalesce\(\(select auth\.jwt\(\)->>'aal'\),'aal1'\)='aal2'/i);
+  assert.match(sql,/coalesce\(\(select auth\.jwt\(\)\)->>'aal','aal1'\)='aal2'/i);
   assert.match(sql,/before insert on public\.customer_invoice_documents/i);
   assert.match(sql,/DOCUMENT_UPLOAD_NOT_VERIFIED/);
   assert.match(sql,/VERIFIED_STORAGE_OBJECT_CHANGED/);
