@@ -34,7 +34,8 @@ The branch now uses Supabase for:
 - Tenant data is protected by RLS and `company_memberships`.
 - Financial and inventory writes use controlled RPCs plus trigger guards that block direct browser writes to protected core tables.
 - Economic RPCs remain `SECURITY INVOKER`.
-- Private Storage is PDF-only and company-scoped.
+- Private Storage is PDF-only, company-scoped and max 10 MB.
+- Archived document metadata is insert/read-only for browser roles. Archived PDF originals cannot be deleted; only orphan uploads that are not referenced by `documents` may be cleaned up.
 - Operator/global-admin access is **not** granted through tenant RLS. The operator browser calls the `operator-admin` Edge Function.
 - `operator-admin` validates the Supabase user token, requires JWT `aal2` (MFA), verifies an active row in `platform_operators`, and only then uses server-side privileged credentials.
 - Operator audit and security-incident state are stored in locked-down tables that browser roles cannot query directly.
@@ -50,6 +51,20 @@ The following former Node/SQLite blocker flows are now migrated behind controlle
 - Reclassification of an already-posted customer payment when the current allocation is fully paid and the new target has an exact matching open balance. Partial-payment reclassification stays blocked.
 
 These flows also use the controlled financial-write guard; direct browser writes to the financial core remain rejected.
+
+## Verified rollback-UAT checks
+
+Synthetic test identities and data were created only inside SQL transactions and rolled back afterwards. Verified:
+
+- Cross-company RLS isolation: user A saw 1/1 own customer+invoice and 0 rows from company B; user B saw the inverse.
+- Browser roles cannot read operator-only tables.
+- Direct browser-style writes to protected invoice and inventory tables are rejected by the controlled-write guards.
+- Controlled inventory RPCs still work through those guards.
+- Four-eyes inventory approval blocks self-approval and succeeds for a second authorized user.
+- Accounting period unlock blocks self-approval and succeeds for a second authorized user.
+- Payroll import + posting completes and creates an L-series journal.
+- Automation proposal approval moves the proposal to approved and the bank event to reviewed.
+- Supabase Security Advisor remained at 0 findings after the fixes.
 
 ## Remaining prerequisites for end-to-end UAT
 
