@@ -2,6 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
 const {validateConfig,verifyDeploymentIdentity} = require('../../scripts/pilot-preflight.js');
 const root = path.resolve(__dirname, '..', '..');
 const portal = path.join(root, 'apps', 'portal');
@@ -44,8 +45,8 @@ function demoRequest(requestUrl) {
   try { return [...new URL(requestUrl,'http://local').searchParams.keys()].some(key => key.toLowerCase()==='demo'); }
   catch { return false; }
 }
-function staticHeaders(contentType) {
-  return {'Content-Type':contentType, 'Cache-Control':'no-store', 'X-Content-Type-Options':'nosniff',
+function staticHeaders(contentType, cacheControl='no-store') {
+  return {'Content-Type':contentType, 'Cache-Control':cacheControl, 'X-Content-Type-Options':'nosniff',
     'X-Frame-Options':'DENY', 'Referrer-Policy':'same-origin',
     'Permissions-Policy':'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
     'Cross-Origin-Opener-Policy':'same-origin',
@@ -88,7 +89,17 @@ function serveStatic(req,res) {
     if (path.extname(target.file)==='.html') {
       bytes=Buffer.from(bytes.toString('utf8').replace(/\s*<script\b[^>]*\bsrc=["']\.\/demo-[^"']+["'][^>]*><\/script>/gi,''));
     }
-    res.writeHead(200,{...staticHeaders(types[path.extname(target.file)]),'Content-Length':bytes.length});
+    const extension=path.extname(target.file);
+    const cacheControl=extension==='.html'?'private, max-age=30, stale-while-revalidate=60':'private, max-age=300, stale-while-revalidate=300';
+    const etag='"'+crypto.createHash('sha256').update(bytes).digest('base64url')+'"';
+    const headers={...staticHeaders(types[extension],cacheControl),'Content-Length':bytes.length,ETag:etag};
+    if(req.headers['if-none-match']===etag){
+      delete headers['Content-Length'];
+      res.writeHead(304,headers);
+      res.end();
+      return true;
+    }
+    res.writeHead(200,headers);
     res.end(req.method==='HEAD'?undefined:bytes);
   } catch {
     res.writeHead(503,staticHeaders('text/plain; charset=utf-8'));

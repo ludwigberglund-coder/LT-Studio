@@ -34,8 +34,16 @@ test('private assets include the pinned PDF runtime but not arbitrary configurat
   assert.equal((await encodedTraversal.json()).code,'INVALID_URL_ENCODING');
   const response=await fetch(base+'/portal/invoices.html',{method:'HEAD'});
   assert.equal(response.status,200);assert.equal(await response.text(),'');
+  assert.equal(response.headers.get('cache-control'),'private, max-age=30, stale-while-revalidate=60');
+  assert.match(response.headers.get('etag'),/^".+"$/);
   assert.match(response.headers.get('content-security-policy'),/script-src 'self';/);
   assert.match(response.headers.get('content-security-policy'),/object-src 'none'/);
+  const js=await fetch(base+'/portal/portal-nav.js');
+  assert.equal(js.status,200);
+  assert.equal(js.headers.get('cache-control'),'private, max-age=300, stale-while-revalidate=300');
+  const etag=js.headers.get('etag');assert.ok(etag);
+  const notModified=await fetch(base+'/portal/portal-nav.js',{headers:{'If-None-Match':etag}});
+  assert.equal(notModified.status,304);assert.equal(await notModified.text(),'');
 }));
 test('production start cannot bypass preflight by binding to loopback',()=>{
   const folder=fs.mkdtempSync(path.join(os.tmpdir(),'rollands-start-test-'));

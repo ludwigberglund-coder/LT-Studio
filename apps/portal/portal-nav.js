@@ -48,6 +48,9 @@
   const key='rollands-navigation-v2:'+base.pathname;
   const runtimeKey='rollands-runtime-id:'+base.pathname;
   let runtimeCheckInFlight=false;
+  let navigationContextInFlight=null;
+  let navigationContextCached=null;
+  let navigationContextCachedAt=0;
   async function ensureFreshRuntime(){
     if(demo||runtimeCheckInFlight)return false;
     runtimeCheckInFlight=true;
@@ -71,11 +74,21 @@
   function active(path){const u=new URL(path,base);return normalizePath(u.pathname)===normalizePath(location.pathname)&&(!u.hash||u.hash===(location.hash||'#/overview'));}
   async function navigationContext(){
     if(demo)return{groups,session:null};
-    try{
-      const response=await fetch('/api/v1/session',{credentials:'same-origin',cache:'no-store'});
-      const session=response.ok?await response.json():null;
-      return{groups:visibleGroups({authenticated:session?.authenticated===true,permissions:session?.permissions||[]}),session};
-    }catch{return{groups:[],session:null}}
+    const now=Date.now();
+    if(navigationContextCached&&now-navigationContextCachedAt<5000)return navigationContextCached;
+    if(navigationContextInFlight)return navigationContextInFlight;
+    navigationContextInFlight=(async()=>{
+      try{
+        const response=await fetch('/api/v1/session',{credentials:'same-origin',cache:'no-store'});
+        const session=response.ok?await response.json():null;
+        const context={groups:visibleGroups({authenticated:session?.authenticated===true,permissions:session?.permissions||[]}),session};
+        navigationContextCached=context;
+        navigationContextCachedAt=Date.now();
+        return context;
+      }catch{return{groups:[],session:null}}
+      finally{navigationContextInFlight=null}
+    })();
+    return navigationContextInFlight;
   }
 
   // UI polish: all pictograms below are paths from Iconoir (MIT), never mixed with another icon set.
@@ -405,9 +418,25 @@
     if(!sidebar.dataset.scrollBound){sidebar.addEventListener('scroll',()=>{try{sessionStorage.setItem(key+':scroll',String(sidebar.scrollTop))}catch{}});sidebar.dataset.scrollBound='1';}
   }
   let pending=false;
-  function schedule(){if(pending)return;pending=true;queueMicrotask(async()=>{pending=false;await Promise.all([mount(),mountUserMenu()]);mountSidebarToggle();decorateUi();});}
-  // Renders can replace the entire sidebar. Stay subscribed instead of disconnecting after boot.
-  new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true});
+  function schedule(){
+    if(pending)return;
+    pending=true;
+    requestAnimationFrame(async()=>{
+      pending=false;
+      await Promise.all([mount(),mountUserMenu()]);
+      mountSidebarToggle();
+      decorateUi();
+    });
+  }
+  function mutationNeedsRefresh(mutations){
+    const selector='.sidebar,.topbar,button,.button,.nav-item,.module-card,.callout,.column-picker,.context-menu,.comment-badge,[data-iconoir]';
+    return mutations.some(mutation=>[...mutation.addedNodes,...mutation.removedNodes].some(node=>{
+      if(node.nodeType!==Node.ELEMENT_NODE)return false;
+      return node.matches?.(selector)||Boolean(node.querySelector?.(selector));
+    }));
+  }
+  // Dynamic renders can replace navigation/action controls. Ignore unrelated table/text mutations.
+  new MutationObserver(mutations=>{if(mutationNeedsRefresh(mutations))schedule();}).observe(document.documentElement,{childList:true,subtree:true});
   addEventListener('hashchange',schedule);
   addEventListener('pageshow',()=>{schedule();ensureFreshRuntime();});
   addEventListener('focus',ensureFreshRuntime);
