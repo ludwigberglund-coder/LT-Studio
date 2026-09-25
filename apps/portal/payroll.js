@@ -1,6 +1,6 @@
 const app=document.getElementById('payroll-app');
 const isDemo=new URLSearchParams(location.search).get('demo')==='1';
-const isSupabase=location.hostname.endsWith('github.io')&&!isDemo;
+const isSupabase=location.hostname==='ludwigberglund-coder.github.io'&&!isDemo;
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 let session=null,runs=[],message='',supabaseCtx=null;
 async function supabaseContext(){supabaseCtx=supabaseCtx?.authenticated?supabaseCtx:await window.LTSupabaseUat.context();if(!supabaseCtx?.authenticated||!supabaseCtx.company){location.href='./index.html';throw new Error('Ingen aktiv Supabase-session.')}return supabaseCtx}
