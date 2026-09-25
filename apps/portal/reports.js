@@ -1,5 +1,6 @@
 const app=document.getElementById('reports-app');
-const isDemo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
+const isDemo=new URLSearchParams(location.search).get('demo')==='1';
+const isSupabase=location.hostname.endsWith('github.io')&&!isDemo;
 let session=null,reportType='trial',fromDate='2026-09-01',toDate='2026-09-30',period='2026-09',report=null,message='',refreshing=false;
 function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function ore(v){return new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK',minimumFractionDigits:2}).format(Number(v||0)/100)}
@@ -53,10 +54,76 @@ function demoReport(){
   };
   return{outputVatOre:239000,inputVatOre:104420,netVatOre:134580,customerInvoiceCount:4,supplierInvoiceCount:3,customerGrossOre:2695000,supplierGrossOre:522100,declarationReady:false,warning:'Detta är ett avstämningsunderlag från fakturaregistren. Full momsdeklaration kräver momskoder och kontroll mot bokförda verifikationer.'};
 }
+function agingBucket(dueDate,asOf){
+  if(!dueDate)return'notDueOre';const due=new Date(dueDate+'T12:00:00Z'),cut=new Date(asOf+'T12:00:00Z');
+  const days=Math.floor((cut-due)/86400000);
+  if(days<0)return'notDueOre';if(days===0)return'dueTodayOre';if(days<=30)return'overdue1to30Ore';if(days<=60)return'overdue31to60Ore';if(days<=90)return'overdue61to90Ore';return'overdue91PlusOre';
+}
+function blankAging(){return{invoiceCount:0,openOre:0,notDueOre:0,dueTodayOre:0,overdue1to30Ore:0,overdue31to60Ore:0,overdue61to90Ore:0,overdue91PlusOre:0,creditOre:0}}
+async function supabaseReport(){
+  const ctx=await window.LTSupabaseUat.context();if(!ctx.authenticated||!ctx.company){location.href='./index.html';throw new Error('Ingen aktiv Supabase-session.')}
+  session={user:ctx.user,company:ctx.company};
+  const filter='company_id=eq.'+encodeURIComponent(ctx.company.id);
+  const [entryRows,lineRows,customerRows,invoiceRows,supplierRows,supplierInvoiceRows]=await Promise.all([
+    window.LTSupabase.from('journal_entries',ctx.accessToken).select('*',filter),
+    window.LTSupabase.from('journal_lines',ctx.accessToken).select('*',filter),
+    window.LTSupabase.from('customers',ctx.accessToken).select('*',filter),
+    window.LTSupabase.from('invoices',ctx.accessToken).select('*',filter),
+    window.LTSupabase.from('suppliers',ctx.accessToken).select('*',filter),
+    window.LTSupabase.from('supplier_invoices',ctx.accessToken).select('*',filter)
+  ]);
+  const entriesById=new Map((entryRows||[]).map(e=>[String(e.id),e])),customersById=new Map((customerRows||[]).map(r=>[String(r.id),r])),suppliersById=new Map((supplierRows||[]).map(r=>[String(r.id),r]));
+  const joinedLines=(lineRows||[]).map(l=>{const e=entriesById.get(String(l.journal_entry_id))||{};return{postingDate:e.posting_date||'',number:String(e.series||'A')+String(e.journal_number||''),account:l.account,description:e.description||'',lineText:l.description||'',debitOre:Number(l.debit_ore||0),creditOre:Number(l.credit_ore||0)}});
+
+  if(reportType==='ledger'){
+    return{rows:joinedLines.filter(r=>r.postingDate>=fromDate&&r.postingDate<=toDate).sort((a,b)=>a.postingDate.localeCompare(b.postingDate)||a.number.localeCompare(b.number)||a.account.localeCompare(b.account))};
+  }
+  if(reportType==='trial'){
+    const map=new Map();
+    for(const r of joinedLines){const row=map.get(r.account)||{account:r.account,openingOre:0,debitOre:0,creditOre:0,closingOre:0};const signed=r.debitOre-r.creditOre;if(r.postingDate<fromDate)row.openingOre+=signed;if(r.postingDate>=fromDate&&r.postingDate<=toDate){row.debitOre+=r.debitOre;row.creditOre+=r.creditOre}map.set(r.account,row)}
+    const rows=[...map.values()].map(r=>({...r,closingOre:r.openingOre+r.debitOre-r.creditOre})).filter(r=>r.openingOre||r.debitOre||r.creditOre).sort((a,b)=>a.account.localeCompare(b.account));
+    return{rows,totals:{debitOre:rows.reduce((s,r)=>s+r.debitOre,0),creditOre:rows.reduce((s,r)=>s+r.creditOre,0)}};
+  }
+  if(reportType==='pl'){
+    const map=new Map();
+    for(const r of joinedLines){if(r.postingDate<fromDate||r.postingDate>toDate||!/^[3-8]/.test(r.account))continue;map.set(r.account,(map.get(r.account)||0)+r.creditOre-r.debitOre)}
+    const rows=[...map].map(([account,amountOre])=>({account,amountOre})).filter(r=>r.amountOre).sort((a,b)=>a.account.localeCompare(b.account));
+    return{rows,resultOre:rows.reduce((s,r)=>s+r.amountOre,0)};
+  }
+  if(reportType==='sales'){
+    const inv=(invoiceRows||[]).filter(i=>i.invoice_date>=fromDate&&i.invoice_date<=toDate),daily=new Map(),byCustomer=new Map();
+    for(const i of inv){const total=Number(i.total_ore||0),vat=Number(i.vat_ore||0),net=total-vat,remaining=Number(i.remaining_ore||0),paid=total>0?Math.max(0,total-remaining):0;const d=daily.get(i.invoice_date)||{invoiceDate:i.invoice_date,invoiceCount:0,netOre:0,vatOre:0,grossOre:0,paidOre:0,outstandingOre:0};d.invoiceCount++;d.netOre+=net;d.vatOre+=vat;d.grossOre+=total;d.paidOre+=paid;d.outstandingOre+=remaining;daily.set(i.invoice_date,d);const cust=customersById.get(String(i.customer_id))||{};const key=String(i.customer_id),x=byCustomer.get(key)||{customerNumber:cust.customer_number||'',customerName:cust.name||'Okänd kund',invoiceCount:0,netOre:0,vatOre:0,grossOre:0,paidOre:0,outstandingOre:0};x.invoiceCount++;x.netOre+=net;x.vatOre+=vat;x.grossOre+=total;x.paidOre+=paid;x.outstandingOre+=remaining;byCustomer.set(key,x)}
+    const rows=[...daily.values()].sort((a,b)=>a.invoiceDate.localeCompare(b.invoiceDate)),customers=[...byCustomer.values()].sort((a,b)=>a.customerName.localeCompare(b.customerName,'sv'));
+    const totals={invoiceCount:inv.length,netOre:rows.reduce((s,r)=>s+r.netOre,0),vatOre:rows.reduce((s,r)=>s+r.vatOre,0),grossOre:rows.reduce((s,r)=>s+r.grossOre,0),paidOre:rows.reduce((s,r)=>s+r.paidOre,0),outstandingOre:rows.reduce((s,r)=>s+r.outstandingOre,0)};totals.averageInvoiceOre=totals.invoiceCount?Math.round(totals.grossOre/totals.invoiceCount):0;
+    return{basis:'customer-invoice-operational',from:fromDate,to:toDate,rows,customers,totals,warning:'Försäljningsrapporten bygger på fakturadatum. Bokföringsmässigt resultat följs i Resultatrapporten.'};
+  }
+  if(reportType==='receivables-aging'){
+    const map=new Map(),totals=blankAging();
+    for(const i of invoiceRows||[]){const open=Number(i.remaining_ore||0);if(!open)continue;const cust=customersById.get(String(i.customer_id))||{},key=String(i.customer_id),r=map.get(key)||{customerNumber:cust.customer_number||'',customerName:cust.name||'Okänd kund',...blankAging()};r.invoiceCount++;r.openOre+=open;if(open<0)r.creditOre+=open;else r[agingBucket(i.due_date,toDate)]+=open;map.set(key,r)}
+    const customers=[...map.values()].sort((a,b)=>a.customerName.localeCompare(b.customerName,'sv'));for(const r of customers)for(const k of Object.keys(totals))totals[k]+=Number(r[k]||0);
+    return{basis:'current-open-receivables-aging',asOf:toDate,customers,totals,warning:'Rapporten visar nuvarande öppna kundfordringar grupperade efter förfallodatum.'};
+  }
+  if(reportType==='supplier-purchases'){
+    const inv=(supplierInvoiceRows||[]).filter(i=>i.invoice_date>=fromDate&&i.invoice_date<=toDate),map=new Map();
+    for(const i of inv){const s=suppliersById.get(String(i.supplier_id))||{},key=String(i.supplier_id),r=map.get(key)||{supplierNumber:s.supplier_number||'',supplierName:s.name||'Okänd leverantör',invoiceCount:0,netOre:0,vatOre:0,grossOre:0,openOre:0};const gross=Number(i.total_ore||0),vat=Number(i.vat_ore||0);r.invoiceCount++;r.netOre+=gross-vat;r.vatOre+=vat;r.grossOre+=gross;r.openOre+=Number(i.remaining_ore||0);map.set(key,r)}
+    const suppliers=[...map.values()].sort((a,b)=>a.supplierName.localeCompare(b.supplierName,'sv')),totals={invoiceCount:inv.length,netOre:0,vatOre:0,grossOre:0,openOre:0};for(const r of suppliers){totals.netOre+=r.netOre;totals.vatOre+=r.vatOre;totals.grossOre+=r.grossOre;totals.openOre+=r.openOre}totals.averageInvoiceOre=totals.invoiceCount?Math.round(totals.grossOre/totals.invoiceCount):0;
+    return{basis:'supplier-invoice-operational',from:fromDate,to:toDate,suppliers,totals,warning:'Inköpsrapporten bygger på registrerade leverantörsfakturors fakturadatum.'};
+  }
+  if(reportType==='payables-aging'){
+    const map=new Map(),totals={...blankAging(),postedOpenOre:0,unpostedOpenOre:0};
+    for(const i of supplierInvoiceRows||[]){const open=Number(i.remaining_ore||0);if(!open)continue;const s=suppliersById.get(String(i.supplier_id))||{},key=String(i.supplier_id),r=map.get(key)||{supplierNumber:s.supplier_number||'',supplierName:s.name||'Okänd leverantör',...blankAging(),postedOpenOre:0,unpostedOpenOre:0};r.invoiceCount++;r.openOre+=open;if(i.liability_accounting_entry_id)r.postedOpenOre+=open;else r.unpostedOpenOre+=open;if(open<0)r.creditOre+=open;else r[agingBucket(i.due_date,toDate)]+=open;map.set(key,r)}
+    const suppliers=[...map.values()].sort((a,b)=>a.supplierName.localeCompare(b.supplierName,'sv'));for(const r of suppliers)for(const k of Object.keys(totals))totals[k]+=Number(r[k]||0);
+    return{basis:'current-open-payables-aging',asOf:toDate,suppliers,totals,warning:'Rapporten visar nuvarande öppna leverantörsfakturor grupperade efter förfallodatum.'};
+  }
+  const monthStart=period+'-01',monthEnd=period+'-31',customerInvoices=(invoiceRows||[]).filter(i=>i.invoice_date>=monthStart&&i.invoice_date<=monthEnd),supplierInvoices=(supplierInvoiceRows||[]).filter(i=>i.invoice_date>=monthStart&&i.invoice_date<=monthEnd);
+  const outputVatOre=customerInvoices.reduce((s,i)=>s+Number(i.vat_ore||0),0),inputVatOre=supplierInvoices.reduce((s,i)=>s+Number(i.vat_ore||0),0);
+  return{outputVatOre,inputVatOre,netVatOre:outputVatOre-inputVatOre,customerInvoiceCount:customerInvoices.length,supplierInvoiceCount:supplierInvoices.length,customerGrossOre:customerInvoices.reduce((s,i)=>s+Number(i.total_ore||0),0),supplierGrossOre:supplierInvoices.reduce((s,i)=>s+Number(i.total_ore||0),0),declarationReady:false,warning:'Detta är ett avstämningsunderlag från Supabase-faktura- och bokföringsdata. Full momsdeklaration kräver fortsatt momskodskontroll.'};
+}
 async function loadReport({feedback=false}={}){
   refreshing=true;if(feedback){message='';render()}
   try{
     if(isDemo)report=demoReport();
+    else if(isSupabase)report=await supabaseReport();
     else if(reportType==='trial')report=await api(`/reports/trial-balance?from=${fromDate}&to=${toDate}`);
     else if(reportType==='ledger')report=await api(`/reports/general-ledger?from=${fromDate}&to=${toDate}`);
     else if(reportType==='pl')report=await api(`/reports/profit-loss?from=${fromDate}&to=${toDate}`);
@@ -69,7 +136,7 @@ async function loadReport({feedback=false}={}){
   }finally{refreshing=false;render()}
 }
 function exportAction(){
-  if(isDemo)return '';
+  if(isDemo||isSupabase)return '';
   const params=new URLSearchParams();
   let type='';
   if(reportType==='sales'||reportType==='supplier-purchases'){type=reportType;params.set('from',fromDate);params.set('to',toDate)}
@@ -121,5 +188,5 @@ function content(){
 function render(){app.innerHTML=`<div class="reports-shell">${sidebar()}<section class="reports-main"><header class="topbar"><div><h1>Rapporter</h1><p>Försäljning · inköp · reskontra · bokföring · moms</p></div><div class="user-chip"><b>${esc(session?.user?.displayName||'Demoanvändare')}</b></div></header><main class="content">${isDemo?'<div class="demo-banner"><b>GitHub Pages-demo.</b> Rapporterna visar exempeldata.</div>':''}${message?`<div class="notice" role="status" aria-live="polite">${esc(message)}</div>`:''}${toolbar()}${summary()}${content()}</main></section></div>`}
 document.addEventListener('change',e=>{if(e.target.dataset.field==='from')fromDate=e.target.value;if(e.target.dataset.field==='to')toDate=e.target.value;if(e.target.dataset.field==='period')period=e.target.value});
 document.addEventListener('click',e=>{const tab=e.target.closest('[data-report]');if(tab){reportType=tab.dataset.report;report=null;void loadReport().catch(err=>{message=err.message;render()});return}if(e.target.closest('[data-action="reload"]')){report=null;void loadReport({feedback:true}).catch(err=>{refreshing=false;message=err.message;render()})}});
-async function load(){if(isDemo){session={user:{displayName:'Demo Ekonomi'},company:{name:'Rollands Frukt o Grönt AB'}};return loadReport()}const s=await api('/session');if(!s.authenticated){location.href='./index.html';return}session=s;await loadReport()}
+async function load(){if(isDemo){session={user:{displayName:'Demo Ekonomi'},company:{name:'Rollands Frukt o Grönt AB'}};return loadReport()}if(isSupabase){const ctx=await window.LTSupabaseUat.context();if(!ctx.authenticated||!ctx.company){location.href='./index.html';return}session={user:ctx.user,company:ctx.company};return loadReport()}const s=await api('/session');if(!s.authenticated){location.href='./index.html';return}session=s;await loadReport()}
 load().catch(err=>{app.innerHTML=`<main class="boot"><strong>Rapporter kunde inte laddas</strong><span>${esc(err.message)}</span></main>`});
