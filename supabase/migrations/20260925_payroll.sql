@@ -79,7 +79,7 @@ begin
     v_debit:=v_debit+coalesce((v_line->>'debitOre')::numeric,0);v_credit:=v_credit+coalesce((v_line->>'creditOre')::numeric,0);
   end loop;
   if v_debit<>v_credit or v_debit<=0 then raise exception 'UNBALANCED_PAYROLL_JOURNAL'; end if;
-  v_sha:=encode(digest(convert_to(p_lines::text,'UTF8'),'sha256'),'hex');
+  v_sha:=encode(extensions.digest(convert_to(p_lines::text,'UTF8'),'sha256'),'hex');
   select * into v_existing from public.payroll_runs r where r.company_id=p_company_id and r.period=p_period and r.source_name=btrim(p_source_name) and r.journal_sha256=v_sha;
   if found then
     if v_existing.pay_date<>p_pay_date or v_existing.gross_salary_ore<>p_gross_salary_ore or v_existing.withheld_tax_ore<>p_withheld_tax_ore
@@ -121,7 +121,7 @@ begin
     v_debit:=v_debit+coalesce((v_line->>'debitOre')::numeric,0);v_credit:=v_credit+coalesce((v_line->>'creditOre')::numeric,0);
   end loop;
   if v_debit<>v_credit or v_debit<=0 then raise exception 'UNBALANCED_PAYROLL_JOURNAL'; end if;
-  if encode(digest(convert_to(v_run.lines_json::text,'UTF8'),'sha256'),'hex')<>v_run.journal_sha256 then raise exception 'PAYROLL_POSTING_INTEGRITY_ERROR'; end if;
+  if encode(extensions.digest(convert_to(v_run.lines_json::text,'UTF8'),'sha256'),'hex')<>v_run.journal_sha256 then raise exception 'PAYROLL_POSTING_INTEGRITY_ERROR'; end if;
   v_period:=to_char(v_run.pay_date,'YYYY-MM');v_year:=to_char(v_run.pay_date,'YYYY');
   if exists(select 1 from public.accounting_periods ap where ap.company_id=p_company_id and ap.period=v_period and ap.status='locked') then raise exception 'PERIOD_LOCKED'; end if;
   if exists(select 1 from public.journal_entries j where j.company_id=p_company_id and j.source_type='payroll-run' and j.source_id=v_run.id) then raise exception 'PAYROLL_ALREADY_POSTED'; end if;
