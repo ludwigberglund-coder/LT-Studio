@@ -4,7 +4,7 @@ const isPagesDemo=new URLSearchParams(location.search).get('demo')==='1';
 const COLUMN_KEY='rollands-portal-receivable-columns-v1';
 const COMMENT_KEY='rollands-portal-demo-comments-v1';
 const REMINDER_KEY='rollands-portal-demo-reminders-v1';
-let mode=isPagesDemo?'demo':(location.hostname.endsWith('github.io')?'supabase':'api');
+let mode=isPagesDemo?'demo':(location.hostname==='ludwigberglund-coder.github.io'?'supabase':'api');
 let session=null;
 let csrfToken=sessionStorage.getItem('rollands-csrf') || '';
 let legalRates=null;
