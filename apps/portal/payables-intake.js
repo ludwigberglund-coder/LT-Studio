@@ -28,7 +28,7 @@ async function submit(form){const data=new FormData(form);const file=data.get('p
       inserted=(await window.LTSupabase.from('supplier_invoices',ctx.accessToken).insert([{
         id:invoiceId,company_id:ctx.company.id,supplier_id:supplierId,supplier_invoice_number:input.supplierInvoiceNumber,
         invoice_date:input.invoiceDate,due_date:input.dueDate,posting_date:input.invoiceDate,total_ore:input.totalOre,vat_ore:input.vatOre,
-        remaining_ore:input.totalOre,status:'registered',pdf_sha256:sha256
+        remaining_ore:input.totalOre,status:'registered',pdf_sha256:sha256,currency:'SEK',vat_treatment:input.vatTreatment,registered_by:ctx.authUser.id
       }]))?.[0];
       if(!inserted)throw new Error('Leverantörsfakturan kunde inte sparas i Supabase.');
       await window.LTSupabase.storage.upload('lt-documents',path,file,ctx.accessToken);uploaded=true;
