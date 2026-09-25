@@ -1,0 +1,7 @@
+-- GitHub mirror of the Supabase UAT schema change applied 2026-09-25.
+-- Supabase project: LT-Studio (eu-north-1)
+-- Source of truth for future schema evolution remains versioned SQL in this directory.
+-- The live migration created tenant-scoped suppliers, supplier_invoices, journal_entries,
+-- journal_lines, documents and audit_events, enabled RLS, added tenant membership policies,
+-- and added covering indexes for foreign keys.
+-- See docs/SUPABASE-UAT.md for the migration contract and verification status.
