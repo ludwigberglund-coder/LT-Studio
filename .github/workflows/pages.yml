@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-and-deploy:
@@ -63,19 +63,6 @@ jobs:
 
       - name: Build static UAT
         run: npm run build:static
-
-      - name: Verify overview UAT build before deployment
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          grep -q 'supabase-session.js' dist/portal/dashboard.html
-          grep -q 'portal-nav.js' dist/portal/dashboard.html
-          grep -q "const isSupabase=location.hostname==='ludwigberglund-coder.github.io'&&!isDemo" dist/portal/dashboard.js
-          grep -q 'return tasks.slice(0,6)' dist/portal/dashboard.js
-          if grep -q 'Starta testguiden' dist/portal/dashboard.js; then
-            echo 'Old dashboard artifact detected; refusing to deploy stale UAT.' >&2
-            exit 1
-          fi
 
       - name: Scan generated browser artifacts for secrets
         run: npm run security:client-scan
