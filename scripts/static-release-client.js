@@ -30,6 +30,7 @@
       const button=document.createElement('button');button.textContent='Öppna senaste versionen';
       button.addEventListener('click',()=>location.replace(versionUrl(new URL(location.href),info.commit).href));
       dialog.addEventListener('cancel',event=>event.preventDefault());
+      dialog.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();}});
       dialog.append(heading,message,button);document.body.append(dialog);dialog.showModal();
     }catch{/* Retry on focus/visibility or the next interval after a network failure. */}
     finally{busy=false;}
