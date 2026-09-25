@@ -6,6 +6,7 @@
   function read(){try{return JSON.parse(localStorage.getItem(KEY)||'null')}catch{return null}}
   function write(value){if(value)localStorage.setItem(KEY,JSON.stringify(value));else localStorage.removeItem(KEY)}
   function token(){return read()?.access_token||''}
+  function storeSession(value){write(value||null);return value||null}
   async function signIn(email,password){
     const data=await api().signIn({email,password});
     write(data);
@@ -45,5 +46,5 @@
     };
   }
   function setCompany(id){localStorage.setItem(COMPANY_KEY,String(id||''))}
-  window.LTSupabaseUat={read,token,signIn,signOut,context,setCompany};
+  window.LTSupabaseUat={read,token,storeSession,signIn,signOut,context,setCompany};
 })();
