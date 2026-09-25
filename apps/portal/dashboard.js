@@ -12,7 +12,7 @@ function today(){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockh
 function url(path){return path+(isDemo?(path.includes('?')?'&':'?')+'demo=1':'')}
 function sidebar(){return '<aside class="sidebar"></aside>'}
 function greeting(){
-  const hour=Number(new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',hour:'2-digit',hour12:false}).format(new Date()).replace(/D/g,'').slice(0,2));
+  const hour=Number(new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',hour:'2-digit',hour12:false}).format(new Date()).replace(/[^0-9]/g,'').slice(0,2));
   if(hour<11)return'God morgon';
   if(hour<17)return'God eftermiddag';
   return'God kväll';
