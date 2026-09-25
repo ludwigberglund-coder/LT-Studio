@@ -34,6 +34,10 @@
       download:async(bucket,path,token)=>{
         const response=await storageRequest('/object/authenticated/'+encodeURIComponent(bucket)+'/'+path.split('/').map(encodeURIComponent).join('/'),token,{method:'GET'});
         return response.blob();
+      },
+      remove:async(bucket,paths,token)=>{
+        const response=await storageRequest('/object/'+encodeURIComponent(bucket),token,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({prefixes:paths})});
+        return response.json().catch(()=>({}));
       }
     }
   };
