@@ -12,8 +12,7 @@
   function sessionValue(value){activeSession=value;window.LTSupabaseUat.storeSession(value);return value;}
   function qrMarkup(qr){
     const value=String(qr||'');
-    if(value.startsWith('data:'))return '<img alt="QR-kod för LT Studio MFA" src="'+esc(value)+'">';
-    if(value.trim().startsWith('<svg'))return '<div aria-label="QR-kod för LT Studio MFA">'+value+'</div>';
+    if(value.startsWith('data:image/svg+xml'))return '<img alt="QR-kod för LT Studio MFA" src="'+esc(value)+'">';
     return '';
   }
   async function beginMfa(session,target){
