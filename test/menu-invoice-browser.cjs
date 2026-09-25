@@ -23,6 +23,27 @@ const server=http.createServer((req,res)=>{const u=new URL(req.url,'http://local
     assert.equal(await page.locator('.shared-navigation').count(),0,'UAT-aktivering före inloggning ska inte exponera intern arbetsytenavigation');
     checks.push({kind:'pre-auth-setup',route:'portal/uat-setup.html'});
   }
+  await page.goto(base+'portal/uat.html?demo=1',{waitUntil:'networkidle'});
+  const release=await page.locator('meta[name="lt-release"]').getAttribute('content');
+  await page.locator('[data-status="customers"]').selectOption('ok');
+  await page.reload({waitUntil:'networkidle'});
+  assert.equal(await page.locator('[data-status="customers"]').inputValue(),'ok');
+  const nextRelease='f'.repeat(40);
+  await page.route('**/build-info.json*',route=>route.fulfill({json:{commit:nextRelease}}));
+  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+  await page.locator('#lt-release-update').waitFor();
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('#lt-release-update').isVisible(),true,'old release cannot continue testing');
+  await page.route('**/portal/uat.html*',async route=>{
+    const response=await route.fetch();
+    await route.fulfill({response,body:(await response.text()).replaceAll(release,nextRelease)});
+  });
+  await page.getByRole('button',{name:'Öppna senaste versionen',exact:true}).click();
+  await page.waitForURL(url=>url.searchParams.get('v')===nextRelease);
+  await page.locator('[data-status="customers"]').waitFor();
+  assert.equal(await page.locator('[data-status="customers"]').inputValue(),'untested','old approvals cannot approve a new release');
+  await page.unrouteAll({behavior:'wait'});
+  checks.push({kind:'release-update-and-uat-isolation'});
   await page.goto(base+'portal/dashboard.html?demo=1',{waitUntil:'networkidle'});
   await page.locator('.shared-user-menu').waitFor({timeout:15000});
   assert.equal(await page.locator('.shared-user-menu').count(),1);

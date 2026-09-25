@@ -77,3 +77,21 @@ Anteckningar och UAT-status lagras lokalt i webbläsaren. **Återställ demoscen
 - ett fullföljt leverantörsbetalningsflöde uppdaterar faktura, betalning och bokföring konsekvent.
 
 Dessa tester gäller demots sammanhang och ersätter inte produktionsintegration, bankavtal eller verklig redovisningskontroll.
+
+## En aktuell version i UAT
+
+Varje publicering byggs rent från en enda `main`-commit. HTML-sidor, JavaScript,
+CSS och lokala JSON-resurser versionsmärks med samma fullständiga commit-id.
+Testguiden visar versionen och sparar bedömningar per publicering. Tidigare
+bedömningar visas inte som godkännanden för en ny version; demots affärsdata raderas inte.
+
+Ersatta referensverktyg tas bort ur navigationen. Den äldre demon publiceras inte;
+dess gamla ingång omdirigerar till motsvarande aktuell portalmodul. Den separata
+verifikationsdemon omdirigerar till Bokföring. Projektinformation och öreskalkylator,
+som inte är äldre kopior av portalmoduler, finns kvar.
+
+Alla publicerade sidor kontrollerar `build-info.json` utan cache vid öppning,
+återgång till fliken och var 30:e sekund. Om en ny publicering upptäcks spärrar en
+dialog fortsatt testning tills den senaste versionen laddats. Omladdning kräver ett
+klick så att användaren ser att osparad inmatning kan försvinna. Nätverksfel kan
+fördröja versionskontrollen; en lyckad Pages-publicering krävs innan ny kod är tillgänglig.

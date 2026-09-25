@@ -55,7 +55,7 @@ test('posting creates one invoice and one balanced accounting entry without brea
 
 test('the full grouped navigation has unique destinations and financial tools remain registered',()=>{
  const items=groups.flatMap(g=>g.items),ids=items.map(i=>i[0]);assert.equal(new Set(ids).size,ids.length);
- const economy=groups.find(g=>g.id==='economy').items.map(i=>i[0]);for(const id of ['invoices','receivables','payables','bank','automation','accounting','reports','accounts','payroll','res-tools','batches'])assert.ok(economy.includes(id),id);
+ const economy=groups.find(g=>g.id==='economy').items.map(i=>i[0]);for(const id of ['invoices','receivables','payables','bank','automation','accounting','reports','accounts','payroll'])assert.ok(economy.includes(id),id);
  assert.ok(groups.some(g=>g.label==='Systemadministration'));
  for(const [, ,route] of items){const url=new URL(route,'https://example.invalid/');let file=url.pathname.replace(/^\//,'');if(file.endsWith('/'))file+='index.html';const source=file.startsWith('portal/')?'apps/'+file:file.startsWith('admin/')?'apps/'+file:file.replace(/^legacy\//,'public/');assert.ok(fs.existsSync(path.join(__dirname,'..',source)),source);}
 });

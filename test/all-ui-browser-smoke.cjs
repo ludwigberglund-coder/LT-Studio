@@ -37,7 +37,6 @@ const portalPages=[
 const surfaces=[
   ...portalPages.map(file=>({id:`portal-${file.replace(/\.html$/,'')}`,route:`portal/${file}?demo=1`,kind:'portal'})),
   {id:'project-admin',route:'admin/?demo=1#/overview',kind:'admin'},
-  {id:'legacy',route:'legacy/?demo=1#/overview',kind:'legacy'},
   {id:'public-website',route:'index.html',kind:'public'}
 ];
 

@@ -21,7 +21,7 @@ Börja här:
 
 [**Öppna webbplatsen**](https://ludwigberglund-coder.github.io/LT-Studio/) · [**Öppna portaldemon direkt**](https://ludwigberglund-coder.github.io/LT-Studio/portal/dashboard.html?demo=1) · [**Se publiceringsstatus**](https://github.com/ludwigberglund-coder/LT-Studio/actions/workflows/pages.yml)
 
-GitHub Actions bygger och publicerar automatiskt den statiska demon från varje uppdatering av `main` till **samma länk**. Ni behöver alltså inte byta länk i README för varje ändring. En ny version syns när dess publicering har lyckats; vid ett misslyckat bygge ligger den tidigare publicerade versionen kvar. Kontrollera statuslänken om ni vill verifiera exakt publicering.
+GitHub Actions bygger och publicerar automatiskt den statiska demon från varje uppdatering av `main` till **samma länk**. Ni behöver alltså inte byta länk i README för varje ändring. Alla delar versionsmärks gemensamt; UAT visar bara testbedömningar för den öppnade publiceringen och ber er ladda om när en ny version finns. Äldre ersatta demoverktyg har tagits bort från UAT-menyn. En ny version syns när dess publicering har lyckats; vid ett misslyckat bygge ligger den tidigare publicerade versionen kvar. Kontrollera statuslänken om ni vill verifiera exakt publicering.
 
 **Viktigt:** Den här portaldemon körs i webbläsaren och sparar demoändringar lokalt hos varje person. En faktura som skapas där visas inte automatiskt på den andra datorn. Systemets delade fakturor kräver en körande API-server och en gemensam, beständig databas. GitHub Pages kan inte köra den backenden. Använd enbart fiktiva uppgifter i demon; plattformen är ännu inte godkänd för verkliga ekonomiska data.
 

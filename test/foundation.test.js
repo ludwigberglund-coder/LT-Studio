@@ -38,7 +38,7 @@ test('innehållskontrollen stoppar dubblerad navigation och felaktigt organisati
   assert.ok(errors.some(error => /dubblerad navigationslänk/.test(error)));
 });
 
-test('statisk byggnad innehåller webbplats, projektadmin, sammanhängande företagsportal, domänkärnor och tidigare demo', () => {
+test('statisk byggnad innehåller webbplats, projektadmin, sammanhängande företagsportal, domänkärnor och omdirigering från tidigare demo', () => {
   const target = buildStatic();
   for (const relativePath of [
     'index.html', 'app.js', 'styles.css', 'design-system.css',
@@ -51,8 +51,9 @@ test('statisk byggnad innehåller webbplats, projektadmin, sammanhängande före
     'shared/access-control/authorization.js', 'shared/receivables/customer-receivables.js',
     'content/site.json', 'content/company.json', 'content/admin.json',
     'config/rolands-business-decisions.json', 'config/access-control.json', 'config/legal-rates.json',
-    'legacy/index.html', 'legacy/design-system.css', '.nojekyll'
+    'legacy/index.html', '.nojekyll'
   ]) assert.equal(fs.existsSync(path.join(target, relativePath)), true, `${relativePath} saknas`);
+  assert.equal(fs.existsSync(path.join(target, 'legacy/app.js')), false);
   assert.equal(fs.existsSync(path.join(target, 'store.json')), false);
   assert.equal(fs.existsSync(path.join(target, 'platform.sqlite')), false);
 });

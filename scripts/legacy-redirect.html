@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="sv"><head><meta charset="utf-8"><title>Öppna aktuell modul</title></head>
+<body><p>Den äldre demon har ersatts. <a href="../portal/dashboard.html?demo=1">Öppna aktuellt system</a></p>
+<script>
+const routes={'res-tools':'receivables','batches':'accounting','inbox':'payables','audit':'accounting','settings':'company-settings'};
+const moduleName=routes[location.hash.replace(/^#\//,'')]||'dashboard';
+location.replace('../portal/'+moduleName+'.html?demo=1');
+</script></body></html>

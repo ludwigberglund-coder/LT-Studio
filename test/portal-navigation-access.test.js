@@ -38,5 +38,8 @@ test('navigationen följer serverns rollbehörigheter',()=>{
 
 test('demo är uttryckligt avskild från privat navigation',()=>{
   const demo=Nav.visibleGroups({demo:true}).flatMap(group=>group.items.map(item=>item[0]));
-  assert.ok(demo.includes('legacy'));
+  assert.ok(demo.includes('uat'));
+  assert.ok(!demo.includes('legacy'));
+  assert.ok(!demo.includes('journal'));
+  assert.ok(Nav.groups.flatMap(group=>group.items).every(item=>!item[2].startsWith('legacy/')));
 });
