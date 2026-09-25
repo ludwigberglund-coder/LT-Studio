@@ -4,7 +4,7 @@
   const groups=[
     {id:'workspace',label:'Arbetsyta',items:[['overview','Översikt','portal/dashboard.html']]},
     {id:'economy',label:'Ekonomi',items:[
-      ['invoices','Kundfakturor','portal/invoices.html'],['receivables','Kundreskontra','portal/receivables.html'],
+      ['invoices','Kundfakturor','portal/invoices.html'],['receivables','Kundreskontra','portal/index.html'],
       ['receivables-details','Reskontradetaljer & påminnelser','portal/index.html'],
       ['payables','Leverantörsfakturor','portal/payables.html'],['supplier-ledger','Leverantörsreskontra','portal/supplier-ledger.html'],['payments','Betalningar','portal/payments.html'],['bank','Bank & avstämning','portal/bank.html'],
       ['automation','Automationskö','portal/automation.html'],['accounting','Bokföring','portal/accounting.html'],
@@ -32,7 +32,7 @@
     if(demo)return groups;
     if(!authenticated)return [];
     const allowed=new Set(Array.isArray(permissions)?permissions:[]);
-    return groups.map(group=>({...group,items:group.items.filter(([id])=>!demoOnlyIds.has(id)&&(!requiredPermission[id]||allowed.has(requiredPermission[id]))).map(item=>item[0]==='receivables'?[item[0],item[1],'portal/index.html']:item)})).filter(group=>group.items.length);
+    return groups.map(group=>({...group,items:group.items.filter(([id])=>!demoOnlyIds.has(id)&&(!requiredPermission[id]||allowed.has(requiredPermission[id])))})).filter(group=>group.items.length);
   }
   if(typeof module==='object'&&module.exports){module.exports={groups,visibleGroups};return;}
   function ensureFavicon(){
