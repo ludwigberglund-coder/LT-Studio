@@ -517,6 +517,10 @@ function memberRows(detail){
   }).join('')||'<tr><td colspan="4" class="empty">Inga användare i företaget.</td></tr>';
 }
 function companyDetailView(detail){
+  const addUserIdentityLabel=useSupabase?'E-post':'Användarnamn eller e-post';
+  const addUserIdentityType=useSupabase?'email':'text';
+  const addUserHelp=useSupabase?'Ange personens e-post. Om Supabase-kontot redan finns kopplas det bara till företaget och lösenordet lämnas orört. Namn och tillfälligt lösenord behövs endast när ett helt nytt konto skapas.':'Ange användarnamn eller e-post. Om kontot redan finns kopplas det bara till företaget och lösenordet lämnas orört. Namn och tillfälligt lösenord behövs endast när ett helt nytt konto skapas.';
+
   selectedCompany=detail;
   const c=detail.company,s=detail.stats||{},memberCount=Number(s.memberCount||0);
   const userActivity=memberCount?Math.min(100,Math.round(Number(s.activeSessionCount||0)/memberCount*100)):0;
@@ -530,10 +534,10 @@ function companyDetailView(detail){
   </section>
   <section class="panel global-access-panel"><div class="panel-head"><div><span class="eyebrow">LT STUDIO</span><h2>Övergripande global åtkomst</h2><p>Dessa LT Studio-konton har åtkomst till alla kundföretag oberoende av lokalt medlemskap. Den globala behörigheten hanteras separat från kundroller.</p></div><span class="panel-stat">${num(s.activePlatformAdminCount)} aktiva</span></div><div class="table-wrap"><table><thead><tr><th>LT Studio-konto</th><th>Status</th><th>MFA</th><th>Omfattning</th></tr></thead><tbody>${globalAdminRows(detail)}</tbody></table></div></section>
   <section class="panel user-access-panel"><div class="panel-head"><div><span class="eyebrow">ÅTKOMST</span><h2>Användare & behörigheter</h2><p>Endast LT Studio kan skapa, ändra eller ta bort användare.</p></div><span class="panel-stat">${memberCount} användare</span></div><div class="table-wrap"><table><thead><tr><th>Användare</th><th>Roll</th><th>Status</th><th>Åtgärder</th></tr></thead><tbody>${memberRows(detail)}</tbody></table></div></section>
-  <section class="panel add-user-panel"><div class="panel-head"><div><span class="eyebrow">ANVÄNDARÅTKOMST</span><h2>Lägg till användare</h2><p>Ange personens e-post. Om Supabase-kontot redan finns kopplas det bara till företaget och lösenordet lämnas orört. Namn och tillfälligt lösenord behövs endast när ett helt nytt konto skapas.</p></div></div>
+  <section class="panel add-user-panel"><div class="panel-head"><div><span class="eyebrow">ANVÄNDARÅTKOMST</span><h2>Lägg till användare</h2><p>${addUserHelp}</p></div></div>
     <form id="add-user-form" class="form-grid compact-form">
       <label class="field"><span>Namn · endast nytt konto</span><input name="displayName" maxlength="120" placeholder="För- och efternamn"></label>
-      <label class="field"><span>E-post</span><input name="username" type="email" autocomplete="email" required maxlength="120" placeholder="namn@foretag.se"></label>
+      <label class="field"><span>${addUserIdentityLabel}</span><input name="username" type="${addUserIdentityType}" autocomplete="username" required maxlength="120" placeholder="${useSupabase?'namn@foretag.se':'anvandarnamn'}"></label>
       <label class="field"><span>Tillfälligt lösenord · endast nytt konto</span><input name="password" type="password" minlength="8" autocomplete="new-password" placeholder="Minst 8 tecken"></label>
       <label class="field"><span>Behörighet</span><select name="role"><option value="readonly">Läsbehörighet · säker standard</option><option value="approver">Attestant</option><option value="accountant">Ekonom</option><option value="admin">Admin</option></select></label>
       <div><button class="button" type="submit">Skapa eller koppla användare</button></div>
