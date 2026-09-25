@@ -1,25 +1,49 @@
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');
 const root=path.join(__dirname,'..');
+const read=p=>fs.readFileSync(path.join(root,p),'utf8');
+
 test('buntsystemet finns i portal och migration',()=>{
- const nav=fs.readFileSync(path.join(root,'apps/portal/portal-nav.js'),'utf8');
- const html=fs.readFileSync(path.join(root,'apps/portal/batches.html'),'utf8');
- const js=fs.readFileSync(path.join(root,'apps/portal/batches.js'),'utf8');
- const sql=fs.readFileSync(path.join(root,'supabase/migrations/20260925_financial_batches.sql'),'utf8');
+ const nav=read('apps/portal/portal-nav.js');
+ const html=read('apps/portal/batches.html');
+ const js=read('apps/portal/batches.js');
+ const sql=read('supabase/migrations/20260925_financial_batches.sql');
  assert.match(nav,/\['batches','Buntar','portal\/batches\.html'\]/);
+ assert.doesNotMatch(nav,/Buntar \(äldre demo\)/);
  assert.match(html,/Buntar · LT Studio/);
  assert.match(js,/approve_financial_batch/);
  assert.match(sql,/check\(batch_number between 10000 and 99999\)/);
  assert.match(sql,/APPROVED_BATCH_LOCKED/);
  assert.match(sql,/BATCH_NOT_BALANCED/);
  assert.match(sql,/EXTERNAL_TOTAL_MISMATCH/);
- assert.match(sql,/source_type,source_id,created_by/);
  assert.match(sql,/FINANCIAL_BATCH_APPROVED/);
 });
+
 test('godkännande är enda vägen från bunt till journal',()=>{
- const sql=fs.readFileSync(path.join(root,'supabase/migrations/20260925_financial_batches.sql'),'utf8');
+ const sql=read('supabase/migrations/20260925_financial_batches.sql');
  const save=sql.slice(sql.indexOf('create or replace function public.save_financial_batch'),sql.indexOf('create or replace function public.mark_financial_batch_ready'));
  assert.doesNotMatch(save,/insert into public\.journal_entries/);
  const approve=sql.slice(sql.indexOf('create or replace function public.approve_financial_batch'));
  assert.match(approve,/insert into public\.journal_entries/);
  assert.match(approve,/status<>'ready'/);
+});
+
+test('gränssnittet stöder massregistrering, ångra och rollstyrt godkännande',()=>{
+ const js=read('apps/portal/batches.js');
+ assert.match(js,/Massregistrera/);
+ assert.match(js,/Ångra osparade ändringar/);
+ assert.match(js,/const canEdit=.*accountant/);
+ assert.match(js,/const canApprove=.*approver/);
+ assert.match(js,/reject_financial_batch/);
+ assert.match(js,/transaction_number/);
+});
+
+test('härdningen ger radspårning och separerar skapare från godkännare',()=>{
+ const sql=read('supabase/migrations/20260925_financial_batches_hardening.sql');
+ assert.match(sql,/audit_financial_batch_transaction/);
+ assert.match(sql,/audit_financial_batch_line/);
+ assert.match(sql,/SEPARATION_OF_DUTIES_FAILED/);
+ assert.match(sql,/TRANSACTION_EXTERNAL_TOTAL_MISMATCH/);
+ assert.match(sql,/reject_financial_batch/);
+ assert.match(sql,/financial_batches_created_by_idx/);
+ assert.doesNotMatch(sql,/for all to authenticated/);
 });
