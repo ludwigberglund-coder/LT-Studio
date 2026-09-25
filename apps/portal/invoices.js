@@ -109,6 +109,47 @@ async function issueSupabaseInvoice(value){
     throw error;
   }
 }
+function proportionalCreditAllocate(totalOre,weights){
+  const safe=weights.map(Number),sum=safe.reduce((a,b)=>a+b,0);
+  if(!Number.isSafeInteger(totalOre)||totalOre<=0||sum<=0||safe.some(v=>!Number.isSafeInteger(v)||v<0))throw new Error('Kreditbeloppet kan inte fördelas säkert.');
+  const denominator=BigInt(sum),target=BigInt(totalOre);
+  const rows=safe.map((weight,index)=>{const raw=target*BigInt(weight),base=raw/denominator;return{index,value:Number(base),remainder:raw%denominator}});
+  let left=totalOre-rows.reduce((n,row)=>n+row.value,0);
+  rows.sort((a,b)=>a.remainder===b.remainder?a.index-b.index:(a.remainder>b.remainder?-1:1));
+  for(let i=0;i<left;i++)rows[i%rows.length].value+=1;
+  rows.sort((a,b)=>a.index-b.index);return rows.map(row=>row.value);
+}
+function splitCreditVat(grossOre,sourceNetOre,sourceVatOre){
+  const gross=Number(grossOre),net=Math.abs(Number(sourceNetOre||0)),vat=Math.abs(Number(sourceVatOre||0)),sourceGross=net+vat;
+  if(!gross||!sourceGross||!vat)return{netOre:gross,vatOre:0};
+  const numerator=BigInt(gross)*BigInt(vat),denominator=BigInt(sourceGross),rounded=Number((numerator+denominator/2n)/denominator);
+  const vatOre=Math.max(0,Math.min(gross,rounded));return{netOre:gross-vatOre,vatOre};
+}
+function buildCreditDocument(original,invoiceNumber,creditDate,reason,creditAmountOre){
+  const originalTotal=Math.abs(Number(original?.totalOre||0)),amount=Number(creditAmountOre);
+  if(!Number.isSafeInteger(amount)||amount<=0||!Number.isSafeInteger(originalTotal)||originalTotal<=0||amount>originalTotal)throw new Error('Kreditbeloppet är ogiltigt.');
+  const document=structuredClone(original);
+  document.schemaVersion=Math.max(Number(document.schemaVersion||0),4);document.documentType='KREDITFAKTURA';
+  document.invoiceNumber=invoiceNumber;document.ocr=invoiceNumber;document.invoiceDate=creditDate;document.postingDate=creditDate;document.dueDate=creditDate;document.paymentTermsDays=0;
+  document.creditOfInvoiceNumber=String(original.invoiceNumber||'');document.creditReason=reason;document.creditedAmountOre=amount;
+  if(amount===originalTotal){
+    const neg=v=>{const n=Number(v);return Number.isSafeInteger(n)?(n===0?0:-n):v};
+    document.creditMode='full';
+    document.lines=(document.lines||[]).map(row=>({...row,unitPriceOre:neg(row.unitPriceOre),netOre:neg(row.netOre),vatOre:neg(row.vatOre),grossOre:neg(row.grossOre)}));
+    for(const key of ['netOre','vatOre','totalOre','roundingOre','freightOre','administrationOre'])document[key]=neg(document[key]);
+    document.vatBreakdown=(document.vatBreakdown||[]).map(row=>({...row,netOre:neg(row.netOre),vatOre:neg(row.vatOre)}));
+  }else{
+    document.creditMode='partial';
+    const sourceLines=(original.lines||[]).filter(row=>Math.abs(Number(row.grossOre||0))>0);
+    const allocations=proportionalCreditAllocate(amount,sourceLines.map(row=>Math.abs(Number(row.grossOre||0))));
+    document.lines=sourceLines.map((row,index)=>{const split=splitCreditVat(allocations[index],row.netOre,row.vatOre);return{...row,description:('Delkreditering · '+String(row.description||'')).slice(0,1200),quantityMilli:1000,unit:'st',unitPriceOre:-split.netOre,discountBasisPoints:0,netOre:-split.netOre,vatOre:-split.vatOre,grossOre:-allocations[index]}}).filter(row=>row.grossOre!==0);
+    document.netOre=document.lines.reduce((s,r)=>s+Number(r.netOre||0),0);document.vatOre=document.lines.reduce((s,r)=>s+Number(r.vatOre||0),0);document.totalOre=-amount;document.roundingOre=0;
+    document.freightOre=document.lines.filter(r=>r.kind==='freight').reduce((s,r)=>s+Number(r.netOre||0),0);document.administrationOre=document.lines.filter(r=>r.kind==='administration').reduce((s,r)=>s+Number(r.netOre||0),0);
+    document.vatBreakdown=[25,12,6,0].map(rate=>({rate,netOre:document.lines.filter(r=>Number(r.vatRate)===rate).reduce((s,r)=>s+Number(r.netOre||0),0),vatOre:document.lines.filter(r=>Number(r.vatRate)===rate).reduce((s,r)=>s+Number(r.vatOre||0),0)}));
+  }
+  document.notes=[String(original.notes||'').trim(),(document.creditMode==='partial'?'Delkrediterar':'Krediterar')+' faktura '+original.invoiceNumber+'. '+reason,document.creditMode==='partial'?'Delkrediteringen är proportionellt fördelad över originalfakturans rader och momssatser.':''].filter(Boolean).join('\n');
+  document.demo=false;return document;
+}
 async function issueSupabaseCredit({originalInvoiceId,creditDate,reason,creditAmountOre}){
   const ctx=await supabaseContext(),requestId=crypto.randomUUID();
   const payload={creditDate,reason,creditAmountOre},payloadSha256=await sha256Text(stableJson(payload));
@@ -120,7 +161,7 @@ async function issueSupabaseCredit({originalInvoiceId,creditDate,reason,creditAm
     await refreshSupabaseCollections();await loadSupabaseInvoiceDetail(id);return;
   }
   if(!preview||String(previewRecord?.id)!==String(originalInvoiceId))await loadSupabaseInvoiceDetail(originalInvoiceId);
-  const document=Invoice.creditDocumentFrom(preview,reserved.invoice_number,creditDate,reason,creditAmountOre);
+  const document=buildCreditDocument(preview,reserved.invoice_number,creditDate,reason,creditAmountOre);
   const pdfBytes=await Pdf.createInvoicePdf(document,{record:{invoiceNumber:reserved.invoice_number}});
   const pdfArray=pdfBytes instanceof Uint8Array?pdfBytes:new Uint8Array(pdfBytes);
   if(pdfArray.byteLength>10485760)throw new Error('Kreditfakturans PDF är större än 10 MB.');
