@@ -202,13 +202,13 @@ begin
     if v_proposal.status='approved' and v_proposal.approved_by=v_uid then return query select v_proposal.id,v_proposal.status;return;end if;
     if v_proposal.status not in ('manual-review','ready-for-approval') then raise exception 'INVALID_PROPOSAL_STATUS'; end if;
     update public.automation_proposals set status='approved',approved_by=v_uid,approved_at=now(),rejected_by=null,rejected_at=null,rejection_reason=null where company_id=p_company_id and id=p_proposal_id;
-    if v_proposal.proposal_type='bank-payment-match' then update public.bank_payments set status='reviewed',updated_at=now() where company_id=p_company_id and id=v_proposal.source_id and status='proposal-created'; end if;
+    if v_proposal.proposal_type='bank-payment-match' then update public.bank_payments as b set status='reviewed',updated_at=now() where b.company_id=p_company_id and b.id=v_proposal.source_id and b.status='proposal-created'; end if;
     return query select p_proposal_id,'approved'::text;
   elsif p_decision='reject' then
     if btrim(coalesce(p_reason,''))='' then raise exception 'MISSING_REJECTION_REASON'; end if;
     if v_proposal.status not in ('manual-review','ready-for-approval') then raise exception 'INVALID_PROPOSAL_STATUS'; end if;
     update public.automation_proposals set status='rejected',rejected_by=v_uid,rejected_at=now(),rejection_reason=left(btrim(p_reason),2000),approved_by=null,approved_at=null where company_id=p_company_id and id=p_proposal_id;
-    if v_proposal.proposal_type='bank-payment-match' then update public.bank_payments set status='unmatched',updated_at=now() where company_id=p_company_id and id=v_proposal.source_id and status='proposal-created'; end if;
+    if v_proposal.proposal_type='bank-payment-match' then update public.bank_payments as b set status='unmatched',updated_at=now() where b.company_id=p_company_id and b.id=v_proposal.source_id and b.status='proposal-created'; end if;
     return query select p_proposal_id,'rejected'::text;
   else raise exception 'INVALID_DECISION'; end if;
 end;
