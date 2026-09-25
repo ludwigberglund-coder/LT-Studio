@@ -55,3 +55,16 @@ test('härdningen ger radspårning och egen-godkännande styrs av sista migratio
  assert.match(selfApproval,/'selfApproval',v_self_approval/);
  assert.match(js,/Du kan godkänna även en bunt du själv har skapat/);
 });
+
+
+test('buntgodkännande använder kontrollerad och append-only revisionslogg',()=>{
+ const sql=read('supabase/migrations/20260925_financial_batches_audit_write.sql');
+ assert.match(sql,/revoke all on public\.audit_events from anon/);
+ assert.match(sql,/revoke update,delete,truncate,trigger,references on public\.audit_events from authenticated/);
+ assert.match(sql,/grant select,insert on public\.audit_events to authenticated/);
+ assert.match(sql,/as restrictive[\s\S]*for insert[\s\S]*app\.audit_event_write/);
+ assert.match(sql,/actor_user_id=\(select auth\.uid\(\)\)/);
+ assert.match(sql,/m\.company_id=audit_events\.company_id/);
+ assert.match(sql,/perform set_config\('app\.audit_event_write','1',true\)/);
+ assert.match(sql,/FINANCIAL_BATCH_APPROVED/);
+});
