@@ -34,7 +34,8 @@ async function submit(form){const data=new FormData(form);const file=data.get('p
       await window.LTSupabase.storage.upload('lt-documents',path,file,ctx.accessToken);uploaded=true;
       await window.LTSupabase.from('documents',ctx.accessToken).insert([{
         id:crypto.randomUUID(),company_id:ctx.company.id,object_path:path,file_name:file.name,mime_type:'application/pdf',
-        size_bytes:file.size,sha256,source_type:'supplier-invoice',source_id:invoiceId,uploaded_by:ctx.authUser.id
+        size_bytes:file.size,sha256,source_type:'supplier-invoice',source_id:invoiceId,uploaded_by:ctx.authUser.id,
+        title:'Leverantörsfaktura '+input.supplierInvoiceNumber,category:'supplier-invoice',note:''
       }]);
     }catch(error){
       if(uploaded)await window.LTSupabase.storage.remove('lt-documents',[path],ctx.accessToken).catch(()=>{});
