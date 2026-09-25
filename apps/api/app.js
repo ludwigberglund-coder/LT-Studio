@@ -610,7 +610,10 @@ function createApiApp(options) {
 
       if(req.method==='GET' && url.pathname==='/api/v1/receivables') {
         requirePermission(session,'customer-invoice.view');
-        const invoices=Db.listReceivables(db,session.companyId);
+        const invoices=Db.listReceivables(db,session.companyId).map(invoice=>({
+          ...invoice,
+          credit:CustomerInvoicing.creditDetailsForInvoice(db,session.companyId,invoice.id)
+        }));
         const customers=Db.listCustomerReceivableSummaries(db,session.companyId);
         return send(res,200,{columns:Receivables.RECEIVABLE_COLUMNS,invoices,customers});
       }

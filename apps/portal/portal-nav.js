@@ -4,8 +4,7 @@
   const groups=[
     {id:'workspace',label:'Arbetsyta',items:[['overview','Översikt','portal/dashboard.html']]},
     {id:'economy',label:'Ekonomi',items:[
-      ['invoices','Kundfakturor','portal/invoices.html'],['receivables','Kundreskontra','portal/receivables.html'],
-      ['receivables-details','Reskontradetaljer & påminnelser','portal/index.html'],
+      ['invoices','Kundfakturor','portal/invoices.html'],['receivables','Kundreskontra','portal/index.html'],
       ['payables','Leverantörsfakturor','portal/payables.html'],['supplier-ledger','Leverantörsreskontra','portal/supplier-ledger.html'],['payments','Betalningar','portal/payments.html'],['bank','Bank & avstämning','portal/bank.html'],
       ['automation','Automationskö','portal/automation.html'],['batches','Buntar','portal/batches.html'],['accounting','Bokföring','portal/accounting.html'],
       ['reports','Rapporter','portal/reports.html'],['accounts','Kontoplan & intäktskonton','portal/accounts.html'],
@@ -24,7 +23,7 @@
     ]},
     {id:'help',label:'Test & hjälp',items:[['uat','Testa systemet','portal/uat.html'],['legacy','Tidigare system','legacy/#/overview'],['assistant','Hjälp & chatbot (äldre demo)','legacy/#/assistant']]}
   ];
-  const demoOnlyIds=new Set(['money','journal','res-tools','inbox','audit','settings','legacy','assistant','decisions','modules','project','content','uat','receivables-details']);
+  const demoOnlyIds=new Set(['money','journal','res-tools','inbox','audit','settings','legacy','assistant','decisions','modules','project','content','uat']);
   const requiredPermission=Object.freeze({
     invoices:'customer-invoice.view',receivables:'customer-invoice.view',payables:'supplier-invoice.view','supplier-ledger':'supplier-invoice.view',payments:'payment.view',bank:'bank.view',automation:'accounting.view',batches:'accounting.view',accounting:'accounting.view',reports:'reports.view',accounts:'accounting.view',payroll:'payroll.view',customers:'customer-invoice.view',suppliers:'supplier.view',inventory:'inventory.view','company-settings':'platform.settings.manage',website:'website.manage',documents:'documents.view'
   });
@@ -132,8 +131,8 @@
     send:'<path d="M22 12L3 20L6.5625 12L3 4L22 12ZM6.5 12H22"/>'
   });
   const NAV_ICONS=Object.freeze({
-    overview:'home',invoices:'page',receivables:'wallet','receivables-details':'stats',payables:'page','supplier-ledger':'book',payments:'card',bank:'bank',
-    automation:'settings',batches:'package',accounting:'book',reports:'stats',accounts:'book',payroll:'wallet',money:'card',journal:'book','res-tools':'database',
+    overview:'home',invoices:'page',receivables:'wallet',payables:'page','supplier-ledger':'book',payments:'card',bank:'bank',
+    automation:'settings',accounting:'book',reports:'stats',accounts:'book',payroll:'wallet',money:'card',journal:'book','res-tools':'database',
     batches:'package',inbox:'page',customers:'group',suppliers:'group',inventory:'package','company-settings':'settings',website:'page',documents:'page',decisions:'shield',
     modules:'package',project:'stats',content:'page',audit:'shield',settings:'settings',uat:'shield',legacy:'database',assistant:'help'
   });
