@@ -33,7 +33,7 @@ on public.document_upload_verifications for select to authenticated
 using (
   auth_user_id=(select auth.uid())
   and expires_at>now()
-  and coalesce((select auth.jwt()->>'aal'),'aal1')='aal2'
+  and coalesce((select auth.jwt())->>'aal','aal1')='aal2'
   and exists(
     select 1 from public.company_memberships m
     where m.company_id=document_upload_verifications.company_id
@@ -48,7 +48,7 @@ on public.document_upload_verifications for delete to authenticated
 using (
   auth_user_id=(select auth.uid())
   and expires_at>now()
-  and coalesce((select auth.jwt()->>'aal'),'aal1')='aal2'
+  and coalesce((select auth.jwt())->>'aal','aal1')='aal2'
   and exists(
     select 1 from public.company_memberships m
     where m.company_id=document_upload_verifications.company_id
@@ -61,6 +61,8 @@ create index if not exists document_upload_verifications_expiry_idx
 on public.document_upload_verifications(expires_at);
 create index if not exists document_upload_verifications_company_user_idx
 on public.document_upload_verifications(company_id,auth_user_id,request_id,purpose);
+create index if not exists document_upload_verifications_auth_user_idx
+on public.document_upload_verifications(auth_user_id);
 
 create or replace function private.require_verified_customer_invoice_document()
 returns trigger
