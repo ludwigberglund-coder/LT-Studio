@@ -18,6 +18,7 @@ let selectedReceivableInvoiceId='';
 let loginCompanies=[];
 let contextMenu=null;
 let modal=null;
+let feedback='';
 let visibleColumns=new Set(loadJson(COLUMN_KEY,R.RECEIVABLE_COLUMNS.filter(c=>c.defaultVisible).map(c=>c.id)));
 
 const demoInvoices=[
@@ -143,7 +144,7 @@ function metrics(){
 function columnPicker(){return `<details class="column-picker"><summary>☷ Välj kolumner</summary><div class="column-menu">${R.RECEIVABLE_COLUMNS.map(column=>`<label><input type="checkbox" data-column="${escapeHtml(column.id)}" ${visibleColumns.has(column.id)?'checked':''}>${escapeHtml(column.label)}</label>`).join('')}<button class="button ghost small" data-action="reset-columns" type="button">Återställ alla</button></div></details>`}
 
 function cell(column,row){let value=row[column.id];if(column.money)return `<td class="money">${ore(value)}</td>`;if(column.id==='dueDate')return `<td class="${row.remainingOre>0&&value<today()?'overdue':''}">${escapeHtml(shortDate(value))}</td>`;return `<td>${escapeHtml(value==null||value===''?'—':value)}</td>`}
-function mappedTransaction(transaction){return {...transaction,type:transaction.transactionType==='payment'?'payment':transaction.transactionType,method:transaction.paymentMethod,date:transaction.paymentDate,postingDate:transaction.postingDate,batch:transaction.batchNumber,transactionNumber:transaction.journalNumber,bookingType:transaction.transactionType==='payment'?'Inbetalning':transaction.transactionType,amountOre:transaction.amountOre}}
+function mappedTransaction(transaction){const bookingType=transaction.transactionType==='payment'?'Inbetalning':transaction.transactionType==='refund'?'Återbetalning':transaction.transactionType;return {...transaction,type:transaction.transactionType==='payment'?'payment':transaction.transactionType,method:transaction.paymentMethod,date:transaction.paymentDate,postingDate:transaction.postingDate,batch:transaction.batchNumber,transactionNumber:transaction.journalNumber,bookingType,amountOre:transaction.amountOre}}
 
 function customerOverview(){
   const ids=matchingCustomerIds(),active=selectedReceivableCustomerId;
@@ -208,7 +209,8 @@ function table(){
   const bodies=invoices.map(rawInvoice=>{
     const invoice=withDemoState(rawInvoice),visible=ids.has(String(invoice.customerId)),hidden=visible?'':'hidden';
     const customer=customerSummary(invoice.customerId),base=R.receivableRow(invoice),comments=invoice.commentCount||0,invoiceRest=Number(invoice.remainingOre||0);
-    const invoiceRow=`<tr class="invoice-row" data-invoice-id="${escapeHtml(invoice.id)}" data-customer-id="${escapeHtml(invoice.customerId||'')}" ${hidden}><td class="customer-cell"><div class="customer-identity invoice-customer-identity"><span><b>${escapeHtml(customer.customerNumber||'—')}</b><strong>${escapeHtml(customer.customerName||'Okänd kund')}</strong>${customer.orgNumber?`<small>Org.nr ${escapeHtml(customer.orgNumber)}</small>`:''}</span><span class="invoice-rest-badge"><small>Restbelopp</small><b>${ore(invoiceRest)}</b></span></div>${comments?`<span class="comment-badge">💬 ${comments}</span>`:''}</td>${columns.map(c=>cell(c,base)).join('')}</tr>`;
+    const refundBadge=invoice.credit?.refundStatus==='pending'?`<span class="comment-badge">Återbetalning väntar · ${ore(invoice.credit.refundOutstandingOre)}</span>`:invoice.credit?.refundStatus==='refunded'?'<span class="comment-badge">Återbetalad</span>':'';
+    const invoiceRow=`<tr class="invoice-row" data-invoice-id="${escapeHtml(invoice.id)}" data-customer-id="${escapeHtml(invoice.customerId||'')}" ${hidden}><td class="customer-cell"><div class="customer-identity invoice-customer-identity"><span><b>${escapeHtml(customer.customerNumber||'—')}</b><strong>${escapeHtml(customer.customerName||'Okänd kund')}</strong>${customer.orgNumber?`<small>Org.nr ${escapeHtml(customer.orgNumber)}</small>`:''}</span><span class="invoice-rest-badge"><small>Restbelopp</small><b>${ore(invoiceRest)}</b></span></div>${comments?`<span class="comment-badge">💬 ${comments}</span>`:''}${refundBadge}</td>${columns.map(c=>cell(c,base)).join('')}</tr>`;
     const reminderRows=(invoice.reminders||[]).map(reminder=>reminderRow(invoice,reminder,columns,visible)).join('');
     const txRows=(invoice.transactions||[]).map(tx=>{const row=R.receivableRow(invoice,mappedTransaction(tx));return `<tr class="transaction-row" data-customer-id="${escapeHtml(invoice.customerId||'')}" ${hidden}><td class="customer-cell"><span>↳ transaktion</span></td>${columns.map(c=>cell(c,row)).join('')}</tr>`}).join('');
     return invoiceRow+reminderRows+txRows;
@@ -219,7 +221,9 @@ function table(){
 function contextHtml(){
   if(!contextMenu)return '';
   const invoice=invoiceById(contextMenu.invoiceId),hasComments=Number(invoice?.commentCount||0)>0;
-  return `<div class="context-menu" style="left:${contextMenu.x}px;top:${contextMenu.y}px">${hasComments?`<button data-action="show-comments" data-id="${escapeHtml(contextMenu.invoiceId)}">Visa kommentar</button>`:''}<button data-action="comment" data-id="${escapeHtml(contextMenu.invoiceId)}">Skriv kommentar</button><button data-action="reminder" data-id="${escapeHtml(contextMenu.invoiceId)}">Skapa betalningspåminnelse</button><button data-action="close-context">Avbryt</button></div>`;
+  const canRemind=Number(invoice?.totalOre||0)>0&&Number(invoice?.remainingOre||0)>0;
+  const canRefund=invoice?.credit?.refundStatus==='pending'&&Number(invoice.credit.refundOutstandingOre||0)>0;
+  return `<div class="context-menu" style="left:${contextMenu.x}px;top:${contextMenu.y}px">${hasComments?`<button data-action="show-comments" data-id="${escapeHtml(contextMenu.invoiceId)}">Visa kommentar</button>`:''}<button data-action="comment" data-id="${escapeHtml(contextMenu.invoiceId)}">Skriv kommentar</button>${canRemind?`<button data-action="reminder" data-id="${escapeHtml(contextMenu.invoiceId)}">Skapa betalningspåminnelse</button>`:''}${canRefund?`<button data-action="refund" data-id="${escapeHtml(contextMenu.invoiceId)}">Registrera återbetalning</button>`:''}<button data-action="close-context">Avbryt</button></div>`;
 }
 
 function commentsModal(){
@@ -234,7 +238,11 @@ function reminderModal(){
   const values=modal.formValues||{sentDate:modal.sentDate||today(),includeInterest:true,includeReminderFee:false,includeBusinessLatePaymentCompensation:false,note:''};
   return `<div class="modal-backdrop" data-action="close-modal"><section class="modal" data-stop><header class="modal-head"><div><span class="eyebrow">${escapeHtml(invoice?.invoiceNumber||'Faktura')}</span><h3>Betalningspåminnelse</h3></div><button data-action="close-modal">×</button></header><div class="modal-body"><div class="notice">Påminnelsen blir en egen underpost till originalfakturan och får ett eget påminnelsenummer samt en utskriftsbar PDF. Dokumentet märks tydligt som betalningspåminnelse och refererar alltid originalfakturan.</div><form data-form="reminder"><label class="field">Påminnelsedatum<input name="sentDate" type="date" value="${escapeHtml(values.sentDate||today())}" required></label><label class="field"><span><input name="includeInterest" type="checkbox" ${values.includeInterest!==false?'checked':''}> Beräkna dröjsmålsränta</span></label><label class="field"><span><input name="includeReminderFee" type="checkbox" ${values.includeReminderFee?'checked':''} ${canFee?'':'disabled'}> Lägg till påminnelseavgift 60 kr ${canFee?'':'(inte avtalad för denna kund)'}</span></label><label class="field"><span><input name="includeBusinessLatePaymentCompensation" type="checkbox" ${values.includeBusinessLatePaymentCompensation?'checked':''}> Lägg till förseningsersättning 450 kr vid B2B-eskalering</span></label><label class="field">Anteckning<textarea name="note" maxlength="1000" rows="3">${escapeHtml(values.note||'')}</textarea></label>${reminderBreakdown(modal.preview)}<p class="form-error">${escapeHtml(modal.error||'')}</p><div class="modal-actions"><button type="button" class="button ghost" data-action="preview-reminder">Beräkna</button><button class="button" type="submit" ${modal.preview?'':'disabled'}>Registrera påminnelse</button></div></form></div></section></div>`;
 }
-function modalHtml(){if(!modal)return '';if(modal.type==='comments')return commentsModal();if(modal.type==='reminder')return reminderModal();return ''}
+function refundModal(){
+  const invoice=invoiceById(modal.invoiceId),credit=invoice?.credit||{},outstanding=Number(credit.refundOutstandingOre||0);
+  return `<div class="modal-backdrop" data-action="close-modal"><section class="modal" data-stop><header class="modal-head"><div><span class="eyebrow">Kreditfaktura ${escapeHtml(invoice?.invoiceNumber||'')}</span><h3>Registrera återbetalning</h3></div><button data-action="close-modal" aria-label="Stäng">×</button></header><div class="modal-body"><div class="notice warning">Registrera bara återbetalningen när pengarna faktiskt har betalats ut från banken. Då bokförs återbetalningen och kreditfakturan prickas av.</div><form data-form="refund"><div class="reminder-summary"><span>Återstår att återbetala</span><strong>${ore(outstanding)}</strong><span>Kund</span><strong>${escapeHtml(invoice?.customerName||'—')}</strong></div><label class="field">Bankkonto<select name="refundAccount" required><option value="1930">1930 · Företagskonto/checkkonto</option><option value="1920">1920 · PlusGiro</option><option value="1940">1940 · Övriga bankkonton</option></select></label><label class="field">Återbetalningsdatum<input name="refundDate" type="date" value="${today()}" required></label><label class="field">Bankens referens / transaktions-id<input name="bankReference" minlength="4" maxlength="120" value="KREDIT-${escapeHtml(invoice?.invoiceNumber||'')}" required></label><p class="form-error">${escapeHtml(modal.error||'')}</p><div class="modal-actions"><button type="button" class="button ghost" data-action="close-modal">Avbryt</button><button type="submit" class="button">Registrera & bokför återbetalning</button></div></form></div></section></div>`;
+}
+function modalHtml(){if(!modal)return '';if(modal.type==='comments')return commentsModal();if(modal.type==='reminder')return reminderModal();if(modal.type==='refund')return refundModal();return ''}
 
 function syncSearchControls(){
   const input=document.getElementById('receivable-search-input');
@@ -312,8 +320,20 @@ function renderOverlays(){
 }
 function portalView(){
   const userName=session?.user?.displayName || 'Demoanvändare';
-  app.innerHTML=`<div class="portal">${sidebar()}<section class="main"><header class="topbar"><div><h1>Kundreskontra</h1><p>${escapeHtml(session?.company?.name||'Företaget')} / Försäljning / Kundreskontra</p></div><div class="user-chip"><div><b>${escapeHtml(userName)}</b><br><small>${mode==='demo'?'Demo':'Inloggad'}</small></div><div class="avatar">${escapeHtml(initials(userName))}</div>${mode==='api'?'<button class="button ghost small" data-action="logout">Logga ut</button>':''}</div></header><main class="content">${mode==='demo'?'<div class="demo-banner"><b>GitHub Pages-demo.</b> Kommentarer och kolumnval sparas bara i din webbläsare. Riktiga företagsuppgifter ska aldrig användas här.</div>':''}<div class="page-heading"><div><span class="eyebrow">Kundfordringar</span><h2>Fakturor och inbetalningar</h2><p>Kundsökningen bygger på kundregistret. Fakturanummer och OCR används endast för att hitta vilken registrerad kund fakturan tillhör.</p></div></div>${receivableSearchBar()}<div id="receivable-overview-region">${customerOverview()}</div><div id="receivable-metrics-region">${metrics()}</div><section class="panel"><div class="toolbar"><span class="hint">Högerklicka på en faktura för kommentarer eller betalningspåminnelse.</span>${columnPicker()}</div><div id="receivable-table-region">${table()}</div></section></main></section></div><div id="portal-overlays"></div>`;
+  app.innerHTML=`<div class="portal">${sidebar()}<section class="main"><header class="topbar"><div><h1>Kundreskontra</h1><p>${escapeHtml(session?.company?.name||'Företaget')} / Försäljning / Kundreskontra</p></div><div class="user-chip"><div><b>${escapeHtml(userName)}</b><br><small>${mode==='demo'?'Demo':'Inloggad'}</small></div><div class="avatar">${escapeHtml(initials(userName))}</div>${mode==='api'?'<button class="button ghost small" data-action="logout">Logga ut</button>':''}</div></header><main class="content">${mode==='demo'?'<div class="demo-banner"><b>GitHub Pages-demo.</b> Kommentarer och kolumnval sparas bara i din webbläsare. Riktiga företagsuppgifter ska aldrig användas här.</div>':''}${feedback?`<div class="notice">${escapeHtml(feedback)}</div>`:''}<div class="page-heading"><div><span class="eyebrow">Kundfordringar</span><h2>Fakturor och inbetalningar</h2><p>Kundsökningen bygger på kundregistret. Fakturanummer och OCR används endast för att hitta vilken registrerad kund fakturan tillhör.</p></div></div>${receivableSearchBar()}<div id="receivable-overview-region">${customerOverview()}</div><div id="receivable-metrics-region">${metrics()}</div><section class="panel"><div class="toolbar"><span class="hint">Högerklicka på en faktura för kommentarer eller betalningspåminnelse.</span>${columnPicker()}</div><div id="receivable-table-region">${table()}</div></section></main></section></div><div id="portal-overlays"></div>`;
   renderOverlays();
+  const requestedInvoiceId=new URLSearchParams(location.search).get('invoice');
+  if(requestedInvoiceId){
+    const invoice=invoiceById(requestedInvoiceId);
+    if(invoice){
+      selectedReceivableCustomerId=String(invoice.customerId||'');
+      selectedReceivableInvoiceId=String(invoice.id);
+      receivableSearch=String(invoice.invoiceNumber||'');
+      receivableSuggestionsOpen=false;
+      applyReceivableFilterDom();
+      requestAnimationFrame(()=>document.querySelector('.invoice-row[data-invoice-id="'+CSS.escape(String(invoice.id))+'"]')?.scrollIntoView?.({block:'center'}));
+    }
+  }
 }
 async function loadReceivables(){
   if(mode!=='supabase'){const data=await api('/receivables');invoices=data.invoices||[];receivableCustomers=data.customers||[];portalView();return}
@@ -321,18 +341,22 @@ async function loadReceivables(){
   if(!ctx.authenticated||!ctx.company){loginView();return}
   session={user:ctx.user,company:ctx.company};
   const companyFilter='company_id=eq.'+encodeURIComponent(ctx.company.id);
-  const [customersData,invoicesData,transactionsData]=await Promise.all([
+  const [customersData,invoicesData,transactionsData,creditAdjustmentsData,creditRefundsData]=await Promise.all([
     supabaseRows('customers',ctx.accessToken,companyFilter+'&archived_at=is.null'),
     supabaseRows('invoices',ctx.accessToken,companyFilter),
-    supabaseRows('invoice_transactions',ctx.accessToken,companyFilter)
+    supabaseRows('invoice_transactions',ctx.accessToken,companyFilter),
+    supabaseRows('customer_invoice_credit_adjustments',ctx.accessToken,companyFilter),
+    supabaseRows('customer_credit_refunds',ctx.accessToken,companyFilter)
   ]);
   const customersById=new Map((customersData||[]).map(row=>[String(row.id),row]));
   const txByInvoice=new Map();
   for(const tx of transactionsData||[]){const key=String(tx.invoice_id);if(!txByInvoice.has(key))txByInvoice.set(key,[]);txByInvoice.get(key).push({
     id:tx.id,transactionType:tx.transaction_type,paymentMethod:tx.payment_method,paymentDate:tx.payment_date,postingDate:tx.posting_date,batchNumber:tx.batch_number,journalNumber:tx.journal_number,amountOre:Number(tx.amount_ore||0),approved:tx.approved,account:tx.account,bankReference:tx.bank_reference
   })}
-  invoices=(invoicesData||[]).map(row=>{const customer=customersById.get(String(row.customer_id))||{};return{
-    id:row.id,kind:'customer',customerId:row.customer_id,customerNumber:customer.customer_number||'',customerName:customer.name||'',customerOrgNumber:customer.org_number||'',invoiceNumber:row.invoice_number,ocr:row.ocr||'',invoiceDate:row.invoice_date,postingDate:row.posting_date,dueDate:row.due_date,totalOre:Number(row.total_ore||0),remainingOre:Number(row.remaining_ore||0),vatOre:Number(row.vat_ore||0),status:row.status,paymentMethod:row.payment_method,paymentAccount:row.payment_account,invoiceAccount:row.invoice_account,batchNumber:row.batch_number,journalNumber:row.journal_number,customerType:customer.customer_type||'business',reminderFeeAgreed:Boolean(customer.reminder_fee_agreed),commentCount:0,transactions:txByInvoice.get(String(row.id))||[],reminders:[]
+  const adjustmentByCredit=new Map((creditAdjustmentsData||[]).map(row=>[String(row.credit_invoice_id),row]));
+  const refundByCredit=new Map((creditRefundsData||[]).map(row=>[String(row.credit_invoice_id),row]));
+  invoices=(invoicesData||[]).map(row=>{const customer=customersById.get(String(row.customer_id))||{},adjustment=adjustmentByCredit.get(String(row.id))||null,refund=refundByCredit.get(String(row.id))||null,refundDueOre=Number(adjustment?.refund_due_ore||0),refundPaidOre=Number(refund?.amount_ore||0),refundOutstandingOre=Math.max(0,refundDueOre-refundPaidOre),credit=adjustment?{originalInvoiceId:adjustment.original_invoice_id,creditInvoiceId:adjustment.credit_invoice_id,reason:adjustment.reason||'',creditAmountOre:Number(adjustment.credit_amount_ore||0),offsetAmountOre:Number(adjustment.offset_amount_ore||0),refundDueOre,refund:refund?{amountOre:refundPaidOre,refundDate:refund.refund_date,refundAccount:refund.refund_account,bankReference:refund.bank_reference}:null,refundPaidOre,refundOutstandingOre,refundStatus:refundDueOre===0?'not-required':refundOutstandingOre===0?'refunded':'pending'}:null;return{
+    id:row.id,kind:'customer',customerId:row.customer_id,customerNumber:customer.customer_number||'',customerName:customer.name||'',customerOrgNumber:customer.org_number||'',invoiceNumber:row.invoice_number,ocr:row.ocr||'',invoiceDate:row.invoice_date,postingDate:row.posting_date,dueDate:row.due_date,totalOre:Number(row.total_ore||0),remainingOre:Number(row.remaining_ore||0),vatOre:Number(row.vat_ore||0),status:row.status,paymentMethod:row.payment_method,paymentAccount:row.payment_account,invoiceAccount:row.invoice_account,batchNumber:row.batch_number,journalNumber:row.journal_number,customerType:customer.customer_type||'business',reminderFeeAgreed:Boolean(customer.reminder_fee_agreed),commentCount:0,transactions:txByInvoice.get(String(row.id))||[],reminders:[],credit
   }});
   receivableCustomers=(customersData||[]).map(customer=>{const list=invoices.filter(i=>String(i.customerId)===String(customer.id));return{
     customerId:customer.id,customerNumber:customer.customer_number,customerName:customer.name,orgNumber:customer.org_number||'',invoiceCount:list.length,openInvoiceCount:list.filter(i=>Number(i.remainingOre)!==0).length,remainingOre:list.reduce((sum,i)=>sum+Number(i.remainingOre||0),0)
@@ -370,6 +394,26 @@ async function boot(){
 document.addEventListener('submit',async event=>{
   const form=event.target;
   if(form.id==='login-form'){event.preventDefault();const values=Object.fromEntries(new FormData(form));try{if(mode==='supabase'){const ctx=await window.LTSupabaseUat.signIn(String(values.username||'').trim(),String(values.password||''),String(values.totp||'').trim());if(!ctx.company)throw new Error('Kontot saknar företagsbehörighet i Supabase.');session={user:ctx.user,company:ctx.company};await loadReceivables();return}const data=await api('/auth/login',{method:'POST',body:values});csrfToken=data.csrfToken;sessionStorage.setItem('rollands-csrf',csrfToken);session={user:data.user,company:data.company};loginCompanies=[];await loadReceivables()}catch(error){if(error.code==='COMPANY_REQUIRED'){loginCompanies=error.data.companies||[];loginView('Välj vilket företag du vill öppna.')}else loginView(error.message)}return}
+  if(form.dataset.form==='refund'){
+    event.preventDefault();
+    const invoice=invoiceById(modal.invoiceId),values=Object.fromEntries(new FormData(form));
+    try{
+      if(!invoice?.credit||invoice.credit.refundStatus!=='pending')throw new Error('Det finns ingen väntande återbetalning för kreditfakturan.');
+      const refundAccount=String(values.refundAccount||'').trim(),refundDate=String(values.refundDate||'').trim(),bankReference=String(values.bankReference||'').trim();
+      if(!['1920','1930','1940'].includes(refundAccount))throw new Error('Välj konto 1920, 1930 eller 1940.');
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(refundDate))throw new Error('Ange ett giltigt återbetalningsdatum.');
+      if(bankReference.length<4||bankReference.length>120)throw new Error('Bankreferensen måste vara 4–120 tecken.');
+      if(mode==='demo')throw new Error('Återbetalningar bokförs endast i den skyddade företagsportalen.');
+      if(mode==='supabase'){
+        const ctx=await supabaseContext();
+        await window.LTSupabase.rpc('register_customer_credit_refund',{p_company_id:ctx.company.id,p_request_id:crypto.randomUUID(),p_credit_invoice_id:invoice.id,p_refund_date:refundDate,p_refund_account:refundAccount,p_bank_reference:bankReference},ctx.accessToken);
+      }else{
+        await api('/customer-invoices/'+encodeURIComponent(invoice.id)+'/refund',{method:'POST',body:{requestId:crypto.randomUUID(),refundDate,refundAccount,bankReference}});
+      }
+      modal=null;feedback='Återbetalningen är registrerad, bokförd och avprickad i Kundreskontra.';await loadReceivables();
+    }catch(error){modal={...modal,error:error.message};renderOverlays()}
+    return;
+  }
   if(form.dataset.form==='comment'){
     event.preventDefault();
     const text=String(new FormData(form).get('text')||'');
@@ -479,6 +523,7 @@ document.addEventListener('click',async event=>{
     if(action==='show-comments'){await openComments(button.dataset.id,{compose:false});return}
     if(action==='new-comment'){modal={...modal,compose:true,draftText:''};renderOverlays();requestAnimationFrame(()=>document.getElementById('invoice-comment-draft')?.focus());return}
     if(action==='reminder'){contextMenu=null;modal={type:'reminder',invoiceId:button.dataset.id,preview:null,error:'',sentDate:today(),formValues:{sentDate:today(),includeInterest:true,includeReminderFee:false,includeBusinessLatePaymentCompensation:false,note:''}};renderOverlays();return}
+    if(action==='refund'){const invoice=invoiceById(button.dataset.id);contextMenu=null;if(!invoice?.credit||invoice.credit.refundStatus!=='pending')throw new Error('Det finns ingen väntande återbetalning för kreditfakturan.');modal={type:'refund',invoiceId:invoice.id,error:''};renderOverlays();return}
     if(action==='close-modal'){modal=null;renderOverlays();return}
     if(action==='reset-columns'){visibleColumns=new Set(R.RECEIVABLE_COLUMNS.map(c=>c.id));saveJson(COLUMN_KEY,[...visibleColumns]);renderReceivableResults();return}
     if(action==='preview-reminder'){await previewReminder(button.closest('form'));return}
