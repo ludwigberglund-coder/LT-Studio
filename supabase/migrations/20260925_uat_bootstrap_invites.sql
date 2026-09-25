@@ -32,3 +32,9 @@ with check(false);
 create index if not exists uat_bootstrap_invites_active_idx
 on public.uat_bootstrap_invites(expires_at,use_count)
 where use_count < max_uses;
+
+create index if not exists uat_bootstrap_invites_company_idx
+on public.uat_bootstrap_invites(company_id);
+
+create index if not exists uat_bootstrap_invites_claimed_user_idx
+on public.uat_bootstrap_invites(claimed_auth_user_id);
