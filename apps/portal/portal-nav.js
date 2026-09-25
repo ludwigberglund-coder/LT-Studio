@@ -46,7 +46,7 @@
   const base=new URL('../',document.currentScript.src);
   const demo=new URLSearchParams(location.search).get('demo')==='1';
   const supabaseUat=location.hostname==='ludwigberglund-coder.github.io'&&!demo;
-  const key='rollands-navigation-v2:'+base.pathname;
+  const key='rollands-navigation-v3:'+base.pathname;
   const runtimeKey='rollands-runtime-id:'+base.pathname;
   let runtimeCheckInFlight=false;
   async function ensureFreshRuntime(){
