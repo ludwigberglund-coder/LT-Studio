@@ -1,52 +1,172 @@
 const app=document.getElementById('dashboard-app');
-const isDemo=location.hostname==='ludwigberglund-coder.github.io'||new URLSearchParams(location.search).has('demo');
+const pageParams=new URLSearchParams(location.search);
+const isDemo=pageParams.get('demo')==='1';
+const isSupabase=location.hostname==='ludwigberglund-coder.github.io'&&!isDemo;
 const Demo=globalThis.RollandsDemoScenario;
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 let session=null;
+
 function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function ore(v){return new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK',minimumFractionDigits:2}).format(Number(v||0)/100)}
 function today(){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
-function url(path){return `${path}${isDemo?(path.includes('?')?'&':'?')+'demo=1':''}`}
-async function api(path){const r=await fetch(`/api/v1${path}`,{credentials:'same-origin',headers:{Accept:'application/json',...(csrfToken?{'X-CSRF-Token':csrfToken}:{})}});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||'Begäran misslyckades.');return data}
-function sidebar(){return `<aside class="sidebar"><div class="logo"><strong>${esc(isDemo?'Rollands':session?.company?.name||'Företaget')}</strong><small>LT STUDIO</small></div><div class="company-pill">${esc(session?.company?.name||(isDemo?'Rollands Frukt o Grönt AB':'Företaget'))}<br>${isDemo?'Demoföretag':'Skyddad företagsmiljö'}</div><div class="side-group"><span>Arbetsyta</span><a class="side-link active" href="${url('./dashboard.html')}">Översikt</a></div><div class="side-group"><span>Försäljning</span>${isDemo?`<a class="side-link" href="${url('./invoices.html')}">Kundfakturor</a><a class="side-link" href="${url('./customers.html')}">Kunder</a><a class="side-link" href="${url('./receivables.html')}">Kundreskontra</a>`:`<a class="side-link" href="./index.html">Kundreskontra</a>`}</div><div class="side-group"><span>Ekonomi</span><a class="side-link" href="${url('./bank.html')}">Bank & avstämning</a><a class="side-link" href="${url('./payables.html')}">Leverantörsfakturor</a><a class="side-link" href="${url('./suppliers.html')}">Leverantörer</a><a class="side-link" href="${url('./inventory.html')}">Lager</a><a class="side-link" href="${url('./accounting.html')}">Bokföring</a><a class="side-link" href="${url('./reports.html')}">Rapporter</a><a class="side-link" href="${url('./payroll.html')}">Lön</a><a class="side-link" href="${url('./documents.html')}">Dokument</a><a class="side-link" href="${url('./automation.html')}">Automationskö</a></div><div class="side-group"><span>Administration</span><a class="side-link" href="${url('./website.html')}">Webbplats & innehåll</a></div>${isDemo?'<div class="side-group"><span>Test & granskning</span><a class="side-link" href="./uat.html?demo=1">Testa systemet</a></div>':''}<div class="sidebar-footer">${isDemo?'Öppen demo med fiktiv data.':'Personlig session · servervaliderad behörighet'}</div></aside>`}
-function demoMetrics(){const s=Demo.state();const invoices=s.customerInvoices||[];const open=invoices.filter(i=>Number(i.remainingOre)>0);const overdue=open.filter(i=>i.dueDate<today());const payables=s.supplierInvoices||[];const payments=s.supplierPayments||[];const proposals=(s.automationProposals||[]).filter(p=>!['approved','rejected','posted'].includes(p.status));const pendingSuppliers=(s.supplierPendingChanges||[]).filter(x=>x.status==='pending');const items=s.inventoryItems||[];const adjustments=(s.inventoryAdjustments||[]).filter(x=>x.status==='pending');const documents=s.documents||[];const entries=s.accountingEntries||[];const unlocks=(s.accountingUnlockRequests||[]).filter(x=>x.status==='pending');return {receivables:{openOre:open.reduce((n,i)=>n+Number(i.remainingOre||0),0),overdueOre:overdue.reduce((n,i)=>n+Number(i.remainingOre||0),0),openCount:open.length,overdueCount:overdue.length,totalCount:invoices.length},payables:{approvalCount:payables.filter(i=>i.status==='coded').length,paymentCount:payables.filter(i=>['approved','payment-prepared','released'].includes(i.status)).length,todayOre:payments.filter(p=>p.paymentDate===today()).reduce((n,p)=>n+Number(p.amountOre||0),0)},bank:{reviewCount:(s.bankPayments||[]).filter(p=>p.status==='unmatched').length},automation:{reviewCount:proposals.length},suppliers:{pendingCount:pendingSuppliers.length},inventory:{itemCount:items.length,pendingCount:adjustments.length},reports:{netVatOre:0},payroll:{validatedCount:(s.payrollRuns||[]).filter(r=>r.status==='validated').length,grossOre:Number((s.payrollRuns||[])[0]?.grossSalaryOre||0)},documents:{count:documents.length},accounting:{entryCount:entries.length,pendingUnlocks:unlocks.length},website:{version:Number(s.websiteCms?.published?.version||0)},availability:{receivables:true,payables:true,bank:true,automation:true,suppliers:true,inventory:true,accountingUnlocks:true,documents:true,accountingEntries:true,payroll:true,website:true}}}
+function url(path){return path+(isDemo?(path.includes('?')?'&':'?')+'demo=1':'')}
+function sidebar(){return '<aside class="sidebar"></aside>'}
+function greeting(){
+  const hour=Number(new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',hour:'2-digit',hour12:false}).format(new Date()).replace(/[^0-9]/g,'').slice(0,2));
+  if(hour<11)return'God morgon';
+  if(hour<17)return'God eftermiddag';
+  return'God kväll';
+}
+async function api(path){
+  const r=await fetch('/api/v1'+path,{credentials:'same-origin',headers:{Accept:'application/json',...(csrfToken?{'X-CSRF-Token':csrfToken}:{})},cache:'no-store'});
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(data.error||'Begäran misslyckades.');
+  return data;
+}
+function emptyMetrics(){
+  return{
+    receivables:{overdueOre:0,overdueCount:0},
+    payables:{approvalCount:0,paymentCount:0},
+    bank:{reviewCount:0},
+    automation:{reviewCount:0},
+    inventory:{pendingCount:0},
+    accounting:{pendingUnlocks:0},
+    loadErrors:[]
+  }
+}
+function demoMetrics(){
+  const s=Demo.state(),result=emptyMetrics();
+  const open=(s.customerInvoices||[]).filter(i=>Number(i.remainingOre)>0);
+  const overdue=open.filter(i=>i.dueDate<today());
+  const payables=s.supplierInvoices||[];
+  result.receivables.overdueOre=overdue.reduce((n,i)=>n+Number(i.remainingOre||0),0);
+  result.receivables.overdueCount=overdue.length;
+  result.payables.approvalCount=payables.filter(i=>i.status==='coded').length;
+  result.payables.paymentCount=payables.filter(i=>['approved','payment-prepared','released'].includes(i.status)).length;
+  result.bank.reviewCount=(s.bankPayments||[]).filter(p=>p.status==='unmatched').length;
+  result.automation.reviewCount=(s.automationProposals||[]).filter(p=>!['approved','rejected','posted'].includes(p.status)).length;
+  result.inventory.pendingCount=(s.inventoryAdjustments||[]).filter(x=>x.status==='pending').length;
+  result.accounting.pendingUnlocks=(s.accountingUnlockRequests||[]).filter(x=>x.status==='pending').length;
+  return result;
+}
+async function loadSupabaseMetrics(){
+  const result=emptyMetrics();
+  const ctx=await window.LTSupabaseUat.context();
+  if(!ctx?.authenticated||!ctx.company){location.href='./index.html';throw new Error('Ingen aktiv Supabase-session.')}
+  session={authenticated:true,user:ctx.user,company:ctx.company};
+  const filter='company_id=eq.'+encodeURIComponent(ctx.company.id);
+  async function attempt(label,fn){try{await fn()}catch{result.loadErrors.push(label)}}
+  await Promise.all([
+    attempt('kundreskontra',async()=>{
+      const rows=await window.LTSupabase.from('invoices',ctx.accessToken).select('due_date,remaining_ore,status',filter);
+      const overdue=(rows||[]).filter(row=>Number(row.remaining_ore)>0&&String(row.due_date||'')<today());
+      result.receivables.overdueCount=overdue.length;
+      result.receivables.overdueOre=overdue.reduce((sum,row)=>sum+Math.max(0,Number(row.remaining_ore||0)),0);
+    }),
+    attempt('leverantörsfakturor',async()=>{
+      const rows=await window.LTSupabase.from('supplier_invoices',ctx.accessToken).select('status',filter);
+      result.payables.approvalCount=(rows||[]).filter(row=>row.status==='coded').length;
+      result.payables.paymentCount=(rows||[]).filter(row=>['approved','payment-prepared','released'].includes(row.status)).length;
+    }),
+    attempt('bank',async()=>{
+      const rows=await window.LTSupabase.from('bank_payments',ctx.accessToken).select('status',filter);
+      result.bank.reviewCount=(rows||[]).filter(row=>row.status==='unmatched').length;
+    }),
+    attempt('automation',async()=>{
+      const rows=await window.LTSupabase.from('automation_proposals',ctx.accessToken).select('status',filter);
+      result.automation.reviewCount=(rows||[]).filter(row=>!['approved','rejected','posted'].includes(row.status)).length;
+    }),
+    attempt('lager',async()=>{
+      const rows=await window.LTSupabase.from('inventory_adjustments',ctx.accessToken).select('status',filter);
+      result.inventory.pendingCount=(rows||[]).filter(row=>row.status==='pending').length;
+    }),
+    attempt('periodupplåsningar',async()=>{
+      const rows=await window.LTSupabase.from('accounting_unlock_requests',ctx.accessToken).select('status',filter);
+      result.accounting.pendingUnlocks=(rows||[]).filter(row=>row.status==='pending').length;
+    })
+  ]);
+  return result;
+}
+async function loadPrivateMetrics(){
+  const result=emptyMetrics();
+  async function attempt(label,fn){try{await fn()}catch{result.loadErrors.push(label)}}
+  await Promise.all([
+    attempt('kundreskontra',async()=>{
+      const inv=(await api('/receivables')).invoices||[];
+      const overdue=inv.filter(i=>Number(i.remainingOre)>0&&i.dueDate<today());
+      result.receivables.overdueCount=overdue.length;
+      result.receivables.overdueOre=overdue.reduce((sum,i)=>sum+Math.max(0,Number(i.remainingOre||0)),0);
+    }),
+    attempt('leverantörsfakturor',async()=>{
+      const inv=(await api('/payables/invoices')).invoices||[];
+      result.payables.approvalCount=inv.filter(i=>i.status==='coded').length;
+      result.payables.paymentCount=inv.filter(i=>['approved','payment-prepared'].includes(i.status)).length;
+    }),
+    attempt('bank',async()=>{
+      const rows=(await api('/bank/payments')).payments||[];
+      result.bank.reviewCount=rows.filter(p=>p.status==='unmatched').length;
+    }),
+    attempt('automation',async()=>{
+      const rows=(await api('/automation/proposals')).proposals||[];
+      result.automation.reviewCount=rows.filter(p=>!['approved','rejected','posted'].includes(p.status)).length;
+    }),
+    attempt('lager',async()=>{
+      result.inventory.pendingCount=((await api('/inventory/adjustments?status=pending')).adjustments||[]).length;
+    }),
+    attempt('periodupplåsningar',async()=>{
+      result.accounting.pendingUnlocks=((await api('/accounting/unlock-requests?status=pending')).requests||[]).length;
+    })
+  ]);
+  return result;
+}
 async function loadMetrics(){
-  if(isDemo)return {...demoMetrics(),loadErrors:[]};
-  const result={receivables:{openOre:0,overdueOre:0,openCount:0,overdueCount:0,totalCount:0},payables:{approvalCount:0,paymentCount:0,todayOre:0},bank:{reviewCount:0},automation:{reviewCount:0},suppliers:{pendingCount:0},inventory:{itemCount:0,pendingCount:0},reports:{netVatOre:0},payroll:{validatedCount:0,grossOre:0},documents:{count:0},accounting:{entryCount:0,pendingUnlocks:0},website:{version:0},loadErrors:[],availability:{receivables:false,payables:false,bank:false,automation:false,suppliers:false,inventory:false,accountingUnlocks:false,documents:false,accountingEntries:false,payroll:false,website:false}};
-  async function attempt(label,key,fn){try{await fn();result.availability[key]=true}catch{result.loadErrors.push(label)}}
-  await attempt('kundreskontra','receivables',async()=>{const inv=(await api('/receivables')).invoices||[];const open=inv.filter(i=>Number(i.remainingOre)>0);const overdue=open.filter(i=>i.dueDate<today());result.receivables.openOre=open.reduce((s,i)=>s+Math.max(0,Number(i.remainingOre||0)),0);result.receivables.overdueOre=overdue.reduce((s,i)=>s+Math.max(0,Number(i.remainingOre||0)),0);result.receivables.openCount=open.length;result.receivables.overdueCount=overdue.length;result.receivables.totalCount=inv.length});
-  await attempt('leverantörsfakturor','payables',async()=>{const inv=(await api('/payables/invoices')).invoices||[];result.payables.approvalCount=inv.filter(i=>i.status==='coded').length;result.payables.paymentCount=inv.filter(i=>['approved','payment-prepared'].includes(i.status)).length});
-  await attempt('bank','bank',async()=>{const rows=(await api('/bank/payments')).payments||[];result.bank.reviewCount=rows.filter(p=>p.status==='unmatched').length});
-  await attempt('automation','automation',async()=>{const rows=(await api('/automation/proposals')).proposals||[];result.automation.reviewCount=rows.filter(p=>!['approved','rejected','posted'].includes(p.status)).length});
-  await attempt('leverantörsändringar','suppliers',async()=>{result.suppliers.pendingCount=((await api('/suppliers/pending-changes')).changes||[]).length});
-  await attempt('lager','inventory',async()=>{const [adjustments,items]=await Promise.all([api('/inventory/adjustments?status=pending'),api('/inventory/items')]);result.inventory.pendingCount=(adjustments.adjustments||[]).length;result.inventory.itemCount=(items.items||[]).length});
-  await attempt('periodupplåsningar','accountingUnlocks',async()=>{result.accounting.pendingUnlocks=((await api('/accounting/unlock-requests?status=pending')).requests||[]).length});
-  await attempt('dokument','documents',async()=>{result.documents.count=((await api('/documents')).documents||[]).length});
-  await attempt('bokföring','accountingEntries',async()=>{result.accounting.entryCount=((await api('/accounting/entries?limit=1000')).entries||[]).length});
-  await attempt('lön','payroll',async()=>{const runs=(await api('/payroll/runs')).runs||[];result.payroll.validatedCount=runs.filter(run=>run.status==='validated').length;result.payroll.grossOre=Number(runs[0]?.grossSalaryOre||0)});
-  await attempt('webbplats','website',async()=>{const state=(await api('/website/cms')).state;result.website.version=Number(state?.published?.version||0)});
-  return result
+  if(isDemo)return demoMetrics();
+  if(isSupabase)return loadSupabaseMetrics();
+  return loadPrivateMetrics();
 }
-function metric(label,value,sub='',available=true){if(!available)return `<article class="dash-metric unavailable" data-unavailable="true"><span>${esc(label)}</span><strong>Ej tillgängligt</strong><small>Området kunde inte läsas</small></article>`;return `<article class="dash-metric"><span>${esc(label)}</span><strong>${value}</strong>${sub?`<small>${esc(sub)}</small>`:''}</article>`}
-function moduleCard(title,text,href,badge,available=true){return `<a class="module-card ${available?'ready':'unavailable'}" href="${url(href)}"><div><span class="module-state">${available?'Öppna område':'Data kunde inte läsas'}</span><h3>${esc(title)}</h3><p>${esc(text)}</p></div><strong>${available?esc(String(badge)):'Ej tillgängligt'}</strong></a>`}
-function taskCard(title,text,href,count,priority='normal'){return `<a class="task-card ${esc(priority)}" href="${url(href)}"><div><span class="task-state">Behöver åtgärd</span><h3>${esc(title)}</h3><p>${esc(text)}</p></div><strong>${esc(String(count))}</strong></a>`}
-function worklist(m){
+function taskCard({title,text,href,count,priority='normal',tone='plain'},index){
+  return `<a class="task-card ${esc(priority)} tone-${esc(tone)}" style="--task-delay:${index*55}ms" href="${url(href)}"><div><span class="task-state">${priority==='high'?'Prioriterat':'Att göra'}</span><h3>${esc(title)}</h3><p>${esc(text)}</p></div><strong>${esc(String(count))}</strong></a>`
+}
+function importantTasks(m){
   const tasks=[];
-  if(Number(m.receivables.overdueCount)>0)tasks.push(taskCard('Förfallna kundfakturor',`${ore(m.receivables.overdueOre)} är förfallet och behöver följas upp.`,isDemo?'./receivables.html':'./index.html',m.receivables.overdueCount,'high'));
-  if(Number(m.payables.approvalCount)>0)tasks.push(taskCard('Leverantörsfakturor väntar på attest','Granska underlag och kontering innan nästa steg.','./payables.html',m.payables.approvalCount,'high'));
-  if(Number(m.payables.paymentCount)>0)tasks.push(taskCard('Leverantörsfakturor behöver betalningsåtgärd','Godkända eller betalningsförberedda fakturor behöver hanteras.','./payables.html',m.payables.paymentCount));
-  if(Number(m.bank.reviewCount)>0)tasks.push(taskCard('Bankhändelser behöver matchas','Inbetalningar saknar färdig matchning mot rätt affärshändelse.','./bank.html',m.bank.reviewCount,'high'));
-  if(Number(m.automation.reviewCount)>0)tasks.push(taskCard('Förslag väntar på granskning','Automationsförslag kräver mänsklig kontroll innan de går vidare.','./automation.html',m.automation.reviewCount));
-  if(Number(m.suppliers.pendingCount)>0)tasks.push(taskCard('Leverantörsändringar väntar på kontroll','Ändringar i leverantörsdata behöver granskas där kontrollflödet kräver det.','./suppliers.html',m.suppliers.pendingCount));
-  if(Number(m.inventory.pendingCount)>0)tasks.push(taskCard('Lagerjusteringar väntar på beslut','Inventerings- eller justeringsförslag behöver granskas.','./inventory.html',m.inventory.pendingCount));
-  if(Number(m.accounting.pendingUnlocks)>0)tasks.push(taskCard('Periodupplåsningar väntar på beslut','Begärda upplåsningar av bokföringsperiod behöver hanteras.','./accounting.html',m.accounting.pendingUnlocks,'high'));
-  const incomplete=m.loadErrors?.length?`<div class="notice warning"><b>Arbetslistan är ofullständig.</b> Kunde inte läsa: ${esc(m.loadErrors.join(', '))}. Nollvärden från dessa områden betyder inte att arbetet är klart.</div>`:'';
-  const empty=!tasks.length&&!m.loadErrors?.length?'<div class="worklist-empty"><b>Inga kända väntande uppgifter i de kontrollerade köerna.</b><span>Detta är inte ett bokförings- eller pilotgodkännande.</span></div>':'';
-  return `${incomplete}<section class="attention worklist"><div class="section-head"><div><span class="eyebrow">Arbetslista</span><h2>Vad behöver göras nu?</h2></div></div><div class="task-grid">${tasks.join('')||empty}</div></section>`
+  if(Number(m.receivables.overdueCount)>0)tasks.push({title:'Följ upp förfallna kundfakturor',text:`${ore(m.receivables.overdueOre)} är förfallet.`,href:isDemo?'./receivables.html':'./index.html',count:m.receivables.overdueCount,priority:'high',tone:'peach'});
+  if(Number(m.bank.reviewCount)>0)tasks.push({title:'Matcha bankhändelser',text:'Inbetalningar väntar på korrekt matchning.',href:'./bank.html',count:m.bank.reviewCount,priority:'high',tone:'sky'});
+  if(Number(m.payables.approvalCount)>0)tasks.push({title:'Granska leverantörsfakturor',text:'Fakturor väntar på attest och kontroll.',href:'./payables.html',count:m.payables.approvalCount,priority:'high',tone:'lime'});
+  if(Number(m.payables.paymentCount)>0)tasks.push({title:'Hantera leverantörsbetalningar',text:'Godkända fakturor är redo för nästa betalningssteg.',href:'./payments.html',count:m.payables.paymentCount,tone:'lime'});
+  if(Number(m.automation.reviewCount)>0)tasks.push({title:'Granska automationsförslag',text:'Förslag väntar på mänsklig kontroll.',href:'./automation.html',count:m.automation.reviewCount,tone:'sky'});
+  if(Number(m.accounting.pendingUnlocks)>0)tasks.push({title:'Besluta om periodupplåsning',text:'Begärda upplåsningar väntar på beslut.',href:'./accounting.html',count:m.accounting.pendingUnlocks,priority:'high',tone:'peach'});
+  if(Number(m.inventory.pendingCount)>0)tasks.push({title:'Granska lagerjusteringar',text:'Inventerings- eller justeringsposter väntar.',href:'./inventory.html',count:m.inventory.pendingCount,tone:'plain'});
+  return tasks.slice(0,6);
 }
-function modules(m){const a=m.availability||{};return `<section class="attention modules-secondary"><div class="section-head"><div><span class="eyebrow">Alla områden</span><h2>Öppna ett arbetsområde</h2></div></div><div class="module-grid">${isDemo?moduleCard('Kundfakturor','Skapa faktura och bokför kundfordran direkt i samma demo.','./invoices.html',m.receivables.totalCount,a.receivables):''}${isDemo?moduleCard('Kunder','Kundregister och faktureringsvillkor.','./customers.html','Register',true):''}${moduleCard('Kundreskontra','Öppna och betalda kundfordringar samt betalningshistorik.',isDemo?'./receivables.html':'./index.html',m.receivables.openCount,a.receivables)}${moduleCard('Bank & avstämning','Matcha inbetalningar och följ betalningsflöden.','./bank.html',m.bank.reviewCount,a.bank)}${moduleCard('Automationskö','Granska regel- och automationsförslag innan nästa steg.','./automation.html',m.automation.reviewCount,a.automation)}${moduleCard('Leverantörsfakturor','Registrering, kontering, attest och betalning.','./payables.html',m.payables.approvalCount+m.payables.paymentCount,a.payables)}${moduleCard('Leverantörer','Masterdata och kontrollerade ändringar av betalningsuppgifter.','./suppliers.html',m.suppliers.pendingCount,a.suppliers)}${moduleCard('Bokföring','Verifikationer, periodlås och spårbara rättelser.','./accounting.html',m.accounting.entryCount,a.accountingEntries)}${moduleCard('Lager','Artiklar, saldo, svinn, inventering och justeringar.','./inventory.html',m.inventory.pendingCount||m.inventory.itemCount,a.inventory)}${moduleCard('Rapporter','Ekonomisk uppföljning från gemensamma bokföringsposter.','./reports.html','Öppna',true)}${moduleCard('Lön','Import, validering och lönejournal.','./payroll.html',m.payroll.validatedCount,a.payroll)}${moduleCard('Dokument','Originalunderlag och koppling till affärshändelser.','./documents.html',m.documents.count,a.documents)}${moduleCard('Webbplats & innehåll','Redigera och förhandsgranska den publika webbplatsen.','./website.html',m.website.version?`v${m.website.version}`:'CMS',a.website)}</div></section>`}
 function render(m){
-  app.innerHTML=`<div class="dash-shell">${sidebar()}<section class="dash-main"><header class="topbar"><div><h1>Arbetslista</h1><p>${today()} · företagets arbetsdag</p></div><div class="user-chip"><b>${esc(session?.user?.displayName||'Demoanvändare')}</b></div></header><main class="content">${isDemo?'<div class="demo-banner"><b>Demo v1 är sammanhängande.</b> Kundfakturering, kundreskontra, bank, automation, bokföring och leverantörsflödet använder gemensam demodata.</div>':''}<section class="dash-hero"><div><span class="eyebrow">Dagens arbete</span><h2>Det som behöver uppmärksamhet först</h2><p>Arbetslistan bygger på de privata köerna i systemet. Öppna uppgiften direkt härifrån i stället för att leta efter rätt modul.</p>${isDemo?'<p><a class="button" href="./uat.html?demo=1">Starta testguiden</a></p>':''}</div><div class="hero-date">${today()}</div></section><section class="dash-metrics">${metric('Öppet kundsaldo',ore(m.receivables.openOre),`${m.receivables.openCount} öppna av ${m.receivables.totalCount} fakturor`,m.availability?.receivables!==false)}${metric('Förfallet kundsaldo',ore(m.receivables.overdueOre),`${m.receivables.overdueCount||0} fakturor`,m.availability?.receivables!==false)}${metric('Leverantörsåtgärder',m.payables.approvalCount+m.payables.paymentCount,'attest eller betalning',m.availability?.payables!==false)}${metric('Bank att matcha',m.bank.reviewCount,'inbetalningar behöver åtgärd',m.availability?.bank!==false)}</section>${worklist(m)}${modules(m)}</main></section></div>`
+  const tasks=importantTasks(m);
+  const firstName=String(session?.user?.displayName||session?.user?.username||(isDemo?'Demoanvändare':'')).trim().split(/\s+/)[0]||'';
+  const hello=`${greeting()}${firstName?', '+esc(firstName):''}.`;
+  const status=tasks.length
+    ? `<span class="today-count"><i aria-hidden="true"></i>${tasks.length} ${tasks.length===1?'sak':'saker'} behöver din uppmärksamhet</span>`
+    : '<span class="today-count calm"><i aria-hidden="true"></i>Inget akut i de viktigaste köerna</span>';
+  const warning=m.loadErrors?.length?'<div class="overview-soft-warning">Några köer kunde inte läsas just nu. Övriga poster visas som vanligt.</div>':'';
+  const taskMarkup=tasks.length
+    ? tasks.map(taskCard).join('')
+    : '<div class="overview-empty"><span class="empty-orbit" aria-hidden="true"></span><div><b>Arbetsdagen ser lugn ut.</b><p>Det finns inga kända akuta uppgifter i de viktigaste köerna just nu.</p></div></div>';
+  app.innerHTML=`<div class="dash-shell">${sidebar()}<section class="dash-main"><header class="topbar"><div><h1>Översikt</h1><p>${today()} · företagets arbetsdag</p></div><div class="user-chip"><b>${esc(session?.user?.displayName||'Användare')}</b></div></header><main class="content dashboard-content"><section class="welcome-card"><div class="welcome-copy"><span class="eyebrow">Dagens fokus</span><h2>${hello}</h2><p>Här visas bara det viktigaste som behöver göras idag.</p>${status}</div><div class="welcome-motion" aria-hidden="true"><span></span><span></span><span></span><b></b></div></section>${warning}<section class="today-work"><div class="section-head"><div><span class="eyebrow">Prioriterat idag</span><h2>Det viktigaste just nu</h2></div></div><div class="task-grid">${taskMarkup}</div></section></main></section></div>`;
+  globalThis.RollandsNavigation?.mount?.();
 }
-async function load(){if(isDemo){session={user:{displayName:'Demoanvändare'},company:{name:'Rollands Frukt o Grönt AB'}};render(await loadMetrics());return}const s=await api('/session');if(!s.authenticated){location.href='./index.html';return}session=s;render(await loadMetrics())}
+async function load(){
+  if(isDemo){
+    if(!Demo)throw new Error('Det gemensamma demoscenariot kunde inte laddas.');
+    session={user:{displayName:'Demoanvändare'},company:{name:'Rollands Frukt o Grönt AB'}};
+    render(await loadMetrics());
+    return;
+  }
+  if(isSupabase){
+    const metrics=await loadMetrics();
+    render(metrics);
+    return;
+  }
+  const s=await api('/session');
+  if(!s.authenticated){location.href='./index.html';return}
+  session=s;
+  render(await loadMetrics());
+}
 load().catch(error=>{app.innerHTML=`<main class="boot"><strong>Översikten kunde inte laddas</strong><span>${esc(error.message)}</span></main>`});
