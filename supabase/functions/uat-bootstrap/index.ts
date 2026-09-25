@@ -47,7 +47,7 @@ Deno.serve(async(req:Request)=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:cors(req)});
   if(req.method!=="POST")return reply(req,405,{error:"Endast POST stöds.",code:"METHOD_NOT_ALLOWED"});
   const origin=req.headers.get("origin")||"";
-  if(origin&&!allowedOrigins.has(origin))return reply(req,403,{error:"UAT-aktivering får endast köras från LT Studios GitHub Pages.",code:"ORIGIN_NOT_ALLOWED"});
+  if(!allowedOrigins.has(origin))return reply(req,403,{error:"UAT-aktivering får endast köras från LT Studios GitHub Pages.",code:"ORIGIN_NOT_ALLOWED"});
 
   let claimedInviteId:string|null=null;
   let createdUserId:string|null=null;
