@@ -48,6 +48,8 @@
   const key='rollands-navigation-v2:'+base.pathname;
   const runtimeKey='rollands-runtime-id:'+base.pathname;
   let runtimeCheckInFlight=false;
+  let navigationContextPromise=null;
+  const warmedNavigationTargets=new Set();
   async function ensureFreshRuntime(){
     if(demo||runtimeCheckInFlight)return false;
     runtimeCheckInFlight=true;
@@ -69,13 +71,52 @@
   function href(path){const u=new URL(path,base);if(demo&&path!=='./')u.searchParams.set('demo','1');return u.href;}
   const normalizePath=path=>path.replace(/\/index\.html$/,'/');
   function active(path){const u=new URL(path,base);return normalizePath(u.pathname)===normalizePath(location.pathname)&&(!u.hash||u.hash===(location.hash||'#/overview'));}
-  async function navigationContext(){
-    if(demo)return{groups,session:null};
+  function navigationContext(){
+    if(demo)return Promise.resolve({groups,session:null});
+    if(navigationContextPromise)return navigationContextPromise;
+    navigationContextPromise=(async()=>{
+      try{
+        const response=await fetch('/api/v1/session',{credentials:'same-origin',cache:'no-store'});
+        const session=response.ok?await response.json():null;
+        return{groups:visibleGroups({authenticated:session?.authenticated===true,permissions:session?.permissions||[]}),session};
+      }catch{return{groups:[],session:null}}
+    })();
+    return navigationContextPromise;
+  }
+
+  function warmNavigationTarget(targetHref){
     try{
-      const response=await fetch('/api/v1/session',{credentials:'same-origin',cache:'no-store'});
-      const session=response.ok?await response.json():null;
-      return{groups:visibleGroups({authenticated:session?.authenticated===true,permissions:session?.permissions||[]}),session};
-    }catch{return{groups:[],session:null}}
+      const target=new URL(targetHref,location.href);
+      if(target.origin!==location.origin||target.href===location.href||warmedNavigationTargets.has(target.href))return;
+      warmedNavigationTargets.add(target.href);
+      const resources=[target.href];
+      if(target.pathname.endsWith('.html')){
+        const stem=target.pathname.slice(0,-5);
+        resources.push(stem+'.js',stem+'.css');
+      }
+      for(const resourceHref of resources){
+        const link=document.createElement('link');
+        link.rel='prefetch';
+        link.href=resourceHref;
+        link.as=resourceHref.endsWith('.js')?'script':resourceHref.endsWith('.css')?'style':'document';
+        document.head.append(link);
+      }
+    }catch{}
+  }
+
+  function bindNavigationWarmup(link){
+    if(!link||link.dataset.navigationWarmup==='1')return;
+    link.dataset.navigationWarmup='1';
+    const warm=()=>warmNavigationTarget(link.href);
+    link.addEventListener('pointerenter',warm,{once:true,passive:true});
+    link.addEventListener('focus',warm,{once:true});
+    link.addEventListener('pointerdown',warm,{once:true,passive:true});
+  }
+
+  function warmVisibleNavigation(){
+    const run=()=>document.querySelectorAll('.shared-navigation a[href]').forEach(link=>warmNavigationTarget(link.href));
+    if('requestIdleCallback' in root)root.requestIdleCallback(run,{timeout:800});
+    else setTimeout(run,120);
   }
 
   // UI polish: all pictograms below are paths from Iconoir (MIT), never mixed with another icon set.
@@ -391,7 +432,11 @@
       const summary=document.createElement('summary');summary.textContent=group.label;details.append(summary);
       const links=document.createElement('div');links.className='shared-links';
       for(const [id,label,path] of group.items){
-        const a=document.createElement('a');a.dataset.navId=id;a.textContent=label;a.href=href(path);
+        const a=document.createElement('a');a.dataset.navId=id;a.textContent=label;a.href=href(path);bindNavigationWarmup(a);
+        a.addEventListener('click',()=>{
+          nav.querySelectorAll('a[aria-current="page"]').forEach(link=>{link.removeAttribute('aria-current');link.classList.remove('active');});
+          a.setAttribute('aria-current','page');a.classList.add('active');
+        });
         if(active(path)){a.setAttribute('aria-current','page');a.classList.add('active');}links.append(a);
       }
       details.append(links);nav.append(details);
@@ -400,7 +445,7 @@
     const foot=document.createElement('div');foot.className='shared-foot';
     const home=document.createElement('a');home.href=href(demo?'./':'portal/dashboard.html');home.textContent=demo?'Visa företagets hemsida':'Till arbetsöversikten';foot.append(home);
     const note=document.createElement('p');note.textContent=demo?'Äldre referensverktyg har separat demodata.':'Menyn följer din roll. Servern kontrollerar varje skyddad åtgärd oavsett vad som visas här.';foot.append(note);
-    sidebar.replaceChildren(brand,info,nav,foot);decorateUi();applySidebarPreference();
+    sidebar.replaceChildren(brand,info,nav,foot);decorateUi();applySidebarPreference();warmVisibleNavigation();
     try{sidebar.scrollTop=Number(sessionStorage.getItem(key+':scroll')||0)}catch{}
     if(!sidebar.dataset.scrollBound){sidebar.addEventListener('scroll',()=>{try{sessionStorage.setItem(key+':scroll',String(sidebar.scrollTop))}catch{}});sidebar.dataset.scrollBound='1';}
   }
