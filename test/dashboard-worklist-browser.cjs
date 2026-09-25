@@ -48,50 +48,39 @@ function json(route,status,body){
     await page.route('**/api/v1/**',route=>{
       const url=new URL(route.request().url());
       const p=url.pathname;
-      if(p==='/api/v1/session')return json(route,200,{authenticated:true,user:{displayName:'Dashboard Test'},company:{id:'co-test',name:'Dashboard Test AB'}});
+      if(p==='/api/v1/session')return json(route,200,{authenticated:true,user:{displayName:'Dashboard Test'},company:{id:'co-test',name:'Dashboard Test AB'},permissions:['customer-invoice.view','supplier-invoice.view','payment.view','bank.view','accounting.view','reports.view','supplier.view','inventory.view','documents.view']});
       if(p==='/api/v1/receivables')return json(route,503,{error:'Kundreskontran kunde inte läsas.'});
-      if(p==='/api/v1/payables/invoices')return json(route,200,{invoices:[]});
-      if(p==='/api/v1/bank/payments')return json(route,200,{payments:[]});
-      if(p==='/api/v1/automation/proposals')return json(route,200,{proposals:[]});
-      if(p==='/api/v1/suppliers/pending-changes')return json(route,200,{changes:[]});
-      if(p==='/api/v1/inventory/adjustments')return json(route,200,{adjustments:[]});
-      if(p==='/api/v1/inventory/items')return json(route,200,{items:[{id:'item-1'}]});
-      if(p==='/api/v1/accounting/unlock-requests')return json(route,200,{requests:[]});
-      if(p==='/api/v1/documents')return json(route,200,{documents:[]});
-      if(p==='/api/v1/accounting/entries')return json(route,200,{entries:[]});
-      if(p==='/api/v1/payroll/runs')return json(route,200,{runs:[]});
-      if(p==='/api/v1/website/cms')return json(route,200,{state:{published:{version:3}}});
+      if(p==='/api/v1/payables/invoices')return json(route,200,{invoices:[{status:'coded'},{status:'approved'}]});
+      if(p==='/api/v1/bank/payments')return json(route,200,{payments:[{status:'unmatched'}]});
+      if(p==='/api/v1/automation/proposals')return json(route,200,{proposals:[{status:'manual-review'}]});
+      if(p==='/api/v1/inventory/adjustments')return json(route,200,{adjustments:[{status:'pending'}]});
+      if(p==='/api/v1/accounting/unlock-requests')return json(route,200,{requests:[{status:'pending'}]});
       return json(route,404,{error:'Unexpected test route '+p});
     });
 
     await page.goto(base+'/dashboard.html',{waitUntil:'networkidle'});
 
-    const warning=page.locator('.notice.warning');
+    await page.locator('.sidebar.shared-sidebar').waitFor();
+    await page.locator('.shared-navigation').waitFor();
+    assert.equal(await page.locator('[data-nav-id="overview"]').count(),1);
+
+    const warning=page.locator('.overview-soft-warning');
     await warning.waitFor();
-    assert.match(await warning.innerText(),/Arbetslistan är ofullständig/);
-    assert.match(await warning.innerText(),/kundreskontra/);
+    assert.match(await warning.innerText(),/Några köer kunde inte läsas/);
 
-    const openMetric=page.locator('.dash-metric').filter({hasText:'Öppet kundsaldo'});
-    const overdueMetric=page.locator('.dash-metric').filter({hasText:'Förfallet kundsaldo'});
-    assert.match(await openMetric.innerText(),/Ej tillgängligt/);
-    assert.match(await overdueMetric.innerText(),/Ej tillgängligt/);
-    assert.equal((await openMetric.innerText()).includes('0,00'),false);
-    assert.equal((await overdueMetric.innerText()).includes('0,00'),false);
+    const cards=page.locator('.task-card');
+    assert.equal(await cards.count(),6);
+    assert.match(await page.locator('.welcome-card h2').innerText(),/Dashboard/);
+    assert.equal(await page.getByText('Starta testguiden').count(),0);
+    assert.equal(await page.getByText('Öppet kundsaldo').count(),0);
+    assert.equal(await page.getByText('Alla områden').count(),0);
 
-    const bankMetric=page.locator('.dash-metric').filter({hasText:'Bank att matcha'});
-    assert.match(await bankMetric.innerText(),/\b0\b/);
-    assert.equal((await bankMetric.innerText()).includes('Ej tillgängligt'),false);
+    assert.equal(await page.getByText('Matcha bankhändelser',{exact:true}).count(),1);
+    assert.equal(await page.getByText('Granska leverantörsfakturor',{exact:true}).count(),1);
+    assert.equal(await page.getByText('Granska automationsförslag',{exact:true}).count(),1);
+    assert.equal(await page.getByText('Besluta om periodupplåsning',{exact:true}).count(),1);
 
-    const receivablesCard=page.locator('.module-card').filter({hasText:'Kundreskontra'});
-    assert.match(await receivablesCard.innerText(),/Data kunde inte läsas/i);
-    assert.match(await receivablesCard.innerText(),/Ej tillgängligt/);
-
-    const inventoryCard=page.locator('.module-card').filter({hasText:'Lager'});
-    assert.match(await inventoryCard.innerText(),/\b1\b/);
-    const websiteCard=page.locator('.module-card').filter({hasText:'Webbplats & innehåll'});
-    assert.match(await websiteCard.innerText(),/v3/);
-
-    console.log('Dashboard unavailable-state browser flow: OK');
+    console.log('Dashboard sparse worklist and shared navigation flow: OK');
   }finally{
     if(browser)await browser.close();
     await close(server);
