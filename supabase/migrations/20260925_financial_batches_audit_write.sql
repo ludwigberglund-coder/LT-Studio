@@ -9,7 +9,7 @@ grant select,insert on public.audit_events to authenticated;
 drop policy if exists "controlled authenticated audit inserts" on public.audit_events;
 create policy "controlled authenticated audit inserts"
 on public.audit_events
-as restrictive
+as permissive
 for insert
 to authenticated
 with check (
