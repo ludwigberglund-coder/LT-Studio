@@ -38,6 +38,7 @@ test('gränssnittet stöder massregistrering, ångra och rollstyrt godkännande'
 });
 
 test('härdningen ger radspårning och egen-godkännande styrs av sista migrationen',()=>{
+ const js=read('apps/portal/batches.js');
  const sql=read('supabase/migrations/20260925_financial_batches_hardening.sql');
  assert.match(sql,/audit_financial_batch_transaction/);
  assert.match(sql,/audit_financial_batch_line/);
