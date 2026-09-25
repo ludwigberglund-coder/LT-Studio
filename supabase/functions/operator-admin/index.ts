@@ -198,24 +198,29 @@ Deno.serve(async(req)=>{
       return reply(200,{changed:true,incident:{status,updatedAt:new Date().toISOString(),updatedBy:operator.display_name}});
     }
     if(action==="create-user"){
-      const companyId=text(body.companyId),email=text(body.email||body.username).toLowerCase(),displayName=text(body.displayName),role=text(body.role||"readonly"),password=text(body.password);
+      const companyId=text(body.companyId),email=text(body.email||body.username).toLowerCase(),requestedDisplayName=text(body.displayName),role=text(body.role||"readonly"),password=text(body.password);
       if(!email.includes("@"))return reply(422,{error:"Supabase-konton måste använda en giltig e-postadress.",code:"INVALID_EMAIL"});
-      if(displayName.length<2||displayName.length>120)return reply(422,{error:"Användarens namn måste vara 2–120 tecken.",code:"INVALID_DISPLAY_NAME"});
       if(!allowedRoles.has(role))return reply(422,{error:"Ogiltig behörighet.",code:"INVALID_ROLE"});
-      if(!passwordOk(password))return reply(422,{error:"Lösenordet uppfyller inte lösenordskraven.",code:"WEAK_PASSWORD"});
       const company=(await admin.from("companies").select("id").eq("id",companyId).maybeSingle()).data;if(!company)return reply(404,{error:"Kundföretaget hittades inte.",code:"COMPANY_NOT_FOUND"});
       let authUser=await findAuthUser(admin,email),created=false;
-      if(!authUser){const result=await admin.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{display_name:displayName}});if(result.error)throw result.error;authUser=result.data.user;created=true}
+      if(!authUser){
+        if(requestedDisplayName.length<2||requestedDisplayName.length>120)return reply(422,{error:"Namn krävs för ett nytt konto och måste vara 2–120 tecken.",code:"INVALID_DISPLAY_NAME"});
+        if(!passwordOk(password))return reply(422,{error:"Ett nytt konto kräver ett lösenord som uppfyller lösenordskraven.",code:"WEAK_PASSWORD"});
+        const result=await admin.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{display_name:requestedDisplayName}});
+        if(result.error)throw result.error;authUser=result.data.user;created=true;
+      }
       if(!authUser)return reply(500,{error:"Användarkontot kunde inte skapas.",code:"USER_CREATE_FAILED"});
       const existing=(await admin.from("company_memberships").select("*").eq("company_id",companyId).eq("auth_user_id",authUser.id).maybeSingle()).data;
       if(existing)return reply(409,{error:"Användaren har redan åtkomst till kundföretaget.",code:"MEMBERSHIP_EXISTS"});
       const profile=(await admin.from("app_users").select("*").eq("auth_user_id",authUser.id).maybeSingle()).data;
       if(profile?.disabled)return reply(409,{error:"Det befintliga användarkontot är inaktiverat.",code:"USER_DISABLED"});
+      const displayName=profile?.display_name||requestedDisplayName||text(authUser.user_metadata?.display_name)||email;
+      if(displayName.length>120)return reply(422,{error:"Användarens namn är för långt.",code:"INVALID_DISPLAY_NAME"});
       let userId=profile?.id;
       if(!userId){userId="user_"+crypto.randomUUID().replaceAll("-","");const {error}=await admin.from("app_users").insert({id:userId,auth_user_id:authUser.id,username:email,display_name:displayName,disabled:false});if(error)throw error}
       const {error:membershipError}=await admin.from("company_memberships").insert({company_id:companyId,auth_user_id:authUser.id,user_id:userId,role});if(membershipError)throw membershipError;
       await audit(admin,user.id,created?"CUSTOMER_USER_CREATED":"CUSTOMER_EXISTING_USER_ADDED",{companyId,targetUserId:authUser.id,details:{role}});
-      return reply(201,{created,linkedExisting:!created,userId:authUser.id,username:email,displayName,role,mfaSecret:null,mfaEnrollmentRequired:true});
+      return reply(201,{created,linkedExisting:!created,userId:authUser.id,username:email,displayName,role,mfaSecret:null,mfaEnrollmentRequired:created});
     }
     if(action==="set-role"){
       const companyId=text(body.companyId),target=text(body.userId),role=text(body.role);if(!allowedRoles.has(role))return reply(422,{error:"Ogiltig behörighet.",code:"INVALID_ROLE"});
