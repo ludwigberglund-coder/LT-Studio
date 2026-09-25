@@ -47,7 +47,7 @@ function buildStatic(){
     'index.html','app.js','styles.css','design-system.css','admin/index.html','admin/app.js','admin/money-view.js','admin/money.css','admin/design-system.css',
     'admin/access-view.js','admin/access.css','admin/journal-view.js','admin/journal.css',
     'portal/dashboard.html','portal/dashboard.js','portal/dashboard.css','portal/portal-nav.js','portal/shared-nav.css','portal/profile.html','portal/profile.js','portal/company-settings.html','portal/company-settings.js','portal/company-settings.css',
-    'portal/index.html','portal/app.js','portal/styles.css','portal/design-system.css','portal/automation-link.js',
+    'portal/index.html','portal/app.js','portal/styles.css','portal/design-system.css','portal/automation-link.js','portal/supabase-config.js','portal/supabase-client.js',
     'portal/customers.html','portal/customers.js','portal/invoices.html','portal/invoices.js','portal/receivables.html','portal/receivables.js','portal/sales.css',
     'portal/accounts.html','portal/accounts.js','portal/invoice-editor.css',
     'portal/demo-scenario.js','portal/demo-workflows.js','portal/uat.html','portal/uat.js','portal/uat.css',
