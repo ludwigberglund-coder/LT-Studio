@@ -4,7 +4,7 @@ const Invoice=globalThis.RollandsInvoice;
 const Money=globalThis.RollandsMoney;
 const Pdf=globalThis.RollandsInvoicePdf;
 const isDemo=new URLSearchParams(location.search).get('demo')==='1';
-const isSupabase=location.hostname.endsWith('github.io')&&!isDemo;
+const isSupabase=location.hostname==='ludwigberglund-coder.github.io'&&!isDemo;
 let company={},view='list',draft=null,preview=null,previewRecord=null,previewCredit=null,previewCreditSummary=null,busy=false,dirty=false,search='',invoiceSearchOpen=false,invoiceSearchActiveIndex=-1,creditDialog=null;
 let privateCustomers=[],privateInvoices=[],privateDraftRecord=null,csrfToken=sessionStorage.getItem('rollands-csrf')||'',issueReady=false,issueBlocker='',issueRequestId='',supabaseCtx=null;
 const LEGACY_PRIVATE_DRAFT_KEY='rollands-private-invoice-draft-v1';
