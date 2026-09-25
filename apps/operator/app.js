@@ -1,5 +1,6 @@
 const root=document.getElementById('operator-app');
 const csrfKey='lt-operator-csrf';
+const useSupabase=Boolean(globalThis.LT_SUPABASE&&globalThis.LTSupabase&&globalThis.LTSupabaseUat);
 let session=null,overview=null,readiness=null,security=null,operatorAudit=null,securityMonitor=null,securityAlerts=null,securityPollTimer=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='',operatorRefreshing=false,companyQuery='',companyStatus='all',companySort='name',companySearchOpen=false,companySearchActiveIndex=-1,securitySeverity='all',securityPeriod='24h',securityCompany='all',securityIncidentStatus='all',statisticsCompany='all';
 
 
@@ -104,19 +105,60 @@ function trendCard(title,description,key,totalLabel){
   const months=overview?.monthly||[],total=months.reduce((sum,item)=>sum+Number(item[key]||0),0);
   return `<article class="chart-card"><div class="chart-head"><div><span class="eyebrow">6 MÅNADER</span><h3>${esc(title)}</h3><p>${esc(description)}</p></div><div class="chart-total"><strong>${num(total)}</strong><span>${esc(totalLabel)}</span></div></div>${sparkline(months,key)}<div class="chart-axis">${months.map(item=>`<span>${esc(item.label)}</span>`).join('')}</div></article>`;
 }
+function parseBody(value){if(!value)return{};if(typeof value==='object')return value;try{return JSON.parse(value)}catch{return{}}}
+function edgeAction(path,options={}){
+  const clean=String(path||'').split('?')[0],body=parseBody(options.body);
+  if(clean==='/session')return{action:'session'};
+  if(clean==='/overview')return{action:'overview'};
+  if(clean==='/readiness')return{action:'readiness'};
+  if(clean==='/security-events')return{action:'security-events',limit:100};
+  if(clean==='/security-monitor')return{action:'security-monitor'};
+  if(clean==='/security-alerts'&&String(options.method||'GET').toUpperCase()==='GET')return{action:'security-alerts'};
+  if(clean==='/security-alerts/test')return{action:'security-alert-test'};
+  if(clean==='/operator-audit')return{action:'operator-audit',limit:100};
+  let match=clean.match(/^\/companies\/([^/]+)$/);
+  if(match)return{action:'company-detail',companyId:decodeURIComponent(match[1])};
+  match=clean.match(/^\/companies\/([^/]+)\/users$/);
+  if(match)return{action:'create-user',companyId:decodeURIComponent(match[1]),...body};
+  match=clean.match(/^\/companies\/([^/]+)\/users\/([^/]+)\/role$/);
+  if(match)return{action:'set-role',companyId:decodeURIComponent(match[1]),userId:decodeURIComponent(match[2]),...body};
+  match=clean.match(/^\/companies\/([^/]+)\/users\/([^/]+)\/password$/);
+  if(match)return{action:'reset-password',companyId:decodeURIComponent(match[1]),userId:decodeURIComponent(match[2]),...body};
+  match=clean.match(/^\/companies\/([^/]+)\/users\/([^/]+)$/);
+  if(match)return{action:'remove-user',companyId:decodeURIComponent(match[1]),userId:decodeURIComponent(match[2])};
+  match=clean.match(/^\/security-events\/([^/]+)\/status$/);
+  if(match)return{action:'set-incident-status',eventId:decodeURIComponent(match[1]),...body};
+  throw Object.assign(new Error('Operatorfunktionen är ännu inte migrerad till Supabase.'),{code:'OPERATOR_ACTION_NOT_MIGRATED',status:501});
+}
+async function supabaseOperatorApi(path,options={}){
+  const token=globalThis.LTSupabaseUat.token();
+  if(!token){
+    if(String(path).split('?')[0]==='/session')return{authenticated:false};
+    throw Object.assign(new Error('LT Studio-operatörsinloggning krävs.'),{code:'OPERATOR_AUTH_REQUIRED',status:401});
+  }
+  const response=await fetch(globalThis.LT_SUPABASE.url+'/functions/v1/operator-admin',{
+    method:'POST',cache:'no-store',
+    headers:{Accept:'application/json','Content-Type':'application/json',apikey:globalThis.LT_SUPABASE.publishableKey,Authorization:'Bearer '+token},
+    body:JSON.stringify(edgeAction(path,options))
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok){const e=new Error(data.error||'Begäran misslyckades.');e.code=data.code;e.status=response.status;e.data=data;throw e}
+  return data;
+}
 async function api(path,options={}){
+  if(useSupabase)return supabaseOperatorApi(path,options);
   const headers={Accept:'application/json',...(options.headers||{})};
   const response=await fetch('/api/operator/v1'+path,{credentials:'same-origin',cache:'no-store',...options,headers});
   const data=await response.json().catch(()=>({}));
   if(!response.ok){const e=new Error(data.error||'Begäran misslyckades.');e.code=data.code;e.status=response.status;e.data=data;throw e}
   return data;
 }
-function csrf(){return sessionStorage.getItem(csrfKey)||''}
+function csrf(){return useSupabase?'':(sessionStorage.getItem(csrfKey)||'')}
 function loginView(){
   root.innerHTML=`<section class="login-shell">
-    <div class="login-brand"><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div><span class="login-kicker">ADMIN CONTROL CENTER</span><h1>Allt viktigt.<br>På ett ställe.</h1><p>Administrera kundföretag, användare, behörigheter, statistik och drift från en separat, MFA-skyddad LT Studio-portal.</p></div><small>Separat LT Studio-inloggning · MFA · spårbar administratörslogg</small></div>
-    <div class="login-panel"><form class="card login-card" id="login-form"><div class="login-card-mark"><span class="mark-icon"></span></div><h2>LT Studio-inloggning</h2><p>Logga in med ert separata operatörskonto.</p>
-      <label class="field"><span>Användarnamn</span><input name="username" autocomplete="username" required></label>
+    <div class="login-brand"><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div><span class="login-kicker">ADMIN CONTROL CENTER</span><h1>Allt viktigt.<br>På ett ställe.</h1><p>Administrera kundföretag, användare, behörigheter, statistik och drift från en separat, MFA-skyddad LT Studio-portal.</p></div><small>Supabase Auth · obligatorisk MFA (AAL2) · spårbar administratörslogg</small></div>
+    <div class="login-panel"><form class="card login-card" id="login-form"><div class="login-card-mark"><span class="mark-icon"></span></div><h2>LT Studio-inloggning</h2><p>Logga in med ert separata LT Studio-operatörskonto. Supabase Auth kräver lösenord och verifierad TOTP-MFA.</p>
+      <label class="field"><span>E-post</span><input name="username" type="email" autocomplete="username" required></label>
       <label class="field"><span>Lösenord</span><input name="password" type="password" autocomplete="current-password" required></label>
       <label class="field"><span>MFA-kod</span><input name="totp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></label>
       <button class="button full-button" type="submit">Logga in</button>
@@ -158,8 +200,8 @@ function securityFindings(){
 }
 function modalMarkup(){
   if(!modal)return '';
-  if(modal.kind==='password')return `<div class="modal-backdrop" data-modal-backdrop><section class="modal-card portal-modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><div><span class="eyebrow">SÄKER ÅTGÄRD</span><h2 id="modal-title">Byt lösenord</h2><p>${esc(modal.userName)}</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div><form id="reset-password-form"><label class="field"><span>Nytt tillfälligt lösenord</span><input name="password" type="password" required minlength="8" autocomplete="new-password" autofocus></label><p class="form-help">Minst 8 tecken, stor och liten bokstav samt minst en siffra eller ett specialtecken. Lösenordet gäller hela personens konto i alla företag där kontot har åtkomst, och alla tidigare sessioner avslutas efter bytet.</p><div class="modal-actions"><button class="button secondary" type="button" data-action="close-modal">Avbryt</button><button class="button" type="submit">Spara nytt lösenord</button></div></form></section></div>`;
-  if(modal.kind==='remove')return `<div class="modal-backdrop" data-modal-backdrop><section class="modal-card portal-modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><div><span class="eyebrow">BEKRÄFTA ÅTGÄRD</span><h2 id="modal-title">Ta bort åtkomst?</h2><p>${esc(modal.userName)}</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div><p class="modal-copy">Användaren tas bort från just detta företag och aktiva sessioner avslutas. Kontot påverkas inte i andra företag där personen har åtkomst.</p><div class="modal-actions"><button class="button secondary" type="button" data-action="close-modal">Avbryt</button><button class="button danger solid" type="button" data-action="confirm-remove-user">Ta bort åtkomst</button></div></section></div>`;
+  if(modal.kind==='password')return `<div class="modal-backdrop" data-modal-backdrop><section class="modal-card portal-modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><div><span class="eyebrow">SÄKER ÅTGÄRD</span><h2 id="modal-title">Byt lösenord</h2><p>${esc(modal.userName)}</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div><form id="reset-password-form"><label class="field"><span>Nytt tillfälligt lösenord</span><input name="password" type="password" required minlength="8" autocomplete="new-password" autofocus></label><p class="form-help">Minst 8 tecken, stor och liten bokstav samt minst en siffra eller ett specialtecken. Lösenordet gäller hela personens konto i alla företag där kontot har åtkomst, och befintliga sessioner kan fortsätta tills deras Supabase-token löper ut; be användaren logga in igen efter bytet.</p><div class="modal-actions"><button class="button secondary" type="button" data-action="close-modal">Avbryt</button><button class="button" type="submit">Spara nytt lösenord</button></div></form></section></div>`;
+  if(modal.kind==='remove')return `<div class="modal-backdrop" data-modal-backdrop><section class="modal-card portal-modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><div><span class="eyebrow">BEKRÄFTA ÅTGÄRD</span><h2 id="modal-title">Ta bort åtkomst?</h2><p>${esc(modal.userName)}</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div><p class="modal-copy">Användaren tas bort från just detta företag. Kontot påverkas inte i andra företag där personen har åtkomst. Befintliga Supabase-sessioner kan leva tills token uppdateras, men RLS stoppar åtkomst när medlemskapet inte längre finns.</p><div class="modal-actions"><button class="button secondary" type="button" data-action="close-modal">Avbryt</button><button class="button danger solid" type="button" data-action="confirm-remove-user">Ta bort åtkomst</button></div></section></div>`;
   return '';
 }
 function successNotice(){
@@ -584,15 +626,30 @@ document.addEventListener('keydown',async event=>{
 document.addEventListener('submit',async event=>{
   if(event.target.id==='login-form'){
     event.preventDefault();errorMessage='';const button=event.target.querySelector('button[type="submit"]');button.disabled=true;const data=Object.fromEntries(new FormData(event.target).entries());
-    try{const signed=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});session={authenticated:true,operator:signed.operator};sessionStorage.setItem(csrfKey,signed.csrfToken||'');await loadData();render();startSecurityPolling()}catch(error){errorMessage=error.message;loginView()}return;
+    try{
+      if(useSupabase){
+        const signed=await globalThis.LTSupabase.signIn({email:String(data.username||'').trim(),password:String(data.password||'')});
+        const authUser=signed?.user||await globalThis.LTSupabase.getUser(signed.access_token);
+        const factor=(authUser?.factors||[]).find(item=>item.status==='verified'&&item.factor_type==='totp');
+        if(!factor){await globalThis.LTSupabase.signOut(signed.access_token).catch(()=>{});throw new Error('Operatörskontot saknar verifierad TOTP-MFA i Supabase Auth. Registrera MFA innan driftadmin kan användas.')}
+        const challenge=await globalThis.LTSupabase.mfaChallenge(signed.access_token,factor.id);
+        const verified=await globalThis.LTSupabase.mfaVerify(signed.access_token,factor.id,challenge.id,String(data.totp||''));
+        if(!verified?.access_token)throw new Error('MFA-verifieringen gav ingen giltig Supabase-session.');
+        globalThis.LTSupabaseUat.storeSession(verified);
+        const current=await api('/session');session=current;await loadData();render();startSecurityPolling();
+      }else{
+        const signed=await api('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+        session={authenticated:true,operator:signed.operator};sessionStorage.setItem(csrfKey,signed.csrfToken||'');await loadData();render();startSecurityPolling();
+      }
+    }catch(error){if(useSupabase)globalThis.LTSupabaseUat.storeSession(null);errorMessage=error.message;loginView()}return;
   }
   if(event.target.id==='add-user-form'){
     event.preventDefault();const data=Object.fromEntries(new FormData(event.target).entries());const button=event.target.querySelector('button[type="submit"]');if(button)button.disabled=true;
-    try{const created=await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users',{method:'POST',body:JSON.stringify(data)});await reloadSelectedCompanyOverview();uiNotice=created.linkedExisting?'Befintligt konto kopplades till företaget. Lösenord och MFA ändrades inte.':'Användaren skapades.';render();const box=document.getElementById('mfa-result');if(box&&created.mfaSecret)box.innerHTML=`<div class="success-box"><strong>MFA-hemlighet – visas bara nu</strong><p><code>${esc(created.mfaSecret)}</code></p><p>Ge koden direkt till användaren och spara den inte i GitHub eller delade dokument.</p></div>`}catch(error){errorMessage=error.message;render()}return;
+    try{const created=await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users',{method:'POST',body:JSON.stringify(data)});await reloadSelectedCompanyOverview();uiNotice=created.linkedExisting?'Befintligt Supabase-konto kopplades till företaget.':'Användaren skapades i Supabase Auth.';render();const box=document.getElementById('mfa-result');if(box&&created.mfaEnrollmentRequired)box.innerHTML=`<div class="success-box"><strong>MFA registreras av användaren</strong><p>Användaren ska logga in och registrera sin TOTP-faktor i Supabase Auth. LT Studio visar eller lagrar inte MFA-hemligheten i adminportalen.</p></div>`}catch(error){errorMessage=error.message;render()}return;
   }
   if(event.target.id==='reset-password-form'){
     event.preventDefault();if(!modal||modal.kind!=='password')return;const data=Object.fromEntries(new FormData(event.target).entries());const button=event.target.querySelector('button[type="submit"]');if(button)button.disabled=true;
-    try{await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users/'+encodeURIComponent(modal.userId)+'/password',{method:'PUT',body:JSON.stringify({password:data.password})});await reloadSelectedCompanyOverview();modal=null;uiNotice='Lösenordet ändrades och användarens tidigare sessioner avslutades.';errorMessage='';render()}catch(error){errorMessage=error.message;modal=null;render()}return;
+    try{await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users/'+encodeURIComponent(modal.userId)+'/password',{method:'PUT',body:JSON.stringify({password:data.password})});await reloadSelectedCompanyOverview();modal=null;uiNotice=useSupabase?'Lösenordet ändrades i Supabase Auth. Be användaren logga in igen.':'Lösenordet ändrades och användarens tidigare sessioner avslutades.';errorMessage='';render()}catch(error){errorMessage=error.message;modal=null;render()}return;
   }
 });
 document.addEventListener('change',async event=>{
@@ -618,7 +675,7 @@ document.addEventListener('change',async event=>{
   if(event.target.matches?.('[data-company-sort]')){companySort=event.target.value;updateCompanyTable();return}
   const userId=event.target.dataset.roleUser;if(!userId||!selectedCompany)return;
   event.target.disabled=true;
-  try{await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users/'+encodeURIComponent(userId)+'/role',{method:'PUT',body:JSON.stringify({role:event.target.value})});await reloadSelectedCompanyOverview();uiNotice='Behörigheten uppdaterades och användarens tidigare sessioner avslutades.';errorMessage='';render()}catch(error){errorMessage=error.message;render()}
+  try{await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users/'+encodeURIComponent(userId)+'/role',{method:'PUT',body:JSON.stringify({role:event.target.value})});await reloadSelectedCompanyOverview();uiNotice=useSupabase?'Behörigheten uppdaterades. RLS använder den nya rollen vid nästa åtkomstkontroll.':'Behörigheten uppdaterades och användarens tidigare sessioner avslutades.';errorMessage='';render()}catch(error){errorMessage=error.message;render()}
 });
 document.addEventListener('keydown',async event=>{
   const row=event.target.closest?.('[data-company-id]');if(!row||!['Enter',' '].includes(event.key))return;
@@ -660,12 +717,12 @@ document.addEventListener('click',async event=>{
   if(action==='dismiss-notice'){uiNotice='';render();return}
   if(action==='confirm-remove-user'){
     if(!modal||modal.kind!=='remove')return;button.disabled=true;
-    try{await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users/'+encodeURIComponent(modal.userId),{method:'DELETE',body:'{}'});await reloadSelectedCompanyOverview();modal=null;uiNotice='Användarens åtkomst till företaget togs bort och aktiva sessioner avslutades.';errorMessage='';render()}catch(error){errorMessage=error.message;modal=null;render()}return;
+    try{await mutate('/companies/'+encodeURIComponent(selectedCompany.company.id)+'/users/'+encodeURIComponent(modal.userId),{method:'DELETE',body:'{}'});await reloadSelectedCompanyOverview();modal=null;uiNotice=useSupabase?'Användarens medlemskap i företaget togs bort. RLS blockerar fortsatt företagsåtkomst.':'Användarens åtkomst till företaget togs bort och aktiva sessioner avslutades.';errorMessage='';render()}catch(error){errorMessage=error.message;modal=null;render()}return;
   }
   if(action==='logout'){
-    try{await mutate('/auth/logout',{method:'POST',body:'{}'})}catch{}
+    try{if(useSupabase)await globalThis.LTSupabaseUat.signOut();else await mutate('/auth/logout',{method:'POST',body:'{}'})}catch{}
     stopSecurityPolling();sessionStorage.removeItem(csrfKey);session=null;overview=null;readiness=null;security=null;operatorAudit=null;securityMonitor=null;securityAlerts=null;selectedCompany=null;errorMessage='';loginView();
   }
 });
-async function boot(){try{const current=await api('/session');if(!current.authenticated){loginView();return}session=current;await loadData();render();startSecurityPolling()}catch(error){errorMessage=error.message;loginView()}}
+async function boot(){try{const current=await api('/session');if(!current.authenticated){loginView();return}session=current;await loadData();render();startSecurityPolling()}catch(error){if(useSupabase&&['OPERATOR_AUTH_REQUIRED','OPERATOR_MFA_REQUIRED','OPERATOR_ACCESS_DENIED'].includes(error.code))globalThis.LTSupabaseUat.storeSession(null);errorMessage=error.message;loginView()}}
 boot();
