@@ -18,6 +18,7 @@ const portalPages=[
   'receivables.html',
   'customers.html',
   'payables.html',
+  'supplier-ledger.html',
   'suppliers.html',
   'payments.html',
   'bank.html',
@@ -28,6 +29,7 @@ const portalPages=[
   'inventory.html',
   'payroll.html',
   'automation.html',
+  'batches.html',
   'website.html',
   'profile.html',
   'company-settings.html',
@@ -196,25 +198,29 @@ function sameOriginAsset(url,base){
           assert.ok(state.navLinks>=5,`${surface.id} ${viewport.id} rendered too few shared navigation links (${state.navLinks})`);
           const toggle=page.locator('.shared-menu-toggle');
           const sidebar=page.locator('.sidebar.shared-sidebar');
-          if(await sidebar.count()){
-            assert.equal(await toggle.count(),1,`${surface.id} ${viewport.id} must render exactly one shared menu toggle`);
-            assert.equal(await toggle.isVisible(),true,`${surface.id} ${viewport.id} menu toggle must always be visible`);
-            if(viewport.id==='mobile'){
-              await toggle.click();
-              await page.waitForTimeout(380);
-              assert.equal(await toggle.getAttribute('aria-expanded'),'true',`${surface.id} mobile menu did not open`);
-              assert.equal(await page.locator('.shared-workspace-shell').evaluate(el=>el.classList.contains('shared-mobile-menu-open')),true,`${surface.id} mobile shell did not enter open state`);
-              await page.keyboard.press('Escape');
-              await page.waitForTimeout(80);
-              assert.equal(await toggle.getAttribute('aria-expanded'),'false',`${surface.id} mobile menu did not close with Escape`);
-            }else{
-              await toggle.click();
-              await page.waitForTimeout(80);
-              assert.equal(await page.locator('.shared-workspace-shell').evaluate(el=>el.classList.contains('shared-sidebar-collapsed')),true,`${surface.id} desktop menu did not collapse`);
-              await toggle.click();
-              await page.waitForTimeout(80);
-              assert.equal(await page.locator('.shared-workspace-shell').evaluate(el=>el.classList.contains('shared-sidebar-collapsed')),false,`${surface.id} desktop menu did not reopen`);
-            }
+          assert.equal(await sidebar.count(),1,`${surface.id} ${viewport.id} must render exactly one shared sidebar`);
+          assert.equal(await toggle.count(),1,`${surface.id} ${viewport.id} must render exactly one shared menu toggle`);
+          assert.equal(await toggle.isVisible(),true,`${surface.id} ${viewport.id} menu toggle must always be visible`);
+          if(viewport.id==='mobile'){
+            assert.equal(await toggle.getAttribute('aria-expanded'),'false',`${surface.id} mobile menu must start closed`);
+            await toggle.click();
+            await page.waitForTimeout(380);
+            assert.equal(await toggle.getAttribute('aria-expanded'),'true',`${surface.id} mobile menu did not open`);
+            assert.equal(await page.locator('.shared-workspace-shell').evaluate(el=>el.classList.contains('shared-mobile-menu-open')),true,`${surface.id} mobile shell did not enter open state`);
+            await page.keyboard.press('Escape');
+            await page.waitForTimeout(80);
+            assert.equal(await toggle.getAttribute('aria-expanded'),'false',`${surface.id} mobile menu did not close with Escape`);
+          }else{
+            assert.equal(await toggle.getAttribute('aria-expanded'),'true',`${surface.id} desktop menu must start open`);
+            assert.equal(await page.locator('.shared-workspace-shell').evaluate(el=>el.classList.contains('shared-sidebar-collapsed')),false,`${surface.id} desktop sidebar must be expanded by default`);
+            const sidebarRect=await sidebar.boundingBox();
+            assert.ok(sidebarRect&&sidebarRect.width>=180&&sidebarRect.x<viewport.width,`${surface.id} desktop sidebar must be visibly inside the viewport`);
+            await toggle.click();
+            await page.waitForTimeout(80);
+            assert.equal(await page.locator('.shared-workspace-shell').evaluate(el=>el.classList.contains('shared-sidebar-collapsed')),true,`${surface.id} desktop menu did not collapse`);
+            await toggle.click();
+            await page.waitForTimeout(80);
+            assert.equal(await page.locator('.shared-workspace-shell').evaluate(el=>el.classList.contains('shared-sidebar-collapsed')),false,`${surface.id} desktop menu did not reopen`);
           }
         }
 
