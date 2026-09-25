@@ -151,6 +151,9 @@ Deno.serve(async(req:Request)=>{
       if(url&&secret){
         const admin=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
         if(createdUserId){
+          await admin.from("platform_operators").delete().eq("auth_user_id",createdUserId).catch(()=>{});
+          await admin.from("company_memberships").delete().eq("auth_user_id",createdUserId).catch(()=>{});
+          await admin.from("app_users").delete().eq("auth_user_id",createdUserId).catch(()=>{});
           await admin.auth.admin.deleteUser(createdUserId).catch(()=>{});
           createdUserId=null;
         }
