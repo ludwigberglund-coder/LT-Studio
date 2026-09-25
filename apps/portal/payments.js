@@ -1,5 +1,5 @@
 const app=document.getElementById('payments-app');
-const isDemo=location.hostname.endsWith('github.io')||new URLSearchParams(location.search).has('demo');
+const isDemo=location.hostname==='ludwigberglund-coder.github.io'||new URLSearchParams(location.search).has('demo');
 let session=null,mode='month',anchor=today(),direction='',status='',query='',account='',sort='date',order='asc',data=null,message='',refreshing=false,searchOpen=false,searchActiveIndex=-1,searchSourceRows=[];
 function today(){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
 function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
