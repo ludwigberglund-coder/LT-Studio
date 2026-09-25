@@ -20,6 +20,7 @@
     signIn:({email,password})=>request('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({email,password})}),
     signOut:(token)=>request('/auth/v1/logout',{method:'POST',token}),
     getUser:(token)=>request('/auth/v1/user',{token}),
+    rpc:(name,args,token)=>request('/rest/v1/rpc/'+encodeURIComponent(name),{method:'POST',token,headers:{Prefer:'return=representation'},body:JSON.stringify(args||{})}),
     from:(table,token)=>({
       select:(query='*',filters='')=>request('/rest/v1/'+encodeURIComponent(table)+'?select='+encodeURIComponent(query)+(filters?'&'+filters:''),{token}),
       insert:(rows)=>request('/rest/v1/'+encodeURIComponent(table),{method:'POST',token,headers:{Prefer:'return=representation'},body:JSON.stringify(rows)}),
