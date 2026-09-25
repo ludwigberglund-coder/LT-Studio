@@ -56,7 +56,7 @@ function openingBalancePanel(){
   </article>`;
 }
 async function loadOpeningBalance(){
-  if(isSupabase){openingBalance=null;return}
+  if(isSupabase){openingBalance=entries.find(entry=>entry.sourceType==='opening-balance'&&String(entry.sourceId)===String(openingYear))||null;openingMessage='';return}
   if(isDemo){openingBalance=null;return}
   try{openingBalance=(await api(`/accounting/opening-balances/${encodeURIComponent(openingYear)}`)).entry;openingMessage=''}
   catch(error){
@@ -66,11 +66,10 @@ async function loadOpeningBalance(){
 }
 function render(){const current=periods.find(p=>p.period===currentPeriod())||{period:currentPeriod(),status:'open'};app.innerHTML=`<div class="accounting-shell">${sidebar()}<section class="accounting-main"><header class="topbar"><div><h1>Bokföring & perioder</h1><p>Verifikationer bevaras. Rättelser sker med nya spårbara poster.</p></div><div class="user-chip"><b>${esc(session?.user?.displayName||'Demoanvändare')}</b></div></header><main class="accounting-content">${isDemo?'<div class="demo-banner"><b>Gemensamt UAT-scenario.</b> Här visas även verifikationer som skapas av andra demoflöden, till exempel bekräftade leverantörsbetalningar.</div>':''}<section class="accounting-grid"><article class="panel"><span class="eyebrow">Verifikationer</span><h2>Bokförda poster</h2><p>Klicka på en rad för att se exakt konto, debet och kredit.</p>${entryTable()}${entryDetail()}</article><article class="panel"><span class="eyebrow">Periodkontroll</span><h2>${esc(current.period)} · <span class="status-pill ${current.status==='locked'?'locked':''}">${statusLabel(current.status)}</span></h2><p>En låst period kan inte ta emot nya verifikationer. Upplåsning kräver separat beslut.</p>${periodControls(current)}${periodList()}${unlockList()}</article></section>${openingBalancePanel()}</main></section></div>`;bind()}
 function entryTable(){return `<div class="accounting-table-scroll"><table class="accounting-table"><thead><tr><th>Nr</th><th>Datum</th><th>Text</th><th>Källa</th><th class="money">Belopp</th></tr></thead><tbody>${entries.map(e=>`<tr data-entry="${esc(e.id)}"><td><b>${esc(e.number)}</b></td><td>${esc(e.postingDate)}</td><td>${esc(e.description)}</td><td>${esc(e.sourceType)}</td><td class="money">${ore(entryTotal(e))}</td></tr>`).join('')||'<tr><td colspan="5" class="empty-state">Inga verifikationer ännu.</td></tr>'}</tbody></table></div>`}
-function entryDetail(){if(!selectedEntry)return'';const opening=selectedEntry.sourceType==='opening-balance';if(isSupabase)return `<div class="entry-detail"><div class="section-head"><div><span class="eyebrow">${esc(selectedEntry.number)}</span><h2>${esc(selectedEntry.description)}</h2></div></div><div class="entry-lines">${(selectedEntry.lines||[]).map(line=>`<div class="entry-line"><b>${esc(line.account)}</b><span>${esc(line.text||'')}</span><span class="money">Debet ${line.debitOre?ore(line.debitOre):'—'}</span><span class="money">Kredit ${line.creditOre?ore(line.creditOre):'—'}</span></div>`).join('')}</div><div class="notice-box warning">Rättelser i Supabase-UAT aktiveras först när motverifikationen kan skapas atomiskt med full revisionshistorik.</div></div>`;return `<div class="entry-detail"><div class="section-head"><div><span class="eyebrow">${esc(selectedEntry.number)}</span><h2>${esc(selectedEntry.description)}</h2></div></div><div class="entry-lines">${(selectedEntry.lines||[]).map(line=>`<div class="entry-line"><b>${esc(line.account)}</b><span>${esc(line.text||'')}</span><span class="money">Debet ${line.debitOre?ore(line.debitOre):'—'}</span><span class="money">Kredit ${line.creditOre?ore(line.creditOre):'—'}</span></div>`).join('')}</div>${opening?'<div class="notice-box warning">Ingående balans rättas inte genom det generella rättelseflödet. Granska migreringsunderlaget och använd ett särskilt dokumenterat migrations-/rättelseflöde.</div>':`<div class="notice-box">Originalverifikationen ändras aldrig. En rättelse skapar en ny motverifikation med omvänd debet/kredit.</div><form class="accounting-form" id="correction-form"><label>Rättelsedatum<input name="postingDate" type="date" value="${today()}" required></label><label>Orsak<textarea name="reason" minlength="5" maxlength="500" required></textarea></label><button class="button" type="submit">Skapa motverifikation</button><p class="form-error"></p></form>`}</div>`}
-function periodControls(current){if(isSupabase)return `<div class="notice-box warning">Periodlåsning och upplåsning är tillfälligt skrivskyddade i Supabase-UAT tills besluts- och auditflödet är fullt migrerat.</div>`;if(current.status==='locked')return `<form class="accounting-form" id="unlock-form"><label>Orsak till upplåsning<textarea name="reason" minlength="5" maxlength="500" required></textarea></label><button class="button" type="submit">Begär upplåsning</button><p class="form-error"></p></form>`;return `<div class="toolbar"><button class="button" data-action="lock-current" type="button">Lås ${esc(current.period)}</button></div>`}
+function entryDetail(){if(!selectedEntry)return'';const opening=selectedEntry.sourceType==='opening-balance';if(isSupabase){const manual=['manual','manual-journal'].includes(selectedEntry.sourceType)&&!(selectedEntry.lines||[]).some(line=>/^(151|244)\d$/.test(String(line.account)));const action=opening?'<div class="notice-box warning">Ingående balans rättas inte genom det generella rättelseflödet.</div>':manual?`<div class="notice-box">Originalverifikationen ändras aldrig. Rättelsen skapar en ny motverifikation med omvänd debet/kredit.</div><form class="accounting-form" id="correction-form"><label>Rättelsedatum<input name="postingDate" type="date" value="${today()}" required></label><label>Orsak<textarea name="reason" minlength="5" maxlength="500" required></textarea></label><button class="button" type="submit">Skapa motverifikation</button><p class="form-error"></p></form>`:'<div class="notice-box warning">Den här posten kommer från faktura, betalning, lön eller annat källflöde. En fristående motverifikation kan ge fel reskontra och är därför spärrad här.</div>';return `<div class="entry-detail"><div class="section-head"><div><span class="eyebrow">${esc(selectedEntry.number)}</span><h2>${esc(selectedEntry.description)}</h2></div></div><div class="entry-lines">${(selectedEntry.lines||[]).map(line=>`<div class="entry-line"><b>${esc(line.account)}</b><span>${esc(line.text||'')}</span><span class="money">Debet ${line.debitOre?ore(line.debitOre):'—'}</span><span class="money">Kredit ${line.creditOre?ore(line.creditOre):'—'}</span></div>`).join('')}</div>${action}</div>`}return `<div class="entry-detail"><div class="section-head"><div><span class="eyebrow">${esc(selectedEntry.number)}</span><h2>${esc(selectedEntry.description)}</h2></div></div><div class="entry-lines">${(selectedEntry.lines||[]).map(line=>`<div class="entry-line"><b>${esc(line.account)}</b><span>${esc(line.text||'')}</span><span class="money">Debet ${line.debitOre?ore(line.debitOre):'—'}</span><span class="money">Kredit ${line.creditOre?ore(line.creditOre):'—'}</span></div>`).join('')}</div>${opening?'<div class="notice-box warning">Ingående balans rättas inte genom det generella rättelseflödet. Granska migreringsunderlaget och använd ett särskilt dokumenterat migrations-/rättelseflöde.</div>':`<div class="notice-box">Originalverifikationen ändras aldrig. En rättelse skapar en ny motverifikation med omvänd debet/kredit.</div><form class="accounting-form" id="correction-form"><label>Rättelsedatum<input name="postingDate" type="date" value="${today()}" required></label><label>Orsak<textarea name="reason" minlength="5" maxlength="500" required></textarea></label><button class="button" type="submit">Skapa motverifikation</button><p class="form-error"></p></form>`}</div>`}
+function periodControls(current){if(current.status==='locked')return `<form class="accounting-form" id="unlock-form"><label>Orsak till upplåsning<textarea name="reason" minlength="5" maxlength="500" required></textarea></label><button class="button" type="submit">Begär upplåsning</button><p class="form-error"></p></form>`;return `<div class="toolbar"><button class="button" data-action="lock-current" type="button">Lås ${esc(current.period)}</button></div>`}
 function periodList(){return `<div class="period-list">${periods.map(p=>`<div class="period-row"><div><b>${esc(p.period)}</b><br><small>${p.lockedAt?`Låst ${esc(String(p.lockedAt).slice(0,10))}`:'Öppen för bokföring'}</small></div><span class="status-pill ${p.status==='locked'?'locked':''}">${statusLabel(p.status)}</span><span></span></div>`).join('')}</div>`}
 function unlockList(){
-  if(isSupabase)return `<div class="entry-detail"><span class="eyebrow">Upplåsningskö</span><h2>Väntande beslut</h2><p class="empty-state">Upplåsningsflödet är ännu inte aktiverat i Supabase-UAT.</p></div>`;
   const pending=unlockRequests.filter(r=>r.status==='pending');
   const permissions=new Set(session?.permissions||[]);
   return `<div class="entry-detail"><span class="eyebrow">Upplåsningskö</span><h2>Väntande beslut</h2>${pending.map(r=>{
@@ -88,12 +87,14 @@ function unlockList(){
 async function loadSupabaseAccounting(){
   const ctx=await window.LTSupabaseUat.context();
   if(!ctx.authenticated||!ctx.company){location.href='./index.html';return false}
-  session={user:ctx.user,company:ctx.company,permissions:[]};
+  const canManage=['admin','accountant'].includes(ctx.membership?.role);
+  session={user:{...ctx.user,id:ctx.authUser.id},company:ctx.company,permissions:canManage?['period.unlock','accounting.correct']:[]};
   const filter='company_id=eq.'+encodeURIComponent(ctx.company.id);
-  const [entryRows,lineRows,periodRows]=await Promise.all([
+  const [entryRows,lineRows,periodRows,unlockRows]=await Promise.all([
     window.LTSupabase.from('journal_entries',ctx.accessToken).select('*',filter+'&order=posting_date.desc,created_at.desc'),
     window.LTSupabase.from('journal_lines',ctx.accessToken).select('*',filter+'&order=journal_entry_id.asc,line_number.asc'),
-    window.LTSupabase.from('accounting_periods',ctx.accessToken).select('*',filter+'&order=period.desc')
+    window.LTSupabase.from('accounting_periods',ctx.accessToken).select('*',filter+'&order=period.desc'),
+    window.LTSupabase.from('period_unlock_requests',ctx.accessToken).select('*',filter+'&order=requested_at.desc')
   ]);
   const linesByEntry=new Map();
   for(const row of lineRows||[]){
@@ -114,9 +115,10 @@ async function loadSupabaseAccounting(){
     lines:linesByEntry.get(String(row.id))||[]
   }));
   periods=(periodRows||[]).map(row=>({period:row.period,status:row.status,lockedBy:row.locked_by||null,lockedAt:row.locked_at||null}));
-  unlockRequests=[];unlockPolicy={eligibleCustomerApprovers:0,selfUnlockAllowed:false};
+  unlockRequests=(unlockRows||[]).map(row=>({id:row.id,period:row.period,reason:row.reason,status:row.status,requestedBy:row.requested_by,requestedAt:row.requested_at,decidedBy:row.decided_by,decidedAt:row.decided_at,decisionReason:row.decision_reason}));
+  unlockPolicy={eligibleCustomerApprovers:0,selfUnlockAllowed:false};
   selectedEntry=entries.find(e=>e.id===selectedEntry?.id)||entries[0]||null;
-  openingBalance=null;openingMessage='';
+  await loadOpeningBalance();
   return true;
 }
 async function loadApi(){const s=await api('/session');if(!s.authenticated){location.href='./index.html';return false}session=s;const entryData=await api('/accounting/entries');entries=entryData.entries||[];const detailed=[];for(const entry of entries.slice(0,200)){try{detailed.push((await api(`/accounting/entries/${encodeURIComponent(entry.id)}`)).entry)}catch{detailed.push(entry)}}entries=detailed;selectedEntry=entries[0]||null;periods=(await api('/accounting/periods')).periods||[];const unlockData=await api('/accounting/unlock-requests?status=all');unlockRequests=unlockData.requests||[];unlockPolicy=unlockData.unlockPolicy||{eligibleCustomerApprovers:0,selfUnlockAllowed:false};await loadOpeningBalance();return true}
@@ -138,6 +140,7 @@ function bind(){
         });
         syncDemo();return render();
       }
+      if(isSupabase){const ctx=await window.LTSupabaseUat.context();await window.LTSupabase.rpc('lock_accounting_period',{p_company_id:ctx.company.id,p_period:period},ctx.accessToken);await loadSupabaseAccounting();render();return}
       await api(`/accounting/periods/${period}/lock`,{method:'POST'});
       await loadApi();render();
     }catch(e){alert(e.message)}
@@ -151,6 +154,7 @@ function bind(){
         Demo.patch(state=>state.accountingUnlockRequests.push({id:`u-${Date.now()}`,period:currentPeriod(),reason,status:'pending',requestedBy:'demo-user',requestedAt:new Date().toISOString()}));
         syncDemo();return render();
       }
+      if(isSupabase){const ctx=await window.LTSupabaseUat.context();await window.LTSupabase.rpc('request_accounting_period_unlock',{p_company_id:ctx.company.id,p_period:currentPeriod(),p_reason:reason},ctx.accessToken);await loadSupabaseAccounting();render();return}
       await api(`/accounting/periods/${currentPeriod()}/unlock-request`,{method:'POST',body:{reason}});
       await loadApi();render();
     }catch(e){setError(form,e.message)}
@@ -164,6 +168,7 @@ function bind(){
         const reversal={id:`demo-c-${Date.now()}`,number:`${original.number}R`,postingDate:String(data.get('postingDate')),description:`Motverifikation ${original.number} – ${String(data.get('reason'))}`,sourceType:'accounting-correction-reversal',sourceId:original.id,lines:original.lines.map(l=>({...l,debitOre:l.creditOre,creditOre:l.debitOre}))};
         Demo.patch(state=>state.accountingEntries.unshift(reversal));syncDemo(reversal.id);return render();
       }
+      if(isSupabase){const ctx=await window.LTSupabaseUat.context();const result=(await window.LTSupabase.rpc('correct_manual_accounting_entry',{p_company_id:ctx.company.id,p_entry_id:original.id,p_posting_date:String(data.get('postingDate')),p_reason:String(data.get('reason')||''),p_replacement_lines:null},ctx.accessToken))?.[0];await loadSupabaseAccounting();selectedEntry=entries.find(entry=>entry.id===result?.reversal_entry_id)||entries[0]||null;render();return}
       await api(`/accounting/entries/${encodeURIComponent(original.id)}/correct`,{method:'POST',body:{postingDate:data.get('postingDate'),reason:data.get('reason')}});
       await loadApi();render();
     }catch(e){setError(form,e.message)}
@@ -183,12 +188,12 @@ function bind(){
     }
     const reason=window.prompt('Beslutsorsak för upplåsningen:','Kontrollerad upplåsning efter granskning.');
     if(reason===null)return;
-    try{await api(`/accounting/unlock-requests/${encodeURIComponent(button.dataset.id)}/approve`,{method:'POST',body:{reason}});await loadApi();render()}catch(e){alert(e.message)}
+    try{if(isSupabase){const ctx=await window.LTSupabaseUat.context();await window.LTSupabase.rpc('decide_accounting_period_unlock',{p_company_id:ctx.company.id,p_request_id:button.dataset.id,p_decision:'approved',p_reason:reason},ctx.accessToken);await loadSupabaseAccounting();render();return}await api(`/accounting/unlock-requests/${encodeURIComponent(button.dataset.id)}/approve`,{method:'POST',body:{reason}});await loadApi();render()}catch(e){alert(e.message)}
   }));
   document.querySelectorAll('[data-action="reject-unlock"]').forEach(button=>button.addEventListener('click',async()=>{
     const reason=window.prompt('Ange varför upplåsningsbegäran avslås:','');
     if(reason===null)return;
-    try{await api(`/accounting/unlock-requests/${encodeURIComponent(button.dataset.id)}/reject`,{method:'POST',body:{reason}});await loadApi();render()}catch(e){alert(e.message)}
+    try{if(isSupabase){const ctx=await window.LTSupabaseUat.context();await window.LTSupabase.rpc('decide_accounting_period_unlock',{p_company_id:ctx.company.id,p_request_id:button.dataset.id,p_decision:'rejected',p_reason:reason},ctx.accessToken);await loadSupabaseAccounting();render();return}await api(`/accounting/unlock-requests/${encodeURIComponent(button.dataset.id)}/reject`,{method:'POST',body:{reason}});await loadApi();render()}catch(e){alert(e.message)}
   }));
   document.querySelectorAll('.self-unlock-form').forEach(form=>form.addEventListener('submit',async event=>{
     event.preventDefault();
@@ -247,6 +252,7 @@ function bind(){
       const debit=lines.reduce((sum,line)=>sum+line.debitOre,0);
       const credit=lines.reduce((sum,line)=>sum+line.creditOre,0);
       if(!Number.isSafeInteger(debit)||!Number.isSafeInteger(credit)||debit<=0||debit!==credit)throw new Error(`Debet och kredit måste balansera exakt. Debet ${ore(debit)}, kredit ${ore(credit)}.`);
+      if(isSupabase){const ctx=await window.LTSupabaseUat.context();await window.LTSupabase.rpc('import_opening_balance',{p_company_id:ctx.company.id,p_year:openingYear,p_posting_date:`${openingYear}-01-01`,p_lines:lines},ctx.accessToken);openingMessage='';await loadSupabaseAccounting();render();return}
       await api(`/accounting/opening-balances/${encodeURIComponent(openingYear)}`,{method:'POST',body:{postingDate:`${openingYear}-01-01`,lines}});
       openingMessage='';
       await loadApi();
