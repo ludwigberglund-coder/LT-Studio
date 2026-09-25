@@ -7,39 +7,34 @@ const path=require('node:path');
 
 const source=fs.readFileSync(path.join(__dirname,'..','apps','portal','dashboard.js'),'utf8');
 
-test('dashboarden använder riktiga privata arbetsköer',()=>{
+test('dashboarden använder de viktigaste privata arbetsköerna',()=>{
   assert.match(source,/api\('\/receivables'\)/);
-  assert.doesNotMatch(source,/receivables\/invoices/);
-  for(const route of ['/bank/payments','/automation/proposals','/suppliers/pending-changes','/inventory/adjustments?status=pending','/accounting/unlock-requests?status=pending'])assert.ok(source.includes(route),route);
+  for(const route of ['/bank/payments','/automation/proposals','/inventory/adjustments?status=pending','/accounting/unlock-requests?status=pending'])assert.ok(source.includes(route),route);
+  assert.match(source,/\/payables\/invoices/);
 });
 
-test('dashboarden visar fel som ofullständig arbetslista i stället för falska nollor',()=>{
+test('dashboarden visar mjuk varning om någon viktig kö inte kan läsas',()=>{
   assert.match(source,/loadErrors/);
-  assert.match(source,/Arbetslistan är ofullständig/);
-  assert.match(source,/Nollvärden från dessa områden betyder inte att arbetet är klart/);
+  assert.match(source,/Några köer kunde inte läsas just nu/);
+  assert.match(source,/Övriga poster visas som vanligt/);
 });
 
-test('dashboarden prioriterar konkreta uppgifter före modulkatalogen',()=>{
-  assert.match(source,/Vad behöver göras nu\?/);
-  assert.match(source,/Förfallna kundfakturor/);
-  assert.match(source,/Bankhändelser behöver matchas/);
-  assert.match(source,/Förslag väntar på granskning/);
-  assert.match(source,/Alla områden/);
+test('dashboarden är gles och visar högst sex konkreta uppgifter',()=>{
+  assert.match(source,/return tasks\.slice\(0,6\)/);
+  assert.match(source,/Följ upp förfallna kundfakturor/);
+  assert.match(source,/Matcha bankhändelser/);
+  assert.match(source,/Granska automationsförslag/);
+  assert.doesNotMatch(source,/Alla områden/);
+  assert.doesNotMatch(source,/Starta testguiden/);
+  assert.doesNotMatch(source,/Öppet kundsaldo/);
 });
 
-
-test('dashboarden markerar misslyckade områden som Ej tillgängligt i stället för noll',()=>{
-  assert.match(source,/availability/);
-  assert.match(source,/Ej tillgängligt/);
-  assert.match(source,/data-unavailable="true"/);
-  assert.match(source,/Området kunde inte läsas/);
-  assert.match(source,/m\.availability\?\.receivables!==false/);
-  assert.match(source,/m\.availability\?\.payables!==false/);
-  assert.match(source,/m\.availability\?\.bank!==false/);
-});
-
-test('dashboarden hämtar faktiska lager-, löne- och CMS-värden i privat drift',()=>{
-  for(const route of ['/inventory/items','/payroll/runs','/website/cms'])assert.ok(source.includes(route),route);
-  assert.match(source,/accountingEntries:false/);
-  assert.match(source,/accountingUnlocks:false/);
+test('dashboarden har hälsning för arbetsdagen och Supabase UAT-stöd',()=>{
+  assert.match(source,/God morgon/);
+  assert.match(source,/God eftermiddag/);
+  assert.match(source,/God kväll/);
+  assert.match(source,/LTSupabaseUat\.context/);
+  assert.match(source,/supplier_invoices/);
+  assert.match(source,/bank_payments/);
+  assert.match(source,/automation_proposals/);
 });
