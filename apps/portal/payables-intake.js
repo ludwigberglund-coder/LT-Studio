@@ -1,6 +1,6 @@
 const root=document.getElementById('payables-app');
 const isDemo=new URLSearchParams(location.search).get('demo')==='1';
-const isSupabase=location.hostname.endsWith('github.io')&&!isDemo;
+const isSupabase=location.hostname==='ludwigberglund-coder.github.io'&&!isDemo;
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 let suppliers=[];
 const SUPPORTED_VAT_TREATMENT='se-domestic-full-input-vat';
