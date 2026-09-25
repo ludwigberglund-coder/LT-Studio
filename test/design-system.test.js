@@ -45,12 +45,14 @@ test('alla LT Studio-ytor använder samma kanoniska design tokens',()=>{
   }
 });
 
-test('systemytorna är akromatiska utanför den avsiktliga canvasen och felrött',()=>{
+test('systemytorna använder bara godkända neutrala färger och portalens kontrollerade LT Studio-accenter',()=>{
+  const portalAccents=new Set(['#173f32','#f2b18e','#dfe9ad','#dcecf2']);
   for(const file of themes.filter(file=>file!=='apps/website/design-system.css')){
     const colors=new Set(source(file).match(/#[0-9a-f]{6}\b/gi)||[]);
     for(const color of colors){
       const normalized=color.toLowerCase();
       if(normalized==='#f7f5f0'||normalized==='#e7000b')continue;
+      if(file==='apps/portal/design-system.css'&&portalAccents.has(normalized))continue;
       const [,red,green,blue]=normalized.match(/^#(..)(..)(..)$/);
       assert.equal(red,green,`${file} innehåller en otillåten kulör: ${color}`);
       assert.equal(green,blue,`${file} innehåller en otillåten kulör: ${color}`);

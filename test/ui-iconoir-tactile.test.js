@@ -68,3 +68,23 @@ test('användarmenyn renderar Iconoir som DOM och webbplatsens mobilmeny behåll
   assert.match(baseWebsiteCss,/\.menu-button \{ display: none; \}/);
   assert.match(baseWebsiteCss,/\.menu-button \{ display: inline-flex;/);
 });
+
+
+test('Betalningar på GitHub Pages använder Supabase och sidomenyn håller ikonmellanrum',()=>{
+  const html=read('apps/portal/payments.html');
+  const js=read('apps/portal/payments.js');
+  const navCss=read('apps/portal/shared-nav.css');
+  const design=read('apps/portal/design-system.css');
+
+  assert.match(html,/supabase-config\.js/);
+  assert.match(html,/supabase-client\.js/);
+  assert.match(html,/supabase-session\.js/);
+  assert.match(js,/const isDemo=pageParams\.get\('demo'\)==='1'/);
+  assert.match(js,/const isSupabase=location\.hostname==='ludwigberglund-coder\.github\.io'&&!isDemo/);
+  assert.match(js,/async function supabasePayments\(\)/);
+  assert.match(js,/customer_payment_executions/);
+  assert.match(navCss,/shared-links a\{display:flex!important;align-items:center!important;gap:12px!important/);
+  assert.match(design,/shared-navigation \.shared-links a\.ui-with-icon/);
+  assert.match(design,/payments-live-banner/);
+  assert.match(design,/prefers-reduced-motion:reduce/);
+});
