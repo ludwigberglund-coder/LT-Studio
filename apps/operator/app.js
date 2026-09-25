@@ -1,6 +1,6 @@
 const root=document.getElementById('operator-app');
 const csrfKey='lt-operator-csrf';
-const useSupabase=Boolean(globalThis.LT_SUPABASE&&globalThis.LTSupabase&&globalThis.LTSupabaseUat);
+const useSupabase=location.hostname==='ludwigberglund-coder.github.io'&&Boolean(globalThis.LT_SUPABASE&&globalThis.LTSupabase&&globalThis.LTSupabaseUat);
 let session=null,overview=null,readiness=null,security=null,operatorAudit=null,securityMonitor=null,securityAlerts=null,securityPollTimer=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='',operatorRefreshing=false,companyQuery='',companyStatus='all',companySort='name',companySearchOpen=false,companySearchActiveIndex=-1,securitySeverity='all',securityPeriod='24h',securityCompany='all',securityIncidentStatus='all',statisticsCompany='all';
 
 
@@ -155,10 +155,14 @@ async function api(path,options={}){
 }
 function csrf(){return useSupabase?'':(sessionStorage.getItem(csrfKey)||'')}
 function loginView(){
+  const identityLabel=useSupabase?'E-post':'Användarnamn eller e-post';
+  const identityType=useSupabase?'email':'text';
+  const authCopy=useSupabase?'Supabase Auth · obligatorisk MFA (AAL2) · spårbar administratörslogg':'Privat operator-API · obligatorisk MFA · spårbar administratörslogg';
+  const loginCopy=useSupabase?'Logga in med ert separata LT Studio-operatörskonto. Supabase Auth kräver lösenord och verifierad TOTP-MFA.':'Logga in med ert separata LT Studio-operatörskonto. Den privata operatorservern kräver lösenord och TOTP-MFA.';
   root.innerHTML=`<section class="login-shell">
-    <div class="login-brand"><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div><span class="login-kicker">ADMIN CONTROL CENTER</span><h1>Allt viktigt.<br>På ett ställe.</h1><p>Administrera kundföretag, användare, behörigheter, statistik och drift från en separat, MFA-skyddad LT Studio-portal.</p></div><small>Supabase Auth · obligatorisk MFA (AAL2) · spårbar administratörslogg</small></div>
-    <div class="login-panel"><form class="card login-card" id="login-form"><div class="login-card-mark"><span class="mark-icon"></span></div><h2>LT Studio-inloggning</h2><p>Logga in med ert separata LT Studio-operatörskonto. Supabase Auth kräver lösenord och verifierad TOTP-MFA.</p>
-      <label class="field"><span>E-post</span><input name="username" type="email" autocomplete="username" required></label>
+    <div class="login-brand"><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div><span class="login-kicker">ADMIN CONTROL CENTER</span><h1>Allt viktigt.<br>På ett ställe.</h1><p>Administrera kundföretag, användare, behörigheter, statistik och drift från en separat, MFA-skyddad LT Studio-portal.</p></div><small>${authCopy}</small></div>
+    <div class="login-panel"><form class="card login-card" id="login-form"><div class="login-card-mark"><span class="mark-icon"></span></div><h2>LT Studio-inloggning</h2><p>${loginCopy}</p>
+      <label class="field"><span>${identityLabel}</span><input name="username" type="${identityType}" autocomplete="username" required></label>
       <label class="field"><span>Lösenord</span><input name="password" type="password" autocomplete="current-password" required></label>
       <label class="field"><span>MFA-kod</span><input name="totp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></label>
       <button class="button full-button" type="submit">Logga in</button>
