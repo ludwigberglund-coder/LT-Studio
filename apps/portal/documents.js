@@ -1,6 +1,6 @@
 const app=document.getElementById('documents-app');
 const isDemo=new URLSearchParams(location.search).get('demo')==='1';
-const isSupabase=location.hostname.endsWith('github.io')&&!isDemo;
+const isSupabase=location.hostname==='ludwigberglund-coder.github.io'&&!isDemo;
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 const Demo=globalThis.RollandsDemoScenario;
 let session=null,documents=[],category='all',query='',message='',documentSearchOpen=false,documentSearchActiveIndex=-1;
