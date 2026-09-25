@@ -34,6 +34,7 @@ create table if not exists public.customer_payment_reclassifications(
 );
 alter table public.customer_payment_reclassifications enable row level security;
 create index if not exists customer_payment_reclass_bank_idx on public.customer_payment_reclassifications(company_id,bank_payment_id,sequence desc);
+create index if not exists customer_payment_reclass_proposal_idx on public.customer_payment_reclassifications(company_id,original_proposal_id);
 create index if not exists customer_payment_reclass_corrected_by_idx on public.customer_payment_reclassifications(corrected_by);
 create index if not exists customer_payment_reclass_source_invoice_idx on public.customer_payment_reclassifications(company_id,source_invoice_id);
 create index if not exists customer_payment_reclass_target_invoice_idx on public.customer_payment_reclassifications(company_id,target_invoice_id);
