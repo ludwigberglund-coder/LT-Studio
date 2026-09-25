@@ -40,23 +40,23 @@ The branch now uses Supabase for:
 - Operator audit and security-incident state are stored in locked-down tables that browser roles cannot query directly.
 - Supabase Security Advisor is expected to remain at zero findings before merge.
 
-## Intentionally write-protected until equivalent audit controls exist
+## Advanced guarded accounting flows
 
-These old Node/SQLite write flows are not yet enabled in Supabase UAT:
+The following former Node/SQLite blocker flows are now migrated behind controlled Supabase RPCs:
 
-- General accounting correction/reversal from the accounting page.
-- Accounting period lock/unlock decision workflow.
-- Opening-balance import.
-- Reclassification of an already-posted customer payment.
+- Manual-journal correction through an immutable reversal entry. Source-generated customer/supplier/payment/payroll journals remain protected and must be corrected in their source flow.
+- Accounting period lock plus two-person unlock request/decision. The requester cannot decide their own unlock.
+- Opening-balance import for an otherwise empty year, restricted to balance-sheet classes 1–2 and blocking 1510/2440 totals without subledger evidence.
+- Reclassification of an already-posted customer payment when the current allocation is fully paid and the new target has an exact matching open balance. Partial-payment reclassification stays blocked.
 
-Read surfaces remain available where applicable. Do not reopen these writes by bypassing the controlled RPC model.
+These flows also use the controlled financial-write guard; direct browser writes to the financial core remain rejected.
 
 ## Remaining prerequisites for end-to-end UAT
 
 - Provision real Supabase Auth users for the two UAT collaborators and create their `app_users` / `company_memberships` rows.
 - Explicitly designate at least one Auth user in `platform_operators` and enroll verified TOTP MFA before operator UAT.
 - Complete `company_invoice_settings` with verified invoice identity/payment details.
-- Run full cross-company tenant-isolation, accounting-integrity, PDF/storage and browser UAT.
+- Run full cross-company tenant-isolation, accounting-integrity, four-eyes workflows, PDF/storage, operator MFA and browser UAT.
 - Review CI/CodeQL and merge PR only when all required checks pass.
 - Only after successful UAT remove obsolete Railway/Node/SQLite deployment configuration.
 
