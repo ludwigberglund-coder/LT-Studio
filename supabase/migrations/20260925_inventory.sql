@@ -220,10 +220,10 @@ begin
     v_movement_id='imov_'||replace(gen_random_uuid()::text,'-','');
     insert into public.inventory_movements(id,company_id,item_id,movement_date,type,quantity_milli,reference_type,reference_id,note,actor_id,request_id)
     values(v_movement_id,p_company_id,v_adj.item_id,v_adj.adjustment_date,'adjustment',v_adj.difference_milli,'inventory-adjustment',v_adj.id,v_adj.reason,v_uid,'inventory-adjustment-'||v_adj.id);
-    update public.inventory_adjustments set status='approved',approved_by=v_uid,approved_at=now() where company_id=p_company_id and id=v_adj.id and status='pending';
+    update public.inventory_adjustments as a set status='approved',approved_by=v_uid,approved_at=now() where a.company_id=p_company_id and a.id=v_adj.id and a.status='pending';
     return query select v_adj.id,'approved'::text,v_movement_id;return;
   elsif p_decision='reject' then
-    update public.inventory_adjustments set status='rejected',rejected_by=v_uid,rejected_at=now() where company_id=p_company_id and id=v_adj.id and status='pending';
+    update public.inventory_adjustments as a set status='rejected',rejected_by=v_uid,rejected_at=now() where a.company_id=p_company_id and a.id=v_adj.id and a.status='pending';
     return query select v_adj.id,'rejected'::text,null::text;return;
   else
     raise exception 'INVALID_DECISION';
