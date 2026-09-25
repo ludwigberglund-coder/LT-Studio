@@ -809,13 +809,34 @@ function listReceivables(db,companyId) {
     pdf_sha256 AS pdfSha256,pdf_size_bytes AS pdfSizeBytes,pdf_file_name AS pdfFileName,note,created_at AS createdAt
     FROM invoice_reminders WHERE company_id=? AND invoice_id=? ORDER BY sent_at`);
   const commentCountStmt = db.prepare('SELECT count(*) AS count FROM invoice_comments WHERE company_id=? AND invoice_id=?');
-  return invoices.map(invoice => ({
-    ...invoice,
-    reminderFeeAgreed:Boolean(invoice.reminderFeeAgreed),
-    transactions:transactionStmt.all(companyId,invoice.id).map(row => ({...row,approved:Boolean(row.approved)})),
-    reminders:reminderStmt.all(companyId,invoice.id),
-    commentCount:Number(commentCountStmt.get(companyId,invoice.id).count || 0)
-  }));
+  const creditAdjustmentStmt = db.prepare(`SELECT original_invoice_id AS originalInvoiceId,credit_invoice_id AS creditInvoiceId,reason,
+    credit_amount_ore AS creditAmountOre,offset_amount_ore AS offsetAmountOre,refund_due_ore AS refundDueOre,created_at AS createdAt
+    FROM customer_invoice_credit_adjustments WHERE company_id=? AND credit_invoice_id=?`);
+  const creditRefundStmt = db.prepare(`SELECT amount_ore AS amountOre,refund_date AS refundDate,refund_account AS refundAccount,
+    bank_reference AS bankReference,created_at AS createdAt FROM customer_credit_refunds WHERE company_id=? AND credit_invoice_id=?`);
+  return invoices.map(invoice => {
+    const adjustment=creditAdjustmentStmt.get(companyId,invoice.id)||null;
+    const refund=adjustment?creditRefundStmt.get(companyId,invoice.id)||null:null;
+    const refundDueOre=Number(adjustment?.refundDueOre||0),refundPaidOre=Number(refund?.amountOre||0),refundOutstandingOre=Math.max(0,refundDueOre-refundPaidOre);
+    const credit=adjustment?{
+      ...adjustment,
+      creditAmountOre:Number(adjustment.creditAmountOre||0),
+      offsetAmountOre:Number(adjustment.offsetAmountOre||0),
+      refundDueOre,
+      refund:refund?{...refund,amountOre:refundPaidOre}:null,
+      refundPaidOre,
+      refundOutstandingOre,
+      refundStatus:refundDueOre===0?'not-required':refundOutstandingOre===0?'refunded':'pending'
+    }:null;
+    return {
+      ...invoice,
+      reminderFeeAgreed:Boolean(invoice.reminderFeeAgreed),
+      transactions:transactionStmt.all(companyId,invoice.id).map(row => ({...row,approved:Boolean(row.approved)})),
+      reminders:reminderStmt.all(companyId,invoice.id),
+      commentCount:Number(commentCountStmt.get(companyId,invoice.id).count || 0),
+      credit
+    };
+  });
 }
 
 function listCustomerReceivableSummaries(db,companyId) {
