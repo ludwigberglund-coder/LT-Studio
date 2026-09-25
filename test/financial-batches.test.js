@@ -68,3 +68,28 @@ test('buntgodkännande använder kontrollerad och append-only revisionslogg',()=
  assert.match(sql,/perform set_config\('app\.audit_event_write','1',true\)/);
  assert.match(sql,/FINANCIAL_BATCH_APPROVED/);
 });
+
+
+test('kundfakturor går via en källstyrd bunt före huvudbok och reskontra',()=>{
+ const sql=read('supabase/migrations/20260925_financial_batch_customer_invoice_gating.sql');
+ const receivables=read('apps/portal/app.js');
+ const batches=read('apps/portal/batches.js');
+ assert.match(sql,/add column if not exists kind text not null default 'manual'/);
+ assert.match(sql,/add column if not exists journal_series text not null default 'A'/);
+ assert.match(sql,/create or replace function public\.stage_source_financial_batch/);
+ assert.match(sql,/current_setting\('app\.system_batch_stage',true\)<>'1'/);
+ assert.match(sql,/p_activation_type not in \('customer-invoice'\)/);
+ const finalize=sql.slice(sql.indexOf('create or replace function public.finalize_customer_invoice'));
+ assert.match(finalize,/'Väntar på bunt'/);
+ assert.match(finalize,/remaining_ore.*0|p_total_ore,0,p_vat_ore/s);
+ assert.match(finalize,/stage_source_financial_batch/);
+ assert.doesNotMatch(finalize,/insert into public\.journal_entries/);
+ const approve=sql.slice(sql.indexOf('create or replace function public.approve_financial_batch'),sql.indexOf('-- Customer invoice finalization'));
+ assert.match(approve,/v_tx\.activation_type='customer-invoice'/);
+ assert.match(approve,/status='Bokförd'/);
+ assert.match(approve,/remaining_ore=i\.total_ore/);
+ assert.match(approve,/v_series=coalesce/);
+ assert.match(receivables,/filter\(row=>row\.status!=='Väntar på bunt'\)/);
+ assert.match(batches,/const sourceBatch=selected\.kind==='source'/);
+ assert.match(batches,/Innehållet är låst; godkännande aktiverar bokföring och reskontra atomiskt/);
+});
