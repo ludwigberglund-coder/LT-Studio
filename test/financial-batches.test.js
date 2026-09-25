@@ -94,3 +94,26 @@ test('kundfakturor går via en källstyrd bunt före huvudbok och reskontra',()=
  assert.match(batches,/const sourceBatch=selected\.kind==='source'/);
  assert.match(batches,/Innehållet är låst; godkännande aktiverar bokföring och reskontra atomiskt/);
 });
+
+
+test('leverantörsskuld, leverantörsbetalning, lön och IB går via källstyrda buntar',()=>{
+ const sql=read('supabase/migrations/20260925_financial_batch_core_sources.sql');
+ const payables=read('apps/portal/payables.js');
+ const payroll=read('apps/portal/payroll.js');
+ const accounting=read('apps/portal/accounting.js');
+ for(const activation of ['supplier-invoice-liability','supplier-payment','payroll-run','opening-balance']) assert.ok(sql.includes("'"+activation+"'"));
+ assert.match(sql,/SOURCE_BATCH_SERIES_MISMATCH/);
+ assert.match(sql,/SUPPLIER_LIABILITY_BATCH_ACTIVATION_CONFLICT/);
+ assert.match(sql,/SUPPLIER_PAYMENT_BATCH_ACTIVATION_CONFLICT/);
+ assert.match(sql,/PAYROLL_BATCH_ACTIVATION_CONFLICT/);
+ assert.match(sql,/OPENING_BALANCE_REQUIRES_EMPTY_YEAR/);
+ const sections=[['post_supplier_invoice_liability','confirm_supplier_payment'],['confirm_supplier_payment','post_payroll_run'],['post_payroll_run','import_opening_balance'],['import_opening_balance',null]];
+ for(const [name,next] of sections){const start=sql.indexOf('create or replace function public.'+name);assert.ok(start>=0,name+' saknas');const end=next?sql.indexOf('create or replace function public.'+next,start+1):sql.length;const part=sql.slice(start,end);assert.match(part,/stage_source_financial_batch/);assert.doesNotMatch(part,/insert into public\\.journal_entries/);}
+ assert.match(payables,/Väntar bunt #/);
+ assert.match(payables,/Skapa bunt för leverantörsskuld/);
+ assert.match(payables,/Bekräfta & skapa bunt/);
+ assert.match(payroll,/accountingBatchId/);
+ assert.match(payroll,/Väntar bunt #/);
+ assert.match(accounting,/openingBatch/);
+ assert.match(accounting,/Ekonomisk kvalitetskontroll/);
+});
