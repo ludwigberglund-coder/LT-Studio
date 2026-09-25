@@ -83,7 +83,7 @@ async function issueSupabaseInvoice(value){
     const existingId=rows?.[0]?.issued_invoice_id;if(!existingId)throw new Error('Den tidigare fakturautställningen saknar fakturareferens.');
     await refreshSupabaseCollections();await loadSupabaseInvoiceDetail(existingId);return;
   }
-  const document=Invoice.prepare(value,{accounts:accounts(),requireVatTreatment:true,invoiceNumber:reserved.invoice_number,demo:false});
+  const document=Invoice.prepare(value,{accounts:accounts(),requireVatTreatment:true,invoiceNumber:reserved.invoice_number,demo:window.LT_SUPABASE?.environment==='uat'});
   const pdfBytes=await Pdf.createInvoicePdf(document,{record:{invoiceNumber:reserved.invoice_number}});
   const pdfArray=pdfBytes instanceof Uint8Array?pdfBytes:new Uint8Array(pdfBytes);
   if(pdfArray.byteLength>10485760)throw new Error('PDF-fakturan är större än 10 MB.');
@@ -148,7 +148,7 @@ function buildCreditDocument(original,invoiceNumber,creditDate,reason,creditAmou
     document.vatBreakdown=[25,12,6,0].map(rate=>({rate,netOre:document.lines.filter(r=>Number(r.vatRate)===rate).reduce((s,r)=>s+Number(r.netOre||0),0),vatOre:document.lines.filter(r=>Number(r.vatRate)===rate).reduce((s,r)=>s+Number(r.vatOre||0),0)}));
   }
   document.notes=[String(original.notes||'').trim(),(document.creditMode==='partial'?'Delkrediterar':'Krediterar')+' faktura '+original.invoiceNumber+'. '+reason,document.creditMode==='partial'?'Delkrediteringen är proportionellt fördelad över originalfakturans rader och momssatser.':''].filter(Boolean).join('\n');
-  document.demo=false;return document;
+  document.demo=Boolean(window.LT_SUPABASE?.environment==='uat');return document;
 }
 async function issueSupabaseCredit({originalInvoiceId,creditDate,reason,creditAmountOre}){
   const ctx=await supabaseContext(),requestId=crypto.randomUUID();
