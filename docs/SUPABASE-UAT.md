@@ -66,11 +66,29 @@ Synthetic test identities and data were created only inside SQL transactions and
 - Automation proposal approval moves the proposal to approved and the bank event to reviewed.
 - Supabase Security Advisor remained at 0 findings after the fixes.
 
+## Secure UAT onboarding
+
+GitHub Pages now includes `/portal/uat-setup.html` for first-time UAT activation.
+
+- Account creation uses a dedicated `uat-bootstrap` Edge Function.
+- Each collaborator receives a separate long, one-time invite code. Only its SHA-256 hash is stored in Supabase; plaintext invite codes are runtime credentials and are never committed to GitHub.
+- The user chooses their own email and password. The password must be at least 12 characters and include uppercase, lowercase, number and special character.
+- Bootstrap creates the Supabase Auth identity, `app_users`, company membership and optionally `platform_operators` server-side.
+- Failed partial bootstrap is rolled back by deleting any partially created operator/membership/profile/Auth identity before the invite is released.
+- The whole shared Supabase UAT requires a verified TOTP factor and an `aal2` session, not only the operator portal.
+- The setup page supports resuming MFA enrollment if account creation succeeded but the browser was closed before TOTP verification.
+- Edge Function Supabase JS dependencies are pinned to `2.117.1`.
+- Browser host detection requires the exact host `ludwigberglund-coder.github.io`; suffix matching is not accepted.
+
+## Safe UAT invoice identity
+
+The shared UAT company uses clearly synthetic invoice identity/payment details. In UAT, customer invoices and credit notes set `document.demo=true`, so generated PDFs visibly say **DEMO – INTE BETALNINGSUNDERLAG**. The configured UAT bankgiro is `EJ-BETALNING` and the identity must never be reused for production.
+
 ## Remaining prerequisites for end-to-end UAT
 
-- Provision real Supabase Auth users for the two UAT collaborators and create their `app_users` / `company_memberships` rows.
-- Explicitly designate at least one Auth user in `platform_operators` and enroll verified TOTP MFA before operator UAT.
-- Complete `company_invoice_settings` with verified invoice identity/payment details.
+- Generate two one-time bootstrap invite codes after CI/CodeQL are green, then let each UAT collaborator create their own Auth identity and enroll TOTP through GitHub Pages.
+- Verify both resulting accounts have `admin` membership in the synthetic UAT company and active `platform_operators` rows.
+- UAT invoice settings are intentionally synthetic and already configured; production identity/payment details must not be introduced during UAT.
 - Run full cross-company tenant-isolation, accounting-integrity, four-eyes workflows, PDF/storage, operator MFA and browser UAT.
 - Review CI/CodeQL and merge PR only when all required checks pass.
 - Only after successful UAT remove obsolete Railway/Node/SQLite deployment configuration.
