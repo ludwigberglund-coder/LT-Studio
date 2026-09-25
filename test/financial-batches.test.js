@@ -89,6 +89,7 @@ test('kundfakturor går via en källstyrd bunt före huvudbok och reskontra',()=
  assert.match(approve,/status='Bokförd'/);
  assert.match(approve,/remaining_ore=i\.total_ore/);
  assert.match(approve,/v_series=coalesce/);
+ assert.match(approve,/MANUAL_BATCH_SERIES_NOT_ALLOWED/);
  assert.match(receivables,/filter\(row=>row\.status!=='Väntar på bunt'\)/);
  assert.match(batches,/const sourceBatch=selected\.kind==='source'/);
  assert.match(batches,/Innehållet är låst; godkännande aktiverar bokföring och reskontra atomiskt/);
