@@ -11,6 +11,8 @@ test('buntsystemet finns i portal och migration',()=>{
  assert.doesNotMatch(nav,/Buntar \(äldre demo\)/);
  assert.match(html,/Buntar · LT Studio/);
  assert.match(js,/approve_financial_batch/);
+ assert.match(js,/const isDemo=/);
+ assert.match(js,/class=\\"batch-workspace\\"><aside class=\\"sidebar\\"><\\/aside>/);
  assert.match(sql,/check\(batch_number between 10000 and 99999\)/);
  assert.match(sql,/APPROVED_BATCH_LOCKED/);
  assert.match(sql,/BATCH_NOT_BALANCED/);
