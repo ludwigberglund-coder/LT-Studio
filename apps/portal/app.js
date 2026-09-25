@@ -1,10 +1,10 @@
 const app=document.getElementById('portal-app');
 const R=window.RollandsReceivables;
-const isPagesDemo=location.hostname.endsWith('github.io') || new URLSearchParams(location.search).has('demo');
+const isPagesDemo=new URLSearchParams(location.search).get('demo')==='1';
 const COLUMN_KEY='rollands-portal-receivable-columns-v1';
 const COMMENT_KEY='rollands-portal-demo-comments-v1';
 const REMINDER_KEY='rollands-portal-demo-reminders-v1';
-let mode=isPagesDemo?'demo':'api';
+let mode=isPagesDemo?'demo':(location.hostname.endsWith('github.io')?'supabase':'api');
 let session=null;
 let csrfToken=sessionStorage.getItem('rollands-csrf') || '';
 let legalRates=null;
@@ -98,6 +98,9 @@ function visibleReceivableCustomers(){const ids=matchingCustomerIds();return rec
 function visibleReceivableInvoices(){const ids=matchingCustomerIds();return invoices.filter(invoice=>ids.has(String(invoice.customerId)))}
 function apiUrl(path){return `/api/v1${path}`}
 
+async function supabaseContext(){return window.LTSupabaseUat.context()}
+function supabaseRows(table,token,filters=''){return window.LTSupabase.from(table,token).select('*',filters)}
+
 async function api(path,options={}){
   const headers={'Accept':'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})};
   if(options.method && options.method!=='GET' && csrfToken)headers['X-CSRF-Token']=csrfToken;
@@ -116,7 +119,7 @@ function withDemoState(invoice){if(mode!=='demo')return invoice;const comments=d
 
 function loginView(error=''){
   const companyField=loginCompanies.length?`<label class="field">Företag<select name="companyId" required><option value="">Välj företag</option>${loginCompanies.map(c=>`<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join('')}</select></label>`:'';
-  app.innerHTML=`<div class="login-shell"><section class="login-brand"><span class="eyebrow">LT Studio</span><h1>Ett arbetsflöde.<br>Hela företaget.</h1><p>Den privata portalen kräver ett personligt konto. Aktivt företagsmedlemskap och företagstillhörighet kontrolleras på servern vid varje skyddad åtgärd.</p></section><section class="login-panel"><form class="login-card" id="login-form"><span class="eyebrow">Privat företagsportal</span><h2>Logga in</h2><p>Administrationsdelen är skild från den publika hemsidan.</p><label class="field">Användarnamn<input name="username" autocomplete="username" required></label><label class="field">Lösenord<input name="password" type="password" autocomplete="current-password" required></label><label class="field">MFA-kod <span style="font-weight:400;color:#69766f">(krävs för alla personliga konton)</span><input name="totp" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}"></label>${companyField}<p class="form-error">${escapeHtml(error)}</p><button class="button" type="submit">Logga in säkert</button></form></section></div>`;
+  app.innerHTML=`<div class="login-shell"><section class="login-brand"><span class="eyebrow">LT Studio</span><h1>Ett arbetsflöde.<br>Hela företaget.</h1><p>Den privata portalen kräver ett personligt konto. Aktivt företagsmedlemskap och företagstillhörighet kontrolleras på servern vid varje skyddad åtgärd.</p></section><section class="login-panel"><form class="login-card" id="login-form"><span class="eyebrow">Privat företagsportal</span><h2>Logga in</h2><p>Administrationsdelen är skild från den publika hemsidan.</p><label class="field">E-post<input name="username" type="email" autocomplete="username" required></label><label class="field">Lösenord<input name="password" type="password" autocomplete="current-password" required></label><label class="field">MFA-kod <span style="font-weight:400;color:#69766f">(krävs för alla personliga konton)</span><input name="totp" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}"></label>${companyField}<p class="form-error">${escapeHtml(error)}</p><button class="button" type="submit">Logga in säkert</button></form></section></div>`;
 }
 
 function sidebar(){return `<aside class="sidebar"><div class="logo"><strong>${escapeHtml(session?.company?.name||'Företaget')}</strong><small>LT STUDIO</small></div><div class="company-pill">${escapeHtml(session?.company?.name||'Företaget')}<br>${mode==='demo'?'Demoföretag':'Skyddad företagsmiljö'}</div><div class="side-group"><span>Arbetsyta</span><button class="side-link disabled">Översikt</button></div><div class="side-group"><span>Försäljning</span><button class="side-link active">Kundreskontra</button><button class="side-link disabled">Kundfakturor</button><button class="side-link disabled">Kunder</button></div><div class="side-group"><span>Ekonomi</span><button class="side-link disabled">Bank & avstämning</button><button class="side-link disabled">Bokföring</button><button class="side-link disabled">Rapporter</button></div><div class="sidebar-footer">${mode==='demo'?'Öppen GitHub Pages-demo. Inga riktiga företagsuppgifter får användas här.':'Servervaliderad session · default deny'}</div></aside>`}
@@ -310,7 +313,30 @@ function portalView(){
   app.innerHTML=`<div class="portal">${sidebar()}<section class="main"><header class="topbar"><div><h1>Kundreskontra</h1><p>${escapeHtml(session?.company?.name||'Företaget')} / Försäljning / Kundreskontra</p></div><div class="user-chip"><div><b>${escapeHtml(userName)}</b><br><small>${mode==='demo'?'Demo':'Inloggad'}</small></div><div class="avatar">${escapeHtml(initials(userName))}</div>${mode==='api'?'<button class="button ghost small" data-action="logout">Logga ut</button>':''}</div></header><main class="content">${mode==='demo'?'<div class="demo-banner"><b>GitHub Pages-demo.</b> Kommentarer och kolumnval sparas bara i din webbläsare. Riktiga företagsuppgifter ska aldrig användas här.</div>':''}<div class="page-heading"><div><span class="eyebrow">Kundfordringar</span><h2>Fakturor och inbetalningar</h2><p>Kundsökningen bygger på kundregistret. Fakturanummer och OCR används endast för att hitta vilken registrerad kund fakturan tillhör.</p></div></div>${receivableSearchBar()}<div id="receivable-overview-region">${customerOverview()}</div><div id="receivable-metrics-region">${metrics()}</div><section class="panel"><div class="toolbar"><span class="hint">Högerklicka på en faktura för kommentarer eller betalningspåminnelse.</span>${columnPicker()}</div><div id="receivable-table-region">${table()}</div></section></main></section></div><div id="portal-overlays"></div>`;
   renderOverlays();
 }
-async function loadReceivables(){const data=await api('/receivables');invoices=data.invoices||[];receivableCustomers=data.customers||[];portalView()}
+async function loadReceivables(){
+  if(mode!=='supabase'){const data=await api('/receivables');invoices=data.invoices||[];receivableCustomers=data.customers||[];portalView();return}
+  const ctx=await supabaseContext();
+  if(!ctx.authenticated||!ctx.company){loginView();return}
+  session={user:ctx.user,company:ctx.company};
+  const companyFilter='company_id=eq.'+encodeURIComponent(ctx.company.id);
+  const [customersData,invoicesData,transactionsData]=await Promise.all([
+    supabaseRows('customers',ctx.accessToken,companyFilter+'&archived_at=is.null'),
+    supabaseRows('invoices',ctx.accessToken,companyFilter),
+    supabaseRows('invoice_transactions',ctx.accessToken,companyFilter)
+  ]);
+  const customersById=new Map((customersData||[]).map(row=>[String(row.id),row]));
+  const txByInvoice=new Map();
+  for(const tx of transactionsData||[]){const key=String(tx.invoice_id);if(!txByInvoice.has(key))txByInvoice.set(key,[]);txByInvoice.get(key).push({
+    id:tx.id,transactionType:tx.transaction_type,paymentMethod:tx.payment_method,paymentDate:tx.payment_date,postingDate:tx.posting_date,batchNumber:tx.batch_number,journalNumber:tx.journal_number,amountOre:Number(tx.amount_ore||0),approved:tx.approved,account:tx.account,bankReference:tx.bank_reference
+  })}
+  invoices=(invoicesData||[]).map(row=>{const customer=customersById.get(String(row.customer_id))||{};return{
+    id:row.id,kind:'customer',customerId:row.customer_id,customerNumber:customer.customer_number||'',customerName:customer.name||'',customerOrgNumber:customer.org_number||'',invoiceNumber:row.invoice_number,ocr:row.ocr||'',invoiceDate:row.invoice_date,postingDate:row.posting_date,dueDate:row.due_date,totalOre:Number(row.total_ore||0),remainingOre:Number(row.remaining_ore||0),vatOre:Number(row.vat_ore||0),status:row.status,paymentMethod:row.payment_method,paymentAccount:row.payment_account,invoiceAccount:row.invoice_account,batchNumber:row.batch_number,journalNumber:row.journal_number,customerType:customer.customer_type||'business',reminderFeeAgreed:Boolean(customer.reminder_fee_agreed),commentCount:0,transactions:txByInvoice.get(String(row.id))||[],reminders:[]
+  }});
+  receivableCustomers=(customersData||[]).map(customer=>{const list=invoices.filter(i=>String(i.customerId)===String(customer.id));return{
+    customerId:customer.id,customerNumber:customer.customer_number,customerName:customer.name,orgNumber:customer.org_number||'',invoiceCount:list.length,openInvoiceCount:list.filter(i=>Number(i.remainingOre)!==0).length,remainingOre:list.reduce((sum,i)=>sum+Number(i.remainingOre||0),0)
+  }});
+  portalView();
+}
 async function openComments(invoiceId,{compose=false}={}){
   contextMenu=null;
   const comments=mode==='demo'?demoComments(invoiceId):(await api('/invoices/'+encodeURIComponent(invoiceId)+'/comments')).comments;
@@ -337,11 +363,11 @@ function accessRecoveryView(message='Du saknar behörighet för den här arbetsy
   app.innerHTML=`<main class="access-recovery"><section class="access-recovery-card"><span class="eyebrow">Behörighet</span><h1>Den här arbetsytan är inte tillgänglig</h1><p>${escapeHtml(message)}</p><p>Du är fortfarande säkert inloggad. Logga ut och byt konto, eller gå till företagets översikt.</p><div class="access-recovery-actions"><button class="button" data-action="logout" type="button">Logga ut och byt konto</button><a class="button ghost" href="./dashboard.html">Gå till översikten</a></div></section></main>`;
 }
 async function boot(){
-  try{legalRates=await fetch('../config/legal-rates.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('Räntekonfigurationen kunde inte laddas.');return r.json()});if(!R)throw new Error('Reskontramodulen kunde inte laddas.');if(mode==='demo'){invoices=structuredClone(demoInvoices);receivableCustomers=[...new Map(invoices.map(invoice=>[invoice.customerNumber,invoice])).values()].map(invoice=>({customerId:invoice.customerNumber,customerNumber:invoice.customerNumber,customerName:invoice.customerName,orgNumber:invoice.customerOrgNumber||'',invoiceCount:invoices.filter(row=>row.customerNumber===invoice.customerNumber).length,openInvoiceCount:invoices.filter(row=>row.customerNumber===invoice.customerNumber&&Number(row.remainingOre)!==0).length,remainingOre:invoices.filter(row=>row.customerNumber===invoice.customerNumber).reduce((sum,row)=>sum+Number(row.remainingOre||0),0)}));invoices=invoices.map(invoice=>({...invoice,customerId:invoice.customerNumber}));session={user:{displayName:'Demoanvändare'},company:{name:'Rollands Frukt o Grönt AB'}};portalView();return}const state=await api('/session');if(!state.authenticated){loginView();return}session={user:state.user,company:state.company||{id:state.companyId,name:'Företaget'}};await loadReceivables()}catch(error){if(error.code==='ACCESS_DENIED'){accessRecoveryView(error.message);return}app.innerHTML=`<main class="boot"><strong>Kunde inte starta portalen</strong><span>${escapeHtml(error.message)}</span></main>`}}
+  try{legalRates=await fetch('../config/legal-rates.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('Räntekonfigurationen kunde inte laddas.');return r.json()});if(!R)throw new Error('Reskontramodulen kunde inte laddas.');if(mode==='demo'){invoices=structuredClone(demoInvoices);receivableCustomers=[...new Map(invoices.map(invoice=>[invoice.customerNumber,invoice])).values()].map(invoice=>({customerId:invoice.customerNumber,customerNumber:invoice.customerNumber,customerName:invoice.customerName,orgNumber:invoice.customerOrgNumber||'',invoiceCount:invoices.filter(row=>row.customerNumber===invoice.customerNumber).length,openInvoiceCount:invoices.filter(row=>row.customerNumber===invoice.customerNumber&&Number(row.remainingOre)!==0).length,remainingOre:invoices.filter(row=>row.customerNumber===invoice.customerNumber).reduce((sum,row)=>sum+Number(row.remainingOre||0),0)}));invoices=invoices.map(invoice=>({...invoice,customerId:invoice.customerNumber}));session={user:{displayName:'Demoanvändare'},company:{name:'Rollands Frukt o Grönt AB'}};portalView();return}if(mode==='supabase'){const state=await supabaseContext();if(!state.authenticated){loginView();return}session={user:state.user,company:state.company};await loadReceivables();return}const state=await api('/session');if(!state.authenticated){loginView();return}session={user:state.user,company:state.company||{id:state.companyId,name:'Företaget'}};await loadReceivables()}catch(error){if(error.code==='ACCESS_DENIED'){accessRecoveryView(error.message);return}app.innerHTML=`<main class="boot"><strong>Kunde inte starta portalen</strong><span>${escapeHtml(error.message)}</span></main>`}}
 
 document.addEventListener('submit',async event=>{
   const form=event.target;
-  if(form.id==='login-form'){event.preventDefault();const values=Object.fromEntries(new FormData(form));try{const data=await api('/auth/login',{method:'POST',body:values});csrfToken=data.csrfToken;sessionStorage.setItem('rollands-csrf',csrfToken);session={user:data.user,company:data.company};loginCompanies=[];await loadReceivables()}catch(error){if(error.code==='COMPANY_REQUIRED'){loginCompanies=error.data.companies||[];loginView('Välj vilket företag du vill öppna.')}else loginView(error.message)}return}
+  if(form.id==='login-form'){event.preventDefault();const values=Object.fromEntries(new FormData(form));try{if(mode==='supabase'){const ctx=await window.LTSupabaseUat.signIn(String(values.username||'').trim(),String(values.password||''));if(!ctx.company)throw new Error('Kontot saknar företagsbehörighet i Supabase.');session={user:ctx.user,company:ctx.company};await loadReceivables();return}const data=await api('/auth/login',{method:'POST',body:values});csrfToken=data.csrfToken;sessionStorage.setItem('rollands-csrf',csrfToken);session={user:data.user,company:data.company};loginCompanies=[];await loadReceivables()}catch(error){if(error.code==='COMPANY_REQUIRED'){loginCompanies=error.data.companies||[];loginView('Välj vilket företag du vill öppna.')}else loginView(error.message)}return}
   if(form.dataset.form==='comment'){
     event.preventDefault();
     const text=String(new FormData(form).get('text')||'');
@@ -454,7 +480,7 @@ document.addEventListener('click',async event=>{
     if(action==='close-modal'){modal=null;renderOverlays();return}
     if(action==='reset-columns'){visibleColumns=new Set(R.RECEIVABLE_COLUMNS.map(c=>c.id));saveJson(COLUMN_KEY,[...visibleColumns]);renderReceivableResults();return}
     if(action==='preview-reminder'){await previewReminder(button.closest('form'));return}
-    if(action==='logout'&&mode==='api'){if(csrfToken)await api('/auth/logout',{method:'POST',body:{}}).catch(()=>{});sessionStorage.removeItem('rollands-csrf');csrfToken='';session=null;loginView()}
+    if(action==='logout'&&mode==='api'){if(csrfToken)await api('/auth/logout',{method:'POST',body:{}}).catch(()=>{});sessionStorage.removeItem('rollands-csrf');csrfToken='';session=null;loginView()}if(action==='logout'&&mode==='supabase'){await window.LTSupabaseUat.signOut();session=null;loginView()}
   }catch(error){if(modal){modal={...modal,error:error.message};renderOverlays()}}
 });
 
