@@ -223,7 +223,48 @@ function createSupabaseUatStore({env=process.env,fetchImpl=globalThis.fetch}={})
     }));
   }
 
-  return Object.freeze({listCustomers,customerByNumber,listSuppliers,supplierByNumber,listCustomerInvoices});
+  async function listSupplierInvoices(companyId,{signal}={}) {
+    const tenant=tenantId(companyId);
+    const query=new URLSearchParams({
+      select:'id,company_id,supplier_id,supplier_invoice_number,invoice_date,due_date,total_ore,vat_ore,currency,vat_treatment,status,coding_json,coding_sha256,document_name,document_mime,document_sha256,registered_by,approved_by,approved_at,liability_accounting_entry_id,liability_posted_at,open_amount_ore,created_at,updated_at',
+      company_id:`eq.${tenant}`,
+      order:'due_date.asc,created_at.asc'
+    });
+    const rows=await request(`supplier_invoices?${query.toString()}`,{signal});
+    for(const row of rows) {
+      if(String(row?.company_id||'')!==tenant) {
+        throw supabaseError('Supabase returnerade leverantörsfaktura från fel företag. Åtkomsten stoppades.','TENANT_ISOLATION_ERROR',500);
+      }
+    }
+    return rows.map(row=>Object.freeze({
+      id:row.id,
+      companyId:row.company_id,
+      supplierId:row.supplier_id,
+      supplierInvoiceNumber:row.supplier_invoice_number,
+      invoiceDate:row.invoice_date,
+      dueDate:row.due_date,
+      totalOre:Number(row.total_ore),
+      vatOre:Number(row.vat_ore||0),
+      currency:row.currency,
+      vatTreatment:row.vat_treatment,
+      status:row.status,
+      coding:Array.isArray(row.coding_json)?row.coding_json:[],
+      codingSha256:row.coding_sha256,
+      documentName:row.document_name,
+      documentMime:row.document_mime,
+      documentSha256:row.document_sha256,
+      registeredBy:row.registered_by,
+      approvedBy:row.approved_by,
+      approvedAt:row.approved_at,
+      liabilityAccountingEntryId:row.liability_accounting_entry_id,
+      liabilityPostedAt:row.liability_posted_at,
+      openAmountOre:Number(row.open_amount_ore||0),
+      createdAt:row.created_at,
+      updatedAt:row.updated_at
+    }));
+  }
+
+  return Object.freeze({listCustomers,customerByNumber,listSuppliers,supplierByNumber,listCustomerInvoices,listSupplierInvoices});
 }
 
 module.exports=Object.freeze({createSupabaseUatStore});
