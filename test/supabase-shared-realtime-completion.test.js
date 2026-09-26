@@ -100,3 +100,13 @@ test('the Realtime publication migration includes the shared financial registers
   assert.match(finalPublication,/'website_cms_state'/);
   assert.match(finalPublication,/'website_cms_revisions'/);
 });
+
+
+test('revenue account RPC avoids PL/pgSQL output-column ambiguity',()=>{
+  const fix=read('supabase/migrations/20260926_zzz_fix_revenue_account_rpc.sql');
+  assert.match(fix,/on conflict on constraint company_revenue_accounts_pkey/i);
+  assert.doesNotMatch(fix,/on conflict\s*\(\s*company_id\s*,\s*account_number\s*\)/i);
+  assert.match(fix,/security invoker/i);
+  assert.match(fix,/revoke all on function public\.save_company_revenue_account\(text,text,text,integer\) from public,anon/i);
+  assert.match(fix,/grant execute on function public\.save_company_revenue_account\(text,text,text,integer\) to authenticated/i);
+});
