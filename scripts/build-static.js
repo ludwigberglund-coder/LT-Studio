@@ -14,11 +14,12 @@ function installGlobalTheme(directory){
     let html=fs.readFileSync(file,'utf8');
     html=html.replace(/<script\b[^>]*src=["'][^"']*theme\.js["'][^>]*>\s*<\/script>/gi,'');
     html=html.replace(/<link\b[^>]*href=["'][^"']*theme\.css["'][^>]*>/gi,'');
+    const themeBoot=`<script>(function(){try{var k='lt-studio-theme-v1',v=localStorage.getItem(k),d=v==='dark'||(!v&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.ltTheme=d?'dark':'light';document.documentElement.style.colorScheme=d?'dark':'light'}catch(e){}})();<\/script>`;
     const themeStyle=`<link rel="stylesheet" href="${relative}/theme.css">`;
     const designSystem=/<link\b[^>]*href=["'][^"']*design-system\.css(?:\?[^"']*)?["'][^>]*>/i;
     html=designSystem.test(html)
-      ? html.replace(designSystem,match=>`${themeStyle}\n${match}`)
-      : html.replace('</head>',`${themeStyle}\n</head>`);
+      ? html.replace(designSystem,match=>`${themeBoot}\n${themeStyle}\n${match}`)
+      : html.replace('</head>',`${themeBoot}\n${themeStyle}\n</head>`);
     html=html.replace('</body>',`<script src="${relative}/theme.js"></script>\n</body>`);
     fs.writeFileSync(file,html);
   }
