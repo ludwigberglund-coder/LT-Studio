@@ -53,11 +53,11 @@ document.addEventListener('submit',async event=>{
     if(isSupabase){
       const ctx=await window.LTSupabaseUat.context();
       if(!ctx.authenticated)throw new Error('Sessionen har gått ut. Logga in igen.');
-      const updated=await window.LTSupabase.from('app_users',ctx.accessToken).update(
-        {session_duration_minutes:sessionDurationMinutes},
-        'auth_user_id=eq.'+encodeURIComponent(ctx.authUser.id)
-      );
-      if(!Array.isArray(updated)||updated.length!==1)throw new Error('Sessionsinställningen kunde inte sparas.');
+      const updated=(await window.LTSupabase.rpc('set_personal_session_duration',{
+        p_company_id:ctx.company.id,
+        p_session_duration_minutes:sessionDurationMinutes
+      },ctx.accessToken))?.[0];
+      if(!updated)throw new Error('Sessionsinställningen kunde inte sparas.');
       await window.LTSupabaseUat.signOut('global');
       location.href='./index.html';return;
     }
