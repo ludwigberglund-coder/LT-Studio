@@ -186,7 +186,44 @@ function createSupabaseUatStore({env=process.env,fetchImpl=globalThis.fetch}={})
     });
   }
 
-  return Object.freeze({listCustomers,customerByNumber,listSuppliers,supplierByNumber});
+  async function listCustomerInvoices(companyId,{signal}={}) {
+    const tenant=tenantId(companyId);
+    const query=new URLSearchParams({
+      select:'id,company_id,customer_id,invoice_number,ocr,invoice_date,posting_date,due_date,total_ore,remaining_ore,vat_ore,status,payment_method,payment_account,invoice_account,batch_number,journal_number,pdf_sha256,created_at,updated_at',
+      company_id:`eq.${tenant}`,
+      order:'invoice_date.desc,invoice_number.desc'
+    });
+    const rows=await request(`customer_invoices?${query.toString()}`,{signal});
+    for(const row of rows) {
+      if(String(row?.company_id||'')!==tenant) {
+        throw supabaseError('Supabase returnerade faktura från fel företag. Åtkomsten stoppades.','TENANT_ISOLATION_ERROR',500);
+      }
+    }
+    return rows.map(row=>Object.freeze({
+      id:row.id,
+      companyId:row.company_id,
+      customerId:row.customer_id,
+      invoiceNumber:row.invoice_number,
+      ocr:row.ocr,
+      invoiceDate:row.invoice_date,
+      postingDate:row.posting_date,
+      dueDate:row.due_date,
+      totalOre:Number(row.total_ore),
+      remainingOre:Number(row.remaining_ore),
+      vatOre:Number(row.vat_ore||0),
+      status:row.status,
+      paymentMethod:row.payment_method,
+      paymentAccount:row.payment_account,
+      invoiceAccount:row.invoice_account,
+      batchNumber:row.batch_number,
+      journalNumber:row.journal_number,
+      pdfSha256:row.pdf_sha256,
+      createdAt:row.created_at,
+      updatedAt:row.updated_at
+    }));
+  }
+
+  return Object.freeze({listCustomers,customerByNumber,listSuppliers,supplierByNumber,listCustomerInvoices});
 }
 
 module.exports=Object.freeze({createSupabaseUatStore});
