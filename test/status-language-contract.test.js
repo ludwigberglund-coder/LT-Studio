@@ -22,7 +22,7 @@ test('leverantörsfakturor skiljer attest från bokförd skuld och betald faktur
   assert.match(text,/approved:'Attesterad'/);
   assert.match(text,/Attesterad – skuld ej bokförd/);
   assert.match(text,/Betald & bokförd/);
-  assert.match(text,/Bokför leverantörsskuld/);
+  assert.match(text,/Skapa bunt för leverantörsskuld/);
   assert.doesNotMatch(text,/approved:'Bokförd'/);
 });
 
