@@ -49,11 +49,8 @@ function demoMetrics(){
   result.accounting.pendingUnlocks=(s.accountingUnlockRequests||[]).filter(x=>x.status==='pending').length;
   return result;
 }
-async function loadSupabaseMetrics(){
+async function loadSupabaseMetricsFallback(ctx){
   const result=emptyMetrics();
-  const ctx=await window.LTSupabaseUat.context();
-  if(!ctx?.authenticated||!ctx.company){location.href='./index.html';throw new Error('Ingen aktiv Supabase-session.')}
-  session={authenticated:true,user:ctx.user,company:ctx.company};
   const filter='company_id=eq.'+encodeURIComponent(ctx.company.id);
   async function attempt(label,fn){try{await fn()}catch{result.loadErrors.push(label)}}
   await Promise.all([
@@ -86,6 +83,34 @@ async function loadSupabaseMetrics(){
     })
   ]);
   return result;
+}
+function normalizeDashboardMetrics(data){
+  const value=data&&typeof data==='object'?data:{};
+  return{
+    receivables:{
+      overdueOre:Number(value.receivables?.overdueOre||0),
+      overdueCount:Number(value.receivables?.overdueCount||0)
+    },
+    payables:{
+      approvalCount:Number(value.payables?.approvalCount||0),
+      paymentCount:Number(value.payables?.paymentCount||0)
+    },
+    bank:{reviewCount:Number(value.bank?.reviewCount||0)},
+    automation:{reviewCount:Number(value.automation?.reviewCount||0)},
+    inventory:{pendingCount:Number(value.inventory?.pendingCount||0)},
+    accounting:{pendingUnlocks:Number(value.accounting?.pendingUnlocks||0)},
+    loadErrors:[]
+  };
+}
+async function loadSupabaseMetrics(){
+  const ctx=await window.LTSupabaseUat.context();
+  if(!ctx?.authenticated||!ctx.company){location.href='./index.html';throw new Error('Ingen aktiv Supabase-session.')}
+  session={authenticated:true,user:ctx.user,company:ctx.company};
+  try{
+    const data=await window.LTSupabase.rpc('portal_dashboard_metrics',{p_company_id:ctx.company.id},ctx.accessToken);
+    if(data&&typeof data==='object')return normalizeDashboardMetrics(data);
+  }catch{}
+  return loadSupabaseMetricsFallback(ctx);
 }
 async function loadPrivateMetrics(){
   const result=emptyMetrics();

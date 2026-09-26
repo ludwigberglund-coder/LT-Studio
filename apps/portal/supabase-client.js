@@ -76,7 +76,7 @@
   };
 
   const PAGE_REALTIME_TABLES=Object.freeze({
-    'dashboard.html':['customers','invoices','supplier_invoices','supplier_payments','bank_payments','automation_proposals','financial_batches','payroll_runs'],
+    'dashboard.html':['invoices','supplier_invoices','bank_payments','automation_proposals','inventory_adjustments','period_unlock_requests'],
     'index.html':['customers','invoices','invoice_transactions','invoice_comments','invoice_reminders','customer_invoice_credit_adjustments','customer_credit_refunds'],
     'receivables.html':['customers','invoices','invoice_transactions','invoice_comments','invoice_reminders','customer_invoice_credit_adjustments','customer_credit_refunds'],
     'customers.html':['customers','invoices'],
