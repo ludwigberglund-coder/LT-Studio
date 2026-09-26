@@ -17,8 +17,17 @@
       const message=errorMessage(data,response.status);
       const canRetry=isSafeToRetry(options)&&(response.status===401||response.status===403)&&isJwtFutureError(message)&&attempt<CLOCK_SKEW_RETRY_DELAYS.length;
       if(canRetry){await sleep(CLOCK_SKEW_RETRY_DELAYS[attempt]);continue;}
-      if(isJwtFutureError(message))throw new Error('Den säkra sessionen håller fortfarande på att synkroniseras. Vänta några sekunder och försök logga in igen.');
-      throw new Error(message);
+      if(isJwtFutureError(message)){
+        const error=new Error('Den säkra sessionen håller fortfarande på att synkroniseras. Vänta några sekunder och försök logga in igen.');
+        error.status=response.status;
+        error.data=data;
+        throw error;
+      }
+      const error=new Error(message);
+      error.status=response.status;
+      error.data=data;
+      error.code=(data&&typeof data==='object'&&(data.code||data.error_code))||'';
+      throw error;
     }
   }
   async function storageRequest(path,token,options={}){
