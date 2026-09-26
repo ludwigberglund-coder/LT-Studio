@@ -58,7 +58,8 @@
     "audit:anchor:r2": "node scripts/audit-anchor-r2.js",
     "staging:bootstrap:synthetic": "node scripts/bootstrap-staging-synthetic.js",
     "platform:set-global-admin": "node scripts/set-platform-admin.js",
-    "security:ci-trust-boundary": "node scripts/check-ci-trust-boundary.js"
+    "security:ci-trust-boundary": "node scripts/check-ci-trust-boundary.js",
+    "staging:supabase:preflight": "node scripts/supabase-uat-preflight.js"
   },
   "engines": {
     "node": ">=24"
