@@ -1,0 +1,4 @@
+# Supabase Edge Function auth policy.
+# Browser-driven invoice verification must require an authenticated user JWT.
+[functions.verify-customer-invoice-document]
+verify_jwt = true
