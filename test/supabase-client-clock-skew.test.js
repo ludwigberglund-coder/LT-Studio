@@ -91,3 +91,24 @@ test('sign out defaults to global Supabase scope',async()=>{
   assert.match(calls[0].url,/\/auth\/v1\/logout$/);
   assert.equal(calls[0].options.headers.Authorization,'Bearer access-token');
 });
+
+
+test('plain-text Supabase errors preserve the real message and status',async()=>{
+  const client=clientWithFetch(async()=>({
+    ok:false,
+    status:400,
+    async text(){return 'Invalid login credentials'},
+    async json(){return {message:'unused'}}
+  }));
+  await assert.rejects(
+    async()=>{
+      try{await client.signIn({email:'uat@example.invalid',password:'wrong'})}
+      catch(error){
+        assert.equal(error.status,400);
+        assert.equal(error.message,'Invalid login credentials');
+        throw error;
+      }
+    },
+    /Invalid login credentials/
+  );
+});
