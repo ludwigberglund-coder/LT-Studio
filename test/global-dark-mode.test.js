@@ -20,6 +20,7 @@ test('shared dark mode uses a dimmed palette and Iconoir sun/moon icons',()=>{
   assert.match(js,/lt-studio-theme-v1/);
   assert.match(js,/prefers-color-scheme: dark/);
   assert.match(js,/MutationObserver/);
+  assert.match(js,/button\.dataset\.ltThemeState===theme/);
   assert.match(js,/Stäng av mörkt läge/);
   assert.match(js,/Slå på mörkt läge/);
 });
