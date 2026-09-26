@@ -6,24 +6,24 @@ Vi bygger en återanvändbar plattform för småföretag. Referenskunders verkli
 
 Börja här:
 
-- [Säkerhetspolicy och privat rapportering](SECURITY.md)
-- [Audit: konkreta risker, källor och rättelser](docs/PRODUCTION-READINESS-AUDIT-2026-09-18.md)
-- [ROLANDS PILOT READINESS CHECKLIST](docs/ROLANDS-PILOT-READINESS-CHECKLIST.md)
-- [Backup och verifierad återställning](docs/BACKUP-RESTORE-PILOT.md)
-- [Synthetic-only staging deployment](docs/STAGING-DEPLOYMENT.md)
-- [Pilotens deployment-instruktion](docs/ROLANDS-PILOT-DEPLOYMENT.md)
-- [Produktvision](docs/PRODUCT-VISION.md)
-- [SaaS-målarkitektur för flera kunder](docs/SAAS-TARGET-ARCHITECTURE.md)
-- [Flerföretagsaudit och luckor för kund nummer två](docs/MULTI-TENANT-GAP-AUDIT-2026-09-20.md)
-- [PostgreSQL-migreringsplan](docs/POSTGRESQL-MIGRATION-PLAN.md)
+- Säkerhetspolicy och privat rapportering
+- Audit: konkreta risker, källor och rättelser
+- ROLANDS PILOT READINESS CHECKLIST
+- Backup och verifierad återställning
+- Synthetic-only staging deployment
+- Pilotens deployment-instruktion
+- Produktvision
+- SaaS-målarkitektur för flera kunder
+- Flerföretagsaudit och luckor för kund nummer två
+- PostgreSQL-migreringsplan
 
-## Öppna gränssnittet via GitHub
+## Öppna LT Studio
 
-[**Öppna gemensam UAT**](https://ludwigberglund-coder.github.io/LT-Studio/uat/) · [**Öppna webbplatsen**](https://ludwigberglund-coder.github.io/LT-Studio/) · [**Öppna portaldemon direkt**](https://ludwigberglund-coder.github.io/LT-Studio/portal/dashboard.html?demo=1) · [**Se publiceringsstatus**](https://github.com/ludwigberglund-coder/LT-Studio/actions/workflows/pages.yml)
+[**Öppna programmet**](https://ludwigberglund-coder.github.io/LT-Studio/uat/)
 
-GitHub Actions bygger och publicerar automatiskt den statiska demon från varje uppdatering av `main` till **samma länk**. Ni behöver alltså inte byta länk i README för varje ändring. En ny version syns när dess publicering har lyckats; vid ett misslyckat bygge ligger den tidigare publicerade versionen kvar. Kontrollera statuslänken om ni vill verifiera exakt publicering.
+[**Aktivera UAT-konto / slutför MFA**](https://ludwigberglund-coder.github.io/LT-Studio/portal/uat-setup.html)
 
-**Viktigt:** Den här portaldemon körs i webbläsaren och sparar demoändringar lokalt hos varje person. En faktura som skapas där visas inte automatiskt på den andra datorn. Systemets delade fakturor kräver en körande API-server och en gemensam, beständig databas. GitHub Pages kan inte köra den backenden. Använd enbart fiktiva uppgifter i demon; plattformen är ännu inte godkänd för verkliga ekonomiska data.
+Detta är de enda två klickbara länkarna som ska finnas i README.
 
 ## GitHub är vår gemensamma källa
 
@@ -84,18 +84,18 @@ npm run pilot:backup
 npm run pilot:restore:verify
 ```
 
-Miljövariabler och säkra sökvägar beskrivs i `.env.example` och [backup-guiden](docs/BACKUP-RESTORE-PILOT.md). Pilot-/produktionsstart kör också en bindande miljökontroll. Den ersätter inte verifiering av faktisk hosting och backup. Återställningskommandot skapar bara en separat testkopia och ersätter aldrig produktionsdatabasen.
+Miljövariabler och säkra sökvägar beskrivs i `.env.example` och backup-guiden. Pilot-/produktionsstart kör också en bindande miljökontroll. Den ersätter inte verifiering av faktisk hosting och backup. Återställningskommandot skapar bara en separat testkopia och ersätter aldrig produktionsdatabasen.
 
 Vid `TENANT_INTEGRITY_ERROR` ska uppstarten stoppas och historiken bevaras för utredning. Radera inte poster eller stäng av kontrollerna för att få servern att starta.
 
 ## Offentlig webbplats och portaldemo
 
-[Webbplatsen](https://ludwigberglund-coder.github.io/LT-Studio/) och [portaldemon](https://ludwigberglund-coder.github.io/LT-Studio/portal/dashboard.html?demo=1) publiceras av GitHub Pages. Demon är endast en förhandsvisning av gränssnittet; uppgifter som ni matar in delas inte mellan era webbläsare.
+Webbplatsen och portaldemon publiceras av GitHub Pages. Demon är endast en förhandsvisning av gränssnittet; uppgifter som ni matar in delas inte mellan era webbläsare.
 
-Offentliga texter finns i `content/site.json` och `content/company.json`. Se [redigeringsguiden](docs/EDITING.md). Företagets juridiska/ekonomiska inställningar ska inte ändras via ett offentligt CMS.
+Offentliga texter finns i `content/site.json` och `content/company.json`. Se redigeringsguiden. Företagets juridiska/ekonomiska inställningar ska inte ändras via ett offentligt CMS.
 
 ## Fördjupning
 
-[Behörigheter](docs/ACCESS-CONTROL.md), [penningmodell](docs/MONEY-DOMAIN.md), [verifikationsdomän](docs/JOURNAL-DOMAIN.md), [produktvision](docs/PRODUCT-VISION.md), [målarkitektur](docs/ARCHITECTURE-REBUILD.md) och [arbetsregel vid väntande beslut](docs/WORKFLOW.md).
+Behörigheter, penningmodell, verifikationsdomän, produktvision, målarkitektur och arbetsregel vid väntande beslut.
 
 Äldre systemöversikter beskriver tidigare etapper. Vid motstridiga statusuppgifter gäller den senaste källkoden och daterade audit-/testbevis. En planerad funktion ska inte beskrivas som driftsatt eller verifierad innan bevis finns.
