@@ -19,7 +19,7 @@ Börja här:
 
 ## Öppna gränssnittet via GitHub
 
-[**Öppna webbplatsen**](https://ludwigberglund-coder.github.io/LT-Studio/) · [**Öppna portaldemon direkt**](https://ludwigberglund-coder.github.io/LT-Studio/portal/dashboard.html?demo=1) · [**Se publiceringsstatus**](https://github.com/ludwigberglund-coder/LT-Studio/actions/workflows/pages.yml)
+[**Öppna gemensam UAT**](https://ludwigberglund-coder.github.io/LT-Studio/uat/) · [**Öppna webbplatsen**](https://ludwigberglund-coder.github.io/LT-Studio/) · [**Öppna portaldemon direkt**](https://ludwigberglund-coder.github.io/LT-Studio/portal/dashboard.html?demo=1) · [**Se publiceringsstatus**](https://github.com/ludwigberglund-coder/LT-Studio/actions/workflows/pages.yml)
 
 GitHub Actions bygger och publicerar automatiskt den statiska demon från varje uppdatering av `main` till **samma länk**. Ni behöver alltså inte byta länk i README för varje ändring. En ny version syns när dess publicering har lyckats; vid ett misslyckat bygge ligger den tidigare publicerade versionen kvar. Kontrollera statuslänken om ni vill verifiera exakt publicering.
 
