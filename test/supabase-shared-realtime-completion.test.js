@@ -66,11 +66,11 @@ test('supplier date correction is routed through Supabase before the legacy guar
   assert.ok(action>=0,'Supabase-rutt för Rätta datum saknas');
   assert.ok(guard>action,'Supabase-rutten måste hanteras före legacy-spärren');
   assert.match(source,/LTSupabase\.rpc\('stage_supplier_invoice_date_correction'/);
-  const migration=read('supabase/migrations/20260926_supplier_date_correction_batches.sql');
+  const migration=read('supabase/migrations/20260926_supplier_invoice_date_correction.sql');
   assert.match(migration,/create table if not exists public\.supplier_invoice_date_corrections/i);
   assert.match(migration,/create or replace function public\.stage_supplier_invoice_date_correction/i);
   assert.match(migration,/supplier-invoice-date-correction-reversal/);
-  assert.match(migration,/supplier-invoice-date-correction/);
+  assert.match(migration,/supplier-invoice-date-correction-replacement/);
 });
 
 test('website CMS uses shared Supabase drafts, publishing and revision history',()=>{
@@ -95,4 +95,8 @@ test('the Realtime publication migration includes the shared financial registers
     'company_revenue_accounts','invoice_comments','invoice_reminders'
   ])assert.match(migration,new RegExp("'"+table+"'"),table+' saknas i Realtime-publiceringen');
   assert.match(migration,/alter publication supabase_realtime add table public\.%I/i);
+  const finalPublication=read('supabase/migrations/20260926_zz_shared_realtime_publication.sql');
+  assert.match(finalPublication,/'supplier_invoice_date_corrections'/);
+  assert.match(finalPublication,/'website_cms_state'/);
+  assert.match(finalPublication,/'website_cms_revisions'/);
 });
