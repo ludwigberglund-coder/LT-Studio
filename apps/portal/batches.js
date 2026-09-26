@@ -26,15 +26,15 @@ function render(){
  app.innerHTML='<div class="batch-workspace"><aside class="sidebar"></aside><section class="batch-main"><header class="topbar"><div><h1>Buntar</h1><p>Ekonomiskt granskningslager. Inget påverkar huvudboken före godkännande.</p></div></header><main class="batch-shell"><div class="batch-head"><div><strong>Kvalitetskontroll före bokföring</strong><p>Senaste buntarna visas först. Sök på det femsiffriga buntnumret.</p></div><div class="batch-actions"><input class="batch-search" data-search placeholder="Sök buntnummer" value="'+esc(searchQuery)+'">'+(canEdit()?'<button class="button" data-action="new">+ Ny bunt</button>':'')+'</div></div><div class="batch-layout"><aside class="batch-list">'+(list||'<div class="empty">Inga buntar hittades.</div>')+'</aside><article class="batch-editor">'+editor+'</article></div></main></section></div>';
 }
 async function load(){
- if(isDemo){ctx={authenticated:true,membership:{role:'admin'},company:{id:'demo'},session:{access_token:''}};batches=[];selected=null;txs=[];events=[];render();return}
+ if(isDemo){ctx={authenticated:true,membership:{role:'admin'},company:{id:'demo'},accessToken:''};batches=[];selected=null;txs=[];events=[];render();return}
  ctx=await window.LTSupabaseUat.context();if(!ctx?.authenticated)throw new Error('Du måste logga in.');
- const token=ctx.session.access_token,company=ctx.company.id;
+ const token=ctx.accessToken,company=ctx.company.id;
  batches=await LTSupabase.from('financial_batches',token).select('*','company_id=eq.'+encodeURIComponent(company)+'&order=created_at.desc');
  if(selected){selected=batches.find(b=>b.id===selected.id)||null;if(selected)await loadDetail(selected.id)}
  render();
 }
 async function loadDetail(id){
- const token=ctx.session.access_token,company=ctx.company.id;
+ const token=ctx.accessToken,company=ctx.company.id;
  const raw=await LTSupabase.from('financial_batch_transactions',token).select('*','company_id=eq.'+encodeURIComponent(company)+'&batch_id=eq.'+encodeURIComponent(id)+'&order=sequence_number.asc');
  const ids=raw.map(x=>x.id);let lines=[];
  if(ids.length)lines=await LTSupabase.from('financial_batch_lines',token).select('*','company_id=eq.'+encodeURIComponent(company)+'&transaction_id=in.('+ids.join(',')+')&order=line_number.asc');
@@ -45,7 +45,7 @@ function captureTransactions(){
  return [...document.querySelectorAll('.transaction')].map(tx=>({posting_date:tx.querySelector('[data-f=date]').value,description:tx.querySelector('textarea[data-f=description]').value,transaction_number:tx.querySelector('.batch-meta')?.textContent.replace(/^Transaktion\s+/,'')||'',lines:[...tx.querySelectorAll('.batch-line')].map(l=>({account:l.querySelector('[data-f=account]').value,description:l.querySelector('[data-f=description]').value,debit_ore:Math.round((Number(String(l.querySelector('[data-f=debit]').value).replace(',','.'))||0)*100),credit_ore:Math.round((Number(String(l.querySelector('[data-f=credit]').value).replace(',','.'))||0)*100)}))}));
 }
 function payloadTransactions(){return captureTransactions().map(t=>({postingDate:t.posting_date,description:t.description,sourceType:'manual',lines:t.lines.map(l=>({account:l.account,description:l.description,debitOre:l.debit_ore,creditOre:l.credit_ore}))}))}
-async function rpc(name,args){return LTSupabase.rpc(name,args,ctx.session.access_token)}
+async function rpc(name,args){return LTSupabase.rpc(name,args,ctx.accessToken)}
 async function save(){
  const external=document.getElementById('batch-external').value.trim();
  if(external!==''&&!Number.isFinite(Number(external.replace(',','.'))))throw new Error('Kontrollbeloppet måste vara ett giltigt belopp.');
