@@ -77,6 +77,7 @@
 
   const PAGE_REALTIME_TABLES=Object.freeze({
     'dashboard.html':['customers','invoices','supplier_invoices','supplier_payments','bank_payments','automation_proposals','financial_batches','payroll_runs'],
+    'index.html':['customers','invoices','invoice_transactions','invoice_comments','invoice_reminders','customer_invoice_credit_adjustments','customer_credit_refunds'],
     'receivables.html':['customers','invoices','invoice_transactions','invoice_comments','invoice_reminders','customer_invoice_credit_adjustments','customer_credit_refunds'],
     'customers.html':['customers','invoices'],
     'invoices.html':['customers','invoices','customer_invoice_drafts','customer_invoice_documents','customer_invoice_number_reservations','customer_invoice_credit_adjustments','customer_credit_refunds','company_invoice_settings','company_revenue_accounts','financial_batches'],
@@ -101,7 +102,7 @@
   let activeRealtime=null;
   let realtimeSessionRefresh=0;
   let realtimeReloadTimer=0;
-  function realtimePageName(){return location.pathname.split('/').filter(Boolean).pop()||'dashboard.html';}
+  function realtimePageName(){const page=location.pathname.split('/').filter(Boolean).pop()||'index.html';return page.includes('.')?page:'index.html';}
   function realtimeUrl(){
     const url=new URL(cfg.url);
     const protocol=url.protocol==='https:'?'wss:':'ws:';
