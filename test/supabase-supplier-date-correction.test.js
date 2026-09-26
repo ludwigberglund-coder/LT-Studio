@@ -14,7 +14,7 @@ test('supplier invoice date correction is staged through a two-entry financial b
   assert.match(sql,/unique\(company_id,request_id\)/i);
   assert.match(sql,/supplier_invoice_date_correction_one_pending/i);
   assert.match(sql,/stage_supplier_invoice_date_correction/i);
-  assert.match(sql,/transaction_count[^\n]*2/i);
+  assert.match(sql,/transaction_count[\s\S]{0,500}'ready','source',null,2/i);
   assert.match(sql,/supplier-invoice-date-correction-reversal/i);
   assert.match(sql,/supplier-invoice-date-correction-replacement/i);
   assert.match(sql,/v_line\.credit_ore,v_line\.debit_ore/i);
