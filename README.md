@@ -19,8 +19,7 @@ Börja här:
 
 ## Öppna LT Studio
 
-[**Öppna programmet**](https://ludwigberglund-coder.github.io/LT-Studio/uat/)
-
+[**Öppna programmet**]https://ludwigberglund-coder.github.io/LT-Studio/portal/dashboard.html
 [**Aktivera UAT-konto / slutför MFA**](https://ludwigberglund-coder.github.io/LT-Studio/portal/uat-setup.html)
 
 Detta är de enda två klickbara länkarna i README.
