@@ -1,13 +1,25 @@
 (function(){
   'use strict';
   const cfg=window.LT_SUPABASE;
+  const CLOCK_SKEW_RETRY_DELAYS=[700,1400,2800];
   function headers(token,extra){return Object.assign({'apikey':cfg.publishableKey,'Content-Type':'application/json'},token?{'Authorization':'Bearer '+token}:{},extra||{});}
+  function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
+  function errorMessage(data,status){return (data&&typeof data==='object'&&(data.message||data.error_description||data.error))||('Supabase request failed: '+status);}
+  function isJwtFutureError(message){return /jwt.*issued.*future|issued\s+at\s+future/i.test(String(message||''));}
+  function isSafeToRetry(options){const method=String(options?.method||'GET').toUpperCase();return method==='GET'||method==='HEAD';}
   async function request(path,options={}){
-    const response=await fetch(cfg.url+path,Object.assign({},options,{headers:headers(options.token,options.headers)}));
-    const text=await response.text(); let data=null;
-    if(text){try{data=JSON.parse(text);}catch{data=text;}}
-    if(!response.ok) throw new Error((data&&data.message)||('Supabase request failed: '+response.status));
-    return data;
+    const requestOptions=Object.assign({},options,{headers:headers(options.token,options.headers)});
+    for(let attempt=0;;attempt+=1){
+      const response=await fetch(cfg.url+path,requestOptions);
+      const text=await response.text(); let data=null;
+      if(text){try{data=JSON.parse(text);}catch{data=text;}}
+      if(response.ok)return data;
+      const message=errorMessage(data,response.status);
+      const canRetry=isSafeToRetry(options)&&(response.status===401||response.status===403)&&isJwtFutureError(message)&&attempt<CLOCK_SKEW_RETRY_DELAYS.length;
+      if(canRetry){await sleep(CLOCK_SKEW_RETRY_DELAYS[attempt]);continue;}
+      if(isJwtFutureError(message))throw new Error('Den säkra sessionen håller fortfarande på att synkroniseras. Vänta några sekunder och försök logga in igen.');
+      throw new Error(message);
+    }
   }
   async function storageRequest(path,token,options={}){
     const headers=Object.assign({'apikey':cfg.publishableKey,'Authorization':'Bearer '+token},options.headers||{});
