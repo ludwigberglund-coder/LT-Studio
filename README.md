@@ -17,11 +17,13 @@ Börja här:
 - Flerföretagsaudit och luckor för kund nummer två
 - PostgreSQL-migreringsplan
 
-## Öppna LT Studio UAT
+## Öppna LT Studio
 
-[**Klicka här för att aktivera UAT-konto / slutföra MFA och öppna LT Studio**](https://ludwigberglund-coder.github.io/LT-Studio/portal/uat-setup.html)
+[**Öppna programmet**](https://ludwigberglund-coder.github.io/LT-Studio/uat/)
 
-Detta är den enda UAT-länken som ska användas från README.
+[**Aktivera UAT-konto / slutför MFA**](https://ludwigberglund-coder.github.io/LT-Studio/portal/uat-setup.html)
+
+Detta är de enda två klickbara länkarna som ska finnas i README.
 
 ## GitHub är vår gemensamma källa
 
