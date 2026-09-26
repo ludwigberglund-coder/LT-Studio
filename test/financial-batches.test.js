@@ -56,7 +56,6 @@ test('härdningen ger radspårning och egen-godkännande styrs av sista migratio
  assert.match(js,/Du kan godkänna även en bunt du själv har skapat/);
 });
 
-
 test('buntgodkännande använder kontrollerad och append-only revisionslogg',()=>{
  const sql=read('supabase/migrations/20260925_financial_batches_audit_write.sql');
  assert.match(sql,/revoke all on public\.audit_events from anon/);
@@ -69,8 +68,7 @@ test('buntgodkännande använder kontrollerad och append-only revisionslogg',()=
  assert.match(sql,/FINANCIAL_BATCH_APPROVED/);
 });
 
-
-test('kundfakturor går via en källstyrd bunt före huvudbok och reskontra',()=>{
+test('kundfakturor går via en källstyrd bunt före huvudbok och visas direkt i kundreskontra',()=>{
  const sql=read('supabase/migrations/20260925_financial_batch_customer_invoice_gating.sql');
  const receivables=read('apps/portal/app.js');
  const batches=read('apps/portal/batches.js');
@@ -90,11 +88,17 @@ test('kundfakturor går via en källstyrd bunt före huvudbok och reskontra',()=
  assert.match(approve,/remaining_ore=i\.total_ore/);
  assert.match(approve,/v_series=coalesce/);
  assert.match(approve,/MANUAL_BATCH_SERIES_NOT_ALLOWED/);
- assert.match(receivables,/filter\(row=>row\.status!=='Väntar på bunt'\)/);
+ assert.doesNotMatch(receivables,/filter\(row=>row\.status!=='Väntar på bunt'\)/);
+ assert.match(receivables,/invoices=\(invoicesData\|\|\[\]\)\.map\(row=>/);
+ assert.match(receivables,/function pendingBatchInvoice\(invoice\)/);
+ assert.match(receivables,/const visible=visibleReceivableInvoices\(\)\.map\(withDemoState\)/);
+ assert.match(receivables,/list=visible\.filter\(invoice=>!pendingBatchInvoice\(invoice\)\)/);
+ assert.match(receivables,/openInvoiceCount:list\.filter\(i=>!pendingBatchInvoice\(i\)/);
+ assert.match(receivables,/Väntar på bunt · påverkar inte saldo ännu/);
+ assert.match(receivables,/!row\.receivablesPending&&row\.remainingOre>0/);
  assert.match(batches,/const sourceBatch=selected\.kind==='source'/);
  assert.match(batches,/Innehållet är låst; godkännande aktiverar bokföring och reskontra atomiskt/);
 });
-
 
 test('leverantörsskuld, leverantörsbetalning, lön och IB går via källstyrda buntar',()=>{
  const sql=read('supabase/migrations/20260925_financial_batch_core_sources.sql');
@@ -117,7 +121,6 @@ test('leverantörsskuld, leverantörsbetalning, lön och IB går via källstyrda
  assert.match(accounting,/openingBatch/);
  assert.match(accounting,/Ekonomisk kvalitetskontroll/);
 });
-
 
 test('Buntar använder aktuell Supabase accessToken och inte gammalt sessionfält',()=>{
  const js=read('apps/portal/batches.js');
