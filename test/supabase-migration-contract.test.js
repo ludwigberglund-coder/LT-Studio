@@ -67,3 +67,19 @@ test('Supabase migration does not commit secrets or live customer values',()=>{
   assert.doesNotMatch(sql,/service_role|eyJ[A-Za-z0-9_-]{20,}/);
   assert.doesNotMatch(sql,/insert\s+into\s+public\.(companies|app_users|customers|suppliers)/i);
 });
+
+
+test('Supabase foundation keeps first shared UAT Data API access read-only',()=>{
+  const sql=fs.readFileSync(migrationPath,'utf8');
+  for(const table of ['customers','suppliers','customer_invoices','supplier_invoices']){
+    assert.match(
+      sql,
+      new RegExp(`revoke all on table public\\.${table} from anon, authenticated, service_role`,'i')
+    );
+    assert.match(
+      sql,
+      new RegExp(`grant select on table public\\.${table} to service_role`,'i')
+    );
+  }
+  assert.doesNotMatch(sql,/grant\s+(insert|update|delete|all)\s+on\s+table\s+public\./i);
+});
