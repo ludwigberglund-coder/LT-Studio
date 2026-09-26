@@ -96,6 +96,7 @@ test('kundfakturor går via en källstyrd bunt före huvudbok och visas direkt i
  assert.match(receivables,/visibleReceivableInvoices\(\)\.map\(withDemoState\)\.filter\(invoice=>!pendingBatchInvoice\(invoice\)\)/);
  assert.match(receivables,/openInvoiceCount:list\.filter\(i=>!pendingBatchInvoice\(i\)/);
  assert.match(receivables,/Väntar på bunt · påverkar inte saldo ännu/);
+ assert.match(receivables,/!row\.receivablesPending&&row\.remainingOre>0/);
  assert.match(batches,/const sourceBatch=selected\.kind==='source'/);
  assert.match(batches,/Innehållet är låst; godkännande aktiverar bokföring och reskontra atomiskt/);
 });
