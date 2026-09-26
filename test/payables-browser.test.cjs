@@ -73,8 +73,8 @@ function net2440(entries){return entries.flatMap(entry=>entry.lines||[]).filter(
     await approveButton.click();await page.locator('.payables-action-toast.is-error').getByText(/osparade ändringar/i).waitFor({timeout:10000});assert.equal(await reviewedAccount.inputValue(),'5460');
     const rejectedApproval=Payables.invoiceById(db,company.id,db.prepare("SELECT id FROM supplier_invoices WHERE company_id=? AND supplier_invoice_number='BKS-771'").get(company.id).id);assert.equal(rejectedApproval.status,'coded');assert.equal(rejectedApproval.coding[0].account,'4010');
     await page.reload({waitUntil:'networkidle'});await page.getByText('BKS-771',{exact:true}).first().click();assert.equal(await page.locator('[data-line="0"][data-field="account"]').inputValue(),'4010');
-    await page.getByRole('button',{name:'Attestera faktura'}).click();await page.locator('.payables-action-toast').getByText(/Fakturan är attesterad/).waitFor({timeout:10000});await page.locator('.status-pill.approved').getByText('Attesterad – skuld ej bokförd',{exact:true}).waitFor();await page.getByRole('button',{name:'Bokför leverantörsskuld'}).waitFor({timeout:10000});
-    await setSession(accountantSession);await page.getByText('BKS-771',{exact:true}).first().click();await page.getByRole('button',{name:'Bokför leverantörsskuld'}).click();await page.getByRole('button',{name:'Rätta datum'}).waitFor({timeout:10000});
+    await page.getByRole('button',{name:'Attestera faktura'}).click();await page.locator('.payables-action-toast').getByText(/Fakturan är attesterad/).waitFor({timeout:10000});await page.locator('.status-pill.approved').getByText('Attesterad – skuld ej bokförd',{exact:true}).waitFor();await page.getByRole('button',{name:'Skapa bunt för leverantörsskuld'}).waitFor({timeout:10000});
+    await setSession(accountantSession);await page.getByText('BKS-771',{exact:true}).first().click();await page.getByRole('button',{name:'Skapa bunt för leverantörsskuld'}).click();await page.getByRole('button',{name:'Rätta datum'}).waitFor({timeout:10000});
     await page.getByText('Leverantörsskulden är bokförd. Hantera betalningen under Leverantörsreskontra.',{exact:true}).waitFor({timeout:10000});
     await page.goto(`${base}/supplier-ledger.html`,{waitUntil:'networkidle'});await page.getByRole('heading',{name:'Leverantörsreskontra'}).waitFor();await page.getByText('BKS-771',{exact:true}).first().click();await page.getByRole('button',{name:'Förbered betalning idag'}).waitFor({timeout:10000});
     db.prepare('UPDATE suppliers SET bankgiro=NULL WHERE company_id=? AND id=?').run(company.id,supplier.id);
@@ -85,12 +85,12 @@ function net2440(entries){return entries.flatMap(entry=>entry.lines||[]).filter(
     await page.getByRole('button',{name:'Förbered betalning idag'}).click();
 
     await setSession(approverSession);await page.getByRole('button',{name:'Frisläpp'}).click();
-    await setSession(accountantSession);await page.getByRole('button',{name:'Bekräfta & bokför'}).click();
+    await setSession(accountantSession);await page.getByRole('button',{name:'Bekräfta & skapa bunt'}).click();
     const confirmDialog=page.getByRole('dialog',{name:'Bekräfta genomförd betalning'});
     await confirmDialog.waitFor({state:'visible'});
     await confirmDialog.locator('input[name="reference"]').fill('BANK-BKS-771-BROWSER');
-    await confirmDialog.getByRole('button',{name:'Bekräfta & bokför'}).click();
-    await page.locator('.payables-action-toast').getByText(/Bankreferensen är sparad och betalningen är bokförd/).waitFor({timeout:10000});
+    await confirmDialog.getByRole('button',{name:'Bekräfta & skapa bunt'}).click();
+    await page.locator('.payables-action-toast').getByText(/Bankreferensen är sparad\. Betalningen går vidare via buntgranskningen\./).waitFor({timeout:10000});
 
     const invoice=db.prepare(`SELECT id,status,open_amount_ore AS openAmountOre,accounting_status AS accountingStatus FROM supplier_invoices WHERE company_id=? AND supplier_invoice_number='BKS-771'`).get(company.id);assert.ok(invoice);assert.equal(invoice.status,'paid');assert.equal(invoice.accountingStatus,'paid');assert.equal(invoice.openAmountOre,0);
     const payment=db.prepare(`SELECT id,status,amount_ore AS amountOre,confirmation_reference AS confirmationReference FROM supplier_payments WHERE company_id=? AND supplier_invoice_id=?`).get(company.id,invoice.id);assert.ok(payment);assert.equal(payment.status,'paid');assert.equal(payment.amountOre,125000);assert.equal(payment.confirmationReference,'BANK-BKS-771-BROWSER');
