@@ -24,6 +24,16 @@ test('Supabase UAT migration keeps critical tenant and accounting fields',()=>{
 
   assert.match(sql,/id text primary key/i);
   assert.doesNotMatch(sql,/id uuid primary key/i);
+  assert.doesNotMatch(sql,/entry_id uuid/i);
+  assert.match(sql,/role text not null default 'admin' check \(role in \('admin','accountant','approver','readonly'\)\)/i);
+  assert.match(sql,/archived_at timestamptz/i);
+  assert.match(sql,/ocr text/i);
+  assert.match(sql,/payment_method text/i);
+  assert.match(sql,/payment_account text/i);
+  assert.match(sql,/invoice_account text not null default '1510'/i);
+  assert.match(sql,/batch_number text/i);
+  assert.match(sql,/journal_number text/i);
+  assert.match(sql,/pdf_sha256 text/i);
   assert.match(sql,/bankgiro text/i);
   assert.match(sql,/plusgiro text/i);
   assert.match(sql,/default_cost_account text/i);
