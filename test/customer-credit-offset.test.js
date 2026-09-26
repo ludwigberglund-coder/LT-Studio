@@ -57,6 +57,9 @@ test('portal exposes offset only through Supabase and enriches the source-linked
   assert.match(app,/LTSupabase\.rpc\('offset_customer_credit'/);
   assert.match(app,/supabaseRows\('customer_credit_offsets'/);
   assert.match(app,/sourceType:offset\?'customer-credit-offset':''/);
+  assert.match(app,/String\(candidate\.target_invoice_id\)===key/);
+  assert.match(app,/Number\(tx\.amount_ore\|\|0\)===-Number\(candidate\.amount_ore\|\|0\)/);
+  assert.match(app,/String\(tx\.posting_date\|\|''\)===String\(candidate\.offset_date\|\|''\)/);
   assert.match(app,/creditOffsetTargets\(invoice\)/);
 });
 
