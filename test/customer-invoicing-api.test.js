@@ -188,7 +188,7 @@ test('direkt momssats utan typ av försäljning stöds men 0 procent avvisas',as
   const rejected=await fetch(base+'/api/v1/customer-invoices',{method:'POST',headers,body:JSON.stringify(invalid)});
   const body=await rejected.json();
   assert.equal(rejected.status,422);
-  assert.match(body.message,/25 %, 12 % eller 6 %/);
+  assert.match(body.error,/25 %, 12 % eller 6 %/);
 }));
 
 test('samma idempotensnyckel kan skickas igen utan dubbel faktura eller dubbel verifikation',async()=>withApi(async({base,password,db,co1})=>{
