@@ -68,3 +68,24 @@ test('POST requests are never automatically replayed on JWT clock skew',async()=
   );
   assert.equal(calls,1);
 });
+
+
+test('plain-text Supabase errors preserve the real message and status',async()=>{
+  const client=clientWithFetch(async()=>({
+    ok:false,
+    status:400,
+    async text(){return 'Invalid login credentials'},
+    async json(){return {message:'unused'}}
+  }));
+  await assert.rejects(
+    async()=>{
+      try{await client.signIn({email:'uat@example.invalid',password:'wrong'})}
+      catch(error){
+        assert.equal(error.status,400);
+        assert.equal(error.message,'Invalid login credentials');
+        throw error;
+      }
+    },
+    /Invalid login credentials/
+  );
+});
