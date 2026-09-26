@@ -4,7 +4,7 @@ const isDemo=pageParams.get('demo')==='1';
 const isSupabase=location.hostname==='ludwigberglund-coder.github.io'&&!isDemo;
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 const ALLOWED_SESSION_DURATIONS=[120,240,360,480];
-const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[ch]));
+const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 async function api(path,options={}){
   const headers={Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...(options.method&&options.method!=='GET'&&csrfToken?{'X-CSRF-Token':csrfToken}:{})};
   const response=await fetch('/api/v1'+path,{credentials:'same-origin',cache:'no-store',...options,headers,body:options.body?JSON.stringify(options.body):undefined});
