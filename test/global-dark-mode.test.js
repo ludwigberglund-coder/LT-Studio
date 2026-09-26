@@ -29,9 +29,7 @@ test('static build installs dark mode on every system workspace',()=>{
   assert.match(build,/function installGlobalTheme\(directory\)/);
   assert.match(build,/theme\.css/);
   assert.match(build,/theme\.js/);
-  for(const workspace of ['portal','admin','operator','legacy','uat']){
-    assert.ok(build.includes(`path.join(target,'${workspace}')`),`theme install missing for ${workspace}`);
-  }
+  assert.match(build,/for\(const workspace of \['portal','admin','operator','legacy','uat'\]\)installGlobalTheme\(path\.join\(target,workspace\)\)/);
   assert.match(build,/'shared\/theme\.css'/);
   assert.match(build,/'shared\/theme\.js'/);
 });
