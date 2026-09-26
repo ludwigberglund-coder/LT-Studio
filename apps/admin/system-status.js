@@ -61,7 +61,7 @@ function markup(){
     '</div></section>';
 }
 
-function mount(){const target=document.getElementById('live-system-status');if(target)target.innerHTML=markup();}
+function mount(force=false){const target=document.getElementById('live-system-status');if(!target)return;if(!force&&target.dataset.systemStatusMounted==='1')return;target.innerHTML=markup();target.dataset.systemStatusMounted='1';}
 
 async function fetchWithTimeout(url,options={},timeoutMs=6500){
   const controller=new AbortController();
@@ -82,17 +82,20 @@ async function refreshGithub(){
       state.github.tone=limited?'warn':'bad';
       state.github.message=limited?'GitHub API:s publika gräns är tillfälligt nådd.':'GitHub kunde inte nås.';
       state.github.checkedAt=new Date().toISOString();
-      mount();return;
+      mount(true);return;
     }
     const [commitData,runsData]=await Promise.all([commitResponse.json(),runsResponse.json()]);
     const runs=Array.isArray(runsData&&runsData.workflow_runs)?runsData.workflow_runs:[];
     const quality=runs.find(run=>/quality and security checks/i.test(run.name||''))||runs.find(run=>/codeql|quality|security/i.test(run.name||''));
     const pages=runs.find(run=>/publish github pages uat|pages/i.test(run.name||''));
-    state.github={tone:'ok',commit:String(commitData&&commitData.sha||'').slice(0,8)||'okänd',message:String(commitData&&commitData.commit&&commitData.commit.message||'Senaste commit').split('\n')[0].slice(0,96),ci:runLabel(quality,'Godkänd'),pages:runLabel(pages,'Publicerad'),checkedAt:new Date().toISOString()};
+    const runState=run=>!run?'warn':run.status==='completed'?(run.conclusion==='success'?'ok':'bad'):'warn';
+    const tones=[runState(quality),runState(pages)];
+    const githubTone=tones.includes('bad')?'bad':tones.includes('warn')?'warn':'ok';
+    state.github={tone:githubTone,commit:String(commitData&&commitData.sha||'').slice(0,8)||'okänd',message:String(commitData&&commitData.commit&&commitData.commit.message||'Senaste commit').split('\n')[0].slice(0,96),ci:runLabel(quality,'Godkänd'),pages:runLabel(pages,'Publicerad'),checkedAt:new Date().toISOString()};
   }catch(error){
     state.github.tone='bad';state.github.message='GitHub-status kunde inte hämtas.';state.github.checkedAt=new Date().toISOString();
   }
-  mount();
+  mount(true);
 }
 
 function realtimeHealth(cfg){
@@ -110,7 +113,7 @@ function realtimeHealth(cfg){
 
 async function refreshSupabase(){
   const cfg=window.LT_SUPABASE;
-  if(!cfg||!cfg.url||!cfg.publishableKey){state.supabase={tone:'bad',auth:'Saknas',realtime:'Saknas',checkedAt:new Date().toISOString()};mount();return;}
+  if(!cfg||!cfg.url||!cfg.publishableKey){state.supabase={tone:'bad',auth:'Saknas',realtime:'Saknas',checkedAt:new Date().toISOString()};mount(true);return;}
   try{
     const [authResult,realtimeResult]=await Promise.allSettled([
       fetchWithTimeout(cfg.url+'/auth/v1/health',{headers:{apikey:cfg.publishableKey}},5000),
@@ -120,16 +123,16 @@ async function refreshSupabase(){
     const realtimeOk=realtimeResult.status==='fulfilled'&&realtimeResult.value===true;
     state.supabase={tone:authOk&&realtimeOk?'ok':authOk||realtimeOk?'warn':'bad',auth:authOk?'Online':'Otillgänglig',realtime:realtimeOk?'Online':'Otillgänglig',checkedAt:new Date().toISOString()};
   }catch(error){state.supabase={tone:'bad',auth:'Otillgänglig',realtime:'Otillgänglig',checkedAt:new Date().toISOString()};}
-  mount();
+  mount(true);
 }
 
 function start(){
   mount();refreshGithub();refreshSupabase();
   githubTimer=setInterval(()=>{if(document.visibilityState==='visible')refreshGithub();},GITHUB_REFRESH_MS);
   supabaseTimer=setInterval(()=>{if(document.visibilityState==='visible')refreshSupabase();},SUPABASE_REFRESH_MS);
-  observer=new MutationObserver(()=>mount());observer.observe(document.getElementById('admin-app'),{childList:true,subtree:true});
-  window.addEventListener('hashchange',()=>setTimeout(mount,0));
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){mount();refreshSupabase();}});
+  observer=new MutationObserver(()=>mount(false));observer.observe(document.getElementById('admin-app'),{childList:true,subtree:true});
+  window.addEventListener('hashchange',()=>setTimeout(()=>mount(false),0));
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){mount(false);refreshSupabase();}});
 }
 
 start();
