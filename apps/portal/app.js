@@ -130,12 +130,12 @@ function sidebar(){return `<aside class="sidebar"><div class="logo"><strong>${es
 
 function pendingBatchInvoice(invoice){return String(invoice?.status||'')==='Väntar på bunt'}
 function metricValues(){
-  const list=visibleReceivableInvoices().map(withDemoState).filter(invoice=>!pendingBatchInvoice(invoice)),open=list.filter(i=>i.remainingOre>0),overdue=open.filter(i=>i.dueDate<today());
+  const visible=visibleReceivableInvoices().map(withDemoState),list=visible.filter(invoice=>!pendingBatchInvoice(invoice)),open=list.filter(i=>i.remainingOre>0),overdue=open.filter(i=>i.dueDate<today());
   return{
     total:ore(list.reduce((n,i)=>n+Number(i.remainingOre||0),0)),
     overdue:ore(overdue.reduce((n,i)=>n+Number(i.remainingOre||0),0)),
     open:String(open.length),
-    comments:String(list.reduce((sum,i)=>sum+Number(i.commentCount||0),0))
+    comments:String(visible.reduce((sum,i)=>sum+Number(i.commentCount||0),0))
   };
 }
 function metrics(){
@@ -145,7 +145,7 @@ function metrics(){
 
 function columnPicker(){return `<details class="column-picker"><summary>☷ Välj kolumner</summary><div class="column-menu">${R.RECEIVABLE_COLUMNS.map(column=>`<label><input type="checkbox" data-column="${escapeHtml(column.id)}" ${visibleColumns.has(column.id)?'checked':''}>${escapeHtml(column.label)}</label>`).join('')}<button class="button ghost small" data-action="reset-columns" type="button">Återställ alla</button></div></details>`}
 
-function cell(column,row){let value=row[column.id];if(column.money)return `<td class="money">${ore(value)}</td>`;if(column.id==='dueDate')return `<td class="${row.remainingOre>0&&value<today()?'overdue':''}">${escapeHtml(shortDate(value))}</td>`;return `<td>${escapeHtml(value==null||value===''?'—':value)}</td>`}
+function cell(column,row){let value=row[column.id];if(column.money)return `<td class="money">${ore(value)}</td>`;if(column.id==='dueDate')return `<td class="${!row.receivablesPending&&row.remainingOre>0&&value<today()?'overdue':''}">${escapeHtml(shortDate(value))}</td>`;return `<td>${escapeHtml(value==null||value===''?'—':value)}</td>`}
 function mappedTransaction(transaction){const bookingType=transaction.transactionType==='payment'?'Inbetalning':transaction.transactionType==='refund'?'Återbetalning':transaction.transactionType;return {...transaction,type:transaction.transactionType==='payment'?'payment':transaction.transactionType,method:transaction.paymentMethod,date:transaction.paymentDate,postingDate:transaction.postingDate,batch:transaction.batchNumber,transactionNumber:transaction.journalNumber,bookingType,amountOre:transaction.amountOre}}
 
 function customerOverview(){
@@ -210,7 +210,7 @@ function table(){
   const head=columns.map(c=>`<th>${escapeHtml(c.label)}</th>`).join('');
   const bodies=invoices.map(rawInvoice=>{
     const invoice=withDemoState(rawInvoice),visible=ids.has(String(invoice.customerId)),hidden=visible?'':'hidden';
-    const customer=customerSummary(invoice.customerId),base=R.receivableRow(invoice),comments=invoice.commentCount||0,invoiceRest=Number(invoice.remainingOre||0);
+    const customer=customerSummary(invoice.customerId),base={...R.receivableRow(invoice),receivablesPending:pendingBatchInvoice(invoice)},comments=invoice.commentCount||0,invoiceRest=Number(invoice.remainingOre||0);
     const refundBadge=invoice.credit?.refundStatus==='pending'?`<span class="comment-badge">Återbetalning väntar · ${ore(invoice.credit.refundOutstandingOre)}</span>`:invoice.credit?.refundStatus==='refunded'?'<span class="comment-badge">Återbetalad</span>':'';
     const pendingBadge=pendingBatchInvoice(invoice)?'<span class="comment-badge">Väntar på bunt · påverkar inte saldo ännu</span>':'';
     const invoiceRow=`<tr class="invoice-row" data-invoice-id="${escapeHtml(invoice.id)}" data-customer-id="${escapeHtml(invoice.customerId||'')}" ${hidden}><td class="customer-cell"><div class="customer-identity invoice-customer-identity"><span><b>${escapeHtml(customer.customerNumber||'—')}</b><strong>${escapeHtml(customer.customerName||'Okänd kund')}</strong>${customer.orgNumber?`<small>Org.nr ${escapeHtml(customer.orgNumber)}</small>`:''}</span><span class="invoice-rest-badge"><small>Restbelopp</small><b>${ore(invoiceRest)}</b></span></div>${comments?`<span class="comment-badge">💬 ${comments}</span>`:''}${pendingBadge}${refundBadge}</td>${columns.map(c=>cell(c,base)).join('')}</tr>`;
