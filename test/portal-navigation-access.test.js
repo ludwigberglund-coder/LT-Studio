@@ -40,3 +40,11 @@ test('demo är uttryckligt avskild från privat navigation',()=>{
   const demo=Nav.visibleGroups({demo:true}).flatMap(group=>group.items.map(item=>item[0]));
   assert.ok(demo.includes('legacy'));
 });
+
+test('Supabase UAT logout uses the shared Supabase session helper',()=>{
+  const fs=require('node:fs');
+  const path=require('node:path');
+  const source=fs.readFileSync(path.join(__dirname,'..','apps','portal','portal-nav.js'),'utf8');
+  assert.match(source,/if\(supabaseUat&&root\.LTSupabaseUat\)\{\s*await root\.LTSupabaseUat\.signOut\('global'\)/s);
+  assert.match(source,/else\{\s*const response=await fetch\('\/api\/v1\/auth\/logout'/s);
+});
