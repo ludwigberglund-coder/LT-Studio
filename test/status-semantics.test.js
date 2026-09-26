@@ -13,7 +13,7 @@ test('leverantörsfakturor skiljer attest från bokföring och betalning',()=>{
   const s=source('apps/portal/payables.js');
   assert.match(s,/approved:'Attesterad'/);
   assert.match(s,/Attesterad – skuld ej bokförd/);
-  assert.match(s,/Bokför leverantörsskuld/);
+  assert.match(s,/Skapa bunt för leverantörsskuld/);
   assert.match(s,/payment-prepared':'Betalning förberedd'/);
   assert.match(s,/released:'Frisläppt – väntar bankbekräftelse'/);
   assert.match(s,/paid:'Betald & bokförd'/);
