@@ -127,6 +127,39 @@ test('ofullständig eller komplex saldohistorik blockeras hellre än att ränta 
   }),{sentDate:'2026-09-18'},legalRates),error=>error.code==='UNSUPPORTED_BALANCE_HISTORY');
 });
 
+test('källanknuten kreditkvittning minskar räntekapitalet från kvittningsdagen', () => {
+  const requestId='offset_request_1234567890';
+  const preview=Receivables.reminderPreview(verifiedInvoice({
+    remainingOre:70_000,
+    transactions:[{
+      id:'offset-tx-1',
+      transactionType:'credit-offset',
+      postingDate:'2026-09-10',
+      amountOre:-30_000,
+      approved:true,
+      sourceType:'customer-credit-offset',
+      sourceId:requestId,
+      bankReference:'credit-offset:'+requestId
+    }]
+  }),{sentDate:'2026-09-18'},legalRates);
+  assert.equal(preview.principalOre,70_000);
+  assert.ok(preview.interest.segments.some(segment=>segment.principalOre===70_000));
+});
+
+test('kreditkvittning utan verifierad källreferens blockeras fail-closed', () => {
+  assert.throws(()=>Receivables.reminderPreview(verifiedInvoice({
+    remainingOre:70_000,
+    transactions:[{
+      id:'offset-tx-unsafe',
+      transactionType:'credit-offset',
+      postingDate:'2026-09-10',
+      amountOre:-30_000,
+      approved:true,
+      bankReference:'credit-offset:okand'
+    }]
+  }),{sentDate:'2026-09-18'},legalRates),error=>error.code==='UNSUPPORTED_BALANCE_HISTORY');
+});
+
 test('helkrediterad faktura med noll restbelopp kan inte få ny betalningspåminnelse', () => {
   assert.throws(()=>Receivables.reminderPreview(verifiedInvoice({
     remainingOre:0,
