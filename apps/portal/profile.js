@@ -1,5 +1,7 @@
 const app=document.getElementById('profile-app');
-const isDemo=location.hostname==='ludwigberglund-coder.github.io'||new URLSearchParams(location.search).has('demo');
+const pageParams=new URLSearchParams(location.search);
+const isDemo=pageParams.get('demo')==='1';
+const isSupabase=location.hostname==='ludwigberglund-coder.github.io'&&!isDemo;
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 async function api(path,options={}){
@@ -15,7 +17,7 @@ function labelForDuration(value){
 }
 function render(session,security){
   const roleLabels={admin:'Admin / huvudanvändare',accountant:'Ekonom',approver:'Attestant',readonly:'Läsbehörighet'};
-  app.innerHTML=`<div class="portal"><aside class="sidebar"></aside><section class="main"><header class="topbar"><div><h1>Min profil</h1><p>Personlig säkerhet och inloggning</p></div></header><main class="content"><div class="page-heading"><div><span class="eyebrow">Personligt konto</span><h2>${esc(session.user.displayName)}</h2><p>Inställningen gäller ditt eget konto. När du ändrar den loggas alla dina aktiva sessioner ut.</p></div></div><section class="panel" style="padding:22px;max-width:760px"><h3>Inloggningens giltighetstid</h3><p style="color:var(--muted);line-height:1.6">Välj hur länge en inloggning som längst får fortsätta gälla. Aktivitet kan aldrig förlänga sessionen förbi denna gräns. Alternativet ”varje gång” använder en webbläsarsession och kräver ny inloggning när webbläsarsessionen avslutas.</p><form id="security-form"><label class="field">Logga in igen
+  app.innerHTML=`<div class="portal"><aside class="sidebar"></aside><section class="main"><header class="topbar"><div><h1>Min profil</h1><p>Personlig säkerhet och inloggning</p></div></header><main class="content"><div class="page-heading"><div><span class="eyebrow">Personligt konto</span><h2>${esc(session.user.displayName)}</h2><p>Inställningen gäller ditt eget konto. När du ändrar den loggas alla dina aktiva sessioner ut.</p></div></div><section class="panel" style="padding:22px;max-width:760px"><h3>Inloggningens giltighetstid</h3><p style="color:var(--muted);line-height:1.6">Välj hur länge en inloggning som längst får fortsätta gälla. För 2–8 timmar kontrolleras gränsen även i Supabase-databasen mot den riktiga Auth-sessionen. Alternativet ”varje gång” sparas bara under den aktuella webbläsarsessionen.</p><form id="security-form"><label class="field">Logga in igen
 <select name="duration">
 <option value="session" ${security.sessionDurationMinutes===null?'selected':''}>Varje gång</option>
 ${security.allowedSessionDurationMinutes.map(minutes=>`<option value="${minutes}" ${security.sessionDurationMinutes===minutes?'selected':''}>${minutes/60} timmar</option>`).join('')}
@@ -24,8 +26,17 @@ ${security.allowedSessionDurationMinutes.map(minutes=>`<option value="${minutes}
 }
 async function load(){
   if(isDemo){
-    app.innerHTML=`<div class="portal"><aside class="sidebar"></aside><section class="main"><header class="topbar"><div><h1>Min profil</h1><p>Demo · inga riktiga kontoinställningar</p></div></header><main class="content"><div class="demo-banner"><b>Demo.</b> Personlig sessionstid ändras endast i den privata portalen efter riktig inloggning.</div><section class="panel" style="padding:22px"><h2>Personlig säkerhet</h2><p>Här kan en riktig användare välja varje gång, 2, 4, 6 eller 8 timmar. Demot sparar inga kontoändringar.</p></section></main></section></div>`;
+    app.innerHTML=`<div class="portal"><aside class="sidebar"></aside><section class="main"><header class="topbar"><div><h1>Min profil</h1><p>Demo · inga riktiga kontoinställningar</p></div></header><main class="content"><div class="demo-banner"><b>Demo.</b> Personlig sessionstid ändras endast efter riktig Supabase-inloggning.</div><section class="panel" style="padding:22px"><h2>Personlig säkerhet</h2><p>Här kan en riktig användare välja varje gång, 2, 4, 6 eller 8 timmar. Demot sparar inga kontoändringar.</p></section></main></section></div>`;
     globalThis.RollandsNavigation?.mount?.();return;
+  }
+  if(isSupabase){
+    const ctx=await window.LTSupabaseUat.context();
+    if(!ctx.authenticated){location.href='./index.html';return}
+    render(
+      {user:ctx.user,role:ctx.membership?.role||'readonly'},
+      {sessionDurationMinutes:ctx.sessionDurationMinutes,allowedSessionDurationMinutes:[120,240,360,480]}
+    );
+    return;
   }
   const session=await api('/session');
   if(!session.authenticated){location.href='./index.html';return}
@@ -39,6 +50,17 @@ document.addEventListener('submit',async event=>{
   const sessionDurationMinutes=value==='session'?null:Number(value);
   const button=event.target.querySelector('button');button.disabled=true;
   try{
+    if(isSupabase){
+      const ctx=await window.LTSupabaseUat.context();
+      if(!ctx.authenticated)throw new Error('Sessionen har gått ut. Logga in igen.');
+      const updated=await window.LTSupabase.from('app_users',ctx.accessToken).update(
+        {session_duration_minutes:sessionDurationMinutes},
+        'auth_user_id=eq.'+encodeURIComponent(ctx.authUser.id)
+      );
+      if(!Array.isArray(updated)||updated.length!==1)throw new Error('Sessionsinställningen kunde inte sparas.');
+      await window.LTSupabaseUat.signOut('global');
+      location.href='./index.html';return;
+    }
     await api('/profile/security',{method:'PUT',body:{sessionDurationMinutes}});
     sessionStorage.removeItem('rollands-csrf');
     location.href='./index.html';
