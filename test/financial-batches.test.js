@@ -117,3 +117,10 @@ test('leverantörsskuld, leverantörsbetalning, lön och IB går via källstyrda
  assert.match(accounting,/openingBatch/);
  assert.match(accounting,/Ekonomisk kvalitetskontroll/);
 });
+
+test('Buntar använder aktuell Supabase accessToken och inte gammalt sessionfält',()=>{
+ const js=read('apps/portal/batches.js');
+ assert.match(js,/ctx\.accessToken/);
+ assert.doesNotMatch(js,/ctx\.session\.access_token/);
+ assert.match(js,/async function rpc\(name,args\)\{return LTSupabase\.rpc\(name,args,ctx\.accessToken\)\}/);
+});
