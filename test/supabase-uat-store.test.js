@@ -263,3 +263,73 @@ test('customer invoice reads fail closed on cross-company rows',async()=>{
     error=>error?.code==='TENANT_ISOLATION_ERROR'
   );
 });
+
+
+test('supplier invoice reads stay company-scoped and preserve accounting fields',async()=>{
+  let requested;
+  const store=createSupabaseUatStore({
+    env:{
+      SUPABASE_PROJECT_URL:'https://demo.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY:'server-only-secret'
+    },
+    fetchImpl:async(url)=>{
+      requested=new URL(url);
+      return response([{
+        id:'sinv_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        company_id:COMPANY_A,
+        supplier_id:'supplier_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        supplier_invoice_number:'SUP-2026-001',
+        invoice_date:'2026-09-26',
+        due_date:'2026-10-26',
+        total_ore:250000,
+        vat_ore:50000,
+        currency:'SEK',
+        vat_treatment:'se-domestic-full-input-vat',
+        status:'approved',
+        coding_json:[{account:'4010',debitOre:200000},{account:'2641',debitOre:50000}],
+        coding_sha256:'a'.repeat(64),
+        document_name:'supplier.pdf',
+        document_mime:'application/pdf',
+        document_sha256:'b'.repeat(64),
+        registered_by:'user_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        approved_by:'user_bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        approved_at:'2026-09-26T12:30:00Z',
+        liability_accounting_entry_id:'entry_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        liability_posted_at:'2026-09-26T12:31:00Z',
+        open_amount_ore:250000,
+        created_at:'2026-09-26T12:00:00Z',
+        updated_at:'2026-09-26T12:31:00Z'
+      }]);
+    }
+  });
+  const rows=await store.listSupplierInvoices(COMPANY_A);
+  assert.equal(rows.length,1);
+  assert.equal(rows[0].companyId,COMPANY_A);
+  assert.equal(rows[0].totalOre,250000);
+  assert.equal(rows[0].vatOre,50000);
+  assert.equal(rows[0].openAmountOre,250000);
+  assert.equal(rows[0].coding.length,2);
+  assert.equal(requested.searchParams.get('company_id'),`eq.${COMPANY_A}`);
+});
+
+test('supplier invoice reads fail closed on cross-company rows',async()=>{
+  const store=createSupabaseUatStore({
+    env:{
+      SUPABASE_PROJECT_URL:'https://demo.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY:'server-only-secret'
+    },
+    fetchImpl:async()=>response([{
+      id:'sinv_bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      company_id:COMPANY_B,
+      supplier_id:'supplier_bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      supplier_invoice_number:'SUP-2026-999',
+      total_ore:100,
+      vat_ore:20,
+      open_amount_ore:100
+    }])
+  });
+  await assert.rejects(
+    store.listSupplierInvoices(COMPANY_A),
+    error=>error?.code==='TENANT_ISOLATION_ERROR'
+  );
+});
