@@ -104,3 +104,20 @@ test('företagsinställningar blir fakturans säljaruppgifter',()=>{
     db.close();
   }
 });
+
+
+test('företagsinställningar använder Supabase UAT på GitHub Pages',()=>{
+  const fs=require('node:fs');
+  const path=require('node:path');
+  const root=path.resolve(__dirname,'..');
+  const html=fs.readFileSync(path.join(root,'apps','portal','company-settings.html'),'utf8');
+  const js=fs.readFileSync(path.join(root,'apps','portal','company-settings.js'),'utf8');
+  assert.match(html,/supabase-config\.js/);
+  assert.match(html,/supabase-client\.js/);
+  assert.match(html,/supabase-session\.js/);
+  assert.match(js,/const isSupabase=location\.hostname==='ludwigberglund-coder\.github\.io'&&!isDemo/);
+  assert.match(js,/LTSupabaseUat\.context/);
+  assert.match(js,/LTSupabase\.from\('company_invoice_settings'/);
+  assert.match(js,/ctx\.membership\?\.role==='admin'/);
+  assert.doesNotMatch(js,/location\.hostname\.endsWith\('\.github\.io'\)/);
+});

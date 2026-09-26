@@ -81,7 +81,7 @@ async function loadSupabaseMetrics(){
       result.inventory.pendingCount=(rows||[]).filter(row=>row.status==='pending').length;
     }),
     attempt('periodupplåsningar',async()=>{
-      const rows=await window.LTSupabase.from('accounting_unlock_requests',ctx.accessToken).select('status',filter);
+      const rows=await window.LTSupabase.from('period_unlock_requests',ctx.accessToken).select('status',filter);
       result.accounting.pendingUnlocks=(rows||[]).filter(row=>row.status==='pending').length;
     })
   ]);
