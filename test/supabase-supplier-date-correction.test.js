@@ -8,6 +8,20 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
+test('legacy Supabase correction table is upgraded safely',()=>{
+  const sql=read('supabase/migrations/20260926_supplier_invoice_date_correction.sql');
+  assert.match(sql,/add column if not exists reversal_transaction_id text/i);
+  assert.match(sql,/add column if not exists replacement_transaction_id text/i);
+  assert.match(sql,/add column if not exists old_posting_date date/i);
+  assert.match(sql,/add column if not exists created_by uuid/i);
+  assert.match(sql,/alter column corrected_by drop not null/i);
+  assert.match(sql,/set created_by=coalesce\(created_by,corrected_by\)/i);
+  assert.match(sql,/drop policy if exists "controlled supplier date corrections"/i);
+  assert.match(sql,/drop policy if exists "members read supplier date corrections"/i);
+  assert.match(sql,/corrected_by=v_uid/i);
+  assert.match(sql,/corrected_at=now\(\)/i);
+});
+
 test('supplier invoice date correction is staged through a two-entry financial batch',()=>{
   const sql=read('supabase/migrations/20260926_supplier_invoice_date_correction.sql');
   assert.match(sql,/create table if not exists public\.supplier_invoice_date_corrections/i);
