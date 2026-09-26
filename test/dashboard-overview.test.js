@@ -17,6 +17,8 @@ test('översikten laddar delad meny även på Supabase UAT',()=>{
   assert.match(js,/const isSupabase=location\.hostname==='ludwigberglund-coder\.github\.io'&&!isDemo/);
   assert.match(js,/function sidebar\(\)\{return '<aside class="sidebar"><\/aside>'\}/);
   assert.match(js,/RollandsNavigation\?\.mount/);
+  assert.match(js,/LTSupabase\.from\('period_unlock_requests'/);
+  assert.doesNotMatch(js,/accounting_unlock_requests/);
 });
 
 test('översikten är medvetet gles och visar högst sex viktiga uppgifter',()=>{
