@@ -46,19 +46,23 @@ test('Supabase session helper refreshes expiring JWTs and supports session-only 
 });
 
 
-test('personal session changes use an authenticated audited RPC',()=>{
+test('personal session changes use an invoker RPC plus private audit trigger',()=>{
   const sql=read('supabase/migrations/20260926_personal_session_audit_rpc.sql');
   assert.match(sql,/create or replace function public\.set_personal_session_duration/i);
-  assert.match(sql,/security definer/i);
+  assert.match(sql,/security invoker/i);
   assert.match(sql,/set search_path=''/i);
   assert.match(sql,/v_uid uuid := auth\.uid\(\)/i);
   assert.match(sql,/auth\.jwt\(\)->>'aal'/i);
   assert.match(sql,/lt_security\.session_within_personal_limit\(\)/i);
   assert.match(sql,/from public\.company_memberships/i);
+  assert.match(sql,/set_config\('app\.profile_session_write','1',true\)/i);
+  assert.match(sql,/create or replace function private\.audit_personal_session_duration_change/i);
+  assert.match(sql,/CONTROLLED_PROFILE_WRITE_REQUIRED/);
   assert.match(sql,/USER_SESSION_DURATION_CHANGED/);
-  assert.match(sql,/jsonb_build_object\('before',v_before,'after',p_session_duration_minutes\)/i);
+  assert.match(sql,/jsonb_build_object\([\s\S]*'before'[\s\S]*'after'/i);
+  assert.match(sql,/revoke all on function private\.audit_personal_session_duration_change\(\)[\s\S]*from public, anon, authenticated/i);
+  assert.match(sql,/create trigger app_users_personal_session_audit/i);
+  assert.match(sql,/grant update\(session_duration_minutes\) on table public\.app_users to authenticated/i);
   assert.match(sql,/revoke all on function public\.set_personal_session_duration\(text,integer\)[\s\S]*from public, anon, authenticated/i);
   assert.match(sql,/grant execute on function public\.set_personal_session_duration\(text,integer\)[\s\S]*to authenticated/i);
-  assert.match(sql,/revoke update\(session_duration_minutes\) on table public\.app_users from authenticated/i);
-  assert.match(sql,/drop policy if exists "users update own session duration" on public\.app_users/i);
 });
