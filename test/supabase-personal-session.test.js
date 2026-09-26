@@ -115,3 +115,12 @@ test('personal session limit is also enforced at the Supabase RLS boundary',()=>
   assert.match(guard,/private\.lt_personal_session_allowed\(\)/i);
   assert.match(guard,/revoke all on function private\.lt_personal_session_allowed\(\) from public/i);
 });
+
+
+test('parallel session hardening cleanup removes duplicate private-schema exposure',()=>{
+  const cleanup=fs.readFileSync(path.join(root,'supabase','migrations','20260926_personal_session_parallel_cleanup.sql'),'utf8');
+  assert.match(cleanup,/drop policy if exists %I on public\.%I','personal session limit'/i);
+  assert.match(cleanup,/drop function if exists private\.lt_personal_session_allowed\(\)/i);
+  assert.match(cleanup,/revoke usage on schema private from authenticated/i);
+  assert.match(cleanup,/lt_security\.session_within_personal_limit\(\)/i);
+});
