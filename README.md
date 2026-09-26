@@ -1,5 +1,12 @@
 # Rolands / LT Studio – småföretagsplattform
 
+## 🔗 Öppna LT Studio UAT
+
+**[Klicka här för att öppna den gemensamma UAT-versionen](https://ludwigberglund-coder.github.io/LT-Studio/uat/)**
+
+Den här länken är den gemensamma testversionen för Ludwig och Theodor och ska användas för fortsatt UAT och förbättring av programmet.
+
+
 Vi bygger en återanvändbar plattform för småföretag. Referenskunders verkliga identitet, innehåll och driftinställningar hålls utanför det publika repositoryt och separeras från gemensamma verksamhetsregler.
 
 **Aktuell fas: Production Readiness Phase 1. Inga nya stora moduler prioriteras. Plattformen är ännu inte godkänd för pilot med verkliga ekonomiska data.**
