@@ -19,7 +19,7 @@ test('admin overview contains live GitHub and Supabase system status',()=>{
   assert.match(js,/function supabaseMark\(\)/);
   assert.match(js,/auth\/v1\/health/);
   assert.match(js,/realtime\/v1\/websocket/);
-  assert.match(js,/api\.github\.com\/repos/);
+  assert.ok(js.includes('https://api.github.com/repos/'));
   assert.match(js,/actions\/runs\?branch=main&per_page=10/);
   assert.match(js,/GITHUB_REFRESH_MS=5\*60\*1000/);
   assert.match(js,/SUPABASE_REFRESH_MS=60\*1000/);
