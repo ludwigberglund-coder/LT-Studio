@@ -57,7 +57,7 @@ begin
 end;
 $function$;
 
-revoke all on function public.save_automation_proposal_review(text,text,jsonb) from public;
+revoke all on function public.save_automation_proposal_review(text,text,jsonb) from public, anon;
 grant execute on function public.save_automation_proposal_review(text,text,jsonb) to authenticated;
 
 revoke delete, truncate, trigger, references
