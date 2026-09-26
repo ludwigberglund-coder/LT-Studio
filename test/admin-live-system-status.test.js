@@ -17,11 +17,11 @@ test('admin overview contains live GitHub and Supabase system status',()=>{
   assert.match(app,/id="live-system-status"/);
   assert.match(js,/GitHub och Supabase i realtid/);
   assert.match(js,/function supabaseMark\(\)/);
-  assert.match(js,/auth\/v1\/health/);
-  assert.match(js,/realtime\/v1\/websocket/);
+  assert.ok(js.includes('auth/v1/health'));
+  assert.ok(js.includes('realtime/v1/websocket'));
   assert.ok(js.includes("const REPO='ludwigberglund-coder/LT-Studio'"));
-  assert.match(js,/commits\\/main/);
-  assert.match(js,/actions\/runs\?branch=main&per_page=10/);
+  assert.ok(js.includes('commits/main'));
+  assert.ok(js.includes('actions/runs?branch=main&per_page=10'));
   assert.match(js,/GITHUB_REFRESH_MS=5\*60\*1000/);
   assert.match(js,/SUPABASE_REFRESH_MS=60\*1000/);
   assert.match(css,/@keyframes systemScan/);
