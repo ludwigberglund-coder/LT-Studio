@@ -4,7 +4,7 @@
   const CLOCK_SKEW_RETRY_DELAYS=[700,1400,2800];
   function headers(token,extra){return Object.assign({'apikey':cfg.publishableKey,'Content-Type':'application/json'},token?{'Authorization':'Bearer '+token}:{},extra||{});}
   function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
-  function errorMessage(data,status){return (data&&typeof data==='object'&&(data.message||data.error_description||data.error))||('Supabase request failed: '+status);}
+  function errorMessage(data,status){\n    if(data&&typeof data==='object')return data.message||data.error_description||data.error||('Supabase request failed: '+status);\n    if(typeof data==='string'&&data.trim())return data.trim();\n    return 'Supabase request failed: '+status;\n  }
   function isJwtFutureError(message){return /jwt.*issued.*future|issued\s+at\s+future/i.test(String(message||''));}
   function isSafeToRetry(options){const method=String(options?.method||'GET').toUpperCase();return method==='GET'||method==='HEAD';}
   async function request(path,options={}){
