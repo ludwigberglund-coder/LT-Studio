@@ -95,9 +95,11 @@
     'documents.html':['documents','customer_invoice_documents','supplier_invoices'],
     'reports.html':['journal_entries','journal_lines','invoices','invoice_transactions','supplier_invoices','supplier_payments'],
     'profile.html':['app_users'],
-    'company-settings.html':['companies','company_invoice_settings']
+    'company-settings.html':['companies','company_invoice_settings'],
+    'website.html':['website_cms_state','website_cms_revisions']
   });
   let activeRealtime=null;
+  let realtimeSessionRefresh=0;
   let realtimeReloadTimer=0;
   function realtimePageName(){return location.pathname.split('/').filter(Boolean).pop()||'dashboard.html';}
   function realtimeUrl(){
@@ -189,6 +191,7 @@
     const key=ctx.company.id+'|'+tables.join(',');
     if(activeRealtime?.key===key){activeRealtime.watcher.updateToken(ctx.accessToken);return}
     activeRealtime?.watcher?.close?.();
+    if(realtimeSessionRefresh){clearInterval(realtimeSessionRefresh);realtimeSessionRefresh=0}
     const watcher=createRealtimeWatcher({
       token:ctx.accessToken,
       tables,
@@ -196,8 +199,9 @@
       onStatus:status=>document.documentElement.dataset.realtimeStatus=status
     });
     activeRealtime={key,watcher};
+    realtimeSessionRefresh=setInterval(()=>window.LTSupabaseUat?.context?.().catch(()=>{}),4*60*1000);
   }
-  function stopRealtime(){activeRealtime?.watcher?.close?.();activeRealtime=null;delete document.documentElement.dataset.realtimeStatus}
+  function stopRealtime(){activeRealtime?.watcher?.close?.();activeRealtime=null;if(realtimeSessionRefresh){clearInterval(realtimeSessionRefresh);realtimeSessionRefresh=0}delete document.documentElement.dataset.realtimeStatus}
   window.LTSupabaseRealtime={watch:createRealtimeWatcher,autoSync,stop:stopRealtime,pageTables:()=>PAGE_REALTIME_TABLES[realtimePageName()]||[]};
 
 })();
