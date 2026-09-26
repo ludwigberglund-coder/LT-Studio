@@ -5,6 +5,24 @@ const {validateContent}=require('./validate-content.js');
 const root=path.resolve(__dirname,'..'),target=path.join(root,'dist');
 function copyDirectory(source,destination){if(!fs.existsSync(source))throw new Error(`Källkatalog saknas: ${path.relative(root,source)}`);fs.mkdirSync(destination,{recursive:true});fs.cpSync(source,destination,{recursive:true});}
 function copyFile(source,destination){if(!fs.existsSync(source))throw new Error(`Källfil saknas: ${path.relative(root,source)}`);fs.mkdirSync(path.dirname(destination),{recursive:true});fs.copyFileSync(source,destination);}
+function installGlobalTheme(directory){
+  for(const entry of fs.readdirSync(directory,{withFileTypes:true})){
+    const file=path.join(directory,entry.name);
+    if(entry.isDirectory()){installGlobalTheme(file);continue;}
+    if(!entry.isFile()||!entry.name.endsWith('.html'))continue;
+    const relative=path.relative(path.dirname(file),path.join(target,'shared')).split(path.sep).join('/')||'.';
+    let html=fs.readFileSync(file,'utf8');
+    const themeBoot=`<script>(function(){try{var k='lt-studio-theme-v1',v=localStorage.getItem(k),d=v==='dark'||(!v&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.ltTheme=d?'dark':'light';document.documentElement.style.colorScheme=d?'dark':'light'}catch(e){}})();<\/script>`;
+    const themeStyle=`<link rel="stylesheet" href="${relative}/theme.css">`;
+    const designSystem=/<link\b[^>]*href=["'][^"']*design-system\.css(?:\?[^"']*)?["'][^>]*>/i;
+    html=designSystem.test(html)
+      ? html.replace(designSystem,match=>`${themeBoot}\n${themeStyle}\n${match}`)
+      : html.replace('</head>',`${themeBoot}\n${themeStyle}\n</head>`);
+    html=html.replace('</body>',`<script src="${relative}/theme.js"></script>\n</body>`);
+    fs.writeFileSync(file,html);
+  }
+}
+
 function installWorkspaceNavigation(directory){
   for(const name of fs.readdirSync(directory)){
     const file=path.join(directory,name);
@@ -41,6 +59,7 @@ function buildStatic(){
   copyDirectory(path.join(root,'config'),path.join(target,'config'));
   copyDirectory(path.join(root,'public'),path.join(target,'legacy'));
   for(const workspace of ['portal','admin','legacy'])installWorkspaceNavigation(path.join(target,workspace));
+  for(const workspace of ['portal','admin','operator','legacy','uat'])installGlobalTheme(path.join(target,workspace));
   copyFile(path.join(root,'apps','website','index.html'),path.join(target,'404.html'));
   fs.writeFileSync(path.join(target,'.nojekyll'),'');
   fs.writeFileSync(path.join(target,'build-info.json'),`${JSON.stringify({source:'GitHub',commit:process.env.GITHUB_SHA||'local',generatedAt:new Date().toISOString(),demoOnly:false,runtime:'supabase-uat'},null,2)}\n`);
@@ -60,6 +79,7 @@ function buildStatic(){
     'portal/website.html','portal/website.js','portal/website.css','shared/content.js',
     'shared/accounting/money.js','shared/accounting/journal.js','shared/access-control/authorization.js','shared/receivables/customer-receivables.js',
     'shared/invoicing/invoice.js','shared/invoicing/pdf.js','shared/vendor/pdf-lib.min.js',
+    'shared/theme.css','shared/theme.js',
     'content/company.json','content/site.json','content/admin.json','config/rolands-business-decisions.json','config/access-control.json',
     'config/legal-rates.json','config/accounting-accounts.json','legacy/index.html','legacy/design-system.css'
   ];
