@@ -197,3 +197,69 @@ test('supplier number lookup keeps tenant scope',async()=>{
   assert.equal(requested.searchParams.get('company_id'),`eq.${COMPANY_A}`);
   assert.equal(requested.searchParams.get('supplier_number'),'eq.L-1001');
 });
+
+
+test('customer invoice reads stay company-scoped and preserve money fields',async()=>{
+  let requested;
+  const store=createSupabaseUatStore({
+    env:{
+      SUPABASE_PROJECT_URL:'https://demo.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY:'server-only-secret'
+    },
+    fetchImpl:async(url)=>{
+      requested=new URL(url);
+      return response([{
+        id:'invoice_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        company_id:COMPANY_A,
+        customer_id:'customer_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        invoice_number:'10001',
+        ocr:'990010001',
+        invoice_date:'2026-09-26',
+        posting_date:'2026-09-26',
+        due_date:'2026-10-26',
+        total_ore:125000,
+        remaining_ore:125000,
+        vat_ore:25000,
+        status:'Bokförd',
+        payment_method:'Bankgiro',
+        payment_account:'999-8888',
+        invoice_account:'1510',
+        batch_number:null,
+        journal_number:null,
+        pdf_sha256:null,
+        created_at:'2026-09-26T12:00:00Z',
+        updated_at:'2026-09-26T12:00:00Z'
+      }]);
+    }
+  });
+  const rows=await store.listCustomerInvoices(COMPANY_A);
+  assert.equal(rows.length,1);
+  assert.equal(rows[0].companyId,COMPANY_A);
+  assert.equal(rows[0].totalOre,125000);
+  assert.equal(rows[0].remainingOre,125000);
+  assert.equal(rows[0].vatOre,25000);
+  assert.equal(rows[0].invoiceAccount,'1510');
+  assert.equal(requested.searchParams.get('company_id'),`eq.${COMPANY_A}`);
+});
+
+test('customer invoice reads fail closed on cross-company rows',async()=>{
+  const store=createSupabaseUatStore({
+    env:{
+      SUPABASE_PROJECT_URL:'https://demo.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY:'server-only-secret'
+    },
+    fetchImpl:async()=>response([{
+      id:'invoice_bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      company_id:COMPANY_B,
+      customer_id:'customer_bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      invoice_number:'20001',
+      total_ore:100,
+      remaining_ore:100,
+      vat_ore:20
+    }])
+  });
+  await assert.rejects(
+    store.listCustomerInvoices(COMPANY_A),
+    error=>error?.code==='TENANT_ISOLATION_ERROR'
+  );
+});
