@@ -88,11 +88,11 @@ Miljövariabler och säkra sökvägar beskrivs i `.env.example` och backup-guide
 
 Vid `TENANT_INTEGRITY_ERROR` ska uppstarten stoppas och historiken bevaras för utredning. Radera inte poster eller stäng av kontrollerna för att få servern att starta.
 
-## Offentlig webbplats och portaldemo
+## GitHub Pages, UAT och offentlig webbplats
 
-Webbplatsen och portaldemon publiceras av GitHub Pages. Demon är endast en förhandsvisning av gränssnittet; uppgifter som ni matar in delas inte mellan era webbläsare.
+GitHub Pages publicerar gränssnittet. Den autentiserade UAT-portalen använder Supabase som gemensam databas, så användare i samma företag arbetar mot samma fakturor, kunder, leverantörer, dokument och övriga delade verksamhetsdata. En vy som uttryckligen öppnas med `?demo=1` är däremot en isolerad lokal demo och ska inte användas för delad UAT-data.
 
-Offentliga texter finns i `content/site.json` och `content/company.json`. Se redigeringsguiden. Företagets juridiska/ekonomiska inställningar ska inte ändras via ett offentligt CMS.
+Offentliga webbplatstexter som byggs och publiceras direkt från GitHub finns fortfarande i `content/site.json` och `content/company.json`. Webbplats-CMS:ets utkast, publicerade CMS-versioner och versionshistorik lagras i Supabase. Företagets juridiska identitet hämtas från företagets masterdata och ska inte skrivas om via CMS.
 
 ## Fördjupning
 
