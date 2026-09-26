@@ -68,6 +68,8 @@ jobs:
           test -f dist/index.html
           test -f dist/app.js
           test -f dist/styles.css
+          test -f dist/uat/index.html
+          grep -Fq '../portal/dashboard.html' dist/uat/index.html
           test -f dist/admin/index.html
           test -f dist/admin/app.js
           test -f dist/shared/content.js
