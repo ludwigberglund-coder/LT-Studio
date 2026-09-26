@@ -40,7 +40,7 @@ test('credit offset validates customer, balances, period and idempotency',()=>{
   assert.match(sql,/CREDIT_OFFSET_AMOUNT_EXCEEDS_AVAILABLE/);
   assert.match(sql,/PERIOD_LOCKED/);
   assert.match(sql,/CUSTOMER_CREDIT_ALREADY_REFUNDED/);
-  assert.match(sql,/transaction_type[^\n]*'credit-offset'/i);
+  assert.match(sql,/insert into public\.invoice_transactions\([\s\S]*?'credit-offset'[\s\S]*?'credit-offset:'\|\|p_request_id/i);
   assert.match(sql,/'credit-offset:'\|\|p_request_id/);
 });
 
