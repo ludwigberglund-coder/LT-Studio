@@ -88,6 +88,6 @@ test('sign out defaults to global Supabase scope',async()=>{
   const client=clientWithFetch(async(url,options)=>{calls.push({url,options});return response(204,null);});
   await client.signOut('access-token');
   assert.equal(calls.length,1);
-  assert.match(calls[0].url,/\/auth\/v1\/logout\?scope=global$/);
+  assert.match(calls[0].url,/\/auth\/v1\/logout$/);
   assert.equal(calls[0].options.headers.Authorization,'Bearer access-token');
 });
