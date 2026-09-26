@@ -19,9 +19,11 @@ test('Supabase UAT migration keeps critical tenant and accounting fields',()=>{
     const end=sql.indexOf('\n);',start);
     assert.notEqual(end,-1,`unterminated table ${table}`);
     const block=sql.slice(start,end);
-    assert.match(block,/company_id uuid/i,`${table} must remain tenant-scoped`);
+    assert.match(block,/company_id text/i,`${table} must remain tenant-scoped`);
   }
 
+  assert.match(sql,/id text primary key/i);
+  assert.doesNotMatch(sql,/id uuid primary key/i);
   assert.match(sql,/bankgiro text/i);
   assert.match(sql,/plusgiro text/i);
   assert.match(sql,/default_cost_account text/i);
