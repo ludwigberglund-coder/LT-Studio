@@ -74,6 +74,8 @@ jobs:
           test -f dist/index.html
           test -f dist/app.js
           test -f dist/styles.css
+          test -f dist/uat/index.html
+          grep -Fq '../portal/dashboard.html' dist/uat/index.html
           test ! -e dist/store.json
           test ! -e dist/.env
           test ! -e dist/platform.sqlite
