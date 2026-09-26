@@ -31,7 +31,7 @@
     config:cfg,
     signIn:({email,password})=>request('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({email,password})}),
     refreshSession:(refreshToken)=>request('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:JSON.stringify({refresh_token:String(refreshToken||'')})}),
-    signOut:(token,scope='global')=>request('/auth/v1/logout?scope='+encodeURIComponent(scope),{method:'POST',token}),
+    signOut:(token,scope='global')=>request('/auth/v1/logout'+(scope==='global'?'':'?scope='+encodeURIComponent(scope)),{method:'POST',token}),
     getUser:(token)=>request('/auth/v1/user',{token}),
     mfaEnroll:(token,friendlyName)=>request('/auth/v1/factors',{method:'POST',token,body:JSON.stringify({factor_type:'totp',friendly_name:String(friendlyName||'LT Studio')})}),
     mfaChallenge:(token,factorId)=>request('/auth/v1/factors/'+encodeURIComponent(factorId)+'/challenge',{method:'POST',token,body:JSON.stringify({})}),
