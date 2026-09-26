@@ -50,3 +50,21 @@ Supabase Storage can later hold synthetic UAT PDFs and attachments. The bucket m
 ## Cutover rule
 
 Never dual-write financial events to SQLite and PostgreSQL. Use a controlled UAT cutover after migration checks are green.
+
+
+## Shared UAT bootstrap
+
+The shared Supabase UAT uses only synthetic data.
+
+Apply in this order to a dedicated Supabase UAT project:
+
+1. Run the SQL migration in `supabase/migrations/20260926_001_shared_uat_foundation.sql`.
+2. Run `supabase/seeds/shared-uat-synthetic.sql`.
+3. Store the real project URL, service-role key and database URL only in the hosting secret manager.
+4. Set `ROLLANDS_ENV=staging`, `ROLLANDS_DATA_CLASSIFICATION=synthetic`, `ROLLANDS_REAL_DATA_ALLOWED=0`, and `LT_DATABASE_ENGINE=postgresql`.
+5. Set `LT_SUPABASE_UAT_COMPANY_ID` to one of the seeded synthetic company IDs.
+6. Run `npm run staging:supabase:preflight`.
+
+The preflight only verifies read access to tenant-scoped customers, suppliers, customer invoices and supplier invoices. It does not enable writes or migrate authentication.
+
+Do not expose `SUPABASE_SERVICE_ROLE_KEY` in GitHub Pages, browser JavaScript, screenshots, issues, pull requests or chat messages.
