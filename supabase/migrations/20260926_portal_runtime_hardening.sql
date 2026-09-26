@@ -5,6 +5,8 @@ revoke all on table public.company_invoice_settings from authenticated;
 grant select, insert, update on table public.company_invoice_settings to authenticated;
 
 drop policy if exists "admins delete invoice settings" on public.company_invoice_settings;
+drop policy if exists "admins insert invoice settings" on public.company_invoice_settings;
+drop policy if exists "admins update invoice settings" on public.company_invoice_settings;
 drop policy if exists "admins can manage invoice settings" on public.company_invoice_settings;
 
 create policy "admins insert invoice settings"
