@@ -620,7 +620,7 @@ begin
   from public.financial_batches b
   where b.company_id=p_company_id and b.id=p_batch_id;
 end;
-$function$
+$function$;
 
 
 revoke all on function public.approve_financial_batch(text,text) from public,anon;
