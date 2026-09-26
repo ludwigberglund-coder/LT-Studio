@@ -94,6 +94,17 @@ async function issueSupabaseInvoice(value){
   await window.LTSupabase.storage.remove('lt-documents',[objectPath],ctx.accessToken).catch(()=>{});
   await window.LTSupabase.storage.upload('lt-documents',objectPath,blob,ctx.accessToken);
   try{
+    await window.LTSupabase.functions.invoke('verify-customer-invoice-document',{
+      companyId:ctx.company.id,
+      requestId:issueRequestId,
+      purpose:'invoice',
+      objectPath,
+      fileName,
+      pdfSha256,
+      documentSha256,
+      sizeBytes:pdfArray.byteLength,
+      documentJson:document
+    },ctx.accessToken);
     const journalLines=Invoice.journalLines(document);
     const result=(await window.LTSupabase.rpc('finalize_customer_invoice',{
       p_company_id:ctx.company.id,p_request_id:issueRequestId,p_payload_sha256:payloadSha256,p_customer_number:value.customerNumber,
@@ -171,6 +182,17 @@ async function issueSupabaseCredit({originalInvoiceId,creditDate,reason,creditAm
   await window.LTSupabase.storage.remove('lt-documents',[objectPath],ctx.accessToken).catch(()=>{});
   await window.LTSupabase.storage.upload('lt-documents',objectPath,new Blob([pdfArray],{type:'application/pdf'}),ctx.accessToken);
   try{
+    await window.LTSupabase.functions.invoke('verify-customer-invoice-document',{
+      companyId:ctx.company.id,
+      requestId,
+      purpose:'credit',
+      objectPath,
+      fileName,
+      pdfSha256,
+      documentSha256,
+      sizeBytes:pdfArray.byteLength,
+      documentJson:document
+    },ctx.accessToken);
     const result=(await window.LTSupabase.rpc('finalize_customer_credit',{
       p_company_id:ctx.company.id,p_request_id:requestId,p_payload_sha256:payloadSha256,p_original_invoice_id:originalInvoiceId,
       p_credit_date:creditDate,p_reason:reason,p_credit_amount_ore:creditAmountOre,p_document_json:document,
