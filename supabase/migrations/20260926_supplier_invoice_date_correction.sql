@@ -37,6 +37,103 @@ create table if not exists public.supplier_invoice_date_corrections(
   foreign key(company_id,replacement_entry_id) references public.journal_entries(company_id,id) on delete restrict
 );
 
+-- Compatibility with the earlier UAT table shape that used corrected_by/corrected_at
+-- and did not yet have batch transaction identities or a separate approval actor.
+-- Keep legacy columns nullable for audit compatibility; new rows use created_by /
+-- approved_by and the batch transaction ids.
+alter table public.supplier_invoice_date_corrections
+  add column if not exists reversal_transaction_id text,
+  add column if not exists replacement_transaction_id text,
+  add column if not exists old_posting_date date,
+  add column if not exists created_by uuid,
+  add column if not exists approved_by uuid,
+  add column if not exists approved_at timestamptz,
+  add column if not exists corrected_by uuid,
+  add column if not exists corrected_at timestamptz;
+
+do $compat$
+begin
+  if exists(
+    select 1 from information_schema.columns
+    where table_schema='public'
+      and table_name='supplier_invoice_date_corrections'
+      and column_name='corrected_by'
+  ) then
+    update public.supplier_invoice_date_corrections
+    set created_by=coalesce(created_by,corrected_by)
+    where created_by is null;
+
+    update public.supplier_invoice_date_corrections
+    set approved_by=coalesce(approved_by,corrected_by)
+    where status='approved' and approved_by is null;
+
+    alter table public.supplier_invoice_date_corrections
+      alter column corrected_by drop not null;
+  end if;
+
+  if exists(
+    select 1 from information_schema.columns
+    where table_schema='public'
+      and table_name='supplier_invoice_date_corrections'
+      and column_name='corrected_at'
+  ) then
+    update public.supplier_invoice_date_corrections
+    set approved_at=coalesce(approved_at,corrected_at)
+    where status='approved' and approved_at is null;
+  end if;
+
+  update public.supplier_invoice_date_corrections c
+  set old_posting_date=j.posting_date
+  from public.journal_entries j
+  where c.old_posting_date is null
+    and j.company_id=c.company_id
+    and j.id=c.original_entry_id;
+
+  if not exists(
+    select 1 from public.supplier_invoice_date_corrections where created_by is null
+  ) then
+    alter table public.supplier_invoice_date_corrections
+      alter column created_by set not null;
+  end if;
+
+  if not exists(
+    select 1 from public.supplier_invoice_date_corrections where old_posting_date is null
+  ) then
+    alter table public.supplier_invoice_date_corrections
+      alter column old_posting_date set not null;
+  end if;
+
+  if not exists(
+    select 1 from public.supplier_invoice_date_corrections
+    where reversal_transaction_id is null or replacement_transaction_id is null
+  ) then
+    alter table public.supplier_invoice_date_corrections
+      alter column reversal_transaction_id set not null,
+      alter column replacement_transaction_id set not null;
+  end if;
+
+  if not exists(
+    select 1 from pg_constraint
+    where conrelid='public.supplier_invoice_date_corrections'::regclass
+      and conname='supplier_invoice_date_corrections_created_by_fkey'
+  ) then
+    alter table public.supplier_invoice_date_corrections
+      add constraint supplier_invoice_date_corrections_created_by_fkey
+      foreign key(created_by) references auth.users(id);
+  end if;
+
+  if not exists(
+    select 1 from pg_constraint
+    where conrelid='public.supplier_invoice_date_corrections'::regclass
+      and conname='supplier_invoice_date_corrections_approved_by_fkey'
+  ) then
+    alter table public.supplier_invoice_date_corrections
+      add constraint supplier_invoice_date_corrections_approved_by_fkey
+      foreign key(approved_by) references auth.users(id);
+  end if;
+end
+$compat$;
+
 create unique index if not exists supplier_invoice_date_correction_one_pending
   on public.supplier_invoice_date_corrections(company_id,invoice_id)
   where status='pending';
@@ -45,6 +142,11 @@ create index if not exists supplier_invoice_date_corrections_invoice_recent
   on public.supplier_invoice_date_corrections(company_id,invoice_id,created_at desc);
 
 alter table public.supplier_invoice_date_corrections enable row level security;
+
+-- Remove policies from the earlier direct-correction implementation so there is
+-- only one write path: staging + approved financial batch.
+drop policy if exists "controlled supplier date corrections" on public.supplier_invoice_date_corrections;
+drop policy if exists "members read supplier date corrections" on public.supplier_invoice_date_corrections;
 
 drop policy if exists "members read supplier invoice date corrections" on public.supplier_invoice_date_corrections;
 create policy "members read supplier invoice date corrections"
@@ -517,7 +619,9 @@ begin
         set replacement_entry_id=v_entry,
             status='approved',
             approved_by=v_uid,
-            approved_at=now()
+            approved_at=now(),
+            corrected_by=v_uid,
+            corrected_at=now()
         where c.company_id=p_company_id
           and c.id=v_tx.source_id
           and c.batch_id=p_batch_id
