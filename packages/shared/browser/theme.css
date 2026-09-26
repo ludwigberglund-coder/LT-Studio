@@ -1,9 +1,76 @@
 /*
- * LT Studio shared dark mode.
- * Palette is intentionally "dimmed" rather than black/white:
- * inspired by GitHub Primer Dark Dimmed neutrals (#22272e, #2d333b, #373e47,
- * #444c56, #adbac7, #909dab) with LT Studio green accents.
+ * LT Studio Day/Night themes.
+ * Accessibility follows Primer's color considerations:
+ * - WCAG AA text contrast for both default themes
+ * - 3:1 perceivable input boundaries and functional controls
+ * - visible keyboard focus
+ * - state is communicated by text/icon as well as color
+ * - forced-colors is left to the operating system
+ *
+ * Night keeps the softer GitHub Primer Dark Dimmed visual character without
+ * treating intentionally-low-contrast Dark Dimmed as an accessibility escape hatch.
  */
+
+html[data-lt-theme="light"]{
+  color-scheme:light;
+  --lt-light-canvas:#f4f5ef;
+  --lt-light-surface:#ffffff;
+  --lt-light-surface-soft:#eef1ec;
+  --lt-light-border:#d1d8d2;
+  --lt-light-control-border:#7a857f;
+  --lt-light-text:#4d5b55;
+  --lt-light-heading:#33423b;
+  --lt-light-muted:#5f6d66;
+  --lt-light-focus:#587548;
+  --lt-light-accent:#2f6f5a;
+  --lt-light-danger:#8f3f34;
+  --lt-light-warning:#7a5717;
+
+  --cream:var(--lt-light-canvas);
+  --paper:var(--lt-light-surface);
+  --ink:var(--lt-light-text);
+  --muted:var(--lt-light-muted);
+  --line:var(--lt-light-border);
+  --panel:var(--lt-light-surface);
+  --soft:var(--lt-light-surface-soft);
+  --danger:var(--lt-light-danger);
+  --warning:var(--lt-light-warning);
+  --ok:#356f4f;
+  --lt-focus-ring:var(--lt-light-focus);
+}
+
+html[data-lt-theme="light"],
+html[data-lt-theme="light"] body{
+  background-color:var(--lt-light-canvas);
+  color:var(--lt-light-text);
+}
+
+html[data-lt-theme="light"] :where(h1,h2,h3,h4,h5,h6,strong,b,.metric strong,.metric-card strong,.panel-head h2,.topbar h1,.page-heading h2){
+  color:var(--lt-light-heading);
+}
+
+html[data-lt-theme="light"] :where(p,small,.muted,.fine-print,.panel p,.metric p,.metric small,.metric-card p,.topbar p,.page-heading p,.field span,.help-panel ol,.side-copy,.operator-user small){
+  color:var(--lt-light-muted);
+}
+
+html[data-lt-theme="light"] :where(input,select,textarea){
+  color:var(--lt-light-text);
+  background:var(--lt-light-surface);
+  border-color:var(--lt-light-control-border);
+}
+
+html[data-lt-theme="light"] :where(input,select,textarea)::placeholder{
+  color:#66746e;
+}
+
+html[data-lt-theme="light"] :where(input,select,textarea):focus{
+  border-color:var(--lt-light-focus);
+  box-shadow:0 0 0 3px rgba(88,117,72,.15);
+}
+
+html[data-lt-theme="light"] :where(input[type="checkbox"],input[type="radio"],input[type="range"],progress){
+  accent-color:var(--lt-light-accent);
+}
 
 html[data-lt-theme="dark"]{
   color-scheme:dark;
@@ -11,9 +78,11 @@ html[data-lt-theme="dark"]{
   --lt-dark-surface:#2d333b;
   --lt-dark-surface-soft:#373e47;
   --lt-dark-border:#444c56;
+  --lt-dark-control-border:#77818a;
   --lt-dark-text:#adbac7;
   --lt-dark-heading:#cdd9e5;
-  --lt-dark-muted:#909dab;
+  --lt-dark-muted:#9da9b5;
+  --lt-dark-focus:#80a190;
   --lt-dark-accent:#6bc46d;
   --lt-dark-accent-deep:#2f6f5a;
   --lt-dark-danger:#f47067;
@@ -37,6 +106,7 @@ html[data-lt-theme="dark"]{
   --warning:var(--lt-dark-warning);
   --ok:#6bc46d;
   --shadow:var(--lt-dark-shadow);
+  --lt-focus-ring:var(--lt-dark-focus);
 }
 
 html[data-lt-theme="dark"],
@@ -94,16 +164,20 @@ html[data-lt-theme="dark"] :where(tbody tr:hover td,.click-row:hover td,.click-r
 html[data-lt-theme="dark"] :where(input,select,textarea){
   color:var(--lt-dark-text);
   background:#262c34;
-  border-color:var(--lt-dark-border);
+  border-color:var(--lt-dark-control-border);
 }
 
 html[data-lt-theme="dark"] :where(input,select,textarea)::placeholder{
-  color:#768390;
+  color:#9da9b5;
 }
 
 html[data-lt-theme="dark"] :where(input,select,textarea):focus{
-  border-color:#6e8d7d;
-  box-shadow:0 0 0 3px rgba(107,196,109,.10);
+  border-color:var(--lt-dark-focus);
+  box-shadow:0 0 0 3px rgba(128,161,144,.18);
+}
+
+html[data-lt-theme="dark"] :where(input[type="checkbox"],input[type="radio"],input[type="range"],progress){
+  accent-color:var(--lt-dark-focus);
 }
 
 html[data-lt-theme="dark"] :where(.button.ghost,.button.secondary,.mobile-nav button,.icon-button){
@@ -199,6 +273,11 @@ html[data-lt-theme="dark"] :where(hr){
   border-color:var(--lt-dark-border);
 }
 
+:where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{
+  outline:3px solid var(--lt-focus-ring,#587548);
+  outline-offset:2px;
+}
+
 .lt-theme-toggle{
   -webkit-tap-highlight-color:transparent;
   display:inline-flex;
@@ -230,7 +309,7 @@ html[data-lt-theme="dark"] :where(hr){
 }
 
 .lt-theme-toggle:focus-visible{
-  outline:2px solid currentColor;
+  outline:3px solid var(--lt-focus-ring,#587548);
   outline-offset:2px;
 }
 
@@ -314,6 +393,33 @@ html[data-lt-theme="dark"] .sidebar-footer .lt-theme-toggle-menu{
   }
   .lt-theme-toggle-floating .lt-theme-toggle-label{
     display:none;
+  }
+}
+
+@media(prefers-contrast:more){
+  html[data-lt-theme="light"]{
+    --lt-light-control-border:#66726b;
+    --lt-light-focus:#4f6a3e;
+  }
+  html[data-lt-theme="dark"]{
+    --lt-dark-control-border:#8b949e;
+    --lt-dark-focus:#8aa998;
+  }
+}
+
+@media(forced-colors:active){
+  html[data-lt-theme="light"],
+  html[data-lt-theme="dark"]{
+    forced-color-adjust:auto;
+  }
+  .lt-theme-toggle{
+    color:ButtonText;
+    background:ButtonFace;
+    border:1px solid ButtonText;
+    box-shadow:none;
+  }
+  .lt-theme-toggle:focus-visible{
+    outline:2px solid Highlight;
   }
 }
 
