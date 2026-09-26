@@ -184,3 +184,25 @@ alter table public.audit_events enable row level security;
 
 -- No permissive browser policies are created here. The initial shared-UAT adapter
 -- must access the database server-side and prove tenant isolation before runtime cutover.
+
+
+-- Data API grants for the first shared-UAT phase.
+-- service_role bypasses RLS, so this phase is deliberately READ ONLY at the
+-- database grant layer as well as in application code. Browser roles receive
+-- no direct table privileges. Synthetic seed/migrations run as the database owner.
+revoke all on table public.companies from anon, authenticated, service_role;
+revoke all on table public.app_users from anon, authenticated, service_role;
+revoke all on table public.company_memberships from anon, authenticated, service_role;
+revoke all on table public.customers from anon, authenticated, service_role;
+revoke all on table public.suppliers from anon, authenticated, service_role;
+revoke all on table public.customer_invoices from anon, authenticated, service_role;
+revoke all on table public.supplier_invoices from anon, authenticated, service_role;
+revoke all on table public.accounting_entries from anon, authenticated, service_role;
+revoke all on table public.accounting_entry_lines from anon, authenticated, service_role;
+revoke all on table public.documents from anon, authenticated, service_role;
+revoke all on table public.audit_events from anon, authenticated, service_role;
+
+grant select on table public.customers to service_role;
+grant select on table public.suppliers to service_role;
+grant select on table public.customer_invoices to service_role;
+grant select on table public.supplier_invoices to service_role;
