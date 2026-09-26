@@ -68,3 +68,26 @@ test('POST requests are never automatically replayed on JWT clock skew',async()=
   );
   assert.equal(calls,1);
 });
+
+
+test('refresh session exchanges the refresh token exactly once',async()=>{
+  const calls=[];
+  const client=clientWithFetch(async(url,options)=>{
+    calls.push({url,options});
+    return response(200,{access_token:'new-access',refresh_token:'new-refresh'});
+  });
+  const refreshed=await client.refreshSession('old-refresh');
+  assert.equal(refreshed.access_token,'new-access');
+  assert.equal(calls.length,1);
+  assert.match(calls[0].url,/\/auth\/v1\/token\?grant_type=refresh_token$/);
+  assert.deepEqual(JSON.parse(calls[0].options.body),{refresh_token:'old-refresh'});
+});
+
+test('sign out defaults to global Supabase scope',async()=>{
+  const calls=[];
+  const client=clientWithFetch(async(url,options)=>{calls.push({url,options});return response(204,null);});
+  await client.signOut('access-token');
+  assert.equal(calls.length,1);
+  assert.match(calls[0].url,/\/auth\/v1\/logout$/);
+  assert.equal(calls[0].options.headers.Authorization,'Bearer access-token');
+});
