@@ -26,8 +26,9 @@
   }
 
   function setButtonState(button,theme){
-    if(!button)return;
+    if(!button||button.dataset.ltThemeState===theme)return;
     const dark=theme===DARK;
+    button.dataset.ltThemeState=theme;
     button.innerHTML='<span class="lt-theme-toggle-icon">'+(dark?SUN_ICON:MOON_ICON)+'</span><span class="lt-theme-toggle-label">'+(dark?'Ljust läge':'Mörkt läge')+'</span>';
     button.setAttribute('aria-label',dark?'Stäng av mörkt läge':'Slå på mörkt läge');
     button.setAttribute('title',dark?'Stäng av mörkt läge':'Slå på mörkt läge');
