@@ -21,9 +21,9 @@ Börja här:
 
 [**Öppna gemensam UAT**](https://ludwigberglund-coder.github.io/LT-Studio/uat/) · [**Öppna webbplatsen**](https://ludwigberglund-coder.github.io/LT-Studio/) · [**Öppna portaldemon direkt**](https://ludwigberglund-coder.github.io/LT-Studio/portal/dashboard.html?demo=1) · [**Se publiceringsstatus**](https://github.com/ludwigberglund-coder/LT-Studio/actions/workflows/pages.yml)
 
-GitHub Actions bygger och publicerar automatiskt den statiska demon från varje uppdatering av `main` till **samma länk**. Ni behöver alltså inte byta länk i README för varje ändring. En ny version syns när dess publicering har lyckats; vid ett misslyckat bygge ligger den tidigare publicerade versionen kvar. Kontrollera statuslänken om ni vill verifiera exakt publicering.
+GitHub Actions bygger och publicerar automatiskt den gemensamma UAT-versionen från varje uppdatering av `main` till **samma länk**. UAT-gränssnittet körs på GitHub Pages och använder den gemensamma Supabase-UAT-miljön för inloggning och delad testdata. Ni behöver alltså inte byta länk mellan ändringar. En ny version syns när publiceringen har lyckats; vid ett misslyckat bygge ligger den tidigare publicerade versionen kvar. Kontrollera statuslänken om ni vill verifiera publiceringen.
 
-**Viktigt:** Den här portaldemon körs i webbläsaren och sparar demoändringar lokalt hos varje person. En faktura som skapas där visas inte automatiskt på den andra datorn. Systemets delade fakturor kräver en körande API-server och en gemensam, beständig databas. GitHub Pages kan inte köra den backenden. Använd enbart fiktiva uppgifter i demon; plattformen är ännu inte godkänd för verkliga ekonomiska data.
+**Viktigt:** Den gemensamma UAT:n är endast för syntetiska testuppgifter och är inte godkänd för verkliga ekonomiska data. Länken `portal/dashboard.html?demo=1` är däremot fortsatt en separat lokal demo där data inte delas mellan webbläsare.
 
 ## GitHub är vår gemensamma källa
 
@@ -35,8 +35,8 @@ Alla ändringar görs i en arbetsgren. Granska skillnaden, kör relevanta tester
 
 ```text
 apps/website/            publik hemsida
-apps/portal/             företagsportal med API- och separat demoläge
-apps/api/                Node.js-backend, sessioner, företagsmedlemskap och SQLite
+apps/portal/             företagsportal med Supabase-UAT och separat demoläge
+apps/api/                äldre/kompletterande Node.js-backend för SQLite-baserade driftflöden
 apps/admin/              äldre projektadmin och domändemos
 packages/                delade ekonomi-, behörighets- och faktureringsregler
 content/                 offentliga texter och företagsuppgifter
@@ -47,7 +47,7 @@ docs/                    beslut, guider och granskningsbevis
 public/ och server.js    äldre referensimplementation, inte pilotbackend
 ```
 
-Den aktuella backenddatabasen är SQLite med främmande nycklar, WAL och FULL-synkronisering. Den är inte PostgreSQL. Personlig inloggning, MFA, medlemskapskontroller och företagsfiltrering finns. Journalpostning är atomisk och deklarerade företagsrelationer kontrolleras på databasnivå. Fullständig oföränderlighet, momsavstämning, driftisolering och flera andra pilotspärrar återstår enligt checklistan.
+Den gemensamma UAT-miljön använder Supabase/PostgreSQL med Supabase Auth, MFA/AAL2, företagsmedlemskap och Row Level Security. Den äldre Node.js/SQLite-backenden finns fortfarande kvar för separata drift- och kompatibilitetsflöden och ska inte förväxlas med den delade GitHub Pages-UAT:n. Plattformen är fortfarande inte godkänd för verkliga ekonomiska data.
 
 Den persistenta bokföringen i `apps/api/accounting-store.js` och domändemon i `packages/accounting/journal.js` är olika implementationer. Kontrollera vilken som faktiskt används när en funktion granskas.
 
