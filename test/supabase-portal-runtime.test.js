@@ -40,7 +40,14 @@ test('automation review migration removes destructive browser privileges',()=>{
   const migration=fs.readFileSync(path.join(root,'supabase','migrations','20260926_automation_review_rpc.sql'),'utf8');
   assert.match(migration,/create or replace function public\.save_automation_proposal_review/i);
   assert.match(migration,/m\.role in \('admin','accountant'\)/i);
-  assert.match(migration,/revoke all on function public\.save_automation_proposal_review\(text,text,jsonb\) from public/i);
+  assert.match(migration,/revoke all on function public\.save_automation_proposal_review\(text,text,jsonb\) from public, anon/i);
   assert.match(migration,/grant execute on function public\.save_automation_proposal_review\(text,text,jsonb\) to authenticated/i);
   assert.match(migration,/revoke delete, truncate, trigger, references\s+on table public\.automation_proposals\s+from authenticated/i);
+});
+
+
+test('automation review hardening explicitly revokes anon execute',()=>{
+  const migration=fs.readFileSync(path.join(root,'supabase','migrations','20260926_automation_review_rpc_hardening.sql'),'utf8');
+  assert.match(migration,/revoke all on function public\.save_automation_proposal_review\(text,text,jsonb\) from public, anon/i);
+  assert.match(migration,/grant execute on function public\.save_automation_proposal_review\(text,text,jsonb\) to authenticated/i);
 });
