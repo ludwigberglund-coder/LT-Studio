@@ -24,9 +24,9 @@ function projectUrl(value) {
   return raw;
 }
 
-function uuid(value, name='companyId') {
-  const clean=String(value??'').trim().toLowerCase();
-  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(clean)) {
+function tenantId(value, name='companyId') {
+  const clean=String(value??'').trim();
+  if(!/^company_[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clean)) {
     throw supabaseError(`${name} har ogiltigt format.`,'INVALID_TENANT_ID',422);
   }
   return clean;
@@ -65,7 +65,7 @@ function createSupabaseUatStore({env=process.env,fetchImpl=globalThis.fetch}={})
   }
 
   async function listCustomers(companyId,{signal}={}) {
-    const tenant=uuid(companyId);
+    const tenant=tenantId(companyId);
     const query=new URLSearchParams({
       select:'id,company_id,customer_number,name,org_number,email,customer_type,reminder_fee_agreed,created_at,updated_at',
       company_id:`eq.${tenant}`,
@@ -73,7 +73,7 @@ function createSupabaseUatStore({env=process.env,fetchImpl=globalThis.fetch}={})
     });
     const rows=await request(`customers?${query.toString()}`,{signal});
     for(const row of rows) {
-      if(String(row?.company_id||'').toLowerCase()!==tenant) {
+      if(String(row?.company_id||'')!==tenant) {
         throw supabaseError(
           'Supabase returnerade data från fel företag. Åtkomsten stoppades.',
           'TENANT_ISOLATION_ERROR',
@@ -96,7 +96,7 @@ function createSupabaseUatStore({env=process.env,fetchImpl=globalThis.fetch}={})
   }
 
   async function customerByNumber(companyId,customerNumber,{signal}={}) {
-    const tenant=uuid(companyId);
+    const tenant=tenantId(companyId);
     const number=String(customerNumber??'').trim();
     if(!number || number.length>80) throw supabaseError('Kundnummer är ogiltigt.','INVALID_CUSTOMER_NUMBER',422);
     const query=new URLSearchParams({
@@ -108,7 +108,7 @@ function createSupabaseUatStore({env=process.env,fetchImpl=globalThis.fetch}={})
     const rows=await request(`customers?${query.toString()}`,{signal});
     if(rows.length>1) throw supabaseError('Flera kunder hittades med samma kundnummer.','CUSTOMER_INTEGRITY_ERROR',500);
     if(rows.length===0) return null;
-    if(String(rows[0]?.company_id||'').toLowerCase()!==tenant) {
+    if(String(rows[0]?.company_id||'')!==tenant) {
       throw supabaseError('Supabase returnerade data från fel företag. Åtkomsten stoppades.','TENANT_ISOLATION_ERROR',500);
     }
     const row=rows[0];
@@ -126,7 +126,67 @@ function createSupabaseUatStore({env=process.env,fetchImpl=globalThis.fetch}={})
     });
   }
 
-  return Object.freeze({listCustomers,customerByNumber});
+  async function listSuppliers(companyId,{signal}={}) {
+    const tenant=tenantId(companyId);
+    const query=new URLSearchParams({
+      select:'id,company_id,supplier_number,name,org_number,email,bankgiro,plusgiro,default_cost_account,created_at,updated_at',
+      company_id:`eq.${tenant}`,
+      order:'name.asc,supplier_number.asc'
+    });
+    const rows=await request(`suppliers?${query.toString()}`,{signal});
+    for(const row of rows) {
+      if(String(row?.company_id||'')!==tenant) {
+        throw supabaseError('Supabase returnerade data från fel företag. Åtkomsten stoppades.','TENANT_ISOLATION_ERROR',500);
+      }
+    }
+    return rows.map(row=>Object.freeze({
+      id:row.id,
+      companyId:row.company_id,
+      supplierNumber:row.supplier_number,
+      name:row.name,
+      orgNumber:row.org_number,
+      email:row.email,
+      bankgiro:row.bankgiro,
+      plusgiro:row.plusgiro,
+      defaultCostAccount:row.default_cost_account,
+      createdAt:row.created_at,
+      updatedAt:row.updated_at
+    }));
+  }
+
+  async function supplierByNumber(companyId,supplierNumber,{signal}={}) {
+    const tenant=tenantId(companyId);
+    const number=String(supplierNumber??'').trim();
+    if(!number || number.length>40) throw supabaseError('Leverantörsnumret är ogiltigt.','INVALID_SUPPLIER_NUMBER',422);
+    const query=new URLSearchParams({
+      select:'id,company_id,supplier_number,name,org_number,email,bankgiro,plusgiro,default_cost_account,created_at,updated_at',
+      company_id:`eq.${tenant}`,
+      supplier_number:`eq.${number}`,
+      limit:'2'
+    });
+    const rows=await request(`suppliers?${query.toString()}`,{signal});
+    if(rows.length>1) throw supabaseError('Flera leverantörer hittades med samma leverantörsnummer.','SUPPLIER_INTEGRITY_ERROR',500);
+    if(rows.length===0) return null;
+    if(String(rows[0]?.company_id||'')!==tenant) {
+      throw supabaseError('Supabase returnerade data från fel företag. Åtkomsten stoppades.','TENANT_ISOLATION_ERROR',500);
+    }
+    const row=rows[0];
+    return Object.freeze({
+      id:row.id,
+      companyId:row.company_id,
+      supplierNumber:row.supplier_number,
+      name:row.name,
+      orgNumber:row.org_number,
+      email:row.email,
+      bankgiro:row.bankgiro,
+      plusgiro:row.plusgiro,
+      defaultCostAccount:row.default_cost_account,
+      createdAt:row.created_at,
+      updatedAt:row.updated_at
+    });
+  }
+
+  return Object.freeze({listCustomers,customerByNumber,listSuppliers,supplierByNumber});
 }
 
 module.exports=Object.freeze({createSupabaseUatStore});
