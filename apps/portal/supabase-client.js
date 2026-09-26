@@ -4,7 +4,11 @@
   const CLOCK_SKEW_RETRY_DELAYS=[700,1400,2800];
   function headers(token,extra){return Object.assign({'apikey':cfg.publishableKey,'Content-Type':'application/json'},token?{'Authorization':'Bearer '+token}:{},extra||{});}
   function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
-  function errorMessage(data,status){return (data&&typeof data==='object'&&(data.message||data.error_description||data.error))||('Supabase request failed: '+status);}
+  function errorMessage(data,status){
+    if(data&&typeof data==='object')return data.message||data.error_description||data.error||('Supabase request failed: '+status);
+    if(typeof data==='string'&&data.trim())return data.trim();
+    return 'Supabase request failed: '+status;
+  }
   function isJwtFutureError(message){return /jwt.*issued.*future|issued\s+at\s+future/i.test(String(message||''));}
   function isSafeToRetry(options){const method=String(options?.method||'GET').toUpperCase();return method==='GET'||method==='HEAD';}
   async function request(path,options={}){
@@ -17,8 +21,17 @@
       const message=errorMessage(data,response.status);
       const canRetry=isSafeToRetry(options)&&(response.status===401||response.status===403)&&isJwtFutureError(message)&&attempt<CLOCK_SKEW_RETRY_DELAYS.length;
       if(canRetry){await sleep(CLOCK_SKEW_RETRY_DELAYS[attempt]);continue;}
-      if(isJwtFutureError(message))throw new Error('Den säkra sessionen håller fortfarande på att synkroniseras. Vänta några sekunder och försök logga in igen.');
-      throw new Error(message);
+      if(isJwtFutureError(message)){
+        const error=new Error('Den säkra sessionen håller fortfarande på att synkroniseras. Vänta några sekunder och försök logga in igen.');
+        error.status=response.status;
+        error.data=data;
+        throw error;
+      }
+      const error=new Error(message);
+      error.status=response.status;
+      error.data=data;
+      error.code=(data&&typeof data==='object'&&(data.code||data.error_code))||'';
+      throw error;
     }
   }
   async function storageRequest(path,token,options={}){
