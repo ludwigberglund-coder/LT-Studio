@@ -4,8 +4,8 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {createSupabaseUatStore}=require('../apps/api/supabase-uat-store.js');
 
-const COMPANY_A='11111111-1111-4111-8111-111111111111';
-const COMPANY_B='22222222-2222-4222-8222-222222222222';
+const COMPANY_A='company_11111111-1111-4111-8111-111111111111';
+const COMPANY_B='company_22222222-2222-4222-8222-222222222222';
 
 function response(rows,{status=200}={}) {
   return {
@@ -120,4 +120,80 @@ test('Supabase HTTP failures do not expose the service-role key in the error mes
     store.listCustomers(COMPANY_A),
     error=>error?.code==='SUPABASE_REQUEST_FAILED'&&!String(error.message).includes(secret)
   );
+});
+
+
+test('supplier reads preserve the existing LT Studio supplier shape and company scope',async()=>{
+  let requested;
+  const store=createSupabaseUatStore({
+    env:{
+      SUPABASE_PROJECT_URL:'https://demo.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY:'server-only-secret'
+    },
+    fetchImpl:async(url)=>{
+      requested=new URL(url);
+      return response([{
+        id:'supplier_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        company_id:COMPANY_A,
+        supplier_number:'L-1001',
+        name:'Synthetic Supplier AB',
+        org_number:'559000-9999',
+        email:'supplier@example.invalid',
+        bankgiro:'999-1111',
+        plusgiro:null,
+        default_cost_account:'4000',
+        created_at:'2026-09-26T12:00:00Z',
+        updated_at:'2026-09-26T12:00:00Z'
+      }]);
+    }
+  });
+  const rows=await store.listSuppliers(COMPANY_A);
+  assert.equal(rows.length,1);
+  assert.deepEqual(rows[0],{
+    id:'supplier_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    companyId:COMPANY_A,
+    supplierNumber:'L-1001',
+    name:'Synthetic Supplier AB',
+    orgNumber:'559000-9999',
+    email:'supplier@example.invalid',
+    bankgiro:'999-1111',
+    plusgiro:null,
+    defaultCostAccount:'4000',
+    createdAt:'2026-09-26T12:00:00Z',
+    updatedAt:'2026-09-26T12:00:00Z'
+  });
+  assert.equal(requested.searchParams.get('company_id'),`eq.${COMPANY_A}`);
+});
+
+test('supplier reads fail closed on cross-company rows',async()=>{
+  const store=createSupabaseUatStore({
+    env:{
+      SUPABASE_PROJECT_URL:'https://demo.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY:'server-only-secret'
+    },
+    fetchImpl:async()=>response([{
+      id:'supplier_bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      company_id:COMPANY_B,
+      supplier_number:'L-2001',
+      name:'Wrong supplier tenant'
+    }])
+  });
+  await assert.rejects(
+    store.listSuppliers(COMPANY_A),
+    error=>error?.code==='TENANT_ISOLATION_ERROR'
+  );
+});
+
+test('supplier number lookup keeps tenant scope',async()=>{
+  let requested;
+  const store=createSupabaseUatStore({
+    env:{
+      SUPABASE_PROJECT_URL:'https://demo.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY:'server-only-secret'
+    },
+    fetchImpl:async(url)=>{requested=new URL(url);return response([])}
+  });
+  assert.equal(await store.supplierByNumber(COMPANY_A,'L-1001'),null);
+  assert.equal(requested.searchParams.get('company_id'),`eq.${COMPANY_A}`);
+  assert.equal(requested.searchParams.get('supplier_number'),'eq.L-1001');
 });
