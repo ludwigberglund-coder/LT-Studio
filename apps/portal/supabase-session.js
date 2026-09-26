@@ -15,8 +15,20 @@
     }catch{return{}}
   }
   function requiresAal2(){return window.LT_SUPABASE?.environment==='uat'}
+  function normalizedLoginError(error){
+    const message=String(error?.message||'');
+    if(Number(error?.status)===400||/invalid login credentials|email not confirmed|invalid email or password/i.test(message)){
+      const friendly=new Error('E-post eller lösenord stämmer inte, eller UAT-kontot är inte aktiverat ännu. Om det är första gången: välj “Aktivera UAT-konto / slutför MFA” nedan.');
+      friendly.code='UAT_LOGIN_NOT_READY';
+      friendly.status=400;
+      return friendly;
+    }
+    return error;
+  }
   async function signIn(email,password,totp=''){
-    const initial=await api().signIn({email,password});
+    let initial;
+    try{initial=await api().signIn({email,password});}
+    catch(error){throw normalizedLoginError(error)}
     const initialToken=initial?.access_token;
     if(!initialToken)throw new Error('Inloggningen gav ingen giltig Supabase-session.');
     if(requiresAal2()){
