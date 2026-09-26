@@ -89,14 +89,19 @@
     current=await refreshIfNeeded(current); if(!current?.access_token)return {authenticated:false,sessionExpired:true};
     const t=current.access_token;
     if(requiresAal2()&&jwtClaims(t).aal!=='aal2')return {authenticated:false,mfaRequired:true};
-    let authUser;
-    try{authUser=await api().getUser(t)}catch{write(null);return {authenticated:false}}
-    const uid=authUser?.id;if(!uid){write(null);return {authenticated:false}}
-    const [profiles,memberships,companies]=await Promise.all([
-      api().from('app_users',t).select('*','auth_user_id=eq.'+encodeURIComponent(uid)),
-      api().from('company_memberships',t).select('*','auth_user_id=eq.'+encodeURIComponent(uid)),
-      api().from('companies',t).select('*')
-    ]);
+    const claimedUid=String(jwtClaims(t).sub||'');
+    if(!claimedUid){write(null);return {authenticated:false}}
+    let authUser,profiles,memberships,companies;
+    try{
+      [authUser,profiles,memberships,companies]=await Promise.all([
+        api().getUser(t),
+        api().from('app_users',t).select('*','auth_user_id=eq.'+encodeURIComponent(claimedUid)),
+        api().from('company_memberships',t).select('*','auth_user_id=eq.'+encodeURIComponent(claimedUid)),
+        api().from('companies',t).select('*')
+      ]);
+    }catch{write(null);return {authenticated:false}}
+    const uid=String(authUser?.id||'');
+    if(!uid||uid!==claimedUid){write(null);return {authenticated:false}}
     const profile=profiles?.[0]||null;
     if(!profile){
       await api().signOut(t,'global').catch(()=>{});
