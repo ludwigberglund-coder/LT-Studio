@@ -94,6 +94,7 @@ function overviewView() {
   const principles = adminContent.principles.map(item => `<li>${escapeHtml(item)}</li>`).join('');
 
   return layout('overview', 'Översikt', 'En långsiktig grund där innehåll är enkelt att ändra och systemet kan växa modulärt.', `
+    <div id="live-system-status"></div>
     <section class="metrics-grid">${cards}</section>
     <section class="two-column">
       <article class="panel">
