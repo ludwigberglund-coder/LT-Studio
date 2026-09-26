@@ -5,7 +5,7 @@
 create extension if not exists pgcrypto;
 
 create table if not exists public.companies (
-  id uuid primary key default gen_random_uuid(),
+  id text primary key,
   legal_name text not null,
   org_number text not null unique,
   display_name text not null,
@@ -13,7 +13,7 @@ create table if not exists public.companies (
 );
 
 create table if not exists public.app_users (
-  id uuid primary key default gen_random_uuid(),
+  id text primary key,
   username text not null unique,
   display_name text not null,
   disabled boolean not null default false,
@@ -21,16 +21,16 @@ create table if not exists public.app_users (
 );
 
 create table if not exists public.company_memberships (
-  company_id uuid not null references public.companies(id) on delete cascade,
-  user_id uuid not null references public.app_users(id) on delete cascade,
+  company_id text not null references public.companies(id) on delete cascade,
+  user_id text not null references public.app_users(id) on delete cascade,
   role text not null default 'member',
   created_at timestamptz not null default now(),
   primary key (company_id, user_id)
 );
 
 create table if not exists public.customers (
-  id uuid primary key default gen_random_uuid(),
-  company_id uuid not null references public.companies(id) on delete cascade,
+  id text primary key,
+  company_id text not null references public.companies(id) on delete cascade,
   customer_number text not null,
   name text not null,
   org_number text,
@@ -45,8 +45,8 @@ create table if not exists public.customers (
 );
 
 create table if not exists public.suppliers (
-  id uuid primary key default gen_random_uuid(),
-  company_id uuid not null references public.companies(id) on delete cascade,
+  id text primary key,
+  company_id text not null references public.companies(id) on delete cascade,
   supplier_number text not null,
   name text not null,
   org_number text,
@@ -60,9 +60,9 @@ create table if not exists public.suppliers (
 );
 
 create table if not exists public.customer_invoices (
-  id uuid primary key default gen_random_uuid(),
-  company_id uuid not null references public.companies(id) on delete cascade,
-  customer_id uuid not null references public.customers(id) on delete restrict,
+  id text primary key,
+  company_id text not null references public.companies(id) on delete cascade,
+  customer_id text not null references public.customers(id) on delete restrict,
   invoice_number text not null,
   invoice_date date not null,
   posting_date date not null,
@@ -77,9 +77,9 @@ create table if not exists public.customer_invoices (
 );
 
 create table if not exists public.supplier_invoices (
-  id uuid primary key default gen_random_uuid(),
-  company_id uuid not null references public.companies(id) on delete cascade,
-  supplier_id uuid not null references public.suppliers(id) on delete restrict,
+  id text primary key,
+  company_id text not null references public.companies(id) on delete cascade,
+  supplier_id text not null references public.suppliers(id) on delete restrict,
   supplier_invoice_number text not null,
   invoice_date date not null,
   due_date date not null,
@@ -93,10 +93,10 @@ create table if not exists public.supplier_invoices (
   document_name text,
   document_mime text,
   document_sha256 text,
-  registered_by uuid references public.app_users(id) on delete restrict,
-  approved_by uuid references public.app_users(id) on delete restrict,
+  registered_by text references public.app_users(id) on delete restrict,
+  approved_by text references public.app_users(id) on delete restrict,
   approved_at timestamptz,
-  liability_accounting_entry_id uuid,
+  liability_accounting_entry_id text,
   liability_posted_at timestamptz,
   open_amount_ore bigint not null default 0 check (open_amount_ore >= 0),
   created_at timestamptz not null default now(),
@@ -105,8 +105,8 @@ create table if not exists public.supplier_invoices (
 );
 
 create table if not exists public.accounting_entries (
-  id uuid primary key default gen_random_uuid(),
-  company_id uuid not null references public.companies(id) on delete cascade,
+  id text primary key,
+  company_id text not null references public.companies(id) on delete cascade,
   fiscal_year text not null,
   series text not null,
   sequence integer not null check (sequence > 0),
@@ -115,7 +115,7 @@ create table if not exists public.accounting_entries (
   description text not null,
   source_type text not null,
   source_id text not null,
-  created_by uuid not null references public.app_users(id) on delete restrict,
+  created_by text not null references public.app_users(id) on delete restrict,
   created_at timestamptz not null default now(),
   unique (company_id, series, fiscal_year, sequence),
   unique (company_id, source_type, source_id)
@@ -133,22 +133,22 @@ create table if not exists public.accounting_entry_lines (
 );
 
 create table if not exists public.documents (
-  id uuid primary key default gen_random_uuid(),
-  company_id uuid not null references public.companies(id) on delete cascade,
+  id text primary key,
+  company_id text not null references public.companies(id) on delete cascade,
   object_path text not null,
   file_name text not null,
   sha256 text not null check (char_length(sha256) = 64),
   size_bytes bigint not null check (size_bytes >= 0),
   content_type text,
-  created_by uuid references public.app_users(id) on delete set null,
+  created_by text references public.app_users(id) on delete set null,
   created_at timestamptz not null default now(),
   unique (company_id, object_path)
 );
 
 create table if not exists public.audit_events (
-  id uuid primary key default gen_random_uuid(),
-  company_id uuid references public.companies(id) on delete set null,
-  user_id uuid references public.app_users(id) on delete set null,
+  id text primary key,
+  company_id text references public.companies(id) on delete set null,
+  user_id text references public.app_users(id) on delete set null,
   action text not null,
   entity_type text,
   entity_id text,
