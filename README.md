@@ -5,7 +5,7 @@ Vi bygger en återanvändbar plattform för småföretag. Referenskunders verkli
 **Aktuell fas: Production Readiness Phase 1. Inga nya stora moduler prioriteras. Plattformen är ännu inte godkänd för pilot med verkliga ekonomiska data.**
 
 Börja här:
-
+INLOGGNING UAT https://ludwigberglund-coder.github.io/LT-Studio/portal/uat-setup.html
 - [Säkerhetspolicy och privat rapportering](SECURITY.md)
 - [Audit: konkreta risker, källor och rättelser](docs/PRODUCTION-READINESS-AUDIT-2026-09-18.md)
 - [ROLANDS PILOT READINESS CHECKLIST](docs/ROLANDS-PILOT-READINESS-CHECKLIST.md)
