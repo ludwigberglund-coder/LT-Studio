@@ -4,13 +4,15 @@ Datum: 2026-09-20
 
 ## Beslut
 
-LT Studio ska **inte byta databas i denna etapp**.
+**Uppdaterat 2026-09-24:** LT Studio har påbörjat migreringen till **Supabase/PostgreSQL** för gemensam SaaS-drift. Arbetet är fortfarande synthetic-only och innebär ännu inte produktions-cutover.
 
-Nuvarande SQLite-databas behålls för den pågående pilot-/production-readiness-fasen. Syftet med detta dokument är att göra nästa databassteg förutsägbart och verifierbart utan att samtidigt ändra ekonomiregler, fakturaflöden eller kundisolering.
+SQLite är fortfarande den backend som den befintliga applikationen använder. Supabase har nu den första versionsstyrda multi-tenant-grunden samt kund-/fakturakärnan, men portalen ska inte beskrivas som migrerad förrän applikationsadaptern, autentiseringen, skrivflödena, full tenant-UAT och backup/restore är verifierade.
 
-Målbilden är PostgreSQL för den skalbara gemensamma SaaS-driften.
+Alla Supabase-schemaändringar ska finnas som migrationer i GitHub. Ingen verklig ekonomidata får flyttas innan staging-cutover-kriterierna längre ned är uppfyllda.
 
-## Varför bytet inte ska göras direkt
+Målbilden är Supabase/PostgreSQL för den skalbara gemensamma SaaS-driften.
+
+## Varför cutover fortfarande inte ska göras direkt
 
 Nuvarande kod använder SQLite på flera nivåer samtidigt:
 

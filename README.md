@@ -49,6 +49,8 @@ public/ och server.js    äldre referensimplementation, inte pilotbackend
 
 Den aktuella backenddatabasen är SQLite med främmande nycklar, WAL och FULL-synkronisering. Den är inte PostgreSQL. Personlig inloggning, MFA, medlemskapskontroller och företagsfiltrering finns. Journalpostning är atomisk och deklarerade företagsrelationer kontrolleras på databasnivå. Fullständig oföränderlighet, momsavstämning, driftisolering och flera andra pilotspärrar återstår enligt checklistan.
 
+**Supabase-migrering pågår:** ett synthetic-only PostgreSQL-schema för företag, användarmappning, medlemskap, kunder, kundfakturor och fakturatransaktioner finns nu under `supabase/migrations/`. Det betyder inte att portalen använder Supabase ännu; den körande applikationen använder fortfarande SQLite tills adapter, Auth/API, skrivflöden, tenant-UAT och backup/restore är verifierade.
+
 Den persistenta bokföringen i `apps/api/accounting-store.js` och domändemon i `packages/accounting/journal.js` är olika implementationer. Kontrollera vilken som faktiskt används när en funktion granskas.
 
 ## Utveckling och test
