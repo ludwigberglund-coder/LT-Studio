@@ -101,3 +101,17 @@ test('app_users update is column-limited, owner-scoped and AAL2-restricted',()=>
   assert.match(migration,/auth_user_id=\(select auth\.uid\(\)\)/i);
   assert.doesNotMatch(migration,/grant update on table public\.app_users/i);
 });
+
+
+test('personal session limit is also enforced at the Supabase RLS boundary',()=>{
+  const guard=fs.readFileSync(path.join(root,'supabase','migrations','20260926_personal_session_server_guard.sql'),'utf8');
+  assert.match(guard,/create or replace function private\.lt_personal_session_allowed\(\)/i);
+  assert.match(guard,/security definer/i);
+  assert.match(guard,/set search_path to ''/i);
+  assert.match(guard,/auth\.sessions/i);
+  assert.match(guard,/auth\.jwt\(\)->>'session_id'/i);
+  assert.match(guard,/coalesce\(\(select auth\.jwt\(\)->>'aal'\),'aal1'\) <> 'aal2'/i);
+  assert.match(guard,/as restrictive for all to authenticated/i);
+  assert.match(guard,/private\.lt_personal_session_allowed\(\)/i);
+  assert.match(guard,/revoke all on function private\.lt_personal_session_allowed\(\) from public/i);
+});
