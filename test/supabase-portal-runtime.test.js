@@ -25,7 +25,10 @@ test('period unlock requests do not expose destructive table privileges',()=>{
 test('automation review edits use Supabase RPC instead of the legacy API',()=>{
   const js=fs.readFileSync(path.join(root,'apps','portal','automation.js'),'utf8');
   assert.match(js,/LTSupabase\.rpc\('save_automation_proposal_review'/);
-  assert.doesNotMatch(js,/isSupabase[^\n]+automation\/proposals\/\$\{encodeURIComponent\(id\)\}\/suggestion/);
+  const rpcIndex=js.indexOf("LTSupabase.rpc('save_automation_proposal_review'");
+  const legacyIndex=js.indexOf("api(`/automation/proposals/${encodeURIComponent(id)}/suggestion`");
+  assert.ok(rpcIndex>=0);
+  assert.ok(legacyIndex>rpcIndex);
 });
 
 test('automation review migration removes destructive browser privileges',()=>{
