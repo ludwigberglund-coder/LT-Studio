@@ -366,8 +366,12 @@
           logout.disabled=true;
           const csrf=sessionStorage.getItem('rollands-csrf')||'';
           try{
-            const response=await fetch('/api/v1/auth/logout',{method:'POST',credentials:'same-origin',headers:{Accept:'application/json',...(csrf?{'X-CSRF-Token':csrf}:{})}});
-            if(!response.ok)throw new Error('Utloggningen misslyckades.');
+            if(supabaseUat&&root.LTSupabaseUat){
+              await root.LTSupabaseUat.signOut('global');
+            }else{
+              const response=await fetch('/api/v1/auth/logout',{method:'POST',credentials:'same-origin',headers:{Accept:'application/json',...(csrf?{'X-CSRF-Token':csrf}:{})}});
+              if(!response.ok)throw new Error('Utloggningen misslyckades.');
+            }
             sessionStorage.removeItem('rollands-csrf');
             location.href=href('portal/index.html');
           }catch{
