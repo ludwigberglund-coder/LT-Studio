@@ -372,7 +372,7 @@ async function loadReceivables(){
   const crossOffsetByCredit=new Map();
   for(const row of creditOffsetsData||[])crossOffsetByCredit.set(String(row.credit_invoice_id),(crossOffsetByCredit.get(String(row.credit_invoice_id))||0)+Number(row.amount_ore||0));
   const txByInvoice=new Map();
-  for(const tx of transactionsData||[]){const key=String(tx.invoice_id),reference=String(tx.bank_reference||''),requestId=tx.transaction_type==='credit-offset'&&reference.startsWith('credit-offset:')?reference.slice('credit-offset:'.length):'',offset=offsetByRequest.get(requestId)||null;if(!txByInvoice.has(key))txByInvoice.set(key,[]);txByInvoice.get(key).push({
+  for(const tx of transactionsData||[]){const key=String(tx.invoice_id),reference=String(tx.bank_reference||''),requestId=tx.transaction_type==='credit-offset'&&reference.startsWith('credit-offset:')?reference.slice('credit-offset:'.length):'',candidate=offsetByRequest.get(requestId)||null,offset=candidate&&String(candidate.target_invoice_id)===key&&Number(tx.amount_ore||0)===-Number(candidate.amount_ore||0)&&String(tx.posting_date||'')===String(candidate.offset_date||'')?candidate:null;if(!txByInvoice.has(key))txByInvoice.set(key,[]);txByInvoice.get(key).push({
     id:tx.id,transactionType:tx.transaction_type,paymentMethod:tx.payment_method,paymentDate:tx.payment_date,postingDate:tx.posting_date,batchNumber:tx.batch_number,journalNumber:tx.journal_number,amountOre:Number(tx.amount_ore||0),approved:tx.approved,account:tx.account,bankReference:tx.bank_reference,sourceType:offset?'customer-credit-offset':'',sourceId:offset?String(offset.request_id):''
   })}
   const adjustmentByCredit=new Map((creditAdjustmentsData||[]).map(row=>[String(row.credit_invoice_id),row]));
