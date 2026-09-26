@@ -4,6 +4,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
+const root=path.join(__dirname,'..');
 
 const sql=fs.readFileSync(path.join(__dirname,'..','supabase','migrations','20260926_portal_runtime_hardening.sql'),'utf8');
 
