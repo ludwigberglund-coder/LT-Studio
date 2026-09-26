@@ -168,9 +168,17 @@
       const amountOre = assertOre(transaction?.amountOre, 'Transaktionsbelopp');
       if (amountOre === 0) continue;
       const type = String(transaction?.transactionType || transaction?.type || '').trim().toLowerCase();
+      const sourceType = String(transaction?.sourceType || '').trim().toLowerCase();
+      const sourceId = String(transaction?.sourceId || '').trim();
+      const bankReference = String(transaction?.bankReference || '').trim();
       const supportedPayment = type === 'payment' && amountOre < 0;
       const supportedReversal = type === 'payment-reversal' && amountOre > 0;
-      if (!supportedPayment && !supportedReversal) {
+      const supportedCreditOffset = type === 'credit-offset'
+        && amountOre < 0
+        && sourceType === 'customer-credit-offset'
+        && /^[A-Za-z0-9_-]{16,100}$/.test(sourceId)
+        && bankReference === 'credit-offset:' + sourceId;
+      if (!supportedPayment && !supportedReversal && !supportedCreditOffset) {
         throw domainError(
           'Ränteberäkningen innehåller en kredit, justering eller annan saldoändring som inte har ett verifierat automatiskt historikflöde. Ränta blockeras tills händelsen kan härledas säkert.',
           'UNSUPPORTED_BALANCE_HISTORY',
@@ -183,7 +191,9 @@
         reductionOre:amountOre<0?Math.abs(amountOre):0,
         increaseOre:amountOre>0?amountOre:0,
         transactionId:String(transaction.id || ''),
-        transactionType:type
+        transactionType:type,
+        sourceType,
+        sourceId
       });
     }
     events.sort((a,b) => a.date.localeCompare(b.date) || a.transactionId.localeCompare(b.transactionId));
