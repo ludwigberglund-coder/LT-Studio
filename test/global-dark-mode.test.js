@@ -61,7 +61,7 @@ test('dark portal modules keep batches, suppliers and navigation readable',()=>{
   assert.match(theme,/\.supplier-row,\.supplier-search-results,\.supplier-search-option/);
   assert.match(theme,/\.status-approved/);
   assert.match(theme,/\.critical-box/);
-  assert.match(design,/html\[data-lt-theme="dark"\] \.shared-sidebar \.shared-navigation \.shared-links a>\.ui-icon/);
+  assert.match(design,/html\[data-lt-theme="dark"\] \.shared-sidebar \.ui-icon/);
   assert.match(design,/color:#fff!important/);
   assert.match(design,/\.topbar>\.shared-menu-toggle/);
   assert.match(design,/column-gap:16px/);
