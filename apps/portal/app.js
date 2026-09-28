@@ -221,12 +221,24 @@ function table(){
   const visibleCount=invoices.filter(invoice=>ids.has(String(invoice.customerId))).length;
   return `<div class="table-scroll"><table class="res-table"><thead><tr><th class="customer-cell">Kund</th>${head}</tr></thead><tbody>${bodies}<tr id="receivable-table-empty" ${visibleCount?'hidden':''}><td colspan="${columns.length+1}" class="empty">Ingen kundreskontra matchar sökningen.</td></tr></tbody></table></div>`;
 }
+function settlementTargets(creditInvoice){
+  if(!creditInvoice)return[];
+  return invoices.filter(candidate=>
+    candidate.id!==creditInvoice.id
+    && String(candidate.customerId||'')===String(creditInvoice.customerId||'')
+    && !pendingBatchInvoice(candidate)
+    && Number(candidate.totalOre||0)>0
+    && Number(candidate.remainingOre||0)>0
+    && Boolean(candidate.journalNumber)
+  );
+}
 function contextHtml(){
   if(!contextMenu)return '';
   const invoice=invoiceById(contextMenu.invoiceId),hasComments=Number(invoice?.commentCount||0)>0;
   const canRemind=!pendingBatchInvoice(invoice)&&Number(invoice?.totalOre||0)>0&&Number(invoice?.remainingOre||0)>0;
   const canRefund=invoice?.credit?.refundStatus==='pending'&&Number(invoice.credit.refundOutstandingOre||0)>0;
-  return `<div class="context-menu" style="left:${contextMenu.x}px;top:${contextMenu.y}px">${hasComments?`<button data-action="show-comments" data-id="${escapeHtml(contextMenu.invoiceId)}">Visa kommentar</button>`:''}<button data-action="comment" data-id="${escapeHtml(contextMenu.invoiceId)}">Skriv kommentar</button>${canRemind?`<button data-action="reminder" data-id="${escapeHtml(contextMenu.invoiceId)}">Skapa betalningspåminnelse</button>`:''}${canRefund?`<button data-action="refund" data-id="${escapeHtml(contextMenu.invoiceId)}">Registrera återbetalning</button>`:''}<button data-action="close-context">Avbryt</button></div>`;
+  const canSettle=!pendingBatchInvoice(invoice)&&Number(invoice?.totalOre||0)<0&&Number(invoice?.remainingOre||0)<0&&Boolean(invoice?.journalNumber);
+  return `<div class="context-menu" style="left:${contextMenu.x}px;top:${contextMenu.y}px">${hasComments?`<button data-action="show-comments" data-id="${escapeHtml(contextMenu.invoiceId)}">Visa kommentar</button>`:''}<button data-action="comment" data-id="${escapeHtml(contextMenu.invoiceId)}">Skriv kommentar</button>${canSettle?`<button data-action="settlement" data-id="${escapeHtml(contextMenu.invoiceId)}">Kvitta kreditfaktura</button>`:''}${canRemind?`<button data-action="reminder" data-id="${escapeHtml(contextMenu.invoiceId)}">Skapa betalningspåminnelse</button>`:''}${canRefund?`<button data-action="refund" data-id="${escapeHtml(contextMenu.invoiceId)}">Registrera återbetalning</button>`:''}<button data-action="close-context">Avbryt</button></div>`;
 }
 
 function commentsModal(){
@@ -245,7 +257,18 @@ function refundModal(){
   const invoice=invoiceById(modal.invoiceId),credit=invoice?.credit||{},outstanding=Number(credit.refundOutstandingOre||0);
   return `<div class="modal-backdrop" data-action="close-modal"><section class="modal" data-stop><header class="modal-head"><div><span class="eyebrow">Kreditfaktura ${escapeHtml(invoice?.invoiceNumber||'')}</span><h3>Registrera återbetalning</h3></div><button data-action="close-modal" aria-label="Stäng">×</button></header><div class="modal-body"><div class="notice warning">Registrera bara återbetalningen när pengarna faktiskt har betalats ut från banken. Då bokförs återbetalningen och kreditfakturan prickas av.</div><form data-form="refund"><div class="reminder-summary"><span>Återstår att återbetala</span><strong>${ore(outstanding)}</strong><span>Kund</span><strong>${escapeHtml(invoice?.customerName||'—')}</strong></div><label class="field">Bankkonto<select name="refundAccount" required><option value="1930">1930 · Företagskonto/checkkonto</option><option value="1920">1920 · PlusGiro</option><option value="1940">1940 · Övriga bankkonton</option></select></label><label class="field">Återbetalningsdatum<input name="refundDate" type="date" value="${today()}" required></label><label class="field">Bankens referens / transaktions-id<input name="bankReference" minlength="4" maxlength="120" value="KREDIT-${escapeHtml(invoice?.invoiceNumber||'')}" required></label><p class="form-error">${escapeHtml(modal.error||'')}</p><div class="modal-actions"><button type="button" class="button ghost" data-action="close-modal">Avbryt</button><button type="submit" class="button">Registrera & bokför återbetalning</button></div></form></div></section></div>`;
 }
-function modalHtml(){if(!modal)return '';if(modal.type==='comments')return commentsModal();if(modal.type==='reminder')return reminderModal();if(modal.type==='refund')return refundModal();return ''}
+function settlementModal(){
+  const credit=invoiceById(modal.invoiceId),targets=settlementTargets(credit);
+  const selectedId=String(modal.formValues?.debitInvoiceId||targets[0]?.id||'');
+  const debit=targets.find(invoice=>String(invoice.id)===selectedId)||targets[0]||null;
+  const maxOre=debit?Math.min(Math.abs(Number(credit?.remainingOre||0)),Number(debit.remainingOre||0)):0;
+  const rawAmount=modal.formValues?.amountOre;
+  const amountOre=Number.isSafeInteger(rawAmount)&&rawAmount>0?Math.min(rawAmount,maxOre):maxOre;
+  const settlementDate=modal.formValues?.settlementDate||today();
+  const options=targets.map(invoice=>`<option value="${escapeHtml(invoice.id)}" ${String(invoice.id)===String(debit?.id)?'selected':''}>Faktura ${escapeHtml(invoice.invoiceNumber||'—')} · rest ${ore(invoice.remainingOre)}</option>`).join('');
+  return `<div class="modal-backdrop" data-action="close-modal"><section class="modal settlement-modal" data-stop><header class="modal-head"><div><span class="eyebrow">Manuell kvittning</span><h3>Kvitta kredit mot debet</h3></div><button data-action="close-modal" aria-label="Stäng">×</button></header><div class="modal-body"><div class="notice">Kvittningen förbereds här men påverkar inte Kundreskontra direkt. När du sparar skapas en bunt som måste godkännas under <b>Buntar</b>. Först vid godkännandet ändras båda fakturornas restbelopp.</div><form data-form="settlement"><section class="settlement-block"><div class="settlement-block-head"><span>Från</span><strong>Kreditfaktura</strong></div><div class="settlement-grid"><label>Avinummer<input value="${escapeHtml(credit?.invoiceNumber||'')}" disabled></label><label>Kund<input value="${escapeHtml(credit?.customerName||'')}" disabled></label><label>Restbelopp<input value="${ore(credit?.remainingOre)}" disabled></label></div></section><section class="settlement-block"><div class="settlement-block-head"><span>Till</span><strong>Debetfaktura · samma kund</strong></div>${targets.length?`<div class="settlement-grid"><label class="settlement-wide">Debetfaktura<select name="debitInvoiceId" data-settlement-target required>${options}</select></label><label>Restbelopp<input value="${ore(debit?.remainingOre||0)}" disabled></label><label>Kvittningsdatum<input name="settlementDate" type="date" value="${escapeHtml(settlementDate)}" required></label><label>Belopp att kvitta<input name="amount" inputmode="decimal" value="${(amountOre/100).toFixed(2).replace('.',',')}" required></label></div><div class="settlement-limit">Max att kvitta mot vald faktura: <b>${ore(maxOre)}</b></div>`:'<div class="notice warning">Det finns ingen öppen debetfaktura för samma kund. Kvittning kan därför inte skapas.</div>'}</section><p class="form-error">${escapeHtml(modal.error||'')}</p><div class="modal-actions"><button type="button" class="button ghost" data-action="close-modal">Avbryt</button><button type="submit" class="button" ${targets.length?'':'disabled'}>Skapa bunt för godkännande</button></div></form></div></section></div>`;
+}
+function modalHtml(){if(!modal)return '';if(modal.type==='comments')return commentsModal();if(modal.type==='reminder')return reminderModal();if(modal.type==='refund')return refundModal();if(modal.type==='settlement')return settlementModal();return ''}
 
 function syncSearchControls(){
   const input=document.getElementById('receivable-search-input');
@@ -323,7 +346,7 @@ function renderOverlays(){
 }
 function portalView(){
   const userName=session?.user?.displayName || 'Demoanvändare';
-  app.innerHTML=`<div class="portal">${sidebar()}<section class="main"><header class="topbar"><div><h1>Kundreskontra</h1><p>${escapeHtml(session?.company?.name||'Företaget')} / Försäljning / Kundreskontra</p></div><div class="user-chip"><div><b>${escapeHtml(userName)}</b><br><small>${mode==='demo'?'Demo':'Inloggad'}</small></div><div class="avatar">${escapeHtml(initials(userName))}</div>${mode==='api'?'<button class="button ghost small" data-action="logout">Logga ut</button>':''}</div></header><main class="content">${mode==='demo'?'<div class="demo-banner"><b>GitHub Pages-demo.</b> Kommentarer och kolumnval sparas bara i din webbläsare. Riktiga företagsuppgifter ska aldrig användas här.</div>':''}${feedback?`<div class="notice">${escapeHtml(feedback)}</div>`:''}<div class="page-heading"><div><span class="eyebrow">Kundfordringar</span><h2>Saldo, inbetalningar och avprickning</h2><p>Kundsökningen bygger på kundregistret. Fakturanummer och OCR används endast för att hitta vilken registrerad kund fakturan tillhör.</p></div></div>${receivableSearchBar()}<div id="receivable-overview-region">${customerOverview()}</div><div id="receivable-metrics-region">${metrics()}</div><section class="panel"><div class="toolbar"><span class="hint">Högerklicka på en faktura för kommentarer, betalningspåminnelse eller eventuell återbetalning.</span>${columnPicker()}</div><div id="receivable-table-region">${table()}</div></section></main></section></div><div id="portal-overlays"></div>`;
+  app.innerHTML=`<div class="portal">${sidebar()}<section class="main"><header class="topbar"><div><h1>Kundreskontra</h1><p>${escapeHtml(session?.company?.name||'Företaget')} / Försäljning / Kundreskontra</p></div><div class="user-chip"><div><b>${escapeHtml(userName)}</b><br><small>${mode==='demo'?'Demo':'Inloggad'}</small></div><div class="avatar">${escapeHtml(initials(userName))}</div>${mode==='api'?'<button class="button ghost small" data-action="logout">Logga ut</button>':''}</div></header><main class="content">${mode==='demo'?'<div class="demo-banner"><b>GitHub Pages-demo.</b> Kommentarer och kolumnval sparas bara i din webbläsare. Riktiga företagsuppgifter ska aldrig användas här.</div>':''}${feedback?`<div class="notice">${escapeHtml(feedback)}</div>`:''}<div class="page-heading"><div><span class="eyebrow">Kundfordringar</span><h2>Saldo, inbetalningar och avprickning</h2><p>Kundsökningen bygger på kundregistret. Fakturanummer och OCR används endast för att hitta vilken registrerad kund fakturan tillhör.</p></div></div>${receivableSearchBar()}<div id="receivable-overview-region">${customerOverview()}</div><div id="receivable-metrics-region">${metrics()}</div><section class="panel"><div class="toolbar"><span class="hint">Högerklicka på en faktura för kommentar, kvittning, betalningspåminnelse eller eventuell återbetalning.</span>${columnPicker()}</div><div id="receivable-table-region">${table()}</div></section></main></section></div><div id="portal-overlays"></div>`;
   renderOverlays();
   const requestedInvoiceId=new URLSearchParams(location.search).get('invoice');
   if(requestedInvoiceId){
@@ -411,6 +434,36 @@ async function boot(){
 document.addEventListener('submit',async event=>{
   const form=event.target;
   if(form.id==='login-form'){event.preventDefault();const values=Object.fromEntries(new FormData(form));try{if(mode==='supabase'){const ctx=await window.LTSupabaseUat.signIn(String(values.username||'').trim(),String(values.password||''),String(values.totp||'').trim());if(!ctx.company)throw new Error('Kontot saknar företagsbehörighet i Supabase.');session={user:ctx.user,company:ctx.company};await loadReceivables();return}const data=await api('/auth/login',{method:'POST',body:values});csrfToken=data.csrfToken;sessionStorage.setItem('rollands-csrf',csrfToken);session={user:data.user,company:data.company};loginCompanies=[];await loadReceivables()}catch(error){if(error.code==='COMPANY_REQUIRED'){loginCompanies=error.data.companies||[];loginView('Välj vilket företag du vill öppna.')}else loginView(error.message)}return}
+  if(form.dataset.form==='settlement'){
+    event.preventDefault();
+    const credit=invoiceById(modal.invoiceId),values=Object.fromEntries(new FormData(form));
+    try{
+      const debit=invoiceById(String(values.debitInvoiceId||''));
+      if(!credit||Number(credit.totalOre)>=0||Number(credit.remainingOre)>=0)throw new Error('Kreditfakturan har inget öppet kreditbelopp att kvitta.');
+      if(!debit||Number(debit.totalOre)<=0||Number(debit.remainingOre)<=0)throw new Error('Välj en öppen debetfaktura.');
+      if(String(credit.customerId||'')!==String(debit.customerId||''))throw new Error('Kvittning får endast göras mellan fakturor för samma kund.');
+      const settlementDate=String(values.settlementDate||'').trim();
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(settlementDate))throw new Error('Ange ett giltigt kvittningsdatum.');
+      const amountOre=Math.round(Number(String(values.amount||'').replace(/\s/g,'').replace(',','.'))*100);
+      const maxOre=Math.min(Math.abs(Number(credit.remainingOre||0)),Number(debit.remainingOre||0));
+      if(!Number.isSafeInteger(amountOre)||amountOre<=0||amountOre>maxOre)throw new Error('Kvittningsbeloppet måste vara större än 0 och högst '+ore(maxOre)+'.');
+      if(mode!=='supabase')throw new Error('Kvittningsbuntar skapas endast i den skyddade Supabase-UAT-miljön.');
+      const ctx=await supabaseContext();
+      const staged=(await window.LTSupabase.rpc('stage_customer_credit_settlement',{
+        p_company_id:ctx.company.id,
+        p_request_id:crypto.randomUUID(),
+        p_credit_invoice_id:credit.id,
+        p_debit_invoice_id:debit.id,
+        p_amount_ore:amountOre,
+        p_settlement_date:settlementDate
+      },ctx.accessToken))?.[0];
+      if(!staged)throw new Error('Kvittningsbunten kunde inte skapas.');
+      modal=null;
+      feedback='Kvittning '+ore(amountOre)+' är skapad i bunt #'+String(staged.batch_number||'').padStart(5,'0')+'. Kundreskontran ändras först när bunten godkänns.';
+      await loadReceivables();
+    }catch(error){modal={...modal,error:error.message,formValues:{debitInvoiceId:String(values.debitInvoiceId||''),settlementDate:String(values.settlementDate||today()),amountOre:Math.round((Number(String(values.amount||'').replace(/\s/g,'').replace(','.')))||0)*100)}};renderOverlays()}
+    return;
+  }
   if(form.dataset.form==='refund'){
     event.preventDefault();
     const invoice=invoiceById(modal.invoiceId),values=Object.fromEntries(new FormData(form));
@@ -489,7 +542,14 @@ document.addEventListener('input',event=>{
     modal.draftText=event.target.value;return;
   }
 });
-document.addEventListener('change',event=>{const id=event.target.dataset.column;if(!id)return;if(event.target.checked)visibleColumns.add(id);else visibleColumns.delete(id);saveJson(COLUMN_KEY,[...visibleColumns]);renderReceivableResults()});
+document.addEventListener('change',event=>{
+  if(event.target.matches('[data-settlement-target]')&&modal?.type==='settlement'){
+    modal={...modal,error:'',formValues:{...(modal.formValues||{}),debitInvoiceId:event.target.value,amountOre:null}};
+    renderOverlays();
+    return;
+  }
+  const id=event.target.dataset.column;if(!id)return;if(event.target.checked)visibleColumns.add(id);else visibleColumns.delete(id);saveJson(COLUMN_KEY,[...visibleColumns]);renderReceivableResults()
+});
 document.addEventListener('contextmenu',event=>{const row=event.target.closest('[data-invoice-id]');if(!row)return;event.preventDefault();contextMenu={invoiceId:row.dataset.invoiceId,x:Math.min(event.clientX,innerWidth-270),y:Math.min(event.clientY,innerHeight-190)};renderOverlays()});
 document.addEventListener('focusin',event=>{
   if(event.target.id!=='receivable-search-input'||selectedReceivableCustomerId)return;
@@ -551,6 +611,7 @@ document.addEventListener('click',async event=>{
     if(action==='show-comments'){await openComments(button.dataset.id,{compose:false});return}
     if(action==='new-comment'){modal={...modal,compose:true,draftText:''};renderOverlays();requestAnimationFrame(()=>document.getElementById('invoice-comment-draft')?.focus());return}
     if(action==='reminder'){contextMenu=null;modal={type:'reminder',invoiceId:button.dataset.id,preview:null,error:'',sentDate:today(),formValues:{sentDate:today(),includeInterest:true,includeReminderFee:false,includeBusinessLatePaymentCompensation:false,note:''}};renderOverlays();return}
+    if(action==='settlement'){const invoice=invoiceById(button.dataset.id);contextMenu=null;if(!invoice||Number(invoice.totalOre)>=0||Number(invoice.remainingOre)>=0)throw new Error('Den valda fakturan har inget öppet kreditbelopp.');modal={type:'settlement',invoiceId:invoice.id,error:'',formValues:{debitInvoiceId:settlementTargets(invoice)[0]?.id||'',settlementDate:today(),amountOre:null}};renderOverlays();return}
     if(action==='refund'){const invoice=invoiceById(button.dataset.id);contextMenu=null;if(!invoice?.credit||invoice.credit.refundStatus!=='pending')throw new Error('Det finns ingen väntande återbetalning för kreditfakturan.');modal={type:'refund',invoiceId:invoice.id,error:''};renderOverlays();return}
     if(action==='close-modal'){modal=null;renderOverlays();return}
     if(action==='reset-columns'){visibleColumns=new Set(R.RECEIVABLE_COLUMNS.map(c=>c.id));saveJson(COLUMN_KEY,[...visibleColumns]);renderReceivableResults();return}
