@@ -1615,3 +1615,195 @@ html[data-lt-theme="dark"] .shared-user-dropdown{
     box-shadow:none!important;
   }
 }
+
+
+/* LT Studio UI 2.0 — search surfaces.
+ * Search fields share one calm interaction language across customer receivables,
+ * suppliers and supplier invoices. Result lists stay opaque and high-contrast
+ * because names, identifiers and amounts must remain immediately readable.
+ */
+:root{
+  --lt-search-radius:16px;
+  --lt-search-popup-radius:18px;
+  --lt-search-border:color-mix(in srgb,var(--brand-forest) 14%,var(--color-hairline));
+  --lt-search-focus:color-mix(in srgb,var(--brand-forest) 54%,var(--color-mid-gray));
+  --lt-search-focus-ring:color-mix(in srgb,var(--brand-forest) 14%,transparent);
+  --lt-search-row-hover:color-mix(in srgb,var(--brand-sky) 25%,var(--surface-card));
+  --lt-search-popup-shadow:0 22px 58px rgb(20 40 31 / .15);
+}
+
+:where(
+  .shared-search-shell>input[type="search"],
+  .supplier-search-control input,
+  .receivable-search-field input
+){
+  min-height:46px;
+  border:1px solid var(--lt-search-border)!important;
+  border-radius:var(--lt-search-radius)!important;
+  background:var(--surface-card)!important;
+  color:var(--color-ink)!important;
+  box-shadow:0 1px 0 rgb(255 255 255 / .6) inset,0 5px 16px rgb(23 63 50 / .035);
+  transition:
+    border-color var(--motion-fast,140ms) ease,
+    box-shadow var(--motion-base,220ms) var(--motion-ease,cubic-bezier(.22,1,.36,1)),
+    background-color var(--motion-base,220ms) ease!important;
+}
+
+:where(
+  .shared-search-shell>input[type="search"],
+  .supplier-search-control input,
+  .receivable-search-field input
+):hover{
+  border-color:color-mix(in srgb,var(--brand-forest) 24%,var(--color-hairline))!important;
+}
+
+:where(
+  .shared-search-shell>input[type="search"],
+  .supplier-search-control input,
+  .receivable-search-field input
+):focus{
+  outline:none!important;
+  border-color:var(--lt-search-focus)!important;
+  background:var(--surface-card)!important;
+  box-shadow:0 0 0 4px var(--lt-search-focus-ring),0 8px 22px rgb(23 63 50 / .06)!important;
+  transform:none!important;
+}
+
+:where(
+  .shared-search-results,
+  .supplier-search-results,
+  .receivable-search-results
+){
+  background:var(--surface-card)!important;
+  border:1px solid var(--lt-search-border)!important;
+  border-radius:var(--lt-search-popup-radius)!important;
+  box-shadow:var(--lt-search-popup-shadow)!important;
+  padding:6px!important;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+
+:where(
+  .shared-search-option,
+  .supplier-search-option,
+  .receivable-search-option
+){
+  border:0!important;
+  border-radius:12px!important;
+  background:transparent!important;
+  color:var(--color-ink)!important;
+  padding:11px 12px!important;
+  transition:
+    background-color var(--motion-fast,140ms) ease,
+    transform var(--motion-fast,140ms) var(--motion-ease,cubic-bezier(.22,1,.36,1))!important;
+}
+
+:where(
+  .shared-search-option,
+  .supplier-search-option,
+  .receivable-search-option
+):hover,
+:where(
+  .shared-search-option.active,
+  .shared-search-option[aria-selected="true"],
+  .supplier-search-option.active,
+  .supplier-search-option[aria-selected="true"],
+  .receivable-search-option.active,
+  .receivable-search-option[aria-selected="true"]
+){
+  background:var(--lt-search-row-hover)!important;
+  transform:none!important;
+}
+
+:where(
+  .shared-search-option small,
+  .shared-search-empty,
+  .supplier-search-option small,
+  .supplier-search-empty,
+  .receivable-search-option-main small,
+  .receivable-search-no-results,
+  .receivable-search-group-label
+){
+  color:var(--color-mid-gray)!important;
+}
+
+.receivable-search-option-type{
+  border:1px solid var(--color-hairline);
+  background:var(--surface-alt)!important;
+  color:var(--color-mid-gray)!important;
+}
+.receivable-search-group-label{
+  padding:9px 10px 6px!important;
+}
+.supplier-search-icon{
+  color:var(--color-mid-gray)!important;
+}
+.supplier-search-pulse{
+  background:var(--brand-forest)!important;
+}
+
+html[data-lt-theme="dark"]{
+  --lt-search-border:var(--lt-dark-border);
+  --lt-search-focus:#91b7a5;
+  --lt-search-focus-ring:rgb(128 161 144 / .18);
+  --lt-search-row-hover:#3a424c;
+  --lt-search-popup-shadow:0 24px 64px rgb(0 0 0 / .34);
+}
+html[data-lt-theme="dark"] :where(
+  .shared-search-shell>input[type="search"],
+  .supplier-search-control input,
+  .receivable-search-field input
+){
+  background:#262c34!important;
+  color:#fff!important;
+  border-color:var(--lt-search-border)!important;
+  box-shadow:0 5px 18px rgb(0 0 0 / .14);
+}
+html[data-lt-theme="dark"] :where(
+  .shared-search-results,
+  .supplier-search-results,
+  .receivable-search-results
+){
+  background:var(--lt-dark-surface)!important;
+  border-color:var(--lt-dark-border)!important;
+}
+html[data-lt-theme="dark"] :where(
+  .shared-search-option,
+  .supplier-search-option,
+  .receivable-search-option
+){
+  background:transparent!important;
+  color:#fff!important;
+}
+html[data-lt-theme="dark"] :where(
+  .shared-search-option:hover,
+  .shared-search-option.active,
+  .shared-search-option[aria-selected="true"],
+  .supplier-search-option:hover,
+  .supplier-search-option.active,
+  .supplier-search-option[aria-selected="true"],
+  .receivable-search-option:hover,
+  .receivable-search-option.active,
+  .receivable-search-option[aria-selected="true"]
+){
+  background:var(--lt-search-row-hover)!important;
+  color:#fff!important;
+}
+html[data-lt-theme="dark"] .receivable-search-option-type{
+  background:var(--lt-dark-surface-soft)!important;
+  color:var(--lt-dark-muted)!important;
+  border-color:var(--lt-dark-border)!important;
+}
+
+@media(prefers-reduced-motion:reduce){
+  :where(
+    .shared-search-shell>input[type="search"],
+    .supplier-search-control input,
+    .receivable-search-field input,
+    .shared-search-option,
+    .supplier-search-option,
+    .receivable-search-option
+  ){
+    transition:none!important;
+  }
+}
