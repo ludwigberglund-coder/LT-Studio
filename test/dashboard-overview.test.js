@@ -18,6 +18,8 @@ test('översikten laddar delad meny även på Supabase UAT',()=>{
   assert.match(js,/function sidebar\(\)\{return '<aside class="sidebar"><\/aside>'\}/);
   assert.match(js,/RollandsNavigation\?\.mount/);
   assert.match(js,/LTSupabase\.from\('period_unlock_requests'/);
+  assert.match(js,/LTSupabase\.from\('financial_batches'/);
+  assert.match(js,/Godkänn väntande buntar/);
   assert.doesNotMatch(js,/accounting_unlock_requests/);
 });
 
