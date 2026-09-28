@@ -170,7 +170,8 @@
       const type = String(transaction?.transactionType || transaction?.type || '').trim().toLowerCase();
       const supportedPayment = type === 'payment' && amountOre < 0;
       const supportedReversal = type === 'payment-reversal' && amountOre > 0;
-      if (!supportedPayment && !supportedReversal) {
+      const supportedSettlement = type === 'credit-settlement' && amountOre < 0;
+      if (!supportedPayment && !supportedReversal && !supportedSettlement) {
         throw domainError(
           'Ränteberäkningen innehåller en kredit, justering eller annan saldoändring som inte har ett verifierat automatiskt historikflöde. Ränta blockeras tills händelsen kan härledas säkert.',
           'UNSUPPORTED_BALANCE_HISTORY',
