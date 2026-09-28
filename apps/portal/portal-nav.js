@@ -432,5 +432,142 @@
   addEventListener('focus',ensureFreshRuntime);
   addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')ensureFreshRuntime();});
   setInterval(ensureFreshRuntime,30000);
+  let sharedDialogSequence=0;
+  let sharedDialogCancel=null;
+  function sharedDialogFocusables(backdrop){
+    return [...backdrop.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])')].filter(element=>element.getClientRects().length);
+  }
+  function openSharedDialog(options={}){
+    const mode=['alert','confirm','prompt'].includes(options.mode)?options.mode:'alert';
+    const title=String(options.title||({alert:'Meddelande',confirm:'Bekräfta',prompt:'Ange uppgift'})[mode]);
+    const message=String(options.message||'');
+    const confirmLabel=String(options.confirmLabel||(mode==='alert'?'OK':'Fortsätt'));
+    const cancelLabel=String(options.cancelLabel||'Avbryt');
+    const label=String(options.label||'Svar');
+    const defaultValue=String(options.defaultValue||'');
+    const multiline=options.multiline===true;
+    const required=options.required===true;
+    const tone=options.tone==='danger'?'danger':'info';
+
+    if(sharedDialogCancel)sharedDialogCancel();
+    return new Promise(resolve=>{
+      const previous=document.activeElement instanceof HTMLElement?document.activeElement:null;
+      const id='lt-dialog-'+(++sharedDialogSequence);
+      const backdrop=document.createElement('div');
+      backdrop.className='modal-backdrop lt-dialog-backdrop';
+      const modal=document.createElement('section');
+      modal.className='modal lt-dialog-modal'+(tone==='danger'?' is-danger':'');
+      modal.setAttribute('role','dialog');
+      modal.setAttribute('aria-modal','true');
+      modal.setAttribute('aria-labelledby',id+'-title');
+      modal.setAttribute('aria-describedby',id+'-copy');
+
+      const header=document.createElement('header');
+      header.className='modal-head';
+      const headingWrap=document.createElement('div');
+      const eyebrow=document.createElement('span');
+      eyebrow.className='eyebrow';
+      eyebrow.textContent=tone==='danger'?'Kontroll krävs':'LT Studio';
+      const heading=document.createElement('h3');
+      heading.id=id+'-title';
+      heading.textContent=title;
+      headingWrap.append(eyebrow,heading);
+      const closeButton=document.createElement('button');
+      closeButton.type='button';
+      closeButton.className='button ghost small lt-dialog-close';
+      closeButton.setAttribute('aria-label','Stäng');
+      closeButton.textContent='×';
+      header.append(headingWrap,closeButton);
+
+      const body=document.createElement('div');
+      body.className='modal-body lt-dialog-body';
+      const copy=document.createElement('p');
+      copy.id=id+'-copy';
+      copy.className='lt-dialog-copy';
+      copy.textContent=message;
+      body.append(copy);
+
+      const form=document.createElement('form');
+      form.className='lt-dialog-form';
+      let field=null;
+      if(mode==='prompt'){
+        const fieldLabel=document.createElement('label');
+        fieldLabel.className='lt-dialog-field';
+        const labelText=document.createElement('span');
+        labelText.textContent=label;
+        field=multiline?document.createElement('textarea'):document.createElement('input');
+        if(!multiline)field.type=String(options.inputType||'text');
+        field.name='value';
+        field.value=defaultValue;
+        field.required=required;
+        if(multiline)field.rows=Number(options.rows||5);
+        if(options.placeholder)field.placeholder=String(options.placeholder);
+        if(options.maxLength)field.maxLength=Number(options.maxLength);
+        fieldLabel.append(labelText,field);
+        form.append(fieldLabel);
+      }
+
+      const actions=document.createElement('div');
+      actions.className='modal-actions';
+      let cancelButton=null;
+      if(mode!=='alert'){
+        cancelButton=document.createElement('button');
+        cancelButton.type='button';
+        cancelButton.className='button ghost';
+        cancelButton.textContent=cancelLabel;
+        actions.append(cancelButton);
+      }
+      const confirmButton=document.createElement('button');
+      confirmButton.type='submit';
+      confirmButton.className='button'+(tone==='danger'?' danger':'');
+      confirmButton.textContent=confirmLabel;
+      actions.append(confirmButton);
+      form.append(actions);
+      body.append(form);
+      modal.append(header,body);
+      backdrop.append(modal);
+      document.body.append(backdrop);
+
+      let settled=false;
+      const cancelValue=mode==='prompt'?null:mode==='confirm'?false:true;
+      const finish=value=>{
+        if(settled)return;
+        settled=true;
+        document.removeEventListener('keydown',onKey);
+        if(sharedDialogCancel===cancel)sharedDialogCancel=null;
+        backdrop.remove();
+        requestAnimationFrame(()=>{if(previous?.isConnected)previous.focus()});
+        resolve(value);
+      };
+      const cancel=()=>finish(cancelValue);
+      sharedDialogCancel=cancel;
+      const onKey=event=>{
+        if(event.key==='Escape'){event.preventDefault();cancel();return}
+        if(event.key!=='Tab')return;
+        const focusables=sharedDialogFocusables(backdrop);
+        if(!focusables.length){event.preventDefault();modal.focus();return}
+        const first=focusables[0],last=focusables[focusables.length-1];
+        if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}
+        else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}
+      };
+      document.addEventListener('keydown',onKey);
+      closeButton.addEventListener('click',cancel);
+      cancelButton?.addEventListener('click',cancel);
+      backdrop.addEventListener('click',event=>{if(event.target===backdrop)cancel()});
+      form.addEventListener('submit',event=>{
+        event.preventDefault();
+        if(mode==='prompt'){finish(String(field?.value||''))}
+        else if(mode==='confirm'){finish(true)}
+        else finish(true);
+      });
+      requestAnimationFrame(()=>{if(field)field.focus();else confirmButton.focus()});
+    });
+  }
+  root.LTDialog=Object.freeze({
+    alert(message,options={}){return openSharedDialog({...options,mode:'alert',message})},
+    confirm(message,options={}){return openSharedDialog({...options,mode:'confirm',message})},
+    prompt(message,options={}){return openSharedDialog({...options,mode:'prompt',message})}
+  });
+
   root.RollandsNavigation={groups,mount,mountUserMenu,mountSidebarToggle,setSidebarOpen,href};ensureFreshRuntime();mount();mountUserMenu();mountSidebarToggle();decorateUi();
 })(globalThis);
