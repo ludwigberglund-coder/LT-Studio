@@ -2329,6 +2329,76 @@ html[data-lt-theme="dark"] :where(
   border-radius:12px!important;
 }
 
+.date-correction-modal{
+  width:min(620px,100%);
+}
+#date-correction-form{
+  display:grid;
+  gap:14px;
+}
+.date-correction-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+#date-correction-form label{
+  display:grid;
+  gap:7px;
+  color:var(--color-ink-soft);
+  font-weight:var(--font-weight-medium);
+}
+#date-correction-form :where(input,textarea){
+  width:100%;
+  min-height:44px;
+  padding:10px 12px;
+  border:1px solid var(--lt-form-control-border);
+  border-radius:14px;
+  background:var(--lt-form-control-bg);
+  color:var(--color-ink);
+  box-shadow:var(--lt-form-control-shadow);
+  font:inherit;
+}
+#date-correction-form textarea{
+  min-height:96px;
+  resize:vertical;
+}
+#date-correction-form :where(input,textarea):focus-visible{
+  outline:2px solid var(--lt-form-focus);
+  outline-offset:2px;
+  border-color:var(--lt-form-focus);
+  box-shadow:0 0 0 4px var(--lt-form-focus-ring),0 7px 20px rgb(23 63 50 / .055);
+}
+
+.intake-feedback{
+  position:fixed;
+  right:22px;
+  bottom:22px;
+  z-index:1600;
+  width:min(420px,calc(100vw - 32px));
+  padding:13px 15px;
+  border:1px solid var(--lt-modal-border);
+  border-radius:14px;
+  background:var(--surface-card);
+  color:var(--color-ink);
+  box-shadow:0 18px 50px rgb(10 18 15 / .18);
+  font-size:13px;
+  line-height:1.45;
+  animation:ltModalSurfaceIn 180ms var(--motion-ease,cubic-bezier(.22,1,.36,1)) both;
+}
+.intake-feedback.is-error{
+  border-color:var(--color-ember);
+  color:var(--color-ember);
+}
+html[data-lt-theme="dark"] .intake-feedback{
+  background:var(--lt-dark-surface);
+  color:#fff;
+  border-color:var(--lt-dark-border);
+}
+html[data-lt-theme="dark"] .intake-feedback.is-error{
+  color:var(--color-ember);
+  border-color:var(--color-ember);
+}
+
 @keyframes ltModalBackdropIn{
   from{opacity:0}
   to{opacity:1}
@@ -2349,6 +2419,7 @@ html[data-lt-theme="dark"] :where(
   .documents-modal,
   .intake-modal,
   .payment-confirm-modal,
+  .date-correction-modal,
   .batch-confirm-modal
 ){
   background:var(--lt-dark-surface)!important;
@@ -2388,6 +2459,7 @@ html[data-lt-theme="dark"] :where(
   .documents-modal-backdrop,
   .intake-backdrop,
   .payment-confirm-backdrop,
+  .date-correction-backdrop,
   .batch-confirm-backdrop{
     -webkit-backdrop-filter:none!important;
     backdrop-filter:none!important;
@@ -2399,6 +2471,7 @@ html[data-lt-theme="dark"] :where(
   .documents-modal-backdrop,
   .intake-backdrop,
   .payment-confirm-backdrop,
+  .date-correction-backdrop,
   .batch-confirm-backdrop{
     -webkit-backdrop-filter:none!important;
     backdrop-filter:none!important;
@@ -2410,13 +2483,23 @@ html[data-lt-theme="dark"] :where(
   .documents-modal-backdrop,
   .intake-backdrop,
   .payment-confirm-backdrop,
+  .date-correction-backdrop,
   .batch-confirm-backdrop,
   .modal,
   .modal-sales,
   .documents-modal,
   .intake-modal,
   .payment-confirm-modal,
+  .date-correction-modal,
   .batch-confirm-modal{
     animation:none!important;
   }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .intake-feedback{animation:none!important}
+}
+@media(max-width:620px){
+  .date-correction-grid{grid-template-columns:1fr}
+  .intake-feedback{right:16px;bottom:16px}
 }
