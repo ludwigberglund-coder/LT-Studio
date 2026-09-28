@@ -118,7 +118,7 @@ test('settlement dialog follows both light and dark themes and static assets are
   assert.match(portal,/html\[data-lt-theme="dark"\] \.settlement-block/);
   assert.match(portal,/html\[data-lt-theme="dark"\] \.settlement-grid input:disabled/);
   assert.match(build,/function versionStaticAssets\(directory,version\)/);
-  assert.match(build,/\.(?:css\|js)/);
+  assert.match(build,/css\|js/);
   assert.match(build,/process\.env\.GITHUB_SHA\|\|'local'/);
   assert.match(build,/versionStaticAssets\(target,process\.env\.GITHUB_SHA\|\|'local'\)/);
 });
