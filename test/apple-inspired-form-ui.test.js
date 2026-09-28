@@ -13,7 +13,8 @@ function formStage(){
   const marker='LT Studio UI 2.0 — form surfaces';
   const index=css.indexOf(marker);
   assert.ok(index>=0,'form UI stage marker is missing');
-  return css.slice(index);
+  const end=css.indexOf('/* LT Studio UI 2.0 — shared dialogs',index);
+  return css.slice(index,end>index?end:css.length);
 }
 
 test('portal form controls share one solid Apple-inspired treatment',()=>{
