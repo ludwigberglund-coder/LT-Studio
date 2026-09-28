@@ -492,7 +492,11 @@ document.addEventListener('submit',async event=>{
       await loadReceivables();
     }catch(error){
       const parsedAmount=Math.round((Number(String(values.amount||'').replace(/\s/g,'').replace(',','.'))||0)*100);
-      modal={...modal,error:error.message,formValues:{debitInvoiceId:String(values.debitInvoiceId||''),settlementDate:String(values.settlementDate||today()),amountOre:parsedAmount}};
+      const rawError=String(error?.message||error||'');
+      const settlementError=rawError.includes('PERIOD_LOCKED')
+        ?'Bokföringsperioden för valt kvittningsdatum är låst. Välj ett datum i en öppen period eller öppna perioden under Bokföring.'
+        :rawError;
+      modal={...modal,error:settlementError,formValues:{debitInvoiceId:String(values.debitInvoiceId||''),settlementDate:String(values.settlementDate||today()),amountOre:parsedAmount}};
       renderOverlays();
     }
     return;
