@@ -114,9 +114,9 @@ async function save(){
  if(external!==''&&!Number.isFinite(Number(external.replace(',','.'))))throw new Error('Kontrollbeloppet måste vara ett giltigt belopp.');
  await rpc('save_financial_batch',{p_company_id:ctx.company.id,p_batch_id:selected.id,p_title:document.getElementById('batch-title').value,p_external_total_ore:external===''?null:Math.round(Number(external.replace(',','.'))*100),p_transactions:payloadTransactions()});await load();
 }
-function bulkRegister(){
- const input=window.prompt('Klistra in en rad per transaktion i formatet:\nDATUM;BESKRIVNING;DEBETKONTO;KREDITKONTO;BELOPP\n\nExempel:\n2026-09-25;Kontorsmaterial;6110;1930;1250,00');
- if(!input)return;
+async function bulkRegister(){
+ const input=await window.LTDialog.prompt('Klistra in en rad per transaktion i formatet:\nDATUM;BESKRIVNING;DEBETKONTO;KREDITKONTO;BELOPP\n\nExempel:\n2026-09-25;Kontorsmaterial;6110;1930;1250,00',{title:'Massregistrera transaktioner',label:'Transaktioner',multiline:true,rows:8,required:true,confirmLabel:'Läs in rader'});
+ if(input===null||!input.trim())return;
  const parsed=[];
  for(const [index,row] of input.split(/\r?\n/).entries()){
    if(!row.trim())continue;
@@ -141,12 +141,12 @@ app.addEventListener('click',async e=>{
   if(a==='remove-tx'){txs=captureTransactions();const i=Number(btn.closest('.transaction').dataset.tx);txs.splice(i,1);render()}
   if(a==='add-line'){txs=captureTransactions();const i=Number(btn.closest('.transaction').dataset.tx);txs[i].lines ||= [];txs[i].lines.push({});render()}
   if(a==='remove-line'){const tx=btn.closest('.transaction'),i=Number(tx.dataset.tx),li=[...tx.querySelectorAll('.batch-line')].indexOf(btn.closest('.batch-line'));txs=captureTransactions();txs[i].lines.splice(li,1);render()}
-  if(a==='bulk'){bulkRegister()}
+  if(a==='bulk'){await bulkRegister()}
   if(a==='undo'){await loadDetail(selected.id);render()}
   if(a==='save')await save();
   if(a==='ready'){await save();await rpc('mark_financial_batch_ready',{p_company_id:ctx.company.id,p_batch_id:selected.id});await load()}
   if(a==='reopen'){await rpc('reopen_financial_batch',{p_company_id:ctx.company.id,p_batch_id:selected.id});await load()}
-  if(a==='reject'){const reason=window.prompt('Ange varför bunten avvisas:');if(reason){await rpc('reject_financial_batch',{p_company_id:ctx.company.id,p_batch_id:selected.id,p_reason:reason});await load()}}
+  if(a==='reject'){const reason=await window.LTDialog.prompt('Beskriv varför bunten avvisas.',{title:'Avvisa bunt',label:'Orsak',required:true,confirmLabel:'Avvisa bunt',tone:'danger'});if(reason!==null&&reason.trim()){await rpc('reject_financial_batch',{p_company_id:ctx.company.id,p_batch_id:selected.id,p_reason:reason.trim()});await load()}}
   if(a==='approve'){if(!batchLooksBalanced()){await showBatchError(new Error('BATCH_NOT_BALANCED'));return}if(await confirmBatchApproval()){await rpc('approve_financial_batch',{p_company_id:ctx.company.id,p_batch_id:selected.id});await load()}}
  }catch(err){await showBatchError(err)}
 });
