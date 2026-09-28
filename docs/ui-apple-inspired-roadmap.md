@@ -25,6 +25,16 @@ Grundprincipen är:
 - fallback finns om backdrop-filter inte stöds
 - reduced transparency respekteras när webbläsaren exponerar det
 
+## Etapp 2 – gemensamma sökytor
+
+- kundreskontra, leverantörer och leverantörsfakturor delar samma visuella sökprincip
+- sökfält har gemensam radie, fokusram och lågmäld skugga
+- popup-listor är solida och högkontrastiga, inte genomskinliga
+- aktiv resultatrad har samma tydliga markering i ljust och mörkt läge
+- befintlig tangentbordsnavigering och ARIA-semantik behålls
+- leverantörssökningen använder Iconoir även för sökikonen
+- reduced motion respekteras
+
 ## Nästa etapper
 
 ### Navigation och topbar
