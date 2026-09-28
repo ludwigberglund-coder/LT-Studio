@@ -2539,3 +2539,369 @@ html[data-lt-theme="dark"] :where(
     backdrop-filter:none!important;
   }
 }
+
+
+/* LT Studio UI 2.0 — content surfaces.
+ * Financial data stays solid and high-contrast. Apple inspiration is limited to
+ * hierarchy, segmented controls, card rhythm and useful sticky working surfaces.
+ */
+:root{
+  --lt-summary-radius:20px;
+  --lt-summary-shadow:0 8px 24px rgb(23 63 50 / .045);
+  --lt-segment-shadow:0 1px 0 rgb(255 255 255 / .72) inset,0 4px 14px rgb(23 63 50 / .045);
+  --lt-table-header-shadow:0 1px 0 var(--color-hairline);
+}
+
+:where(
+  .metrics .metric,
+  .dash-metrics .dash-metric,
+  .report-summary article,
+  .inventory-summary article,
+  .bank-summary article,
+  .payroll-summary article,
+  .automation-summary .automation-card,
+  .uat-summary article,
+  .payment-summary article,
+  .vat-grid article,
+  .sales-metric
+){
+  min-height:92px;
+  border:1px solid var(--color-hairline)!important;
+  border-radius:var(--lt-summary-radius)!important;
+  background:var(--surface-card)!important;
+  box-shadow:var(--lt-summary-shadow)!important;
+}
+
+:where(
+  .metric strong,
+  .dash-metric strong,
+  .report-summary strong,
+  .inventory-summary strong,
+  .bank-summary strong,
+  .payroll-summary strong,
+  .automation-card strong,
+  .uat-summary strong,
+  .payment-summary strong,
+  .vat-grid strong,
+  .sales-metric strong
+){
+  font-variant-numeric:tabular-nums;
+  letter-spacing:-.025em;
+}
+
+:where(.queue-tabs,.report-tabs,.automation-filter){
+  display:inline-flex!important;
+  align-items:center;
+  gap:3px!important;
+  max-width:100%;
+  padding:4px!important;
+  overflow-x:auto;
+  overscroll-behavior-x:contain;
+  scrollbar-width:none;
+  border:1px solid var(--color-hairline);
+  border-radius:14px;
+  background:var(--surface-input-fill);
+  box-shadow:inset 0 1px 0 rgb(255 255 255 / .5);
+}
+:where(.queue-tabs,.report-tabs,.automation-filter)::-webkit-scrollbar{display:none}
+:where(.queue-tab,.report-tab,.automation-filter button){
+  flex:0 0 auto;
+  min-height:36px;
+  margin:0!important;
+  padding:7px 11px!important;
+  white-space:nowrap;
+  border:0!important;
+  border-radius:10px!important;
+  background:transparent!important;
+  color:var(--color-ink-soft)!important;
+  box-shadow:none!important;
+  font-weight:var(--font-weight-medium)!important;
+}
+:where(.queue-tab,.report-tab,.automation-filter button):hover{
+  background:color-mix(in srgb,var(--surface-card) 72%,transparent)!important;
+  color:var(--color-ink)!important;
+}
+:where(.queue-tab.active,.report-tab.active,.automation-filter button.active){
+  background:var(--surface-card)!important;
+  color:var(--color-ink)!important;
+  box-shadow:var(--lt-segment-shadow)!important;
+}
+:where(.queue-tab,.report-tab,.automation-filter button):focus-visible{
+  outline:2px solid var(--color-ink)!important;
+  outline-offset:2px!important;
+}
+
+:where(
+  .table-scroll,
+  .queue-table-wrap,
+  .report-table-wrap,
+  .documents-table-wrap,
+  .accounting-table-scroll
+){
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+}
+
+:where(
+  .res-table,
+  .queue-table,
+  .report-table,
+  .inventory-table,
+  .documents-table,
+  .payroll-table,
+  .accounting-table,
+  .accounts-table,
+  .coding-table
+) thead th{
+  position:sticky;
+  top:0;
+  z-index:2;
+  background:var(--surface-alt)!important;
+  box-shadow:var(--lt-table-header-shadow);
+}
+
+:where(
+  .res-table,
+  .queue-table,
+  .report-table,
+  .inventory-table,
+  .documents-table,
+  .payroll-table,
+  .accounting-table,
+  .accounts-table,
+  .coding-table
+) tbody tr{
+  transition:background-color var(--motion-fast,140ms) ease;
+}
+
+:where(
+  .res-table,
+  .queue-table,
+  .report-table,
+  .inventory-table,
+  .documents-table,
+  .payroll-table,
+  .accounting-table,
+  .accounts-table,
+  .coding-table
+) :where(.money,.numeric,.qty){
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+
+.res-table th.customer-cell{
+  z-index:6;
+}
+.res-table tr.invoice-row>.customer-cell{
+  transition:background-color var(--motion-fast,140ms) ease;
+}
+
+.task-card>strong{
+  min-width:52px!important;
+  padding:9px 11px;
+  border:1px solid var(--color-hairline);
+  border-radius:14px;
+  background:var(--surface-alt);
+  color:var(--color-ink)!important;
+  font-size:26px!important;
+  box-shadow:inset 0 1px 0 rgb(255 255 255 / .5);
+}
+.overview-empty{
+  border-style:solid!important;
+  background:var(--surface-alt)!important;
+}
+
+.batch-layout{align-items:start}
+.batch-list{
+  position:sticky;
+  top:92px;
+  align-self:start;
+  padding:10px!important;
+  border-radius:22px!important;
+  scrollbar-gutter:stable;
+}
+.batch-editor{
+  border-radius:22px!important;
+  padding:22px!important;
+}
+.batch-card{
+  min-height:76px;
+  padding:13px!important;
+  border-radius:14px!important;
+}
+.batch-card.active{
+  border-color:color-mix(in srgb,var(--brand-forest) 28%,var(--color-hairline))!important;
+  background:var(--surface-alt)!important;
+  box-shadow:inset 3px 0 0 var(--brand-forest);
+}
+.batch-card:hover{
+  transform:none!important;
+  background:var(--surface-alt)!important;
+}
+.batch-no{
+  font-variant-numeric:tabular-nums;
+  letter-spacing:-.02em;
+}
+.batch-summary{
+  gap:8px!important;
+}
+.summary-pill,
+.status-badge{
+  border:1px solid var(--color-hairline)!important;
+  background:var(--surface-input-fill)!important;
+  color:var(--color-ink-soft)!important;
+}
+.summary-pill.ok,
+.status-approved,
+.status-ready{
+  border-color:color-mix(in srgb,var(--brand-forest) 24%,var(--color-hairline))!important;
+  background:var(--surface-input-fill)!important;
+  color:var(--color-ink)!important;
+}
+.summary-pill.err,
+.status-rejected{
+  border-color:var(--color-ember)!important;
+  background:var(--surface-card)!important;
+  color:var(--color-ember)!important;
+}
+.transaction{
+  border-color:var(--color-hairline)!important;
+  border-radius:18px!important;
+  background:var(--surface-alt);
+}
+.batch-editor :where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  textarea,
+  select
+){
+  min-height:42px;
+  border:1px solid var(--lt-form-control-border,var(--color-hairline))!important;
+  border-radius:12px!important;
+  background:var(--lt-form-control-bg,var(--surface-card))!important;
+  color:var(--color-ink)!important;
+  box-shadow:var(--lt-form-control-shadow,none)!important;
+}
+.batch-editor :where(input,textarea,select):focus-visible{
+  outline:2px solid var(--lt-form-focus,var(--color-ink))!important;
+  outline-offset:2px!important;
+  border-color:var(--lt-form-focus,var(--color-ink))!important;
+  box-shadow:0 0 0 4px var(--lt-form-focus-ring,transparent)!important;
+}
+.batch-editor>.batch-actions{
+  position:sticky;
+  bottom:0;
+  z-index:4;
+  margin-top:22px!important;
+  padding:12px 0 6px;
+  border-top:1px solid var(--color-hairline);
+  background:color-mix(in srgb,var(--surface-card) 92%,transparent);
+  -webkit-backdrop-filter:blur(12px) saturate(120%);
+  backdrop-filter:blur(12px) saturate(120%);
+}
+
+html[data-lt-theme="dark"]{
+  --lt-summary-shadow:0 10px 28px rgb(0 0 0 / .16);
+  --lt-segment-shadow:0 1px 0 rgb(255 255 255 / .04) inset,0 6px 18px rgb(0 0 0 / .18);
+  --lt-table-header-shadow:0 1px 0 var(--lt-dark-border);
+}
+html[data-lt-theme="dark"] :where(
+  .metrics .metric,
+  .dash-metrics .dash-metric,
+  .report-summary article,
+  .inventory-summary article,
+  .bank-summary article,
+  .payroll-summary article,
+  .automation-summary .automation-card,
+  .uat-summary article,
+  .payment-summary article,
+  .vat-grid article,
+  .sales-metric
+){
+  border-color:var(--lt-dark-border)!important;
+  background:var(--lt-dark-surface)!important;
+}
+html[data-lt-theme="dark"] :where(.queue-tabs,.report-tabs,.automation-filter){
+  border-color:var(--lt-dark-border);
+  background:var(--lt-dark-surface-soft);
+  box-shadow:none;
+}
+html[data-lt-theme="dark"] :where(.queue-tab.active,.report-tab.active,.automation-filter button.active){
+  background:var(--lt-dark-surface)!important;
+  color:var(--color-paper)!important;
+}
+html[data-lt-theme="dark"] :where(
+  .res-table,
+  .queue-table,
+  .report-table,
+  .inventory-table,
+  .documents-table,
+  .payroll-table,
+  .accounting-table,
+  .accounts-table,
+  .coding-table
+) thead th{
+  background:var(--lt-dark-surface-soft)!important;
+  border-color:var(--lt-dark-border)!important;
+}
+html[data-lt-theme="dark"] .task-card>strong,
+html[data-lt-theme="dark"] .transaction{
+  background:var(--lt-dark-surface-soft)!important;
+  border-color:var(--lt-dark-border)!important;
+}
+html[data-lt-theme="dark"] .batch-card.active{
+  border-color:var(--lt-dark-border)!important;
+  background:var(--lt-dark-surface-soft)!important;
+  box-shadow:inset 3px 0 0 var(--brand-sky);
+}
+html[data-lt-theme="dark"] :where(.summary-pill,.status-badge){
+  border-color:var(--lt-dark-border)!important;
+  background:var(--lt-dark-surface-soft)!important;
+  color:var(--lt-dark-text)!important;
+}
+html[data-lt-theme="dark"] .batch-editor>.batch-actions{
+  border-top-color:var(--lt-dark-border);
+  background:color-mix(in srgb,var(--lt-dark-surface) 92%,transparent);
+}
+
+@media(max-width:900px){
+  .batch-list{
+    position:static;
+    max-height:none!important;
+  }
+  .batch-editor>.batch-actions{
+    position:static;
+    background:transparent;
+    -webkit-backdrop-filter:none;
+    backdrop-filter:none;
+  }
+}
+@media(max-width:760px){
+  :where(.queue-tabs,.report-tabs,.automation-filter){
+    width:100%;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  :where(
+    .queue-tab,
+    .report-tab,
+    .automation-filter button,
+    .res-table tbody tr,
+    .queue-table tbody tr,
+    .report-table tbody tr,
+    .inventory-table tbody tr,
+    .documents-table tbody tr,
+    .payroll-table tbody tr,
+    .accounting-table tbody tr,
+    .accounts-table tbody tr,
+    .coding-table tbody tr
+  ){
+    transition:none!important;
+  }
+}
+@media(prefers-reduced-transparency:reduce){
+  .batch-editor>.batch-actions{
+    -webkit-backdrop-filter:none!important;
+    backdrop-filter:none!important;
+    background:var(--surface-card)!important;
+  }
+}

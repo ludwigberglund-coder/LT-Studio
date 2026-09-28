@@ -69,6 +69,18 @@ Grundprincipen är:
 - befintligt fokusläge/collapse-beteende bevaras
 - reduced motion stöds
 
+## Etapp 6 – innehållsytor, KPI-kort, tabeller och Buntar
+
+- KPI- och sammanfattningskort delar samma solida, lågmälda hierarki över Rapporter, Betalningar, Lager, Lön, Automation och andra översikter
+- statusfilter i leverantörsfakturor, rapporter och automationskö visas som segmenterade kontroller
+- ekonomiska tabeller behåller solida bakgrunder och får sticky rubrikrad, stabil scrollbar och konsekvent numerisk typografi
+- kundreskontrans sticky kundkolumn bevaras och prioriteras över tabellhuvudet
+- Översiktens uppgiftsantal får en tydligare men diskret sifferyta
+- Buntar får sticky buntlista på desktop, tydligare aktiv bunt, lugnare transaktionskort och sticky åtgärdsrad längst ned i editorn
+- Buntens dataområde förblir solitt; endast åtgärdsraden får lätt materialkänsla där transparens stöds
+- dark mode, reduced motion och reduced transparency stöds
+- ingen API-, Supabase-, bokförings-, reskontra- eller godkännandelogik ändras
+
 ## Nästa etapper
 
 ### Navigation och topbar
