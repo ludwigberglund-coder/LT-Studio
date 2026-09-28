@@ -3061,7 +3061,9 @@ button,input,select,textarea{
 .shared-user-trigger{
   min-height:44px!important;
   padding:4px 10px 4px 5px!important;
+  border:0!important;
   border-radius:999px!important;
+  box-shadow:inset 0 0 0 1px var(--lt-apple-glass-border),var(--lt-apple-control-shadow)!important;
 }
 .shared-menu-toggle:hover,
 .lt-theme-toggle-topbar:hover,
