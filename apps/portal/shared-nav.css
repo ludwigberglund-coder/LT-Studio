@@ -189,10 +189,10 @@ body.shared-mobile-nav-lock{overflow:hidden}
 }
 @media(min-width:761px) and (max-width:1180px){
   .shared-workspace-shell{
-    grid-template-columns:236px minmax(0,1fr)!important;
+    grid-template-columns:276px minmax(0,1fr)!important;
   }
   .sidebar.shared-sidebar{
-    width:236px!important;
+    width:276px!important;
     padding:20px 13px!important;
     gap:12px!important;
   }
