@@ -58,6 +58,15 @@ Grundprincipen är:
 - regressionstest förbjuder browser-native dialoger i portalmodulerna
 - UI-regressionstester avgränsas till respektive etapps CSS-sektion så att senare, avsiktliga effekter inte ger falska fel
 
+## Etapp 9 – segmenterade arbetsfilter
+
+- köfilter för leverantörsfakturor, rapporttabs och automationsfilter delar samma segmenterade kontrollstil
+- aktivt val visas som en upphöjd solid yta i stället för en tung helfärgad knapp
+- räknare i köfilter behåller tydlig numerisk läsbarhet
+- filterraden kan scrollas horisontellt på små skärmar utan att bryta layouten
+- tangentbordsfokus, mörkt läge och reduced motion stöds
+- befintlig filterlogik och active-state-semantik ändras inte
+
 ## Nästa etapper
 
 ### Navigation och topbar
