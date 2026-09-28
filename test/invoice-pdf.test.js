@@ -2,6 +2,8 @@
 
 const test=require('node:test');
 const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
 const {PDFDocument}=require('pdf-lib');
 const {invoicePdf,invoiceDocumentData}=require('../invoice-pdf.js');
 
@@ -92,4 +94,18 @@ test('kreditfaktura visar ursprungsfaktura och negativa belopp utan teckenkodnin
   assert.ok(bytes.subarray(0,5).equals(Buffer.from('%PDF-')));
   const doc=await PDFDocument.load(bytes);
   assert.equal(doc.getTitle(),'KREDITFAKTURA 310124');
+});
+
+
+test('kundfakturans PDF använder LT-Studios varumärke och den versionsstyrda loggan',async()=>{
+  const logoPath=path.join(__dirname,'..','packages','invoicing','assets','lt-studio-logo-invoice.png');
+  assert.equal(fs.existsSync(logoPath),true);
+  assert.ok(fs.statSync(logoPath).size>1000);
+  const source=fs.readFileSync(path.join(__dirname,'..','packages','invoicing','pdf.js'),'utf8');
+  assert.match(source,/LT-Studios AB/);
+  assert.doesNotMatch(source,/text\('Rollands'/);
+  assert.doesNotMatch(source,/setCreator\('Rollands/);
+  const bytes=await invoicePdf(invoice,strictBusiness);
+  const doc=await PDFDocument.load(bytes);
+  assert.equal(doc.getCreator(),'LT-Studios fakturaverktyg');
 });
