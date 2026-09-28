@@ -1,0 +1,52 @@
+'use strict';
+
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+
+const root=path.resolve(__dirname,'..');
+const read=file=>fs.readFileSync(path.join(root,file),'utf8');
+
+test('portal search surfaces share one opaque visual treatment',()=>{
+  const css=read('apps/portal/design-system.css');
+  const marker='LT Studio UI 2.0 — search surfaces';
+  const start=css.indexOf(marker);
+  assert.ok(start>=0,'shared search UI marker is missing');
+  const stage=css.slice(start);
+  assert.match(stage,/\.shared-search-results/);
+  assert.match(stage,/\.supplier-search-results/);
+  assert.match(stage,/\.receivable-search-results/);
+  assert.match(stage,/background:var\(--surface-card\)!important/);
+  assert.match(stage,/--lt-search-popup-radius:18px/);
+  assert.doesNotMatch(stage,/backdrop-filter/i,'search results must stay opaque instead of glassy');
+});
+
+test('search UI retains dark mode and reduced-motion support',()=>{
+  const css=read('apps/portal/design-system.css');
+  const stage=css.slice(css.indexOf('LT Studio UI 2.0 — search surfaces'));
+  assert.match(stage,/html\[data-lt-theme="dark"\]/);
+  assert.match(stage,/@media\(prefers-reduced-motion:reduce\)/);
+  assert.match(stage,/--lt-search-row-hover:#3a424c/);
+});
+
+test('existing search accessibility and keyboard behavior remain in place',()=>{
+  const payables=read('apps/portal/payables.js');
+  const suppliers=read('apps/portal/suppliers.js');
+  const receivables=read('apps/portal/app.js');
+  for(const js of [payables,suppliers,receivables]){
+    assert.match(js,/role="combobox"/);
+    assert.match(js,/aria-autocomplete="list"/);
+    assert.match(js,/role="listbox"/);
+  }
+  assert.match(payables,/e\.key==='ArrowDown'\|\|e\.key==='ArrowUp'/);
+  assert.match(suppliers,/e\.key==='ArrowDown'\|\|e\.key==='ArrowUp'/);
+  assert.match(receivables,/ArrowDown/);
+  assert.match(receivables,/Enter/);
+});
+
+test('supplier search uses the approved Iconoir icon instead of a text glyph',()=>{
+  const suppliers=read('apps/portal/suppliers.js');
+  assert.match(suppliers,/data-iconoir="search"/);
+  assert.doesNotMatch(suppliers,/⌕/);
+});
