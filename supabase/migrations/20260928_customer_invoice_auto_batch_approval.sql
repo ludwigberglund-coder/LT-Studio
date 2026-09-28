@@ -23,7 +23,9 @@ declare
   v_credit bigint:=0;
   v_receivable bigint:=0;
 begin
-  if new.status<>'Väntar på bunt' or new.batch_number is null then
+  -- Credit notes have negative totals and are approved by finalize_customer_credit below.
+  -- Keep this generic invoice trigger scoped to ordinary positive customer invoices only.
+  if new.status<>'Väntar på bunt' or new.batch_number is null or new.total_ore<=0 then
     return new;
   end if;
   if v_uid is null then raise exception 'AUTH_REQUIRED'; end if;
@@ -169,7 +171,7 @@ drop trigger if exists auto_approve_customer_invoice_batch_after_insert on publi
 create trigger auto_approve_customer_invoice_batch_after_insert
 after insert on public.invoices
 for each row
-when (new.status='Väntar på bunt' and new.batch_number is not null)
+when (new.status='Väntar på bunt' and new.batch_number is not null and new.total_ore>0)
 execute function public.auto_approve_customer_invoice_batch();
 
 revoke all on function public.auto_approve_customer_invoice_batch() from public,anon;
