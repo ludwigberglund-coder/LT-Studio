@@ -16,7 +16,7 @@ test('shared navigation has a compact laptop treatment without hiding links',()=
   const stage=css.slice(start);
   assert.match(stage,/@media\(min-width:761px\) and \(max-width:1180px\)/);
   assert.match(stage,/grid-template-columns:236px minmax\(0,1fr\)!important/);
-  assert.match(stage,/width:236px!important/);
+  assert.match(stage,/width:276px!important/);
   assert.doesNotMatch(stage,/display:none[^;]*!important[^}]*shared-links/i);
 });
 
