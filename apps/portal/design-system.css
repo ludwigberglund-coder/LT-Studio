@@ -1410,7 +1410,7 @@ body.shared-mobile-nav-lock{overflow:hidden}
 .topbar>.shared-menu-toggle{
   margin-right:2px;
 }
-html[data-lt-theme="dark"] .shared-sidebar .shared-navigation .shared-links a>.ui-icon{
+html[data-lt-theme="dark"] .shared-sidebar .ui-icon{
   color:#fff!important;
   opacity:1!important;
 }
