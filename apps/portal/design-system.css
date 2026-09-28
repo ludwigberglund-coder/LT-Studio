@@ -1834,6 +1834,11 @@ html[data-lt-theme="dark"] .receivable-search-option-type{
 :where(
   .invoice-grid,
   .accounting-form,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  #security-form,
   .company-settings-form,
   .documents-modal form,
   .inventory-form,
@@ -1842,6 +1847,9 @@ html[data-lt-theme="dark"] .receivable-search-option-type{
   .opening-meta,
   .opening-line-row,
   #payment-confirm-form,
+  .target-editor,
+  .booking-row,
+  .proposal-actions,
   .coding-table
 ) :where(
   input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
@@ -1865,6 +1873,11 @@ html[data-lt-theme="dark"] .receivable-search-option-type{
 :where(
   .invoice-grid,
   .accounting-form,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  #security-form,
   .company-settings-form,
   .documents-modal form,
   .inventory-form,
@@ -1873,6 +1886,9 @@ html[data-lt-theme="dark"] .receivable-search-option-type{
   .opening-meta,
   .opening-line-row,
   #payment-confirm-form,
+  .target-editor,
+  .booking-row,
+  .proposal-actions,
   .coding-table
 ) :where(
   input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
@@ -1885,6 +1901,11 @@ html[data-lt-theme="dark"] .receivable-search-option-type{
 :where(
   .invoice-grid,
   .accounting-form,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  #security-form,
   .company-settings-form,
   .documents-modal form,
   .inventory-form,
@@ -1893,6 +1914,9 @@ html[data-lt-theme="dark"] .receivable-search-option-type{
   .opening-meta,
   .opening-line-row,
   #payment-confirm-form,
+  .target-editor,
+  .booking-row,
+  .proposal-actions,
   .coding-table
 ) :where(
   input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
@@ -1908,6 +1932,11 @@ html[data-lt-theme="dark"] .receivable-search-option-type{
 :where(
   .invoice-grid,
   .accounting-form,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  #security-form,
   .company-settings-form,
   .documents-modal form,
   .inventory-form,
@@ -1916,6 +1945,9 @@ html[data-lt-theme="dark"] .receivable-search-option-type{
   .opening-meta,
   .opening-line-row,
   #payment-confirm-form,
+  .target-editor,
+  .booking-row,
+  .proposal-actions,
   .coding-table
 ) textarea{
   min-height:96px;
@@ -1926,6 +1958,11 @@ html[data-lt-theme="dark"] .receivable-search-option-type{
 :where(
   .invoice-grid,
   .accounting-form,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  #security-form,
   .company-settings-form,
   .documents-modal form,
   .inventory-form,
@@ -1934,6 +1971,9 @@ html[data-lt-theme="dark"] .receivable-search-option-type{
   .opening-meta,
   .opening-line-row,
   #payment-confirm-form,
+  .target-editor,
+  .booking-row,
+  .proposal-actions,
   .coding-table
 ) :where(
   input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
@@ -1943,6 +1983,11 @@ html[data-lt-theme="dark"] .receivable-search-option-type{
 :where(
   .invoice-grid,
   .accounting-form,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  #security-form,
   .company-settings-form,
   .documents-modal form,
   .inventory-form,
@@ -1951,6 +1996,9 @@ html[data-lt-theme="dark"] .receivable-search-option-type{
   .opening-meta,
   .opening-line-row,
   #payment-confirm-form,
+  .target-editor,
+  .booking-row,
+  .proposal-actions,
   .coding-table
 ) :where(
   input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])[readonly],
@@ -1966,6 +2014,11 @@ html[data-lt-theme="dark"] .receivable-search-option-type{
 :where(
   .invoice-grid,
   .accounting-form,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  #security-form,
   .company-settings-form,
   .documents-modal form,
   .inventory-form,
@@ -1983,6 +2036,11 @@ html[data-lt-theme="dark"] .receivable-search-option-type{
 :where(
   .invoice-grid label,
   .accounting-form label,
+  .sales-form label,
+  .payroll-form label,
+  .cms-form label,
+  .intake-grid label,
+  #security-form label,
   .company-settings-form label,
   .documents-modal form label,
   .inventory-form .field,
@@ -2001,6 +2059,11 @@ html[data-lt-theme="dark"] .receivable-search-option-type{
 :where(
   .invoice-grid label,
   .accounting-form label,
+  .sales-form label,
+  .payroll-form label,
+  .cms-form label,
+  .intake-grid label,
+  #security-form label,
   .company-settings-form label,
   .documents-modal form label,
   .inventory-form .field,
@@ -2016,6 +2079,10 @@ html[data-lt-theme="dark"] .receivable-search-option-type{
 :where(
   .company-settings-fields,
   .invoice-grid,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
   .inventory-form,
   .documents-modal form,
   .new-supplier-fields
@@ -2025,6 +2092,11 @@ html[data-lt-theme="dark"] .receivable-search-option-type{
 
 :where(
   .invoice-help,
+  .sales-form small,
+  .payroll-form small,
+  .cms-form .field small,
+  .intake-grid small,
+  #security-form .field small,
   .company-settings-form .field small,
   .inventory-form .field small,
   .documents-modal form small,
@@ -2046,6 +2118,11 @@ html[data-lt-theme="dark"]{
 html[data-lt-theme="dark"] :where(
   .invoice-grid,
   .accounting-form,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  #security-form,
   .company-settings-form,
   .documents-modal form,
   .inventory-form,
@@ -2054,6 +2131,9 @@ html[data-lt-theme="dark"] :where(
   .opening-meta,
   .opening-line-row,
   #payment-confirm-form,
+  .target-editor,
+  .booking-row,
+  .proposal-actions,
   .coding-table
 ) :where(
   input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
@@ -2066,6 +2146,11 @@ html[data-lt-theme="dark"] :where(
 html[data-lt-theme="dark"] :where(
   .invoice-grid,
   .accounting-form,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  #security-form,
   .company-settings-form,
   .documents-modal form,
   .inventory-form,
@@ -2074,6 +2159,9 @@ html[data-lt-theme="dark"] :where(
   .opening-meta,
   .opening-line-row,
   #payment-confirm-form,
+  .target-editor,
+  .booking-row,
+  .proposal-actions,
   .coding-table
 ) :where(
   input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
@@ -2083,6 +2171,11 @@ html[data-lt-theme="dark"] :where(
 html[data-lt-theme="dark"] :where(
   .invoice-grid,
   .accounting-form,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  #security-form,
   .company-settings-form,
   .documents-modal form,
   .inventory-form,
@@ -2091,6 +2184,9 @@ html[data-lt-theme="dark"] :where(
   .opening-meta,
   .opening-line-row,
   #payment-confirm-form,
+  .target-editor,
+  .booking-row,
+  .proposal-actions,
   .coding-table
 ) :where(
   input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])[readonly],
