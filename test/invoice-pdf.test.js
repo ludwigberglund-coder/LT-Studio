@@ -108,3 +108,26 @@ test('kundfakturans PDF använder LT-Studios varumärke och den versionsstyrda l
   const doc=await PDFDocument.load(bytes);
   assert.equal(doc.getCreator(),'LT-Studios fakturaverktyg');
 });
+
+
+test('LT Studio-loggan behåller originalets proportioner i PDF-renderaren',()=>{
+  const logoPath=path.join(__dirname,'..','packages','invoicing','assets','lt-studio-logo-invoice.png');
+  const logo=fs.readFileSync(logoPath);
+  const width=logo.readUInt32BE(16),height=logo.readUInt32BE(20);
+  assert.equal(width,520);
+  assert.equal(height,78);
+  assert.ok(Math.abs((width/height)-(20/3))<0.01);
+  const source=fs.readFileSync(path.join(__dirname,'..','packages','invoicing','pdf.js'),'utf8');
+  assert.match(source,/const logoH=30,logoScale=logoH\/brandLogo\.height,logoW=brandLogo\.width\*logoScale/);
+  assert.match(source,/drawImage\(brandLogo,\{x:M,y:H-56,width:logoW,height:logoH\}\)/);
+});
+
+test('Kundfakturor och Kundreskontra renderar med den aktuella LT Studio-mallen',()=>{
+  const invoicesSource=fs.readFileSync(path.join(__dirname,'..','apps','portal','invoices.js'),'utf8');
+  const receivablesSource=fs.readFileSync(path.join(__dirname,'..','apps','portal','app.js'),'utf8');
+  assert.match(invoicesSource,/return Pdf\.createInvoicePdf\(doc,\{record:previewRecord\|\|\{\}\}\)/);
+  assert.match(invoicesSource,/await openPdf\(preview,action==='print-pdf'\)/);
+  assert.match(receivablesSource,/Pdf\.createInvoicePdf\(documentData,\{record:invoice\}\)/);
+  assert.match(receivablesSource,/customer_invoice_documents/);
+  assert.match(receivablesSource,/mode==='supabase'/);
+});
