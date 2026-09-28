@@ -56,6 +56,7 @@ Grundprincipen är:
 - massregistrering av buntar, avvisningsorsaker, periodupplåsning, osparade fakturautkast, datumrättelser, UAT-reset och CMS-återställning använder LT Studio-dialoger
 - affärslogik och API/Supabase-anrop lämnas oförändrade
 - regressionstest förbjuder browser-native dialoger i portalmodulerna
+- UI-regressionstester avgränsas till respektive etapps CSS-sektion så att senare, avsiktliga effekter inte ger falska fel
 
 ## Nästa etapper
 
