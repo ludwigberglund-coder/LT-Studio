@@ -143,7 +143,7 @@ function bind(){
       if(isSupabase){const ctx=await window.LTSupabaseUat.context();await window.LTSupabase.rpc('lock_accounting_period',{p_company_id:ctx.company.id,p_period:period},ctx.accessToken);await loadSupabaseAccounting();render();return}
       await api(`/accounting/periods/${period}/lock`,{method:'POST'});
       await loadApi();render();
-    }catch(e){alert(e.message)}
+    }catch(e){await window.LTDialog.alert(e.message,{title:'Kan inte låsa perioden',tone:'danger'})}
   });
 
   document.getElementById('unlock-form')?.addEventListener('submit',async event=>{
@@ -186,14 +186,14 @@ function bind(){
       });
       syncDemo();return render();
     }
-    const reason=window.prompt('Beslutsorsak för upplåsningen:','Kontrollerad upplåsning efter granskning.');
+    const reason=await window.LTDialog.prompt('Beskriv varför perioden kan låsas upp.',{title:'Godkänn upplåsning',label:'Beslutsorsak',defaultValue:'Kontrollerad upplåsning efter granskning.',required:true,confirmLabel:'Godkänn upplåsning'});
     if(reason===null)return;
-    try{if(isSupabase){const ctx=await window.LTSupabaseUat.context();await window.LTSupabase.rpc('decide_accounting_period_unlock',{p_company_id:ctx.company.id,p_request_id:button.dataset.id,p_decision:'approved',p_reason:reason},ctx.accessToken);await loadSupabaseAccounting();render();return}await api(`/accounting/unlock-requests/${encodeURIComponent(button.dataset.id)}/approve`,{method:'POST',body:{reason}});await loadApi();render()}catch(e){alert(e.message)}
+    try{if(isSupabase){const ctx=await window.LTSupabaseUat.context();await window.LTSupabase.rpc('decide_accounting_period_unlock',{p_company_id:ctx.company.id,p_request_id:button.dataset.id,p_decision:'approved',p_reason:reason},ctx.accessToken);await loadSupabaseAccounting();render();return}await api(`/accounting/unlock-requests/${encodeURIComponent(button.dataset.id)}/approve`,{method:'POST',body:{reason}});await loadApi();render()}catch(e){await window.LTDialog.alert(e.message,{title:'Upplåsningen kunde inte godkännas',tone:'danger'})}
   }));
   document.querySelectorAll('[data-action="reject-unlock"]').forEach(button=>button.addEventListener('click',async()=>{
-    const reason=window.prompt('Ange varför upplåsningsbegäran avslås:','');
+    const reason=await window.LTDialog.prompt('Beskriv varför upplåsningsbegäran avslås.',{title:'Avslå upplåsning',label:'Beslutsorsak',required:true,confirmLabel:'Avslå begäran',tone:'danger'});
     if(reason===null)return;
-    try{if(isSupabase){const ctx=await window.LTSupabaseUat.context();await window.LTSupabase.rpc('decide_accounting_period_unlock',{p_company_id:ctx.company.id,p_request_id:button.dataset.id,p_decision:'rejected',p_reason:reason},ctx.accessToken);await loadSupabaseAccounting();render();return}await api(`/accounting/unlock-requests/${encodeURIComponent(button.dataset.id)}/reject`,{method:'POST',body:{reason}});await loadApi();render()}catch(e){alert(e.message)}
+    try{if(isSupabase){const ctx=await window.LTSupabaseUat.context();await window.LTSupabase.rpc('decide_accounting_period_unlock',{p_company_id:ctx.company.id,p_request_id:button.dataset.id,p_decision:'rejected',p_reason:reason},ctx.accessToken);await loadSupabaseAccounting();render();return}await api(`/accounting/unlock-requests/${encodeURIComponent(button.dataset.id)}/reject`,{method:'POST',body:{reason}});await loadApi();render()}catch(e){await window.LTDialog.alert(e.message,{title:'Upplåsningen kunde inte avslås',tone:'danger'})}
   }));
   document.querySelectorAll('.self-unlock-form').forEach(form=>form.addEventListener('submit',async event=>{
     event.preventDefault();
