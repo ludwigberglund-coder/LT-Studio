@@ -183,8 +183,14 @@ async function styleSnapshot(page){
     assert.equal(light.labelColor,'rgb(95, 109, 102)');
     await page.screenshot({path:path.join(out,'settlement-theme-light.png'),fullPage:false});
 
+    // Modalen ligger avsiktligt ovanpå toppbaren. Stäng den, byt tema som en
+    // användare gör i portalen och öppna samma kvittning igen.
+    await page.getByRole('button',{name:'Avbryt',exact:true}).click();
     await page.locator('.lt-theme-toggle-topbar').click();
     await page.waitForFunction(()=>document.documentElement.dataset.ltTheme==='dark');
+    await creditRow.click({button:'right'});
+    await page.getByRole('button',{name:'Kvitta kreditfaktura',exact:true}).click();
+    await page.getByRole('heading',{name:'Kvitta kredit mot debet',exact:true}).waitFor();
 
     const dark=await styleSnapshot(page);
     assert.equal(dark.theme,'dark');
@@ -198,8 +204,12 @@ async function styleSnapshot(page){
     assert.notEqual(dark.labelColor,light.labelColor);
     await page.screenshot({path:path.join(out,'settlement-theme-dark.png'),fullPage:false});
 
+    await page.getByRole('button',{name:'Avbryt',exact:true}).click();
     await page.locator('.lt-theme-toggle-topbar').click();
     await page.waitForFunction(()=>document.documentElement.dataset.ltTheme==='light');
+    await creditRow.click({button:'right'});
+    await page.getByRole('button',{name:'Kvitta kreditfaktura',exact:true}).click();
+    await page.getByRole('heading',{name:'Kvitta kredit mot debet',exact:true}).waitFor();
     const lightAgain=await styleSnapshot(page);
     assert.equal(lightAgain.blockBackground,light.blockBackground);
     assert.equal(lightAgain.inputBackground,light.inputBackground);
