@@ -2539,3 +2539,185 @@ html[data-lt-theme="dark"] :where(
     backdrop-filter:none!important;
   }
 }
+
+
+/* LT Studio UI 2.0 — financial table polish.
+ * Dense accounting data stays solid, high-contrast and stable. No glass,
+ * decorative movement or softened numeric alignment is introduced here.
+ */
+:root{
+  --lt-table-header-bg:var(--surface-alt);
+  --lt-table-row-hover:color-mix(in srgb,var(--surface-alt) 78%,var(--surface-card));
+  --lt-table-selected:color-mix(in srgb,var(--brand-sky) 16%,var(--surface-card));
+}
+
+:where(
+  .table-scroll,
+  .queue-table-wrap,
+  .report-table-wrap,
+  .documents-table-wrap,
+  .accounting-table-scroll
+){
+  overflow:auto;
+  overscroll-behavior-x:contain;
+  scrollbar-gutter:stable;
+}
+
+:where(
+  .table-scroll,
+  .queue-table-wrap,
+  .report-table-wrap,
+  .documents-table-wrap,
+  .accounting-table-scroll
+) table thead th{
+  position:sticky;
+  top:0;
+  z-index:4;
+  background:var(--lt-table-header-bg)!important;
+  box-shadow:0 1px 0 var(--color-hairline);
+}
+
+:where(
+  .res-table,
+  .queue-table,
+  .report-table,
+  .inventory-table,
+  .documents-table,
+  .payroll-table,
+  .sales-table,
+  .accounting-table,
+  .accounts-table,
+  .coding-table
+) th{
+  text-align:center!important;
+  vertical-align:middle;
+  white-space:nowrap;
+  font-size:var(--text-caption)!important;
+  font-weight:var(--font-weight-medium)!important;
+  letter-spacing:var(--tracking-caption)!important;
+}
+
+:where(
+  .res-table,
+  .queue-table,
+  .report-table,
+  .inventory-table,
+  .documents-table,
+  .payroll-table,
+  .sales-table,
+  .accounting-table,
+  .accounts-table,
+  .coding-table
+) td{
+  vertical-align:middle;
+}
+
+:where(
+  .res-table td.money,
+  .queue-table td.money,
+  .report-table td.money,
+  .report-table td.numeric,
+  .inventory-table td.money,
+  .inventory-table td.qty,
+  .payroll-table td.money,
+  .sales-table td.money,
+  .sales-table td.numeric,
+  .accounting-table td.money,
+  .accounts-table td.money
+){
+  text-align:center!important;
+  font-variant-numeric:tabular-nums;
+  font-feature-settings:"tnum" 1;
+  white-space:nowrap;
+}
+
+:where(
+  .res-table tbody tr,
+  .queue-table tbody tr,
+  .report-table tbody tr,
+  .inventory-table tbody tr,
+  .documents-table tbody tr,
+  .payroll-table tbody tr,
+  .sales-table tbody tr,
+  .accounting-table tbody tr,
+  .accounts-table tbody tr
+){
+  transition:background-color var(--motion-fast,140ms) ease;
+}
+
+:where(
+  .res-table tbody tr:hover,
+  .queue-table tbody tr:hover,
+  .report-table tbody tr:hover,
+  .inventory-table tbody tr:hover,
+  .documents-table tbody tr:hover,
+  .payroll-table tbody tr:hover,
+  .sales-table tbody tr:hover,
+  .accounting-table tbody tr:hover,
+  .accounts-table tbody tr:hover
+){
+  background:var(--lt-table-row-hover)!important;
+}
+
+:where(
+  .queue-table tbody tr.selected,
+  .inventory-table tbody tr.selected,
+  .res-table tbody tr[aria-selected="true"]
+){
+  background:var(--lt-table-selected)!important;
+  box-shadow:3px 0 0 var(--brand-forest) inset;
+}
+
+.res-table tbody tr.transaction-row:hover{
+  background:var(--surface-alt)!important;
+}
+
+html[data-lt-theme="dark"]{
+  --lt-table-header-bg:var(--lt-dark-surface-soft);
+  --lt-table-row-hover:color-mix(in srgb,var(--lt-dark-surface-soft) 82%,var(--lt-dark-surface));
+  --lt-table-selected:color-mix(in srgb,var(--brand-sky) 14%,var(--lt-dark-surface));
+}
+
+html[data-lt-theme="dark"] :where(
+  .table-scroll,
+  .queue-table-wrap,
+  .report-table-wrap,
+  .documents-table-wrap,
+  .accounting-table-scroll
+) table thead th{
+  background:var(--lt-table-header-bg)!important;
+  box-shadow:0 1px 0 var(--lt-dark-border);
+}
+
+@media(max-width:760px){
+  :where(
+    .res-table,
+    .queue-table,
+    .report-table,
+    .inventory-table,
+    .documents-table,
+    .payroll-table,
+    .sales-table,
+    .accounting-table,
+    .accounts-table
+  ) :where(th,td){
+    padding-top:9px!important;
+    padding-bottom:9px!important;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  :where(
+    .res-table tbody tr,
+    .queue-table tbody tr,
+    .report-table tbody tr,
+    .inventory-table tbody tr,
+    .documents-table tbody tr,
+    .payroll-table tbody tr,
+    .sales-table tbody tr,
+    .accounting-table tbody tr,
+    .accounts-table tbody tr
+  ){
+    transition:none!important;
+  }
+}
