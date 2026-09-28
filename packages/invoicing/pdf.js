@@ -1,5 +1,5 @@
 'use strict';
-(function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.RollandsInvoicePdf=api;})(globalThis,function(){
+(function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.LTStudioInvoicePdf=api;})(globalThis,function(){
   const BRAND_NAME='LT-Studios AB';
   const moduleUrl=typeof document!=='undefined'&&document.currentScript?.src?document.currentScript.src:'';
   async function loadBrandLogo(pdf,options={}){
