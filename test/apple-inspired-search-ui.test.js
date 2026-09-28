@@ -47,7 +47,7 @@ test('existing search accessibility and keyboard behavior remain in place',()=>{
 
 test('supplier search uses the approved Iconoir icon without observer churn',()=>{
   const suppliers=read('apps/portal/suppliers.js');
-  assert.match(suppliers,/supplier-search-icon[^>]*aria-hidden="true"><svg class="ui-icon"/);
+  assert.match(suppliers,/supplier-search-icon[^>]*aria-hidden="true"><span class="ui-icon"[^>]*><svg/);
   assert.match(suppliers,/M17 17L21 21M3 11C3 15\.4183/);
   assert.doesNotMatch(suppliers,/data-iconoir="search"/);
   assert.doesNotMatch(suppliers,/⌕/);
