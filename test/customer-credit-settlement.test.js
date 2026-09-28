@@ -35,7 +35,7 @@ test('kvittningsbunten begränsas till samma kund och påverkar inte reskontran 
   assert.match(stage,/public\.mark_financial_batch_ready/);
   assert.doesNotMatch(stage,/update public\.invoices/);
   assert.match(stage,/'1510'/);
-  assert.match(stage,/status,'ready'/);
+  assert.match(stage,/p_amount_ore,p_settlement_date,v_created\.batch_id,'ready',v_uid/);
 
   assert.match(apply,/new\.status<>'approved'/);
   assert.match(apply,/CUSTOMER_SETTLEMENT_BATCH_INTEGRITY_ERROR/);
