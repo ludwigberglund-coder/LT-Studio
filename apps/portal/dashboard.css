@@ -62,3 +62,70 @@
 @media(max-width:1000px){.task-grid{grid-template-columns:1fr}.welcome-motion{width:180px;flex-basis:180px;transform:scale(.9)}}
 @media(max-width:720px){.dash-shell{grid-template-columns:1fr}.content{padding:16px}.welcome-card{padding:25px;min-height:0}.welcome-card h2{font-size:31px}.welcome-motion{display:none}.today-work{padding:18px}.task-card{min-height:104px}}
 @media(prefers-reduced-motion:reduce){.today-count i,.welcome-motion span,.welcome-motion b,.task-card,.empty-orbit{animation:none!important}}
+
+
+/* LT Studio UI 2.0 — overview pilot.
+ * Content cards stay opaque for accounting clarity; only the workspace chrome
+ * uses glass-like material.
+ */
+.dashboard-content{
+  padding-top:30px;
+}
+.welcome-card{
+  border-radius:28px;
+  border-color:color-mix(in srgb,var(--brand-forest) 9%,var(--color-hairline))!important;
+  box-shadow:0 18px 48px rgb(23 63 50 / .07);
+}
+.welcome-card h2{
+  max-width:720px;
+  font-size:clamp(34px,4vw,44px);
+  letter-spacing:-1.7px;
+}
+.welcome-card p{
+  max-width:640px;
+}
+.today-work{
+  border-radius:26px;
+  border-color:color-mix(in srgb,var(--brand-forest) 8%,var(--color-hairline))!important;
+  box-shadow:0 14px 36px rgb(23 63 50 / .045);
+}
+.task-grid{
+  gap:14px;
+}
+.task-card{
+  min-height:108px;
+  border-radius:20px;
+  padding:18px 20px 18px 22px;
+}
+.task-card:before{
+  width:3px;
+  top:12px;
+  bottom:12px;
+  border-radius:999px;
+}
+.task-card:hover{
+  transform:translateY(-2px) scale(1.002);
+  box-shadow:0 14px 34px rgb(23 63 50 / .085);
+}
+.today-count{
+  min-height:38px;
+  padding:9px 14px;
+  border:1px solid color-mix(in srgb,var(--brand-forest) 8%,transparent);
+}
+html[data-lt-theme="dark"] .welcome-card,
+html[data-lt-theme="dark"] .today-work{
+  border-color:var(--lt-dark-border)!important;
+  box-shadow:0 18px 50px rgb(0 0 0 / .17)!important;
+}
+html[data-lt-theme="dark"] .task-card{
+  border-color:var(--lt-dark-border)!important;
+}
+html[data-lt-theme="dark"] .task-card:hover{
+  background:var(--lt-dark-surface-soft)!important;
+  box-shadow:0 16px 40px rgb(0 0 0 / .22)!important;
+}
+@media(max-width:720px){
+  .dashboard-content{padding-top:18px}
+  .welcome-card{border-radius:22px}
+  .today-work{border-radius:22px}
+}
