@@ -13,6 +13,8 @@ test('customer invoice finalization auto-approves its balanced source batch',()=
   assert.match(sql,/create or replace function public\.auto_approve_customer_invoice_batch\(\)/i);
   assert.match(sql,/after insert on public\.invoices/i);
   assert.match(sql,/new\.status='Väntar på bunt'/);
+  assert.match(sql,/new\.total_ore>0/);
+  assert.match(sql,/new\.total_ore<=0/);
   assert.match(sql,/v_batch\.control_state<>'balanced'/);
   assert.match(sql,/v_receivable<>new\.total_ore/);
   assert.match(sql,/insert into public\.journal_entries/i);
