@@ -13,7 +13,8 @@ test('portal search surfaces share one opaque visual treatment',()=>{
   const marker='LT Studio UI 2.0 — search surfaces';
   const start=css.indexOf(marker);
   assert.ok(start>=0,'shared search UI marker is missing');
-  const stage=css.slice(start);
+  const end=css.indexOf('/* LT Studio UI 2.0 — form surfaces',start);
+  const stage=css.slice(start,end>start?end:css.length);
   assert.match(stage,/\.shared-search-results/);
   assert.match(stage,/\.supplier-search-results/);
   assert.match(stage,/\.receivable-search-results/);
@@ -24,7 +25,9 @@ test('portal search surfaces share one opaque visual treatment',()=>{
 
 test('search UI retains dark mode and reduced-motion support',()=>{
   const css=read('apps/portal/design-system.css');
-  const stage=css.slice(css.indexOf('LT Studio UI 2.0 — search surfaces'));
+  const start=css.indexOf('LT Studio UI 2.0 — search surfaces');
+  const end=css.indexOf('/* LT Studio UI 2.0 — form surfaces',start);
+  const stage=css.slice(start,end>start?end:css.length);
   assert.match(stage,/html\[data-lt-theme="dark"\]/);
   assert.match(stage,/@media\(prefers-reduced-motion:reduce\)/);
   assert.match(stage,/--lt-search-row-hover:color-mix/);

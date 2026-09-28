@@ -324,6 +324,143 @@
   });
   sidebarMedia.addEventListener?.('change',()=>applySidebarPreference());
 
+  function createLtDialog(options={}){
+    const {
+      title='Meddelande',
+      message='',
+      detail='',
+      tone='info',
+      confirmLabel='OK',
+      cancelLabel='',
+      input=null
+    }=options;
+    const previous=document.activeElement instanceof HTMLElement?document.activeElement:null;
+    const backdrop=document.createElement('div');
+    backdrop.className='lt-dialog-backdrop';
+    backdrop.dataset.ltDialogBackdrop='';
+    const dialog=document.createElement('section');
+    dialog.className='lt-dialog'+(tone==='danger'?' is-danger':'');
+    dialog.setAttribute('role',tone==='danger'?'alertdialog':'dialog');
+    dialog.setAttribute('aria-modal','true');
+    const titleId='lt-dialog-title-'+Math.random().toString(36).slice(2);
+    const copyId='lt-dialog-copy-'+Math.random().toString(36).slice(2);
+    dialog.setAttribute('aria-labelledby',titleId);
+    dialog.setAttribute('aria-describedby',copyId);
+
+    const icon=document.createElement('div');
+    icon.className='lt-dialog-icon';
+    icon.append(iconoir(tone==='danger'?'shield':'check'));
+
+    const content=document.createElement('div');
+    content.className='lt-dialog-content';
+    const kicker=document.createElement('span');
+    kicker.className='lt-dialog-kicker';
+    kicker.textContent=tone==='danger'?'Kontroll krävs':'LT Studio';
+    const heading=document.createElement('h2');
+    heading.id=titleId;
+    heading.textContent=String(title);
+    const copy=document.createElement('p');
+    copy.id=copyId;
+    copy.textContent=String(message||'');
+    content.append(kicker,heading,copy);
+
+    let field=null,error=null;
+    if(input){
+      const label=document.createElement('label');
+      label.className='lt-dialog-field';
+      const labelText=document.createElement('span');
+      labelText.textContent=String(input.label||'Ange värde');
+      field=input.multiline?document.createElement('textarea'):document.createElement('input');
+      if(!input.multiline)field.type=input.type||'text';
+      field.value=String(input.value??'');
+      field.placeholder=String(input.placeholder||'');
+      field.autocomplete=input.autocomplete||'off';
+      if(input.maxLength)field.maxLength=Number(input.maxLength);
+      if(input.multiline)field.rows=Number(input.rows||5);
+      error=document.createElement('small');
+      error.className='lt-dialog-field-error';
+      error.setAttribute('role','alert');
+      label.append(labelText,field,error);
+      content.append(label);
+    }
+    if(detail){
+      const details=document.createElement('details');
+      details.className='lt-dialog-detail';
+      const summary=document.createElement('summary');
+      summary.textContent='Teknisk information';
+      const code=document.createElement('code');
+      code.textContent=String(detail);
+      details.append(summary,code);
+      content.append(details);
+    }
+
+    const actions=document.createElement('div');
+    actions.className='lt-dialog-actions';
+    let cancel=null;
+    if(cancelLabel){
+      cancel=document.createElement('button');
+      cancel.type='button';
+      cancel.className='button ghost';
+      cancel.dataset.ltDialogCancel='';
+      cancel.textContent=String(cancelLabel);
+      actions.append(cancel);
+    }
+    const approve=document.createElement('button');
+    approve.type='button';
+    approve.className='button lt-dialog-primary';
+    approve.dataset.ltDialogApprove='';
+    approve.textContent=String(confirmLabel);
+    actions.append(approve);
+
+    dialog.append(icon,content,actions);
+    backdrop.append(dialog);
+    document.body.append(backdrop);
+    decorateUi();
+
+    return new Promise(resolve=>{
+      let closed=false;
+      const focusables=()=>[...dialog.querySelectorAll('button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>el.getClientRects().length>0);
+      const close=value=>{
+        if(closed)return;
+        closed=true;
+        document.removeEventListener('keydown',onKey);
+        backdrop.remove();
+        if(previous?.isConnected)requestAnimationFrame(()=>previous.focus?.({preventScroll:true}));
+        resolve(value);
+      };
+      const submit=()=>{
+        if(field&&input?.required&&!field.value.trim()){
+          error.textContent=String(input.requiredMessage||'Fältet måste fyllas i.');
+          field.setAttribute('aria-invalid','true');
+          field.focus();
+          return;
+        }
+        close(field?field.value:true);
+      };
+      const onKey=event=>{
+        if(event.key==='Escape'){event.preventDefault();close(field?null:false);return}
+        if(event.key==='Enter'&&field&&!input?.multiline){event.preventDefault();submit();return}
+        if(event.key!=='Tab')return;
+        const items=focusables();if(!items.length)return;
+        const first=items[0],last=items[items.length-1];
+        if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}
+        else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}
+      };
+      document.addEventListener('keydown',onKey);
+      cancel?.addEventListener('click',()=>close(field?null:false));
+      approve.addEventListener('click',submit);
+      backdrop.addEventListener('click',event=>{if(event.target===backdrop)close(field?null:false)});
+      field?.addEventListener('input',()=>{field.removeAttribute('aria-invalid');if(error)error.textContent='';});
+      requestAnimationFrame(()=>{(field||approve).focus()});
+    });
+  }
+  const LTStudioDialog=Object.freeze({
+    alert(options={}){return createLtDialog({...options,cancelLabel:''}).then(()=>undefined)},
+    confirm(options={}){return createLtDialog({...options,cancelLabel:options.cancelLabel||'Avbryt'}).then(Boolean)},
+    prompt(options={}){return createLtDialog({...options,cancelLabel:options.cancelLabel||'Avbryt',input:options.input||{label:'Ange värde'}})}
+  });
+  root.LTStudioDialog=LTStudioDialog;
+
   function avatarInitials(name){return String(name||'Användare').trim().split(/\s+/).filter(Boolean).map(part=>part[0]).join('').slice(0,2).toUpperCase()||'AN';}
   async function mountUserMenu(){
     const topbar=document.querySelector('.topbar');if(!topbar)return;

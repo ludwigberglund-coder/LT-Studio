@@ -75,6 +75,8 @@ const Settings=require('../apps/api/company-invoice-settings.js');
     // Reload must not discard the form until a replacement has actually arrived.
     await page.route('**/api/v1/website/cms',route=>route.abort('internetdisconnected'));
     await page.getByRole('button',{name:'H\u00e4mta senaste sparade',exact:true}).click();
+    await page.locator('.lt-dialog').waitFor();
+    await page.getByRole('button',{name:'Hämta senaste',exact:true}).click();
     await page.locator('.cms-message.error').waitFor();
     assert.equal(await page.locator('#hero-title').inputValue(),'Arbete som inte f\u00e5r f\u00f6rsvinna');
     assert.match(await page.locator('#cms-dirty').innerText(),/Osparade/);
@@ -95,6 +97,8 @@ const Settings=require('../apps/api/company-invoice-settings.js');
     assert.equal(await page.locator('#hero-title').inputValue(),'Arbete som inte f\u00e5r f\u00f6rsvinna');
     assert.equal(Cms.state(f.db,f.a.id).draft.site.hero.title,'Andra flikens sparade text');checks.push('Stale tab cannot overwrite newer server draft');
     await page.getByRole('button',{name:'H\u00e4mta senaste sparade',exact:true}).click();
+    await page.locator('.lt-dialog').waitFor();
+    await page.getByRole('button',{name:'Hämta senaste',exact:true}).click();
     await page.waitForFunction(()=>document.querySelector('#hero-title')?.value==='Andra flikens sparade text');
     await page.getByRole('button',{name:'Spara publicerad CMS-version',exact:true}).click();
     await page.waitForFunction(()=>document.querySelector('.cms-message')?.textContent.includes('CMS.'));

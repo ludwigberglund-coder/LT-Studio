@@ -46,6 +46,18 @@ Grundprincipen är:
 - sökfält påverkas inte av denna etapp utan fortsätter använda den separata sökdesignen
 - inga fältordningar, valideringsregler, submit-flöden eller Supabase-anrop ändras
 
+## Etapp 4 – gemensamma dialoger
+
+- portalens kritiska beslut använder LT Studios egen dialog i stället för browser-native alert/confirm/prompt
+- samma dialogkomponent stödjer information, bekräftelse och textinmatning
+- Escape, Tab-fokusfälla och återställning av tidigare fokus ingår i den gemensamma komponenten
+- befintliga bunt-, betalnings-, dokument-, leverantörs- och standardmodaler får samma visuella skal
+- mörkt läge, reduced motion och reduced transparency stöds
+- massregistrering av buntar, avvisningsorsaker, periodupplåsning, osparade fakturautkast, datumrättelser, UAT-reset och CMS-återställning använder LT Studio-dialoger
+- affärslogik och API/Supabase-anrop lämnas oförändrade
+- regressionstest förbjuder browser-native dialoger i portalmodulerna
+- UI-regressionstester avgränsas till respektive etapps CSS-sektion så att senare, avsiktliga effekter inte ger falska fel
+
 ## Nästa etapper
 
 ### Navigation och topbar

@@ -64,6 +64,6 @@ document.addEventListener('submit',async event=>{
     await api('/profile/security',{method:'PUT',body:{sessionDurationMinutes}});
     sessionStorage.removeItem('rollands-csrf');
     location.href='./index.html';
-  }catch(error){button.disabled=false;alert(error.message)}
+  }catch(error){button.disabled=false;await window.LTStudioDialog.alert({title:'Kunde inte spara profilinställningen',message:error.message,tone:'danger'})}
 });
 load().catch(error=>{app.innerHTML=`<main class="boot"><strong>Profilen kunde inte laddas</strong><span>${esc(error.message)}</span></main>`});

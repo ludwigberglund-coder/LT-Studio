@@ -2224,3 +2224,318 @@ html[data-lt-theme="dark"] :where(
     transition:none!important;
   }
 }
+
+
+/* LT Studio UI 2.0 — shared dialogs.
+ * Critical decisions and prompts use one consistent LT Studio surface instead
+ * of browser-native alert/confirm/prompt dialogs.
+ */
+.lt-dialog-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:260;
+  display:grid;
+  place-items:center;
+  padding:20px;
+  background:rgb(10 14 12 / .56);
+  -webkit-backdrop-filter:blur(10px) saturate(120%);
+  backdrop-filter:blur(10px) saturate(120%);
+  animation:lt-dialog-fade var(--motion-fast,140ms) ease-out both;
+}
+.lt-dialog{
+  width:min(590px,100%);
+  max-height:min(82vh,760px);
+  overflow:auto;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  gap:0 16px;
+  padding:22px;
+  color:var(--color-ink);
+  background:var(--surface-card);
+  border:1px solid var(--lt-shell-glass-border,var(--color-hairline));
+  border-radius:24px;
+  box-shadow:0 28px 90px rgb(0 0 0 / .22);
+  animation:lt-dialog-pop var(--motion-base,220ms) var(--motion-ease,cubic-bezier(.22,1,.36,1)) both;
+}
+.lt-dialog-icon{
+  width:44px;
+  height:44px;
+  display:grid;
+  place-items:center;
+  border-radius:14px;
+  color:var(--brand-forest);
+  background:color-mix(in srgb,var(--brand-sky) 30%,var(--surface-alt));
+}
+.lt-dialog-icon .ui-icon{
+  width:22px;
+  height:22px;
+}
+.lt-dialog.is-danger .lt-dialog-icon{
+  color:var(--color-ember);
+  background:color-mix(in srgb,var(--color-ember) 10%,var(--surface-card));
+}
+.lt-dialog-content{
+  min-width:0;
+}
+.lt-dialog-kicker{
+  display:block;
+  margin:1px 0 5px;
+  color:var(--color-mid-gray);
+  font-size:var(--text-caption);
+  font-weight:var(--font-weight-medium);
+  letter-spacing:var(--tracking-caption);
+  text-transform:uppercase;
+}
+.lt-dialog-content h2{
+  margin:0;
+  color:var(--color-ink);
+  font-size:22px;
+  line-height:1.25;
+  letter-spacing:-.02em;
+}
+.lt-dialog-content>p{
+  margin:10px 0 0;
+  color:var(--color-mid-gray);
+  line-height:1.55;
+}
+.lt-dialog-field{
+  display:grid;
+  gap:7px;
+  margin-top:18px;
+  color:var(--color-ink-soft);
+  font-weight:var(--font-weight-medium);
+}
+.lt-dialog-field :where(input,textarea){
+  width:100%;
+  min-height:44px;
+  padding:10px 12px;
+  border:1px solid var(--lt-form-control-border,var(--color-hairline));
+  border-radius:14px;
+  background:var(--lt-form-control-bg,var(--surface-card));
+  color:var(--color-ink);
+  box-shadow:var(--lt-form-control-shadow,none);
+  font:inherit;
+}
+.lt-dialog-field textarea{
+  min-height:124px;
+  line-height:1.5;
+  resize:vertical;
+}
+.lt-dialog-field :where(input,textarea):focus-visible{
+  outline:2px solid var(--lt-form-focus,var(--color-ink));
+  outline-offset:2px;
+  border-color:var(--lt-form-focus,var(--color-ink));
+  box-shadow:0 0 0 4px var(--lt-form-focus-ring,transparent);
+}
+.lt-dialog-field-error{
+  min-height:17px;
+  color:var(--color-ember);
+  font-size:var(--text-caption);
+}
+.lt-dialog-detail{
+  margin-top:16px;
+  color:var(--color-mid-gray);
+  font-size:var(--text-caption);
+}
+.lt-dialog-detail summary{
+  cursor:pointer;
+  font-weight:var(--font-weight-medium);
+}
+.lt-dialog-detail code{
+  display:block;
+  margin-top:8px;
+  padding:10px 12px;
+  overflow-wrap:anywhere;
+  border-radius:12px;
+  background:var(--surface-alt);
+  color:var(--color-ink-soft);
+}
+.lt-dialog-actions{
+  grid-column:1/-1;
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:22px;
+  padding-top:18px;
+  border-top:1px solid var(--color-hairline);
+}
+.lt-dialog-actions .button{
+  min-width:112px;
+}
+.lt-dialog-primary{
+  box-shadow:0 9px 24px rgb(23 63 50 / .12)!important;
+}
+.lt-dialog.is-danger .lt-dialog-primary{
+  color:var(--color-paper)!important;
+  background:var(--color-ember)!important;
+  border-color:var(--color-ember)!important;
+}
+html[data-lt-theme="dark"] .lt-dialog-backdrop{
+  background:rgb(0 0 0 / .7);
+}
+html[data-lt-theme="dark"] .lt-dialog{
+  background:var(--lt-dark-surface);
+  border-color:var(--lt-dark-border);
+  box-shadow:0 30px 90px rgb(0 0 0 / .44);
+}
+html[data-lt-theme="dark"] .lt-dialog-icon{
+  color:var(--brand-sky);
+  background:var(--lt-dark-surface-soft);
+}
+html[data-lt-theme="dark"] .lt-dialog.is-danger .lt-dialog-icon{
+  color:var(--color-ember);
+  background:color-mix(in srgb,var(--color-ember) 14%,var(--lt-dark-surface));
+}
+html[data-lt-theme="dark"] .lt-dialog-content h2,
+html[data-lt-theme="dark"] .lt-dialog-field :where(input,textarea){
+  color:var(--color-paper);
+}
+html[data-lt-theme="dark"] .lt-dialog-field :where(input,textarea){
+  background:var(--surface-input-fill);
+  border-color:var(--lt-dark-border);
+}
+html[data-lt-theme="dark"] .lt-dialog-actions{
+  border-top-color:var(--lt-dark-border);
+}
+@keyframes lt-dialog-fade{
+  from{opacity:0}
+  to{opacity:1}
+}
+@keyframes lt-dialog-pop{
+  from{opacity:0;transform:translateY(10px) scale(.985)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+@media(prefers-reduced-motion:reduce){
+  .lt-dialog-backdrop,.lt-dialog{animation:none!important}
+}
+@media(prefers-reduced-transparency:reduce){
+  .lt-dialog-backdrop{
+    -webkit-backdrop-filter:none!important;
+    backdrop-filter:none!important;
+  }
+}
+@media(max-width:620px){
+  .lt-dialog-backdrop{padding:12px}
+  .lt-dialog{
+    grid-template-columns:1fr;
+    border-radius:20px;
+    padding:20px;
+  }
+  .lt-dialog-icon{
+    width:40px;
+    height:40px;
+    margin-bottom:12px;
+  }
+  .lt-dialog-actions{
+    display:grid;
+    grid-template-columns:1fr;
+  }
+  .lt-dialog-actions .button{width:100%}
+}
+
+
+/* Etapp 4 also aligns the existing custom portal dialogs with the same shell.
+ * Their business-specific contents and handlers remain module-owned.
+ */
+:where(
+  .modal,
+  .modal-sales,
+  .batch-confirm-modal,
+  .payment-confirm-modal,
+  .documents-modal,
+  .intake-modal
+){
+  background:var(--surface-card)!important;
+  border:1px solid var(--lt-shell-glass-border,var(--color-hairline))!important;
+  border-radius:24px!important;
+  box-shadow:0 28px 90px rgb(0 0 0 / .22)!important;
+}
+:where(
+  .modal-backdrop,
+  .modal-backdrop-sales,
+  .batch-confirm-backdrop,
+  .payment-confirm-backdrop,
+  .documents-modal-backdrop,
+  .intake-backdrop
+){
+  background:rgb(10 14 12 / .56)!important;
+  -webkit-backdrop-filter:blur(10px) saturate(120%);
+  backdrop-filter:blur(10px) saturate(120%);
+}
+:where(
+  .modal-head,
+  .modal-head-sales,
+  .documents-modal header,
+  .intake-modal>header,
+  .payment-confirm-head
+){
+  border-color:var(--color-hairline)!important;
+}
+:where(
+  .documents-close,
+  .intake-close,
+  .modal-head>button,
+  .modal-head-sales>button
+){
+  min-width:38px;
+  min-height:38px;
+  display:grid;
+  place-items:center;
+  border:1px solid var(--lt-shell-glass-border,var(--color-hairline))!important;
+  border-radius:12px!important;
+  background:var(--surface-input-fill)!important;
+  color:var(--color-ink)!important;
+}
+:where(
+  .documents-close,
+  .intake-close,
+  .modal-head>button,
+  .modal-head-sales>button
+):hover{
+  background:var(--surface-alt)!important;
+}
+html[data-lt-theme="dark"] :where(
+  .modal,
+  .modal-sales,
+  .batch-confirm-modal,
+  .payment-confirm-modal,
+  .documents-modal,
+  .intake-modal
+){
+  background:var(--lt-dark-surface)!important;
+  border-color:var(--lt-dark-border)!important;
+  box-shadow:0 30px 90px rgb(0 0 0 / .44)!important;
+}
+html[data-lt-theme="dark"] :where(
+  .modal-backdrop,
+  .modal-backdrop-sales,
+  .batch-confirm-backdrop,
+  .payment-confirm-backdrop,
+  .documents-modal-backdrop,
+  .intake-backdrop
+){
+  background:rgb(0 0 0 / .7)!important;
+}
+html[data-lt-theme="dark"] :where(
+  .documents-close,
+  .intake-close,
+  .modal-head>button,
+  .modal-head-sales>button
+){
+  background:var(--lt-dark-surface-soft)!important;
+  color:var(--color-paper)!important;
+  border-color:var(--lt-dark-border)!important;
+}
+@media(prefers-reduced-transparency:reduce){
+  :where(
+    .modal-backdrop,
+    .modal-backdrop-sales,
+    .batch-confirm-backdrop,
+    .payment-confirm-backdrop,
+    .documents-modal-backdrop,
+    .intake-backdrop
+  ){
+    -webkit-backdrop-filter:none!important;
+    backdrop-filter:none!important;
+  }
+}

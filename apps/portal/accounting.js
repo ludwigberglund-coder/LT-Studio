@@ -143,7 +143,7 @@ function bind(){
       if(isSupabase){const ctx=await window.LTSupabaseUat.context();await window.LTSupabase.rpc('lock_accounting_period',{p_company_id:ctx.company.id,p_period:period},ctx.accessToken);await loadSupabaseAccounting();render();return}
       await api(`/accounting/periods/${period}/lock`,{method:'POST'});
       await loadApi();render();
-    }catch(e){alert(e.message)}
+    }catch(e){await window.LTStudioDialog.alert({title:'Kunde inte låsa perioden',message:e.message,tone:'danger'})}
   });
 
   document.getElementById('unlock-form')?.addEventListener('submit',async event=>{
@@ -186,14 +186,14 @@ function bind(){
       });
       syncDemo();return render();
     }
-    const reason=window.prompt('Beslutsorsak för upplåsningen:','Kontrollerad upplåsning efter granskning.');
+    const reason=await window.LTStudioDialog.prompt({title:'Godkänn upplåsning',message:'Ange beslutsorsak för upplåsningen.',confirmLabel:'Godkänn upplåsning',input:{label:'Beslutsorsak',value:'Kontrollerad upplåsning efter granskning.',maxLength:500}});
     if(reason===null)return;
-    try{if(isSupabase){const ctx=await window.LTSupabaseUat.context();await window.LTSupabase.rpc('decide_accounting_period_unlock',{p_company_id:ctx.company.id,p_request_id:button.dataset.id,p_decision:'approved',p_reason:reason},ctx.accessToken);await loadSupabaseAccounting();render();return}await api(`/accounting/unlock-requests/${encodeURIComponent(button.dataset.id)}/approve`,{method:'POST',body:{reason}});await loadApi();render()}catch(e){alert(e.message)}
+    try{if(isSupabase){const ctx=await window.LTSupabaseUat.context();await window.LTSupabase.rpc('decide_accounting_period_unlock',{p_company_id:ctx.company.id,p_request_id:button.dataset.id,p_decision:'approved',p_reason:reason},ctx.accessToken);await loadSupabaseAccounting();render();return}await api(`/accounting/unlock-requests/${encodeURIComponent(button.dataset.id)}/approve`,{method:'POST',body:{reason}});await loadApi();render()}catch(e){await window.LTStudioDialog.alert({title:'Kunde inte godkänna upplåsningen',message:e.message,tone:'danger'})}
   }));
   document.querySelectorAll('[data-action="reject-unlock"]').forEach(button=>button.addEventListener('click',async()=>{
-    const reason=window.prompt('Ange varför upplåsningsbegäran avslås:','');
+    const reason=await window.LTStudioDialog.prompt({title:'Avslå upplåsning',message:'Ange varför upplåsningsbegäran avslås.',confirmLabel:'Avslå begäran',tone:'danger',input:{label:'Beslutsorsak',value:'',maxLength:500}});
     if(reason===null)return;
-    try{if(isSupabase){const ctx=await window.LTSupabaseUat.context();await window.LTSupabase.rpc('decide_accounting_period_unlock',{p_company_id:ctx.company.id,p_request_id:button.dataset.id,p_decision:'rejected',p_reason:reason},ctx.accessToken);await loadSupabaseAccounting();render();return}await api(`/accounting/unlock-requests/${encodeURIComponent(button.dataset.id)}/reject`,{method:'POST',body:{reason}});await loadApi();render()}catch(e){alert(e.message)}
+    try{if(isSupabase){const ctx=await window.LTSupabaseUat.context();await window.LTSupabase.rpc('decide_accounting_period_unlock',{p_company_id:ctx.company.id,p_request_id:button.dataset.id,p_decision:'rejected',p_reason:reason},ctx.accessToken);await loadSupabaseAccounting();render();return}await api(`/accounting/unlock-requests/${encodeURIComponent(button.dataset.id)}/reject`,{method:'POST',body:{reason}});await loadApi();render()}catch(e){await window.LTStudioDialog.alert({title:'Kunde inte avslå upplåsningen',message:e.message,tone:'danger'})}
   }));
   document.querySelectorAll('.self-unlock-form').forEach(form=>form.addEventListener('submit',async event=>{
     event.preventDefault();
