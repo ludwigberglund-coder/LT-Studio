@@ -38,7 +38,7 @@ test('summary cards and workbars stay solid, scan-friendly and shared across mod
 test('financial tables use sticky headers and stable tabular numeric scanning',()=>{
   const css=read('apps/portal/design-system.css');
   const stage=boundedStage(css,'LT Studio UI 2.0 — financial table polish','/* LT Studio UI 2.0 — segmented controls');
-  for(const selector of ['.table-scroll','.queue-table-wrap','.report-table-wrap','.documents-table-wrap','.accounting-table-scroll']){
+  for(const selector of ['.table-scroll','.queue-table-wrap','.report-table-wrap','.documents-table-wrap','.inventory-table-wrap','.payroll-table-wrap','.accounting-table-scroll']){
     assert.ok(stage.includes(selector),`table stage must cover ${selector}`);
   }
   assert.match(stage,/position:sticky/);
@@ -86,6 +86,8 @@ test('workspace polish does not replace the underlying data-first module semanti
   const receivables=read('apps/portal/app.js');
   const accounting=read('apps/portal/accounting.js');
   const automation=read('apps/portal/automation.js');
+  const inventory=read('apps/portal/inventory.js');
+  const payroll=read('apps/portal/payroll.js');
 
   assert.match(payments,/class="report-summary payments-summary"/);
   assert.match(payments,/Inbetalningar/);
@@ -96,4 +98,6 @@ test('workspace polish does not replace the underlying data-first module semanti
   assert.match(accounting,/class="accounting-table"/);
   assert.match(accounting,/class="money"/);
   assert.match(automation,/automation-filter/);
+  assert.match(inventory,/class="inventory-table-wrap"/);
+  assert.match(payroll,/class="payroll-table-wrap"/);
 });
