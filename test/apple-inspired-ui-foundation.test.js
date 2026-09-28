@@ -24,5 +24,5 @@ test('design roadmap explicitly keeps dense accounting data solid',()=>{
   assert.match(roadmap,/Tabeller, reskontra och bokföring/);
   assert.match(roadmap,/Dessa ska INTE göras glasiga/);
   assert.match(roadmap,/solida bakgrunder/);
-  assert.match(roadmap,/PR #584 hanterar buntgodkännande/);
+  assert.match(roadmap,/PR #585 hanterar buntdialoger/);
 });
