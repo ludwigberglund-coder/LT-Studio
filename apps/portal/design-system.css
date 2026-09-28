@@ -2694,6 +2694,7 @@ html[data-lt-theme="dark"] :where(
   .bank-summary,
   .payroll-summary,
   .payment-summary,
+  .automation-summary,
   .uat-summary,
   .metrics,
   .dash-metrics
@@ -2709,6 +2710,7 @@ html[data-lt-theme="dark"] .sales-metric strong{
     .bank-summary>article,
     .payroll-summary>article,
     .payment-summary>article,
+    .automation-summary>.automation-card,
     .uat-summary>article,
     .metrics>.metric,
     .dash-metrics>.dash-metric,
