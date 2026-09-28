@@ -139,7 +139,7 @@ function visible(element){
         assert.ok(layout.bodyText>80,`${surface.id} ${viewport.id} rendered too little content`);
         assert.ok(layout.visibleControls>0,`${surface.id} ${viewport.id} has no visible controls`);
         assert.ok(layout.scrollWidth<=layout.innerWidth+2,`${surface.id} ${viewport.id} has page-level horizontal overflow: ${layout.scrollWidth}px > ${layout.innerWidth}px; offenders=${JSON.stringify(layout.overflowing)}`);
-        assert.match(layout.fontFamily,/Geist/i,`${surface.id} ${viewport.id} is not using the shared Geist stack`);
+        assert.match(layout.fontFamily,/(-apple-system|BlinkMacSystemFont|SF Pro|system-ui)/i,`${surface.id} ${viewport.id} is not using the shared Apple/system font stack`);
         assert.equal(pageErrors.length,0,`${surface.id} ${viewport.id} has uncaught browser errors: ${pageErrors.join('; ')}`);
         assert.equal(layout.iconizedMetrics,0,`${surface.id} ${viewport.id} metric cards must not be converted into inline icon buttons`);
 
