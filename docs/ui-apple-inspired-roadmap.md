@@ -35,6 +35,17 @@ Grundprincipen är:
 - leverantörssökningen använder Iconoir även för sökikonen
 - reduced motion respekteras
 
+## Etapp 3 – gemensamma formulärytor
+
+- faktura-, kund-, bokförings-, löne-, CMS-, dokument-, lager- och inställningsformulär delar samma kontrollstil
+- input, select och textarea får konsekvent radie, kant, skugga och fokusindikator
+- disabled och readonly är tydligt visuellt skilda från redigerbara fält
+- checkboxes och radio behåller native funktion men följer LT Studios accent
+- mörkt läge har egna tokenbaserade formulärvärden
+- reduced motion respekteras
+- sökfält påverkas inte av denna etapp utan fortsätter använda den separata sökdesignen
+- inga fältordningar, valideringsregler, submit-flöden eller Supabase-anrop ändras
+
 ## Nästa etapper
 
 ### Navigation och topbar

@@ -1815,3 +1815,412 @@ html[data-lt-theme="dark"] .receivable-search-option-type{
     transition:none!important;
   }
 }
+
+
+/* LT Studio UI 2.0 — form surfaces.
+ * Dense data entry stays solid and explicit. This stage standardizes the visual
+ * treatment of form controls without changing validation, field order or
+ * accounting workflows.
+ */
+:root{
+  --lt-form-control-bg:var(--surface-card);
+  --lt-form-control-border:color-mix(in srgb,var(--brand-forest) 12%,var(--color-hairline));
+  --lt-form-control-hover:color-mix(in srgb,var(--brand-forest) 24%,var(--color-hairline));
+  --lt-form-focus:color-mix(in srgb,var(--brand-forest) 70%,var(--color-ink));
+  --lt-form-focus-ring:color-mix(in srgb,var(--brand-sky) 46%,transparent);
+  --lt-form-control-shadow:0 1px 0 rgb(255 255 255 / .64) inset,0 4px 14px rgb(23 63 50 / .035);
+}
+
+:where(
+  .invoice-grid,
+  .accounting-form,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  #security-form,
+  .company-settings-form,
+  .documents-modal form,
+  .inventory-form,
+  .new-supplier-fields,
+  .opening-year-form,
+  .opening-meta,
+  .opening-line-row,
+  #payment-confirm-form,
+  .target-editor,
+  .booking-row,
+  .proposal-actions,
+  .coding-table
+) :where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  select,
+  textarea
+){
+  min-height:44px;
+  padding:10px 12px!important;
+  border:1px solid var(--lt-form-control-border)!important;
+  border-radius:14px!important;
+  background:var(--lt-form-control-bg)!important;
+  color:var(--color-ink)!important;
+  box-shadow:var(--lt-form-control-shadow)!important;
+  font:inherit;
+  transition:
+    border-color var(--motion-fast,140ms) ease,
+    box-shadow var(--motion-base,220ms) var(--motion-ease,cubic-bezier(.22,1,.36,1)),
+    background-color var(--motion-base,220ms) ease!important;
+}
+
+:where(
+  .invoice-grid,
+  .accounting-form,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  #security-form,
+  .company-settings-form,
+  .documents-modal form,
+  .inventory-form,
+  .new-supplier-fields,
+  .opening-year-form,
+  .opening-meta,
+  .opening-line-row,
+  #payment-confirm-form,
+  .target-editor,
+  .booking-row,
+  .proposal-actions,
+  .coding-table
+) :where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  select,
+  textarea
+):hover:not(:disabled):not([readonly]){
+  border-color:var(--lt-form-control-hover)!important;
+}
+
+:where(
+  .invoice-grid,
+  .accounting-form,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  #security-form,
+  .company-settings-form,
+  .documents-modal form,
+  .inventory-form,
+  .new-supplier-fields,
+  .opening-year-form,
+  .opening-meta,
+  .opening-line-row,
+  #payment-confirm-form,
+  .target-editor,
+  .booking-row,
+  .proposal-actions,
+  .coding-table
+) :where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  select,
+  textarea
+):focus-visible{
+  outline:2px solid var(--lt-form-focus)!important;
+  outline-offset:2px!important;
+  border-color:var(--lt-form-focus)!important;
+  box-shadow:0 0 0 4px var(--lt-form-focus-ring),0 7px 20px rgb(23 63 50 / .055)!important;
+}
+
+:where(
+  .invoice-grid,
+  .accounting-form,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  #security-form,
+  .company-settings-form,
+  .documents-modal form,
+  .inventory-form,
+  .new-supplier-fields,
+  .opening-year-form,
+  .opening-meta,
+  .opening-line-row,
+  #payment-confirm-form,
+  .target-editor,
+  .booking-row,
+  .proposal-actions,
+  .coding-table
+) textarea{
+  min-height:96px;
+  line-height:1.5;
+  resize:vertical;
+}
+
+:where(
+  .invoice-grid,
+  .accounting-form,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  #security-form,
+  .company-settings-form,
+  .documents-modal form,
+  .inventory-form,
+  .new-supplier-fields,
+  .opening-year-form,
+  .opening-meta,
+  .opening-line-row,
+  #payment-confirm-form,
+  .target-editor,
+  .booking-row,
+  .proposal-actions,
+  .coding-table
+) :where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  select,
+  textarea
+):disabled,
+:where(
+  .invoice-grid,
+  .accounting-form,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  #security-form,
+  .company-settings-form,
+  .documents-modal form,
+  .inventory-form,
+  .new-supplier-fields,
+  .opening-year-form,
+  .opening-meta,
+  .opening-line-row,
+  #payment-confirm-form,
+  .target-editor,
+  .booking-row,
+  .proposal-actions,
+  .coding-table
+) :where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])[readonly],
+  textarea[readonly]
+){
+  background:var(--surface-alt)!important;
+  color:var(--color-mid-gray)!important;
+  border-color:var(--color-hairline)!important;
+  box-shadow:none!important;
+  cursor:not-allowed;
+}
+
+:where(
+  .invoice-grid,
+  .accounting-form,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  #security-form,
+  .company-settings-form,
+  .documents-modal form,
+  .inventory-form,
+  .new-supplier-fields,
+  .opening-year-form,
+  .opening-meta,
+  .opening-line-row,
+  #payment-confirm-form
+) :where(input[type="checkbox"],input[type="radio"]){
+  width:18px;
+  height:18px;
+  accent-color:var(--brand-forest);
+}
+
+:where(
+  .invoice-grid label,
+  .accounting-form label,
+  .sales-form label,
+  .payroll-form label,
+  .cms-form label,
+  .intake-grid label,
+  #security-form label,
+  .company-settings-form label,
+  .documents-modal form label,
+  .inventory-form .field,
+  .new-supplier-fields label,
+  .opening-year-form label,
+  .opening-meta label,
+  .opening-line-row label,
+  #payment-confirm-form label
+){
+  gap:7px!important;
+  color:var(--color-ink-soft)!important;
+  font-weight:var(--font-weight-medium)!important;
+  line-height:1.35;
+}
+
+:where(
+  .invoice-grid label,
+  .accounting-form label,
+  .sales-form label,
+  .payroll-form label,
+  .cms-form label,
+  .intake-grid label,
+  #security-form label,
+  .company-settings-form label,
+  .documents-modal form label,
+  .inventory-form .field,
+  .new-supplier-fields label,
+  .opening-year-form label,
+  .opening-meta label,
+  .opening-line-row label,
+  #payment-confirm-form label
+):focus-within{
+  color:var(--color-ink)!important;
+}
+
+:where(
+  .company-settings-fields,
+  .invoice-grid,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  .inventory-form,
+  .documents-modal form,
+  .new-supplier-fields
+){
+  row-gap:16px!important;
+}
+
+:where(
+  .invoice-help,
+  .sales-form small,
+  .payroll-form small,
+  .cms-form .field small,
+  .intake-grid small,
+  #security-form .field small,
+  .company-settings-form .field small,
+  .inventory-form .field small,
+  .documents-modal form small,
+  .new-supplier-fields small
+){
+  line-height:1.45;
+  color:var(--color-mid-gray)!important;
+}
+
+html[data-lt-theme="dark"]{
+  --lt-form-control-bg:var(--surface-input-fill);
+  --lt-form-control-border:var(--lt-dark-border);
+  --lt-form-control-hover:color-mix(in srgb,var(--brand-sky) 28%,var(--lt-dark-border));
+  --lt-form-focus:color-mix(in srgb,var(--brand-sky) 62%,var(--color-paper));
+  --lt-form-focus-ring:rgb(128 161 144 / .16);
+  --lt-form-control-shadow:0 4px 16px rgb(0 0 0 / .13);
+}
+
+html[data-lt-theme="dark"] :where(
+  .invoice-grid,
+  .accounting-form,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  #security-form,
+  .company-settings-form,
+  .documents-modal form,
+  .inventory-form,
+  .new-supplier-fields,
+  .opening-year-form,
+  .opening-meta,
+  .opening-line-row,
+  #payment-confirm-form,
+  .target-editor,
+  .booking-row,
+  .proposal-actions,
+  .coding-table
+) :where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  select,
+  textarea
+){
+  color:#fff!important;
+}
+
+html[data-lt-theme="dark"] :where(
+  .invoice-grid,
+  .accounting-form,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  #security-form,
+  .company-settings-form,
+  .documents-modal form,
+  .inventory-form,
+  .new-supplier-fields,
+  .opening-year-form,
+  .opening-meta,
+  .opening-line-row,
+  #payment-confirm-form,
+  .target-editor,
+  .booking-row,
+  .proposal-actions,
+  .coding-table
+) :where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  select,
+  textarea
+):disabled,
+html[data-lt-theme="dark"] :where(
+  .invoice-grid,
+  .accounting-form,
+  .sales-form,
+  .payroll-form,
+  .cms-form,
+  .intake-grid,
+  #security-form,
+  .company-settings-form,
+  .documents-modal form,
+  .inventory-form,
+  .new-supplier-fields,
+  .opening-year-form,
+  .opening-meta,
+  .opening-line-row,
+  #payment-confirm-form,
+  .target-editor,
+  .booking-row,
+  .proposal-actions,
+  .coding-table
+) :where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])[readonly],
+  textarea[readonly]
+){
+  color:var(--lt-dark-muted)!important;
+}
+
+@media(prefers-reduced-motion:reduce){
+  :where(
+    .invoice-grid,
+    .accounting-form,
+    .sales-form,
+    .payroll-form,
+    .cms-form,
+    .intake-grid,
+    #security-form,
+    .company-settings-form,
+    .documents-modal form,
+    .inventory-form,
+    .new-supplier-fields,
+    .opening-year-form,
+    .opening-meta,
+    .opening-line-row,
+    #payment-confirm-form,
+    .target-editor,
+    .booking-row,
+    .proposal-actions,
+    .coding-table
+  ) :where(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+    select,
+    textarea
+  ){
+    transition:none!important;
+  }
+}
