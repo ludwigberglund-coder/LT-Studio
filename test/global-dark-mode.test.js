@@ -97,3 +97,16 @@ test('overview cards use shared surfaces and are dark-mode safe',()=>{
   assert.doesNotMatch(dashboard,/background:\s*#fff\b/);
 });
 
+test('customer credit settlement dialog uses theme tokens in dark mode',()=>{
+  const theme=read('packages/shared/browser/theme.css');
+  const portal=read('apps/portal/styles.css');
+
+  assert.match(portal,/\.settlement-block\{[^}]*background:var\(--surface-alt/);
+  assert.match(portal,/\.settlement-grid input:disabled\{[^}]*opacity:1/);
+  assert.match(portal,/-webkit-text-fill-color:var\(--ink/);
+  assert.match(theme,/\.settlement-block/);
+  assert.match(theme,/\.settlement-block-head span,\.settlement-grid label,\.settlement-limit/);
+  assert.match(theme,/html\[data-lt-theme="dark"\] \.settlement-grid input:disabled/);
+  assert.match(theme,/-webkit-text-fill-color:#fff!important/);
+});
+
