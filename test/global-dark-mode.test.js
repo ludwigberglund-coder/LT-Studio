@@ -12,9 +12,12 @@ test('shared dark mode uses a dimmed palette and Iconoir sun/moon icons',()=>{
   const css=read('packages/shared/browser/theme.css');
   const js=read('packages/shared/browser/theme.js');
 
-  for(const color of ['#22272e','#2d333b','#373e47','#444c56','#adbac7','#9da9b5']){
+  for(const color of ['#22272e','#2d333b','#373e47','#444c56']){
     assert.ok(css.includes(color),`dimmed palette color missing: ${color}`);
   }
+  assert.match(css,/--lt-dark-text:#ffffff/);
+  assert.match(css,/--lt-dark-heading:#ffffff/);
+  assert.match(css,/--lt-dark-muted:#dce4ec/);
   assert.match(js,/M12 18C15\.3137 18 18 15\.3137 18 12/);
   assert.match(js,/M3 11\.5066C3 16\.7497/);
   assert.match(js,/lt-studio-theme-v1/);
