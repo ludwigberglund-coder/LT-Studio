@@ -28,8 +28,13 @@
   function setButtonState(button,theme){
     if(!button||button.dataset.ltThemeState===theme)return;
     const dark=theme===DARK;
+    const label=dark?'Ljust läge':'Mörkt läge';
     button.dataset.ltThemeState=theme;
-    button.innerHTML='<span class="lt-theme-toggle-icon">'+(dark?SUN_ICON:MOON_ICON)+'</span><span class="lt-theme-toggle-label">'+(dark?'Ljust läge':'Mörkt läge')+'</span>';
+    if(button.classList.contains('lt-theme-toggle-topbar')){
+      button.innerHTML='<span class="lt-theme-toggle-icon">'+(dark?SUN_ICON:MOON_ICON)+'</span><span class="lt-theme-toggle-label"><strong>'+label+'</strong><small>Utseende</small></span>';
+    }else{
+      button.innerHTML='<span class="lt-theme-toggle-icon">'+(dark?SUN_ICON:MOON_ICON)+'</span><span class="lt-theme-toggle-label">'+label+'</span>';
+    }
     button.setAttribute('aria-label',dark?'Stäng av mörkt läge':'Slå på mörkt läge');
     button.setAttribute('title',dark?'Stäng av mörkt läge':'Slå på mörkt läge');
     button.setAttribute('aria-pressed',String(dark));
@@ -72,21 +77,46 @@
     );
   }
 
+  function topbarTarget(){
+    return document.querySelector('.topbar');
+  }
+
   function mountButtons(){
-    const target=menuTarget();
-    let menu=document.querySelector('.lt-theme-toggle-menu');
-    if(target){
-      if(!menu)menu=makeButton('menu');
-      if(menu.parentElement!==target)target.append(menu);
-      document.body?.classList.add('lt-theme-has-menu-toggle');
-    }else{
-      menu?.remove();
-      document.body?.classList.remove('lt-theme-has-menu-toggle');
-    }
+    const topbar=topbarTarget();
+    let topbarButton=document.querySelector('.lt-theme-toggle-topbar');
+    const menu=document.querySelector('.lt-theme-toggle-menu');
     let floating=document.querySelector('.lt-theme-toggle-floating');
-    if(!floating){
-      floating=makeButton('floating');
-      document.body?.append(floating);
+
+    if(topbar){
+      if(!topbarButton)topbarButton=makeButton('topbar');
+      const profile=topbar.querySelector('.shared-user-menu,.user-chip,.operator-user,.admin-user');
+      if(profile){
+        if(topbarButton.parentElement!==topbar||topbarButton.nextElementSibling!==profile)topbar.insertBefore(topbarButton,profile);
+      }else if(topbarButton.parentElement!==topbar){
+        topbar.append(topbarButton);
+      }
+      menu?.remove();
+      floating?.remove();
+      document.body?.classList.add('lt-theme-has-topbar-toggle');
+      document.body?.classList.remove('lt-theme-has-menu-toggle');
+    }else{
+      topbarButton?.remove();
+      document.body?.classList.remove('lt-theme-has-topbar-toggle');
+      const target=menuTarget();
+      let fallback=document.querySelector('.lt-theme-toggle-menu');
+      if(target){
+        if(!fallback)fallback=makeButton('menu');
+        if(fallback.parentElement!==target)target.append(fallback);
+        document.body?.classList.add('lt-theme-has-menu-toggle');
+      }else{
+        fallback?.remove();
+        document.body?.classList.remove('lt-theme-has-menu-toggle');
+      }
+      floating=document.querySelector('.lt-theme-toggle-floating');
+      if(!floating){
+        floating=makeButton('floating');
+        document.body?.append(floating);
+      }
     }
     syncButtons(document.documentElement.dataset.ltTheme||preferred());
   }

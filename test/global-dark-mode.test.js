@@ -71,3 +71,29 @@ test('dark portal modules keep batches, suppliers and navigation readable',()=>{
   assert.match(suppliers,/var\(--surface-input-fill/);
 });
 
+test('theme toggle is mounted beside the profile in every workspace topbar',()=>{
+  const css=read('packages/shared/browser/theme.css');
+  const js=read('packages/shared/browser/theme.js');
+
+  assert.match(js,/function topbarTarget\(\)/);
+  assert.match(js,/document\.querySelector\('\.topbar'\)/);
+  assert.match(js,/topbar\.insertBefore\(topbarButton,profile\)/);
+  assert.match(js,/\.shared-user-menu,\.user-chip,\.operator-user,\.admin-user/);
+  assert.match(js,/menu\?\.remove\(\)/);
+  assert.match(js,/floating\?\.remove\(\)/);
+  assert.match(css,/\.lt-theme-toggle-topbar/);
+  assert.match(css,/\.topbar>\.lt-theme-toggle-topbar\+\.shared-user-menu/);
+  assert.match(css,/@media\(max-width:760px\)[\s\S]*\.lt-theme-toggle-topbar/);
+});
+
+test('overview cards use shared surfaces and are dark-mode safe',()=>{
+  const css=read('packages/shared/browser/theme.css');
+  const dashboard=read('apps/portal/dashboard.css');
+
+  assert.match(css,/\.welcome-card,\.today-work,\.overview-empty/);
+  assert.match(css,/html\[data-lt-theme="dark"\] :where\(\.welcome-card,\.today-work,\.overview-empty\)/);
+  assert.match(dashboard,/background:var\(--surface-card/);
+  assert.match(dashboard,/background:var\(--surface-alt/);
+  assert.doesNotMatch(dashboard,/background:\s*#fff\b/);
+});
+

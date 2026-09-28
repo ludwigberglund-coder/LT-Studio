@@ -297,6 +297,7 @@ html[data-lt-theme="dark"] :where(hr){
    theme properties, never on layout or application behaviour. */
 html[data-lt-theme="dark"] :where(
   .topbar,.panel,.metric,.dash-hero,.dash-metric,.attention,.roadmap-strip,
+  .welcome-card,.today-work,.overview-empty,
   .module-card,.task-card,.queue-panel,.pdf-panel,.coding-panel,.payments-panel,
   .report-toolbar,.report-panel,.vat-panel,.inventory-panel,.documents-toolbar,
   .documents-panel,.payroll-panel,.automation-card,.proposal,.automation-empty,
@@ -485,6 +486,123 @@ html[data-lt-theme="dark"] :where(.critical-box){
 
 html[data-lt-theme="dark"] :where(.supplier-search-icon){
   color:#dce4ec!important;
+}
+
+
+/* Persistent appearance control in workspace topbars.
+   It mirrors the profile treatment and is mounted immediately before the
+   profile menu on every workspace page that has a .topbar. */
+.lt-theme-toggle-topbar{
+  margin-left:auto;
+  min-height:48px;
+  padding:5px 10px;
+  gap:10px;
+  border:0;
+  border-radius:12px;
+  background:transparent;
+  color:var(--color-ink,var(--ink,#0a0a0a));
+  box-shadow:none;
+  flex:0 0 auto;
+}
+.lt-theme-toggle-topbar:hover{
+  background:var(--surface-input-fill,#f3f5f2);
+  border-color:transparent;
+  box-shadow:none;
+  transform:none;
+}
+.lt-theme-toggle-topbar .lt-theme-toggle-icon{
+  width:34px;
+  height:34px;
+  flex-basis:34px;
+  border-radius:50%;
+  background:var(--surface-input-fill,#eef1ec);
+}
+.lt-theme-toggle-topbar .lt-theme-toggle-icon svg{
+  width:18px;
+  height:18px;
+}
+.lt-theme-toggle-topbar .lt-theme-toggle-label{
+  display:grid;
+  gap:1px;
+  text-align:left;
+  line-height:1.15;
+}
+.lt-theme-toggle-topbar .lt-theme-toggle-label strong{
+  font-size:12px;
+  font-weight:750;
+  color:inherit;
+}
+.lt-theme-toggle-topbar .lt-theme-toggle-label small{
+  font-size:10px;
+  font-weight:500;
+  color:var(--color-mid-gray,var(--muted,#737373));
+}
+.topbar>.lt-theme-toggle-topbar+.shared-user-menu,
+.topbar>.lt-theme-toggle-topbar+.user-chip,
+.topbar>.lt-theme-toggle-topbar+.operator-user,
+.topbar>.lt-theme-toggle-topbar+.admin-user{
+  margin-left:0!important;
+}
+
+html[data-lt-theme="dark"] .lt-theme-toggle-topbar{
+  background:transparent;
+  color:#fff;
+  border-color:transparent;
+  box-shadow:none;
+}
+html[data-lt-theme="dark"] .lt-theme-toggle-topbar:hover{
+  background:var(--lt-dark-surface-soft);
+}
+html[data-lt-theme="dark"] .lt-theme-toggle-topbar .lt-theme-toggle-icon{
+  background:var(--lt-dark-surface-soft);
+  color:#fff;
+}
+html[data-lt-theme="dark"] .lt-theme-toggle-topbar .lt-theme-toggle-label small{
+  color:var(--lt-dark-muted);
+}
+
+/* Overview used its own white cards. Keep those surfaces on the shared dark
+   palette so the dashboard behaves like the rest of the portal. */
+html[data-lt-theme="dark"] :where(.welcome-card,.today-work,.overview-empty){
+  background:var(--lt-dark-surface)!important;
+  color:#fff!important;
+  border-color:var(--lt-dark-border)!important;
+  box-shadow:var(--lt-dark-shadow)!important;
+}
+html[data-lt-theme="dark"] :where(.welcome-card p,.today-work p,.overview-empty p,.task-state){
+  color:var(--lt-dark-muted)!important;
+}
+html[data-lt-theme="dark"] .today-count{
+  background:color-mix(in srgb,var(--lt-dark-accent-deep) 30%,var(--lt-dark-surface-soft))!important;
+  color:#fff!important;
+}
+html[data-lt-theme="dark"] .today-count.calm{
+  background:var(--lt-dark-surface-soft)!important;
+}
+html[data-lt-theme="dark"] .overview-soft-warning{
+  background:rgba(218,170,63,.10)!important;
+  color:#f2d58d!important;
+  border-color:rgba(218,170,63,.24)!important;
+}
+
+@media(max-width:760px){
+  .lt-theme-toggle-topbar{
+    width:42px;
+    min-width:42px;
+    height:42px;
+    min-height:42px;
+    padding:4px;
+    justify-content:center;
+  }
+  .lt-theme-toggle-topbar .lt-theme-toggle-icon{
+    width:34px;
+    height:34px;
+    flex-basis:34px;
+    background:transparent;
+  }
+  .lt-theme-toggle-topbar .lt-theme-toggle-label{
+    display:none;
+  }
 }
 
 :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{
