@@ -87,6 +87,8 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Run visual design smoke
         run: node test/visual-design-browser.cjs
+      - name: Run settlement theme browser regression
+        run: node test/settlement-theme-browser.cjs
       - name: Run full UI technical smoke
         run: node test/all-ui-browser-smoke.cjs
       - name: Run supplier invoice browser flow
