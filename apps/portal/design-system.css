@@ -1737,6 +1737,14 @@ html[data-lt-theme="dark"] .shared-user-dropdown{
 }
 .supplier-search-icon{
   color:var(--color-mid-gray)!important;
+  width:19px;
+  height:19px;
+  display:grid;
+  place-items:center;
+}
+.supplier-search-icon .ui-icon{
+  width:19px;
+  height:19px;
 }
 .supplier-search-pulse{
   background:var(--brand-forest)!important;
