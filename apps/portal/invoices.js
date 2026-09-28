@@ -2,7 +2,7 @@ const app=document.getElementById('invoices-app');
 const Demo=globalThis.RollandsDemoScenario;
 const Invoice=globalThis.RollandsInvoice;
 const Money=globalThis.RollandsMoney;
-const Pdf=globalThis.RollandsInvoicePdf;
+const Pdf=globalThis.LTStudioInvoicePdf;
 const isDemo=new URLSearchParams(location.search).get('demo')==='1';
 const isSupabase=location.hostname==='ludwigberglund-coder.github.io'&&!isDemo;
 let company={},view='list',draft=null,preview=null,previewRecord=null,previewCredit=null,previewCreditSummary=null,busy=false,dirty=false,search='',invoiceSearchOpen=false,invoiceSearchActiveIndex=-1,creditDialog=null;
