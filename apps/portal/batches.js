@@ -46,6 +46,69 @@ function captureTransactions(){
 }
 function payloadTransactions(){return captureTransactions().map(t=>({postingDate:t.posting_date,description:t.description,sourceType:'manual',lines:t.lines.map(l=>({account:l.account,description:l.description,debitOre:l.debit_ore,creditOre:l.credit_ore}))}))}
 async function rpc(name,args){return LTSupabase.rpc(name,args,ctx.accessToken)}
+
+const batchErrorCopy={
+ BATCH_NOT_BALANCED:{title:'Bunten är inte balanserad',message:'Debet och kredit måste vara lika stora och bunten måste innehålla minst en transaktion. Kontrollera raderna och markera bunten redo igen innan du godkänner.'},
+ TRANSACTION_NOT_BALANCED:{title:'En transaktion är inte balanserad',message:'Minst en transaktion har olika totalsumma i debet och kredit. Kontrollera transaktionens rader och försök igen.'},
+ EXTERNAL_TOTAL_MISMATCH:{title:'Kontrollbeloppet stämmer inte',message:'Buntens externa kontrollbelopp stämmer inte med buntens debetsumma. Rätta kontrollbeloppet eller transaktionerna.'},
+ TRANSACTION_EXTERNAL_TOTAL_MISMATCH:{title:'Transaktionens kontrollbelopp stämmer inte',message:'En transaktions kontrollbelopp stämmer inte med transaktionens bokföringsrader.'},
+ BATCH_NOT_READY:{title:'Bunten är inte redo',message:'Bunten måste först kontrolleras och markeras som redo innan den kan godkännas.'},
+ PERIOD_LOCKED:{title:'Bokföringsperioden är låst',message:'Minst en transaktion ligger i en låst period och kan därför inte godkännas.'},
+ ACCESS_DENIED:{title:'Du saknar behörighet',message:'Din roll har inte behörighet att utföra den här åtgärden.'},
+ AUTH_REQUIRED:{title:'Sessionen har gått ut',message:'Logga in igen och försök på nytt.'},
+ APPROVED_BATCH_LOCKED:{title:'Bunten är redan låst',message:'En redan godkänd bunt får inte ändras.'},
+ BATCH_NOT_FOUND:{title:'Bunten hittades inte',message:'Bunten kan ha ändrats eller tagits bort. Uppdatera sidan och försök igen.'}
+};
+function batchErrorDetails(error){
+ const raw=String(error?.message||error||'Ett oväntat fel uppstod.');
+ const code=Object.keys(batchErrorCopy).find(key=>raw.includes(key))||String(error?.code||'').trim();
+ const copy=batchErrorCopy[code];
+ return copy?{...copy,code}:{title:'Det gick inte att slutföra åtgärden',message:raw,code:code||''};
+}
+function batchDialog({title,message,detail='',confirmLabel='OK',cancelLabel='',tone='info'}){
+ return new Promise(resolve=>{
+  document.querySelector('.batch-confirm-backdrop')?.remove();
+  const wrap=document.createElement('div');
+  wrap.className='batch-confirm-backdrop';
+  wrap.setAttribute('role','presentation');
+  const icon=tone==='danger'?'!':'✓';
+  wrap.innerHTML='<section class="batch-confirm-modal '+(tone==='danger'?'is-danger':'')+'" role="dialog" aria-modal="true" aria-labelledby="batch-confirm-title" aria-describedby="batch-confirm-copy"><div class="batch-confirm-icon" aria-hidden="true">'+icon+'</div><div class="batch-confirm-content"><span class="batch-confirm-kicker">'+(tone==='danger'?'Kontroll krävs':'Kvalitetskontroll')+'</span><h2 id="batch-confirm-title">'+esc(title)+'</h2><p id="batch-confirm-copy">'+esc(message)+'</p>'+(detail?'<details class="batch-confirm-detail"><summary>Teknisk information</summary><code>'+esc(detail)+'</code></details>':'')+'</div><div class="batch-confirm-actions">'+(cancelLabel?'<button class="button ghost" type="button" data-confirm-cancel>'+esc(cancelLabel)+'</button>':'')+'<button class="button batch-confirm-primary" type="button" data-confirm-approve>'+esc(confirmLabel)+'</button></div></section>';
+  document.body.appendChild(wrap);
+  const approve=wrap.querySelector('[data-confirm-approve]');
+  const cancel=wrap.querySelector('[data-confirm-cancel]');
+  const focusables=[cancel,approve].filter(Boolean);
+  const close=value=>{document.removeEventListener('keydown',onKey);wrap.remove();resolve(value)};
+  const onKey=e=>{
+   if(e.key==='Escape'){close(false);return}
+   if(e.key==='Tab'&&focusables.length>1){
+    const i=focusables.indexOf(document.activeElement);
+    if(e.shiftKey&&i===0){e.preventDefault();focusables[focusables.length-1].focus()}
+    else if(!e.shiftKey&&i===focusables.length-1){e.preventDefault();focusables[0].focus()}
+   }
+  };
+  approve.addEventListener('click',()=>close(true));
+  cancel?.addEventListener('click',()=>close(false));
+  wrap.addEventListener('click',e=>{if(e.target===wrap)close(false)});
+  document.addEventListener('keydown',onKey);
+  requestAnimationFrame(()=>approve.focus());
+ });
+}
+function confirmBatchApproval(){
+ return batchDialog({
+  title:'Godkänn bunt #'+String(selected?.batch_number||'').padStart(5,'0')+'?',
+  message:'När du godkänner blir transaktionerna definitiva och bunten låses. Åtgärden registreras i revisionsspåret.',
+  confirmLabel:'Godkänn bunt',
+  cancelLabel:'Avbryt'
+ });
+}
+function showBatchError(error){
+ const info=batchErrorDetails(error);
+ return batchDialog({title:info.title,message:info.message,detail:info.code?'Felkod: '+info.code:'',tone:'danger'});
+}
+function batchLooksBalanced(){
+ return Number(selected?.transaction_count)>0&&selected?.control_state==='balanced'&&Number(selected?.total_debit_ore)===Number(selected?.total_credit_ore);
+}
+
 async function save(){
  const external=document.getElementById('batch-external').value.trim();
  if(external!==''&&!Number.isFinite(Number(external.replace(',','.'))))throw new Error('Kontrollbeloppet måste vara ett giltigt belopp.');
@@ -84,7 +147,7 @@ app.addEventListener('click',async e=>{
   if(a==='ready'){await save();await rpc('mark_financial_batch_ready',{p_company_id:ctx.company.id,p_batch_id:selected.id});await load()}
   if(a==='reopen'){await rpc('reopen_financial_batch',{p_company_id:ctx.company.id,p_batch_id:selected.id});await load()}
   if(a==='reject'){const reason=window.prompt('Ange varför bunten avvisas:');if(reason){await rpc('reject_financial_batch',{p_company_id:ctx.company.id,p_batch_id:selected.id,p_reason:reason});await load()}}
-  if(a==='approve'){if(confirm('Godkänna bunten? Då blir transaktionerna definitiva och bunten låses.')){await rpc('approve_financial_batch',{p_company_id:ctx.company.id,p_batch_id:selected.id});await load()}}
- }catch(err){alert(err.message||String(err))}
+  if(a==='approve'){if(!batchLooksBalanced()){await showBatchError(new Error('BATCH_NOT_BALANCED'));return}if(await confirmBatchApproval()){await rpc('approve_financial_batch',{p_company_id:ctx.company.id,p_batch_id:selected.id});await load()}}
+ }catch(err){await showBatchError(err)}
 });
 (async()=>{try{await load()}catch(e){app.innerHTML='<main class="boot"><strong>Kunde inte öppna Buntar</strong><span>'+esc(e.message)+'</span></main>'}})();
