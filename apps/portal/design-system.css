@@ -2199,6 +2199,11 @@ html[data-lt-theme="dark"] :where(
   :where(
     .invoice-grid,
     .accounting-form,
+    .sales-form,
+    .payroll-form,
+    .cms-form,
+    .intake-grid,
+    #security-form,
     .company-settings-form,
     .documents-modal form,
     .inventory-form,
@@ -2207,6 +2212,9 @@ html[data-lt-theme="dark"] :where(
     .opening-meta,
     .opening-line-row,
     #payment-confirm-form,
+    .target-editor,
+    .booking-row,
+    .proposal-actions,
     .coding-table
   ) :where(
     input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
