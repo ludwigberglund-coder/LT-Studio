@@ -30,7 +30,7 @@ document.addEventListener('submit',async event=>{
   try{
     const fd=new FormData(event.target),row={number:String(fd.get('number')).trim(),name:String(fd.get('name')).trim(),vatRates:[Number(fd.get('vatRate'))]};
     Invoice.revenueAccounts([row]);
-    if(revenue().some(a=>a.number===row.number)&&!confirm('Kontot finns redan. Ändra namn och momskoppling för framtida fakturor?'))return;
+    if(revenue().some(a=>a.number===row.number)&&!(await window.LTDialog.confirm('Kontot finns redan. Ändra namn och momskoppling för framtida fakturor?',{title:'Uppdatera befintligt konto',confirmLabel:'Ändra konto'})))return;
     if(isDemo){
       Demo.patch(state=>{state.invoiceRevenueAccounts=[...(state.invoiceRevenueAccounts||[]).filter(a=>a.number!==row.number),row];});
       message=`${row.number} ${row.name} är sparat i demot.`;
