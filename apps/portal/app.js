@@ -147,6 +147,31 @@ function columnPicker(){return `<details class="column-picker"><summary>☷ Väl
 
 function cell(column,row){let value=row[column.id];if(column.money)return `<td class="money">${ore(value)}</td>`;if(column.id==='dueDate')return `<td class="${!row.receivablesPending&&row.remainingOre>0&&value<today()?'overdue':''}">${escapeHtml(shortDate(value))}</td>`;return `<td>${escapeHtml(value==null||value===''?'—':value)}</td>`}
 function mappedTransaction(transaction){const bookingType=transaction.transactionType==='payment'?'Inbetalning':transaction.transactionType==='refund'?'Återbetalning':transaction.transactionType;return {...transaction,type:transaction.transactionType==='payment'?'payment':transaction.transactionType,method:transaction.paymentMethod,date:transaction.paymentDate,postingDate:transaction.postingDate,batch:transaction.batchNumber,transactionNumber:transaction.journalNumber,bookingType,amountOre:transaction.amountOre}}
+function pdfIcon(){return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 21.4V2.6C4 2.26863 4.26863 2 4.6 2H16.2515C16.4106 2 16.5632 2.06321 16.6757 2.17574L19.8243 5.32426C19.9368 5.43679 20 5.5894 20 5.74853V21.4C20 21.7314 19.7314 22 19.4 22H4.6C4.26863 22 4 21.7314 4 21.4Z"/><path d="M8 10H16M8 14H16M8 18H13M16 2V5.4C16 5.73137 16.2686 6 16.6 6H20"/></svg>'}
+function invoicePdfButton(invoice){return `<button type="button" class="invoice-pdf-button" data-action="open-invoice-pdf" data-id="${escapeHtml(invoice.id)}" aria-label="Öppna PDF för faktura ${escapeHtml(invoice.invoiceNumber||'')}" title="Öppna faktura-PDF">${pdfIcon()}<span>PDF</span></button>`}
+async function openInvoicePdf(invoiceId){
+  const invoice=invoiceById(invoiceId);
+  if(!invoice)throw new Error('Fakturan kunde inte hittas i kundreskontran.');
+  if(mode==='demo'){location.href='./invoices.html?demo=1';return}
+  const tab=window.open('about:blank','_blank');
+  if(!tab)throw new Error('Webbläsaren blockerade PDF-fönstret. Tillåt popup-fönster och försök igen.');
+  tab.opener=null;
+  try{
+    let blob;
+    if(mode==='supabase'){
+      if(!invoice.pdfObjectPath)throw new Error('Den arkiverade PDF-fakturan saknas för den här fakturan.');
+      const ctx=await supabaseContext();
+      blob=await window.LTSupabase.storage.download('lt-documents',invoice.pdfObjectPath,ctx.accessToken);
+    }else{
+      const response=await fetch('/api/v1/customer-invoices/'+encodeURIComponent(invoice.id)+'/pdf',{credentials:'same-origin',cache:'no-store'});
+      if(!response.ok){const data=await response.json().catch(()=>({}));throw new Error(data.error||'PDF-fakturan kunde inte hämtas.');}
+      blob=await response.blob();
+    }
+    const href=URL.createObjectURL(blob);
+    tab.location.href=href;
+    setTimeout(()=>URL.revokeObjectURL(href),120000);
+  }catch(error){tab.close();throw error}
+}
 
 function customerOverview(){
   const ids=matchingCustomerIds(),active=selectedReceivableCustomerId;
@@ -203,7 +228,7 @@ function reminderRow(invoice,reminder,columns,visible=true){
   };
   const pdf=reminder.pdfSha256?`<a class="button ghost small reminder-pdf-link" href="/api/v1/invoices/${encodeURIComponent(invoice.id)}/reminders/${encodeURIComponent(reminder.id)}/pdf" target="_blank" rel="noopener">Visa PDF</a>`:'';
   const detail=[reminder.reminderFeeOre?`Påminnelseavgift ${ore(reminder.reminderFeeOre)}`:'',reminder.interestOre?`Ränta ${ore(reminder.interestOre)}`:'',Number(reminder.businessCompensationOre||reminder.businessLatePaymentCompensationOre||0)?`Förseningsersättning ${ore(reminder.businessCompensationOre||reminder.businessLatePaymentCompensationOre)}`:''].filter(Boolean).join(' · ');
-  return `<tr class="reminder-row" data-reminder-id="${escapeHtml(reminder.id)}" data-customer-id="${escapeHtml(invoice.customerId||'')}" ${visible?'':'hidden'}><td class="customer-cell"><div class="reminder-cell"><span><b>↳ Betalningspåminnelse</b><strong>${escapeHtml(reminderNumber)}</strong><small>Avser faktura ${escapeHtml(invoice.invoiceNumber||'—')}${detail?` · ${escapeHtml(detail)}`:''}</small></span><span class="reminder-actions"><small>Påminnelsebelopp</small><b>${ore(reminderChargeOre)}</b>${pdf}</span></div></td>${columns.map(column=>cell(column,row)).join('')}</tr>`;
+  return `<tr class="reminder-row" data-reminder-id="${escapeHtml(reminder.id)}" data-customer-id="${escapeHtml(invoice.customerId||'')}" ${visible?'':'hidden'}><td class="customer-cell"><div class="reminder-cell"><span><b>↳ Betalningspåminnelse</b><strong>${escapeHtml(reminderNumber)}</strong><small>Avser faktura ${escapeHtml(invoice.invoiceNumber||'—')}${detail?` · ${escapeHtml(detail)}`:''}</small></span><span class="reminder-actions"><small>Påminnelsebelopp</small><b>${ore(reminderChargeOre)}</b>${pdf}</span></div></td><td class="invoice-pdf-cell invoice-pdf-cell-muted">—</td>${columns.map(column=>cell(column,row)).join('')}</tr>`;
 }
 function table(){
   const columns=R.RECEIVABLE_COLUMNS.filter(column=>visibleColumns.has(column.id)),ids=matchingCustomerIds();
@@ -213,13 +238,13 @@ function table(){
     const customer=customerSummary(invoice.customerId),base={...R.receivableRow(invoice),receivablesPending:pendingBatchInvoice(invoice)},comments=invoice.commentCount||0,invoiceRest=Number(invoice.remainingOre||0);
     const refundBadge=invoice.credit?.refundStatus==='pending'?`<span class="comment-badge">Återbetalning väntar · ${ore(invoice.credit.refundOutstandingOre)}</span>`:invoice.credit?.refundStatus==='refunded'?'<span class="comment-badge">Återbetalad</span>':'';
     const pendingBadge=pendingBatchInvoice(invoice)?'<span class="comment-badge">Väntar på bunt · påverkar inte saldo ännu</span>':'';
-    const invoiceRow=`<tr class="invoice-row" data-invoice-id="${escapeHtml(invoice.id)}" data-customer-id="${escapeHtml(invoice.customerId||'')}" ${hidden}><td class="customer-cell"><div class="customer-identity invoice-customer-identity"><span><b>${escapeHtml(customer.customerNumber||'—')}</b><strong>${escapeHtml(customer.customerName||'Okänd kund')}</strong>${customer.orgNumber?`<small>Org.nr ${escapeHtml(customer.orgNumber)}</small>`:''}</span><span class="invoice-rest-badge"><small>Restbelopp</small><b>${ore(invoiceRest)}</b></span></div>${comments?`<span class="comment-badge">💬 ${comments}</span>`:''}${pendingBadge}${refundBadge}</td>${columns.map(c=>cell(c,base)).join('')}</tr>`;
+    const invoiceRow=`<tr class="invoice-row" data-invoice-id="${escapeHtml(invoice.id)}" data-customer-id="${escapeHtml(invoice.customerId||'')}" ${hidden}><td class="customer-cell"><div class="customer-identity invoice-customer-identity"><span><b>${escapeHtml(customer.customerNumber||'—')}</b><strong>${escapeHtml(customer.customerName||'Okänd kund')}</strong>${customer.orgNumber?`<small>Org.nr ${escapeHtml(customer.orgNumber)}</small>`:''}</span><span class="invoice-rest-badge"><small>Restbelopp</small><b>${ore(invoiceRest)}</b></span></div>${comments?`<span class="comment-badge">💬 ${comments}</span>`:''}${pendingBadge}${refundBadge}</td><td class="invoice-pdf-cell">${invoicePdfButton(invoice)}</td>${columns.map(c=>cell(c,base)).join('')}</tr>`;
     const reminderRows=(invoice.reminders||[]).map(reminder=>reminderRow(invoice,reminder,columns,visible)).join('');
-    const txRows=(invoice.transactions||[]).map(tx=>{const row=R.receivableRow(invoice,mappedTransaction(tx));return `<tr class="transaction-row" data-customer-id="${escapeHtml(invoice.customerId||'')}" ${hidden}><td class="customer-cell"><span>↳ transaktion</span></td>${columns.map(c=>cell(c,row)).join('')}</tr>`}).join('');
+    const txRows=(invoice.transactions||[]).map(tx=>{const row=R.receivableRow(invoice,mappedTransaction(tx));return `<tr class="transaction-row" data-customer-id="${escapeHtml(invoice.customerId||'')}" ${hidden}><td class="customer-cell"><span>↳ transaktion</span></td><td class="invoice-pdf-cell invoice-pdf-cell-muted">—</td>${columns.map(c=>cell(c,row)).join('')}</tr>`}).join('');
     return invoiceRow+reminderRows+txRows;
   }).join('');
   const visibleCount=invoices.filter(invoice=>ids.has(String(invoice.customerId))).length;
-  return `<div class="table-scroll"><table class="res-table"><thead><tr><th class="customer-cell">Kund</th>${head}</tr></thead><tbody>${bodies}<tr id="receivable-table-empty" ${visibleCount?'hidden':''}><td colspan="${columns.length+1}" class="empty">Ingen kundreskontra matchar sökningen.</td></tr></tbody></table></div>`;
+  return `<div class="table-scroll"><table class="res-table"><thead><tr><th class="customer-cell">Kund</th><th class="invoice-pdf-cell">PDF</th>${head}</tr></thead><tbody>${bodies}<tr id="receivable-table-empty" ${visibleCount?'hidden':''}><td colspan="${columns.length+2}" class="empty">Ingen kundreskontra matchar sökningen.</td></tr></tbody></table></div>`;
 }
 function contextHtml(){
   if(!contextMenu)return '';
@@ -323,7 +348,7 @@ function renderOverlays(){
 }
 function portalView(){
   const userName=session?.user?.displayName || 'Demoanvändare';
-  app.innerHTML=`<div class="portal">${sidebar()}<section class="main"><header class="topbar"><div><h1>Kundreskontra</h1><p>${escapeHtml(session?.company?.name||'Företaget')} / Försäljning / Kundreskontra</p></div><div class="user-chip"><div><b>${escapeHtml(userName)}</b><br><small>${mode==='demo'?'Demo':'Inloggad'}</small></div><div class="avatar">${escapeHtml(initials(userName))}</div>${mode==='api'?'<button class="button ghost small" data-action="logout">Logga ut</button>':''}</div></header><main class="content">${mode==='demo'?'<div class="demo-banner"><b>GitHub Pages-demo.</b> Kommentarer och kolumnval sparas bara i din webbläsare. Riktiga företagsuppgifter ska aldrig användas här.</div>':''}${feedback?`<div class="notice">${escapeHtml(feedback)}</div>`:''}<div class="page-heading"><div><span class="eyebrow">Kundfordringar</span><h2>Saldo, inbetalningar och avprickning</h2><p>Kundsökningen bygger på kundregistret. Fakturanummer och OCR används endast för att hitta vilken registrerad kund fakturan tillhör.</p></div></div>${receivableSearchBar()}<div id="receivable-overview-region">${customerOverview()}</div><div id="receivable-metrics-region">${metrics()}</div><section class="panel"><div class="toolbar"><span class="hint">Högerklicka på en faktura för kommentarer, betalningspåminnelse eller eventuell återbetalning.</span>${columnPicker()}</div><div id="receivable-table-region">${table()}</div></section></main></section></div><div id="portal-overlays"></div>`;
+  app.innerHTML=`<div class="portal">${sidebar()}<section class="main"><header class="topbar"><div><h1>Kundreskontra</h1><p>${escapeHtml(session?.company?.name||'Företaget')} / Försäljning / Kundreskontra</p></div><div class="user-chip"><div><b>${escapeHtml(userName)}</b><br><small>${mode==='demo'?'Demo':'Inloggad'}</small></div><div class="avatar">${escapeHtml(initials(userName))}</div>${mode==='api'?'<button class="button ghost small" data-action="logout">Logga ut</button>':''}</div></header><main class="content receivables-content">${mode==='demo'?'<div class="demo-banner"><b>GitHub Pages-demo.</b> Kommentarer och kolumnval sparas bara i din webbläsare. Riktiga företagsuppgifter ska aldrig användas här.</div>':''}${feedback?`<div class="notice">${escapeHtml(feedback)}</div>`:''}<div class="page-heading"><div><span class="eyebrow">Kundfordringar</span><h2>Saldo, inbetalningar och avprickning</h2><p>Kundsökningen bygger på kundregistret. Fakturanummer och OCR används endast för att hitta vilken registrerad kund fakturan tillhör.</p></div></div>${receivableSearchBar()}<div id="receivable-overview-region">${customerOverview()}</div><div id="receivable-metrics-region">${metrics()}</div><section class="panel"><div class="toolbar"><span class="hint">Högerklicka på en faktura för kommentarer, betalningspåminnelse eller eventuell återbetalning.</span>${columnPicker()}</div><div id="receivable-table-region">${table()}</div></section></main></section></div><div id="portal-overlays"></div>`;
   renderOverlays();
   const requestedInvoiceId=new URLSearchParams(location.search).get('invoice');
   if(requestedInvoiceId){
@@ -344,14 +369,15 @@ async function loadReceivables(){
   if(!ctx.authenticated||!ctx.company){loginView();return}
   session={user:ctx.user,company:ctx.company};
   const companyFilter='company_id=eq.'+encodeURIComponent(ctx.company.id);
-  const [customersData,invoicesData,transactionsData,creditAdjustmentsData,creditRefundsData,commentRows,reminderRows]=await Promise.all([
+  const [customersData,invoicesData,transactionsData,creditAdjustmentsData,creditRefundsData,commentRows,reminderRows,documentRows]=await Promise.all([
     supabaseRows('customers',ctx.accessToken,companyFilter+'&archived_at=is.null'),
     supabaseRows('invoices',ctx.accessToken,companyFilter),
     supabaseRows('invoice_transactions',ctx.accessToken,companyFilter),
     supabaseRows('customer_invoice_credit_adjustments',ctx.accessToken,companyFilter),
     supabaseRows('customer_credit_refunds',ctx.accessToken,companyFilter),
     supabaseRows('invoice_comments',ctx.accessToken,companyFilter+'&order=created_at.asc'),
-    supabaseRows('invoice_reminders',ctx.accessToken,companyFilter+'&order=reminder_date.asc')
+    supabaseRows('invoice_reminders',ctx.accessToken,companyFilter+'&order=reminder_date.asc'),
+    supabaseRows('customer_invoice_documents',ctx.accessToken,companyFilter)
   ]);
   const customersById=new Map((customersData||[]).map(row=>[String(row.id),row]));
   const txByInvoice=new Map();
@@ -362,8 +388,9 @@ async function loadReceivables(){
   const remindersByInvoice=new Map();for(const row of reminderRows||[]){const key=String(row.invoice_id);if(!remindersByInvoice.has(key))remindersByInvoice.set(key,[]);remindersByInvoice.get(key).push(row.record_json||{id:row.id,reminderNumber:row.reminder_number,reminderDate:row.reminder_date,kind:row.kind,createdAt:row.created_at})}
   const adjustmentByCredit=new Map((creditAdjustmentsData||[]).map(row=>[String(row.credit_invoice_id),row]));
   const refundByCredit=new Map((creditRefundsData||[]).map(row=>[String(row.credit_invoice_id),row]));
+  const documentByInvoice=new Map((documentRows||[]).map(row=>[String(row.invoice_id),row]));
   invoices=(invoicesData||[]).map(row=>{const customer=customersById.get(String(row.customer_id))||{},adjustment=adjustmentByCredit.get(String(row.id))||null,refund=refundByCredit.get(String(row.id))||null,refundDueOre=Number(adjustment?.refund_due_ore||0),refundPaidOre=Number(refund?.amount_ore||0),refundOutstandingOre=Math.max(0,refundDueOre-refundPaidOre),credit=adjustment?{originalInvoiceId:adjustment.original_invoice_id,creditInvoiceId:adjustment.credit_invoice_id,reason:adjustment.reason||'',creditAmountOre:Number(adjustment.credit_amount_ore||0),offsetAmountOre:Number(adjustment.offset_amount_ore||0),refundDueOre,refund:refund?{amountOre:refundPaidOre,refundDate:refund.refund_date,refundAccount:refund.refund_account,bankReference:refund.bank_reference}:null,refundPaidOre,refundOutstandingOre,refundStatus:refundDueOre===0?'not-required':refundOutstandingOre===0?'refunded':'pending'}:null;return{
-    id:row.id,kind:'customer',customerId:row.customer_id,customerNumber:customer.customer_number||'',customerName:customer.name||'',customerOrgNumber:customer.org_number||'',invoiceNumber:row.invoice_number,ocr:row.ocr||'',invoiceDate:row.invoice_date,postingDate:row.posting_date,dueDate:row.due_date,totalOre:Number(row.total_ore||0),remainingOre:Number(row.remaining_ore||0),vatOre:Number(row.vat_ore||0),status:row.status,paymentMethod:row.payment_method,paymentAccount:row.payment_account,invoiceAccount:row.invoice_account,batchNumber:row.batch_number,journalNumber:row.journal_number,customerType:customer.customer_type||'business',reminderFeeAgreed:Boolean(customer.reminder_fee_agreed),commentCount:(commentsByInvoice.get(String(row.id))||[]).length,transactions:txByInvoice.get(String(row.id))||[],reminders:remindersByInvoice.get(String(row.id))||[],credit
+    id:row.id,kind:'customer',customerId:row.customer_id,customerNumber:customer.customer_number||'',customerName:customer.name||'',customerOrgNumber:customer.org_number||'',invoiceNumber:row.invoice_number,ocr:row.ocr||'',invoiceDate:row.invoice_date,postingDate:row.posting_date,dueDate:row.due_date,totalOre:Number(row.total_ore||0),remainingOre:Number(row.remaining_ore||0),vatOre:Number(row.vat_ore||0),status:row.status,paymentMethod:row.payment_method,paymentAccount:row.payment_account,invoiceAccount:row.invoice_account,batchNumber:row.batch_number,journalNumber:row.journal_number,customerType:customer.customer_type||'business',reminderFeeAgreed:Boolean(customer.reminder_fee_agreed),commentCount:(commentsByInvoice.get(String(row.id))||[]).length,transactions:txByInvoice.get(String(row.id))||[],reminders:remindersByInvoice.get(String(row.id))||[],pdfObjectPath:documentByInvoice.get(String(row.id))?.object_path||'',credit
   }});
   receivableCustomers=(customersData||[]).map(customer=>{const list=invoices.filter(i=>String(i.customerId)===String(customer.id));return{
     customerId:customer.id,customerNumber:customer.customer_number,customerName:customer.name,orgNumber:customer.org_number||'',invoiceCount:list.length,openInvoiceCount:list.filter(i=>!pendingBatchInvoice(i)&&Number(i.remainingOre)!==0).length,remainingOre:list.filter(i=>!pendingBatchInvoice(i)).reduce((sum,i)=>sum+Number(i.remainingOre||0),0)
@@ -547,6 +574,7 @@ document.addEventListener('click',async event=>{
     if(action==='filter-customer'){selectedReceivableCustomerId=button.dataset.customerId||'';selectedReceivableInvoiceId='';receivableSearch='';receivableSuggestionsOpen=false;receivableSuggestionIndex=-1;applyReceivableFilterDom();renderReceivableSearchSuggestions();return}
     if(action==='clear-receivable-filter'){selectedReceivableCustomerId='';selectedReceivableInvoiceId='';receivableSearch='';receivableSuggestionsOpen=false;receivableSuggestionIndex=-1;applyReceivableFilterDom();renderReceivableSearchSuggestions();return}
     if(action==='close-context'){contextMenu=null;renderOverlays();return}
+    if(action==='open-invoice-pdf'){await openInvoicePdf(button.dataset.id);return}
     if(action==='comment'){await openComments(button.dataset.id,{compose:true});return}
     if(action==='show-comments'){await openComments(button.dataset.id,{compose:false});return}
     if(action==='new-comment'){modal={...modal,compose:true,draftText:''};renderOverlays();requestAnimationFrame(()=>document.getElementById('invoice-comment-draft')?.focus());return}
