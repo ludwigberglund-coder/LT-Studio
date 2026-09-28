@@ -2539,3 +2539,178 @@ html[data-lt-theme="dark"] :where(
     backdrop-filter:none!important;
   }
 }
+
+
+/* LT Studio UI 2.0 — summary surfaces and workbars.
+ * Summary cards stay opaque and calm. They improve scanability without turning
+ * financial dashboards into decorative glass panels.
+ */
+:root{
+  --lt-summary-radius:18px;
+  --lt-summary-border:color-mix(in srgb,var(--brand-forest) 10%,var(--color-hairline));
+  --lt-summary-shadow:0 8px 24px rgb(23 63 50 / .045);
+  --lt-workbar-bg:color-mix(in srgb,var(--surface-alt) 72%,var(--surface-card));
+}
+
+:where(
+  .report-summary,
+  .inventory-summary,
+  .bank-summary,
+  .payroll-summary,
+  .payment-summary,
+  .uat-summary,
+  .metrics,
+  .dash-metrics
+){
+  gap:12px!important;
+}
+
+:where(
+  .report-summary>article,
+  .inventory-summary>article,
+  .bank-summary>article,
+  .payroll-summary>article,
+  .payment-summary>article,
+  .uat-summary>article,
+  .metrics>.metric,
+  .dash-metrics>.dash-metric,
+  .sales-metric
+){
+  min-height:100px;
+  padding:16px!important;
+  border:1px solid var(--lt-summary-border)!important;
+  border-radius:var(--lt-summary-radius)!important;
+  background:var(--surface-card)!important;
+  box-shadow:var(--lt-summary-shadow)!important;
+}
+
+:where(
+  .report-summary,
+  .inventory-summary,
+  .bank-summary,
+  .payroll-summary,
+  .payment-summary,
+  .uat-summary,
+  .metrics,
+  .dash-metrics
+) :where(span,.eyebrow){
+  color:var(--color-mid-gray)!important;
+  font-size:var(--text-caption)!important;
+  font-weight:var(--font-weight-medium)!important;
+  letter-spacing:var(--tracking-caption)!important;
+}
+
+:where(
+  .report-summary,
+  .inventory-summary,
+  .bank-summary,
+  .payroll-summary,
+  .payment-summary,
+  .uat-summary,
+  .metrics,
+  .dash-metrics
+) strong,
+.sales-metric strong{
+  color:var(--color-ink)!important;
+  font-variant-numeric:tabular-nums;
+  font-feature-settings:"tnum" 1;
+  letter-spacing:-.025em;
+}
+
+:where(
+  .report-toolbar,
+  .documents-toolbar,
+  .payments-toolbar
+){
+  gap:12px!important;
+  padding:14px 16px!important;
+  border:1px solid var(--lt-summary-border)!important;
+  border-radius:18px!important;
+  background:var(--lt-workbar-bg)!important;
+  box-shadow:0 5px 18px rgb(23 63 50 / .035)!important;
+}
+
+:where(
+  .report-toolbar,
+  .documents-toolbar,
+  .payments-toolbar
+) label{
+  color:var(--color-mid-gray)!important;
+  font-weight:var(--font-weight-medium)!important;
+}
+
+:where(
+  .report-empty,
+  .documents-empty,
+  .coding-empty,
+  .empty-state
+){
+  min-height:112px;
+  display:grid;
+  place-items:center;
+  padding:28px!important;
+  color:var(--color-mid-gray)!important;
+  text-align:center;
+}
+
+html[data-lt-theme="dark"]{
+  --lt-summary-border:var(--lt-dark-border);
+  --lt-summary-shadow:0 8px 24px rgb(0 0 0 / .16);
+  --lt-workbar-bg:var(--lt-dark-surface-soft);
+}
+
+html[data-lt-theme="dark"] :where(
+  .report-summary>article,
+  .inventory-summary>article,
+  .bank-summary>article,
+  .payroll-summary>article,
+  .payment-summary>article,
+  .uat-summary>article,
+  .metrics>.metric,
+  .dash-metrics>.dash-metric,
+  .sales-metric
+){
+  background:var(--lt-dark-surface)!important;
+  border-color:var(--lt-dark-border)!important;
+}
+
+html[data-lt-theme="dark"] :where(
+  .report-toolbar,
+  .documents-toolbar,
+  .payments-toolbar
+){
+  background:var(--lt-dark-surface-soft)!important;
+  border-color:var(--lt-dark-border)!important;
+}
+
+html[data-lt-theme="dark"] :where(
+  .report-summary,
+  .inventory-summary,
+  .bank-summary,
+  .payroll-summary,
+  .payment-summary,
+  .uat-summary,
+  .metrics,
+  .dash-metrics
+) strong,
+html[data-lt-theme="dark"] .sales-metric strong{
+  color:var(--color-paper)!important;
+}
+
+@media(max-width:680px){
+  :where(
+    .report-summary>article,
+    .inventory-summary>article,
+    .bank-summary>article,
+    .payroll-summary>article,
+    .payment-summary>article,
+    .uat-summary>article,
+    .metrics>.metric,
+    .dash-metrics>.dash-metric,
+    .sales-metric
+  ){
+    min-height:88px;
+    padding:14px!important;
+    border-radius:16px!important;
+  }
+}
