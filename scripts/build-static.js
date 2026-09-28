@@ -23,6 +23,25 @@ function installGlobalTheme(directory){
   }
 }
 
+function versionStaticAssets(directory,version){
+  const encoded=encodeURIComponent(String(version||'local'));
+  for(const entry of fs.readdirSync(directory,{withFileTypes:true})){
+    const file=path.join(directory,entry.name);
+    if(entry.isDirectory()){versionStaticAssets(file,version);continue;}
+    if(!entry.isFile()||!entry.name.endsWith('.html'))continue;
+    let html=fs.readFileSync(file,'utf8');
+    html=html.replace(/\b(href|src)=(["'])([^"']+\.(?:css|js)(?:\?[^"'#]*)?(?:#[^"']*)?)\2/gi,(match,attribute,quote,url)=>{
+      if(/^(?:https?:|data:|blob:|javascript:|\/\/)/i.test(url))return match;
+      const hashIndex=url.indexOf('#');
+      const hash=hashIndex>=0?url.slice(hashIndex):'';
+      const base=hashIndex>=0?url.slice(0,hashIndex):url;
+      const separator=base.includes('?')?'&':'?';
+      return attribute+'='+quote+base+separator+'v='+encoded+hash+quote;
+    });
+    fs.writeFileSync(file,html);
+  }
+}
+
 function installWorkspaceNavigation(directory){
   for(const name of fs.readdirSync(directory)){
     const file=path.join(directory,name);
@@ -60,6 +79,7 @@ function buildStatic(){
   copyDirectory(path.join(root,'public'),path.join(target,'legacy'));
   for(const workspace of ['portal','admin','legacy'])installWorkspaceNavigation(path.join(target,workspace));
   for(const workspace of ['portal','admin','operator','legacy','uat'])installGlobalTheme(path.join(target,workspace));
+  versionStaticAssets(target,process.env.GITHUB_SHA||'local');
   copyFile(path.join(root,'apps','website','index.html'),path.join(target,'404.html'));
   fs.writeFileSync(path.join(target,'.nojekyll'),'');
   fs.writeFileSync(path.join(target,'build-info.json'),`${JSON.stringify({source:'GitHub',commit:process.env.GITHUB_SHA||'local',generatedAt:new Date().toISOString(),demoOnly:false,runtime:'supabase-uat'},null,2)}\n`);
