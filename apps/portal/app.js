@@ -461,7 +461,7 @@ document.addEventListener('submit',async event=>{
       modal=null;
       feedback='Kvittning '+ore(amountOre)+' är skapad i bunt #'+String(staged.batch_number||'').padStart(5,'0')+'. Kundreskontran ändras först när bunten godkänns.';
       await loadReceivables();
-    }catch(error){modal={...modal,error:error.message,formValues:{debitInvoiceId:String(values.debitInvoiceId||''),settlementDate:String(values.settlementDate||today()),amountOre:Math.round((Number(String(values.amount||'').replace(/\s/g,'').replace(','.')))||0)*100)}};renderOverlays()}
+    }catch(error){modal={...modal,error:error.message,formValues:{debitInvoiceId:String(values.debitInvoiceId||''),settlementDate:String(values.settlementDate||today()),amountOre:Math.round((Number(String(values.amount||'').replace(/\s/g,'').replace(',','.')))||0)*100)}};renderOverlays()}
     return;
   }
   if(form.dataset.form==='refund'){
