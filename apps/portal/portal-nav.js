@@ -83,7 +83,7 @@
             : role==='approver'
               ? ['supplier-invoice.view','payment.view','accounting.view','reports.view','documents.view']
               : ['customer-invoice.view','supplier-invoice.view','reports.view','supplier.view','documents.view'];
-        return{groups:visibleGroups({authenticated:true,permissions}),session:{authenticated:true,user:context.user,company:context.company}};
+        return{groups:visibleGroups({authenticated:true,permissions}),session:{authenticated:true,user:context.user,company:context.company,accessToken:context.accessToken}};
       }catch{return{groups:[],session:null}}
     }
     try{
@@ -461,6 +461,26 @@
   });
   root.LTStudioDialog=LTStudioDialog;
 
+  async function pendingBatchCount(context){
+    if(demo||!supabaseUat||!root.LTSupabase||!context?.session?.company?.id||!context?.session?.accessToken)return 0;
+    try{
+      const company=encodeURIComponent(context.session.company.id);
+      const rows=await root.LTSupabase.from('financial_batches',context.session.accessToken).select('id','company_id=eq.'+company+'&status=eq.ready');
+      return Array.isArray(rows)?rows.length:0;
+    }catch{return 0}
+  }
+  async function mountPendingBatchBadge(context){
+    const link=document.querySelector('.shared-navigation [data-nav-id="batches"]');
+    if(!link)return;
+    link.querySelector('.shared-nav-badge')?.remove();
+    const count=await pendingBatchCount(context);
+    if(!link.isConnected||count<1)return;
+    const badge=document.createElement('span');
+    badge.className='shared-nav-badge';
+    badge.textContent=String(count);
+    badge.setAttribute('aria-label',count+' '+(count===1?'bunt väntar':'buntar väntar')+' på godkännande');
+    link.append(badge);
+  }
   function avatarInitials(name){return String(name||'Användare').trim().split(/\s+/).filter(Boolean).map(part=>part[0]).join('').slice(0,2).toUpperCase()||'AN';}
   async function mountUserMenu(){
     const topbar=document.querySelector('.topbar');if(!topbar)return;
@@ -556,7 +576,7 @@
     const foot=document.createElement('div');foot.className='shared-foot';
     const home=document.createElement('a');home.href=href(demo?'./':'portal/dashboard.html');home.textContent=demo?'Visa företagets hemsida':'Till arbetsöversikten';foot.append(home);
     const note=document.createElement('p');note.textContent=demo?'Äldre referensverktyg har separat demodata.':'Menyn följer din roll. Servern kontrollerar varje skyddad åtgärd oavsett vad som visas här.';foot.append(note);
-    sidebar.replaceChildren(brand,info,nav,foot);decorateUi();applySidebarPreference();
+    sidebar.replaceChildren(brand,info,nav,foot);decorateUi();applySidebarPreference();await mountPendingBatchBadge(context);
     try{sidebar.scrollTop=Number(sessionStorage.getItem(key+':scroll')||0)}catch{}
     if(!sidebar.dataset.scrollBound){sidebar.addEventListener('scroll',()=>{try{sessionStorage.setItem(key+':scroll',String(sidebar.scrollTop))}catch{}});sidebar.dataset.scrollBound='1';}
   }
