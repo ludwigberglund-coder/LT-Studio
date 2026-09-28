@@ -50,3 +50,24 @@ test('theme toggle remains keyboard accessible and visible on mobile',()=>{
   assert.match(css,/\.lt-theme-toggle-floating/);
   assert.match(css,/min-height:40px/);
 });
+
+test('dark portal modules keep batches, suppliers and navigation readable',()=>{
+  const theme=read('packages/shared/browser/theme.css');
+  const design=read('apps/portal/design-system.css');
+  const batches=read('apps/portal/batches.css');
+  const suppliers=read('apps/portal/suppliers.css');
+
+  assert.match(theme,/\.batch-list,\.batch-editor/);
+  assert.match(theme,/\.supplier-row,\.supplier-search-results,\.supplier-search-option/);
+  assert.match(theme,/\.status-approved/);
+  assert.match(theme,/\.critical-box/);
+  assert.match(design,/html\[data-lt-theme="dark"\] \.shared-sidebar \.shared-navigation \.shared-links a>\.ui-icon/);
+  assert.match(design,/color:#fff!important/);
+  assert.match(design,/\.topbar>\.shared-menu-toggle/);
+  assert.match(design,/column-gap:16px/);
+  assert.match(batches,/var\(--surface-card/);
+  assert.match(batches,/var\(--surface-alt/);
+  assert.match(suppliers,/var\(--surface-card/);
+  assert.match(suppliers,/var\(--surface-input-fill/);
+});
+
