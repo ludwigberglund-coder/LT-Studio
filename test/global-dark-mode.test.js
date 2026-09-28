@@ -12,9 +12,12 @@ test('shared dark mode uses a dimmed palette and Iconoir sun/moon icons',()=>{
   const css=read('packages/shared/browser/theme.css');
   const js=read('packages/shared/browser/theme.js');
 
-  for(const color of ['#22272e','#2d333b','#373e47','#444c56','#adbac7','#9da9b5']){
+  for(const color of ['#22272e','#2d333b','#373e47','#444c56']){
     assert.ok(css.includes(color),`dimmed palette color missing: ${color}`);
   }
+  assert.match(css,/--lt-dark-text:#ffffff/);
+  assert.match(css,/--lt-dark-heading:#ffffff/);
+  assert.match(css,/--lt-dark-muted:#dce4ec/);
   assert.match(js,/M12 18C15\.3137 18 18 15\.3137 18 12/);
   assert.match(js,/M3 11\.5066C3 16\.7497/);
   assert.match(js,/lt-studio-theme-v1/);
@@ -23,6 +26,11 @@ test('shared dark mode uses a dimmed palette and Iconoir sun/moon icons',()=>{
   assert.match(js,/button\.dataset\.ltThemeState===theme/);
   assert.match(js,/Stäng av mörkt läge/);
   assert.match(js,/Slå på mörkt läge/);
+  assert.match(css,/--color-ink:#ffffff/);
+  assert.match(css,/--surface-card:var\(--lt-dark-surface\)/);
+  assert.match(css,/\.res-table td,.queue-table td/);
+  assert.match(css,/\.shared-navigation \.shared-links a\[aria-current="page"\]/);
+  assert.match(css,/color:#fff!important/);
 });
 
 test('static build installs dark mode on every system workspace',()=>{

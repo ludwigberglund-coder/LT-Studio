@@ -79,9 +79,9 @@ html[data-lt-theme="dark"]{
   --lt-dark-surface-soft:#373e47;
   --lt-dark-border:#444c56;
   --lt-dark-control-border:#77818a;
-  --lt-dark-text:#adbac7;
-  --lt-dark-heading:#cdd9e5;
-  --lt-dark-muted:#9da9b5;
+  --lt-dark-text:#ffffff;
+  --lt-dark-heading:#ffffff;
+  --lt-dark-muted:#dce4ec;
   --lt-dark-focus:#80a190;
   --lt-dark-accent:#6bc46d;
   --lt-dark-accent-deep:#2f6f5a;
@@ -107,6 +107,23 @@ html[data-lt-theme="dark"]{
   --ok:#6bc46d;
   --shadow:var(--lt-dark-shadow);
   --lt-focus-ring:var(--lt-dark-focus);
+
+  /* Keep the shared design-system tokens dark as well. The portal design
+     system is loaded after this file, but this selector is more specific
+     than :root so these values remain authoritative in night mode. */
+  --color-canvas:var(--lt-dark-canvas);
+  --color-paper:var(--lt-dark-surface);
+  --color-surface-alt:var(--lt-dark-surface-soft);
+  --color-ink:#ffffff;
+  --color-ink-soft:#ffffff;
+  --color-mid-gray:#dce4ec;
+  --color-hairline:var(--lt-dark-border);
+  --color-ember:#ff8b84;
+  --surface-canvas:var(--lt-dark-canvas);
+  --surface-sidebar:#1f352e;
+  --surface-card:var(--lt-dark-surface);
+  --surface-alt:var(--lt-dark-surface-soft);
+  --surface-input-fill:#262c34;
 }
 
 html[data-lt-theme="dark"],
@@ -271,6 +288,129 @@ html[data-lt-theme="dark"] :where(a){
 
 html[data-lt-theme="dark"] :where(hr){
   border-color:var(--lt-dark-border);
+}
+
+
+/* Portal/workspace hardening.
+   Some module styles intentionally use stronger selectors than the shared
+   theme. These dark-mode overrides therefore use !important only on visual
+   theme properties, never on layout or application behaviour. */
+html[data-lt-theme="dark"] :where(
+  .topbar,.panel,.metric,.dash-hero,.dash-metric,.attention,.roadmap-strip,
+  .module-card,.task-card,.queue-panel,.pdf-panel,.coding-panel,.payments-panel,
+  .report-toolbar,.report-panel,.vat-panel,.inventory-panel,.documents-toolbar,
+  .documents-panel,.payroll-panel,.automation-card,.proposal,.automation-empty,
+  .cms-card,.sales-metric,.sales-panel,.invoice-section,.invoice-preview-card,
+  .invoice-panel-footer,.access-recovery-card,.uat-step,.column-menu,.context-menu,
+  .shared-user-dropdown,.modal,.receivable-customer-card,.receivable-search-results
+){
+  background:var(--lt-dark-surface)!important;
+  color:#fff!important;
+  border-color:var(--lt-dark-border)!important;
+}
+
+html[data-lt-theme="dark"] :where(
+  .res-table th,.queue-table th,.report-table th,.inventory-table th,
+  .documents-table th,.payroll-table th,.accounts-table th,.booking-title,
+  .customer-summary-row td,.reminder-row td
+){
+  background:var(--lt-dark-surface-soft)!important;
+  color:#fff!important;
+  border-color:var(--lt-dark-border)!important;
+}
+
+html[data-lt-theme="dark"] :where(
+  .res-table td,.queue-table td,.report-table td,.inventory-table td,
+  .documents-table td,.payroll-table td,.sales-table td,.sales-table th,
+  .accounting-table td,.accounting-table th,.accounts-table td,.coding-table td,
+  .coding-table th,.customer-cell,.res-table tr.invoice-row>.customer-cell,
+  .res-table tr.transaction-row,.res-table tr.transaction-row>.customer-cell
+){
+  background:var(--lt-dark-surface)!important;
+  color:#fff!important;
+  border-color:var(--lt-dark-border)!important;
+}
+
+html[data-lt-theme="dark"] :where(
+  .res-table tr.invoice-row:hover td,.res-table tr.invoice-row:hover>.customer-cell,
+  .invoice-row.search-selected td,.receivable-search-option:hover,
+  .receivable-search-option.active,.receivable-search-option[aria-selected="true"],
+  .column-menu label:hover,.shared-user-dropdown a:hover,.shared-user-dropdown button:hover,
+  .context-menu button:hover
+){
+  background:#3a424c!important;
+  color:#fff!important;
+}
+
+html[data-lt-theme="dark"] :where(
+  .page-heading h1,.page-heading h2,.page-heading h3,.topbar h1,.topbar h2,
+  .metric strong,.dash-metric strong,.report-summary strong,.inventory-summary strong,
+  .bank-summary strong,.payroll-summary strong,.automation-card strong,.cms-card strong,
+  .uat-summary strong,.sales-metric strong,.receivable-customer-main b,
+  .receivable-customer-balance strong,.invoice-rest-badge b,.customer-rest-badge b,
+  .customer-total-rest b,.shared-user-label strong,.res-table td,.res-table th
+){
+  color:#fff!important;
+}
+
+html[data-lt-theme="dark"] :where(
+  .page-heading p,.topbar p,.metric span,.dash-metric span,.report-summary span,
+  .inventory-summary span,.bank-summary span,.payroll-summary span,.automation-card span,
+  .cms-card span,.uat-summary span,.sales-metric span,.toolbar .hint,.receivable-count,
+  .receivable-overview-head p,.receivable-customer-main small,
+  .receivable-customer-balance small,.receivable-customer-balance em,
+  .customer-identity small,.customer-rest-badge small,.invoice-customer-cell,
+  .reminder-cell small,.receivable-search-group-label,.receivable-search-option-main small
+){
+  color:#dce4ec!important;
+}
+
+html[data-lt-theme="dark"] :where(
+  .button,.queue-tab.active,.report-tab.active,.automation-filter button.active
+){
+  background:var(--lt-dark-accent-deep)!important;
+  border-color:#3f8068!important;
+  color:#fff!important;
+}
+
+html[data-lt-theme="dark"] :where(
+  .button.ghost,.button.secondary,.queue-tab,.report-tab,.automation-filter button,
+  .column-picker summary,.hero-date,.intake-close,.reminder-pdf-link
+){
+  background:var(--lt-dark-surface-soft)!important;
+  border-color:var(--lt-dark-border)!important;
+  color:#fff!important;
+}
+
+html[data-lt-theme="dark"] :where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  select,textarea,.queue-search,.invoice-search,.proposal-actions .reason-input,
+  .receivable-search input
+){
+  background:#262c34!important;
+  color:#fff!important;
+  border-color:var(--lt-dark-control-border)!important;
+}
+
+html[data-lt-theme="dark"] :where(
+  .shared-navigation .shared-links a,.shared-navigation summary,.shared-foot a,
+  .shared-foot p,.sidebar-footer,.shared-sidebar .shared-company
+){
+  color:#fff!important;
+}
+
+html[data-lt-theme="dark"] :where(
+  .shared-navigation .shared-links a.active,
+  .shared-navigation .shared-links a[aria-current="page"],
+  .side-link.active
+){
+  background:#31483f!important;
+  color:#fff!important;
+}
+
+html[data-lt-theme="dark"] .shared-user-trigger:hover,
+html[data-lt-theme="dark"] .shared-user-trigger[aria-expanded="true"]{
+  background:var(--lt-dark-surface-soft)!important;
 }
 
 :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{
