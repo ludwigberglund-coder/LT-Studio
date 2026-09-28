@@ -15,7 +15,7 @@ test('shared LT Studio dialog helper is accessible and keyboard aware',()=>{
   assert.match(nav,/aria-labelledby/);
   assert.match(nav,/aria-describedby/);
   assert.match(nav,/event\.key==='Escape'/);
-  assert.match(nav,/event\.key==='Tab'/);
+  assert.match(nav,/event\.key!==['"]Tab['"]/);
   assert.match(nav,/previous\.focus/);
   assert.match(nav,/lt-dialog-field-error/);
 });
