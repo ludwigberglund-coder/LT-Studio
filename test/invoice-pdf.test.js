@@ -103,8 +103,7 @@ test('kundfakturans PDF använder LT-Studios varumärke och den versionsstyrda l
   assert.ok(fs.statSync(logoPath).size>1000);
   const source=fs.readFileSync(path.join(__dirname,'..','packages','invoicing','pdf.js'),'utf8');
   assert.match(source,/LT-Studios AB/);
-  assert.doesNotMatch(source,/text\('Rollands'/);
-  assert.doesNotMatch(source,/setCreator\('Rollands/);
+  assert.doesNotMatch(source,/Rollands/);
   const bytes=await invoicePdf(invoice,strictBusiness);
   const doc=await PDFDocument.load(bytes);
   assert.equal(doc.getCreator(),'LT-Studios fakturaverktyg');
