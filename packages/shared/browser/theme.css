@@ -413,6 +413,80 @@ html[data-lt-theme="dark"] .shared-user-trigger[aria-expanded="true"]{
   background:var(--lt-dark-surface-soft)!important;
 }
 
+
+/* Dark-mode coverage for module-specific portal surfaces.
+   Batches and suppliers have their own CSS files, so these selectors keep
+   those modules aligned with the shared night palette without changing layout. */
+html[data-lt-theme="dark"] :where(
+  .batch-list,.batch-editor,
+  .supplier-row,.supplier-search-results,.supplier-search-option,
+  .history article,.pending-row
+){
+  background:var(--lt-dark-surface)!important;
+  color:#fff!important;
+  border-color:var(--lt-dark-border)!important;
+}
+
+html[data-lt-theme="dark"] :where(
+  .batch-card,.transaction,.summary-pill,
+  .supplier-search-control input
+){
+  color:#fff!important;
+  border-color:var(--lt-dark-border)!important;
+}
+
+html[data-lt-theme="dark"] :where(
+  .batch-card:hover,.batch-card.active,
+  .supplier-row:hover,.supplier-row.selected,
+  .supplier-search-option:hover,.supplier-search-option.active
+){
+  background:var(--lt-dark-surface-soft)!important;
+  color:#fff!important;
+}
+
+html[data-lt-theme="dark"] :where(
+  .batch-meta,.empty,
+  .supplier-row small,.supplier-row span:last-child,
+  .supplier-search-option small,.supplier-search-option span:last-child,
+  .supplier-search-empty,.pending-row p,.pending-row small,.history small
+){
+  color:var(--lt-dark-muted)!important;
+}
+
+html[data-lt-theme="dark"] :where(.summary-pill){
+  background:var(--lt-dark-surface-soft)!important;
+}
+
+html[data-lt-theme="dark"] :where(.status-badge){
+  color:#fff!important;
+  border:1px solid rgba(255,255,255,.12)!important;
+}
+
+html[data-lt-theme="dark"] :where(.status-ready){
+  background:#6f5a20!important;
+  color:#fff!important;
+}
+
+html[data-lt-theme="dark"] :where(.status-approved){
+  background:#285e45!important;
+  color:#fff!important;
+}
+
+html[data-lt-theme="dark"] :where(.status-rejected){
+  background:#71372f!important;
+  color:#fff!important;
+}
+
+html[data-lt-theme="dark"] :where(.critical-box){
+  background:rgba(218,170,63,.10)!important;
+  color:#f2d58d!important;
+  border:1px solid rgba(218,170,63,.24)!important;
+}
+
+html[data-lt-theme="dark"] :where(.supplier-search-icon){
+  color:#dce4ec!important;
+}
+
 :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{
   outline:3px solid var(--lt-focus-ring,#587548);
   outline-offset:2px;

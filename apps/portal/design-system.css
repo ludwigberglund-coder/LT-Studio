@@ -1400,3 +1400,33 @@ body.shared-mobile-nav-lock{overflow:hidden}
   .payments-summary>article,
   .payments-panel-view{animation:none!important}
 }
+
+/* Dark navigation polish + topbar spacing.
+   Loaded after module styles so these rules intentionally own the final
+   appearance of the shared portal navigation. */
+.topbar{
+  column-gap:16px;
+}
+.topbar>.shared-menu-toggle{
+  margin-right:2px;
+}
+html[data-lt-theme="dark"] .shared-sidebar .ui-icon{
+  color:#fff!important;
+  opacity:1!important;
+}
+html[data-lt-theme="dark"] .shared-sidebar .shared-navigation .shared-links a:hover>.ui-icon,
+html[data-lt-theme="dark"] .shared-sidebar .shared-navigation .shared-links a.active>.ui-icon,
+html[data-lt-theme="dark"] .shared-sidebar .shared-navigation .shared-links a[aria-current="page"]>.ui-icon{
+  color:#fff!important;
+  opacity:1!important;
+}
+html[data-lt-theme="dark"] .shared-sidebar .shared-navigation .shared-links a.active,
+html[data-lt-theme="dark"] .shared-sidebar .shared-navigation .shared-links a[aria-current="page"]{
+  color:#fff!important;
+  background:color-mix(in srgb,var(--brand-sky) 10%,var(--surface-sidebar))!important;
+  box-shadow:inset 3px 0 0 currentColor,0 7px 18px rgb(9 12 15 / .16)!important;
+}
+html[data-lt-theme="dark"] .shared-sidebar .shared-navigation summary{
+  color:#fff!important;
+}
+
