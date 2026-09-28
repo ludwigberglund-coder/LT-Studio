@@ -1507,10 +1507,15 @@ html[data-lt-theme="dark"] .shared-sidebar .shared-navigation summary{
 .lt-theme-toggle-topbar,
 .shared-user-trigger{
   min-height:48px;
-  border:1px solid var(--lt-shell-glass-border)!important;
   border-radius:14px!important;
   background:rgb(255 255 255 / .58)!important;
   box-shadow:var(--lt-shell-control-shadow)!important;
+}
+.lt-theme-toggle-topbar{
+  border:1px solid var(--lt-shell-glass-border)!important;
+}
+.shared-user-trigger{
+  border:0!important;
 }
 .lt-theme-toggle-topbar:hover,
 .shared-user-trigger:hover,
@@ -1569,9 +1574,15 @@ html[data-lt-theme="dark"] .shared-menu-toggle,
 html[data-lt-theme="dark"] .lt-theme-toggle-topbar,
 html[data-lt-theme="dark"] .shared-user-trigger{
   background:rgb(45 51 59 / .72)!important;
-  border-color:var(--lt-shell-glass-border)!important;
   color:#fff!important;
   box-shadow:var(--lt-shell-control-shadow)!important;
+}
+html[data-lt-theme="dark"] .shared-menu-toggle,
+html[data-lt-theme="dark"] .lt-theme-toggle-topbar{
+  border-color:var(--lt-shell-glass-border)!important;
+}
+html[data-lt-theme="dark"] .shared-user-trigger{
+  border:0!important;
 }
 html[data-lt-theme="dark"] .shared-menu-toggle:hover,
 html[data-lt-theme="dark"] .lt-theme-toggle-topbar:hover,
