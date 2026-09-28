@@ -146,3 +146,32 @@
   .receivable-search-option{grid-template-columns:auto minmax(0,1fr)}
   .receivable-search-option-meta{grid-column:2}
 }
+
+
+/* Kundreskontra: utnyttja bred skärm och håll PDF-åtgärden nära fakturaraden. */
+.receivables-content{width:100%;max-width:none;margin-inline:0;padding-inline:clamp(18px,2vw,34px)}
+.receivables-content .panel{width:100%}
+.receivables-content .table-scroll{width:100%;max-width:100%;overflow:auto}
+.invoice-pdf-cell{width:74px;min-width:74px;text-align:center!important;white-space:nowrap}
+.invoice-pdf-cell-muted{color:var(--muted)}
+.invoice-pdf-button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:6px 9px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--green);font:inherit;font-size:11px;font-weight:800;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.05);transition:transform .14s ease,box-shadow .14s ease,border-color .14s ease,background .14s ease}
+.invoice-pdf-button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+.invoice-pdf-button:hover{background:#f3f6f3;border-color:#b9c2bc;box-shadow:0 4px 12px rgba(18,60,49,.10);transform:translateY(-1px)}
+.invoice-pdf-button:active{transform:translateY(0) scale(.98);box-shadow:0 1px 3px rgba(18,60,49,.10)}
+@media(min-width:1500px){
+  .receivables-content .res-table{width:100%;min-width:100%;font-size:11px}
+  .receivables-content .res-table th,.receivables-content .res-table td{padding-left:8px;padding-right:8px}
+  .receivables-content .customer-cell{min-width:220px;width:220px;max-width:220px}
+}
+@media(min-width:1900px){
+  .receivables-content .res-table{font-size:12px}
+  .receivables-content .res-table th,.receivables-content .res-table td{padding-left:10px;padding-right:10px}
+}
+@media(max-width:720px){
+  .invoice-pdf-cell{width:62px;min-width:62px}
+  .invoice-pdf-button span{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  .invoice-pdf-button{transition:none}
+  .invoice-pdf-button:hover,.invoice-pdf-button:active{transform:none}
+}
