@@ -303,7 +303,8 @@ html[data-lt-theme="dark"] :where(
   .documents-panel,.payroll-panel,.automation-card,.proposal,.automation-empty,
   .cms-card,.sales-metric,.sales-panel,.invoice-section,.invoice-preview-card,
   .invoice-panel-footer,.access-recovery-card,.uat-step,.column-menu,.context-menu,
-  .shared-user-dropdown,.modal,.receivable-customer-card,.receivable-search-results
+  .shared-user-dropdown,.modal,.receivable-customer-card,.receivable-search-results,
+  .settlement-block
 ){
   background:var(--lt-dark-surface)!important;
   color:#fff!important;
@@ -361,7 +362,8 @@ html[data-lt-theme="dark"] :where(
   .receivable-overview-head p,.receivable-customer-main small,
   .receivable-customer-balance small,.receivable-customer-balance em,
   .customer-identity small,.customer-rest-badge small,.invoice-customer-cell,
-  .reminder-cell small,.receivable-search-group-label,.receivable-search-option-main small
+  .reminder-cell small,.receivable-search-group-label,.receivable-search-option-main small,
+  .settlement-block-head span,.settlement-grid label,.settlement-limit
 ){
   color:#dce4ec!important;
 }
@@ -390,6 +392,13 @@ html[data-lt-theme="dark"] :where(
 ){
   background:#262c34!important;
   color:#fff!important;
+  border-color:var(--lt-dark-control-border)!important;
+}
+html[data-lt-theme="dark"] .settlement-grid input:disabled{
+  opacity:1!important;
+  background:#262c34!important;
+  color:#fff!important;
+  -webkit-text-fill-color:#fff!important;
   border-color:var(--lt-dark-control-border)!important;
 }
 
