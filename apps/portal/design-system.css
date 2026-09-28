@@ -3126,6 +3126,18 @@ button,input,select,textarea{
   border-color:color-mix(in srgb,var(--color-ember) 58%,var(--color-hairline))!important;
   box-shadow:none!important;
 }
+.button:disabled,
+.button:disabled:hover,
+.invoice-workspace #invoice-form button[type="submit"]:disabled,
+.invoice-workspace #invoice-form button[type="submit"]:disabled:hover{
+  color:var(--color-mid-gray)!important;
+  background:var(--color-hairline)!important;
+  border-color:var(--color-hairline)!important;
+  box-shadow:none!important;
+  transform:none!important;
+  opacity:1!important;
+  cursor:not-allowed!important;
+}
 
 /* Inputs are solid content controls; search gets a stronger Spotlight treatment. */
 input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not(:disabled):not([readonly]),
