@@ -110,3 +110,16 @@ test('customer credit settlement dialog uses theme tokens in dark mode',()=>{
   assert.match(theme,/-webkit-text-fill-color:#fff!important/);
 });
 
+test('settlement dialog follows both light and dark themes and static assets are versioned',()=>{
+  const portal=read('apps/portal/styles.css');
+  const build=read('scripts/build-static.js');
+
+  assert.match(portal,/html\[data-lt-theme="light"\] \.settlement-block/);
+  assert.match(portal,/html\[data-lt-theme="dark"\] \.settlement-block/);
+  assert.match(portal,/html\[data-lt-theme="dark"\] \.settlement-grid input:disabled/);
+  assert.match(build,/function versionStaticAssets\(directory,version\)/);
+  assert.match(build,/\.(?:css\|js)/);
+  assert.match(build,/process\.env\.GITHUB_SHA\|\|'local'/);
+  assert.match(build,/versionStaticAssets\(target,process\.env\.GITHUB_SHA\|\|'local'\)/);
+});
+
