@@ -29,7 +29,7 @@ function render(){
 }
 document.addEventListener('change',event=>{const id=event.target.dataset.status;if(!id)return;const state=loadState();state[id]={...(state[id]||{}),status:event.target.value,note:document.querySelector(`[data-note="${CSS.escape(id)}"]`)?.value||''};saveState(state);render();});
 document.addEventListener('input',event=>{const id=event.target.dataset.note;if(!id)return;const state=loadState();state[id]={...(state[id]||{status:'untested'}),note:event.target.value};saveState(state);});
-document.addEventListener('click',event=>{if(!event.target.closest('[data-action="reset-demo"]'))return;if(!confirm('Återställa hela demoscenariot och UAT-markeringarna?'))return;Demo?.reset();localStorage.removeItem(KEY);render();});
+document.addEventListener('click',async event=>{if(!event.target.closest('[data-action="reset-demo"]'))return;const ok=await window.LTDialog.confirm('Hela demoscenariot och alla lokala UAT-markeringar återställs.',{title:'Återställ demoscenario?',confirmLabel:'Återställ',tone:'danger'});if(!ok)return;Demo?.reset();localStorage.removeItem(KEY);render();});
 if(!isDemo)app.innerHTML='<main class="boot"><strong>Testguiden är avsedd för demon</strong><span>Öppna sidan med ?demo=1 för att använda fiktiva data.</span></main>';
 else if(!Demo)app.innerHTML='<main class="boot"><strong>Demoscenario saknas</strong><span>Demodatan kunde inte laddas.</span></main>';
 else render();
