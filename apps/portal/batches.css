@@ -64,3 +64,165 @@ html[data-lt-theme="dark"] .batch-confirm-primary{background:#f2f4f3;color:#111}
  .batch-confirm-actions{grid-column:1;display:grid;grid-template-columns:1fr}
  .batch-confirm-actions .button{width:100%}
 }
+
+
+/* LT Studio UI 2.0 — batch review workspace.
+ * The review layer stays solid and audit-oriented: selection, totals and
+ * control state are emphasized without decorative glass in the data area.
+ */
+.batch-layout{
+  gap:20px;
+}
+.batch-list,
+.batch-editor{
+  border-color:var(--color-hairline)!important;
+  background:var(--surface-card)!important;
+  box-shadow:0 10px 28px rgb(23 63 50 / .045)!important;
+}
+.batch-list{
+  padding:10px;
+  scrollbar-gutter:stable;
+}
+.batch-card{
+  min-height:78px;
+  border-color:transparent!important;
+  border-radius:14px;
+  padding:13px 12px;
+  transition:background-color .14s ease,border-color .14s ease,box-shadow .14s ease!important;
+}
+.batch-card:hover{
+  transform:none!important;
+  background:var(--surface-alt)!important;
+}
+.batch-card.active{
+  border-color:var(--color-hairline)!important;
+  background:color-mix(in srgb,var(--brand-sky) 14%,var(--surface-card))!important;
+  box-shadow:3px 0 0 var(--brand-forest) inset;
+}
+.batch-card .status-badge{
+  align-self:start;
+  justify-self:end;
+}
+.batch-no,
+.batch-summary .money-pill{
+  font-variant-numeric:tabular-nums;
+  font-feature-settings:"tnum" 1;
+}
+.batch-editor{
+  padding:22px;
+}
+.batch-summary{
+  gap:8px;
+  padding:12px 0 16px;
+  margin:4px 0 12px;
+  border-bottom:1px solid var(--color-hairline);
+}
+.summary-pill{
+  min-height:34px;
+  display:inline-flex;
+  align-items:center;
+  padding:7px 10px!important;
+  border:1px solid var(--color-hairline);
+  background:var(--surface-alt)!important;
+  color:var(--color-ink-soft)!important;
+  font-weight:var(--font-weight-medium,600);
+}
+.summary-pill.money-pill{
+  color:var(--color-ink)!important;
+}
+.summary-pill.control-pill.ok{
+  border-color:color-mix(in srgb,var(--brand-forest) 28%,var(--color-hairline));
+  background:color-mix(in srgb,var(--brand-lime) 16%,var(--surface-card))!important;
+  color:var(--brand-forest)!important;
+}
+.summary-pill.control-pill.err{
+  border-color:color-mix(in srgb,var(--color-ember) 28%,var(--color-hairline));
+  background:color-mix(in srgb,var(--color-ember) 8%,var(--surface-card))!important;
+  color:var(--color-ember)!important;
+}
+.transaction{
+  border-color:var(--color-hairline)!important;
+  background:var(--surface-card);
+  box-shadow:0 1px 0 rgb(255 255 255 / .5) inset;
+}
+.transaction>.batch-meta{
+  margin-bottom:9px;
+  font-weight:var(--font-weight-medium,600);
+}
+.line-grid{
+  padding-top:8px;
+  border-top:1px solid color-mix(in srgb,var(--color-hairline) 76%,transparent);
+}
+.line-grid :where(input[data-f="debit"],input[data-f="credit"]){
+  text-align:center;
+  font-variant-numeric:tabular-nums;
+}
+.batch-actions{
+  padding-top:16px;
+  border-top:1px solid var(--color-hairline);
+}
+.batch-actions .button{
+  min-height:42px;
+}
+.batch-editor>details{
+  margin-top:16px;
+  padding-top:14px;
+  border-top:1px solid var(--color-hairline);
+}
+.batch-editor>details>summary{
+  cursor:pointer;
+  color:var(--color-ink-soft);
+  font-weight:var(--font-weight-medium,600);
+}
+.status-badge{
+  border:1px solid var(--color-hairline);
+  background:var(--surface-alt)!important;
+  color:var(--color-ink-soft)!important;
+}
+.status-ready{
+  border-color:color-mix(in srgb,var(--brand-peach) 40%,var(--color-hairline));
+}
+.status-approved{
+  border-color:color-mix(in srgb,var(--brand-forest) 25%,var(--color-hairline));
+  background:color-mix(in srgb,var(--brand-lime) 14%,var(--surface-card))!important;
+  color:var(--brand-forest)!important;
+}
+.status-rejected{
+  border-color:color-mix(in srgb,var(--color-ember) 24%,var(--color-hairline));
+  background:color-mix(in srgb,var(--color-ember) 7%,var(--surface-card))!important;
+  color:var(--color-ember)!important;
+}
+html[data-lt-theme="dark"] .batch-card.active{
+  background:color-mix(in srgb,var(--brand-sky) 10%,var(--lt-dark-surface))!important;
+}
+html[data-lt-theme="dark"] .batch-list,
+html[data-lt-theme="dark"] .batch-editor,
+html[data-lt-theme="dark"] .transaction{
+  background:var(--lt-dark-surface)!important;
+  border-color:var(--lt-dark-border)!important;
+  box-shadow:none!important;
+}
+html[data-lt-theme="dark"] .summary-pill,
+html[data-lt-theme="dark"] .status-badge{
+  background:var(--lt-dark-surface-soft)!important;
+  border-color:var(--lt-dark-border);
+  color:var(--lt-dark-muted)!important;
+}
+html[data-lt-theme="dark"] .summary-pill.money-pill{
+  color:var(--color-paper)!important;
+}
+html[data-lt-theme="dark"] .summary-pill.control-pill.ok,
+html[data-lt-theme="dark"] .status-approved{
+  color:var(--brand-sky)!important;
+}
+html[data-lt-theme="dark"] .summary-pill.control-pill.err,
+html[data-lt-theme="dark"] .status-rejected{
+  color:var(--color-ember)!important;
+}
+@media(max-width:900px){
+  .batch-editor{padding:18px}
+  .batch-summary{padding-top:8px}
+}
+@media(prefers-reduced-motion:reduce){
+  .batch-card{transition:none!important}
+}
