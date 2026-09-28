@@ -62,6 +62,16 @@ test('alla portalsidor får gemensam användarmeny med namn, avatar och säker u
   assert.match(css,/\.shared-user-dropdown\{/);
 });
 
+test('sidomenyn visar antal buntar som väntar på godkännande',()=>{
+  const js=fs.readFileSync(path.join(portal,'portal-nav.js'),'utf8');
+  const css=fs.readFileSync(path.join(portal,'shared-nav.css'),'utf8');
+  assert.match(js,/pendingBatchCount/);
+  assert.match(js,/financial_batches/);
+  assert.match(js,/status=eq\.ready/);
+  assert.match(js,/shared-nav-badge/);
+  assert.match(css,/\.shared-nav-badge/);
+});
+
 test('gemensam användarmeny monteras om när en moduls render ersätter toppbaren',()=>{
   const js=fs.readFileSync(path.join(portal,'portal-nav.js'),'utf8');
   assert.match(js,/Promise\.all\(\[mount\(\),mountUserMenu\(\)\]\)/);

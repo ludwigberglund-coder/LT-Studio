@@ -33,10 +33,10 @@ test('dashboard Realtime only watches tables that can change its visible metrics
   const match=js.match(/'dashboard\.html':\[([^\]]+)\]/);
   assert.ok(match,'dashboard realtime config saknas');
   const value=match[1];
-  for(const name of ['invoices','supplier_invoices','bank_payments','automation_proposals','inventory_adjustments','period_unlock_requests']){
+  for(const name of ['invoices','supplier_invoices','bank_payments','automation_proposals','inventory_adjustments','period_unlock_requests','financial_batches']){
     assert.match(value,new RegExp("'"+name+"'"));
   }
-  for(const name of ['customers','supplier_payments','financial_batches','payroll_runs']){
+  for(const name of ['customers','supplier_payments','payroll_runs']){
     assert.doesNotMatch(value,new RegExp("'"+name+"'"));
   }
 });

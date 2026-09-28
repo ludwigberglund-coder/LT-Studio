@@ -30,7 +30,7 @@ function emptyMetrics(){
     bank:{reviewCount:0},
     automation:{reviewCount:0},
     inventory:{pendingCount:0},
-    accounting:{pendingUnlocks:0},
+    accounting:{pendingUnlocks:0,pendingBatches:0},
     loadErrors:[]
   }
 }
@@ -47,6 +47,7 @@ function demoMetrics(){
   result.automation.reviewCount=(s.automationProposals||[]).filter(p=>!['approved','rejected','posted'].includes(p.status)).length;
   result.inventory.pendingCount=(s.inventoryAdjustments||[]).filter(x=>x.status==='pending').length;
   result.accounting.pendingUnlocks=(s.accountingUnlockRequests||[]).filter(x=>x.status==='pending').length;
+  result.accounting.pendingBatches=(s.financialBatches||[]).filter(x=>x.status==='ready').length;
   return result;
 }
 async function loadSupabaseMetricsFallback(ctx){
@@ -80,6 +81,10 @@ async function loadSupabaseMetricsFallback(ctx){
     attempt('periodupplåsningar',async()=>{
       const rows=await window.LTSupabase.from('period_unlock_requests',ctx.accessToken).select('status',filter);
       result.accounting.pendingUnlocks=(rows||[]).filter(row=>row.status==='pending').length;
+    }),
+    attempt('buntar',async()=>{
+      const rows=await window.LTSupabase.from('financial_batches',ctx.accessToken).select('status',filter);
+      result.accounting.pendingBatches=(rows||[]).filter(row=>row.status==='ready').length;
     })
   ]);
   return result;
@@ -98,7 +103,10 @@ function normalizeDashboardMetrics(data){
     bank:{reviewCount:Number(value.bank?.reviewCount||0)},
     automation:{reviewCount:Number(value.automation?.reviewCount||0)},
     inventory:{pendingCount:Number(value.inventory?.pendingCount||0)},
-    accounting:{pendingUnlocks:Number(value.accounting?.pendingUnlocks||0)},
+    accounting:{
+      pendingUnlocks:Number(value.accounting?.pendingUnlocks||0),
+      pendingBatches:Number(value.accounting?.pendingBatches||value.pendingBatches||0)
+    },
     loadErrors:[]
   };
 }
@@ -154,6 +162,7 @@ function taskCard({title,text,href,count,priority='normal',tone='plain'},index){
 }
 function importantTasks(m){
   const tasks=[];
+  if(Number(m.accounting.pendingBatches)>0)tasks.push({title:'Godkänn väntande buntar',text:'Buntar är kontrollerade och väntar på godkännande.',href:'./batches.html',count:m.accounting.pendingBatches,priority:'high',tone:'peach'});
   if(Number(m.receivables.overdueCount)>0)tasks.push({title:'Följ upp förfallna kundfakturor',text:`${ore(m.receivables.overdueOre)} är förfallet.`,href:isDemo?'./receivables.html':'./index.html',count:m.receivables.overdueCount,priority:'high',tone:'peach'});
   if(Number(m.bank.reviewCount)>0)tasks.push({title:'Matcha bankhändelser',text:'Inbetalningar väntar på korrekt matchning.',href:'./bank.html',count:m.bank.reviewCount,priority:'high',tone:'sky'});
   if(Number(m.payables.approvalCount)>0)tasks.push({title:'Granska leverantörsfakturor',text:'Fakturor väntar på attest och kontroll.',href:'./payables.html',count:m.payables.approvalCount,priority:'high',tone:'lime'});
