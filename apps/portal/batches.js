@@ -46,6 +46,26 @@ function captureTransactions(){
 }
 function payloadTransactions(){return captureTransactions().map(t=>({postingDate:t.posting_date,description:t.description,sourceType:'manual',lines:t.lines.map(l=>({account:l.account,description:l.description,debitOre:l.debit_ore,creditOre:l.credit_ore}))}))}
 async function rpc(name,args){return LTSupabase.rpc(name,args,ctx.accessToken)}
+async function confirmBatchApproval(){
+ return new Promise(resolve=>{
+  const existing=document.querySelector('.batch-confirm-backdrop');if(existing)existing.remove();
+  const wrap=document.createElement('div');
+  wrap.className='batch-confirm-backdrop';
+  wrap.setAttribute('role','presentation');
+  wrap.innerHTML='<section class="batch-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="batch-confirm-title" aria-describedby="batch-confirm-copy"><div class="batch-confirm-icon" aria-hidden="true">✓</div><div class="batch-confirm-content"><span class="batch-confirm-kicker">Kvalitetskontroll</span><h2 id="batch-confirm-title">Godkänn bunt #'+String(selected?.batch_number||'').padStart(5,'0')+'?</h2><p id="batch-confirm-copy">När du godkänner blir transaktionerna definitiva och bunten låses. Åtgärden registreras i revisionsspåret.</p></div><div class="batch-confirm-actions"><button class="button ghost" type="button" data-confirm-cancel>Avbryt</button><button class="button batch-confirm-primary" type="button" data-confirm-approve>Godkänn bunt</button></div></section>';
+  document.body.appendChild(wrap);
+  const approve=wrap.querySelector('[data-confirm-approve]');
+  const cancel=wrap.querySelector('[data-confirm-cancel]');
+  const close=value=>{document.removeEventListener('keydown',onKey);wrap.remove();resolve(value)};
+  const onKey=e=>{if(e.key==='Escape')close(false);if(e.key==='Tab'){const focusables=[cancel,approve];const i=focusables.indexOf(document.activeElement);if(e.shiftKey&&i===0){e.preventDefault();approve.focus()}else if(!e.shiftKey&&i===1){e.preventDefault();cancel.focus()}}};
+  approve.addEventListener('click',()=>close(true));
+  cancel.addEventListener('click',()=>close(false));
+  wrap.addEventListener('click',e=>{if(e.target===wrap)close(false)});
+  document.addEventListener('keydown',onKey);
+  requestAnimationFrame(()=>approve.focus());
+ });
+}
+
 async function save(){
  const external=document.getElementById('batch-external').value.trim();
  if(external!==''&&!Number.isFinite(Number(external.replace(',','.'))))throw new Error('Kontrollbeloppet måste vara ett giltigt belopp.');
@@ -84,7 +104,7 @@ app.addEventListener('click',async e=>{
   if(a==='ready'){await save();await rpc('mark_financial_batch_ready',{p_company_id:ctx.company.id,p_batch_id:selected.id});await load()}
   if(a==='reopen'){await rpc('reopen_financial_batch',{p_company_id:ctx.company.id,p_batch_id:selected.id});await load()}
   if(a==='reject'){const reason=window.prompt('Ange varför bunten avvisas:');if(reason){await rpc('reject_financial_batch',{p_company_id:ctx.company.id,p_batch_id:selected.id,p_reason:reason});await load()}}
-  if(a==='approve'){if(confirm('Godkänna bunten? Då blir transaktionerna definitiva och bunten låses.')){await rpc('approve_financial_batch',{p_company_id:ctx.company.id,p_batch_id:selected.id});await load()}}
+  if(a==='approve'){if(await confirmBatchApproval()){await rpc('approve_financial_batch',{p_company_id:ctx.company.id,p_batch_id:selected.id});await load()}}
  }catch(err){alert(err.message||String(err))}
 });
 (async()=>{try{await load()}catch(e){app.innerHTML='<main class="boot"><strong>Kunde inte öppna Buntar</strong><span>'+esc(e.message)+'</span></main>'}})();
