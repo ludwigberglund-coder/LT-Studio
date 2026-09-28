@@ -2738,6 +2738,8 @@ html[data-lt-theme="dark"] .sales-metric strong{
   .queue-table-wrap,
   .report-table-wrap,
   .documents-table-wrap,
+  .inventory-table-wrap,
+  .payroll-table-wrap,
   .accounting-table-scroll
 ){
   overflow:auto;
@@ -2750,6 +2752,8 @@ html[data-lt-theme="dark"] .sales-metric strong{
   .queue-table-wrap,
   .report-table-wrap,
   .documents-table-wrap,
+  .inventory-table-wrap,
+  .payroll-table-wrap,
   .accounting-table-scroll
 ) table thead th{
   position:sticky;
@@ -2865,6 +2869,8 @@ html[data-lt-theme="dark"] :where(
   .queue-table-wrap,
   .report-table-wrap,
   .documents-table-wrap,
+  .inventory-table-wrap,
+  .payroll-table-wrap,
   .accounting-table-scroll
 ) table thead th{
   background:var(--lt-table-header-bg)!important;
