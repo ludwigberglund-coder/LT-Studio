@@ -1,6 +1,7 @@
 const app=document.getElementById('portal-app');
 const R=window.RollandsReceivables;
 const Demo=globalThis.RollandsDemoScenario;
+const Pdf=globalThis.LTStudioInvoicePdf;
 const isPagesDemo=new URLSearchParams(location.search).get('demo')==='1';
 const COLUMN_KEY='rollands-portal-receivable-columns-v1';
 const COMMENT_KEY='rollands-portal-demo-comments-v1';
@@ -152,22 +153,23 @@ function invoicePdfButton(invoice){return `<button type="button" class="invoice-
 async function openInvoicePdf(invoiceId){
   const invoice=invoiceById(invoiceId);
   if(!invoice)throw new Error('Fakturan kunde inte hittas i kundreskontran.');
-  if(mode==='demo'){location.href='./invoices.html?demo=1';return}
+  if(!Pdf)throw new Error('PDF-renderaren kunde inte laddas. Ladda om sidan och försök igen.');
   const tab=window.open('about:blank','_blank');
   if(!tab)throw new Error('Webbläsaren blockerade PDF-fönstret. Tillåt popup-fönster och försök igen.');
   tab.opener=null;
   try{
-    let blob;
-    if(mode==='supabase'){
-      if(!invoice.pdfObjectPath)throw new Error('Den arkiverade PDF-fakturan saknas för den här fakturan.');
+    let documentData=invoice.pdfDocument||invoice.document||null;
+    if(!documentData&&mode==='supabase'){
       const ctx=await supabaseContext();
-      blob=await window.LTSupabase.storage.download('lt-documents',invoice.pdfObjectPath,ctx.accessToken);
-    }else{
-      const response=await fetch('/api/v1/customer-invoices/'+encodeURIComponent(invoice.id)+'/pdf',{credentials:'same-origin',cache:'no-store'});
-      if(!response.ok){const data=await response.json().catch(()=>({}));throw new Error(data.error||'PDF-fakturan kunde inte hämtas.');}
-      blob=await response.blob();
+      const rows=await window.LTSupabase.from('customer_invoice_documents',ctx.accessToken).select('document_json','company_id=eq.'+encodeURIComponent(ctx.company.id)+'&invoice_id=eq.'+encodeURIComponent(invoice.id));
+      documentData=rows?.[0]?.document_json||null;
+    }else if(!documentData&&mode==='api'){
+      const detail=await api('/customer-invoices/'+encodeURIComponent(invoice.id));
+      documentData=detail.document||null;
     }
-    const href=URL.createObjectURL(blob);
+    if(!documentData)throw new Error('Fullständigt fakturaunderlag saknas för den här fakturan.');
+    const bytes=await Pdf.createInvoicePdf(documentData,{record:invoice});
+    const blob=new Blob([bytes],{type:'application/pdf'}),href=URL.createObjectURL(blob);
     tab.location.href=href;
     setTimeout(()=>URL.revokeObjectURL(href),120000);
   }catch(error){tab.close();throw error}
@@ -390,7 +392,7 @@ async function loadReceivables(){
   const refundByCredit=new Map((creditRefundsData||[]).map(row=>[String(row.credit_invoice_id),row]));
   const documentByInvoice=new Map((documentRows||[]).map(row=>[String(row.invoice_id),row]));
   invoices=(invoicesData||[]).map(row=>{const customer=customersById.get(String(row.customer_id))||{},adjustment=adjustmentByCredit.get(String(row.id))||null,refund=refundByCredit.get(String(row.id))||null,refundDueOre=Number(adjustment?.refund_due_ore||0),refundPaidOre=Number(refund?.amount_ore||0),refundOutstandingOre=Math.max(0,refundDueOre-refundPaidOre),credit=adjustment?{originalInvoiceId:adjustment.original_invoice_id,creditInvoiceId:adjustment.credit_invoice_id,reason:adjustment.reason||'',creditAmountOre:Number(adjustment.credit_amount_ore||0),offsetAmountOre:Number(adjustment.offset_amount_ore||0),refundDueOre,refund:refund?{amountOre:refundPaidOre,refundDate:refund.refund_date,refundAccount:refund.refund_account,bankReference:refund.bank_reference}:null,refundPaidOre,refundOutstandingOre,refundStatus:refundDueOre===0?'not-required':refundOutstandingOre===0?'refunded':'pending'}:null;return{
-    id:row.id,kind:'customer',customerId:row.customer_id,customerNumber:customer.customer_number||'',customerName:customer.name||'',customerOrgNumber:customer.org_number||'',invoiceNumber:row.invoice_number,ocr:row.ocr||'',invoiceDate:row.invoice_date,postingDate:row.posting_date,dueDate:row.due_date,totalOre:Number(row.total_ore||0),remainingOre:Number(row.remaining_ore||0),vatOre:Number(row.vat_ore||0),status:row.status,paymentMethod:row.payment_method,paymentAccount:row.payment_account,invoiceAccount:row.invoice_account,batchNumber:row.batch_number,journalNumber:row.journal_number,customerType:customer.customer_type||'business',reminderFeeAgreed:Boolean(customer.reminder_fee_agreed),commentCount:(commentsByInvoice.get(String(row.id))||[]).length,transactions:txByInvoice.get(String(row.id))||[],reminders:remindersByInvoice.get(String(row.id))||[],pdfObjectPath:documentByInvoice.get(String(row.id))?.object_path||'',credit
+    id:row.id,kind:'customer',customerId:row.customer_id,customerNumber:customer.customer_number||'',customerName:customer.name||'',customerOrgNumber:customer.org_number||'',invoiceNumber:row.invoice_number,ocr:row.ocr||'',invoiceDate:row.invoice_date,postingDate:row.posting_date,dueDate:row.due_date,totalOre:Number(row.total_ore||0),remainingOre:Number(row.remaining_ore||0),vatOre:Number(row.vat_ore||0),status:row.status,paymentMethod:row.payment_method,paymentAccount:row.payment_account,invoiceAccount:row.invoice_account,batchNumber:row.batch_number,journalNumber:row.journal_number,customerType:customer.customer_type||'business',reminderFeeAgreed:Boolean(customer.reminder_fee_agreed),commentCount:(commentsByInvoice.get(String(row.id))||[]).length,transactions:txByInvoice.get(String(row.id))||[],reminders:remindersByInvoice.get(String(row.id))||[],pdfObjectPath:documentByInvoice.get(String(row.id))?.object_path||'',pdfDocument:documentByInvoice.get(String(row.id))?.document_json||null,credit
   }});
   receivableCustomers=(customersData||[]).map(customer=>{const list=invoices.filter(i=>String(i.customerId)===String(customer.id));return{
     customerId:customer.id,customerNumber:customer.customer_number,customerName:customer.name,orgNumber:customer.org_number||'',invoiceCount:list.length,openInvoiceCount:list.filter(i=>!pendingBatchInvoice(i)&&Number(i.remainingOre)!==0).length,remainingOre:list.filter(i=>!pendingBatchInvoice(i)).reduce((sum,i)=>sum+Number(i.remainingOre||0),0)
