@@ -23,6 +23,11 @@ test('shared dark mode uses a dimmed palette and Iconoir sun/moon icons',()=>{
   assert.match(js,/button\.dataset\.ltThemeState===theme/);
   assert.match(js,/Stäng av mörkt läge/);
   assert.match(js,/Slå på mörkt läge/);
+  assert.match(css,/--color-ink:#ffffff/);
+  assert.match(css,/--surface-card:var\(--lt-dark-surface\)/);
+  assert.match(css,/\.res-table td,.queue-table td/);
+  assert.match(css,/\.shared-navigation \.shared-links a\[aria-current="page"\]/);
+  assert.match(css,/color:#fff!important/);
 });
 
 test('static build installs dark mode on every system workspace',()=>{
