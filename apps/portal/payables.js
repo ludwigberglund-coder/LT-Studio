@@ -48,7 +48,7 @@ function dateCorrectionModal(){
   if(!dateCorrectionDialog||!selected)return'';
   return `<div class="modal-backdrop date-correction-backdrop" data-date-correction-backdrop>
     <section class="modal date-correction-modal" role="dialog" aria-modal="true" aria-labelledby="date-correction-title" aria-describedby="date-correction-copy">
-      <div class="modal-head"><div><span class="eyebrow">Rättelse</span><h3 id="date-correction-title">Rätta fakturadatum</h3></div><button class="button ghost small" type="button" data-date-correction-cancel aria-label="Stäng">Avbryt</button></div>
+      <div class="modal-head"><div><span class="eyebrow">Rättelse</span><h3 id="date-correction-title">Rätta fakturadatum</h3></div><button class="button ghost small" type="button" data-date-correction-cancel aria-label="Stäng">×</button></div>
       <form id="date-correction-form" class="modal-body">
         <p id="date-correction-copy">Rättelsen läggs i en bunt och ändrar inte fakturans datum förrän bunten är godkänd.</p>
         <div class="date-correction-grid"><label>Fakturadatum<input type="date" name="invoiceDate" required value="${esc(dateCorrectionDialog.invoiceDate)}"></label><label>Förfallodatum<input type="date" name="dueDate" required value="${esc(dateCorrectionDialog.dueDate)}"></label></div>
