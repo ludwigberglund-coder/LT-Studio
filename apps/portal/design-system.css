@@ -3128,9 +3128,9 @@ button,input,select,textarea{
 }
 
 /* Inputs are solid content controls; search gets a stronger Spotlight treatment. */
-input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
-select,
-textarea{
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not(:disabled):not([readonly]),
+select:not(:disabled),
+textarea:not(:disabled):not([readonly]){
   border:1px solid color-mix(in srgb,var(--color-ink) 10%,var(--color-hairline))!important;
   border-radius:12px!important;
   background:var(--surface-card)!important;
@@ -3383,9 +3383,9 @@ html[data-lt-theme="dark"] .button.secondary{
   background:var(--lt-apple-glass-strong)!important;
   border-color:var(--lt-apple-glass-border)!important;
 }
-html[data-lt-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
-html[data-lt-theme="dark"] select,
-html[data-lt-theme="dark"] textarea{
+html[data-lt-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not(:disabled):not([readonly]),
+html[data-lt-theme="dark"] select:not(:disabled),
+html[data-lt-theme="dark"] textarea:not(:disabled):not([readonly]){
   background:var(--lt-dark-surface-soft)!important;
   border-color:var(--lt-dark-border)!important;
   color:var(--color-paper)!important;
