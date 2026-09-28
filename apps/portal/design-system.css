@@ -2539,3 +2539,456 @@ html[data-lt-theme="dark"] :where(
     backdrop-filter:none!important;
   }
 }
+
+
+/* LT Studio UI 2.0 — summary surfaces and workbars.
+ * Summary cards stay opaque and calm. They improve scanability without turning
+ * financial dashboards into decorative glass panels.
+ */
+:root{
+  --lt-summary-radius:18px;
+  --lt-summary-border:color-mix(in srgb,var(--brand-forest) 10%,var(--color-hairline));
+  --lt-summary-shadow:0 8px 24px rgb(23 63 50 / .045);
+  --lt-workbar-bg:color-mix(in srgb,var(--surface-alt) 72%,var(--surface-card));
+}
+
+:where(
+  .report-summary,
+  .inventory-summary,
+  .bank-summary,
+  .payroll-summary,
+  .payment-summary,
+  .automation-summary,
+  .uat-summary,
+  .metrics,
+  .dash-metrics
+){
+  gap:12px!important;
+}
+
+:where(
+  .report-summary>article,
+  .inventory-summary>article,
+  .bank-summary>article,
+  .payroll-summary>article,
+  .payment-summary>article,
+  .automation-summary>.automation-card,
+  .uat-summary>article,
+  .metrics>.metric,
+  .dash-metrics>.dash-metric,
+  .sales-metric
+){
+  min-height:100px;
+  padding:16px!important;
+  border:1px solid var(--lt-summary-border)!important;
+  border-radius:var(--lt-summary-radius)!important;
+  background:var(--surface-card)!important;
+  box-shadow:var(--lt-summary-shadow)!important;
+}
+
+:where(
+  .report-summary,
+  .inventory-summary,
+  .bank-summary,
+  .payroll-summary,
+  .payment-summary,
+  .automation-summary,
+  .uat-summary,
+  .metrics,
+  .dash-metrics
+) :where(span,.eyebrow){
+  color:var(--color-mid-gray)!important;
+  font-size:var(--text-caption)!important;
+  font-weight:var(--font-weight-medium)!important;
+  letter-spacing:var(--tracking-caption)!important;
+}
+
+:where(
+  .report-summary,
+  .inventory-summary,
+  .bank-summary,
+  .payroll-summary,
+  .payment-summary,
+  .automation-summary,
+  .uat-summary,
+  .metrics,
+  .dash-metrics
+) strong,
+.sales-metric strong{
+  color:var(--color-ink)!important;
+  font-variant-numeric:tabular-nums;
+  font-feature-settings:"tnum" 1;
+  letter-spacing:-.025em;
+}
+
+:where(
+  .report-toolbar,
+  .documents-toolbar,
+  .payments-toolbar
+){
+  gap:12px!important;
+  padding:14px 16px!important;
+  border:1px solid var(--lt-summary-border)!important;
+  border-radius:18px!important;
+  background:var(--lt-workbar-bg)!important;
+  box-shadow:0 5px 18px rgb(23 63 50 / .035)!important;
+}
+
+:where(
+  .report-toolbar,
+  .documents-toolbar,
+  .payments-toolbar
+) label{
+  color:var(--color-mid-gray)!important;
+  font-weight:var(--font-weight-medium)!important;
+}
+
+:where(
+  .report-empty,
+  .documents-empty,
+  .coding-empty,
+  .empty-state
+){
+  min-height:112px;
+  display:grid;
+  place-items:center;
+  padding:28px!important;
+  color:var(--color-mid-gray)!important;
+  text-align:center;
+}
+
+html[data-lt-theme="dark"]{
+  --lt-summary-border:var(--lt-dark-border);
+  --lt-summary-shadow:0 8px 24px rgb(0 0 0 / .16);
+  --lt-workbar-bg:var(--lt-dark-surface-soft);
+}
+
+html[data-lt-theme="dark"] :where(
+  .report-summary>article,
+  .inventory-summary>article,
+  .bank-summary>article,
+  .payroll-summary>article,
+  .payment-summary>article,
+  .automation-summary>.automation-card,
+  .uat-summary>article,
+  .metrics>.metric,
+  .dash-metrics>.dash-metric,
+  .sales-metric
+){
+  background:var(--lt-dark-surface)!important;
+  border-color:var(--lt-dark-border)!important;
+}
+
+html[data-lt-theme="dark"] :where(
+  .report-toolbar,
+  .documents-toolbar,
+  .payments-toolbar
+){
+  background:var(--lt-dark-surface-soft)!important;
+  border-color:var(--lt-dark-border)!important;
+}
+
+html[data-lt-theme="dark"] :where(
+  .report-summary,
+  .inventory-summary,
+  .bank-summary,
+  .payroll-summary,
+  .payment-summary,
+  .uat-summary,
+  .metrics,
+  .dash-metrics
+) strong,
+html[data-lt-theme="dark"] .sales-metric strong{
+  color:var(--color-paper)!important;
+}
+
+@media(max-width:680px){
+  :where(
+    .report-summary>article,
+    .inventory-summary>article,
+    .bank-summary>article,
+    .payroll-summary>article,
+    .payment-summary>article,
+    .uat-summary>article,
+    .metrics>.metric,
+    .dash-metrics>.dash-metric,
+    .sales-metric
+  ){
+    min-height:88px;
+    padding:14px!important;
+    border-radius:16px!important;
+  }
+}
+
+
+/* LT Studio UI 2.0 — financial table polish.
+ * Dense accounting data stays solid, high-contrast and stable. No glass,
+ * decorative movement or softened numeric alignment is introduced here.
+ */
+:root{
+  --lt-table-header-bg:var(--surface-alt);
+  --lt-table-row-hover:color-mix(in srgb,var(--surface-alt) 78%,var(--surface-card));
+  --lt-table-selected:color-mix(in srgb,var(--brand-sky) 16%,var(--surface-card));
+}
+
+:where(
+  .table-scroll,
+  .queue-table-wrap,
+  .report-table-wrap,
+  .documents-table-wrap,
+  .accounting-table-scroll
+){
+  overflow:auto;
+  overscroll-behavior-x:contain;
+  scrollbar-gutter:stable;
+}
+
+:where(
+  .table-scroll,
+  .queue-table-wrap,
+  .report-table-wrap,
+  .documents-table-wrap,
+  .accounting-table-scroll
+) table thead th{
+  position:sticky;
+  top:0;
+  z-index:4;
+  background:var(--lt-table-header-bg)!important;
+  box-shadow:0 1px 0 var(--color-hairline);
+}
+
+:where(
+  .res-table,
+  .queue-table,
+  .report-table,
+  .inventory-table,
+  .documents-table,
+  .payroll-table,
+  .sales-table,
+  .accounting-table,
+  .accounts-table,
+  .coding-table
+) th{
+  text-align:center!important;
+  vertical-align:middle;
+  white-space:nowrap;
+  font-size:var(--text-caption)!important;
+  font-weight:var(--font-weight-medium)!important;
+  letter-spacing:var(--tracking-caption)!important;
+}
+
+:where(
+  .res-table,
+  .queue-table,
+  .report-table,
+  .inventory-table,
+  .documents-table,
+  .payroll-table,
+  .sales-table,
+  .accounting-table,
+  .accounts-table,
+  .coding-table
+) td{
+  vertical-align:middle;
+}
+
+:where(
+  .res-table td.money,
+  .queue-table td.money,
+  .report-table td.money,
+  .report-table td.numeric,
+  .inventory-table td.money,
+  .inventory-table td.qty,
+  .payroll-table td.money,
+  .sales-table td.money,
+  .sales-table td.numeric,
+  .accounting-table td.money,
+  .accounts-table td.money
+){
+  text-align:center!important;
+  font-variant-numeric:tabular-nums;
+  font-feature-settings:"tnum" 1;
+  white-space:nowrap;
+}
+
+:where(
+  .res-table tbody tr,
+  .queue-table tbody tr,
+  .report-table tbody tr,
+  .inventory-table tbody tr,
+  .documents-table tbody tr,
+  .payroll-table tbody tr,
+  .sales-table tbody tr,
+  .accounting-table tbody tr,
+  .accounts-table tbody tr
+){
+  transition:background-color var(--motion-fast,140ms) ease;
+}
+
+:where(
+  .res-table tbody tr:hover,
+  .queue-table tbody tr:hover,
+  .report-table tbody tr:hover,
+  .inventory-table tbody tr:hover,
+  .documents-table tbody tr:hover,
+  .payroll-table tbody tr:hover,
+  .sales-table tbody tr:hover,
+  .accounting-table tbody tr:hover,
+  .accounts-table tbody tr:hover
+){
+  background:var(--lt-table-row-hover)!important;
+}
+
+:where(
+  .queue-table tbody tr.selected,
+  .inventory-table tbody tr.selected,
+  .res-table tbody tr[aria-selected="true"]
+){
+  background:var(--lt-table-selected)!important;
+  box-shadow:3px 0 0 var(--brand-forest) inset;
+}
+
+.res-table tbody tr.transaction-row:hover{
+  background:var(--surface-alt)!important;
+}
+
+html[data-lt-theme="dark"]{
+  --lt-table-header-bg:var(--lt-dark-surface-soft);
+  --lt-table-row-hover:color-mix(in srgb,var(--lt-dark-surface-soft) 82%,var(--lt-dark-surface));
+  --lt-table-selected:color-mix(in srgb,var(--brand-sky) 14%,var(--lt-dark-surface));
+}
+
+html[data-lt-theme="dark"] :where(
+  .table-scroll,
+  .queue-table-wrap,
+  .report-table-wrap,
+  .documents-table-wrap,
+  .accounting-table-scroll
+) table thead th{
+  background:var(--lt-table-header-bg)!important;
+  box-shadow:0 1px 0 var(--lt-dark-border);
+}
+
+@media(max-width:760px){
+  :where(
+    .res-table,
+    .queue-table,
+    .report-table,
+    .inventory-table,
+    .documents-table,
+    .payroll-table,
+    .sales-table,
+    .accounting-table,
+    .accounts-table
+  ) :where(th,td){
+    padding-top:9px!important;
+    padding-bottom:9px!important;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  :where(
+    .res-table tbody tr,
+    .queue-table tbody tr,
+    .report-table tbody tr,
+    .inventory-table tbody tr,
+    .documents-table tbody tr,
+    .payroll-table tbody tr,
+    .sales-table tbody tr,
+    .accounting-table tbody tr,
+    .accounts-table tbody tr
+  ){
+    transition:none!important;
+  }
+}
+
+
+/* LT Studio UI 2.0 — segmented controls.
+ * Workflow filters behave like one control family across supplier queues,
+ * reports and automation review.
+ */
+:where(.queue-tabs,.report-tabs,.automation-filter){
+  display:inline-flex!important;
+  align-items:center;
+  gap:4px!important;
+  width:max-content;
+  max-width:100%;
+  padding:4px!important;
+  border:1px solid var(--color-hairline);
+  border-radius:14px;
+  background:var(--surface-alt);
+  overflow-x:auto;
+  overscroll-behavior-x:contain;
+  scrollbar-width:none;
+}
+:where(.queue-tabs,.report-tabs,.automation-filter)::-webkit-scrollbar{
+  display:none;
+}
+:where(.queue-tab,.report-tab,.automation-filter button){
+  min-height:36px;
+  flex:0 0 auto;
+  border:0!important;
+  border-radius:10px!important;
+  padding:7px 11px!important;
+  background:transparent!important;
+  color:var(--color-ink-soft)!important;
+  font:inherit;
+  font-size:12px!important;
+  font-weight:var(--font-weight-medium)!important;
+  cursor:pointer;
+  box-shadow:none!important;
+  transition:background-color var(--motion-fast,140ms) ease,color var(--motion-fast,140ms) ease,box-shadow var(--motion-fast,140ms) ease!important;
+}
+:where(.queue-tab,.report-tab,.automation-filter button):hover{
+  color:var(--color-ink)!important;
+  background:color-mix(in srgb,var(--surface-card) 72%,var(--surface-alt))!important;
+}
+:where(.queue-tab.active,.report-tab.active,.automation-filter button.active){
+  color:var(--color-ink)!important;
+  background:var(--surface-card)!important;
+  box-shadow:0 1px 0 rgb(255 255 255 / .7) inset,0 2px 8px rgb(23 63 50 / .08)!important;
+}
+.queue-tab span{
+  min-width:20px;
+  margin-left:5px;
+  padding:1px 5px;
+  border-radius:999px;
+  background:var(--surface-alt)!important;
+  color:var(--color-mid-gray)!important;
+  font-variant-numeric:tabular-nums;
+}
+.queue-tab.active span{
+  background:color-mix(in srgb,var(--brand-sky) 18%,var(--surface-alt))!important;
+  color:var(--color-ink-soft)!important;
+}
+:where(.queue-tab,.report-tab,.automation-filter button):focus-visible{
+  outline:2px solid var(--color-ink)!important;
+  outline-offset:2px;
+}
+html[data-lt-theme="dark"] :where(.queue-tabs,.report-tabs,.automation-filter){
+  background:var(--lt-dark-surface-soft);
+  border-color:var(--lt-dark-border);
+}
+html[data-lt-theme="dark"] :where(.queue-tab,.report-tab,.automation-filter button){
+  color:var(--lt-dark-muted)!important;
+}
+html[data-lt-theme="dark"] :where(.queue-tab,.report-tab,.automation-filter button):hover{
+  background:color-mix(in srgb,var(--lt-dark-surface) 76%,var(--lt-dark-surface-soft))!important;
+  color:var(--color-paper)!important;
+}
+html[data-lt-theme="dark"] :where(.queue-tab.active,.report-tab.active,.automation-filter button.active){
+  background:var(--lt-dark-surface)!important;
+  color:var(--color-paper)!important;
+  box-shadow:0 2px 8px rgb(0 0 0 / .18)!important;
+}
+@media(max-width:760px){
+  :where(.queue-tabs,.report-tabs,.automation-filter){
+    width:100%;
+    max-width:100%;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  :where(.queue-tab,.report-tab,.automation-filter button){
+    transition:none!important;
+  }
+}
