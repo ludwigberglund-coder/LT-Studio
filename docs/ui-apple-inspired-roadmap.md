@@ -58,6 +58,19 @@ Grundprincipen är:
 - regressionstest förbjuder browser-native dialoger i portalmodulerna
 - UI-regressionstester avgränsas till respektive etapps CSS-sektion så att senare, avsiktliga effekter inte ger falska fel
 
+## Etapp 7 – tabeller, reskontra och bokföring
+
+- ekonomiska tabeller förblir helt solida och högkontrastiga
+- scrollbara ekonomitabeller får sticky kolumnrubriker
+- tabellrubriker centreras konsekvent
+- belopp, antal och andra numeriska celler använder tabular numbers och tydlig centrering
+- hover är diskret och utan förflyttning
+- vald rad får en tydlig men lågmäld vänstermarkering
+- mörkt läge har egna tabellbakgrunder och kontrastvärden
+- mobil padding minskas något utan att ändra kolumnstruktur
+- reduced motion stöds
+- inga kolumner, beräkningar, sorteringar eller ekonomiska dataflöden ändras
+
 ## Nästa etapper
 
 ### Navigation och topbar
