@@ -104,13 +104,19 @@ async function runUI(action){
 document.addEventListener('input',event=>{if(!event.target.closest('#cms-form'))return;dirty=true;const notice=document.getElementById('cms-dirty');if(notice)notice.textContent='Osparade \u00e4ndringar';});
 window.addEventListener('beforeunload',event=>{if(dirty||busy){event.preventDefault();event.returnValue='';}});
 document.addEventListener('submit',event=>{if(event.target.id!=='cms-form')return;event.preventDefault();void runUI(saveDraft);});
-document.addEventListener('click',event=>{
+document.addEventListener('click',async event=>{
   if(busy)return;
   const action=event.target.closest('[data-action]')?.dataset.action;
   if(action==='preview')void runUI(previewDraft);
   if(action==='publish')void runUI(publish);
-  if(action==='reload'&&(!dirty||confirm('H\u00e4mta serverns senaste utkast? Dina osparade \u00e4ndringar i den h\u00e4r fliken ers\u00e4tts.'))){void runUI(reloadDraft);}
+  if(action==='reload'){
+    const approved=!dirty||await window.LTStudioDialog.confirm({title:'Hämta senaste utkast?',message:'Dina osparade ändringar i den här fliken ersätts.',confirmLabel:'Hämta senaste',tone:'danger'});
+    if(approved)void runUI(reloadDraft);
+  }
   const version=event.target.closest('[data-restore]')?.dataset.restore;
-  if(version&&(!dirty||confirm('Ers\u00e4tta osparade \u00e4ndringar med valt historiskt utkast?')))void runUI(async()=>{await restore(Number(version));dirty=false;});
+  if(version){
+    const approved=!dirty||await window.LTStudioDialog.confirm({title:'Återställ historiskt utkast?',message:'Osparade ändringar ersätts med den valda historiska versionen.',confirmLabel:'Återställ version',tone:'danger'});
+    if(approved)void runUI(async()=>{await restore(Number(version));dirty=false;});
+  }
 });
 boot();
