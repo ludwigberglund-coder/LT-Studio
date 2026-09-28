@@ -1,10 +1,23 @@
 'use strict';
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.RollandsInvoicePdf=api;})(globalThis,function(){
+  const BRAND_NAME='LT-Studios AB';
+  const moduleUrl=typeof document!=='undefined'&&document.currentScript?.src?document.currentScript.src:'';
+  async function loadBrandLogo(pdf,options={}){
+    let bytes=options.logoBytes||null;
+    if(!bytes&&typeof require==='function'&&typeof __dirname!=='undefined'){
+      try{const fs=require('node:fs'),path=require('node:path');bytes=fs.readFileSync(path.join(__dirname,'assets','lt-studio-logo-invoice.png'));}catch{}
+    }
+    if(!bytes&&moduleUrl&&typeof fetch==='function'){
+      try{const response=await fetch(new URL('./assets/lt-studio-logo-invoice.png',moduleUrl));if(response.ok)bytes=new Uint8Array(await response.arrayBuffer());}catch{}
+    }
+    if(!bytes)return null;
+    try{return await pdf.embedPng(bytes);}catch{return null;}
+  }
   async function createInvoicePdf(data,options={}){
     const lib=options.PDFLib||globalThis.PDFLib||(typeof require==='function'?require('pdf-lib'):null);
     if(!lib)throw new Error('PDF-biblioteket kunde inte laddas. Ladda om sidan och försök igen.');
     const {PDFDocument,StandardFonts,rgb}=lib,pdf=await PDFDocument.create();
-    const regular=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold),serif=await pdf.embedFont(StandardFonts.TimesRomanBold);
+    const regular=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold),serif=await pdf.embedFont(StandardFonts.TimesRomanBold),brandLogo=await loadBrandLogo(pdf,options);
     const W=595.28,H=841.89,M=38,C=W-2*M,BOTTOM=50;
     const ink=rgb(.075,.235,.19),muted=rgb(.37,.43,.40),line=rgb(.83,.87,.84),pale=rgb(.95,.965,.947),lime=rgb(.86,.91,.66),white=rgb(1,1,1);
     let page,y;const pages=[];
@@ -19,8 +32,8 @@
     const money=v=>new Intl.NumberFormat('sv-SE',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(v||0)/100);
     const qty=v=>new Intl.NumberFormat('sv-SE',{maximumFractionDigits:3}).format(Number(v||0)/1000);
     const seller=data.seller||{},buyer=data.buyer||{},type=data.documentType||'FAKTURA';
-    pdf.setTitle(`${type} ${data.invoiceNumber}`);pdf.setAuthor(seller.name||'Rollands');pdf.setSubject(options.internal?'Faktura med internt underlag':'Kundfaktura');pdf.setCreator('Rollands fakturaverktyg');
-    function newPage(internal=false){page=pdf.addPage([W,H]);pages.push(page);rect(0,H,W,7,ink);text('Rollands',M,H-31,29,serif);right(internal?'Internt underlag':type==='KREDITFAKTURA'?'Kreditfaktura':'Faktura',W-M,H-33,22,bold);text(internal?'Inte för utskick':seller.name||'',M,H-66,8,regular,muted);right(`Nr ${data.invoiceNumber||'UTKAST'} · ${data.currency||'SEK'}`,W-M,H-66,8,bold);y=H-88;}
+    pdf.setTitle(`${type} ${data.invoiceNumber}`);pdf.setAuthor(seller.name||BRAND_NAME);pdf.setSubject(options.internal?'Faktura med internt underlag':'Kundfaktura');pdf.setCreator('LT-Studios fakturaverktyg');
+    function newPage(internal=false){page=pdf.addPage([W,H]);pages.push(page);rect(0,H,W,7,ink);if(brandLogo){const logoW=168,logoH=logoW*(brandLogo.height/brandLogo.width);page.drawImage(brandLogo,{x:M,y:H-56,width:logoW,height:logoH});text(BRAND_NAME,M,H-64,8,bold,muted);}else{text(BRAND_NAME,M,H-33,20,bold);text('LT Studio',M,H-61,8,regular,muted);}right(internal?'Internt underlag':type==='KREDITFAKTURA'?'Kreditfaktura':'Faktura',W-M,H-33,22,bold);if(internal)text('Inte för utskick',M,H-76,8,regular,muted);right(`Nr ${data.invoiceNumber||'UTKAST'} · ${data.currency||'SEK'}`,W-M,H-66,8,bold);y=H-88;}
     function ensure(h,internal=false){if(y-h<BOTTOM)newPage(internal);}
     function paragraph(label,value,internal=false){if(!value)return;const lines=wrap(value,C,9);ensure(30+lines.length*12,internal);text(label.toUpperCase(),M,y,7.4,bold,muted);y-=15;for(const s of lines){ensure(13,internal);text(s,M,y,9);y-=12;}y-=9;}
     function facts(rows,columns=3){const gap=14,cw=(C-gap*(columns-1))/columns;for(let s=0;s<rows.length;s+=columns){const g=rows.slice(s,s+columns),wrapped=g.map(([,v])=>wrap(v||'–',cw,8.4));const h=14+Math.max(...wrapped.map(a=>a.length))*11;ensure(h+5);g.forEach(([label],i)=>{const x=M+i*(cw+gap);text(label,x,y,7.2,bold,muted);wrapped[i].forEach((v,j)=>text(v,x,y-13-j*11,8.4));});y-=h+3;}}
