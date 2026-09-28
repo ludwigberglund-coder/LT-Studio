@@ -41,7 +41,7 @@ Grundprincipen är:
 - primär handling tydlig, sekundär handling diskret
 - full tangentbordsnavigering, Escape och fokusfälla
 - aldrig browser-native confirm/prompt i slutliga kritiska arbetsflöden
-- PR #584 hanterar buntgodkännande som första referens
+- PR #585 hanterar buntdialoger och felmeddelanden som första referens
 
 ### Sökfält och popup-listor
 
