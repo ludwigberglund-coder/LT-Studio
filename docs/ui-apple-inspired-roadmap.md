@@ -58,6 +58,17 @@ Grundprincipen är:
 - regressionstest förbjuder browser-native dialoger i portalmodulerna
 - UI-regressionstester avgränsas till respektive etapps CSS-sektion så att senare, avsiktliga effekter inte ger falska fel
 
+## Etapp 6 – summary-kort och arbetsrader
+
+- KPI-/summary-kort i Betalningar, Rapporter, Lager, Lön, Bank och UAT får samma solida visuella hierarki
+- belopp och antal använder tabular numbers för snabbare skanning
+- korten förblir helt opaka; ingen glas-effekt används på ekonomisk sammanfattning
+- filter-/verktygsrader i Rapporter, Dokument och Betalningar grupperas tydligare som en sammanhängande arbetsyta
+- tomlägen får konsekvent spacing och läsbarhet
+- dark mode använder samma tokenbaserade princip
+- mobilkort blir något kompaktare utan att minska läsbarheten
+- inga beräkningar, filter eller datakällor ändras
+
 ## Nästa etapper
 
 ### Navigation och topbar
