@@ -1752,7 +1752,7 @@ html[data-lt-theme="dark"] .shared-user-dropdown{
 
 html[data-lt-theme="dark"]{
   --lt-search-border:var(--lt-dark-border);
-  --lt-search-focus:#91b7a5;
+  --lt-search-focus:color-mix(in srgb,var(--brand-sky) 65%,var(--brand-forest));
   --lt-search-focus-ring:rgb(128 161 144 / .18);
   --lt-search-row-hover:#3a424c;
   --lt-search-popup-shadow:0 24px 64px rgb(0 0 0 / .34);
