@@ -58,6 +58,17 @@ Grundprincipen är:
 - regressionstest förbjuder browser-native dialoger i portalmodulerna
 - UI-regressionstester avgränsas till respektive etapps CSS-sektion så att senare, avsiktliga effekter inte ger falska fel
 
+## Etapp 5 – navigation och topbar
+
+- gemensam topbar får konsekvent höjd, spacing och kontrollordning
+- navigationens ikonkolumn och textlinje är stabila på alla portalsidor
+- aktiv menyrad får tydligare djup utan att bli visuellt tung
+- 11–13-tums laptopläge behåller den verifierade 276 px sidebarbredden men använder kompaktare intern spacing
+- mobil drawer blir en tydlig enkolumnslista med minst 44 px höga träffytor
+- rubriker får säker ellipsis i smala topbars i stället för layoutbrott
+- befintligt fokusläge/collapse-beteende bevaras
+- reduced motion stöds
+
 ## Nästa etapper
 
 ### Navigation och topbar
