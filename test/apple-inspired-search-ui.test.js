@@ -27,7 +27,7 @@ test('search UI retains dark mode and reduced-motion support',()=>{
   const stage=css.slice(css.indexOf('LT Studio UI 2.0 — search surfaces'));
   assert.match(stage,/html\[data-lt-theme="dark"\]/);
   assert.match(stage,/@media\(prefers-reduced-motion:reduce\)/);
-  assert.match(stage,/--lt-search-row-hover:#3a424c/);
+  assert.match(stage,/--lt-search-row-hover:color-mix/);
 });
 
 test('existing search accessibility and keyboard behavior remain in place',()=>{
