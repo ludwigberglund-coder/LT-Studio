@@ -1754,7 +1754,7 @@ html[data-lt-theme="dark"]{
   --lt-search-border:var(--lt-dark-border);
   --lt-search-focus:color-mix(in srgb,var(--brand-sky) 65%,var(--brand-forest));
   --lt-search-focus-ring:rgb(128 161 144 / .18);
-  --lt-search-row-hover:#3a424c;
+  --lt-search-row-hover:color-mix(in srgb,var(--surface-alt) 86%,var(--brand-sky));
   --lt-search-popup-shadow:0 24px 64px rgb(0 0 0 / .34);
 }
 html[data-lt-theme="dark"] :where(
@@ -1762,7 +1762,7 @@ html[data-lt-theme="dark"] :where(
   .supplier-search-control input,
   .receivable-search-field input
 ){
-  background:#262c34!important;
+  background:var(--surface-input-fill)!important;
   color:#fff!important;
   border-color:var(--lt-search-border)!important;
   box-shadow:0 5px 18px rgb(0 0 0 / .14);
