@@ -58,6 +58,18 @@ Grundprincipen är:
 - regressionstest förbjuder browser-native dialoger i portalmodulerna
 - UI-regressionstester avgränsas till respektive etapps CSS-sektion så att senare, avsiktliga effekter inte ger falska fel
 
+## Etapp 8 – Buntar som granskningsarbetsyta
+
+- buntlistan får tydligare vald rad utan att hoppa eller flytta sig
+- buntnummer samt debet/kredit använder tabular numbers
+- buntsammanfattningen grupperar nummer, transaktioner, debet, kredit, kontrollresultat och status tydligare
+- balanserad/kontroll krävs visas med återhållsam statusfärg och tydlig kant
+- transaktionsområdet förblir helt solitt
+- debet- och kreditfält centreras för snabb visuell kontroll
+- åtgärdsområdet separeras från transaktionsdata med tydlig gräns
+- mörkt läge och reduced motion stöds
+- godkännandets affärslogik och krav på balanserad bunt ändras inte
+
 ## Nästa etapper
 
 ### Navigation och topbar
