@@ -124,3 +124,11 @@ test('ändra kund från faktura stannar i samma webbläsarsession och bevarar ut
   assert.match(customersSource,/invoices\.html\?resume=1/);
   assert.match(customersSource,/if\(updating&&returnToInvoice\(\)\)\{resumeInvoice\(\);return;\}/);
 });
+
+
+test('kundfakturor renderar visad PDF med aktuell LT Studio-branding i stället för äldre arkiverad branding',()=>{
+  assert.match(source,/async function outputPdf\(doc=preview,\{exactArchive=false\}=\{\}\)/);
+  assert.match(source,/return Pdf\.createInvoicePdf\(doc,\{record:previewRecord\|\|\{\}\}\);/);
+  assert.match(source,/if\(exactArchive&&isSupabase&&previewRecord\?\.id\)/);
+  assert.doesNotMatch(source,/async function outputPdf\(doc=preview,\{archived=true\}/);
+});
