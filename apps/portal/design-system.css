@@ -2329,6 +2329,53 @@ html[data-lt-theme="dark"] :where(
   border-radius:12px!important;
 }
 
+.lt-dialog-modal{
+  width:min(560px,100%);
+}
+.lt-dialog-copy{
+  margin:0;
+  white-space:pre-line;
+  color:var(--color-ink-soft);
+  line-height:1.55;
+}
+.lt-dialog-form{
+  display:grid;
+  gap:16px;
+  margin-top:16px;
+}
+.lt-dialog-field{
+  display:grid;
+  gap:7px;
+  color:var(--color-ink-soft);
+  font-weight:var(--font-weight-medium);
+}
+.lt-dialog-field :where(input,textarea){
+  width:100%;
+  min-height:44px;
+  padding:10px 12px;
+  border:1px solid var(--lt-form-control-border);
+  border-radius:14px;
+  background:var(--lt-form-control-bg);
+  color:var(--color-ink);
+  box-shadow:var(--lt-form-control-shadow);
+  font:inherit;
+}
+.lt-dialog-field textarea{
+  min-height:112px;
+  resize:vertical;
+  line-height:1.5;
+}
+.lt-dialog-field :where(input,textarea):focus-visible{
+  outline:2px solid var(--lt-form-focus);
+  outline-offset:2px;
+  border-color:var(--lt-form-focus);
+  box-shadow:0 0 0 4px var(--lt-form-focus-ring),0 7px 20px rgb(23 63 50 / .055);
+}
+.lt-dialog-modal.is-danger .eyebrow,
+.lt-dialog-modal.is-danger .lt-dialog-copy{
+  color:var(--color-ember);
+}
+
 .date-correction-modal{
   width:min(620px,100%);
 }
@@ -2388,6 +2435,14 @@ html[data-lt-theme="dark"] :where(
 .intake-feedback.is-error{
   border-color:var(--color-ember);
   color:var(--color-ember);
+}
+html[data-lt-theme="dark"] .lt-dialog-copy,
+html[data-lt-theme="dark"] .lt-dialog-field{
+  color:var(--lt-dark-text)!important;
+}
+html[data-lt-theme="dark"] .lt-dialog-modal.is-danger .eyebrow,
+html[data-lt-theme="dark"] .lt-dialog-modal.is-danger .lt-dialog-copy{
+  color:var(--color-ember)!important;
 }
 html[data-lt-theme="dark"] .intake-feedback{
   background:var(--lt-dark-surface);
