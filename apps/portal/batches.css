@@ -1,1 +1,66 @@
 .batch-workspace{min-height:100vh}.batch-main{min-width:0}.batch-shell{max-width:1500px;margin:0 auto;padding:28px}.batch-head,.batch-actions,.batch-grid,.batch-summary{display:flex;gap:14px;align-items:center}.batch-head{justify-content:space-between;margin-bottom:20px}.batch-search{min-width:260px}.batch-layout{display:grid;grid-template-columns:minmax(320px,.75fr) minmax(0,1.6fr);gap:18px}.batch-list,.batch-editor{background:var(--surface-card,var(--paper,#fff));border:1px solid var(--color-hairline,var(--line,#dedbd4));border-radius:18px;box-shadow:0 12px 30px rgba(20,30,24,.06)}.batch-list{padding:14px;max-height:calc(100vh - 185px);overflow:auto}.batch-card{width:100%;text-align:left;border:1px solid transparent;background:transparent;border-radius:14px;padding:14px;display:grid;grid-template-columns:1fr auto;gap:6px;cursor:pointer;transition:transform .16s ease,background .16s ease,border-color .16s ease}.batch-card:hover{transform:translateY(-1px);background:var(--surface-alt,#f7f8f5)}.batch-card.active{border-color:#8da38f;background:var(--surface-input-fill,#f2f6f1)}.batch-no{font:700 17px ui-monospace,SFMono-Regular,Menlo,monospace}.batch-meta{font-size:12px;color:var(--color-mid-gray,var(--muted,#6c746d))}.batch-editor{padding:20px;min-height:560px}.batch-summary{flex-wrap:wrap;margin:16px 0}.summary-pill{padding:9px 12px;border-radius:999px;background:var(--surface-input-fill,#f4f5f2);color:var(--color-ink,var(--ink,#173b31));font-size:13px}.summary-pill.ok{background:#e9f5ea;color:#24542d}.summary-pill.err{background:#fff0ec;color:#8b3020}.batch-form-row{display:grid;grid-template-columns:1.5fr .7fr;gap:12px;margin-bottom:14px}.batch-form-row input,.transaction input,.transaction textarea{width:100%}.transaction{border:1px solid var(--color-hairline,var(--line,#e1dfd8));border-radius:16px;padding:14px;margin:12px 0}.transaction-head{display:grid;grid-template-columns:150px 1fr auto;gap:10px;align-items:start}.line-grid{display:grid;grid-template-columns:110px 1fr 150px 150px auto;gap:8px;align-items:center;margin-top:8px}.batch-actions{justify-content:flex-end;flex-wrap:wrap;margin-top:18px}.empty{padding:42px 18px;text-align:center;color:var(--color-mid-gray,var(--muted,#737973))}.status-badge{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:700;background:var(--surface-input-fill,#eef0ed);color:var(--color-ink,var(--ink,#173b31))}.status-ready{background:#fff4cf}.status-approved{background:#e5f4e7;color:#215c2b}.status-rejected{background:#fdeae6;color:#873123}@media(max-width:900px){.batch-layout{grid-template-columns:1fr}.batch-list{max-height:none}.transaction-head,.line-grid,.batch-form-row{grid-template-columns:1fr}.batch-head{align-items:flex-start;flex-direction:column}}
+
+/* Buntgodkännande och felmeddelanden visas inne i LT Studio */
+.batch-confirm-backdrop{
+ position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:24px;
+ background:rgba(10,14,12,.54);backdrop-filter:blur(8px);
+ animation:batch-confirm-fade .16s ease-out both
+}
+.batch-confirm-modal{
+ width:min(560px,100%);display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;
+ padding:24px;border:1px solid var(--color-hairline,var(--line,#dedbd4));border-radius:22px;
+ background:var(--surface-card,var(--paper,#fff));color:var(--color-ink,var(--ink,#173b31));
+ box-shadow:0 28px 80px rgba(8,18,14,.28);
+ animation:batch-confirm-pop .2s cubic-bezier(.22,1,.36,1) both
+}
+.batch-confirm-icon{
+ width:44px;height:44px;border-radius:14px;display:grid;place-items:center;
+ background:color-mix(in srgb,#2f7d5c 14%,var(--surface-card,var(--paper,#fff)));
+ color:#2f7d5c;font-size:22px;font-weight:900
+}
+.batch-confirm-modal.is-danger .batch-confirm-icon{
+ background:color-mix(in srgb,#b23a3a 12%,var(--surface-card,var(--paper,#fff)));
+ color:#9f302d
+}
+.batch-confirm-content{min-width:0}
+.batch-confirm-kicker{
+ display:block;margin:1px 0 5px;color:var(--color-mid-gray,var(--muted,#6c746d));
+ font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase
+}
+.batch-confirm-content h2{margin:0;font-size:22px;line-height:1.25;letter-spacing:-.02em}
+.batch-confirm-content p{margin:10px 0 0;color:var(--color-mid-gray,var(--muted,#6c746d));line-height:1.55}
+.batch-confirm-detail{margin-top:14px;color:var(--color-mid-gray,var(--muted,#6c746d));font-size:12px}
+.batch-confirm-detail summary{cursor:pointer;font-weight:700}
+.batch-confirm-detail code{display:block;margin-top:7px;padding:8px 10px;border-radius:9px;background:var(--surface-input-fill,#f4f5f2);overflow-wrap:anywhere}
+.batch-confirm-actions{
+ grid-column:1/-1;display:flex;justify-content:flex-end;gap:10px;margin-top:8px;
+ padding-top:18px;border-top:1px solid var(--color-hairline,var(--line,#dedbd4))
+}
+.batch-confirm-actions .button{min-width:118px}
+.batch-confirm-primary{box-shadow:0 8px 20px rgba(18,60,49,.16)}
+html[data-lt-theme="dark"] .batch-confirm-backdrop{background:rgba(0,0,0,.68)}
+html[data-lt-theme="dark"] .batch-confirm-modal{
+ background:#171a1c;color:#f5f7f6;border-color:#343a3d;
+ box-shadow:0 30px 90px rgba(0,0,0,.55)
+}
+html[data-lt-theme="dark"] .batch-confirm-content h2{color:#f5f7f6}
+html[data-lt-theme="dark"] .batch-confirm-content p,
+html[data-lt-theme="dark"] .batch-confirm-kicker,
+html[data-lt-theme="dark"] .batch-confirm-detail{color:#aeb8b4}
+html[data-lt-theme="dark"] .batch-confirm-icon{background:#20342d;color:#8fd0b4}
+html[data-lt-theme="dark"] .batch-confirm-modal.is-danger .batch-confirm-icon{background:#3a2222;color:#ffaaa3}
+html[data-lt-theme="dark"] .batch-confirm-detail code{background:#24282a;color:#e8ecea}
+html[data-lt-theme="dark"] .batch-confirm-actions{border-top-color:#343a3d}
+html[data-lt-theme="dark"] .batch-confirm-actions .button.ghost{
+ background:#24282a;color:#f1f4f2;border-color:#3b4245
+}
+html[data-lt-theme="dark"] .batch-confirm-primary{background:#f2f4f3;color:#111}
+@keyframes batch-confirm-fade{from{opacity:0}to{opacity:1}}
+@keyframes batch-confirm-pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(prefers-reduced-motion:reduce){.batch-confirm-backdrop,.batch-confirm-modal{animation:none!important}}
+@media(max-width:560px){
+ .batch-confirm-modal{grid-template-columns:1fr;padding:20px}
+ .batch-confirm-icon{width:40px;height:40px}
+ .batch-confirm-actions{grid-column:1;display:grid;grid-template-columns:1fr}
+ .batch-confirm-actions .button{width:100%}
+}
