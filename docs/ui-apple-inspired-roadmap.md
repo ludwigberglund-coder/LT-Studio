@@ -63,7 +63,7 @@ Grundprincipen är:
 - gemensam topbar får konsekvent höjd, spacing och kontrollordning
 - navigationens ikonkolumn och textlinje är stabila på alla portalsidor
 - aktiv menyrad får tydligare djup utan att bli visuellt tung
-- 11–13-tums laptopläge använder en kompakt 236 px sidebar för mer arbetsyta
+- 11–13-tums laptopläge behåller den verifierade 276 px sidebarbredden men använder kompaktare intern spacing
 - mobil drawer blir en tydlig enkolumnslista med minst 44 px höga träffytor
 - rubriker får säker ellipsis i smala topbars i stället för layoutbrott
 - befintligt fokusläge/collapse-beteende bevaras
