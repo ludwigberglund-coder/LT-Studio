@@ -2432,3 +2432,110 @@ html[data-lt-theme="dark"] .lt-dialog-actions{
   }
   .lt-dialog-actions .button{width:100%}
 }
+
+
+/* Etapp 4 also aligns the existing custom portal dialogs with the same shell.
+ * Their business-specific contents and handlers remain module-owned.
+ */
+:where(
+  .modal,
+  .modal-sales,
+  .batch-confirm-modal,
+  .payment-confirm-modal,
+  .documents-modal,
+  .intake-modal
+){
+  background:var(--surface-card)!important;
+  border:1px solid var(--lt-shell-glass-border,var(--color-hairline))!important;
+  border-radius:24px!important;
+  box-shadow:0 28px 90px rgb(0 0 0 / .22)!important;
+}
+:where(
+  .modal-backdrop,
+  .modal-backdrop-sales,
+  .batch-confirm-backdrop,
+  .payment-confirm-backdrop,
+  .documents-modal-backdrop,
+  .intake-backdrop
+){
+  background:rgb(10 14 12 / .56)!important;
+  -webkit-backdrop-filter:blur(10px) saturate(120%);
+  backdrop-filter:blur(10px) saturate(120%);
+}
+:where(
+  .modal-head,
+  .modal-head-sales,
+  .documents-modal header,
+  .intake-modal>header,
+  .payment-confirm-head
+){
+  border-color:var(--color-hairline)!important;
+}
+:where(
+  .documents-close,
+  .intake-close,
+  .modal-head>button,
+  .modal-head-sales>button
+){
+  min-width:38px;
+  min-height:38px;
+  display:grid;
+  place-items:center;
+  border:1px solid var(--lt-shell-glass-border,var(--color-hairline))!important;
+  border-radius:12px!important;
+  background:var(--surface-input-fill)!important;
+  color:var(--color-ink)!important;
+}
+:where(
+  .documents-close,
+  .intake-close,
+  .modal-head>button,
+  .modal-head-sales>button
+):hover{
+  background:var(--surface-alt)!important;
+}
+html[data-lt-theme="dark"] :where(
+  .modal,
+  .modal-sales,
+  .batch-confirm-modal,
+  .payment-confirm-modal,
+  .documents-modal,
+  .intake-modal
+){
+  background:var(--lt-dark-surface)!important;
+  border-color:var(--lt-dark-border)!important;
+  box-shadow:0 30px 90px rgb(0 0 0 / .44)!important;
+}
+html[data-lt-theme="dark"] :where(
+  .modal-backdrop,
+  .modal-backdrop-sales,
+  .batch-confirm-backdrop,
+  .payment-confirm-backdrop,
+  .documents-modal-backdrop,
+  .intake-backdrop
+){
+  background:rgb(0 0 0 / .7)!important;
+}
+html[data-lt-theme="dark"] :where(
+  .documents-close,
+  .intake-close,
+  .modal-head>button,
+  .modal-head-sales>button
+){
+  background:var(--lt-dark-surface-soft)!important;
+  color:var(--color-paper)!important;
+  border-color:var(--lt-dark-border)!important;
+}
+@media(prefers-reduced-transparency:reduce){
+  :where(
+    .modal-backdrop,
+    .modal-backdrop-sales,
+    .batch-confirm-backdrop,
+    .payment-confirm-backdrop,
+    .documents-modal-backdrop,
+    .intake-backdrop
+  ){
+    -webkit-backdrop-filter:none!important;
+    backdrop-filter:none!important;
+  }
+}
