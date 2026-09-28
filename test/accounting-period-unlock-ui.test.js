@@ -8,7 +8,10 @@ const source=fs.readFileSync(path.join(__dirname,'..','apps','portal','accountin
 test('periodupplåsning visar direkt adminupplåsning och behåller säker ekonomupplåsning',()=>{
   assert.match(source,/Godkänn upplåsning/);
   assert.match(source,/Avslå/);
-  assert.match(source,/Admin kan alltid låsa upp perioden själv/);\n  assert.match(source,/Lås upp period/);\n  assert.match(source,/adminSelfUnlockAllowed/);\n  assert.match(source,/Ensam behörig användare/);
+  assert.match(source,/Admin kan alltid låsa upp perioden själv/);
+  assert.match(source,/Lås upp period/);
+  assert.match(source,/adminSelfUnlockAllowed/);
+  assert.match(source,/Ensam behörig användare/);
   assert.match(source,/Verifiera och lås upp/);
   assert.match(source,/autocomplete="current-password"/);
   assert.match(source,/autocomplete="one-time-code"/);
