@@ -143,7 +143,7 @@ test('admin kan alltid låsa upp sin egen period medan ekonom behåller kontroll
       const alreadyUsed=f.db.prepare('SELECT 1 FROM mfa_used_steps WHERE user_id=? AND totp_counter=?').get(single.id,counter);
       if(!alreadyUsed){freshTotp=Auth.totpCode(f.MFA,selfUnlockNow+offset*30000);break}
     }
-    assert.match(freshTotp,/^\\d{6}$/);
+    assert.equal(/^[0-9]{6}$/.test(freshTotp),true);
     response=await fetch(f.base+`/api/v1/accounting/unlock-requests/${singleRequest.id}/approve`,{
       method:'POST',headers:singleHeaders,
       body:JSON.stringify({reason:'Verifierad självupplåsning för fortsatt bokföring',password:f.PASSWORD,totp:freshTotp})
