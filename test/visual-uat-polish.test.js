@@ -38,9 +38,14 @@ test('project admin keeps LT Studio naming and high contrast live status',()=>{
   assert.match(design,/project-admin mobile toolbar compact/);
 });
 
-test('legacy demo no longer covers the viewport with an initial toast',()=>{
+test('legacy demo no longer covers the viewport or shows old product branding',()=>{
   const legacy=read('public/app.js');
   const workspace=read('public/workspace.js');
+  const assistant=read('public/assistant.js');
+  const accountPlan=read('public/account-plan.js');
   assert.doesNotMatch(legacy,/render\(\); toast\('Demoläge: ändringar sparas i denna webbläsare\.'/);
   assert.match(workspace,/>LT Studio<small>EKONOMI & VERKSAMHET<\/small>/);
+  assert.doesNotMatch(assistant,/Rollands assistent/);
+  assert.match(assistant,/LT Studio-assistent/);
+  assert.doesNotMatch(accountPlan,/Rollands intern kontolista/);
 });
