@@ -100,8 +100,10 @@ test('betalningsdialogens submit kan inte fangas av modalbakgrunden och dialogen
   assert.doesNotMatch(receivables,/modal-backdrop" data-action="close-modal"><section class="modal manual-payment-modal/);
   assert.match(receivables,/event\.target\.matches\?\.\('\[data-manual-payment-backdrop\]'\)/);
   assert.match(receivables,/Registrera & skapa bunt/);
-  assert.match(styles,/\.manual-payment-picker-modal\{width:min\(900px/);
-  assert.match(styles,/\.manual-payment-form-modal\{width:min\(980px/);
+  assert.match(styles,/\.manual-payment-picker-modal\{width:min\(1180px/);
+  assert.match(styles,/\.manual-payment-picker-modal\{[^}]*height:min\(820px/);
+  assert.match(styles,/\.manual-payment-picker-modal \.manual-invoice-results\{[^}]*min-height:390px/);
+  assert.match(styles,/\.manual-payment-form-modal\{width:min\(1080px/);
   assert.match(styles,/form\[data-form="manual-payment"\]\{display:grid;grid-template-columns:repeat\(2/);
 });
 
