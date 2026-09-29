@@ -187,10 +187,12 @@ html[data-lt-theme="dark"] .settlement-limit{color:var(--lt-dark-muted,#dce4ec)!
 
 
 /* Manuella kundinbetalningar: samma modal/formsprak i Kundreskontra och Betalningar. */
-.manual-payment-modal{width:min(920px,calc(100vw - 48px));max-height:92vh}
-.manual-payment-picker-modal{width:min(900px,calc(100vw - 48px))}
-.manual-payment-form-modal{width:min(980px,calc(100vw - 48px))}
+.manual-payment-modal{width:min(1080px,calc(100vw - 40px));max-height:calc(100vh - 40px)}
+.manual-payment-picker-modal{width:min(1180px,calc(100vw - 40px));height:min(820px,calc(100vh - 40px));max-height:calc(100vh - 40px);overflow:hidden;display:flex;flex-direction:column}
+.manual-payment-form-modal{width:min(1080px,calc(100vw - 40px))}
 .manual-payment-modal .modal-body{padding:26px 28px 28px}
+.manual-payment-picker-modal .modal-head{flex:0 0 auto}
+.manual-payment-picker-modal .modal-body{flex:1 1 auto;min-height:0;overflow:hidden;display:flex;flex-direction:column;padding:28px 36px 32px}
 .manual-payment-summary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 18px;margin:16px 0;padding:15px;border:1px solid var(--line);border-radius:14px;background:var(--surface-alt,var(--paper,#fff));color:var(--ink)}
 .manual-payment-form-modal .manual-payment-summary{grid-template-columns:minmax(110px,.75fr) minmax(130px,1fr) minmax(110px,.75fr) minmax(130px,1fr);gap:10px 18px}
 .manual-payment-summary span{font-size:12px;color:var(--muted)}
@@ -218,8 +220,10 @@ html[data-lt-theme="dark"] .settlement-limit{color:var(--lt-dark-muted,#dce4ec)!
 .payments-primary-actions{display:flex;align-items:center;gap:14px;margin-bottom:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--paper)}
 .payments-primary-actions span{font-size:12px;color:var(--muted);line-height:1.45}
 .manual-invoice-search-shell{margin-top:14px}
+.manual-payment-picker-modal .manual-invoice-search-shell{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
 .manual-invoice-search-shell>input{width:100%;min-height:46px}
-.manual-invoice-results{position:relative;left:auto;right:auto;top:auto;margin-top:10px;max-height:min(52vh,480px)}
+.manual-invoice-results{position:relative;left:auto;right:auto;top:auto;margin-top:10px;max-height:none;overflow-y:auto}
+.manual-payment-picker-modal .manual-invoice-results{flex:1 1 auto;min-height:390px;max-height:none}
 .manual-invoice-results .shared-search-option{padding:14px 16px}
 html[data-lt-theme="dark"] .manual-payment-summary,
 html[data-lt-theme="dark"] .manual-payment-history,
@@ -242,7 +246,7 @@ html[data-lt-theme="light"] .payments-primary-actions{background:var(--lt-light-
   .manual-payment-form-modal form[data-form="manual-payment"] .modal-actions{grid-column:auto}
 }
 @media(max-width:720px){
-  .manual-payment-modal,.manual-payment-picker-modal,.manual-payment-form-modal{width:100%;max-height:94vh}
+  .manual-payment-modal,.manual-payment-picker-modal,.manual-payment-form-modal{width:100%;height:auto;max-height:94vh}
   .manual-payment-modal .modal-body{padding:18px}
   .manual-payment-summary{grid-template-columns:1fr}
   .manual-payment-summary strong{text-align:left}
