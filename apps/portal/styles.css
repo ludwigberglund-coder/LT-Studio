@@ -184,3 +184,19 @@ html[data-lt-theme="dark"] .settlement-limit{color:var(--lt-dark-muted,#dce4ec)!
   .invoice-pdf-button{transition:none}
   .invoice-pdf-button:hover,.invoice-pdf-button:active{transform:none}
 }
+
+
+/* Visual QA: the settlement sheet must be immediately opaque and readable. */
+.settlement-backdrop{
+  animation:none!important;
+  opacity:1!important;
+}
+.settlement-backdrop .settlement-modal{
+  animation:none!important;
+  opacity:1!important;
+  transform:none!important;
+  background:var(--surface-card,var(--paper,#fff))!important;
+}
+html[data-lt-theme="dark"] .settlement-backdrop .settlement-modal{
+  background:var(--lt-dark-surface,#2d333b)!important;
+}
