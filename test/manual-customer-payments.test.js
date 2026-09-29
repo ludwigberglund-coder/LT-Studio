@@ -103,6 +103,7 @@ test('betalningsdialogens submit kan inte fangas av modalbakgrunden och dialogen
   assert.match(styles,/\.manual-payment-picker-modal\{width:min\(1180px/);
   assert.match(styles,/\.manual-payment-picker-modal\{[^}]*height:min\(820px/);
   assert.match(styles,/\.manual-payment-picker-modal \.manual-invoice-results\{[^}]*min-height:390px/);
+  assert.match(styles,/\.manual-payment-picker-modal \.manual-invoice-results\{[^}]*position:relative;[^}]*top:auto/);
   assert.match(styles,/\.manual-payment-form-modal\{width:min\(1080px/);
   assert.match(styles,/form\[data-form="manual-payment"\]\{display:grid;grid-template-columns:repeat\(2/);
 });
