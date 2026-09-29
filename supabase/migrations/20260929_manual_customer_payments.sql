@@ -29,7 +29,7 @@ create table if not exists public.customer_manual_payments (
   foreign key(company_id,customer_id) references public.customers(company_id,id) on delete restrict,
   foreign key(company_id,batch_id) references public.financial_batches(company_id,id) on delete restrict,
   foreign key(company_id,accounting_entry_id) references public.journal_entries(company_id,id) on delete restrict,
-  foreign key(company_id,invoice_transaction_id) references public.invoice_transactions(company_id,id) on delete restrict
+  foreign key(invoice_transaction_id) references public.invoice_transactions(id) on delete restrict
 );
 
 create index if not exists customer_manual_payments_invoice_idx
@@ -457,7 +457,8 @@ begin
     if old.status='ready' and new.status in ('approved','rejected') then return new; end if;
     raise exception 'MANUAL_PAYMENT_BATCH_LOCKED';
   end if;
-  return coalesce(new,old);
+  if tg_op='DELETE' then return old; end if;
+  return new;
 end;
 $$;
 
