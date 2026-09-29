@@ -808,3 +808,73 @@ textarea:focus-visible,
 :where(.panel,.metric):hover{transform:translateY(-2px);box-shadow:0 12px 30px rgb(0 0 0 / .075)}
 :where(.shared-user-dropdown,.column-menu,.context-menu){transform-origin:top right;animation:ltMenuIn var(--motion-base) var(--motion-spring) both}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}:where(.panel,.metric,.side-nav button):hover{transform:none!important}}
+
+
+/* Visual QA 2026-09-29 — legacy workspace polish without changing the public website. */
+.admin-shell,
+.admin-top,
+.admin-shell button,
+.admin-shell input,
+.admin-shell select,
+.admin-shell textarea{
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif!important;
+}
+.admin-top{
+  background:rgb(255 255 255 / .84)!important;
+  border-bottom:1px solid var(--color-hairline)!important;
+  box-shadow:0 8px 24px rgb(18 40 32 / .05);
+  -webkit-backdrop-filter:blur(22px) saturate(145%);
+  backdrop-filter:blur(22px) saturate(145%);
+}
+.admin-top :where(.menu-toggle,.search-trigger,.button){
+  min-height:40px;
+  border-radius:999px!important;
+}
+.admin-top .button:not(.ghost){
+  background:#173f32!important;
+  color:#fff!important;
+  border-color:#173f32!important;
+}
+.admin-top .user{
+  width:40px!important;
+  height:40px!important;
+  background:#173f32!important;
+  color:#fff!important;
+}
+.toast{
+  border-radius:14px!important;
+  max-width:min(440px,calc(100vw - 32px));
+  line-height:1.4;
+}
+@media(max-width:650px){
+  .admin-top{
+    min-height:70px!important;
+    padding:10px 14px!important;
+  }
+  .admin-top .menu-toggle{
+    padding:8px 12px!important;
+  }
+  .admin-top .search-trigger{
+    width:42px;
+    height:42px;
+    padding:0!important;
+    justify-content:center;
+    overflow:hidden;
+  }
+  .admin-top .top-actions{
+    margin-left:auto;
+    flex-wrap:nowrap;
+  }
+  .admin-top .top-actions .button{
+    min-height:42px;
+    padding:8px 14px!important;
+    white-space:nowrap;
+  }
+  .toast{
+    right:14px!important;
+    left:14px!important;
+    bottom:84px!important;
+    width:auto!important;
+    max-width:none!important;
+  }
+}
