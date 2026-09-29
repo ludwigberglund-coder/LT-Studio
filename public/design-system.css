@@ -842,6 +842,9 @@ textarea:focus-visible,
   color:#fff!important;
 }
 .toast{
+  left:274px!important;
+  right:auto!important;
+  bottom:18px!important;
   border-radius:14px!important;
   max-width:min(440px,calc(100vw - 32px));
   line-height:1.4;
@@ -871,9 +874,9 @@ textarea:focus-visible,
     white-space:nowrap;
   }
   .toast{
-    right:14px!important;
     left:14px!important;
-    bottom:84px!important;
+    right:72px!important;
+    bottom:18px!important;
     width:auto!important;
     max-width:none!important;
   }
