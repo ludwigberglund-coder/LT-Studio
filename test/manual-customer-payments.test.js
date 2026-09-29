@@ -88,6 +88,23 @@ test('Kundreskontra och Betalningar har samma sakra manuella betalningsflode',()
   assert.match(styles,/html\[data-lt-theme="light"\] \.manual-payment-summary/);
 });
 
+test('betalningsdialogens submit kan inte fangas av modalbakgrunden och dialogen ar rymligare',()=>{
+  const receivables=read('apps/portal/app.js');
+  const payments=read('apps/portal/payments.js');
+  const styles=read('apps/portal/styles.css');
+  assert.match(payments,/data-manual-payment-backdrop/);
+  assert.doesNotMatch(payments,/modal-backdrop" data-action="manual-payment-close"/);
+  assert.match(payments,/event\.target\.matches\?\.\('\[data-manual-payment-backdrop\]'\)/);
+  assert.match(payments,/Registrera & skapa bunt/);
+  assert.match(receivables,/data-manual-payment-backdrop/);
+  assert.doesNotMatch(receivables,/modal-backdrop" data-action="close-modal"><section class="modal manual-payment-modal/);
+  assert.match(receivables,/event\.target\.matches\?\.\('\[data-manual-payment-backdrop\]'\)/);
+  assert.match(receivables,/Registrera & skapa bunt/);
+  assert.match(styles,/\.manual-payment-picker-modal\{width:min\(900px/);
+  assert.match(styles,/\.manual-payment-form-modal\{width:min\(980px/);
+  assert.match(styles,/form\[data-form="manual-payment"\]\{display:grid;grid-template-columns:repeat\(2/);
+});
+
 test('front-endfilerna ar giltig JavaScript-syntax',()=>{
   for(const file of ['apps/portal/app.js','apps/portal/payments.js','apps/portal/supabase-client.js']){
     assert.doesNotThrow(()=>new vm.Script(read(file),{filename:file}),file+' har syntaxfel');
