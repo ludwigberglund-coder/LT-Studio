@@ -831,14 +831,14 @@ textarea:focus-visible,
   border-radius:999px!important;
 }
 .admin-top .button:not(.ghost){
-  background:#173f32!important;
+  background:var(--color-ink)!important;
   color:#fff!important;
-  border-color:#173f32!important;
+  border-color:var(--color-ink)!important;
 }
 .admin-top .user{
   width:40px!important;
   height:40px!important;
-  background:#173f32!important;
+  background:var(--color-ink)!important;
   color:#fff!important;
 }
 .toast{
