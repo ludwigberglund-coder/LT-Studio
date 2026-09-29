@@ -135,9 +135,18 @@ test('admin kan alltid låsa upp sin egen period medan ekonom behåller kontroll
     const singlePolicy=await (await fetch(f.base+'/api/v1/accounting/unlock-requests?status=pending',{headers:singleHeaders})).json();
     assert.equal(singlePolicy.unlockPolicy.adminSelfUnlockAllowed,false);
     assert.equal(singlePolicy.unlockPolicy.selfUnlockAllowed,true);
+    const selfUnlockNow=Date.now();
+    const currentCounter=Math.floor(selfUnlockNow/1000/30);
+    let freshTotp='';
+    for(const offset of [-1,0,1]){
+      const counter=currentCounter+offset;
+      const alreadyUsed=f.db.prepare('SELECT 1 FROM mfa_used_steps WHERE user_id=? AND totp_counter=?').get(single.id,counter);
+      if(!alreadyUsed){freshTotp=Auth.totpCode(f.MFA,selfUnlockNow+offset*30000);break}
+    }
+    assert.match(freshTotp,/^\\d{6}$/);
     response=await fetch(f.base+`/api/v1/accounting/unlock-requests/${singleRequest.id}/approve`,{
       method:'POST',headers:singleHeaders,
-      body:JSON.stringify({reason:'Verifierad självupplåsning för fortsatt bokföring',password:f.PASSWORD,totp:Auth.totpCode(f.MFA)})
+      body:JSON.stringify({reason:'Verifierad självupplåsning för fortsatt bokföring',password:f.PASSWORD,totp:freshTotp})
     });
     assert.equal(response.status,200);
     assert.equal(Admin.periodStatus(f.db,singleCompany.id,periodSingle).status,'open');
