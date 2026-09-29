@@ -85,7 +85,14 @@ function json(route,status,body){
         let relative=decodeURIComponent(url.pathname.slice(pagesPrefix.length));
         if(!relative||relative.endsWith('/'))relative+='index.html';
         const file=path.resolve(root,relative);
-        if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){
+        if(!file.startsWith(root+path.sep)){
+          await route.fulfill({status:403,body:'Forbidden'});
+          return;
+        }
+        let body;
+        try{
+          body=fs.readFileSync(file);
+        }catch{
           await route.fulfill({status:404,body:'Not found'});
           return;
         }
@@ -93,7 +100,7 @@ function json(route,status,body){
           status:200,
           contentType:contentType(file),
           headers:{'Cache-Control':'no-store'},
-          body:fs.readFileSync(file)
+          body
         });
         return;
       }
