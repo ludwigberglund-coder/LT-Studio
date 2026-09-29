@@ -295,7 +295,7 @@ function refundModal(){
 function manualPaymentModal(){
   const invoice=invoiceById(modal.invoiceId),payments=invoice?.manualPayments||[];
   const pendingOre=payments.filter(payment=>payment.status==='pending').reduce((sum,payment)=>sum+Number(payment.amountOre||0),0);
-  const approvedPaidOre=Math.max(0,Number(invoice?.totalOre||0)-Number(invoice?.remainingOre||0));
+  const approvedPaidOre=(invoice?.transactions||[]).filter(tx=>tx.transactionType==='payment'&&tx.approved!==false).reduce((sum,tx)=>sum+Math.abs(Number(tx.amountOre||0)),0);
   const availableOre=Math.max(0,Number(invoice?.remainingOre||0)-pendingOre);
   const values=modal.formValues||{paymentDate:today(),amount:(availableOre/100).toFixed(2).replace('.',','),bankAccount:'1930',reference:'',comment:'Manuellt registrerad bankbetalning'};
   const history=payments.slice().sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))).map(payment=>`<div class="manual-payment-history-row"><span><b>${escapeHtml(shortDate(payment.paymentDate))}</b><small>${escapeHtml(payment.bankAccount)} · ${payment.status==='pending'?'Väntar på godkännande':payment.status==='approved'?'Godkänd':'Avvisad'}${payment.batchNumber?' · Bunt '+escapeHtml(String(payment.batchNumber).padStart(5,'0')):''}</small></span><strong>${ore(payment.amountOre)}</strong></div>`).join('');
