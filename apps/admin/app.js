@@ -169,7 +169,7 @@ function contentView() {
           <li><strong>Små ändringar:</strong> öppna filen i GitHub, klicka på pennan och ändra texten.</li>
           <li><strong>Större ändringar:</strong> förhandsvisa här, ladda ned filen och ersätt innehållet i GitHub.</li>
         </ol>
-        <a class="button primary full" href="https://github.com/ludwigberglund-coder/Rollands/edit/main/content/site.json" target="_blank" rel="noopener">Redigera site.json i GitHub</a>
+        <a class="button primary full" href="https://github.com/ludwigberglund-coder/LT-Studio/edit/main/content/site.json" target="_blank" rel="noopener">Redigera site.json i GitHub</a>
         <a class="button ghost full" href="../?preview=1" target="_blank">Öppna lokal förhandsvisning</a>
         <p class="fine-print">Lägg aldrig kunduppgifter, fakturor, bankdata eller lösenord i innehållsfilerna.</p>
       </aside>
