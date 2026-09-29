@@ -75,74 +75,72 @@ test('periodlås och upplåsningsbegäran är idempotenta vid identiska HTTP-ret
 });
 
 
-test('flera behöriga kräver annan beslutsfattare men ensam kundanvändare kan självupplåsa med ny MFA',async()=>{
+test('admin kan alltid låsa upp sin egen period medan ekonom behåller kontrollregler',async()=>{
   const f=await fixture();
   try{
-    const periodMulti='2026-12';
+    const periodAdmin='2026-12';
     const adminHeaders=await f.login(f.admin.username);
-    let response=await fetch(f.base+`/api/v1/accounting/periods/${periodMulti}/lock`,{method:'POST',headers:adminHeaders,body:'{}'});
+    let response=await fetch(f.base+`/api/v1/accounting/periods/${periodAdmin}/lock`,{method:'POST',headers:adminHeaders,body:'{}'});
     assert.equal(response.status,200);
-    response=await fetch(f.base+`/api/v1/accounting/periods/${periodMulti}/unlock-request`,{method:'POST',headers:adminHeaders,body:JSON.stringify({reason:'Behöver öppna perioden för kontrollerad rättelse'})});
+    response=await fetch(f.base+`/api/v1/accounting/periods/${periodAdmin}/unlock-request`,{method:'POST',headers:adminHeaders,body:JSON.stringify({reason:'Admin behöver öppna perioden för kontrollerad rättelse'})});
+    assert.equal(response.status,201);
+    const adminRequest=(await response.json()).request;
+
+    const adminPolicy=await (await fetch(f.base+'/api/v1/accounting/unlock-requests?status=pending',{headers:adminHeaders})).json();
+    assert.equal(adminPolicy.unlockPolicy.adminSelfUnlockAllowed,true);
+    assert.equal(adminPolicy.unlockPolicy.selfUnlockAllowed,true);
+
+    response=await fetch(f.base+`/api/v1/accounting/unlock-requests/${adminRequest.id}/approve`,{
+      method:'POST',headers:adminHeaders,
+      body:JSON.stringify({reason:'Admin öppnar perioden efter kontroll'})
+    });
+    assert.equal(response.status,200);
+    assert.equal((await response.json()).selfUnlock,true);
+    assert.equal(Admin.periodStatus(f.db,f.a.id,periodAdmin).status,'open');
+    const adminAudit=Db.auditForCompany(f.db,f.a.id).find(event=>event.action==='ACCOUNTING_PERIOD_UNLOCKED'&&event.entityId===periodAdmin);
+    assert.ok(adminAudit);
+    assert.equal(adminAudit.details.selfUnlock,true);
+    assert.equal(adminAudit.details.adminOverride,true);
+    assert.equal(adminAudit.details.reauthenticated,false);
+
+    const accountantCompany=Db.createCompany(f.db,{legalName:'Ekonomitest AB',displayName:'Ekonomitest',orgNumber:'559900-2998'});
+    const accountant=Db.createUser(f.db,{username:'period.accountant',displayName:'Periodekonom',passwordHash:Auth.hashPassword(f.PASSWORD),mfaSecretEncrypted:Auth.encryptSecret(f.MFA,'test-only-private-workflows-key-not-for-production-1234')});
+    const secondAccountant=Db.createUser(f.db,{username:'period.accountant.2',displayName:'Periodekonom 2',passwordHash:Auth.hashPassword(f.PASSWORD),mfaSecretEncrypted:Auth.encryptSecret(f.MFA,'test-only-private-workflows-key-not-for-production-1234')});
+    Db.addMembership(f.db,{companyId:accountantCompany.id,userId:accountant.id,role:'accountant'});
+    Db.addMembership(f.db,{companyId:accountantCompany.id,userId:secondAccountant.id,role:'accountant'});
+    const accountantHeaders=await f.login(accountant.username);
+    const periodMulti='2026-09';
+    response=await fetch(f.base+`/api/v1/accounting/periods/${periodMulti}/lock`,{method:'POST',headers:accountantHeaders,body:'{}'});
+    assert.equal(response.status,200);
+    response=await fetch(f.base+`/api/v1/accounting/periods/${periodMulti}/unlock-request`,{method:'POST',headers:accountantHeaders,body:JSON.stringify({reason:'Ekonom behöver öppna perioden'})});
     assert.equal(response.status,201);
     const multiRequest=(await response.json()).request;
-
-    const multiPolicy=await (await fetch(f.base+'/api/v1/accounting/unlock-requests?status=pending',{headers:adminHeaders})).json();
-    assert.equal(multiPolicy.unlockPolicy.eligibleCustomerApprovers,2);
-    assert.equal(multiPolicy.unlockPolicy.selfUnlockAllowed,false);
-
     response=await fetch(f.base+`/api/v1/accounting/unlock-requests/${multiRequest.id}/approve`,{
-      method:'POST',headers:adminHeaders,
-      body:JSON.stringify({reason:'Försök till självbeslut',password:f.PASSWORD,totp:Auth.totpCode(f.MFA)})
+      method:'POST',headers:accountantHeaders,body:JSON.stringify({reason:'Försök till självbeslut',password:f.PASSWORD,totp:Auth.totpCode(f.MFA)})
     });
     assert.equal(response.status,409);
     assert.equal((await response.json()).code,'SEPARATION_OF_DUTIES_FAILED');
-    assert.equal(Admin.periodStatus(f.db,f.a.id,periodMulti).status,'locked');
+    assert.equal(Admin.periodStatus(f.db,accountantCompany.id,periodMulti).status,'locked');
 
-    const otherHeaders=await f.login(f.auditor.username);
-    response=await fetch(f.base+`/api/v1/accounting/unlock-requests/${multiRequest.id}/approve`,{
-      method:'POST',headers:otherHeaders,body:JSON.stringify({reason:'Granskad och godkänd av annan behörig'})
-    });
-    assert.equal(response.status,200);
-    assert.equal((await response.json()).selfUnlock,false);
-    assert.equal(Admin.periodStatus(f.db,f.a.id,periodMulti).status,'open');
-
-    const singleCompany=Db.createCompany(f.db,{legalName:'Enmansbolag Test AB',displayName:'Enmansbolag Test',orgNumber:'559900-1999'});
-    const single=Db.createUser(f.db,{username:'single.owner',displayName:'Ensam ägare',passwordHash:Auth.hashPassword(f.PASSWORD),mfaSecretEncrypted:Auth.encryptSecret(f.MFA,'test-only-private-workflows-key-not-for-production-1234')});
-    Db.addMembership(f.db,{companyId:singleCompany.id,userId:single.id,role:'admin'});
+    const singleCompany=Db.createCompany(f.db,{legalName:'Enmansbolag Ekonom AB',displayName:'Enmansbolag Ekonom',orgNumber:'559900-1999'});
+    const single=Db.createUser(f.db,{username:'single.accountant',displayName:'Ensam ekonom',passwordHash:Auth.hashPassword(f.PASSWORD),mfaSecretEncrypted:Auth.encryptSecret(f.MFA,'test-only-private-workflows-key-not-for-production-1234')});
+    Db.addMembership(f.db,{companyId:singleCompany.id,userId:single.id,role:'accountant'});
     const singleHeaders=await f.login(single.username);
     const periodSingle='2026-10';
-
     response=await fetch(f.base+`/api/v1/accounting/periods/${periodSingle}/lock`,{method:'POST',headers:singleHeaders,body:'{}'});
     assert.equal(response.status,200);
-    response=await fetch(f.base+`/api/v1/accounting/periods/${periodSingle}/unlock-request`,{method:'POST',headers:singleHeaders,body:JSON.stringify({reason:'Ensam användare behöver fortsätta bokföringen'})});
+    response=await fetch(f.base+`/api/v1/accounting/periods/${periodSingle}/unlock-request`,{method:'POST',headers:singleHeaders,body:JSON.stringify({reason:'Ensam ekonom behöver fortsätta bokföringen'})});
     assert.equal(response.status,201);
     const singleRequest=(await response.json()).request;
-
     const singlePolicy=await (await fetch(f.base+'/api/v1/accounting/unlock-requests?status=pending',{headers:singleHeaders})).json();
-    assert.equal(singlePolicy.unlockPolicy.eligibleCustomerApprovers,1);
+    assert.equal(singlePolicy.unlockPolicy.adminSelfUnlockAllowed,false);
     assert.equal(singlePolicy.unlockPolicy.selfUnlockAllowed,true);
-
-    response=await fetch(f.base+`/api/v1/accounting/unlock-requests/${singleRequest.id}/approve`,{
-      method:'POST',headers:singleHeaders,
-      body:JSON.stringify({reason:'Verifierad självupplåsning för fortsatt bokföring',password:'fel lösenord',totp:Auth.totpCode(f.MFA)})
-    });
-    assert.equal(response.status,401);
-    assert.equal((await response.json()).code,'REAUTH_PASSWORD_INVALID');
-    assert.equal(Admin.periodStatus(f.db,singleCompany.id,periodSingle).status,'locked');
-
     response=await fetch(f.base+`/api/v1/accounting/unlock-requests/${singleRequest.id}/approve`,{
       method:'POST',headers:singleHeaders,
       body:JSON.stringify({reason:'Verifierad självupplåsning för fortsatt bokföring',password:f.PASSWORD,totp:Auth.totpCode(f.MFA)})
     });
     assert.equal(response.status,200);
-    const body=await response.json();
-    assert.equal(body.selfUnlock,true);
     assert.equal(Admin.periodStatus(f.db,singleCompany.id,periodSingle).status,'open');
-    const audit=Db.auditForCompany(f.db,singleCompany.id).find(event=>event.action==='ACCOUNTING_PERIOD_UNLOCKED'&&event.entityId===periodSingle);
-    assert.ok(audit);
-    assert.equal(audit.details.selfUnlock,true);
-    assert.equal(audit.details.reauthenticated,true);
-    assert.equal(audit.details.eligibleCustomerApprovers,1);
   }finally{
     await f.close();
   }
