@@ -156,7 +156,13 @@ const Settings=require('../apps/api/company-invoice-settings.js');
     checks.push('Enter in customer invoice price field cannot issue or book the invoice');
     await unitPrice.fill('-100,00');
     await page.getByRole('button',{name:'Skapa och bokför faktura',exact:true}).click();
-    await page.getByRole('heading',{name:/Faktura /}).waitFor({timeout:30000});
+    const invoicePreviewHeading=page.getByRole('heading',{name:/Faktura /});
+    const invoiceAlert=page.locator('#invoice-alert:not([hidden])');
+    const issueOutcome=await Promise.race([
+      invoicePreviewHeading.waitFor({timeout:60000}).then(()=>({kind:'preview'})),
+      invoiceAlert.waitFor({state:'visible',timeout:60000}).then(async()=>({kind:'error',message:await invoiceAlert.innerText()}))
+    ]);
+    assert.equal(issueOutcome.kind,'preview','customer invoice issue failed: '+(issueOutcome.message||'unknown error'));
     const invoicesAfterNegative=Invoicing.listCustomerInvoices(f.db,f.a.id);
     assert.equal(invoicesAfterNegative.length,invoiceCountBeforeEnter+1);
     const negativeInvoice=invoicesAfterNegative.find(row=>row.totalOre<0&&row.customerNumber==='K-1001');
