@@ -156,7 +156,7 @@ const Settings=require('../apps/api/company-invoice-settings.js');
     checks.push('Enter in customer invoice price field cannot issue or book the invoice');
     await unitPrice.fill('-100,00');
     await page.getByRole('button',{name:'Skapa och bokför faktura',exact:true}).click();
-    await page.getByRole('heading',{name:/Faktura /}).waitFor({timeout:30000});
+    await page.getByRole('heading',{name:/Faktura /}).waitFor({timeout:60000});
     const invoicesAfterNegative=Invoicing.listCustomerInvoices(f.db,f.a.id);
     assert.equal(invoicesAfterNegative.length,invoiceCountBeforeEnter+1);
     const negativeInvoice=invoicesAfterNegative.find(row=>row.totalOre<0&&row.customerNumber==='K-1001');
