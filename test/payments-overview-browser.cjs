@@ -100,6 +100,7 @@ async function close(server){if(server?.listening)await new Promise(r=>server.cl
       const resultRect=results.getBoundingClientRect();
       const firstRect=rows[0].getBoundingClientRect();
       const fifthRect=rows[4].getBoundingClientRect();
+      results.style.animation='none';
       const style=getComputedStyle(results);
       const snapshot={
         position:style.position,
