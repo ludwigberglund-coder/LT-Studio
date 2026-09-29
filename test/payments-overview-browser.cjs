@@ -87,6 +87,39 @@ async function close(server){if(server?.listening)await new Promise(r=>server.cl
     assert.match(csv,/Betald & bokförd/);
     assert.equal(csv.includes('Kund Alpha'),false);
     assert.match(csv,/-12500/);
-    console.log('Betalningsöversikt browserfilter och export: OK');
+
+    const pickerLayout=await page.evaluate(()=>{
+      const host=document.createElement('section');
+      host.className='modal manual-payment-modal manual-payment-picker-modal';
+      host.innerHTML='<div class="modal-body"><div class="shared-search-shell manual-invoice-search-shell"><input type="search" value=""><div class="shared-search-results manual-invoice-results">'+Array.from({length:5},(_,i)=>'<button class="shared-search-option"><span><b>Faktura '+(310000+i)+'</b><small>Kund · K-'+i+'</small></span><strong>1 000,00 kr</strong></button>').join('')+'</div></div></div>';
+      document.body.append(host);
+      const input=host.querySelector('input');
+      const results=host.querySelector('.manual-invoice-results');
+      const rows=[...host.querySelectorAll('.shared-search-option')];
+      const inputRect=input.getBoundingClientRect();
+      const resultRect=results.getBoundingClientRect();
+      const firstRect=rows[0].getBoundingClientRect();
+      const fifthRect=rows[4].getBoundingClientRect();
+      const style=getComputedStyle(results);
+      const snapshot={
+        position:style.position,
+        inputBottom:Math.round(inputRect.bottom),
+        resultTop:Math.round(resultRect.top),
+        firstTop:Math.round(firstRect.top),
+        resultBottom:Math.round(resultRect.bottom),
+        fifthBottom:Math.round(fifthRect.bottom),
+        resultHeight:Math.round(resultRect.height)
+      };
+      host.remove();
+      return snapshot;
+    });
+    assert.notEqual(pickerLayout.position,'absolute','manual invoice results must stay in normal flow');
+    assert.ok(pickerLayout.resultTop>=pickerLayout.inputBottom,'invoice results must begin below the search input');
+    assert.ok(pickerLayout.resultTop-pickerLayout.inputBottom<=24,'invoice results must sit directly below the search input');
+    assert.ok(pickerLayout.firstTop-pickerLayout.resultTop<=2,'first invoice row must start at the top of the result list');
+    assert.ok(pickerLayout.resultHeight>=390,'invoice result area must remain large enough for at least five rows');
+    assert.ok(pickerLayout.fifthBottom<=pickerLayout.resultBottom,'five invoice rows must fit inside the visible result area');
+
+    console.log('Betalningsöversikt browserfilter, export och manuell fakturaväljare: OK');
   }finally{if(browser)await browser.close();if(portal)await close(portal);await close(runtime.server);try{db.close()}catch{}}
 })().catch(e=>{console.error(e);process.exitCode=1});
