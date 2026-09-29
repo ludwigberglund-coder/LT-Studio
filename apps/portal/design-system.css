@@ -3488,3 +3488,29 @@ html[data-lt-theme="dark"] .batch-editor>.batch-actions{
     padding:4px!important;
   }
 }
+
+
+/* Visual QA 2026-09-29 — fixes found in rendered main screenshots. */
+.lt-theme-toggle-topbar .lt-theme-toggle-label{
+  display:none!important;
+}
+.lt-theme-toggle-topbar{
+  overflow:hidden!important;
+  flex:0 0 44px!important;
+}
+.topbar>.shared-user-menu{
+  min-width:0;
+  flex:0 0 auto;
+}
+@media(max-width:760px){
+  .topbar>div:first-of-type{
+    min-width:0;
+    overflow:hidden;
+  }
+  .topbar h1{
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+}
