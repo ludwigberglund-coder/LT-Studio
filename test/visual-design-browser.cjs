@@ -96,6 +96,20 @@ function visible(element){
           const cmsFormStyle=cmsForm?getComputedStyle(cmsForm):null;
           const cmsSideStyle=cmsSidePanel?getComputedStyle(cmsSidePanel):null;
           const supplierDividerStyle=supplierDivider?getComputedStyle(supplierDivider):null;
+          const sharedBrand=document.querySelector('.shared-brand strong');
+          const themeLabel=document.querySelector('.lt-theme-toggle-topbar .lt-theme-toggle-label');
+          const themeLabelStyle=themeLabel?getComputedStyle(themeLabel):null;
+          const systemHeading=document.querySelector('.system-status-heading h2');
+          const systemRowStrong=document.querySelector('.system-status .system-row strong');
+          const systemHeadingStyle=systemHeading?getComputedStyle(systemHeading):null;
+          const systemRowStrongStyle=systemRowStrong?getComputedStyle(systemRowStrong):null;
+          const projectTopbar=document.querySelector('.admin-shell .topbar');
+          const firstInvoiceRow=document.querySelector('.invoice-list-panel .sales-table tbody tr:not(.invoice-empty-row)');
+          const firstInvoiceCell=firstInvoiceRow?.querySelector('td[data-label]');
+          const invoiceThead=document.querySelector('.invoice-list-panel .sales-table thead');
+          const projectTopbarRect=projectTopbar?.getBoundingClientRect();
+          const invoiceTheadRect=invoiceThead?.getBoundingClientRect();
+          const legacyToast=document.querySelector('#toast.show');
           const rendered=[...document.querySelectorAll('body *')].filter(element=>{
             const style=getComputedStyle(element);
             const rect=element.getBoundingClientRect();
@@ -130,6 +144,13 @@ function visible(element){
             cmsFormPaddingLeft:cmsFormStyle?.paddingLeft||null,
             cmsSidePaddingTop:cmsSideStyle?.paddingTop||null,
             supplierDividerBorderTopColor:supplierDividerStyle?.borderTopColor||null,
+            sharedBrandText:sharedBrand?.textContent?.trim()||null,
+            themeLabelDisplay:themeLabelStyle?.display||null,
+            systemHeadingColor:systemHeadingStyle?.color||null,
+            systemRowStrongColor:systemRowStrongStyle?.color||null,
+            projectTopbarHeight:projectTopbarRect?Math.round(projectTopbarRect.height):null,
+            invoiceMobileCard:Boolean(firstInvoiceCell?.dataset?.label)&&Boolean(invoiceTheadRect&&invoiceTheadRect.width<=2),
+            legacyToastVisible:Boolean(legacyToast),
             dashboardHeroGap,
             overflowing,
             iconizedMetrics:document.querySelectorAll('.metric.ui-with-icon,.stat-button.ui-with-icon').length
@@ -145,6 +166,23 @@ function visible(element){
 
         if(layout.sidebarBackground){
           assert.notEqual(layout.sidebarBackground,'rgb(20, 60, 48)',`${surface.id} ${viewport.id} leaked the old green sidebar`);
+        }
+        if(layout.sharedBrandText){
+          assert.equal(layout.sharedBrandText,'LT Studio',`${surface.id} ${viewport.id} shows outdated workspace branding: ${layout.sharedBrandText}`);
+        }
+        if(layout.themeLabelDisplay){
+          assert.equal(layout.themeLabelDisplay,'none',`${surface.id} ${viewport.id} topbar appearance label must not overlap adjacent controls`);
+        }
+        if(surface.id==='project-admin'&&layout.systemHeadingColor){
+          assert.equal(layout.systemHeadingColor,'rgb(255, 255, 255)',`${viewport.id} project admin system heading lost contrast`);
+          assert.equal(layout.systemRowStrongColor,'rgb(255, 255, 255)',`${viewport.id} project admin status values lost contrast`);
+          if(viewport.id==='mobile')assert.ok(layout.projectTopbarHeight<=150,`project admin mobile topbar is too tall: ${layout.projectTopbarHeight}px`);
+        }
+        if(surface.id==='invoices'&&viewport.id==='mobile'){
+          assert.equal(layout.invoiceMobileCard,true,'mobile customer invoices must render as labeled stacked rows');
+        }
+        if(surface.id==='legacy'){
+          assert.equal(layout.legacyToastVisible,false,`${viewport.id} legacy demo notice must not cover working content on initial load`);
         }
         if(layout.sharedUserDisplay){
           assert.ok(['flex','inline-flex'].includes(layout.sharedUserDisplay),`${surface.id} ${viewport.id} shared account trigger lost its flex layout: ${layout.sharedUserDisplay}`);
