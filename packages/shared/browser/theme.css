@@ -503,15 +503,19 @@ html[data-lt-theme="dark"] :where(.supplier-search-icon){
    profile menu on every workspace page that has a .topbar. */
 .lt-theme-toggle-topbar{
   margin-left:auto;
-  min-height:48px;
-  padding:5px 10px;
-  gap:10px;
+  width:44px;
+  min-width:44px;
+  height:44px;
+  min-height:44px;
+  padding:4px;
+  gap:0;
+  justify-content:center;
   border:0;
-  border-radius:12px;
+  border-radius:999px;
   background:transparent;
   color:var(--color-ink,var(--ink,#0a0a0a));
   box-shadow:none;
-  flex:0 0 auto;
+  flex:0 0 44px;
 }
 .lt-theme-toggle-topbar:hover{
   background:var(--surface-input-fill,#f3f5f2);
@@ -531,10 +535,7 @@ html[data-lt-theme="dark"] :where(.supplier-search-icon){
   height:18px;
 }
 .lt-theme-toggle-topbar .lt-theme-toggle-label{
-  display:grid;
-  gap:1px;
-  text-align:left;
-  line-height:1.15;
+  display:none;
 }
 .lt-theme-toggle-topbar .lt-theme-toggle-label strong{
   font-size:12px;

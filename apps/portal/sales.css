@@ -1,1 +1,86 @@
 .sales-content{max-width:1400px;margin:0 auto}.sales-head{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;margin-bottom:24px}.sales-actions{display:flex;gap:10px;flex-wrap:wrap}.sales-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:22px}.sales-metric,.sales-panel{background:#fff;border:1px solid #dbe4df;border-radius:18px;box-shadow:0 8px 24px rgba(18,60,49,.06)}.sales-metric{padding:18px}.sales-metric span{display:block;color:#65756e;font-size:.86rem}.sales-metric strong{display:block;margin-top:6px;font-size:1.45rem}.sales-panel{padding:18px}.sales-table{width:100%;border-collapse:collapse}.sales-table th,.sales-table td{padding:12px 10px;border-bottom:1px solid #e8eeeb;text-align:left;vertical-align:top}.sales-table th{font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:#687870}.money{text-align:right!important;white-space:nowrap}.status-pill{display:inline-flex;padding:5px 9px;border-radius:999px;background:#eef4f1;font-size:.78rem;font-weight:700}.sales-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.sales-form .full{grid-column:1/-1}.sales-form label{display:flex;flex-direction:column;gap:6px;font-weight:700}.sales-form input,.sales-form select,.sales-form textarea{border:1px solid #cbd8d1;border-radius:10px;padding:10px 12px;font:inherit}.sales-form small{font-weight:400;color:#687870}.inline-note{padding:12px 14px;border-radius:12px;background:#f4f8f6;color:#385248}.invoice-preview{border:1px dashed #b9c9c1;border-radius:14px;padding:16px;background:#fbfdfc}.empty-state{padding:28px;text-align:center;color:#687870}.modal-backdrop-sales{position:fixed;inset:0;background:rgba(10,28,22,.55);display:grid;place-items:center;padding:20px;z-index:50}.modal-sales{width:min(760px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:20px;padding:22px}.modal-head-sales{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:18px}.modal-head-sales button{border:0;background:transparent;font-size:1.8rem;cursor:pointer}.print-only{display:none}@media(max-width:900px){.sales-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sales-head{flex-direction:column}.sales-form{grid-template-columns:1fr}}@media(max-width:560px){.sales-grid{grid-template-columns:1fr}.sales-panel{padding:12px}.sales-table{font-size:.9rem}}@media print{.sidebar,.topbar,.sales-actions,.demo-banner,.button{display:none!important}.main{margin:0!important}.sales-panel{border:0;box-shadow:none}.print-only{display:block}}
+
+
+/* Visual QA: customer invoice register becomes a readable card list on phones
+ * instead of clipping seven desktop columns inside a 390 px viewport. */
+@media(max-width:640px){
+  .invoice-list-panel{
+    padding:0!important;
+    overflow:hidden;
+  }
+  .invoice-list-panel .table-scroll{
+    max-height:none!important;
+    overflow:visible!important;
+  }
+  .invoice-list-panel .sales-table{
+    display:block;
+    width:100%;
+    font-size:13px;
+  }
+  .invoice-list-panel .sales-table thead{
+    position:absolute!important;
+    width:1px!important;
+    height:1px!important;
+    padding:0!important;
+    margin:-1px!important;
+    overflow:hidden!important;
+    clip:rect(0 0 0 0)!important;
+    white-space:nowrap!important;
+    border:0!important;
+  }
+  .invoice-list-panel .sales-table tbody{
+    display:grid;
+  }
+  .invoice-list-panel .sales-table tr{
+    display:block;
+    padding:15px 16px;
+    border-bottom:1px solid var(--color-hairline,#e5e5e5);
+    background:var(--surface-card,#fff);
+  }
+  .invoice-list-panel .sales-table tr:last-child{
+    border-bottom:0;
+  }
+  .invoice-list-panel .sales-table td{
+    display:grid;
+    grid-template-columns:104px minmax(0,1fr);
+    gap:10px;
+    align-items:start;
+    width:100%;
+    padding:5px 0!important;
+    border:0!important;
+    white-space:normal!important;
+    text-align:left!important;
+    overflow-wrap:anywhere;
+  }
+  .invoice-list-panel .sales-table td::before{
+    content:attr(data-label);
+    color:var(--color-mid-gray,#737373);
+    font-size:10px;
+    font-weight:700;
+    line-height:1.4;
+    letter-spacing:.045em;
+    text-transform:uppercase;
+  }
+  .invoice-list-panel .sales-table td:last-child{
+    display:block;
+    padding-top:10px!important;
+  }
+  .invoice-list-panel .sales-table td:last-child::before{
+    content:none;
+  }
+  .invoice-list-panel .sales-table td:last-child .button{
+    width:100%;
+    justify-content:center;
+  }
+  .invoice-list-panel .sales-table .invoice-empty-row{
+    padding:20px 16px;
+  }
+  .invoice-list-panel .sales-table .invoice-empty-row td{
+    display:block;
+    color:var(--color-mid-gray,#737373);
+    text-align:center!important;
+  }
+  .invoice-list-panel .sales-table .invoice-empty-row td::before{
+    content:none;
+  }
+}

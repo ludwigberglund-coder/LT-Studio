@@ -82,5 +82,5 @@
     const term = String(query).trim().toLocaleLowerCase('sv');
     return term ? accounts.filter(account => `${account.code} ${account.name} ${account.section}`.toLocaleLowerCase('sv').includes(term)) : accounts;
   }
-  return { version: 'Rollands intern kontolista – ej fullständig BAS 2026', sections, accounts, byCode, search };
+  return { version: 'LT Studio intern kontolista – ej fullständig BAS 2026', sections, accounts, byCode, search };
 });
