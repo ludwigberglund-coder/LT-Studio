@@ -80,9 +80,16 @@
   }
   async function signOut(scope='global'){
     const t=token();
-    if(t)await api().signOut(t,scope).catch(()=>{});
     window.LTSupabaseRealtime?.stop?.();
-    write(null);localStorage.removeItem(COMPANY_KEY);
+    write(null);
+    localStorage.removeItem(COMPANY_KEY);
+    if(!t)return {revoked:true};
+    try{
+      await api().signOut(t,scope);
+      return {revoked:true};
+    }catch(error){
+      return {revoked:false,error};
+    }
   }
   async function context(){
     let current=read(); if(!current?.access_token)return {authenticated:false};
