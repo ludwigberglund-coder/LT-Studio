@@ -671,14 +671,14 @@ th {
 }
 .nav-item.active,
 .shared-navigation .shared-links a[aria-current="page"]{
-  color:#173f32!important;
-  background:#e5f0f3!important;
-  box-shadow:inset 0 0 0 1px rgb(23 63 50 / .06),0 5px 14px rgb(23 63 50 / .06)!important;
+  color:var(--color-ink)!important;
+  background:#f0f0f0!important;
+  box-shadow:inset 0 0 0 1px var(--color-hairline),0 5px 14px rgb(0 0 0 / .06)!important;
   font-weight:650!important;
 }
 .nav-item.active .ui-icon,
 .shared-navigation .shared-links a[aria-current="page"] .ui-icon{
-  color:#173f32!important;
+  color:var(--color-ink)!important;
 }
 .lt-theme-toggle-topbar,
 .shared-user-trigger,
