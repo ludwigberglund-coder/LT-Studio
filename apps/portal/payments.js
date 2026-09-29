@@ -258,7 +258,7 @@ document.addEventListener('submit',async event=>{
   }catch(error){const raw=String(error?.message||error||'');let msg=raw;if(raw.includes('PAYMENT_EXCEEDS_AVAILABLE_BALANCE:'))msg='Beloppet är större än fakturans återstående belopp ('+ore(Number(raw.split(':').pop()||0))+').';else if(raw.includes('PAYMENT_ALREADY_PENDING'))msg='Det finns redan en väntande inbetalning som täcker fakturans saldo.';else if(raw.includes('PERIOD_LOCKED'))msg='Bokföringsperioden för betaldatumet är låst.';manualPaymentModal={...(manualPaymentModal||{}),step:'form',invoiceId:invoice?.id,requestId:manualPaymentModal?.requestId||crypto.randomUUID(),submitting:false,error:msg,values:{paymentDate:String(values.paymentDate||today()),amount:String(values.amount||''),bankAccount:String(values.bankAccount||''),reference:String(values.reference||''),comment:String(values.comment||'')}};render()}
 });
 async function load(){
-  const accountConfig=await fetch('../config/accounting-accounts.json',{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('Kontoplanen kunde inte laddas.');return response.json()});paymentAccounts=(accountConfig.accounts||[]).filter(row=>row.group==='Likvida medel'&&/^19[0-9]{2}$/.test(String(row.number||'')));
+  if(isSupabase){const accountConfig=await fetch('../config/accounting-accounts.json',{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('Kontoplanen kunde inte laddas.');return response.json()});paymentAccounts=(accountConfig.accounts||[]).filter(row=>row.group==='Likvida medel'&&/^19[0-9]{2}$/.test(String(row.number||'')));}
   if(isDemo){session={user:{displayName:'Demo Ekonomi'}};return loadData()}
   if(isSupabase){
     const ctx=await window.LTSupabaseUat.context();
