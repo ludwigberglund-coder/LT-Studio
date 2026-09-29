@@ -189,7 +189,7 @@ function sameOriginAsset(url,base){
         assert.equal(pageErrors.length,0,`${surface.id} ${viewport.id} has uncaught browser errors: ${pageErrors.join('; ')}`);
         assert.deepEqual(failedRequests,[],`${surface.id} ${viewport.id} has failed same-origin assets: ${JSON.stringify(failedRequests)}`);
         assert.deepEqual(badResponses,[],`${surface.id} ${viewport.id} has bad same-origin asset responses: ${JSON.stringify(badResponses)}`);
-        assert.match(state.fontFamily,/Geist/i,`${surface.id} ${viewport.id} is not using the shared Geist stack`);
+        assert.match(state.fontFamily,/(-apple-system|BlinkMacSystemFont|SF Pro|system-ui)/i,`${surface.id} ${viewport.id} is not using the shared Apple/system font stack`);
         if(state.sidebarBackground){
           assert.notEqual(state.sidebarBackground,'rgb(20, 60, 48)',`${surface.id} ${viewport.id} leaked the old green sidebar`);
         }

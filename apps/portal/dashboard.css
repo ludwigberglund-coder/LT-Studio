@@ -129,3 +129,185 @@ html[data-lt-theme="dark"] .task-card:hover{
   .welcome-card{border-radius:22px}
   .today-work{border-radius:22px}
 }
+
+
+/* LT Studio UI 2.1 — Apple HIG dashboard pass.
+ * Makes the visual change obvious while keeping the actual worklist compact.
+ */
+.dashboard-content{
+  padding-top:34px!important;
+}
+.welcome-card{
+  min-height:260px!important;
+  padding:38px 40px!important;
+  border:1px solid color-mix(in srgb,var(--brand-forest) 7%,var(--color-hairline))!important;
+  border-radius:30px!important;
+  background:color-mix(in srgb,var(--brand-sky) 14%,var(--surface-card))!important;
+  box-shadow:0 1px 0 rgb(255 255 255 / .72) inset,0 24px 64px rgb(23 63 50 / .10)!important;
+}
+.welcome-card h2{
+  max-width:760px!important;
+  margin-top:8px!important;
+  margin-bottom:14px!important;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial,sans-serif!important;
+  font-size:clamp(40px,4.6vw,58px)!important;
+  font-weight:680!important;
+  line-height:1.02!important;
+  letter-spacing:-.055em!important;
+}
+.welcome-card p{
+  max-width:650px!important;
+  font-size:17px!important;
+  line-height:1.5!important;
+}
+.today-count{
+  margin-top:24px!important;
+  min-height:42px!important;
+  padding:10px 15px!important;
+  border:1px solid rgb(255 255 255 / .68)!important;
+  border-radius:999px!important;
+  background:rgb(255 255 255 / .72)!important;
+  box-shadow:0 1px 0 rgb(255 255 255 / .72) inset,0 7px 18px rgb(23 63 50 / .08)!important;
+  -webkit-backdrop-filter:blur(16px) saturate(150%);
+  backdrop-filter:blur(16px) saturate(150%);
+}
+.welcome-motion{
+  width:260px!important;
+  height:170px!important;
+  flex-basis:260px!important;
+}
+.welcome-motion span{
+  border:1px solid rgb(255 255 255 / .7);
+  box-shadow:0 18px 40px rgb(23 63 50 / .10);
+  -webkit-backdrop-filter:blur(14px);
+  backdrop-filter:blur(14px);
+}
+.welcome-motion span:nth-child(1){
+  width:126px!important;height:126px!important;
+  background:color-mix(in srgb,var(--brand-lime) 62%,rgb(255 255 255 / .56))!important;
+}
+.welcome-motion span:nth-child(2){
+  width:80px!important;height:80px!important;
+  background:color-mix(in srgb,var(--brand-sky) 68%,rgb(255 255 255 / .54))!important;
+}
+.welcome-motion span:nth-child(3){
+  width:56px!important;height:56px!important;
+  background:color-mix(in srgb,var(--brand-peach) 66%,rgb(255 255 255 / .56))!important;
+}
+.today-work{
+  margin-top:28px!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+.section-head{
+  margin-bottom:14px!important;
+  padding-inline:3px;
+}
+.section-head h2{
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial,sans-serif;
+  font-size:26px!important;
+  font-weight:650!important;
+  letter-spacing:-.035em;
+}
+.task-grid{
+  gap:14px!important;
+}
+.task-card{
+  min-height:126px!important;
+  padding:20px 20px 20px 22px!important;
+  border:1px solid color-mix(in srgb,var(--color-ink) 7%,var(--color-hairline))!important;
+  border-radius:22px!important;
+  background:var(--surface-card)!important;
+  box-shadow:0 1px 2px rgb(15 24 21 / .04),0 12px 32px rgb(15 24 21 / .055)!important;
+}
+.task-card.tone-peach,
+.task-card.tone-sky,
+.task-card.tone-lime{
+  background:var(--surface-card)!important;
+}
+.task-card:before{
+  width:5px!important;
+  top:18px!important;
+  bottom:18px!important;
+  left:0!important;
+  border-radius:0 999px 999px 0!important;
+}
+.task-card:hover{
+  transform:translateY(-3px)!important;
+  border-color:color-mix(in srgb,var(--brand-forest) 13%,var(--color-hairline))!important;
+  box-shadow:0 2px 3px rgb(15 24 21 / .05),0 18px 44px rgb(15 24 21 / .09)!important;
+}
+.task-card h3{
+  margin:5px 0 5px!important;
+  font-size:18px!important;
+  font-weight:620!important;
+  letter-spacing:-.02em;
+}
+.task-card>strong{
+  min-width:58px!important;
+  height:58px;
+  display:grid;
+  place-items:center;
+  padding:0!important;
+  border:1px solid color-mix(in srgb,var(--brand-forest) 8%,var(--color-hairline))!important;
+  border-radius:18px!important;
+  background:color-mix(in srgb,var(--brand-sky) 35%,var(--surface-card))!important;
+  color:var(--brand-forest)!important;
+  font-size:27px!important;
+  box-shadow:0 1px 0 rgb(255 255 255 / .7) inset!important;
+}
+.task-card.tone-peach>strong{
+  background:color-mix(in srgb,var(--brand-peach) 22%,var(--surface-card))!important;
+}
+.task-card.tone-lime>strong{
+  background:color-mix(in srgb,var(--brand-lime) 38%,var(--surface-card))!important;
+}
+.overview-empty{
+  min-height:170px!important;
+  border:1px solid color-mix(in srgb,var(--color-ink) 7%,var(--color-hairline))!important;
+  border-radius:22px!important;
+  background:var(--surface-card)!important;
+  box-shadow:0 1px 2px rgb(15 24 21 / .04),0 12px 32px rgb(15 24 21 / .05)!important;
+}
+html[data-lt-theme="dark"] .welcome-card{
+  background:color-mix(in srgb,var(--brand-sky) 8%,var(--lt-dark-surface))!important;
+  border-color:var(--lt-dark-border)!important;
+  box-shadow:0 1px 0 rgb(255 255 255 / .025) inset,0 24px 64px rgb(0 0 0 / .28)!important;
+}
+html[data-lt-theme="dark"] .today-count{
+  color:var(--color-paper)!important;
+  border-color:rgb(255 255 255 / .08)!important;
+  background:rgb(40 45 50 / .76)!important;
+  box-shadow:0 1px 0 rgb(255 255 255 / .04) inset,0 9px 22px rgb(0 0 0 / .22)!important;
+}
+html[data-lt-theme="dark"] .task-card,
+html[data-lt-theme="dark"] .overview-empty{
+  background:var(--lt-dark-surface)!important;
+  border-color:var(--lt-dark-border)!important;
+}
+html[data-lt-theme="dark"] .task-card>strong{
+  color:var(--color-paper)!important;
+  border-color:var(--lt-dark-border)!important;
+  background:color-mix(in srgb,var(--brand-sky) 12%,var(--lt-dark-surface-soft))!important;
+}
+@media(max-width:1000px){
+  .welcome-card{min-height:230px!important;padding:32px!important}
+  .welcome-card h2{font-size:clamp(38px,6vw,50px)!important}
+}
+@media(max-width:720px){
+  .dashboard-content{padding-top:20px!important}
+  .welcome-card{padding:26px!important;border-radius:24px!important}
+  .welcome-card h2{font-size:36px!important}
+  .welcome-card p{font-size:15px!important}
+  .today-work{margin-top:22px!important}
+  .task-card{min-height:112px!important}
+}
+@media(prefers-reduced-transparency:reduce){
+  .today-count,.welcome-motion span{
+    -webkit-backdrop-filter:none!important;
+    backdrop-filter:none!important;
+  }
+}

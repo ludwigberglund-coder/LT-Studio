@@ -81,6 +81,30 @@ Grundprincipen är:
 - dark mode, reduced motion och reduced transparency stöds
 - ingen API-, Supabase-, bokförings-, reskontra- eller godkännandelogik ändras
 
+## Etapp 7 – tydlig Apple HIG-visual pass
+
+Den här etappen använder Apples egna HIG-sidor som uttrycklig referens:
+- https://developer.apple.com/design/human-interface-guidelines/materials
+- https://developer.apple.com/design/human-interface-guidelines/sidebars
+- https://developer.apple.com/design/human-interface-guidelines/toolbars
+- https://developer.apple.com/design/human-interface-guidelines/segmented-controls
+- https://developer.apple.com/design/human-interface-guidelines/searching
+- https://developer.apple.com/design/human-interface-guidelines/sheets
+
+Principerna som tillämpas:
+- Liquid Glass/material används tydligt för navigation, toolbar, popup-kontroller och master-listor
+- ekonomiskt innehåll, tabeller och editorer förblir solida och högkontrastiga
+- systemtypsnitt används först i fontstacken så macOS får native Apple-typografi
+- aktiv sidebar-rad blir en tydlig selektionsyta i stället för svart block
+- toolbar-knappar, tema och profil visas som flytande capsule/circle-kontroller
+- primära knappar använder LT Studios accent och capsule-form
+- lokala sökfält får en tydligare Spotlight-liknande kontrollyta
+- segmented controls får en mer tydlig macOS-liknande vald segmentyta
+- Översiktens hero och arbetskort får en klart synlig ny hierarki
+- Buntar behandlas som master/detail: material i buntlistan, solid editor
+- sheets/dialoger får tydligare floating-material och mjukare backdrop
+- dark mode och reduced transparency behåller samma informationshierarki
+
 ## Nästa etapper
 
 ### Navigation och topbar
