@@ -58,7 +58,7 @@ function layout(view, title, description, content, actions = '') {
       <main class="main-area">
         <header class="topbar">
           <div>
-            <span class="crumb">Rollands / ${escapeHtml(title)}</span>
+            <span class="crumb">LT Studio / ${escapeHtml(title)}</span>
             <h1>${escapeHtml(title)}</h1>
             <p>${escapeHtml(description)}</p>
           </div>
