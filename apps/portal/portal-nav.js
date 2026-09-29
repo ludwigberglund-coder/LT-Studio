@@ -48,6 +48,54 @@
   const key='rollands-navigation-v3:'+base.pathname;
   const runtimeKey='rollands-runtime-id:'+base.pathname;
   let runtimeCheckInFlight=false;
+  let supabaseSessionGuardInFlight=false;
+  function portalLoginUrl(){return href('portal/index.html');}
+  function isPortalLoginPage(){
+    const loginPath=new URL(portalLoginUrl()).pathname.replace(/\/index\.html$/,'/');
+    return location.pathname.replace(/\/index\.html$/,'/')===loginPath;
+  }
+  function authRevalidationShield(){
+    let node=document.getElementById('lt-auth-revalidation-shield');
+    if(node)return node;
+    node=document.createElement('div');
+    node.id='lt-auth-revalidation-shield';
+    node.setAttribute('aria-hidden','true');
+    Object.assign(node.style,{position:'fixed',inset:'0',zIndex:'2147483647',background:'var(--paper, #fff)'});
+    document.body?.appendChild(node);
+    return node;
+  }
+  async function enforceSupabaseSession({fromBfcache=false}={}){
+    const shield=fromBfcache?authRevalidationShield():null;
+    if(demo||!supabaseUat||!root.LTSupabaseUat||supabaseSessionGuardInFlight){
+      if(shield&&document.contains(shield))shield.remove();
+      return true;
+    }
+    supabaseSessionGuardInFlight=true;
+    let authenticated=false;
+    try{
+      const context=await root.LTSupabaseUat.context();
+      authenticated=context?.authenticated===true;
+      if(authenticated)return true;
+      sessionStorage.removeItem('rollands-csrf');
+      if(isPortalLoginPage()){
+        if(fromBfcache)location.reload();
+        return false;
+      }
+      location.replace(portalLoginUrl());
+      return false;
+    }catch{
+      sessionStorage.removeItem('rollands-csrf');
+      if(isPortalLoginPage()){
+        if(fromBfcache)location.reload();
+        return false;
+      }
+      location.replace(portalLoginUrl());
+      return false;
+    }finally{
+      supabaseSessionGuardInFlight=false;
+      if(authenticated&&shield&&document.contains(shield))shield.remove();
+    }
+  }
   async function ensureFreshRuntime(){
     if(demo||supabaseUat||runtimeCheckInFlight)return false;
     runtimeCheckInFlight=true;
@@ -530,7 +578,7 @@
               if(!response.ok)throw new Error('Utloggningen misslyckades.');
             }
             sessionStorage.removeItem('rollands-csrf');
-            location.href=href('portal/index.html');
+            location.replace(portalLoginUrl());
           }catch{
             logout.disabled=false;
             logout.textContent='Försök logga ut igen';
@@ -585,9 +633,11 @@
   // Renders can replace the entire sidebar. Stay subscribed instead of disconnecting after boot.
   new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true});
   addEventListener('hashchange',schedule);
-  addEventListener('pageshow',()=>{schedule();ensureFreshRuntime();});
+  addEventListener('pagehide',()=>{authRevalidationShield();});
+  addEventListener('pageshow',event=>{schedule();ensureFreshRuntime();enforceSupabaseSession({fromBfcache:Boolean(event.persisted)});});
   addEventListener('focus',ensureFreshRuntime);
-  addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')ensureFreshRuntime();});
+  addEventListener('focus',()=>{enforceSupabaseSession();});
+  addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){ensureFreshRuntime();enforceSupabaseSession();}});
   setInterval(ensureFreshRuntime,30000);
   root.RollandsNavigation={groups,mount,mountUserMenu,mountSidebarToggle,setSidebarOpen,href};ensureFreshRuntime();mount();mountUserMenu();mountSidebarToggle();decorateUi();
 })(globalThis);
