@@ -91,6 +91,8 @@ jobs:
         run: node test/settlement-theme-browser.cjs
       - name: Run full UI technical smoke
         run: node test/all-ui-browser-smoke.cjs
+      - name: Run logout back-button browser regression
+        run: node test/logout-history-browser.cjs
       - name: Run supplier invoice browser flow
         run: npm run test:browser:payables
       - name: Run payment overview browser filters
