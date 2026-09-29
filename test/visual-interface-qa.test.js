@@ -33,8 +33,17 @@ test('project admin keeps live status readable and mobile topbar compact',()=>{
   assert.match(status,/\.system-status \.system-row strong/);
 });
 
-test('legacy mobile toast no longer collides with the bottom action',()=>{
+test('legacy toast stays clear of the floating appearance control',()=>{
   const css=read('public/design-system.css');
-  assert.match(css,/@media\(max-width:650px\)[\s\S]*\.toast\{[\s\S]*bottom:84px!important/);
+  assert.match(css,/\.toast\{[\s\S]*left:274px!important;[\s\S]*right:auto!important/);
+  assert.match(css,/@media\(max-width:650px\)[\s\S]*\.toast\{[\s\S]*right:72px!important;[\s\S]*bottom:18px!important/);
   assert.match(css,/\.admin-top :where\(\.menu-toggle,\.search-trigger,\.button\)[\s\S]*border-radius:999px!important/);
+});
+
+test('settlement modal is immediately opaque in visual captures',()=>{
+  const app=read('apps/portal/app.js');
+  const css=read('apps/portal/styles.css');
+  assert.match(app,/modal-backdrop settlement-backdrop/);
+  assert.match(css,/\.settlement-backdrop\{[\s\S]*animation:none!important;[\s\S]*opacity:1!important/);
+  assert.match(css,/\.settlement-backdrop \.settlement-modal\{[\s\S]*opacity:1!important;[\s\S]*background:var\(--surface-card/);
 });
