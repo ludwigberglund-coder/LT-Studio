@@ -778,6 +778,34 @@ textarea:focus-visible,
   }
 }
 
+/* Legacy workspace uses its tablet navigation from 1000px down. Keep the shared
+ * navigation on the same breakpoint so the two responsive systems do not fight
+ * over a 276px desktop sidebar at 768px. */
+@media (min-width: 761px) and (max-width: 1000px) {
+  .shared-workspace-shell {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .shared-workspace-shell > .sidebar.shared-sidebar {
+    display: none !important;
+    position: fixed !important;
+    inset: 72px auto 0 0 !important;
+    width: min(86vw, 300px) !important;
+    height: calc(100dvh - 72px) !important;
+    max-height: calc(100dvh - 72px) !important;
+    z-index: 88 !important;
+  }
+
+  .shared-workspace-shell.nav-open > .sidebar.shared-sidebar {
+    display: flex !important;
+  }
+
+  .shared-workspace-shell > .admin-main {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
