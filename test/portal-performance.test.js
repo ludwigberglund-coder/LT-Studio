@@ -48,7 +48,7 @@ test('dashboard preconnects to the configured Supabase origin',()=>{
 });
 
 test('dashboard metrics RPC preserves RLS and explicit execution grants',()=>{
-  const sql=read('supabase/migrations/20260926_portal_dashboard_metrics.sql');
+  const sql=read('supabase/migrations/20260926214822_portal_dashboard_metrics.sql');
   assert.match(sql,/create or replace function public\.portal_dashboard_metrics\(p_company_id text\)/i);
   assert.match(sql,/security invoker/i);
   assert.match(sql,/set search_path=''/i);
