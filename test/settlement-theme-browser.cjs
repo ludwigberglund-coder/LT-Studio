@@ -210,9 +210,9 @@ async function styleSnapshot(page){
     const dark=await styleSnapshot(page);
     assert.equal(dark.theme,'dark');
     assert.equal(dark.blockBackground,'rgb(45, 51, 59)');
-    assert.equal(dark.inputBackground,'rgb(38, 44, 52)');
-    assert.equal(dark.inputColor,'rgb(255, 255, 255)');
-    assert.equal(dark.inputTextFill,'rgb(255, 255, 255)');
+    assert.equal(dark.inputBackground,'rgb(55, 62, 71)');
+    assert.equal(dark.inputColor,'rgb(220, 228, 236)');
+    assert.equal(dark.inputTextFill,'rgb(220, 228, 236)');
     assert.equal(dark.labelColor,'rgb(220, 228, 236)');
     assert.notEqual(dark.blockBackground,light.blockBackground);
     assert.notEqual(dark.inputBackground,light.inputBackground);
