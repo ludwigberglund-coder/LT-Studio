@@ -3385,7 +3385,7 @@ html[data-lt-theme="dark"] .context-menu{
   color:var(--color-paper)!important;
 }
 html[data-lt-theme="dark"] .button:not(.ghost):not(.secondary):not(.danger){
-  color:var(--color-ink)!important;
+  color:var(--lt-dark-canvas)!important;
   background:color-mix(in srgb,var(--brand-sky) 74%,var(--color-paper))!important;
   border-color:transparent!important;
 }
@@ -3400,7 +3400,17 @@ html[data-lt-theme="dark"] select:not(:disabled),
 html[data-lt-theme="dark"] textarea:not(:disabled):not([readonly]){
   background:var(--lt-dark-surface-soft)!important;
   border-color:var(--lt-dark-border)!important;
-  color:var(--color-paper)!important;
+  color:var(--lt-dark-text)!important;
+  -webkit-text-fill-color:var(--lt-dark-text)!important;
+}
+html[data-lt-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):is(:disabled,[readonly]),
+html[data-lt-theme="dark"] select:disabled,
+html[data-lt-theme="dark"] textarea:is(:disabled,[readonly]){
+  background:var(--lt-dark-surface-soft)!important;
+  border-color:var(--lt-dark-border)!important;
+  color:var(--lt-dark-muted)!important;
+  -webkit-text-fill-color:var(--lt-dark-muted)!important;
+  opacity:1!important;
 }
 html[data-lt-theme="dark"] :where(
   .shared-search-shell>input[type="search"],
