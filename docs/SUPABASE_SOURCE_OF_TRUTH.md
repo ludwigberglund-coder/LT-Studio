@@ -9,7 +9,7 @@ GitHub is the source of truth for UAT infrastructure. Permanent Supabase schema,
 - Supabase project: `LT-Studio`
 - Region: `eu-north-1`
 - PostgreSQL: 17
-- Live migration-history entries: 39
+- Live migration-history entries: 40
 - Public application tables: 49
 - Public tables with RLS disabled: 0
 - Realtime publications: 46 public tables
@@ -17,6 +17,8 @@ GitHub is the source of truth for UAT infrastructure. Permanent Supabase schema,
 - Edge Functions: `operator-admin`, `uat-bootstrap`, `verify-customer-invoice-document`, `manual-customer-payment`
 
 The reconciliation found one concrete source-control drift on 2026-09-30: the live `manual-customer-payment` Edge Function and its server-only RPC bridge existed in Supabase but were missing from `main`. This change versions both.
+
+The repository also contains recovered replay-only SQL steps that are required to rebuild the final schema from an empty project even though those steps do not each have a separate row in the hosted project's migration-history table. The authoritative check is therefore two-part: every hosted migration version must exist in GitHub, and the full GitHub migration chain must pass the clean-rebuild workflow from zero.
 
 ## Rebuild contract
 
