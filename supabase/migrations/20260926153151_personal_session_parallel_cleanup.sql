@@ -1,7 +1,9 @@
--- Recovered from live Supabase migration 20260926153151.
+-- Recovered from live Supabase migration history (20260926153151 personal_session_parallel_cleanup).
+-- GitHub is source of truth for rebuilds.
+
 -- Reconcile parallel personal-session hardening work.
--- Keep the lt_security guard from personal_session_limits and remove
--- the temporary duplicate private-schema guard.
+-- Keep the original lt_security guard from personal_session_limits and remove
+-- the temporary duplicate private-schema guard, which required broader schema USAGE.
 
 do $block$
 declare
@@ -58,3 +60,4 @@ with check (
   coalesce((select auth.jwt()->>'aal'),'aal1')='aal2'
   and (select lt_security.session_within_personal_limit())
 );
+;
