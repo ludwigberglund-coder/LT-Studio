@@ -33,7 +33,7 @@ The branch now uses Supabase for:
 
 - Tenant data is protected by RLS and `company_memberships`.
 - Financial and inventory writes use controlled RPCs plus trigger guards that block direct browser writes to protected core tables.
-- Ekonomiska RPC:er ska normalt vara `SECURITY INVOKER`. Den manuella kundinbetalningens staging-RPC är för närvarande ett dokumenterat undantag med `SECURITY DEFINER`, eftersom direkt tabellskrivning är spärrad och RPC:n gör explicita användar-, medlemskaps-, roll- och företagskontroller. Supabase Security Advisor varnar därför medvetet på denna funktion tills den kan hårdnas vidare.
+- Ekonomiska RPC:er ska normalt vara `SECURITY INVOKER`. Manuell kundinbetalning går via den JWT-verifierade Edge Functionen `manual-customer-payment`, som kräver MFA/AAL2 och giltig session. Den interna `stage_manual_customer_payment_server` är endast körbar av `service_role`; browserrollen `authenticated` får inte köra staging-RPC:n direkt.
 - Private Storage is PDF-only, company-scoped and max 10 MB.
 - Archived document metadata is insert/read-only for browser roles. Archived PDF originals cannot be deleted; only orphan uploads that are not referenced by `documents` may be cleaned up.
 - Operator/global-admin access is **not** granted through tenant RLS. The operator browser calls the `operator-admin` Edge Function.
@@ -64,7 +64,7 @@ Synthetic test identities and data were created only inside SQL transactions and
 - Accounting period unlock blocks self-approval and succeeds for a second authorized user.
 - Payroll import + posting completes and creates an L-series journal.
 - Automation proposal approval moves the proposal to approved and the bank event to reviewed.
-- Supabase Security Advisor hade tidigare 0 fynd efter grundhärdningen. Per 2026-09-30 finns två kända varningar: Leaked Password Protection är avstängt (#530), och `stage_manual_customer_payment` är en avsiktlig `SECURITY DEFINER`-funktion som är exekverbar av `authenticated`. Båda ska vara spårade och får inte behandlas som dolda avvikelser.
+- Per 2026-09-30 är betalningsflödet ombyggt så att `stage_manual_customer_payment` inte längre ska vara direkt körbar av `authenticated`; Edge Functionen är den officiella säkerhetsgränsen. Efter slutlig live-verifiering ska Security Advisor endast ha kvar den separata varningen om Leaked Password Protection (#530), tills den inställningen aktiveras och verifieras.
 
 ## Secure UAT onboarding
 
