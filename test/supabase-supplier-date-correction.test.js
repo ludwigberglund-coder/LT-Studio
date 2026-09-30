@@ -9,7 +9,7 @@ const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('legacy Supabase correction table is upgraded safely',()=>{
-  const sql=read('supabase/migrations/20260926_supplier_invoice_date_correction.sql');
+  const sql=read('supabase/migrations/20260926164014_supplier_invoice_date_correction.sql');
   assert.match(sql,/add column if not exists reversal_transaction_id text/i);
   assert.match(sql,/add column if not exists replacement_transaction_id text/i);
   assert.match(sql,/add column if not exists old_posting_date date/i);
@@ -23,7 +23,7 @@ test('legacy Supabase correction table is upgraded safely',()=>{
 });
 
 test('supplier invoice date correction is staged through a two-entry financial batch',()=>{
-  const sql=read('supabase/migrations/20260926_supplier_invoice_date_correction.sql');
+  const sql=read('supabase/migrations/20260926164014_supplier_invoice_date_correction.sql');
   assert.match(sql,/create table if not exists public\.supplier_invoice_date_corrections/i);
   assert.match(sql,/unique\(company_id,request_id\)/i);
   assert.match(sql,/supplier_invoice_date_correction_one_pending/i);
@@ -38,7 +38,7 @@ test('supplier invoice date correction is staged through a two-entry financial b
 });
 
 test('invoice dates change only during approved batch activation',()=>{
-  const sql=read('supabase/migrations/20260926_supplier_invoice_date_correction.sql');
+  const sql=read('supabase/migrations/20260926164014_supplier_invoice_date_correction.sql');
   const stageStart=sql.indexOf('create or replace function public.stage_supplier_invoice_date_correction');
   const approveStart=sql.indexOf('CREATE OR REPLACE FUNCTION public.approve_financial_batch');
   assert.ok(stageStart>=0&&approveStart>stageStart);

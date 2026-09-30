@@ -6,7 +6,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const root=path.join(__dirname,'..');
 
-const sql=fs.readFileSync(path.join(__dirname,'..','supabase','migrations','20260926_portal_runtime_hardening.sql'),'utf8');
+const sql=fs.readFileSync(path.join(__dirname,'..','supabase','migrations','20260926144852_portal_runtime_hardening.sql'),'utf8');
 
 test('Supabase portal hardening keeps company settings least-privilege',()=>{
   assert.match(sql,/revoke all on table public\.company_invoice_settings from authenticated/i);

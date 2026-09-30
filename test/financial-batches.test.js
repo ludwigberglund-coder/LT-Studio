@@ -6,7 +6,7 @@ test('buntsystemet finns i portal och migration',()=>{
  const nav=read('apps/portal/portal-nav.js');
  const html=read('apps/portal/batches.html');
  const js=read('apps/portal/batches.js');
- const sql=read('supabase/migrations/20260925_financial_batches.sql');
+ const sql=read('supabase/migrations/20260925123725_financial_batches.sql');
  assert.match(nav,/\['batches','Buntar','portal\/batches\.html'\]/);
  assert.doesNotMatch(nav,/Buntar \(äldre demo\)/);
  assert.match(html,/Buntar · LT Studio/);
@@ -21,7 +21,7 @@ test('buntsystemet finns i portal och migration',()=>{
 });
 
 test('godkännande är enda vägen från bunt till journal',()=>{
- const sql=read('supabase/migrations/20260925_financial_batches.sql');
+ const sql=read('supabase/migrations/20260925123725_financial_batches.sql');
  const save=sql.slice(sql.indexOf('create or replace function public.save_financial_batch'),sql.indexOf('create or replace function public.mark_financial_batch_ready'));
  assert.doesNotMatch(save,/insert into public\.journal_entries/);
  const approve=sql.slice(sql.indexOf('create or replace function public.approve_financial_batch'));
@@ -41,7 +41,7 @@ test('gränssnittet stöder massregistrering, ångra och rollstyrt godkännande'
 
 test('härdningen ger radspårning och egen-godkännande styrs av sista migrationen',()=>{
  const js=read('apps/portal/batches.js');
- const sql=read('supabase/migrations/20260925_financial_batches_hardening.sql');
+ const sql=read('supabase/migrations/20260925124043_financial_batches_hardening.sql');
  assert.match(sql,/audit_financial_batch_transaction/);
  assert.match(sql,/audit_financial_batch_line/);
  assert.match(sql,/SEPARATION_OF_DUTIES_FAILED/);
@@ -49,7 +49,7 @@ test('härdningen ger radspårning och egen-godkännande styrs av sista migratio
  assert.match(sql,/reject_financial_batch/);
  assert.match(sql,/financial_batches_created_by_idx/);
  assert.doesNotMatch(sql,/for all to authenticated/);
- const selfApproval=read('supabase/migrations/20260925_financial_batches_self_approval.sql');
+ const selfApproval=read('supabase/migrations/20260925130410_financial_batches_self_approval.sql');
  assert.match(selfApproval,/m\.role in \('admin','accountant','approver'\)/);
  assert.doesNotMatch(selfApproval,/SEPARATION_OF_DUTIES_FAILED/);
  assert.match(selfApproval,/'selfApproval',v_self_approval/);
@@ -57,7 +57,7 @@ test('härdningen ger radspårning och egen-godkännande styrs av sista migratio
 });
 
 test('buntgodkännande använder kontrollerad och append-only revisionslogg',()=>{
- const sql=read('supabase/migrations/20260925_financial_batches_audit_write.sql');
+ const sql=read('supabase/migrations/20260925133748_financial_batches_audit_write.sql');
  assert.match(sql,/revoke all on public\.audit_events from anon/);
  assert.match(sql,/revoke update,delete,truncate,trigger,references on public\.audit_events from authenticated/);
  assert.match(sql,/grant select,insert on public\.audit_events to authenticated/);
@@ -69,7 +69,7 @@ test('buntgodkännande använder kontrollerad och append-only revisionslogg',()=
 });
 
 test('kundfakturor går via en källstyrd bunt före huvudbok och visas direkt i kundreskontra',()=>{
- const sql=read('supabase/migrations/20260925_financial_batch_customer_invoice_gating.sql');
+ const sql=read('supabase/migrations/20260925141238_financial_batch_customer_invoice_gating.sql');
  const receivables=read('apps/portal/app.js');
  const batches=read('apps/portal/batches.js');
  assert.match(sql,/add column if not exists kind text not null default 'manual'/);
@@ -101,7 +101,7 @@ test('kundfakturor går via en källstyrd bunt före huvudbok och visas direkt i
 });
 
 test('leverantörsskuld, leverantörsbetalning, lön och IB går via källstyrda buntar',()=>{
- const sql=read('supabase/migrations/20260925_financial_batch_core_sources.sql');
+ const sql=read('supabase/migrations/20260926151155_financial_batch_core_sources.sql');
  const payables=read('apps/portal/payables.js');
  const payroll=read('apps/portal/payroll.js');
  const accounting=read('apps/portal/accounting.js');

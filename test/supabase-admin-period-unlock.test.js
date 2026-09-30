@@ -5,7 +5,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 
-const sql=fs.readFileSync(path.join(__dirname,'..','supabase','migrations','20260928_admin_period_self_unlock.sql'),'utf8');
+const sql=fs.readFileSync(path.join(__dirname,'..','supabase','migrations','20260928133107_admin_period_self_unlock.sql'),'utf8');
 
 test('Supabase periodupplåsning låter admin besluta om egen begäran men inte ekonom',()=>{
   assert.match(sql,/m\.role in \('admin','accountant'\)/i);
