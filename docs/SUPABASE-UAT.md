@@ -1,13 +1,13 @@
 # Supabase-only UAT architecture
 
-Status: major domain migration implemented on `feat/supabase-only-uat`. GitHub remains source of truth.
+Status: den delade Supabase-UAT:n är implementerad och körs från GitHub `main`. GitHub remains source of truth.
 
 ## Target
 
 - GitHub `main`: source code, tests, documentation and versioned Supabase migrations/functions.
 - GitHub Pages: shared browser-accessible UAT frontend.
 - Supabase project `LT-Studio` (`eu-north-1`): PostgreSQL, Auth, RLS, private Storage, RPCs and Edge Functions.
-- Railway/Node/SQLite: legacy UAT runtime to keep only until final migration UAT is approved.
+- Node/SQLite: äldre/lokal referens- och regression-runtime. Den delade GitHub Pages-UAT:n använder Supabase, inte SQLite.
 
 The browser may contain only the Supabase project URL and a **publishable** key. Secret/service-role keys must never be committed or exposed in GitHub Pages.
 
@@ -33,13 +33,13 @@ The branch now uses Supabase for:
 
 - Tenant data is protected by RLS and `company_memberships`.
 - Financial and inventory writes use controlled RPCs plus trigger guards that block direct browser writes to protected core tables.
-- Economic RPCs remain `SECURITY INVOKER`.
+- Ekonomiska RPC:er ska normalt vara `SECURITY INVOKER`. Den manuella kundinbetalningens staging-RPC är för närvarande ett dokumenterat undantag med `SECURITY DEFINER`, eftersom direkt tabellskrivning är spärrad och RPC:n gör explicita användar-, medlemskaps-, roll- och företagskontroller. Supabase Security Advisor varnar därför medvetet på denna funktion tills den kan hårdnas vidare.
 - Private Storage is PDF-only, company-scoped and max 10 MB.
 - Archived document metadata is insert/read-only for browser roles. Archived PDF originals cannot be deleted; only orphan uploads that are not referenced by `documents` may be cleaned up.
 - Operator/global-admin access is **not** granted through tenant RLS. The operator browser calls the `operator-admin` Edge Function.
 - `operator-admin` validates the Supabase user token, requires JWT `aal2` (MFA), verifies an active row in `platform_operators`, and only then uses server-side privileged credentials.
 - Operator audit and security-incident state are stored in locked-down tables that browser roles cannot query directly.
-- Supabase Security Advisor is expected to remain at zero findings before merge.
+- Supabase Security Advisor ska inte ha några oklassificerade fynd före merge. Kända fynd måste vara uttryckligen dokumenterade, riskbedömda och spårade i GitHub.
 
 ## Advanced guarded accounting flows
 
@@ -64,7 +64,7 @@ Synthetic test identities and data were created only inside SQL transactions and
 - Accounting period unlock blocks self-approval and succeeds for a second authorized user.
 - Payroll import + posting completes and creates an L-series journal.
 - Automation proposal approval moves the proposal to approved and the bank event to reviewed.
-- Supabase Security Advisor remained at 0 findings after the fixes.
+- Supabase Security Advisor hade tidigare 0 fynd efter grundhärdningen. Per 2026-09-30 finns två kända varningar: Leaked Password Protection är avstängt (#530), och `stage_manual_customer_payment` är en avsiktlig `SECURITY DEFINER`-funktion som är exekverbar av `authenticated`. Båda ska vara spårade och får inte behandlas som dolda avvikelser.
 
 ## Secure UAT onboarding
 
@@ -91,7 +91,7 @@ The shared UAT company uses clearly synthetic invoice identity/payment details. 
 - UAT invoice settings are intentionally synthetic and already configured; production identity/payment details must not be introduced during UAT.
 - Run full cross-company tenant-isolation, accounting-integrity, four-eyes workflows, PDF/storage, operator MFA and browser UAT.
 - Review CI/CodeQL and merge PR only when all required checks pass.
-- Only after successful UAT remove obsolete Railway/Node/SQLite deployment configuration.
+- Efter fortsatt UAT kan kvarvarande äldre Node/SQLite-driftkonfiguration rensas när tester inte längre är beroende av den.
 
 ## GitHub rule
 
