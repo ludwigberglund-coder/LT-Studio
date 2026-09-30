@@ -1,4 +1,6 @@
--- Recovered from live Supabase migration 20260926152441.
+-- Recovered from live Supabase migration history (20260926152441 personal_session_server_guard).
+-- GitHub is source of truth for rebuilds.
+
 -- Enforce the personal 2/4/6/8 hour session limit at the database boundary.
 -- The helper lives in a non-exposed schema and verifies auth.uid(), JWT session_id,
 -- the live auth.sessions row, AAL2, disabled state and the user's own duration.
@@ -87,3 +89,4 @@ begin
   end loop;
 end;
 $block$;
+;
