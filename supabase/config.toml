@@ -2,3 +2,7 @@
 # Browser-driven invoice verification must require an authenticated user JWT.
 [functions.verify-customer-invoice-document]
 verify_jwt = true
+
+# Manual customer payment staging is a privileged write path and must require a valid user JWT.
+[functions.manual-customer-payment]
+verify_jwt = true

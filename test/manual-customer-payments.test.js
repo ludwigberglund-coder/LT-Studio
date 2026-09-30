@@ -9,6 +9,8 @@ const vm=require('node:vm');
 const root=path.resolve(__dirname,'..');
 const read=relative=>fs.readFileSync(path.join(root,relative),'utf8');
 const migration=()=>read('supabase/migrations/20260929_manual_customer_payments.sql');
+const edgeBridgeMigration=()=>read('supabase/migrations/20260930_manual_customer_payment_edge_bridge.sql');
+const revokeRpcMigration=()=>read('supabase/migrations/20260930_revoke_manual_customer_payment_authenticated_rpc.sql');
 
 test('manuell kundinbetalning lagras som väntande bunt utan att ändra fakturasaldo direkt',()=>{
   const sql=migration();
@@ -74,18 +76,52 @@ test('Kundreskontra och Betalningar har samma sakra manuella betalningsflode',()
   const client=read('apps/portal/supabase-client.js');
   const styles=read('apps/portal/styles.css');
   assert.match(receivables,/Registrera inbetalning/);
-  assert.match(receivables,/stage_manual_customer_payment/);
+  assert.match(receivables,/functions\.invoke\('manual-customer-payment'/);
+  assert.doesNotMatch(receivables,/LTSupabase\.rpc\('stage_manual_customer_payment'/);
   assert.match(receivables,/customer_manual_payments/);
   assert.match(receivables,/Väntar på godkännande/);
   assert.match(receivables,/paymentAccountOptions/);
   assert.match(payments,/Registrera manuell inbetalning/);
   assert.match(payments,/Fakturanummer, kund eller kundnummer/);
-  assert.match(payments,/stage_manual_customer_payment/);
+  assert.match(payments,/functions\.invoke\('manual-customer-payment'/);
+  assert.doesNotMatch(payments,/LTSupabase\.rpc\('stage_manual_customer_payment'/);
   assert.match(payments,/customer_manual_payments/);
   assert.match(client,/'receivables\.html':\[[^\]]*'customer_manual_payments'/);
   assert.match(client,/'payments\.html':\[[^\]]*'customer_manual_payments'/);
   assert.match(styles,/html\[data-lt-theme="dark"\] \.manual-payment-summary/);
   assert.match(styles,/html\[data-lt-theme="light"\] \.manual-payment-summary/);
+});
+
+test('manuell kundinbetalning gar genom JWT-verifierad Edge Function med server-only RPC',()=>{
+  const bridge=edgeBridgeMigration();
+  const revoke=revokeRpcMigration();
+  const edge=read('supabase/functions/manual-customer-payment/index.ts');
+  const config=read('supabase/config.toml');
+
+  assert.match(bridge,/create or replace function public\.stage_manual_customer_payment_server/);
+  assert.match(bridge,/p_actor_uid uuid/);
+  assert.match(bridge,/p_session_id uuid/);
+  assert.match(bridge,/join auth\.sessions s/);
+  assert.match(bridge,/u\.disabled=false/);
+  assert.match(bridge,/session_duration_minutes/);
+  assert.match(bridge,/m\.role in \('admin','accountant'\)/);
+  assert.match(bridge,/set_config\('request\.jwt\.claim\.sub'/);
+  assert.match(bridge,/revoke all on function public\.stage_manual_customer_payment_server[\s\S]*from public,anon,authenticated/);
+  assert.match(bridge,/grant execute on function public\.stage_manual_customer_payment_server[\s\S]*to service_role/);
+
+  assert.match(edge,/createClient/);
+  assert.match(edge,/auth\.getUser\(token\)/);
+  assert.match(edge,/claims\.aal!=="aal2"/);
+  assert.match(edge,/claims\.session_id/);
+  assert.match(edge,/admin\.rpc\("stage_manual_customer_payment_server"/);
+  assert.match(edge,/p_actor_uid:userData\.user\.id/);
+  assert.match(edge,/p_session_id:sessionId/);
+  assert.match(edge,/safeDatabaseError/);
+  assert.match(edge,/MANUAL_PAYMENT_STAGE_FAILED/);
+  assert.doesNotMatch(edge,/return reply\(500,\{error:message,code:"MANUAL_PAYMENT_EDGE_ERROR"\}\)/);
+  assert.match(config,/\[functions\.manual-customer-payment\][\s\S]*verify_jwt = true/);
+
+  assert.match(revoke,/revoke execute on function public\.stage_manual_customer_payment\(text,text,text,date,bigint,text,text,text\)[\s\S]*from authenticated/);
 });
 
 test('betalningsdialogens submit kan inte fangas av modalbakgrunden och dialogen ar rymligare',()=>{

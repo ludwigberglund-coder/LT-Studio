@@ -142,8 +142,15 @@ const Settings=require('../apps/api/company-invoice-settings.js');
     await page.goto(f.base+'/portal/invoices.html');
     await page.getByRole('button',{name:'Ny kundfaktura',exact:true}).click();
     await page.locator('#invoice-form [name="customerNumber"]').selectOption('K-1001');
+    await page.waitForFunction(()=>{
+      const form=document.getElementById('invoice-form');
+      const customer=form?.querySelector('[name="customerNumber"]');
+      const buyer=[...(form?.querySelectorAll('label')||[])].find(label=>label.textContent.includes('Företagsnamn - kund'))?.querySelector('input');
+      return customer?.value==='K-1001'&&Boolean(buyer?.value);
+    });
     await page.locator('[data-row-field="description"]').fill('Enter-skydd test');
     await page.locator('[data-row-field="quantity"]').fill('1');
+    await page.locator('[data-row-field="unit"]').fill('st');
     const unitPrice=page.locator('[data-row-field="unitPrice"]');
     await unitPrice.fill('100,00');
     await page.locator('[data-row-field="vatRate"]').selectOption('25');
