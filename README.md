@@ -35,21 +35,24 @@ Alla ändringar görs i en arbetsgren. Granska skillnaden, kör relevanta tester
 
 ```text
 apps/website/            publik hemsida
-apps/portal/             företagsportal med API- och separat demoläge
-apps/api/                Node.js-backend, sessioner, företagsmedlemskap och SQLite
-apps/admin/              äldre projektadmin och domändemos
+apps/portal/             företagsportal och delad GitHub Pages-UAT mot Supabase
+apps/api/                äldre/lokal Node.js- och SQLite-backend för regression och referens
+apps/admin/              LT Studio admin/operatorgränssnitt
+supabase/                versionshanterade migrationer, Edge Functions och UAT-seed
 packages/                delade ekonomi-, behörighets- och faktureringsregler
 content/                 offentliga texter och företagsuppgifter
 config/                  offentliga mallar och regler, aldrig secrets
 scripts/                 bygge, kontroll, bootstrap och driftverktyg
 test/                    kod-, API- och webbläsartester
 docs/                    beslut, guider och granskningsbevis
-public/ och server.js    äldre referensimplementation, inte pilotbackend
+public/ och server.js    äldre referensimplementation, inte aktiv delad UAT-backend
 ```
 
-Den aktuella backenddatabasen är SQLite med främmande nycklar, WAL och FULL-synkronisering. Den är inte PostgreSQL. Personlig inloggning, MFA, medlemskapskontroller och företagsfiltrering finns. Journalpostning är atomisk och deklarerade företagsrelationer kontrolleras på databasnivå. Fullständig oföränderlighet, momsavstämning, driftisolering och flera andra pilotspärrar återstår enligt checklistan.
+Den delade UAT-miljön använder nu Supabase i region `eu-north-1` för PostgreSQL, Auth, MFA, Row Level Security (RLS), Realtime, privata dokument, kontrollerade RPC-flöden och Edge Functions. GitHub Pages visar gränssnittet, medan verksamhetsdata delas via Supabase mellan behöriga användare.
 
-Den persistenta bokföringen i `apps/api/accounting-store.js` och domändemon i `packages/accounting/journal.js` är olika implementationer. Kontrollera vilken som faktiskt används när en funktion granskas.
+Node/SQLite i `apps/api/` finns kvar som äldre/lokal implementation och används fortfarande av vissa regressionstester. Den ska därför inte beskrivas som den aktiva databasen för den delade GitHub Pages-UAT:n.
+
+Ekonomiska kärntabeller skyddas mot fria direktändringar från webbläsaren. Skrivflöden går genom kontrollerade databasfunktioner och buntflöden, och företagsisolering verifieras med medlemskap + RLS. Systemet är fortfarande UAT och är inte godkänt för verkliga produktionsdata.
 
 ## Utveckling och test
 
@@ -90,7 +93,7 @@ Vid `TENANT_INTEGRITY_ERROR` ska uppstarten stoppas och historiken bevaras för 
 
 ## Offentlig webbplats och portaldemo
 
-Webbplatsen och portaldemon publiceras av GitHub Pages. Demon är endast en förhandsvisning av gränssnittet; uppgifter som ni matar in delas inte mellan era webbläsare.
+Webbplatsen och UAT-portalen publiceras av GitHub Pages. När UAT:n kör i Supabase-läge delas den syntetiska testdatan mellan behöriga användare och webbläsare via Supabase. Fristående demoläge/localStorage kan fortfarande förekomma i äldre testytor och delar då inte data.
 
 Offentliga texter finns i `content/site.json` och `content/company.json`. Se redigeringsguiden. Företagets juridiska/ekonomiska inställningar ska inte ändras via ett offentligt CMS.
 
