@@ -1,3 +1,6 @@
+-- Recovered from live Supabase migration history (20260928133107 admin_period_self_unlock).
+-- GitHub is source of truth for rebuilds.
+
 -- Admins may always unlock their own accounting periods.
 -- The request/decision history remains in period_unlock_requests for traceability.
 
@@ -71,3 +74,4 @@ $$;
 
 revoke all on function public.decide_accounting_period_unlock(text,text,text,text) from public,anon;
 grant execute on function public.decide_accounting_period_unlock(text,text,text,text) to authenticated;
+;
