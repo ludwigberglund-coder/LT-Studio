@@ -78,6 +78,7 @@ function visible(element){
   let browser;
   const checks=[];
   const errors=[];
+  const layoutIssues=[];
   try{
     await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
     const base=`http://127.0.0.1:${server.address().port}/Rollands/`;
@@ -178,7 +179,7 @@ function visible(element){
 
         assert.ok(layout.bodyText>80,`${surface.id} ${viewport.id} rendered too little content`);
         assert.ok(layout.visibleControls>0,`${surface.id} ${viewport.id} has no visible controls`);
-        assert.ok(layout.scrollWidth<=layout.innerWidth+2,`${surface.id} ${viewport.id} has page-level horizontal overflow: ${layout.scrollWidth}px > ${layout.innerWidth}px; offenders=${JSON.stringify(layout.overflowing)}`);
+        if(layout.scrollWidth>layout.innerWidth+2)layoutIssues.push(`${surface.id} ${viewport.id} has page-level horizontal overflow: ${layout.scrollWidth}px > ${layout.innerWidth}px; offenders=${JSON.stringify(layout.overflowing)}`);
         assert.match(layout.fontFamily,/(-apple-system|BlinkMacSystemFont|SF Pro|system-ui)/i,`${surface.id} ${viewport.id} is not using the shared Apple/system font stack`);
         assert.equal(pageErrors.length,0,`${surface.id} ${viewport.id} has uncaught browser errors: ${pageErrors.join('; ')}`);
         assert.equal(layout.iconizedMetrics,0,`${surface.id} ${viewport.id} metric cards must not be converted into inline icon buttons`);
@@ -228,6 +229,7 @@ function visible(element){
       await context.close();
     }
 
+    if(layoutIssues.length)throw new Error(`Visual layout issues:\n${layoutIssues.join('\n')}`);
     fs.writeFileSync(path.join(out,'visual-design-results.json'),JSON.stringify({ok:true,checks,errors},null,2));
     console.log(`Visual design smoke passed: ${checks.length} rendered viewport checks.`);
   }catch(error){
