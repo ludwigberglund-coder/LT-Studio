@@ -125,6 +125,10 @@ function visible(element){
           const cmsFormStyle=cmsForm?getComputedStyle(cmsForm):null;
           const cmsSideStyle=cmsSidePanel?getComputedStyle(cmsSidePanel):null;
           const supplierDividerStyle=supplierDivider?getComputedStyle(supplierDivider):null;
+          const supplierInput=document.querySelector('.supplier-detail input');
+          const supplierPrimary=document.querySelector('.supplier-detail .button:not(.ghost)');
+          const supplierInputStyle=supplierInput?getComputedStyle(supplierInput):null;
+          const supplierPrimaryStyle=supplierPrimary?getComputedStyle(supplierPrimary):null;
           const sharedBrand=document.querySelector('.shared-brand strong');
           const themeLabel=document.querySelector('.lt-theme-toggle-topbar .lt-theme-toggle-label');
           const themeLabelStyle=themeLabel?getComputedStyle(themeLabel):null;
@@ -174,6 +178,10 @@ function visible(element){
             cmsFormPaddingLeft:cmsFormStyle?.paddingLeft||null,
             cmsSidePaddingTop:cmsSideStyle?.paddingTop||null,
             supplierDividerBorderTopColor:supplierDividerStyle?.borderTopColor||null,
+            supplierInputColor:supplierInputStyle?.color||null,
+            supplierInputTextFill:supplierInputStyle?.webkitTextFillColor||null,
+            supplierPrimaryColor:supplierPrimaryStyle?.color||null,
+            supplierPrimaryBackground:supplierPrimaryStyle?.backgroundColor||null,
             sharedBrandText:sharedBrand?.textContent?.trim()||null,
             themeLabelDisplay:themeLabelStyle?.display||null,
             systemHeadingColor:systemHeadingStyle?.color||null,
@@ -231,6 +239,11 @@ function visible(element){
         if(surface.id==='legacy'&&layout.supplierDividerBorderTopColor){
           const expectedDivider=theme.id==='dark'?'rgb(68, 76, 86)':'rgb(229, 229, 229)';
           assert.equal(layout.supplierDividerBorderTopColor,expectedDivider,`${viewport.id} ${theme.id} legacy supplier alert leaked an incorrect divider color`);
+        }
+        if(surface.id==='suppliers'&&theme.id==='dark'){
+          assert.equal(layout.supplierInputColor,'rgb(255, 255, 255)',`${viewport.id} supplier input text lost dark-mode contrast`);
+          assert.equal(layout.supplierInputTextFill,'rgb(255, 255, 255)',`${viewport.id} supplier input text fill lost dark-mode contrast`);
+          assert.equal(layout.supplierPrimaryColor,'rgb(34, 39, 46)',`${viewport.id} supplier primary button text must stay dark on the pale accent surface`);
         }
 
         const file=`visual-${surface.id}-${viewport.id}-${theme.id}.png`;
