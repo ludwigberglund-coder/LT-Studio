@@ -42,6 +42,10 @@ const viewports=[
   {id:'tablet',width:768,height:900},
   {id:'mobile',width:390,height:844}
 ];
+const themes=[
+  {id:'light',colorScheme:'light'},
+  {id:'dark',colorScheme:'dark'}
+];
 
 function mime(file){
   return ({
@@ -84,9 +88,14 @@ function visible(element){
     const base=`http://127.0.0.1:${server.address().port}/Rollands/`;
     browser=await chromium.launch({headless:true});
 
-    for(const viewport of viewports){
-      const context=await browser.newContext({viewport:{width:viewport.width,height:viewport.height}});
-      for(const surface of surfaces){
+    for(const theme of themes){
+      for(const viewport of viewports){
+        const context=await browser.newContext({
+          viewport:{width:viewport.width,height:viewport.height},
+          colorScheme:theme.colorScheme
+        });
+        for(const surface of surfaces){
+        if(surface.id==='website'&&theme.id==='dark')continue;
         const page=await context.newPage();
         const pageErrors=[];
         page.on('pageerror',error=>pageErrors.push(error.message));
@@ -116,6 +125,10 @@ function visible(element){
           const cmsFormStyle=cmsForm?getComputedStyle(cmsForm):null;
           const cmsSideStyle=cmsSidePanel?getComputedStyle(cmsSidePanel):null;
           const supplierDividerStyle=supplierDivider?getComputedStyle(supplierDivider):null;
+          const supplierInput=document.querySelector('.supplier-detail input');
+          const supplierPrimary=document.querySelector('.supplier-detail .button:not(.ghost)');
+          const supplierInputStyle=supplierInput?getComputedStyle(supplierInput):null;
+          const supplierPrimaryStyle=supplierPrimary?getComputedStyle(supplierPrimary):null;
           const sharedBrand=document.querySelector('.shared-brand strong');
           const themeLabel=document.querySelector('.lt-theme-toggle-topbar .lt-theme-toggle-label');
           const themeLabelStyle=themeLabel?getComputedStyle(themeLabel):null;
@@ -148,6 +161,7 @@ function visible(element){
             };
           }).filter(item=>item.left<-2||item.right>window.innerWidth+2||item.width>window.innerWidth+2).slice(0,12);
           return {
+            theme:document.documentElement.dataset.ltTheme||null,
             scrollWidth:Math.max(html.scrollWidth,body.scrollWidth),
             innerWidth:window.innerWidth,
             bodyText:body.innerText.trim().length,
@@ -164,6 +178,10 @@ function visible(element){
             cmsFormPaddingLeft:cmsFormStyle?.paddingLeft||null,
             cmsSidePaddingTop:cmsSideStyle?.paddingTop||null,
             supplierDividerBorderTopColor:supplierDividerStyle?.borderTopColor||null,
+            supplierInputColor:supplierInputStyle?.color||null,
+            supplierInputTextFill:supplierInputStyle?.webkitTextFillColor||null,
+            supplierPrimaryColor:supplierPrimaryStyle?.color||null,
+            supplierPrimaryBackground:supplierPrimaryStyle?.backgroundColor||null,
             sharedBrandText:sharedBrand?.textContent?.trim()||null,
             themeLabelDisplay:themeLabelStyle?.display||null,
             systemHeadingColor:systemHeadingStyle?.color||null,
@@ -177,9 +195,10 @@ function visible(element){
           };
         });
 
-        assert.ok(layout.bodyText>80,`${surface.id} ${viewport.id} rendered too little content`);
-        assert.ok(layout.visibleControls>0,`${surface.id} ${viewport.id} has no visible controls`);
-        if(layout.scrollWidth>layout.innerWidth+2)layoutIssues.push(`${surface.id} ${viewport.id} has page-level horizontal overflow: ${layout.scrollWidth}px > ${layout.innerWidth}px; offenders=${JSON.stringify(layout.overflowing)}`);
+        if(surface.id!=='website')assert.equal(layout.theme,theme.id,`${surface.id} ${viewport.id} did not apply ${theme.id} mode`);
+        assert.ok(layout.bodyText>80,`${surface.id} ${viewport.id} ${theme.id} rendered too little content`);
+        assert.ok(layout.visibleControls>0,`${surface.id} ${viewport.id} ${theme.id} has no visible controls`);
+        if(layout.scrollWidth>layout.innerWidth+2)layoutIssues.push(`${surface.id} ${viewport.id} ${theme.id} has page-level horizontal overflow: ${layout.scrollWidth}px > ${layout.innerWidth}px; offenders=${JSON.stringify(layout.overflowing)}`);
         assert.match(layout.fontFamily,/(-apple-system|BlinkMacSystemFont|SF Pro|system-ui)/i,`${surface.id} ${viewport.id} is not using the shared Apple/system font stack`);
         assert.equal(pageErrors.length,0,`${surface.id} ${viewport.id} has uncaught browser errors: ${pageErrors.join('; ')}`);
         assert.equal(layout.iconizedMetrics,0,`${surface.id} ${viewport.id} metric cards must not be converted into inline icon buttons`);
@@ -218,20 +237,27 @@ function visible(element){
           assert.ok(Number.parseFloat(layout.cmsSidePaddingTop)>=16,`${viewport.id} CMS side cards lost their internal padding`);
         }
         if(surface.id==='legacy'&&layout.supplierDividerBorderTopColor){
-          assert.equal(layout.supplierDividerBorderTopColor,'rgb(229, 229, 229)',`${viewport.id} legacy supplier alert leaked the old amber divider`);
+          const expectedDivider=theme.id==='dark'?'rgb(68, 76, 86)':'rgb(229, 229, 229)';
+          assert.equal(layout.supplierDividerBorderTopColor,expectedDivider,`${viewport.id} ${theme.id} legacy supplier alert leaked an incorrect divider color`);
+        }
+        if(surface.id==='suppliers'&&theme.id==='dark'){
+          assert.equal(layout.supplierInputColor,'rgb(255, 255, 255)',`${viewport.id} supplier input text lost dark-mode contrast`);
+          assert.equal(layout.supplierInputTextFill,'rgb(255, 255, 255)',`${viewport.id} supplier input text fill lost dark-mode contrast`);
+          assert.equal(layout.supplierPrimaryColor,'rgb(34, 39, 46)',`${viewport.id} supplier primary button text must stay dark on the pale accent surface`);
         }
 
-        const file=`visual-${surface.id}-${viewport.id}.png`;
+        const file=`visual-${surface.id}-${viewport.id}-${theme.id}.png`;
         await page.screenshot({path:path.join(out,file),fullPage:false});
-        checks.push({surface:surface.id,viewport:viewport.id,...layout,screenshot:file});
+        checks.push({surface:surface.id,viewport:viewport.id,theme:theme.id,...layout,screenshot:file});
         await page.close();
+        }
+        await context.close();
       }
-      await context.close();
     }
 
     if(layoutIssues.length)throw new Error(`Visual layout issues:\n${layoutIssues.join('\n')}`);
     fs.writeFileSync(path.join(out,'visual-design-results.json'),JSON.stringify({ok:true,checks,errors},null,2));
-    console.log(`Visual design smoke passed: ${checks.length} rendered viewport checks.`);
+    console.log(`Visual design smoke passed: ${checks.length} rendered viewport/theme checks (public website is theme-neutral).`);
   }catch(error){
     errors.push(error.stack||String(error));
     fs.writeFileSync(path.join(out,'visual-design-results.json'),JSON.stringify({ok:false,checks,errors},null,2));
