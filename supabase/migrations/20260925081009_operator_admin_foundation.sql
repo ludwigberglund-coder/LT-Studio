@@ -1,6 +1,6 @@
--- Applied to Supabase UAT on 2026-09-25.
--- LT Studio operator identities and immutable-ish operator audit surface.
--- Browser roles have explicit deny-all RLS policies; privileged access belongs in the operator Edge Function.
+-- Recovered from live Supabase migration history (20260925081009 operator_admin_foundation).
+-- GitHub is source of truth for rebuilds.
+
 
 create table if not exists public.platform_operators(
   auth_user_id uuid primary key references auth.users(id) on delete cascade,
@@ -28,11 +28,4 @@ create index if not exists operator_audit_events_target_user_idx on public.opera
 
 revoke all on public.platform_operators,public.operator_audit_events from anon,authenticated;
 grant select,insert,update,delete on public.platform_operators,public.operator_audit_events to service_role;
-
-create policy "no direct authenticated access to platform operators"
-on public.platform_operators for all to authenticated
-using (false) with check (false);
-
-create policy "no direct authenticated access to operator audit"
-on public.operator_audit_events for all to authenticated
-using (false) with check (false);
+;
