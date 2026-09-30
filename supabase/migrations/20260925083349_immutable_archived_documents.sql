@@ -3,6 +3,7 @@
 
 
 drop policy if exists "lt documents accounting delete" on storage.objects;
+drop policy if exists "lt documents accounting delete orphan only" on storage.objects;
 create policy "lt documents accounting delete orphan only"
 on storage.objects for delete to authenticated
 using (
