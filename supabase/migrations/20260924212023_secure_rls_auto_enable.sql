@@ -1,9 +1,10 @@
 -- Applied to Supabase project LT-Studio as migration 20260924212023.
 -- GitHub remains Source of Truth for the migration definition.
 --
--- The live project already had the RLS auto-enable function/event trigger when
--- this migration was originally recorded. Define them here as well so a clean
--- rebuild from GitHub does not depend on dashboard-only history.
+-- Rebuild note:
+-- The live project already had rls_auto_enable() + ensure_rls before tracked
+-- migration history began. Recreate that pre-history state here so a clean
+-- database can be built from GitHub alone, then apply the original hardening.
 
 create or replace function public.rls_auto_enable()
 returns event_trigger
@@ -18,11 +19,11 @@ begin
     select *
     from pg_event_trigger_ddl_commands()
     where command_tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
-      and object_type in ('table', 'partitioned table')
+      and object_type in ('table','partitioned table')
   loop
     if cmd.schema_name is not null
        and cmd.schema_name in ('public')
-       and cmd.schema_name not in ('pg_catalog', 'information_schema')
+       and cmd.schema_name not in ('pg_catalog','information_schema')
        and cmd.schema_name not like 'pg_toast%'
        and cmd.schema_name not like 'pg_temp%' then
       begin
@@ -40,11 +41,19 @@ begin
 end;
 $function$;
 
-drop event trigger if exists ensure_rls;
-create event trigger ensure_rls
-on ddl_command_end
-when tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
-execute function public.rls_auto_enable();
+do $block$
+begin
+  if not exists (
+    select 1
+    from pg_event_trigger
+    where evtname = 'ensure_rls'
+  ) then
+    create event trigger ensure_rls
+      on ddl_command_end
+      execute function public.rls_auto_enable();
+  end if;
+end;
+$block$;
 
 revoke execute on function public.rls_auto_enable() from public;
 revoke execute on function public.rls_auto_enable() from anon;
