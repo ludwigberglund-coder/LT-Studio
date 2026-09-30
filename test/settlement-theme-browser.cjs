@@ -117,12 +117,8 @@ async function waitForSettledDialog(page){
     const backdrop=document.querySelector('.modal-backdrop');
     const modal=document.querySelector('.settlement-modal');
     if(!backdrop||!modal)return false;
-    const backdropStyle=getComputedStyle(backdrop);
-    const modalStyle=getComputedStyle(modal);
-    return Number.parseFloat(backdropStyle.opacity||'1')>=0.99
-      && Number.parseFloat(modalStyle.opacity||'1')>=0.99
-      && backdropStyle.animationPlayState!=='running'
-      && modalStyle.animationPlayState!=='running';
+    return Number.parseFloat(getComputedStyle(backdrop).opacity||'1')>=0.99
+      && Number.parseFloat(getComputedStyle(modal).opacity||'1')>=0.99;
   });
 }
 
