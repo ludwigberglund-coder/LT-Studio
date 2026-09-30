@@ -21,7 +21,9 @@ test('admin overview contains live GitHub and Supabase system status',()=>{
   assert.ok(js.includes('realtime/v1/websocket'));
   assert.ok(js.includes("const REPO='ludwigberglund-coder/LT-Studio'"));
   assert.ok(js.includes('commits/main'));
-  assert.ok(js.includes('actions/runs?branch=main&per_page=10'));
+  assert.ok(js.includes("actions/runs?head_sha='+encodeURIComponent(headSha)+'&per_page=10"));
+  assert.doesNotMatch(js,/actions\/runs\?branch=main/);
+  assert.match(js,/if\(!run\)return 'Ingen körning'/);
   assert.match(js,/GITHUB_REFRESH_MS=5\*60\*1000/);
   assert.match(js,/SUPABASE_REFRESH_MS=60\*1000/);
   assert.match(css,/@keyframes systemScan/);
