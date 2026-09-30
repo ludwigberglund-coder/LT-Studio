@@ -229,7 +229,8 @@ function visible(element){
           assert.ok(Number.parseFloat(layout.cmsSidePaddingTop)>=16,`${viewport.id} CMS side cards lost their internal padding`);
         }
         if(surface.id==='legacy'&&layout.supplierDividerBorderTopColor){
-          assert.equal(layout.supplierDividerBorderTopColor,'rgb(229, 229, 229)',`${viewport.id} legacy supplier alert leaked the old amber divider`);
+          const expectedDivider=theme.id==='dark'?'rgb(68, 76, 86)':'rgb(229, 229, 229)';
+          assert.equal(layout.supplierDividerBorderTopColor,expectedDivider,`${viewport.id} ${theme.id} legacy supplier alert leaked an incorrect divider color`);
         }
 
         const file=`visual-${surface.id}-${viewport.id}-${theme.id}.png`;
