@@ -1,5 +1,5 @@
--- Applied to Supabase UAT on 2026-09-25.
--- GitHub is source of truth for this schema.
+-- Recovered from live Supabase migration history (20260925055307 shared_ledger_payables_documents).
+-- GitHub is source of truth for rebuilds.
 
 create table if not exists public.suppliers (
   id text primary key,
@@ -104,47 +104,35 @@ alter table public.audit_events enable row level security;
 
 create index if not exists suppliers_company_idx on public.suppliers(company_id);
 create index if not exists supplier_invoices_company_idx on public.supplier_invoices(company_id);
-create index if not exists supplier_invoices_supplier_fk_idx on public.supplier_invoices(company_id, supplier_id);
 create index if not exists journal_entries_company_idx on public.journal_entries(company_id, posting_date);
-create index if not exists journal_entries_created_by_idx on public.journal_entries(created_by);
 create index if not exists journal_lines_entry_idx on public.journal_lines(company_id, journal_entry_id);
 create index if not exists documents_company_idx on public.documents(company_id);
-create index if not exists documents_uploaded_by_idx on public.documents(uploaded_by);
 create index if not exists audit_events_company_created_idx on public.audit_events(company_id, created_at desc);
-create index if not exists audit_events_actor_idx on public.audit_events(actor_user_id);
-
-create policy "members can read company suppliers" on public.suppliers for select to authenticated
-using (exists (select 1 from public.company_memberships m where m.company_id = suppliers.company_id and m.auth_user_id = (select auth.uid())));
-
-create policy "members can read company supplier invoices" on public.supplier_invoices for select to authenticated
-using (exists (select 1 from public.company_memberships m where m.company_id = supplier_invoices.company_id and m.auth_user_id = (select auth.uid())));
-
-create policy "members can read company journal entries" on public.journal_entries for select to authenticated
-using (exists (select 1 from public.company_memberships m where m.company_id = journal_entries.company_id and m.auth_user_id = (select auth.uid())));
-
-create policy "members can read company journal lines" on public.journal_lines for select to authenticated
-using (exists (select 1 from public.company_memberships m where m.company_id = journal_lines.company_id and m.auth_user_id = (select auth.uid())));
-
-create policy "members can read company documents" on public.documents for select to authenticated
-using (exists (select 1 from public.company_memberships m where m.company_id = documents.company_id and m.auth_user_id = (select auth.uid())));
-
-create policy "members can read company audit events" on public.audit_events for select to authenticated
-using (company_id is not null and exists (
-  select 1 from public.company_memberships m
-  where m.company_id = audit_events.company_id
-    and m.auth_user_id = (select auth.uid())
-    and m.role = 'admin'
-));
-
-revoke insert, update, delete on public.audit_events from anon, authenticated;
 
 do $$
 declare t text;
 begin
   foreach t in array array['customers','invoices','invoice_transactions','suppliers','supplier_invoices','journal_entries','journal_lines','documents'] loop
     execute format('drop policy if exists %I on public.%I', 'members can write company ' || t, t);
-    execute format('create policy %I on public.%I for insert to authenticated with check (exists (select 1 from public.company_memberships m where m.company_id = %I.company_id and m.auth_user_id = (select auth.uid()) and m.role in (''admin'',''accountant'')))', 'accounting members can insert company ' || t, t, t);
-    execute format('create policy %I on public.%I for update to authenticated using (exists (select 1 from public.company_memberships m where m.company_id = %I.company_id and m.auth_user_id = (select auth.uid()) and m.role in (''admin'',''accountant''))) with check (exists (select 1 from public.company_memberships m where m.company_id = %I.company_id and m.auth_user_id = (select auth.uid()) and m.role in (''admin'',''accountant'')))', 'accounting members can update company ' || t, t, t, t);
-    execute format('create policy %I on public.%I for delete to authenticated using (exists (select 1 from public.company_memberships m where m.company_id = %I.company_id and m.auth_user_id = (select auth.uid()) and m.role in (''admin'',''accountant'')))', 'accounting members can delete company ' || t, t, t);
+    execute format(
+      'create policy %I on public.%I for all to authenticated using (exists (select 1 from public.company_memberships m where m.company_id = %I.company_id and m.auth_user_id = (select auth.uid()) and m.role in (''admin'',''accountant''))) with check (exists (select 1 from public.company_memberships m where m.company_id = %I.company_id and m.auth_user_id = (select auth.uid()) and m.role in (''admin'',''accountant'')))',
+      'members can write company ' || t, t, t, t
+    );
   end loop;
 end $$;
+
+create policy "members can read company suppliers" on public.suppliers for select to authenticated
+using (exists (select 1 from public.company_memberships m where m.company_id = suppliers.company_id and m.auth_user_id = (select auth.uid())));
+create policy "members can read company supplier invoices" on public.supplier_invoices for select to authenticated
+using (exists (select 1 from public.company_memberships m where m.company_id = supplier_invoices.company_id and m.auth_user_id = (select auth.uid())));
+create policy "members can read company journal entries" on public.journal_entries for select to authenticated
+using (exists (select 1 from public.company_memberships m where m.company_id = journal_entries.company_id and m.auth_user_id = (select auth.uid())));
+create policy "members can read company journal lines" on public.journal_lines for select to authenticated
+using (exists (select 1 from public.company_memberships m where m.company_id = journal_lines.company_id and m.auth_user_id = (select auth.uid())));
+create policy "members can read company documents" on public.documents for select to authenticated
+using (exists (select 1 from public.company_memberships m where m.company_id = documents.company_id and m.auth_user_id = (select auth.uid())));
+create policy "members can read company audit events" on public.audit_events for select to authenticated
+using (company_id is not null and exists (select 1 from public.company_memberships m where m.company_id = audit_events.company_id and m.auth_user_id = (select auth.uid()) and m.role = 'admin'));
+
+revoke insert, update, delete on public.audit_events from anon, authenticated;
+;
