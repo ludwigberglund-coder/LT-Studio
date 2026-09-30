@@ -8,7 +8,7 @@ const vm=require('node:vm');
 
 const root=path.resolve(__dirname,'..');
 const read=relative=>fs.readFileSync(path.join(root,relative),'utf8');
-const migration=()=>read('supabase/migrations/20260929_manual_customer_payments.sql');
+const migration=()=>read('supabase/migrations/20260929062914_manual_customer_payments.sql');
 
 test('manuell kundinbetalning lagras som väntande bunt utan att ändra fakturasaldo direkt',()=>{
   const sql=migration();
