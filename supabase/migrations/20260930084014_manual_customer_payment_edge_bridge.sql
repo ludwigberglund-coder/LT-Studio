@@ -1,3 +1,6 @@
+-- Recovered from live Supabase migration history (20260930084014 manual_customer_payment_edge_bridge).
+-- GitHub is source of truth for rebuilds.
+
 -- Server-only bridge for staging manual customer payments through a JWT-verified Edge Function.
 -- GitHub source of truth: 2026-09-30.
 --
@@ -88,3 +91,4 @@ revoke all on function public.stage_manual_customer_payment_server(uuid,uuid,tex
   from public,anon,authenticated;
 grant execute on function public.stage_manual_customer_payment_server(uuid,uuid,text,text,text,date,bigint,text,text,text)
   to service_role;
+;

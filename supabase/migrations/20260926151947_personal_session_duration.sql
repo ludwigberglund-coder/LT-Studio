@@ -1,5 +1,8 @@
--- Recovered from live Supabase migration 20260926151947.
+-- Recovered from live Supabase migration history (20260926151947 personal_session_duration).
+-- GitHub is source of truth for rebuilds.
+
 -- Allow users to change only their own personal session duration in Supabase UAT.
+-- The AAL2 requirement is restrictive so it combines with ownership policies instead of bypassing them.
 
 revoke all on table public.app_users from authenticated;
 grant select on table public.app_users to authenticated;
@@ -21,3 +24,4 @@ for update
 to authenticated
 using ((select auth.uid()) is not null and auth_user_id=(select auth.uid()))
 with check ((select auth.uid()) is not null and auth_user_id=(select auth.uid()));
+;

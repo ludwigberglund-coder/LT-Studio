@@ -1,3 +1,6 @@
+-- Recovered from live Supabase migration history (20260928120227 customer_credit_settlement_batches).
+-- GitHub is source of truth for rebuilds.
+
 -- Manual customer credit settlement through an approval-gated financial batch.
 -- The receivables are changed only when the linked batch reaches approved.
 
@@ -425,3 +428,4 @@ after update of status on public.financial_batches
 for each row
 when (old.status is distinct from new.status)
 execute function public.apply_customer_credit_settlement_batch();
+;

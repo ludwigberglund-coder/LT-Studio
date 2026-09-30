@@ -1,3 +1,6 @@
+-- Recovered from live Supabase migration history (20260929062914 manual_customer_payments).
+-- GitHub is source of truth for rebuilds.
+
 -- Manual customer payments staged through the existing financial batch approval flow.
 -- GitHub source of truth: 2026-09-29.
 
@@ -483,3 +486,4 @@ begin
   end if;
 end
 $$;
+;

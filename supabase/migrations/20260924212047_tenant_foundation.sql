@@ -1,5 +1,6 @@
--- Applied to Supabase project LT-Studio as migration 20260924212047.
--- First shared multi-tenant foundation. Only synthetic data is allowed during migration.
+-- Recovered from live Supabase migration history (20260924212047 tenant_foundation).
+-- GitHub is source of truth for rebuilds.
+
 
 create table if not exists public.companies (
   id uuid primary key default gen_random_uuid(),
@@ -54,3 +55,4 @@ using (
   (select auth.uid()) is not null
   and user_id = (select auth.uid())
 );
+;

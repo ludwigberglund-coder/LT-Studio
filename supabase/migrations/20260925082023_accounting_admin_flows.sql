@@ -1,5 +1,6 @@
--- Applied to Supabase UAT on 2026-09-25.
--- Accounting corrections, period lock/unlock and simple opening-balance import.
+-- Recovered from live Supabase migration history (20260925082023 accounting_admin_flows).
+-- GitHub is source of truth for rebuilds.
+
 
 create table if not exists public.accounting_corrections(
   id text primary key,
@@ -33,21 +34,27 @@ create table if not exists public.period_unlock_requests(
   decision_reason text,
   unique(company_id,id)
 );
-create unique index if not exists period_unlock_one_pending_idx on public.period_unlock_requests(company_id,period) where status='pending';
+create unique index if not exists period_unlock_one_pending_idx
+on public.period_unlock_requests(company_id,period) where status='pending';
 create index if not exists period_unlock_company_status_idx on public.period_unlock_requests(company_id,status,requested_at desc);
 create index if not exists period_unlock_requested_by_idx on public.period_unlock_requests(requested_by);
 create index if not exists period_unlock_decided_by_idx on public.period_unlock_requests(decided_by);
 alter table public.period_unlock_requests enable row level security;
 
+drop policy if exists "members read accounting corrections" on public.accounting_corrections;
 create policy "members read accounting corrections" on public.accounting_corrections for select to authenticated
 using (exists(select 1 from public.company_memberships m where m.company_id=accounting_corrections.company_id and m.auth_user_id=(select auth.uid())));
+drop policy if exists "accounting members insert accounting corrections" on public.accounting_corrections;
 create policy "accounting members insert accounting corrections" on public.accounting_corrections for insert to authenticated
 with check (created_by=(select auth.uid()) and exists(select 1 from public.company_memberships m where m.company_id=accounting_corrections.company_id and m.auth_user_id=(select auth.uid()) and m.role in ('admin','accountant')));
 
+drop policy if exists "members read period unlock requests" on public.period_unlock_requests;
 create policy "members read period unlock requests" on public.period_unlock_requests for select to authenticated
 using (exists(select 1 from public.company_memberships m where m.company_id=period_unlock_requests.company_id and m.auth_user_id=(select auth.uid())));
+drop policy if exists "accounting members insert period unlock requests" on public.period_unlock_requests;
 create policy "accounting members insert period unlock requests" on public.period_unlock_requests for insert to authenticated
 with check (requested_by=(select auth.uid()) and exists(select 1 from public.company_memberships m where m.company_id=period_unlock_requests.company_id and m.auth_user_id=(select auth.uid()) and m.role in ('admin','accountant')));
+drop policy if exists "accounting members update period unlock requests" on public.period_unlock_requests;
 create policy "accounting members update period unlock requests" on public.period_unlock_requests for update to authenticated
 using (exists(select 1 from public.company_memberships m where m.company_id=period_unlock_requests.company_id and m.auth_user_id=(select auth.uid()) and m.role in ('admin','accountant')))
 with check (exists(select 1 from public.company_memberships m where m.company_id=period_unlock_requests.company_id and m.auth_user_id=(select auth.uid()) and m.role in ('admin','accountant')));
@@ -84,7 +91,7 @@ begin
   end if;
   insert into public.accounting_periods(company_id,period,status,locked_by,locked_at)
   values(p_company_id,p_period,'locked',v_uid,now())
-  on conflict on constraint accounting_periods_pkey do update set status='locked',locked_by=v_uid,locked_at=now();
+  on conflict(company_id,period) do update set status='locked',locked_by=v_uid,locked_at=now();
   return query select ap.period,ap.status,ap.locked_by,ap.locked_at,false from public.accounting_periods ap where ap.company_id=p_company_id and ap.period=p_period;
 end;
 $$;
@@ -149,7 +156,9 @@ $$;
 revoke all on function public.decide_accounting_period_unlock(text,text,text,text) from public,anon;
 grant execute on function public.decide_accounting_period_unlock(text,text,text,text) to authenticated;
 
-create or replace function public.import_opening_balance(p_company_id text,p_year text,p_posting_date date,p_lines jsonb)
+create or replace function public.import_opening_balance(
+  p_company_id text,p_year text,p_posting_date date,p_lines jsonb
+)
 returns table(entry_id text,journal_number text,duplicate boolean)
 language plpgsql security invoker set search_path=''
 as $$
@@ -251,3 +260,4 @@ end;
 $$;
 revoke all on function public.correct_manual_accounting_entry(text,text,date,text,jsonb) from public,anon;
 grant execute on function public.correct_manual_accounting_entry(text,text,date,text,jsonb) to authenticated;
+;

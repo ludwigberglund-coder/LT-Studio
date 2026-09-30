@@ -1,3 +1,6 @@
+-- Recovered from live Supabase migration history (20260925083457 document_metadata_immutability_hardening).
+-- GitHub is source of truth for rebuilds.
+
 -- Document archive immutability hardening.
 -- Once metadata references an archived original, browser roles may only read it.
 -- Corrections must be registered as new documents.
@@ -12,3 +15,4 @@ grant select,insert on public.documents to authenticated;
 revoke all on public.customer_invoice_documents from anon;
 revoke update,delete,truncate,references,trigger on public.customer_invoice_documents from authenticated;
 grant select,insert on public.customer_invoice_documents to authenticated;
+;

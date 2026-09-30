@@ -1,6 +1,6 @@
--- Shared customer and customer-invoice core.
--- Direct Data API access is intentionally read-only for authenticated users.
--- Financial writes will go through validated server/Edge Function flows in a later stage.
+-- Recovered from live Supabase migration history (20260924212715 customer_invoice_core).
+-- GitHub is source of truth for rebuilds.
+
 
 create table public.customers (
   id text primary key,
@@ -137,3 +137,4 @@ using (
       and m.auth_user_id = (select auth.uid())
   )
 );
+;
