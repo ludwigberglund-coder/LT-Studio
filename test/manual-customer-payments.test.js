@@ -116,6 +116,9 @@ test('manuell kundinbetalning gar genom JWT-verifierad Edge Function med server-
   assert.match(edge,/admin\.rpc\("stage_manual_customer_payment_server"/);
   assert.match(edge,/p_actor_uid:userData\.user\.id/);
   assert.match(edge,/p_session_id:sessionId/);
+  assert.match(edge,/safeDatabaseError/);
+  assert.match(edge,/MANUAL_PAYMENT_STAGE_FAILED/);
+  assert.doesNotMatch(edge,/return reply\(500,\{error:message,code:"MANUAL_PAYMENT_EDGE_ERROR"\}\)/);
   assert.match(config,/\[functions\.manual-customer-payment\][\s\S]*verify_jwt = true/);
 
   assert.match(revoke,/revoke execute on function public\.stage_manual_customer_payment\(text,text,text,date,bigint,text,text,text\)[\s\S]*from authenticated/);
