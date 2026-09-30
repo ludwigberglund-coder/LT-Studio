@@ -32,12 +32,23 @@ function projectKeys(){
   return {url,publishable,secret};
 }
 
-function statusFor(message:string){
-  if(/AUTH_REQUIRED|SESSION_EXPIRED|invalid.*jwt|token/i.test(message))return 401;
-  if(/ACCESS_DENIED|MFA_REQUIRED/i.test(message))return 403;
-  if(/IDEMPOTENCY_CONFLICT|PAYMENT_ALREADY_PENDING/i.test(message))return 409;
-  if(/INVOICE_NOT_FOUND/i.test(message))return 404;
-  return 422;
+function publicFailure(message:string){
+  if(/AUTH_REQUIRED|SESSION_EXPIRED|invalid.*jwt|token/i.test(message)){
+    return {status:401,code:"AUTH_REQUIRED",error:"Sessionen är ogiltig eller har gått ut."};
+  }
+  if(/ACCESS_DENIED|MFA_REQUIRED/i.test(message)){
+    return {status:403,code:"ACCESS_DENIED",error:"Du saknar behörighet för den här åtgärden."};
+  }
+  if(/IDEMPOTENCY_CONFLICT/i.test(message)){
+    return {status:409,code:"IDEMPOTENCY_CONFLICT",error:"Begäran kolliderar med en tidigare registrering."};
+  }
+  if(/PAYMENT_ALREADY_PENDING/i.test(message)){
+    return {status:409,code:"PAYMENT_ALREADY_PENDING",error:"Det finns redan en väntande manuell inbetalning för fakturan."};
+  }
+  if(/INVOICE_NOT_FOUND/i.test(message)){
+    return {status:404,code:"INVOICE_NOT_FOUND",error:"Fakturan hittades inte."};
+  }
+  return {status:422,code:"MANUAL_PAYMENT_STAGE_FAILED",error:"Inbetalningen kunde inte registreras med de angivna uppgifterna."};
 }
 
 Deno.serve(async(req)=>{
@@ -97,15 +108,16 @@ Deno.serve(async(req)=>{
       p_comment:comment
     });
     if(error){
-      const message=String(error.message||"Inbetalningen kunde inte registreras.");
-      return reply(statusFor(message),{error:message,code:error.code||"MANUAL_PAYMENT_STAGE_FAILED"});
+      const failure=publicFailure(String(error.message||""));
+      console.error("manual-customer-payment rpc",String(error.code||"RPC_ERROR"));
+      return reply(failure.status,{error:failure.error,code:failure.code});
     }
 
     const staged=Array.isArray(data)?data[0]:data;
     if(!staged)return reply(500,{error:"Inbetalningen skapade ingen bunt.",code:"MANUAL_PAYMENT_STAGE_FAILED"});
     return reply(200,staged);
   }catch(error){
-    const message=String((error as Error)?.message||error||"Inbetalningen kunde inte registreras.");
-    return reply(500,{error:message,code:"MANUAL_PAYMENT_EDGE_ERROR"});
+    console.error("manual-customer-payment edge",error instanceof Error?error.name:"UNKNOWN_ERROR");
+    return reply(500,{error:"Inbetalningen kunde inte registreras på grund av ett internt fel.",code:"MANUAL_PAYMENT_EDGE_ERROR"});
   }
 });
