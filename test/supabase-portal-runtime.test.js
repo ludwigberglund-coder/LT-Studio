@@ -6,7 +6,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const root=path.join(__dirname,'..');
 
-const sql=fs.readFileSync(path.join(__dirname,'..','supabase','migrations','20260926_portal_runtime_hardening.sql'),'utf8');
+const sql=fs.readFileSync(path.join(__dirname,'..','supabase','migrations','20260926144852_portal_runtime_hardening.sql'),'utf8');
 
 test('Supabase portal hardening keeps company settings least-privilege',()=>{
   assert.match(sql,/revoke all on table public\.company_invoice_settings from authenticated/i);
@@ -37,7 +37,7 @@ test('automation review edits use Supabase RPC before the legacy fallback',()=>{
 });
 
 test('automation review migration removes destructive browser privileges',()=>{
-  const migration=fs.readFileSync(path.join(root,'supabase','migrations','20260926_automation_review_rpc.sql'),'utf8');
+  const migration=fs.readFileSync(path.join(root,'supabase','migrations','20260926151244_automation_review_rpc.sql'),'utf8');
   assert.match(migration,/create or replace function public\.save_automation_proposal_review/i);
   assert.match(migration,/m\.role in \('admin','accountant'\)/i);
   assert.match(migration,/revoke all on function public\.save_automation_proposal_review\(text,text,jsonb\) from public, anon/i);
@@ -46,7 +46,7 @@ test('automation review migration removes destructive browser privileges',()=>{
 });
 
 test('automation review hardening explicitly revokes anon execute',()=>{
-  const migration=fs.readFileSync(path.join(root,'supabase','migrations','20260926_automation_review_rpc_hardening.sql'),'utf8');
+  const migration=fs.readFileSync(path.join(root,'supabase','migrations','20260926155346_automation_review_rpc_hardening.sql'),'utf8');
   assert.match(migration,/revoke all on function public\.save_automation_proposal_review\(text,text,jsonb\) from public, anon/i);
   assert.match(migration,/grant execute on function public\.save_automation_proposal_review\(text,text,jsonb\) to authenticated/i);
 });
