@@ -2,3 +2,6 @@
 # Browser-driven invoice verification must require an authenticated user JWT.
 [functions.verify-customer-invoice-document]
 verify_jwt = true
+
+[functions.manual-customer-payment]
+verify_jwt = true
