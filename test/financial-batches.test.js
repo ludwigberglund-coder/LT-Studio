@@ -49,7 +49,7 @@ test('härdningen ger radspårning och egen-godkännande styrs av sista migratio
  assert.match(sql,/reject_financial_batch/);
  assert.match(sql,/financial_batches_created_by_idx/);
  assert.doesNotMatch(sql,/for all to authenticated/);
- const selfApproval=read('supabase/migrations/20260925_financial_batches_self_approval.sql');
+ const selfApproval=read('supabase/migrations/20260925130410_financial_batches_self_approval.sql');
  assert.match(selfApproval,/m\.role in \('admin','accountant','approver'\)/);
  assert.doesNotMatch(selfApproval,/SEPARATION_OF_DUTIES_FAILED/);
  assert.match(selfApproval,/'selfApproval',v_self_approval/);
