@@ -1,3 +1,6 @@
+-- Recovered from live Supabase migration history (20260926214822 portal_dashboard_metrics).
+-- GitHub is source of truth for rebuilds.
+
 -- Dashboard performance: collapse six independent browser reads into one database round-trip.
 -- SECURITY INVOKER keeps existing RLS and company membership checks authoritative.
 
@@ -75,3 +78,4 @@ $$;
 
 revoke all on function public.portal_dashboard_metrics(text) from public, anon;
 grant execute on function public.portal_dashboard_metrics(text) to authenticated;
+;
