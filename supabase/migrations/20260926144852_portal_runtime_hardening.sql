@@ -1,3 +1,6 @@
+-- Recovered from live Supabase migration history (20260926144852 portal_runtime_hardening).
+-- GitHub is source of truth for rebuilds.
+
 -- Supabase portal hardening for company settings and accounting unlock requests.
 -- Browser clients only receive the operations used by the UAT portal.
 
@@ -48,3 +51,4 @@ with check (
 
 revoke all on table public.period_unlock_requests from authenticated;
 grant select, insert, update on table public.period_unlock_requests to authenticated;
+;
