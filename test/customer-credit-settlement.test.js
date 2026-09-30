@@ -20,7 +20,7 @@ test('kundreskontran erbjuder manuell kvittning i LT Studio-gränssnittet',()=>{
 });
 
 test('kvittningsbunten begränsas till samma kund och påverkar inte reskontran före godkännande',()=>{
-  const sql=read('supabase/migrations/20260928_customer_credit_settlement_batches.sql');
+  const sql=read('supabase/migrations/20260928120227_customer_credit_settlement_batches.sql');
   const stageStart=sql.indexOf('create or replace function public.stage_customer_credit_settlement');
   const triggerStart=sql.indexOf('create or replace function public.apply_customer_credit_settlement_batch');
   assert.ok(stageStart>=0&&triggerStart>stageStart);
@@ -46,7 +46,7 @@ test('kvittningsbunten begränsas till samma kund och påverkar inte reskontran 
 });
 
 test('pågående kvittningar reserverar belopp och godkänd kvittning kan ingå i saldohistorik',()=>{
-  const sql=read('supabase/migrations/20260928_customer_credit_settlement_batches.sql');
+  const sql=read('supabase/migrations/20260928120227_customer_credit_settlement_batches.sql');
   const domain=read('packages/receivables/customer-receivables.js');
   const portal=read('apps/portal/app.js');
   assert.match(sql,/v_pending_credit/);
