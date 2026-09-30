@@ -40,5 +40,5 @@
 .supplier-toast span:last-child{display:flex;flex-direction:column;gap:1px}.supplier-toast small{opacity:.82}
 @keyframes supplier-toast-in{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 @media(prefers-reduced-motion:reduce){.supplier-search-control input,.supplier-row{transition:none}.supplier-search-results,.supplier-toast,.supplier-search-pulse{animation:none!important}}
-@media(max-width:1000px){.supplier-layout{grid-template-columns:1fr}.supplier-rows{max-height:none}}
+@media(max-width:1180px){.supplier-layout{grid-template-columns:1fr}.supplier-rows{max-height:none}}
 @media(max-width:760px){.supplier-search-results{left:12px;right:12px}.supplier-toast{right:16px;bottom:16px;left:16px;max-width:none}}
