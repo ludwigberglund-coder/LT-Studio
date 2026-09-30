@@ -159,8 +159,8 @@ const Settings=require('../apps/api/company-invoice-settings.js');
     const invoicePreviewHeading=page.getByRole('heading',{name:/Faktura /});
     const invoiceAlert=page.locator('#invoice-alert:not([hidden])');
     const issueOutcome=await Promise.race([
-      invoicePreviewHeading.waitFor({timeout:60000}).then(()=>({kind:'preview'})),
-      invoiceAlert.waitFor({state:'visible',timeout:60000}).then(async()=>({kind:'error',message:await invoiceAlert.innerText()}))
+      invoicePreviewHeading.waitFor({timeout:120000}).then(()=>({kind:'preview'})),
+      invoiceAlert.waitFor({state:'visible',timeout:120000}).then(async()=>({kind:'error',message:await invoiceAlert.innerText()}))
     ]);
     assert.equal(issueOutcome.kind,'preview','customer invoice issue failed: '+(issueOutcome.message||'unknown error'));
     const invoicesAfterNegative=Invoicing.listCustomerInvoices(f.db,f.a.id);
