@@ -5,6 +5,27 @@
 -- Important: invoices are intentionally NOT seeded here. They must be created through
 -- the real UAT UI so PDF, SHA-256, document archive and accounting are tested together.
 
+insert into public.companies(id,legal_name,org_number,display_name)
+values('uat-lt-studio','LT Studio UAT AB','000000-0000','LT Studio UAT')
+on conflict do nothing;
+
+insert into public.company_invoice_settings(
+  company_id,address,vat_number,phone,email,website,bankgiro,tax_status,updated_by,updated_at
+)
+values(
+  'uat-lt-studio',
+  'UAT-MILJÖ – EJ SKARP ADRESS, Göteborg',
+  'SE000000000001',
+  '000-000 00 00',
+  'uat@example.invalid',
+  'https://ludwigberglund-coder.github.io/LT-Studio/',
+  'EJ-BETALNING',
+  'UAT – EJ SKARP / EJ F-SKATT',
+  null,
+  now()
+)
+on conflict do nothing;
+
 insert into public.customers(
   id,company_id,customer_number,name,org_number,email,address_json,customer_type,reminder_fee_agreed
 )
