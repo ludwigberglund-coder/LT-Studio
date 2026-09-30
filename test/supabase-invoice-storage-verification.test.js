@@ -40,7 +40,7 @@ test('Supabase kundfaktura verifierar faktisk PDF via Edge före finalisering',(
 });
 
 test('verifieringsbiljetter kan inte skapas av browserrollen och konsumeras av dokumenttriggern',()=>{
-  const sql=read('supabase/migrations/20260925_verified_customer_invoice_storage.sql');
+  const sql=read('supabase/migrations/20260926151437_verified_customer_invoice_storage.sql');
 
   assert.match(sql,/revoke all on public\.document_upload_verifications from anon,authenticated/i);
   assert.match(sql,/grant select,delete on public\.document_upload_verifications to authenticated/i);
