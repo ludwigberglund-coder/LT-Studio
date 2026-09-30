@@ -39,7 +39,7 @@ test('Supabase session starts and refreshes Realtime for the active company',()=
 test('shared revenue accounts are stored in Supabase and consumed by invoicing',()=>{
   const accounts=read('apps/portal/accounts.js');
   const invoices=read('apps/portal/invoices.js');
-  const migration=read('supabase/migrations/20260926_shared_uat_realtime_completion.sql');
+  const migration=read('supabase/migrations/20260926164726_shared_uat_realtime_completion.sql');
   assert.match(accounts,/LTSupabase\.rpc\('save_company_revenue_account'/);
   assert.match(accounts,/company_revenue_accounts/);
   assert.match(invoices,/privateRevenueAccounts/);
@@ -50,7 +50,7 @@ test('shared revenue accounts are stored in Supabase and consumed by invoicing',
 
 test('receivables comments and reminders are shared Supabase data',()=>{
   const source=read('apps/portal/app.js');
-  const migration=read('supabase/migrations/20260926_shared_uat_realtime_completion.sql');
+  const migration=read('supabase/migrations/20260926164726_shared_uat_realtime_completion.sql');
   assert.match(source,/supabaseRows\('invoice_comments'/);
   assert.match(source,/supabaseRows\('invoice_reminders'/);
   assert.match(source,/LTSupabase\.rpc\('create_invoice_comment'/);
@@ -66,7 +66,7 @@ test('supplier date correction is routed through Supabase before the legacy guar
   assert.ok(action>=0,'Supabase-rutt för Rätta datum saknas');
   assert.ok(guard>action,'Supabase-rutten måste hanteras före legacy-spärren');
   assert.match(source,/LTSupabase\.rpc\('stage_supplier_invoice_date_correction'/);
-  const migration=read('supabase/migrations/20260926_supplier_invoice_date_correction.sql');
+  const migration=read('supabase/migrations/20260926164014_supplier_invoice_date_correction.sql');
   assert.match(migration,/create table if not exists public\.supplier_invoice_date_corrections/i);
   assert.match(migration,/create or replace function public\.stage_supplier_invoice_date_correction/i);
   assert.match(migration,/supplier-invoice-date-correction-reversal/);
@@ -75,7 +75,7 @@ test('supplier date correction is routed through Supabase before the legacy guar
 
 test('website CMS uses shared Supabase drafts, publishing and revision history',()=>{
   const source=read('apps/portal/website.js');
-  const migration=read('supabase/migrations/20260926_website_cms_supabase.sql');
+  const migration=read('supabase/migrations/20260926164727_website_cms_supabase.sql');
   assert.match(source,/const isSupabase=location\.hostname==='ludwigberglund-coder\.github\.io'&&!isDemo/);
   assert.match(source,/website_cms_state/);
   assert.match(source,/website_cms_revisions/);
@@ -87,7 +87,7 @@ test('website CMS uses shared Supabase drafts, publishing and revision history',
 });
 
 test('the Realtime publication migration includes the shared financial registers',()=>{
-  const migration=read('supabase/migrations/20260926_shared_uat_realtime_completion.sql');
+  const migration=read('supabase/migrations/20260926164726_shared_uat_realtime_completion.sql');
   for(const table of [
     'customers','invoices','invoice_transactions','supplier_invoices','supplier_payments',
     'financial_batches','financial_batch_transactions','financial_batch_lines',
@@ -95,7 +95,7 @@ test('the Realtime publication migration includes the shared financial registers
     'company_revenue_accounts','invoice_comments','invoice_reminders'
   ])assert.match(migration,new RegExp("'"+table+"'"),table+' saknas i Realtime-publiceringen');
   assert.match(migration,/alter publication supabase_realtime add table public\.%I/i);
-  const finalPublication=read('supabase/migrations/20260926_zz_shared_realtime_publication.sql');
+  const finalPublication=read('supabase/migrations/20260926164728_shared_realtime_publication.sql');
   assert.match(finalPublication,/'supplier_invoice_date_corrections'/);
   assert.match(finalPublication,/'website_cms_state'/);
   assert.match(finalPublication,/'website_cms_revisions'/);
@@ -103,7 +103,7 @@ test('the Realtime publication migration includes the shared financial registers
 
 
 test('revenue account RPC avoids PL/pgSQL output-column ambiguity',()=>{
-  const fix=read('supabase/migrations/20260926_zzz_fix_revenue_account_rpc.sql');
+  const fix=read('supabase/migrations/20260926171012_fix_revenue_account_rpc.sql');
   assert.match(fix,/on conflict on constraint company_revenue_accounts_pkey/i);
   assert.doesNotMatch(fix,/on conflict\s*\(\s*company_id\s*,\s*account_number\s*\)/i);
   assert.match(fix,/security invoker/i);
