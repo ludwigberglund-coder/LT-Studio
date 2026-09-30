@@ -73,18 +73,25 @@ async function fetchWithTimeout(url,options={},timeoutMs=6500){
 async function refreshGithub(){
   try{
     const headers={Accept:'application/vnd.github+json'};
-    const [commitResponse,runsResponse]=await Promise.all([
-      fetchWithTimeout('https://api.github.com/repos/'+REPO+'/commits/main',{headers}),
-      fetchWithTimeout('https://api.github.com/repos/'+REPO+'/actions/runs?branch=main&per_page=10',{headers})
-    ]);
-    if(!commitResponse.ok||!runsResponse.ok){
-      const limited=[commitResponse,runsResponse].some(response=>response.status===403&&response.headers.get('x-ratelimit-remaining')==='0');
+    const commitResponse=await fetchWithTimeout('https://api.github.com/repos/'+REPO+'/commits/main',{headers});
+    if(!commitResponse.ok){
+      const limited=commitResponse.status===403&&commitResponse.headers.get('x-ratelimit-remaining')==='0';
       state.github.tone=limited?'warn':'bad';
       state.github.message=limited?'GitHub API:s publika gräns är tillfälligt nådd.':'GitHub kunde inte nås.';
       state.github.checkedAt=new Date().toISOString();
       mount(true);return;
     }
-    const [commitData,runsData]=await Promise.all([commitResponse.json(),runsResponse.json()]);
+    const commitData=await commitResponse.json();
+    const headSha=String(commitData&&commitData.sha||'');
+    const runsResponse=await fetchWithTimeout('https://api.github.com/repos/'+REPO+'/actions/runs?head_sha='+encodeURIComponent(headSha)+'&per_page=10',{headers});
+    if(!runsResponse.ok){
+      const limited=runsResponse.status===403&&runsResponse.headers.get('x-ratelimit-remaining')==='0';
+      state.github.tone=limited?'warn':'bad';
+      state.github.message=limited?'GitHub API:s publika gräns är tillfälligt nådd.':'GitHubs körstatus kunde inte nås.';
+      state.github.checkedAt=new Date().toISOString();
+      mount(true);return;
+    }
+    const runsData=await runsResponse.json();
     const runs=Array.isArray(runsData&&runsData.workflow_runs)?runsData.workflow_runs:[];
     const quality=runs.find(run=>/quality and security checks/i.test(run.name||''))||runs.find(run=>/codeql|quality|security/i.test(run.name||''));
     const pages=runs.find(run=>/publish github pages uat|pages/i.test(run.name||''));
