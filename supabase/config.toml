@@ -1,3 +1,5 @@
+project_id = "lt-studio-uat-local"
+
 # Supabase Edge Function auth policy.
 # Keep this file aligned with the live UAT Edge Function verify_jwt settings.
 # GitHub is the source of truth for rebuilds.
@@ -19,3 +21,8 @@ verify_jwt = true
 public = false
 file_size_limit = "10MiB"
 allowed_mime_types = ["application/pdf"]
+
+# Synthetic-only data used by clean rebuild verification.
+[db.seed]
+enabled = true
+sql_paths = ["./seeds/uat_shared_registers.sql"]
