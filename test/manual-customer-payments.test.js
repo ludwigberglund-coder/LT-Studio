@@ -10,7 +10,7 @@ const root=path.resolve(__dirname,'..');
 const read=relative=>fs.readFileSync(path.join(root,relative),'utf8');
 const migration=()=>read('supabase/migrations/20260929062914_manual_customer_payments.sql');
 const edgeBridgeMigration=()=>read('supabase/migrations/20260930084014_manual_customer_payment_edge_bridge.sql');
-const revokeRpcMigration=()=>read('supabase/migrations/20260930_revoke_manual_customer_payment_authenticated_rpc.sql');
+const revokeRpcMigration=()=>read('supabase/migrations/20260930140004_revoke_manual_customer_payment_authenticated_rpc.sql');
 
 test('manuell kundinbetalning lagras som väntande bunt utan att ändra fakturasaldo direkt',()=>{
   const sql=migration();
