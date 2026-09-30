@@ -1,3 +1,6 @@
+-- Recovered from live Supabase migration history (20260928095153 customer_invoice_auto_batch_approval).
+-- GitHub is source of truth for rebuilds.
+
 -- Automatically approve customer invoice and customer credit source batches.
 -- Safety model:
 --  * the source document and journal lines are validated first;
@@ -516,3 +519,4 @@ $$;
 
 revoke all on function public.finalize_customer_credit(text,text,text,text,date,text,bigint,jsonb,text,text,text,text,bigint,jsonb) from public,anon;
 grant execute on function public.finalize_customer_credit(text,text,text,text,date,text,bigint,jsonb,text,text,text,text,bigint,jsonb) to authenticated;
+;

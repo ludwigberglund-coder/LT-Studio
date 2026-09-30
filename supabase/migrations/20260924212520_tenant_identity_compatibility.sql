@@ -1,6 +1,5 @@
--- Correct the initial Supabase identity model before any application data exists.
--- LT Studio's current immutable IDs use prefixes such as company_<uuid> and user_<uuid>.
--- We preserve those IDs exactly while mapping application users to Supabase Auth UUIDs.
+-- Recovered from live Supabase migration history (20260924212520 tenant_identity_compatibility).
+-- GitHub is source of truth for rebuilds.
 
 drop policy if exists "members can read their companies" on public.companies;
 drop policy if exists "users can read own memberships" on public.company_memberships;
@@ -94,4 +93,4 @@ using (
     where m.company_id = companies.id
       and m.auth_user_id = (select auth.uid())
   )
-);
+);;

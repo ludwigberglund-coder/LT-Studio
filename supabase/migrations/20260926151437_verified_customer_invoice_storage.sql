@@ -1,3 +1,6 @@
+-- Recovered from live Supabase migration history (20260926151437 verified_customer_invoice_storage).
+-- GitHub is source of truth for rebuilds.
+
 -- Verified Storage gate for customer invoices and credit notes.
 -- GitHub is source of truth. The Edge Function verifies the actual PDF bytes before
 -- creating a short-lived verification ticket. The insert trigger consumes that ticket
@@ -138,3 +141,4 @@ drop trigger if exists verified_customer_invoice_document_guard on public.custom
 create trigger verified_customer_invoice_document_guard
 before insert on public.customer_invoice_documents
 for each row execute function private.require_verified_customer_invoice_document();
+;

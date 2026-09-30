@@ -1,8 +1,28 @@
+project_id = "lt-studio-uat-local"
+
 # Supabase Edge Function auth policy.
-# Browser-driven invoice verification must require an authenticated user JWT.
+# Keep this file aligned with the live UAT Edge Function verify_jwt settings.
+# GitHub is the source of truth for rebuilds.
+
+[functions.operator-admin]
+verify_jwt = false
+
+[functions.uat-bootstrap]
+verify_jwt = false
+
 [functions.verify-customer-invoice-document]
 verify_jwt = true
 
-# Manual customer payment staging is a privileged write path and must require a valid user JWT.
 [functions.manual-customer-payment]
 verify_jwt = true
+
+# The bucket is also created by migration so database policy + bucket state are both reproducible.
+[storage.buckets.lt-documents]
+public = false
+file_size_limit = "10MiB"
+allowed_mime_types = ["application/pdf"]
+
+# Synthetic-only data used by clean rebuild verification.
+[db.seed]
+enabled = true
+sql_paths = ["./seeds/uat_shared_registers.sql"]

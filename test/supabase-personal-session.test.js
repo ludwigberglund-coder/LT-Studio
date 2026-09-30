@@ -9,7 +9,7 @@ const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('personal Supabase session limit is enforced by restrictive RLS',()=>{
-  const sql=read('supabase/migrations/20260926_personal_session_limits.sql');
+  const sql=read('supabase/migrations/20260926151655_personal_session_limits.sql');
   assert.match(sql,/security definer/i);
   assert.match(sql,/auth\.sessions/i);
   assert.match(sql,/session_id/i);
@@ -47,7 +47,7 @@ test('Supabase session helper refreshes expiring JWTs and supports session-only 
 
 
 test('personal session changes use an invoker RPC plus private audit trigger',()=>{
-  const sql=read('supabase/migrations/20260926_personal_session_audit_rpc.sql');
+  const sql=read('supabase/migrations/20260926155945_personal_session_audit_rpc.sql');
   assert.match(sql,/create or replace function public\.set_personal_session_duration/i);
   assert.match(sql,/security invoker/i);
   assert.match(sql,/set search_path=''/i);

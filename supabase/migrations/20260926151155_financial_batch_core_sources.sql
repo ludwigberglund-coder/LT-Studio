@@ -1,3 +1,6 @@
+-- Recovered from live Supabase migration history (20260926151155 financial_batch_core_sources).
+-- GitHub is source of truth for rebuilds.
+
 -- Route additional core accounting sources through financial batches.
 -- Supplier liability, supplier payment, payroll and opening balance stay outside
 -- the general ledger/reskontra until a ready source batch is approved.
@@ -810,3 +813,4 @@ $$;
 
 revoke all on function public.import_opening_balance(text,text,date,jsonb) from public,anon;
 grant execute on function public.import_opening_balance(text,text,date,jsonb) to authenticated;
+;

@@ -1,3 +1,6 @@
+-- Recovered from live Supabase migration history (20260925124043 financial_batches_hardening).
+-- GitHub is source of truth for rebuilds.
+
 -- Hardening for financial batches after advisor review.
 create index if not exists financial_batches_created_by_idx on public.financial_batches(created_by);
 create index if not exists financial_batches_updated_by_idx on public.financial_batches(updated_by);
@@ -195,3 +198,4 @@ end;
 $$;
 revoke all on function public.approve_financial_batch(text,text) from public,anon;
 grant execute on function public.approve_financial_batch(text,text) to authenticated;
+;

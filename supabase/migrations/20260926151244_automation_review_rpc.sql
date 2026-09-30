@@ -1,3 +1,6 @@
+-- Recovered from live Supabase migration history (20260926151244 automation_review_rpc).
+-- GitHub is source of truth for rebuilds.
+
 -- Secure UAT path for manually reviewed automation proposals.
 -- Keeps proposal edits inside a company-scoped, role-checked RPC and removes
 -- destructive table privileges that browser clients never need.
@@ -57,9 +60,10 @@ begin
 end;
 $function$;
 
-revoke all on function public.save_automation_proposal_review(text,text,jsonb) from public, anon;
+revoke all on function public.save_automation_proposal_review(text,text,jsonb) from public;
 grant execute on function public.save_automation_proposal_review(text,text,jsonb) to authenticated;
 
 revoke delete, truncate, trigger, references
 on table public.automation_proposals
 from authenticated;
+;

@@ -1,3 +1,6 @@
+-- Recovered from live Supabase migration history (20260926151655 personal_session_limits).
+-- GitHub is source of truth for rebuilds.
+
 -- Personal Supabase session limits for LT Studio UAT.
 -- Finite limits are enforced server-side through restrictive RLS using the
 -- original Supabase auth.sessions.created_at value for the JWT session_id.
@@ -104,3 +107,4 @@ begin
   end loop;
 end
 $$;
+;

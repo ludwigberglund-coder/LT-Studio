@@ -1,3 +1,6 @@
+-- Recovered from live Supabase migration history (20260925123725 financial_batches).
+-- GitHub is source of truth for rebuilds.
+
 -- LT Studio financial batches: temporary review layer before definitive accounting
 create table if not exists public.financial_batches(
   id text primary key,
@@ -285,3 +288,4 @@ end;
 $$;
 revoke all on function public.approve_financial_batch(text,text) from public,anon;
 grant execute on function public.approve_financial_batch(text,text) to authenticated;
+;

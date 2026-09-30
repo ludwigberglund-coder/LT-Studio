@@ -1,3 +1,6 @@
+-- Recovered from live Supabase migration history (20260926164014 supplier_invoice_date_correction).
+-- GitHub is source of truth for rebuilds.
+
 -- Supplier invoice date correction through the financial batch quality gate.
 -- GitHub is source of truth. Apply to Supabase UAT only after this migration is merged.
 -- A correction never changes invoice/reskontra state when staged. The old journal is
@@ -729,3 +732,4 @@ $function$;
 
 revoke all on function public.approve_financial_batch(text,text) from public,anon;
 grant execute on function public.approve_financial_batch(text,text) to authenticated;
+;
