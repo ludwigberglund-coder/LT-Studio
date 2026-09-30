@@ -32,23 +32,47 @@ function projectKeys(){
   return {url,publishable,secret};
 }
 
-function publicFailure(message:string){
-  if(/AUTH_REQUIRED|SESSION_EXPIRED|invalid.*jwt|token/i.test(message)){
-    return {status:401,code:"AUTH_REQUIRED",error:"Sessionen är ogiltig eller har gått ut."};
+const safeDbCodes=[
+  "AUTH_REQUIRED",
+  "SESSION_EXPIRED",
+  "ACCESS_DENIED",
+  "MFA_REQUIRED",
+  "IDEMPOTENCY_CONFLICT",
+  "PAYMENT_ALREADY_PENDING",
+  "INVOICE_NOT_FOUND",
+  "INVALID_REQUEST_ID",
+  "INVALID_PAYMENT_DATE",
+  "INVALID_PAYMENT_AMOUNT",
+  "INVALID_BANK_ACCOUNT",
+  "PAYMENT_REFERENCE_TOO_LONG",
+  "PAYMENT_COMMENT_TOO_LONG",
+  "PAYMENT_REQUIRES_DEBIT_INVOICE",
+  "INVOICE_NOT_POSTED",
+  "INVOICE_ALREADY_SETTLED",
+  "INVALID_RECEIVABLE_ACCOUNT",
+  "BANK_ACCOUNT_EQUALS_RECEIVABLE_ACCOUNT",
+  "CUSTOMER_NOT_FOUND",
+  "PERIOD_LOCKED",
+  "BATCH_NUMBER_EXHAUSTED"
+] as const;
+
+function safeDatabaseError(message:string){
+  const raw=String(message||"");
+  const balance=raw.match(/PAYMENT_EXCEEDS_AVAILABLE_BALANCE:(\\d+)/);
+  if(balance)return {code:"PAYMENT_EXCEEDS_AVAILABLE_BALANCE",message:`PAYMENT_EXCEEDS_AVAILABLE_BALANCE:${balance[1]}`};
+  for(const code of safeDbCodes){
+    if(raw.includes(code))return {code,message:code};
   }
-  if(/ACCESS_DENIED|MFA_REQUIRED/i.test(message)){
-    return {status:403,code:"ACCESS_DENIED",error:"Du saknar behörighet för den här åtgärden."};
-  }
-  if(/IDEMPOTENCY_CONFLICT/i.test(message)){
-    return {status:409,code:"IDEMPOTENCY_CONFLICT",error:"Begäran kolliderar med en tidigare registrering."};
-  }
-  if(/PAYMENT_ALREADY_PENDING/i.test(message)){
-    return {status:409,code:"PAYMENT_ALREADY_PENDING",error:"Det finns redan en väntande manuell inbetalning för fakturan."};
-  }
-  if(/INVOICE_NOT_FOUND/i.test(message)){
-    return {status:404,code:"INVOICE_NOT_FOUND",error:"Fakturan hittades inte."};
-  }
-  return {status:422,code:"MANUAL_PAYMENT_STAGE_FAILED",error:"Inbetalningen kunde inte registreras med de angivna uppgifterna."};
+  return {code:"MANUAL_PAYMENT_STAGE_FAILED",message:"Inbetalningen kunde inte registreras."};
+}
+
+function statusFor(code:string){
+  if(code==="AUTH_REQUIRED"||code==="SESSION_EXPIRED")return 401;
+  if(code==="ACCESS_DENIED"||code==="MFA_REQUIRED")return 403;
+  if(code==="IDEMPOTENCY_CONFLICT"||code==="PAYMENT_ALREADY_PENDING")return 409;
+  if(code==="INVOICE_NOT_FOUND")return 404;
+  if(code==="MANUAL_PAYMENT_STAGE_FAILED")return 500;
+  return 422;
 }
 
 Deno.serve(async(req)=>{
@@ -108,16 +132,16 @@ Deno.serve(async(req)=>{
       p_comment:comment
     });
     if(error){
-      const failure=publicFailure(String(error.message||""));
-      console.error("manual-customer-payment rpc",String(error.code||"RPC_ERROR"));
-      return reply(failure.status,{error:failure.error,code:failure.code});
+      const safe=safeDatabaseError(error.message);
+      console.error("manual-customer-payment RPC failed",{code:error.code||"",safeCode:safe.code});
+      return reply(statusFor(safe.code),{error:safe.message,code:safe.code});
     }
 
     const staged=Array.isArray(data)?data[0]:data;
     if(!staged)return reply(500,{error:"Inbetalningen skapade ingen bunt.",code:"MANUAL_PAYMENT_STAGE_FAILED"});
     return reply(200,staged);
   }catch(error){
-    console.error("manual-customer-payment edge",error instanceof Error?error.name:"UNKNOWN_ERROR");
-    return reply(500,{error:"Inbetalningen kunde inte registreras på grund av ett internt fel.",code:"MANUAL_PAYMENT_EDGE_ERROR"});
+    console.error("manual-customer-payment unexpected failure",{name:error instanceof Error?error.name:"Error"});
+    return reply(500,{error:"Inbetalningen kunde inte registreras.",code:"MANUAL_PAYMENT_EDGE_ERROR"});
   }
 });
