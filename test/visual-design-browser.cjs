@@ -13,14 +13,33 @@ fs.mkdirSync(out,{recursive:true});
 
 const surfaces=[
   {id:'dashboard',route:'portal/dashboard.html?demo=1'},
+  {id:'customers',route:'portal/customers.html?demo=1'},
   {id:'invoices',route:'portal/invoices.html?demo=1'},
+  {id:'receivables',route:'portal/index.html?demo=1'},
+  {id:'suppliers',route:'portal/suppliers.html?demo=1'},
+  {id:'payables',route:'portal/payables.html?demo=1'},
+  {id:'supplier-ledger',route:'portal/supplier-ledger.html?demo=1'},
+  {id:'payments',route:'portal/payments.html?demo=1'},
+  {id:'batches',route:'portal/batches.html?demo=1'},
+  {id:'accounting',route:'portal/accounting.html?demo=1'},
+  {id:'accounts',route:'portal/accounts.html?demo=1'},
+  {id:'reports',route:'portal/reports.html?demo=1'},
+  {id:'documents',route:'portal/documents.html?demo=1'},
+  {id:'inventory',route:'portal/inventory.html?demo=1'},
+  {id:'payroll',route:'portal/payroll.html?demo=1'},
+  {id:'automation',route:'portal/automation.html?demo=1'},
   {id:'cms',route:'portal/website.html?demo=1'},
+  {id:'profile',route:'portal/profile.html?demo=1'},
+  {id:'company-settings',route:'portal/company-settings.html?demo=1'},
+  {id:'uat',route:'portal/uat.html?demo=1'},
   {id:'project-admin',route:'admin/?demo=1#/overview'},
   {id:'legacy',route:'legacy/?demo=1#/overview'},
   {id:'website',route:'index.html'}
 ];
 const viewports=[
   {id:'desktop',width:1440,height:1000},
+  {id:'laptop',width:1024,height:900},
+  {id:'tablet',width:768,height:900},
   {id:'mobile',width:390,height:844}
 ];
 
