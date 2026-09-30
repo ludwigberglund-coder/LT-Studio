@@ -111,6 +111,17 @@ const demoState={
   ]
 };
 
+async function waitForSettledDialog(page){
+  await page.locator('.settlement-modal').waitFor({state:'visible'});
+  await page.waitForFunction(()=>{
+    const backdrop=document.querySelector('.modal-backdrop');
+    const modal=document.querySelector('.settlement-modal');
+    if(!backdrop||!modal)return false;
+    return Number.parseFloat(getComputedStyle(backdrop).opacity||'1')>=0.99
+      && Number.parseFloat(getComputedStyle(modal).opacity||'1')>=0.99;
+  });
+}
+
 async function styleSnapshot(page){
   return page.evaluate(()=>{
     const block=document.querySelector('.settlement-block');
@@ -170,9 +181,12 @@ async function styleSnapshot(page){
     await creditRow.click({button:'right'});
     await page.getByRole('button',{name:'Kvitta kreditfaktura',exact:true}).click();
     await page.getByRole('heading',{name:'Kvitta kredit mot debet',exact:true}).waitFor();
+    await waitForSettledDialog(page);
 
     assert.equal(await page.locator('[data-settlement-target]').inputValue(),'settlement-debit');
     assert.match(await page.locator('.settlement-modal').innerText(),/samma kund/i);
+    assert.doesNotMatch(await page.locator('body').innerText(),/Rollands Frukt o Grönt AB/i);
+    assert.match(await page.locator('.topbar p').innerText(),/^Demoföretag \/ Försäljning \/ Kundreskontra$/);
 
     const light=await styleSnapshot(page);
     assert.equal(light.theme,'light');
@@ -191,6 +205,7 @@ async function styleSnapshot(page){
     await creditRow.click({button:'right'});
     await page.getByRole('button',{name:'Kvitta kreditfaktura',exact:true}).click();
     await page.getByRole('heading',{name:'Kvitta kredit mot debet',exact:true}).waitFor();
+    await waitForSettledDialog(page);
 
     const dark=await styleSnapshot(page);
     assert.equal(dark.theme,'dark');
@@ -210,6 +225,7 @@ async function styleSnapshot(page){
     await creditRow.click({button:'right'});
     await page.getByRole('button',{name:'Kvitta kreditfaktura',exact:true}).click();
     await page.getByRole('heading',{name:'Kvitta kredit mot debet',exact:true}).waitFor();
+    await waitForSettledDialog(page);
     const lightAgain=await styleSnapshot(page);
     assert.equal(lightAgain.blockBackground,light.blockBackground);
     assert.equal(lightAgain.inputBackground,light.inputBackground);

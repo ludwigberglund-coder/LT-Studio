@@ -13,14 +13,33 @@ fs.mkdirSync(out,{recursive:true});
 
 const surfaces=[
   {id:'dashboard',route:'portal/dashboard.html?demo=1'},
+  {id:'customers',route:'portal/customers.html?demo=1'},
   {id:'invoices',route:'portal/invoices.html?demo=1'},
+  {id:'receivables',route:'portal/index.html?demo=1'},
+  {id:'suppliers',route:'portal/suppliers.html?demo=1'},
+  {id:'payables',route:'portal/payables.html?demo=1'},
+  {id:'supplier-ledger',route:'portal/supplier-ledger.html?demo=1'},
+  {id:'payments',route:'portal/payments.html?demo=1'},
+  {id:'batches',route:'portal/batches.html?demo=1'},
+  {id:'accounting',route:'portal/accounting.html?demo=1'},
+  {id:'accounts',route:'portal/accounts.html?demo=1'},
+  {id:'reports',route:'portal/reports.html?demo=1'},
+  {id:'documents',route:'portal/documents.html?demo=1'},
+  {id:'inventory',route:'portal/inventory.html?demo=1'},
+  {id:'payroll',route:'portal/payroll.html?demo=1'},
+  {id:'automation',route:'portal/automation.html?demo=1'},
   {id:'cms',route:'portal/website.html?demo=1'},
+  {id:'profile',route:'portal/profile.html?demo=1'},
+  {id:'company-settings',route:'portal/company-settings.html?demo=1'},
+  {id:'uat',route:'portal/uat.html?demo=1'},
   {id:'project-admin',route:'admin/?demo=1#/overview'},
   {id:'legacy',route:'legacy/?demo=1#/overview'},
   {id:'website',route:'index.html'}
 ];
 const viewports=[
   {id:'desktop',width:1440,height:1000},
+  {id:'laptop',width:1024,height:900},
+  {id:'tablet',width:768,height:900},
   {id:'mobile',width:390,height:844}
 ];
 
@@ -59,6 +78,7 @@ function visible(element){
   let browser;
   const checks=[];
   const errors=[];
+  const layoutIssues=[];
   try{
     await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
     const base=`http://127.0.0.1:${server.address().port}/Rollands/`;
@@ -159,7 +179,7 @@ function visible(element){
 
         assert.ok(layout.bodyText>80,`${surface.id} ${viewport.id} rendered too little content`);
         assert.ok(layout.visibleControls>0,`${surface.id} ${viewport.id} has no visible controls`);
-        assert.ok(layout.scrollWidth<=layout.innerWidth+2,`${surface.id} ${viewport.id} has page-level horizontal overflow: ${layout.scrollWidth}px > ${layout.innerWidth}px; offenders=${JSON.stringify(layout.overflowing)}`);
+        if(layout.scrollWidth>layout.innerWidth+2)layoutIssues.push(`${surface.id} ${viewport.id} has page-level horizontal overflow: ${layout.scrollWidth}px > ${layout.innerWidth}px; offenders=${JSON.stringify(layout.overflowing)}`);
         assert.match(layout.fontFamily,/(-apple-system|BlinkMacSystemFont|SF Pro|system-ui)/i,`${surface.id} ${viewport.id} is not using the shared Apple/system font stack`);
         assert.equal(pageErrors.length,0,`${surface.id} ${viewport.id} has uncaught browser errors: ${pageErrors.join('; ')}`);
         assert.equal(layout.iconizedMetrics,0,`${surface.id} ${viewport.id} metric cards must not be converted into inline icon buttons`);
@@ -209,6 +229,7 @@ function visible(element){
       await context.close();
     }
 
+    if(layoutIssues.length)throw new Error(`Visual layout issues:\n${layoutIssues.join('\n')}`);
     fs.writeFileSync(path.join(out,'visual-design-results.json'),JSON.stringify({ok:true,checks,errors},null,2));
     console.log(`Visual design smoke passed: ${checks.length} rendered viewport checks.`);
   }catch(error){
