@@ -44,6 +44,16 @@ async function close(server){if(server?.listening)await new Promise(r=>server.cl
     await page.locator('[data-field="anchor"]').fill('2026-09-10');
     await page.locator('[data-field="direction"]').selectOption('out');
     await page.locator('[data-field="status"]').selectOption('paid');
+    const initialFilterResponse=page.waitForResponse(response=>
+      response.url().includes('/api/v1/reports/payments-overview')&&
+      response.url().includes('date=2026-09-10')&&
+      response.url().includes('direction=out')&&
+      response.url().includes('status=paid')&&
+      response.status()===200
+    );
+    await page.getByRole('button',{name:'Uppdatera'}).click();
+    await initialFilterResponse;
+    await page.getByText(/Betalningarna är uppdaterade/).waitFor();
     const paymentSearch=page.locator('[data-field="query"]');
     await paymentSearch.fill('Leverantör Beta');
     const dropdown=page.locator('#payments-search-results');
