@@ -26,6 +26,7 @@ test('customer register persists invoice defaults to Supabase',()=>{
   assert.match(customers,/payment_terms_days:payload\.paymentTermsDays/);
   assert.match(customers,/our_reference:payload\.ourReference\|\|null/);
   assert.match(customers,/your_reference:payload\.yourReference\|\|null/);
+  assert.match(customers,/ourReference'\|\|key==='yourReference'\?120:254/);
 });
 
 test('new invoice reuses the selected customer defaults',()=>{
