@@ -1,3 +1,15 @@
+> **LEGACY / SUPERSEDED – 2026-10-05**
+>
+> Den här runbooken beskriver den äldre Node/SQLite/VM/R2-stagingmodellen och är **inte** den aktuella deploymentspecifikationen för LT Studio.
+>
+> Den delade UAT:n kör nu **GitHub Pages + Supabase**. Se `docs/SUPABASE-UAT.md`, `docs/SUPABASE_SOURCE_OF_TRUTH.md` och `docs/WEB-UAT-ENVIRONMENT.md`.
+>
+> Issue **#364** är nu re-skoperat till en isolerad, syntetisk Supabase-staging enligt dagens arkitektur. Skapa inte en ny Railway-, VM-, SQLite- eller R2-baserad stagingmiljö utifrån instruktionerna nedan om inte den arkitekturen senare uttryckligen beslutas på nytt.
+>
+> **Kravet att staging/UAT endast får innehålla syntetisk/fiktiv data gäller fortfarande.**
+>
+> Innehållet nedan behålls tills vidare som historisk referens för de äldre Node/SQLite-driftskontrollerna.
+
 # LT Studio staging deployment – synthetic data only
 
 ## Purpose

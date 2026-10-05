@@ -1,3 +1,13 @@
+> **LEGACY PILOT-RUNBOOK – 2026-10-05**
+>
+> Detta dokument beskriver den äldre single-instance **Node/SQLite/VM**-pilotarkitekturen. Den är inte längre den fastställda målarkitekturen för den delade UAT:n och ska **inte** användas för att starta en verklig pilot utan ett nytt uttryckligt arkitekturbeslut.
+>
+> Aktuell delad UAT är **GitHub Pages + Supabase**. Se `docs/SUPABASE-UAT.md`, `docs/SUPABASE_SOURCE_OF_TRUTH.md` och `docs/WEB-UAT-ENVIRONMENT.md`.
+>
+> Node/SQLite i `apps/api/` behålls som äldre/lokal regression- och referensruntime. Den fortsatta pilot-/produktionsarkitekturen måste beslutas och dokumenteras utifrån dagens Supabase-baserade system innan verkliga ekonomiska data används.
+>
+> Säkerhetskraven i dokumentet kan fortfarande vara relevanta som historisk checklista, men kommandon, SQLite-paths, systemd/Caddy och R2-upplägg nedan är **inte** en aktuell deploymentsinstruktion.
+
 # Customer Pilot Deployment
 
 Detta dokument beskriver hur den skyddade referenskunden-backenden sätts upp för en **kontrollerad single-instance pilot**. GitHub Pages är fortsatt endast publik demo. Riktig pilotdata får aldrig lagras i repositoryt eller GitHub Pages.

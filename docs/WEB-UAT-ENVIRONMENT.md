@@ -1,40 +1,73 @@
 # Webbaserad UAT-miljö
 
-Den tillfälliga UAT-miljön kör LT Studios skyddade Node-backend från GitHub-repositoryts granskade `main`-gren på Railway.
+Status: 2026-10-05. Detta dokument beskriver den **aktuella delade UAT-miljön**.
 
-## Syfte
+## Aktuell arkitektur
 
-Miljön används för samlad UAT av:
+LT Studios delade UAT körs som:
 
-- LT Studio Admin Control Center under `/operator/`,
-- Säkerhetsportalen som en vy i samma LT Studio-adminportal,
-- kundsystemet under `/portal/`,
-- företagsskiljning och syntetiska arbetsflöden.
+- **GitHub `main`** – source of truth för kod, tester, dokumentation, Supabase-migrationer och Edge Functions.
+- **GitHub Pages** – webbläsargränssnittet.
+- **Supabase-projektet `LT-Studio` i `eu-north-1`** – PostgreSQL, Auth, MFA, RLS, Realtime, privat Storage, RPC:er och Edge Functions.
+- **Node/SQLite i `apps/api/`** – äldre/lokal referens- och regression-runtime, inte backend för den delade UAT:n.
 
-LT Studio-adminportalen innehåller en tydlig länk till kundsystemet så testaren kan gå mellan ytorna på samma webbplats.
+Railway används inte av den aktuella delade UAT:n.
+
+Den kanoniska tekniska beskrivningen finns i `docs/SUPABASE-UAT.md` och den verifierade GitHub ↔ Supabase-statusen i `docs/SUPABASE_SOURCE_OF_TRUTH.md`.
+
+## Öppna UAT
+
+Kundportal:
+
+`https://ludwigberglund-coder.github.io/LT-Studio/uat/`
+
+Första UAT-aktivering och MFA:
+
+`https://ludwigberglund-coder.github.io/LT-Studio/portal/uat-setup.html`
 
 ## Datapolicy
 
-Miljön är **syntetisk-only**. Inga riktiga Rollands-data, fakturor, bankuppgifter, dokument, personuppgifter eller andra verkliga kunduppgifter får användas.
+Miljön är **syntetisk-only**.
 
-Testföretagen skapas av `scripts/bootstrap-staging-synthetic.js`. Inloggningsuppgifter och MFA-hemligheter lagras endast som privata hosting-secrets och får inte committas till GitHub.
+Följande får inte användas i UAT:
 
-## Drift
+- riktiga kund- eller leverantörsuppgifter,
+- riktiga organisationsnummer eller personuppgifter,
+- riktiga fakturor eller banktransaktioner,
+- riktiga löneuppgifter,
+- riktiga privata dokument/PDF:er,
+- produktions- eller pilotbackuper,
+- secrets eller privata credentials.
 
-Hosting: Railway, tillfällig syntetisk UAT.
+UAT-fakturor ska vara tydligt markerade som demo och får inte kunna misstas för verkliga betalningsunderlag.
 
-Källkod: GitHub `main`.
+## Säkerhetsmodell
 
-Server: `apps/api/server.js`.
+- Personliga Supabase Auth-konton används.
+- Delad UAT kräver MFA/AAL2.
+- Företagsåtkomst styrs genom `company_memberships` och RLS.
+- Ekonomiska kärnflöden går genom kontrollerade RPC:er/buntflöden i stället för fria browser-skrivningar.
+- Privata PDF-original lagras i den privata Supabase Storage-bucketen `lt-documents`.
+- LT Studio-operatorflöden går genom den MFA-skyddade Edge Functionen `operator-admin`.
+- Manuell kundinbetalning går genom Edge Functionen `manual-customer-payment`; browserrollen ska inte anropa den privilegierade server-RPC:n direkt.
 
-Liveness: `/health`. Den visar endast att processen svarar och ersätter inte readiness-kontrollerna.
+## Source-of-truth-regel
 
-Kundportal: `/portal/`.
+En permanent ändring i databas, RLS, RPC, trigger, Storage, Realtime eller Edge Functions får inte bara göras i Supabase Dashboard. Motsvarande versionsstyrd ändring ska finnas i GitHub.
 
-LT Studio admin: `/operator/`.
+Om en akut live-ändring görs först blir GitHub-reconciliation P0 tills `main` åter är exakt source of truth.
 
-Säkerhetsportal: välj **Säkerhetsportal** i LT Studio-adminens meny.
+## Vad denna UAT inte bevisar
 
-## Viktigt
+GitHub Pages + Supabase-UAT är inte ett godkännande för verkliga ekonomiska data eller skarp pilot.
 
-Detta är inte en pilot- eller produktionsmiljö och innebär inte att systemet är godkänt för verkliga ekonomiska data. Full readiness, backup/restore, extern monitoring och övriga pilotkrav följer den separata staging- och pilotprocessen.
+Separat före pilot krävs bland annat:
+
+- färdig och aktuell staging/pilotarkitektur,
+- verifierad backup/restore-strategi för den valda produktionsarkitekturen,
+- övervakning och incidentrutiner,
+- säkerhetsgranskning och manuella GitHub Security-kontroller,
+- redovisnings-/SIE-/originalarkivsvalidering,
+- uttryckligt produktions-/pilotgodkännande.
+
+Äldre dokument som beskriver Railway, Node/SQLite-serverdrift eller VM/R2 som den aktuella UAT-arkitekturen är legacy-referenser och får inte användas för att ändra dagens UAT.
