@@ -78,7 +78,24 @@ async function issueSupabaseInvoice(value){
   const ctx=await supabaseContext();if(!issueReady)throw new Error(issueBlocker||'Företagets fakturauppgifter måste verifieras före bokföring.');if(!issueRequestId)issueRequestId=crypto.randomUUID();
   const payload={customerNumber:value.customerNumber,invoiceDate:value.invoiceDate,postingDate:value.postingDate,dueDate:value.dueDate,paymentTermsDays:value.paymentTermsDays,ourReference:value.ourReference,yourReference:value.yourReference,notes:value.notes,lines:value.lines};
   const payloadSha256=await sha256Text(stableJson(payload));
-  const reserved=(await window.LTSupabase.rpc('reserve_customer_invoice_number',{p_company_id:ctx.company.id,p_request_id:issueRequestId,p_purpose:'invoice',p_payload_sha256:payloadSha256,p_source_invoice_id:null},ctx.accessToken))?.[0];
+  let reserved;
+  try{
+    reserved=(await window.LTSupabase.rpc('reserve_customer_invoice_number',{p_company_id:ctx.company.id,p_request_id:issueRequestId,p_purpose:'invoice',p_payload_sha256:payloadSha256,p_source_invoice_id:null},ctx.accessToken))?.[0];
+  }catch(error){
+    if(!/INVOICE_IDEMPOTENCY_CONFLICT/i.test(String(error?.message||'')))throw error;
+    const staleRequestId=issueRequestId;
+    const rows=await window.LTSupabase.from('customer_invoice_number_reservations',ctx.accessToken).select('*','company_id=eq.'+encodeURIComponent(ctx.company.id)+'&request_id=eq.'+encodeURIComponent(staleRequestId));
+    const reservation=rows?.[0]||null;
+    if(reservation?.status==='issued'){
+      const existingId=reservation.issued_invoice_id;
+      if(!existingId)throw new Error('Fakturan är redan bokförd, men den sparade fakturareferensen saknas. Ladda om sidan innan du försöker igen.');
+      await refreshSupabaseCollections();await loadSupabaseInvoiceDetail(existingId);return;
+    }
+    if(!reservation)throw new Error('Fakturaförsöket kunde inte återställas säkert. Ladda om sidan och försök igen.');
+    issueRequestId=crypto.randomUUID();
+    if(privateDraftRecord)await saveSupabaseDraft();
+    reserved=(await window.LTSupabase.rpc('reserve_customer_invoice_number',{p_company_id:ctx.company.id,p_request_id:issueRequestId,p_purpose:'invoice',p_payload_sha256:payloadSha256,p_source_invoice_id:null},ctx.accessToken))?.[0];
+  }
   if(!reserved)throw new Error('Fakturanumret kunde inte reserveras.');
   if(reserved.status==='issued'){
     const rows=await window.LTSupabase.from('customer_invoice_number_reservations',ctx.accessToken).select('*','company_id=eq.'+encodeURIComponent(ctx.company.id)+'&request_id=eq.'+encodeURIComponent(issueRequestId));
