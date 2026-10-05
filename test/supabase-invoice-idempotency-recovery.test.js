@@ -7,16 +7,16 @@ const path=require('node:path');
 
 const invoices=fs.readFileSync(path.join(__dirname,'..','apps','portal','invoices.js'),'utf8');
 
-test('Supabase invoice issuance recovers safely from stale idempotency request ids',()=>{
-  assert.match(invoices,/INVOICE_IDEMPOTENCY_CONFLICT/i);
-  assert.match(invoices,/customer_invoice_number_reservations/);
-  assert.match(invoices,/reservation\?\.status==='issued'/);
-  assert.match(invoices,/await refreshSupabaseCollections\(\);await loadSupabaseInvoiceDetail\(existingId\);return;/);
-  assert.match(invoices,/issueRequestId=crypto\.randomUUID\(\)/);
-  assert.ok(
-    invoices.indexOf("reservation?.status==='issued'")<
-    invoices.indexOf('issueRequestId=crypto.randomUUID()'),
-    'En redan utfärdad reservation måste återanvändas innan ett nytt request-id skapas.'
-  );
-  assert.match(invoices,/if\(privateDraftRecord\)await saveSupabaseDraft\(\)/);
+test('invoice recovery handles a stale request id safely',()=>{
+  const start=invoices.indexOf('async function issueSupabaseInvoice');
+  const end=invoices.indexOf('function proportionalCreditAllocate',start);
+  const issuance=invoices.slice(start,end);
+  assert.ok(issuance.includes('INVOICE_IDEMPOTENCY_CONFLICT'));
+  assert.ok(issuance.includes('customer_invoice_number_reservations'));
+  const issuedCheck=issuance.indexOf("reservation?.status==='issued'");
+  const rotateId=issuance.indexOf('issueRequestId=crypto.randomUUID()',issuedCheck);
+  assert.ok(issuedCheck>=0);
+  assert.ok(rotateId>issuedCheck);
+  assert.ok(issuance.includes('await refreshSupabaseCollections();await loadSupabaseInvoiceDetail(existingId);return;'));
+  assert.ok(issuance.includes('if(privateDraftRecord)await saveSupabaseDraft();'));
 });
