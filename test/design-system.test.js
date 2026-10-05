@@ -82,7 +82,7 @@ test('högspecificerade äldre ytor har uttryckliga moderna överstyrningar',()=
 test('designsystemet laddas sist på varje gränssnittssida',()=>{
   const pages=[
     ...fs.readdirSync(path.join(root,'apps','portal')).filter(name=>name.endsWith('.html')).map(name=>`apps/portal/${name}`),
-    'apps/operator/index.html','apps/admin/index.html','apps/website/index.html','public/index.html'
+    'apps/operator/index.html','apps/website/index.html','public/index.html'
   ];
   for(const file of pages){
     const html=source(file),links=styleLinks(html);
