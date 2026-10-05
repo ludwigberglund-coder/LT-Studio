@@ -4,7 +4,7 @@
 >
 > Den delade UAT:n kör nu **GitHub Pages + Supabase**. Se `docs/SUPABASE-UAT.md`, `docs/SUPABASE_SOURCE_OF_TRUTH.md` och `docs/WEB-UAT-ENVIRONMENT.md`.
 >
-> Issue **#364** håller på att re-skopas till dagens Supabase-arkitektur. Skapa inte en ny Railway-, VM-, SQLite- eller R2-baserad stagingmiljö utifrån instruktionerna nedan om inte den arkitekturen senare uttryckligen beslutas på nytt.
+> Issue **#364** är nu re-skoperat till en isolerad, syntetisk Supabase-staging enligt dagens arkitektur. Skapa inte en ny Railway-, VM-, SQLite- eller R2-baserad stagingmiljö utifrån instruktionerna nedan om inte den arkitekturen senare uttryckligen beslutas på nytt.
 >
 > **Kravet att staging/UAT endast får innehålla syntetisk/fiktiv data gäller fortfarande.**
 >
