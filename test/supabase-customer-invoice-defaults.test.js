@@ -6,7 +6,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 
 const root=path.join(__dirname,'..');
-const migration=fs.readFileSync(path.join(root,'supabase','migrations','20260930_customer_invoice_defaults.sql'),'utf8');
+const migration=fs.readFileSync(path.join(root,'supabase','migrations','20261005122517_customer_invoice_defaults.sql'),'utf8');
 const customers=fs.readFileSync(path.join(root,'apps','portal','customers.js'),'utf8');
 const invoices=fs.readFileSync(path.join(root,'apps','portal','invoices.js'),'utf8');
 
