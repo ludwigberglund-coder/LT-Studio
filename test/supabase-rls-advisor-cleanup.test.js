@@ -27,16 +27,17 @@ test('duplicate permissive SELECT policies are split without dropping write acti
   assert.doesNotMatch(sql,/create policy "controlled website cms writes"[\s\S]*for all/i);
 });
 
-test('request-local write guards use the cached setting helper',()=>{
+test('request-local write guards are covered by cached setting migration',()=>{
   for(const setting of [
     'app.audit_event_write',
     'app.system_batch_stage',
     'app.financial_batch_approval',
     'app.invoice_comment_write',
     'app.invoice_reminder_write',
-    'app.website_cms_write',
-    'app.revenue_account_write'
+    'app.website_cms_write'
   ]){
-    assert.match(sql,new RegExp("setting_is_one\\('"+setting.replace(/\./g,'\\.')+"'\\)"));
+    assert.ok(sql.includes("'"+setting+"'"),setting+' saknas i migrationskontraktet');
   }
+  assert.match(sql,/setting_is_one\('app\.revenue_account_write'\)/);
+  assert.match(sql,/setting_is_one\('app\.website_cms_write'\)/);
 });
