@@ -5,7 +5,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 
-const sql=fs.readFileSync(path.join(__dirname,'..','supabase','migrations','20261005124500_rls_advisor_performance_cleanup.sql'),'utf8');
+const sql=fs.readFileSync(path.join(__dirname,'..','supabase','migrations','20261005135109_rls_advisor_performance_cleanup.sql'),'utf8');
 
 test('RLS helper functions use query-level scalar subqueries',()=>{
   assert.match(sql,/v_uid uuid := \(select auth\.uid\(\)\)/);
