@@ -1,5 +1,6 @@
--- Current Supabase foreign-key covering indexes as of 2026-09-30.
--- Verified against live UAT in a BEGIN/ROLLBACK test: 0 unindexed foreign keys remain.
+-- Current Supabase foreign-key covering indexes.
+-- Applied to live UAT as migration 20261005122527 on 2026-10-05.
+-- Supabase Performance Advisor reports 0 unindexed foreign keys after this migration.
 
 create index if not exists company_revenue_accounts_created_by_idx on public.company_revenue_accounts(created_by);
 create index if not exists company_revenue_accounts_updated_by_idx on public.company_revenue_accounts(updated_by);

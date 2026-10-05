@@ -1,4 +1,5 @@
 -- Customer-specific invoice defaults for shared Supabase UAT.
+-- Applied to live UAT as migration 20261005122517.
 -- Existing customers retain 30 days and empty references.
 
 alter table public.customers
