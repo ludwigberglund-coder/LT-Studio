@@ -9,7 +9,7 @@ GitHub is the source of truth for UAT infrastructure. Permanent Supabase schema,
 - Supabase project: `LT-Studio`
 - Region: `eu-north-1`
 - PostgreSQL: 17
-- Live migration-history entries: 42
+- Live migration-history entries: 43
 - Public application tables: 49
 - Public tables with RLS disabled: 0
 - Realtime publications: 46 public tables
@@ -23,7 +23,9 @@ The 2026-10-05 reconciliation found the opposite kind of drift: two migrations e
 - `20261005122517_customer_invoice_defaults.sql` — adds customer-level invoice defaults for payment terms and references.
 - `20261005122527_current_fk_covering_indexes.sql` — adds the 25 FK covering indexes that Supabase Performance Advisor reported as missing.
 
-After the FK migration, the `unindexed_foreign_keys` advisor group is 0. Remaining performance findings are tracked separately in issue #645.
+- `20261005135109_rls_advisor_performance_cleanup.sql` — removes both duplicate permissive SELECT-policy findings and reduces RLS init-plan findings from 59 to 48 without disabling RLS.
+
+After the FK migration, the `unindexed_foreign_keys` advisor group is 0. After the first RLS cleanup, `multiple_permissive_policies` is 0 and `auth_rls_initplan` is reduced from 59 to 48. Remaining performance findings are tracked separately in issue #645.
 
 The repository still contains recovered replay-only SQL steps that are required to rebuild the final schema from an empty project even though those steps do not each have a separate row in the hosted project's migration-history table. The authoritative check is therefore two-part: every hosted migration version must exist in GitHub, and the full GitHub migration chain must pass the clean-rebuild workflow from zero.
 
