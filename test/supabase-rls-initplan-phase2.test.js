@@ -6,7 +6,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 
 const sql=fs.readFileSync(
-  path.join(__dirname,'..','supabase','migrations','20261005165525_rls_advisor_performance_cleanup_phase2.sql'),
+  path.join(__dirname,'..','supabase','migrations','20261005170956_rls_advisor_performance_cleanup_phase2.sql'),
   'utf8'
 );
 
@@ -16,6 +16,7 @@ test('phase 2 caches the shared AAL2 and personal-session request guard',()=>{
   assert.match(sql,/coalesce\(\(select auth\.jwt\(\)->>'aal'\),'aal1'\)='aal2'/);
   assert.match(sql,/select lt_security\.session_within_personal_limit\(\)/);
   assert.match(sql,/grant execute on function lt_security\.request_has_aal2_personal_session\(\) to authenticated/);
+  assert.match(sql,/hosted migration 20261005170956/);
 });
 
 test('phase 2 rewrites exactly the verified 47 request-guard policies',()=>{
