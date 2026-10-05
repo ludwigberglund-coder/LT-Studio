@@ -1,5 +1,6 @@
--- Supabase Performance Advisor cleanup for RLS init-plan and duplicate permissive policies.
--- GitHub is source of truth. Apply to hosted UAT only after this branch passes clean rebuild + CI.
+-- Supabase Performance Advisor cleanup, phase 1.
+-- Applied to live UAT as hosted migration 20261005135109 on 2026-10-05.
+-- GitHub is source of truth for the exact live state after the first cleanup phase.
 
 create or replace function lt_security.session_within_personal_limit()
 returns boolean
@@ -65,81 +66,8 @@ $$;
 revoke all on function lt_security.setting_is_one(text) from public, anon;
 grant execute on function lt_security.setting_is_one(text) to authenticated;
 
--- Optimize existing policies that use request-local write guards directly.
--- The expressions are taken from the already-versioned policies; only
--- current_setting(...)=1 is replaced with a scalar init-plan helper.
-do $$
-declare
-  r record;
-  v_using text;
-  v_check text;
-  v_using_new text;
-  v_check_new text;
-  v_setting text;
-  v_changed integer := 0;
-begin
-  for r in
-    select schemaname, tablename, policyname, qual, with_check
-    from pg_policies
-    where schemaname='public'
-      and not (tablename='company_revenue_accounts' and policyname='accountants write company revenue accounts')
-      and not (tablename='website_cms_state' and policyname='controlled website cms writes')
-      and (
-        coalesce(qual,'') like '%current_setting(%'
-        or coalesce(with_check,'') like '%current_setting(%'
-      )
-  loop
-    v_using := r.qual;
-    v_check := r.with_check;
-    v_using_new := v_using;
-    v_check_new := v_check;
-
-    foreach v_setting in array array[
-      'app.audit_event_write',
-      'app.system_batch_stage',
-      'app.financial_batch_approval',
-      'app.invoice_comment_write',
-      'app.invoice_reminder_write',
-      'app.website_cms_write'
-    ]
-    loop
-      if v_using_new is not null then
-        v_using_new := replace(
-          v_using_new,
-          format('current_setting(%L::text, true) = ''1''::text', v_setting),
-          format('(select lt_security.setting_is_one(%L))', v_setting)
-        );
-      end if;
-      if v_check_new is not null then
-        v_check_new := replace(
-          v_check_new,
-          format('current_setting(%L::text, true) = ''1''::text', v_setting),
-          format('(select lt_security.setting_is_one(%L))', v_setting)
-        );
-      end if;
-    end loop;
-
-    if v_using_new is distinct from v_using or v_check_new is distinct from v_check then
-      execute format(
-        'alter policy %I on %I.%I%s%s',
-        r.policyname,
-        r.schemaname,
-        r.tablename,
-        case when v_using_new is null then '' else format(' using (%s)',v_using_new) end,
-        case when v_check_new is null then '' else format(' with check (%s)',v_check_new) end
-      );
-      v_changed := v_changed + 1;
-    end if;
-  end loop;
-
-  if v_changed <> 14 then
-    raise exception 'RLS_INITPLAN_EXPECTED_14_POLICIES_CHANGED_GOT_%', v_changed;
-  end if;
-end;
-$$;
-
--- company_revenue_accounts: preserve the old FOR ALL semantics while ensuring
--- authenticated SELECT has only one permissive policy.
+-- company_revenue_accounts: replace the old FOR ALL write policy with explicit
+-- write actions so SELECT has only one permissive policy.
 drop policy if exists "accountants write company revenue accounts" on public.company_revenue_accounts;
 drop policy if exists "members read company revenue accounts" on public.company_revenue_accounts;
 
@@ -229,8 +157,8 @@ using (
   )
 );
 
--- website_cms_state: the old FOR ALL write policy also participated in SELECT.
--- Preserve that union explicitly in the single SELECT policy, then split writes.
+-- website_cms_state: preserve the old SELECT union explicitly while splitting
+-- the write operations into INSERT/UPDATE/DELETE.
 drop policy if exists "controlled website cms writes" on public.website_cms_state;
 drop policy if exists "members read website cms state" on public.website_cms_state;
 
