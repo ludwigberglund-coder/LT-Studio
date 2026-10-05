@@ -26,16 +26,17 @@ test('customer invoice register has a phone card layout',()=>{
   assert.match(sales,/\.invoice-list-panel \.sales-table td::before/);
 });
 
-test('project admin keeps LT Studio naming and high contrast live status',()=>{
+test('admin entry routes to LT Studio Driftadmin instead of legacy Projektadmin',()=>{
   const html=read('apps/admin/index.html');
-  const app=read('apps/admin/app.js');
-  const status=read('apps/admin/system-status.css');
-  const design=read('apps/admin/design-system.css');
-  assert.doesNotMatch(html,/Rollands Projektadmin/);
-  assert.match(html,/LT Studio Projektadmin/);
-  assert.match(app,/LT Studio \/ \$\{escapeHtml\(title\)\}/);
-  assert.match(status,/system-status-heading h2,[\s\S]*color:#fff!important/);
-  assert.match(design,/project-admin mobile toolbar compact/);
+  const operatorHtml=read('apps/operator/index.html');
+  const operatorApp=read('apps/operator/app.js');
+  assert.doesNotMatch(html,/Rollands Projektadmin|LT Studio Projektadmin/);
+  assert.match(html,/LT Studio · Adminportal/);
+  assert.match(html,/url=\.\.\/operator\//);
+  assert.match(html,/location\.replace\(target\)/);
+  assert.match(operatorHtml,/LT Studio · Driftadmin/);
+  assert.match(operatorApp,/ADMIN CONTROL CENTER/);
+  assert.match(operatorApp,/LT Studio-inloggning/);
 });
 
 test('legacy demo no longer covers the viewport or shows old product branding',()=>{

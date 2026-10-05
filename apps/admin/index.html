@@ -3,24 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f7f5f0">
-  <title>LT Studio Projektadmin</title>
-  <link rel="stylesheet" href="./styles.css">
-  <link rel="stylesheet" href="./money.css">
-  <link rel="stylesheet" href="./access.css">
-  <link rel="stylesheet" href="./journal.css">
-  <link rel="stylesheet" href="./system-status.css">
-  <link rel="stylesheet" href="./design-system.css">
+  <meta name="theme-color" content="#0c0f0d">
+  <title>LT Studio · Adminportal</title>
+  <meta http-equiv="refresh" content="0; url=../operator/">
+  <script>
+    (function () {
+      var target = '../operator/' + location.search + location.hash;
+      location.replace(target);
+    }());
+  </script>
 </head>
 <body>
-  <div id="admin-app">
-    <main class="loading">LT Studio Projektadmin laddas…</main>
-  </div>
-  <script src="../shared/accounting/money.js"></script>
-  <script src="../shared/access-control/authorization.js"></script>
-  <script src="../shared/accounting/journal.js"></script>
-  <script src="../portal/supabase-config.js"></script>
-  <script type="module" src="./app.js"></script>
-  <script type="module" src="./system-status.js"></script>
+  <main>
+    <p>Öppnar LT Studio Admin Control Center…</p>
+    <p><a href="../operator/">Öppna adminportalen</a></p>
+  </main>
 </body>
 </html>

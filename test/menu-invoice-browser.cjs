@@ -14,8 +14,16 @@ const server=http.createServer((req,res)=>{const u=new URL(req.url,'http://local
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const base=`http://127.0.0.1:${server.address().port}/Rollands/`;
   browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1440,height:1000}});page=await context.newPage();page.on('pageerror',e=>errors.push({url:page.url(),error:e.message}));page.on('dialog',d=>d.accept());
   async function menu(){await page.locator('.shared-navigation').waitFor({timeout:15000});await page.waitForFunction(()=>document.querySelector('.shared-sidebar')?.dataset.sharedRoute===location.pathname+location.hash);const actual=await page.locator('.shared-navigation [data-nav-id]').evaluateAll(nodes=>nodes.map(n=>n.dataset.navId));assert.deepEqual(actual,expected,page.url());assert.equal(await page.locator('.shared-navigation').count(),1);await page.locator('.shared-navigation [data-nav-id] .ui-icon svg').first().waitFor({timeout:5000});assert.equal(await page.locator('.shared-navigation [data-nav-id] .ui-icon svg').count(),expected.length,'alla gemensamma menyval ska ha Iconoir-ikon');}
-  const portal=fs.readdirSync(path.join(root,'portal')).filter(f=>f.endsWith('.html')&&f!=='uat-setup.html').map(f=>'portal/'+f),admin=['overview','content','money','access','journal','modules','decisions'].map(v=>'admin/?demo=1#/'+v),legacy=['overview','res-tools','batches','audit','inbox','assistant','settings'].map(v=>'legacy/?demo=1#/'+v);
-  for(const route of [...portal,...admin,...legacy]){const target=new URL(route,base);target.searchParams.set('demo','1');const response=await page.goto(target.href,{waitUntil:'networkidle'});if(response)assert.equal(response.status(),200,route);await menu();checks.push({kind:'menu',route});}
+  const portal=fs.readdirSync(path.join(root,'portal')).filter(f=>f.endsWith('.html')&&f!=='uat-setup.html').map(f=>'portal/'+f),legacy=['overview','res-tools','batches','audit','inbox','assistant','settings'].map(v=>'legacy/?demo=1#/'+v);
+  for(const route of [...portal,...legacy]){const target=new URL(route,base);target.searchParams.set('demo','1');const response=await page.goto(target.href,{waitUntil:'networkidle'});if(response)assert.equal(response.status(),200,route);await menu();checks.push({kind:'menu',route});}
+  {
+    const response=await page.goto(base+'admin/?demo=1#/overview',{waitUntil:'networkidle'});
+    if(response)assert.equal(response.status(),200,'admin/');
+    await page.getByRole('heading',{name:'LT Studio-inloggning'}).waitFor({timeout:15000});
+    assert.match(page.url(),/\/operator\//,'/admin/ ska leda till den säkra Driftadmin-portalen');
+    assert.equal(await page.locator('.shared-navigation').count(),0,'Driftadmin ska inte använda kundportalens navigation');
+    checks.push({kind:'admin-entry-redirect',route:'admin/',target:'operator/'});
+  }
   {
     const response=await page.goto(base+'portal/uat-setup.html',{waitUntil:'networkidle'});
     if(response)assert.equal(response.status(),200,'portal/uat-setup.html');

@@ -21,9 +21,13 @@ Börja här:
 
 [**Öppna programmet**](https://ludwigberglund-coder.github.io/LT-Studio/uat/)
 
+[**Öppna adminportalen**](https://ludwigberglund-coder.github.io/LT-Studio/admin/)
+
 [**Aktivera UAT-konto / slutför MFA**](https://ludwigberglund-coder.github.io/LT-Studio/portal/uat-setup.html)
 
-Detta är de enda två klickbara länkarna i README.
+Adminportalen på `/admin/` leder till den separata MFA-skyddade Driftadmin/Operator-portalen.
+
+Detta är de enda tre klickbara länkarna i README.
 
 ## GitHub är vår gemensamma källa
 
@@ -37,7 +41,7 @@ Alla ändringar görs i en arbetsgren. Granska skillnaden, kör relevanta tester
 apps/website/            publik hemsida
 apps/portal/             företagsportal och delad GitHub Pages-UAT mot Supabase
 apps/api/                äldre/lokal Node.js- och SQLite-backend för regression och referens
-apps/admin/              LT Studio admin/operatorgränssnitt
+apps/admin/              kompatibilitetsingång som leder till den säkra Driftadmin-portalen
 supabase/                versionshanterade migrationer, Edge Functions och UAT-seed
 packages/                delade ekonomi-, behörighets- och faktureringsregler
 content/                 offentliga texter och företagsuppgifter
