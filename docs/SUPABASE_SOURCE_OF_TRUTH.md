@@ -9,7 +9,7 @@ GitHub is the source of truth for UAT infrastructure. Permanent Supabase schema,
 - Supabase project: `LT-Studio`
 - Region: `eu-north-1`
 - PostgreSQL: 17
-- Live migration-history entries: 44
+- Live migration-history entries: 45
 - Public application tables: 49
 - Public tables with RLS disabled: 0
 - Realtime publications: 46 public tables
@@ -24,6 +24,8 @@ The 2026-10-05 reconciliation found the opposite kind of drift: two migrations e
 - `20261005122527_current_fk_covering_indexes.sql` — adds the 25 FK covering indexes that Supabase Performance Advisor reported as missing.
 
 After the FK migration, the `unindexed_foreign_keys` advisor group is 0. RLS cleanup phase 1 is recorded as `20261005135109_rls_advisor_performance_cleanup.sql`. Phase 2 is recorded as `20261005170956_rls_advisor_performance_cleanup_phase2.sql` and reduced `auth_rls_initplan` from 48 to 0 while keeping all public tables under RLS. `multiple_permissive_policies` is also 0. The only remaining Performance Advisor group is 77 `unused_index` findings at INFO level; these require real usage/query review before any index removal.
+
+The customer-invoice idempotency incident found one old `reserved` invoice-number reservation still linked to a saved draft whose payload had later changed. Runtime recovery is now handled in `apps/portal/invoices.js`. Hosted migration `20261005174500_recover_stale_invoice_draft_reservations.sql` performed a one-time recovery of pre-existing UAT state by giving the affected saved draft a fresh request id and marking the abandoned reservation `cancelled`. No invoice, journal entry, document, or issued invoice number was deleted or reused.
 
 The repository still contains recovered replay-only SQL steps that are required to rebuild the final schema from an empty project even though those steps do not each have a separate row in the hosted project's migration-history table. The authoritative check is therefore two-part: every hosted migration version must exist in GitHub, and the full GitHub migration chain must pass the clean-rebuild workflow from zero.
 
@@ -60,6 +62,7 @@ The server bridge is `SECURITY DEFINER`, has an empty `search_path`, validates t
 - Edge Function JWT settings match `supabase/config.toml`.
 - `lt-documents` is private, PDF-only, and limited to 10 MiB.
 - `supabase_realtime` publishes 46 public tables.
-- Hosted migration history has 44 entries, and every hosted version has an exact matching GitHub migration filename.
+- Hosted migration history has 45 entries, and every hosted version has an exact matching GitHub migration filename.
+- The stale saved-draft / reserved-request mismatch count is 0 after the one-time recovery.
 - Latest `main` clean-rebuild workflow passed before this reconciliation.
 - Security Advisor has one remaining warning: Leaked Password Protection, tracked in #530 and blocked by the current Supabase Free plan.
