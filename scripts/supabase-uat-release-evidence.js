@@ -12,6 +12,7 @@ const REQUIRED_SCENARIOS=Object.freeze([
   'supplier-invoice',
   'supplier-payment',
   'bank-reconciliation',
+  'unplaced-payments',
   'accounting-reports',
   'documents-pdf',
   'tenant-isolation',
