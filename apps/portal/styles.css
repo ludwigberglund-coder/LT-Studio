@@ -253,3 +253,29 @@ html[data-lt-theme="light"] .payments-primary-actions{background:var(--lt-light-
   .payments-primary-actions{align-items:flex-start;flex-direction:column}
   .payments-primary-actions .button{width:100%}
 }
+
+
+/* Oplacerad manuell kundinbetalning */
+.manual-unplaced-choice{display:flex;align-items:center;justify-content:space-between;gap:22px;margin:0 0 18px;padding:16px 18px;border:1px solid var(--line);border-radius:14px;background:var(--surface-alt,var(--paper,#fff))}
+.manual-unplaced-choice>div{display:grid;gap:4px;min-width:0}
+.manual-unplaced-choice strong{font-size:14px;color:var(--ink)}
+.manual-unplaced-choice span{font-size:12px;line-height:1.45;color:var(--muted)}
+.manual-unplaced-choice .button{flex:0 0 auto;white-space:nowrap}
+.manual-payment-form-modal #manual-unplaced-payment-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 18px;align-items:start}
+.manual-payment-form-modal #manual-unplaced-payment-form .field{margin:0}
+.manual-payment-form-modal #manual-unplaced-payment-form .field:nth-of-type(6),
+.manual-payment-form-modal #manual-unplaced-payment-form .form-error,
+.manual-payment-form-modal #manual-unplaced-payment-form .modal-actions{grid-column:1/-1}
+html[data-lt-theme="dark"] .manual-unplaced-choice{background:var(--lt-dark-surface,#2d333b)!important;color:var(--lt-dark-text,#fff)!important;border-color:var(--lt-dark-border,#444c56)!important}
+html[data-lt-theme="dark"] .manual-unplaced-choice strong{color:var(--lt-dark-text,#fff)!important}
+html[data-lt-theme="light"] .manual-unplaced-choice{background:var(--lt-light-surface,#fff);color:var(--lt-light-text,#4d5b55);border-color:var(--lt-light-border,#d1d8d2)}
+@media(max-width:900px){
+  .manual-payment-form-modal #manual-unplaced-payment-form{grid-template-columns:1fr}
+  .manual-payment-form-modal #manual-unplaced-payment-form .field:nth-of-type(6),
+  .manual-payment-form-modal #manual-unplaced-payment-form .form-error,
+  .manual-payment-form-modal #manual-unplaced-payment-form .modal-actions{grid-column:auto}
+}
+@media(max-width:720px){
+  .manual-unplaced-choice{align-items:stretch;flex-direction:column}
+  .manual-unplaced-choice .button{width:100%}
+}

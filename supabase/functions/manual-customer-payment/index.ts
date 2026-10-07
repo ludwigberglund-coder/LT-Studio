@@ -46,6 +46,8 @@ const safeDbCodes=[
   "INVALID_BANK_ACCOUNT",
   "PAYMENT_REFERENCE_TOO_LONG",
   "PAYMENT_COMMENT_TOO_LONG",
+  "PAYER_NAME_TOO_LONG",
+  "BANK_IDEMPOTENCY_CONFLICT",
   "PAYMENT_REQUIRES_DEBIT_INVOICE",
   "INVOICE_NOT_POSTED",
   "INVOICE_ALREADY_SETTLED",
@@ -103,22 +105,49 @@ Deno.serve(async(req)=>{
     const body=await req.json().catch(()=>({}));
     const companyId=text(body.companyId);
     const requestId=text(body.requestId);
+    const placement=text(body.placement)||"invoice";
     const invoiceId=text(body.invoiceId);
     const paymentDate=text(body.paymentDate);
     const amountOre=Number(body.amountOre);
     const bankAccount=text(body.bankAccount);
     const reference=text(body.reference)||null;
+    const payerName=text(body.payerName)||null;
     const comment=text(body.comment)||null;
 
-    if(!companyId||!invoiceId)return reply(422,{error:"Företag och faktura krävs.",code:"INVALID_PAYMENT_REQUEST"});
+    if(!companyId)return reply(422,{error:"Företag krävs.",code:"INVALID_PAYMENT_REQUEST"});
+    if(placement!=="invoice"&&placement!=="unplaced")return reply(422,{error:"Ogiltig placeringsmetod.",code:"INVALID_PAYMENT_REQUEST"});
+    if(placement==="invoice"&&!invoiceId)return reply(422,{error:"Faktura krävs.",code:"INVALID_PAYMENT_REQUEST"});
     if(!/^[A-Za-z0-9_-]{16,100}$/.test(requestId))return reply(422,{error:"Ogiltigt request-id.",code:"INVALID_REQUEST_ID"});
     if(!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate))return reply(422,{error:"Ogiltigt betaldatum.",code:"INVALID_PAYMENT_DATE"});
     if(!Number.isSafeInteger(amountOre)||amountOre<=0)return reply(422,{error:"Ogiltigt betalningsbelopp.",code:"INVALID_PAYMENT_AMOUNT"});
     if(!/^19[0-9]{2}$/.test(bankAccount))return reply(422,{error:"Ogiltigt likvidkonto.",code:"INVALID_BANK_ACCOUNT"});
     if((reference?.length||0)>160)return reply(422,{error:"Betalningsreferensen är för lång.",code:"PAYMENT_REFERENCE_TOO_LONG"});
+    if((payerName?.length||0)>160)return reply(422,{error:"Betalarnamnet är för långt.",code:"PAYER_NAME_TOO_LONG"});
     if((comment?.length||0)>1000)return reply(422,{error:"Kommentaren är för lång.",code:"PAYMENT_COMMENT_TOO_LONG"});
 
     const admin=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
+    if(placement==="unplaced"){
+      if(bankAccount!=="1930")return reply(422,{error:"Oplacerade inbetalningar måste registreras mot konto 1930.",code:"INVALID_BANK_ACCOUNT"});
+      const {data,error}=await admin.rpc("stage_manual_unplaced_bank_payment_server",{
+        p_actor_uid:userData.user.id,
+        p_session_id:sessionId,
+        p_company_id:companyId,
+        p_request_id:requestId,
+        p_payment_date:paymentDate,
+        p_amount_ore:amountOre,
+        p_reference:reference,
+        p_payer_name:payerName,
+        p_comment:comment
+      });
+      if(error){
+        const safe=safeDatabaseError(error.message);
+        console.error("manual unplaced payment RPC failed",{code:error.code||"",safeCode:safe.code});
+        return reply(statusFor(safe.code),{error:safe.message,code:safe.code});
+      }
+      const saved=Array.isArray(data)?data[0]:data;
+      if(!saved)return reply(500,{error:"Den oplacerade inbetalningen kunde inte registreras.",code:"MANUAL_PAYMENT_STAGE_FAILED"});
+      return reply(200,saved);
+    }
     const {data,error}=await admin.rpc("stage_manual_customer_payment_server",{
       p_actor_uid:userData.user.id,
       p_session_id:sessionId,
