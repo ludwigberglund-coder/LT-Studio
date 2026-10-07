@@ -35,6 +35,47 @@ function passwordOk(value:string){
     && /[^A-Za-zÅÄÖåäö0-9]/u.test(value);
 }
 
+async function sha1Hex(value:string){
+  const digest=await crypto.subtle.digest("SHA-1",new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,"0")).join("").toUpperCase();
+}
+
+async function assertPasswordNotCompromised(password:string){
+  const hash=await sha1Hex(password);
+  const prefix=hash.slice(0,5),suffix=hash.slice(5);
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),5000);
+  try{
+    const response=await fetch("https://api.pwnedpasswords.com/range/"+prefix,{
+      method:"GET",
+      headers:{
+        "User-Agent":"LT-Studio-Password-Protection/1.0",
+        "Add-Padding":"true",
+        "Accept":"text/plain"
+      },
+      signal:controller.signal
+    });
+    if(!response.ok){
+      throw Object.assign(new Error("Lösenordskontrollen är tillfälligt otillgänglig. Försök igen senare."),{status:503,code:"PASSWORD_BREACH_CHECK_UNAVAILABLE"});
+    }
+    const body=await response.text();
+    const match=body.split(/\r?\n/).find(line=>line.slice(0,35).toUpperCase()===suffix);
+    if(match){
+      const count=Number(match.split(":")[1]||0);
+      if(count>0){
+        throw Object.assign(new Error("Det lösenordet finns i kända lösenordsläckor. Välj ett helt annat lösenord."),{status:422,code:"PASSWORD_COMPROMISED"});
+      }
+    }
+  }catch(error){
+    if((error as any)?.name==="AbortError"){
+      throw Object.assign(new Error("Lösenordskontrollen är tillfälligt otillgänglig. Försök igen senare."),{status:503,code:"PASSWORD_BREACH_CHECK_UNAVAILABLE"});
+    }
+    throw error;
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
 function jwtPayload(token:string){
   try{
     const part=token.split(".")[1]||"";
@@ -139,6 +180,7 @@ Deno.serve(async(req:Request)=>{
     if(action==="create-account"){
       const password=String(body.password||"");
       if(!passwordOk(password))throw Object.assign(new Error("Lösenordet måste vara minst 12 tecken och innehålla stor bokstav, liten bokstav, siffra och specialtecken."),{status:422,code:"WEAK_PASSWORD"});
+      await assertPasswordNotCompromised(password);
 
       const existing=(await allAuthUsers(admin)).find(user=>String(user.email||"").toLowerCase()===email);
       if(existing)throw Object.assign(new Error("E-postadressen har redan ett LT Studio-konto. Välj alternativet för befintligt konto och logga in med MFA."),{status:409,code:"ACCOUNT_EXISTS_USE_EXISTING"});
