@@ -62,6 +62,6 @@ test('LT Studios RLS fortsätter kontrollera session_id mot auth.sessions',()=>{
 
   assert.match(guard,/auth\.jwt\(\)->>'session_id'/);
   assert.match(guard,/from auth\.sessions s/);
-  assert.match(guard,/s\.id=v_session_id/);
-  assert.match(guard,/s\.user_id=v_uid/);
+  assert.match(guard,/s\.id\s*=\s*v_session_id/);
+  assert.match(guard,/s\.user_id\s*=\s*v_uid/);
 });
