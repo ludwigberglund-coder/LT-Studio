@@ -136,7 +136,7 @@ test('databastransaktionen validerar svenska bolagsuppgifter även utan Edge Fun
 test('nya kundadmins får gratis skydd mot kända läckta lösenord',()=>{
   const activate=read('supabase/functions/company-activate/index.ts');
 
-  assert.match(activate,/api\.pwnedpasswords\.com\/range\//);
+  assert.ok(activate.includes('api.pwnedpasswords.com/range/'));
   assert.match(activate,/Add-Padding/);
   assert.match(activate,/slice\(0,5\)/);
   assert.match(activate,/PASSWORD_COMPROMISED/);
