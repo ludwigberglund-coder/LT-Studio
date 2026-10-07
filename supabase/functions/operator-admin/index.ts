@@ -221,11 +221,26 @@ Deno.serve(async(req)=>{
       try{
         const companyInsert=await admin.from("companies").insert({id:companyId,legal_name:legalName,org_number:orgNumber,display_name:displayName}).select("*").single();
         if(companyInsert.error)throw companyInsert.error;created=true;
+
+        const orgDigits=orgNumber.replace("-","");
+        const settingsInsert=await admin.from("company_invoice_settings").insert({
+          company_id:companyId,
+          address:"UAT-MILJÖ – EJ SKARP ADRESS",
+          vat_number:"SE"+orgDigits+"01",
+          phone:"000-000 00 00",
+          email:companyId+"@example.invalid",
+          website:"https://example.invalid/"+companyId,
+          bankgiro:"EJ-BETALNING",
+          tax_status:"UAT – EJ SKARP / EJ F-SKATT",
+          updated_by:user.id
+        });
+        if(settingsInsert.error)throw settingsInsert.error;
+
         const inviteInsert=await admin.from("uat_bootstrap_invites").insert({
           code_sha256:codeHash,label:(displayName+" · första admin").slice(0,120),company_id:companyId,membership_role:"admin",grant_operator:false,max_uses:1,use_count:0,expires_at:expiresAt
         });
         if(inviteInsert.error)throw inviteInsert.error;
-        await audit(admin,user.id,"UAT_COMPANY_CREATED",{companyId,details:{legalName,displayName,orgNumber,inviteExpiresAt:expiresAt,membershipRole:"admin"}});
+        await audit(admin,user.id,"UAT_COMPANY_CREATED",{companyId,details:{legalName,displayName,orgNumber,inviteExpiresAt:expiresAt,membershipRole:"admin",syntheticInvoiceSettings:true}});
       }catch(error){
         if(created){
           await admin.from("uat_bootstrap_invites").delete().eq("company_id",companyId);
