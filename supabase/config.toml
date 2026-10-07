@@ -1,10 +1,15 @@
 project_id = "lt-studio-uat-local"
 
 # Supabase Edge Function auth policy.
-# Keep this file aligned with the live UAT Edge Function verify_jwt settings.
+# Keep this file aligned with the hosted LT Studio Edge Function verify_jwt settings.
 # GitHub is the source of truth for rebuilds.
 
 [functions.operator-admin]
+verify_jwt = false
+
+# Public entry point for a personal, email-bound one-time activation.
+# The function performs its own invite/origin checks and requires AAL2 for existing accounts.
+[functions.company-activate]
 verify_jwt = false
 
 [functions.uat-bootstrap]
