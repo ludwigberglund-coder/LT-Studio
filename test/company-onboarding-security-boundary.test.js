@@ -162,3 +162,33 @@ test('portalens företagsval kan bara välja bland medlemskap som RLS returnerar
   assert.match(session,/const allowed=new Set\(\(memberships\|\|\[\]\)\.map\(m=>String\(m\.company_id\)\)\)/);
   assert.match(session,/if\(!allowed\.has\(companyId\)\)companyId=visible\[0\]\?\.id\|\|''/);
 });
+
+
+test('Realtime-prenumerationer filtreras explicit på aktiv tenant utöver RLS',()=>{
+  const client=read('apps/portal/supabase-client.js');
+
+  assert.match(client,/function realtimeFilters\(ctx,tables\)/);
+  assert.match(client,/company_id=eq\.'/);
+  assert.match(client,/table==='companies'.*id=eq\./s);
+  assert.match(client,/table==='app_users'.*auth_user_id=eq\./s);
+  assert.match(client,/filters,\s*onChange:safeRealtimeReload/s);
+  assert.match(client,/filter:filters\[table\]/);
+});
+
+test('Realtime DELETE behåller company_id så tenantfiltret kan tillämpas',()=>{
+  const migration=read('supabase/migrations/20261007152500_realtime_tenant_filter_hardening.sql');
+
+  assert.match(migration,/replica identity full/i);
+  assert.match(migration,/customer_manual_payments/);
+  assert.match(migration,/financial_batch_lines/);
+  assert.match(migration,/website_cms_state/);
+  assert.match(migration,/supplier_invoice_date_corrections/);
+});
+
+test('hemliga operator- och aktiveringstabeller ingår inte i tenant-Realtime-härdningen',()=>{
+  const migration=read('supabase/migrations/20261007152500_realtime_tenant_filter_hardening.sql');
+
+  assert.doesNotMatch(migration,/company_activation_invites/);
+  assert.doesNotMatch(migration,/platform_operators/);
+  assert.doesNotMatch(migration,/operator_audit_events/);
+});
