@@ -107,3 +107,27 @@ test('operatören kan rotera en oanvänd aktiveringslänk utan att skapa om för
   assert.match(reissue,/COMPANY_ALREADY_ACTIVATED/);
   assert.match(reissue,/CUSTOMER_ACTIVATION_REISSUED/);
 });
+
+
+test('företaget blir inte aktivt förrän första admin har verifierad MFA',()=>{
+  const edge=read('supabase/functions/operator-admin/index.ts');
+  const app=read('apps/operator/app.js');
+
+  assert.match(edge,/mfaProtectedAdmins\.length>0\?"active"/);
+  assert.match(edge,/"mfa_pending"/);
+  assert.match(edge,/accessConfigured:mfaProtectedAdmins\.length>0/);
+  assert.match(app,/MFA återstår/);
+  assert.match(app,/Kontot är skapat – MFA återstår/);
+  assert.match(app,/AAL2 krävs/);
+});
+
+test('databastransaktionen validerar svenska bolagsuppgifter även utan Edge Function',()=>{
+  const migration=read('supabase/migrations/20261007152100_operator_create_company_onboarding.sql');
+
+  assert.match(migration,/v_luhn_sum/);
+  assert.match(migration,/SE'\|\|v_org_digits\|\|'01/);
+  assert.match(migration,/\^https:\/\//);
+  assert.match(migration,/\^\[0-9\]\{3,4\}-\[0-9\]\{4\}\$/);
+  assert.match(migration,/Godkänd för F-skatt/);
+  assert.match(migration,/Godkänd för FA-skatt/);
+});
