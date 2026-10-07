@@ -26,7 +26,7 @@ Flödet är:
 - Befintliga LT Studio-konton måste verifiera AAL2/MFA innan ett nytt företag kan kopplas.
 - Nytt konto kan inte läsa kunddata förrän MFA har slutförts eftersom databasen kräver AAL2.
 - Utgångna eller felaktiga aktiveringslänkar roteras; företaget skapas inte om.
-- Lösenord, MFA-hemligheter och aktiveringskod i klartext skrivs inte till audit-loggen.
+- Lösenord, MFA-hemligheter och aktiveringskod i klartext skrivs inte till audit-loggen.\n- Nya lösenord kontrolleras mot HIBP Pwned Passwords med k-anonymity: endast de första fem tecknen av SHA-1-hashen skickas, respons-padding används och kontoskapandet failar stängt om kontrollen inte går att utföra. Detta är vårt kostnadsfria kompensationsskydd medan Supabases inbyggda Leaked Password Protection kräver Pro-plan.
 
 ## Svenska bolagsuppgifter
 
