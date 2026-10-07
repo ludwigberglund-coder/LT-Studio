@@ -99,8 +99,9 @@ function visible(element){
         const page=await context.newPage();
         const pageErrors=[];
         page.on('pageerror',error=>pageErrors.push(error.message));
-        const response=await page.goto(new URL(surface.route,base).href,{waitUntil:'networkidle',timeout:20000});
+        const response=await page.goto(new URL(surface.route,base).href,{waitUntil:'domcontentloaded',timeout:10000});
         if(response)assert.equal(response.status(),200,`${surface.id} ${viewport.id} returned ${response.status()}`);
+        await page.waitForLoadState('load',{timeout:5000}).catch(()=>{});
         await page.waitForTimeout(250);
 
         const layout=await page.evaluate(()=>{

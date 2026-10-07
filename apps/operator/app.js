@@ -216,6 +216,49 @@ function activationUrl(activation){
   url.hash='code='+encodeURIComponent(activation.inviteCode);
   return url.href;
 }
+const onboardingErrorField=Object.freeze({
+  INVALID_COMPANY_NAME:'legalName',
+  INVALID_COMPANY_DISPLAY_NAME:'displayName',
+  INVALID_ORG_NUMBER:'orgNumber',
+  COMPANY_ORG_NUMBER_EXISTS:'orgNumber',
+  INVALID_COMPANY_ADDRESS:'address',
+  INVALID_VAT_NUMBER:'vatNumber',
+  INVALID_COMPANY_EMAIL:'companyEmail',
+  INVALID_COMPANY_PHONE:'phone',
+  INVALID_COMPANY_WEBSITE:'website',
+  INVALID_BANKGIRO:'bankgiro',
+  INVALID_TAX_STATUS:'taxStatus',
+  INVALID_ADMIN_NAME:'adminName',
+  INVALID_ADMIN_EMAIL:'adminEmail',
+  ONBOARDING_CONFIRMATION_REQUIRED:'confirmed'
+});
+function clearOnboardingErrors(form){
+  form?.querySelectorAll('[aria-invalid="true"]').forEach(node=>node.removeAttribute('aria-invalid'));
+  form?.querySelectorAll('.onboarding-field-error,.onboarding-form-error').forEach(node=>node.remove());
+}
+function showOnboardingError(form,error){
+  clearOnboardingErrors(form);
+  const fieldName=onboardingErrorField[String(error?.code||'')];
+  const field=fieldName?form?.elements?.namedItem(fieldName):null;
+  if(field){
+    field.setAttribute('aria-invalid','true');
+    const holder=field.closest('.field,.onboarding-confirm')||field.parentElement;
+    const message=document.createElement('small');
+    message.className='onboarding-field-error';
+    message.setAttribute('role','alert');
+    message.textContent=String(error?.message||'Kontrollera uppgiften.');
+    holder?.append(message);
+    field.focus({preventScroll:true});
+    holder?.scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
+  const message=document.createElement('div');
+  message.className='onboarding-form-error';
+  message.setAttribute('role','alert');
+  message.textContent=String(error?.message||'Företaget kunde inte skapas. Kontrollera uppgifterna och försök igen.');
+  const actions=form?.querySelector('.modal-actions');
+  if(actions)form.insertBefore(message,actions);else form?.append(message);
+}
 function modalMarkup(){
   if(!modal)return '';
   if(modal.kind==='company-create')return `<div class="modal-backdrop" data-modal-backdrop><section class="modal-card portal-modal-card onboarding-modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><div><span class="eyebrow">NY KUND</span><h2 id="modal-title">Lägg till kundföretag</h2><p>Skapa bolaget, fakturauppgifterna och den första företagsadministratörens säkra aktivering i ett sammanhållet flöde.</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div>
@@ -712,6 +755,19 @@ document.addEventListener('keydown',async event=>{
     if(company){closeCompanySearch();await openCompany(company.id)}
   }
 });
+function normalizeOnboardingSubmission(data){
+  const orgDigits=String(data.orgNumber||'').replace(/\D/g,'').slice(0,10);
+  if(orgDigits.length===10){
+    data.orgNumber=orgDigits.slice(0,6)+'-'+orgDigits.slice(6);
+    data.vatNumber='SE'+orgDigits+'01';
+  }
+  const bankgiroDigits=String(data.bankgiro||'').replace(/\D/g,'');
+  if(bankgiroDigits.length===7)data.bankgiro=bankgiroDigits.slice(0,3)+'-'+bankgiroDigits.slice(3);
+  else if(bankgiroDigits.length===8)data.bankgiro=bankgiroDigits.slice(0,4)+'-'+bankgiroDigits.slice(4);
+  const website=String(data.website||'').trim();
+  if(website&&!/^[a-z][a-z0-9+.-]*:\/\//i.test(website))data.website='https://'+website;
+  return data;
+}
 document.addEventListener('submit',async event=>{
   if(event.target.id==='login-form'){
     event.preventDefault();errorMessage='';const button=event.target.querySelector('button[type="submit"]');button.disabled=true;const data=Object.fromEntries(new FormData(event.target).entries());
@@ -733,7 +789,7 @@ document.addEventListener('submit',async event=>{
     }catch(error){if(useSupabase)globalThis.LTSupabaseUat.storeSession(null);errorMessage=error.message;loginView()}return;
   }
   if(event.target.id==='create-company-form'){
-    event.preventDefault();const data=Object.fromEntries(new FormData(event.target).entries());data.confirmed=Boolean(data.confirmed);const button=event.target.querySelector('button[type="submit"]');if(button)button.disabled=true;
+    event.preventDefault();const data=normalizeOnboardingSubmission(Object.fromEntries(new FormData(event.target).entries()));data.confirmed=Boolean(data.confirmed);const button=event.target.querySelector('button[type="submit"]');if(button)button.disabled=true;
     try{
       const created=await mutate('/companies',{method:'POST',body:JSON.stringify(data)});
       overview=await api('/overview');
@@ -741,7 +797,7 @@ document.addEventListener('submit',async event=>{
       uiNotice='Kundföretaget skapades säkert. Aktiveringslänken måste kopieras innan dialogen stängs.';
       errorMessage='';
       render();focusModal();
-    }catch(error){errorMessage=error.message;render();const retry=document.querySelector('#create-company-form button[type="submit"]');if(retry)retry.disabled=false}
+    }catch(error){errorMessage='';showOnboardingError(event.target,error);if(button)button.disabled=false}
     return;
   }
   if(event.target.id==='reissue-activation-form'){

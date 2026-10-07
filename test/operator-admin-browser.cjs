@@ -26,9 +26,22 @@ assert.match(app,/data-ui-compact/);
 assert.match(styles,/onboarding-modal-card/);
 assert.match(styles,/onboarding-security/);
 assert.match(styles,/activation-delivery/);
+assert.match(app,/onboardingErrorField/);
+assert.match(app,/showOnboardingError/);
+assert.match(app,/normalizeOnboardingSubmission/);
+assert.match(app,/data\.vatNumber='SE'\+orgDigits\+'01'/);
+assert.match(app,/data\.website='https:\/\/'\+website/);
+assert.match(app,/INVALID_ORG_NUMBER:'orgNumber'/);
+assert.match(app,/INVALID_VAT_NUMBER:'vatNumber'/);
+assert.match(app,/INVALID_ADMIN_EMAIL:'adminEmail'/);
+assert.match(styles,/onboarding-field-error/);
+assert.match(styles,/\[aria-invalid="true"\]/);
 
 assert.match(onboarding,/operator_create_company_onboarding/);
 assert.match(onboarding,/swedishOrgNumberOk/);
+assert.match(onboarding,/normalizeWebsite/);
+assert.match(onboarding,/normalizeBankgiro/);
+assert.match(onboarding,/normalizeVatNumber/);
 assert.match(onboarding,/sha256Hex/);
 assert.match(onboarding,/confirmed!==true/);
 
