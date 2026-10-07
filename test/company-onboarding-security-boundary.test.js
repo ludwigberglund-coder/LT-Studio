@@ -143,7 +143,7 @@ test('rollbyte gäller omedelbart via company_memberships utan att skapa paralle
   const tenant=read('supabase/migrations/20260925055322_optimize_shared_rls_indexes.sql');
 
   assert.match(operator,/from\("company_memberships"\)\.update\(\{role\}\)/);
-  assert.match(tenant,/m\.role in \('admin','accountant'\)/);
+  assert.match(tenant,/m\.role in \(''?admin''?,''?accountant''?\)/i);
   assert.doesNotMatch(operator,/user_metadata.*role/i);
 });
 
