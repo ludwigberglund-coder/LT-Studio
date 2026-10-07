@@ -8,7 +8,7 @@ create or replace function public.operator_change_company_membership(
   p_role text,
   p_operator_auth_user_id uuid
 )
-returns table(previous_role text, current_role text, removed boolean)
+returns table(previous_role text, resulting_role text, removed boolean)
 language plpgsql
 security invoker
 set search_path=''
