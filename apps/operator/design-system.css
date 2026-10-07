@@ -795,19 +795,26 @@ td,
   position:absolute;
   inset:-35%;
   z-index:-2;
-  background:
-    radial-gradient(circle at 20% 25%,rgb(10 10 10 / .055),transparent 26%),
-    radial-gradient(circle at 82% 34%,rgb(10 10 10 / .035),transparent 22%),
-    conic-gradient(from 90deg at 50% 50%,transparent 0 35%,rgb(10 10 10 / .025) 42%,transparent 51% 100%);
+  width:58%;
+  height:160%;
+  inset:-30% auto auto -18%;
+  border-radius:48%;
+  background:rgb(10 10 10 / .035);
+  box-shadow:420px 90px 0 rgb(10 10 10 / .018);
   animation:operatorAmbient var(--operator-live-speed) linear infinite;
 }
 .statistics-live-hero::after,.security-hero-live::after,.hero-dashboard::after{
   content:"";
   position:absolute;
-  inset:0;
+  top:-22%;
+  bottom:-22%;
+  left:-18%;
+  width:12%;
   z-index:-1;
   pointer-events:none;
-  background:linear-gradient(110deg,transparent 0 42%,rgb(255 255 255 / .58) 48%,transparent 54% 100%);
+  background:rgb(255 255 255 / .48);
+  border-radius:50%;
+  filter:blur(24px);
   transform:translateX(-120%);
   animation:operatorSheen calc(var(--operator-live-speed) * 1.4) ease-in-out infinite;
 }
@@ -839,7 +846,10 @@ td,
   right:0;
   bottom:0;
   height:2px;
-  background:linear-gradient(90deg,transparent,var(--color-ink),transparent);
+  width:34%;
+  right:auto;
+  background:var(--color-ink);
+  border-radius:999px;
   transform:translateX(-110%);
   opacity:.2;
   animation:operatorScan calc(var(--operator-live-speed) * .9) linear infinite;
@@ -902,7 +912,7 @@ html[data-operator-motion="off"] .sparkline circle{animation:none!important}
 @keyframes operatorAmbient{to{transform:rotate(360deg) scale(1.04)}}
 @keyframes operatorSheen{0%,18%{transform:translateX(-120%)}46%,100%{transform:translateX(130%)}}
 @keyframes operatorPulse{0%{transform:scale(.65);opacity:.3}100%{transform:scale(2.1);opacity:0}}
-@keyframes operatorScan{to{transform:translateX(110%)}}
+@keyframes operatorScan{to{transform:translateX(300%)}}
 @keyframes operatorDraw{to{stroke-dashoffset:0}}
 @keyframes operatorDotIn{from{opacity:0;transform:scale(.35)}to{opacity:1;transform:scale(1)}}
 @keyframes operatorHeartbeat{50%{transform:scale(1.22);box-shadow:0 0 0 7px rgb(10 10 10 / .05)}}
