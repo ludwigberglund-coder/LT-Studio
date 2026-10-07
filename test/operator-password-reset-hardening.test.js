@@ -45,12 +45,13 @@ test('lösenordsreset kräver fortfarande medlemskap i exakt valt företag',()=>
 
 
 
-test('administrativt lösenordsbyte överdriver inte sessionsstatus',()=>{
+test('administrativt lösenordsbyte rapporterar verifierad sessionsstatus korrekt',()=>{
   const edge=read('supabase/functions/operator-admin/index.ts');
   const start=edge.indexOf('if(action==="reset-password")');
   const end=edge.indexOf('if(action==="remove-user")',start);
   const reset=edge.slice(start,end);
   assert.match(reset,/sessionsRevoked:false/);
   assert.match(reset,/sessionScope:"supabase"/);
-  assert.doesNotMatch(reset,/sessionsRevoked:true/);
+  assert.match(reset,/sessionsRevoked:true,sessionScope:"global"/);
+  assert.match(reset,/SESSION_REVOCATION_NOT_CONFIRMED/);
 });
