@@ -2,6 +2,11 @@ const root=document.getElementById('operator-app');
 const csrfKey='lt-operator-csrf';
 const useSupabase=location.hostname==='ludwigberglund-coder.github.io'&&Boolean(globalThis.LT_SUPABASE&&globalThis.LTSupabase&&globalThis.LTSupabaseUat);
 let session=null,overview=null,readiness=null,security=null,operatorAudit=null,securityMonitor=null,securityAlerts=null,securityPollTimer=null,errorMessage='',view='overview',selectedCompany=null,modal=null,uiNotice='',operatorRefreshing=false,companyQuery='',companyStatus='all',companySort='name',companySearchOpen=false,companySearchActiveIndex=-1,securitySeverity='all',securityPeriod='24h',securityCompany='all',securityIncidentStatus='all',statisticsCompany='all';
+const operatorUiPrefsKey='lt-operator-ui-prefs-v1';
+let operatorUiPrefs=(()=>{try{return {...{motion:72,compact:false},...JSON.parse(localStorage.getItem(operatorUiPrefsKey)||'{}')}}catch{return{motion:72,compact:false}}})();
+function persistOperatorUiPrefs(){try{localStorage.setItem(operatorUiPrefsKey,JSON.stringify(operatorUiPrefs))}catch{}}
+function applyOperatorUiPrefs(){const motion=Math.max(0,Math.min(100,Number(operatorUiPrefs.motion)||0));document.documentElement.style.setProperty('--operator-live-speed',`${Math.max(3.2,11-motion*.07).toFixed(2)}s`);document.documentElement.dataset.operatorMotion=motion===0?'off':motion<40?'calm':'full';document.documentElement.dataset.operatorDensity=operatorUiPrefs.compact?'compact':'comfortable'}
+function operatorUiControls(){const motion=Math.max(0,Math.min(100,Number(operatorUiPrefs.motion)||0));return `<div class="operator-control-deck" aria-label="Visningsreglage"><label class="motion-control"><span><strong>Live motion</strong><small>${motion}%</small></span><input type="range" min="0" max="100" step="1" value="${motion}" data-ui-motion aria-label="Animationsnivå"></label><label class="density-switch"><input type="checkbox" data-ui-compact ${operatorUiPrefs.compact?'checked':''}><span class="switch-track" aria-hidden="true"><i></i></span><span><strong>Kompakt</strong><small>Tätare adminvy</small></span></label></div>`}
 
 
 const OPERATOR_ICONOIR=Object.freeze({
@@ -221,8 +226,9 @@ function nav(){
 function shell(body,title,subtitle){
   const operator=session?.operator||{};
   root.innerHTML=`<div class="operator-shell"><aside class="sidebar"><div><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div class="side-copy">ADMIN CONTROL CENTER</div></div><nav class="side-nav">${nav()}</nav><a class="customer-system-link" href="/portal/" target="_blank" rel="noopener"><span><strong>Öppna kundsystemet</strong><small>UAT på samma webbplats</small></span></a><div class="side-spacer"></div><div class="side-status"><span class="live-dot"></span><div><strong>Operatorportal aktiv</strong><small>Separat säkerhetsgräns</small></div></div><div class="side-footer">Endast LT Studio-operatörer.<br>Alla administrativa ändringar loggas.</div></aside>
-  <section class="main"><header class="topbar"><div><span class="page-kicker">LT STUDIO / ADMIN</span><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div><div class="actions"><div class="operator-user"><span class="avatar">${initials(operator.displayName)}</span><div><strong>${esc(operator.displayName||operator.username||'Operatör')}</strong><small>LT Studio-operatör</small></div></div><button class="icon-button" data-action="refresh" title="${operatorRefreshing?'Uppdaterar…':'Uppdatera'}" aria-label="${operatorRefreshing?'Uppdaterar':'Uppdatera'}" ${operatorRefreshing?'disabled':''}></button><button class="button secondary" data-action="logout">Logga ut</button></div></header><nav class="mobile-nav">${nav()}</nav>
+  <section class="main"><header class="topbar"><div><span class="page-kicker">LT STUDIO / ADMIN</span><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div><div class="actions">${operatorUiControls()}<div class="operator-user"><span class="avatar">${initials(operator.displayName)}</span><div><strong>${esc(operator.displayName||operator.username||'Operatör')}</strong><small>LT Studio-operatör</small></div></div><button class="icon-button" data-action="refresh" title="${operatorRefreshing?'Uppdaterar…':'Uppdatera'}" aria-label="${operatorRefreshing?'Uppdaterar':'Uppdatera'}" ${operatorRefreshing?'disabled':''}></button><button class="button secondary" data-action="logout">Logga ut</button></div></header><nav class="mobile-nav">${nav()}</nav>
   <div id="security-live-alert">${securityAlertStrip()}</div>${errorMessage?`<div class="notice">${esc(errorMessage)}</div>`:''}${successNotice()}${body}<footer class="portal-footer"><span>LT Studio Admin</span><span>Senast uppdaterad ${dateTime(overview?.generatedAt)}</span></footer></section></div>${modalMarkup()}`;
+  applyOperatorUiPrefs();
 }
 function filteredCompanies(){
   const query=companyQuery.trim().toLocaleLowerCase('sv');
@@ -608,6 +614,7 @@ async function refresh(){
 }
 async function mutate(path,options){return api(path,{...options,headers:{'Content-Type':'application/json','X-CSRF-Token':csrf(),...(options?.headers||{})}})}
 document.addEventListener('input',event=>{
+  if(event.target.matches?.('[data-ui-motion]')){operatorUiPrefs.motion=Number(event.target.value);persistOperatorUiPrefs();applyOperatorUiPrefs();const label=event.target.closest('.motion-control')?.querySelector('small');if(label)label.textContent=`${operatorUiPrefs.motion}%`;return}
   if(!event.target.matches?.('[data-company-search]'))return;
   companyQuery=event.target.value;companySearchOpen=Boolean(companyQuery.trim());companySearchActiveIndex=-1;updateCompanyTable();
 });
@@ -661,6 +668,7 @@ document.addEventListener('submit',async event=>{
   }
 });
 document.addEventListener('change',async event=>{
+  if(event.target.matches?.('[data-ui-compact]')){operatorUiPrefs.compact=Boolean(event.target.checked);persistOperatorUiPrefs();applyOperatorUiPrefs();return}
   if(event.target.matches?.('[data-incident-status]')){
     const select=event.target,eventId=select.dataset.securityEventId,nextStatus=select.value;
     select.disabled=true;errorMessage='';
