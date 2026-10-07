@@ -256,10 +256,21 @@ Deno.serve(async(req)=>{
     }
     if(action==="set-role"){
       const companyId=text(body.companyId),target=text(body.userId),role=text(body.role);if(!allowedRoles.has(role))return reply(422,{error:"Ogiltig behörighet.",code:"INVALID_ROLE"});
-      const before=(await admin.from("company_memberships").select("*").eq("company_id",companyId).eq("auth_user_id",target).maybeSingle()).data;if(!before)return reply(404,{error:"Användaren finns inte i kundföretaget.",code:"MEMBERSHIP_NOT_FOUND"});
-      const {error}=await admin.from("company_memberships").update({role}).eq("company_id",companyId).eq("auth_user_id",target);if(error)throw error;
-      await audit(admin,user.id,"CUSTOMER_USER_ROLE_CHANGED",{companyId,targetUserId:target,details:{beforeRole:before.role,afterRole:role}});
-      return reply(200,{membership:{...before,role},sessionsRevoked:false,sessionScope:"supabase"});
+      const result=await admin.rpc("operator_change_company_membership",{
+        p_company_id:companyId,
+        p_target_auth_user_id:target,
+        p_action:"set-role",
+        p_role:role,
+        p_operator_auth_user_id:user.id
+      });
+      if(result.error){
+        const message=String(result.error.message||"");
+        if(message.includes("MEMBERSHIP_NOT_FOUND"))return reply(404,{error:"Användaren finns inte i kundföretaget.",code:"MEMBERSHIP_NOT_FOUND"});
+        if(message.includes("LAST_ACTIVE_ADMIN_REQUIRED"))return reply(409,{error:"Företaget måste alltid ha minst en aktiv administratör. Lägg till eller aktivera en ny admin innan den sista administratören ändras.",code:"LAST_ACTIVE_ADMIN_REQUIRED"});
+        throw result.error;
+      }
+      const changed=result.data?.[0];if(!changed)return reply(500,{error:"Behörigheten kunde inte uppdateras.",code:"MEMBERSHIP_CHANGE_FAILED"});
+      return reply(200,{membership:{company_id:companyId,auth_user_id:target,role:changed.current_role},sessionsRevoked:false,sessionScope:"supabase"});
     }
     if(action==="reset-password"){
       const companyId=text(body.companyId),target=text(body.userId),password=text(body.password);
@@ -271,9 +282,20 @@ Deno.serve(async(req)=>{
     }
     if(action==="remove-user"){
       const companyId=text(body.companyId),target=text(body.userId);
-      const member=(await admin.from("company_memberships").select("*").eq("company_id",companyId).eq("auth_user_id",target).maybeSingle()).data;if(!member)return reply(404,{error:"Användaren finns inte i kundföretaget.",code:"MEMBERSHIP_NOT_FOUND"});
-      const {error}=await admin.from("company_memberships").delete().eq("company_id",companyId).eq("auth_user_id",target);if(error)throw error;
-      await audit(admin,user.id,"CUSTOMER_USER_REMOVED",{companyId,targetUserId:target,details:{role:member.role}});
+      const result=await admin.rpc("operator_change_company_membership",{
+        p_company_id:companyId,
+        p_target_auth_user_id:target,
+        p_action:"remove",
+        p_role:"",
+        p_operator_auth_user_id:user.id
+      });
+      if(result.error){
+        const message=String(result.error.message||"");
+        if(message.includes("MEMBERSHIP_NOT_FOUND"))return reply(404,{error:"Användaren finns inte i kundföretaget.",code:"MEMBERSHIP_NOT_FOUND"});
+        if(message.includes("LAST_ACTIVE_ADMIN_REQUIRED"))return reply(409,{error:"Företaget måste alltid ha minst en aktiv administratör. Lägg till eller aktivera en ny admin innan den sista administratören tas bort.",code:"LAST_ACTIVE_ADMIN_REQUIRED"});
+        throw result.error;
+      }
+      const changed=result.data?.[0];if(!changed?.removed)return reply(500,{error:"Åtkomsten kunde inte tas bort.",code:"MEMBERSHIP_CHANGE_FAILED"});
       return reply(200,{removed:true,sessionsRevoked:false,sessionScope:"company"});
     }
     return reply(404,{error:"Operatoråtgärden hittades inte.",code:"OPERATOR_ACTION_NOT_FOUND"});
