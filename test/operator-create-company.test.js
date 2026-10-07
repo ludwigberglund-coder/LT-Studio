@@ -143,3 +143,14 @@ test('nya kundadmins får gratis skydd mot kända läckta lösenord',()=>{
   assert.match(activate,/PASSWORD_BREACH_CHECK_UNAVAILABLE/);
   assert.doesNotMatch(activate,/api\.pwnedpasswords\.com\/range\/"\+hash/);
 });
+
+
+test('Supabase-konfigurationen beskriver den publika aktiveringsgränsen explicit',()=>{
+  const config=read('supabase/config.toml');
+  const activate=read('supabase/functions/company-activate/index.ts');
+
+  assert.match(config,/\[functions\.company-activate\][\s\S]*?verify_jwt = false/);
+  assert.match(activate,/ORIGIN_NOT_ALLOWED/);
+  assert.match(activate,/INVALID_ACTIVATION/);
+  assert.match(activate,/INVITED_EMAIL_MISMATCH/);
+});
