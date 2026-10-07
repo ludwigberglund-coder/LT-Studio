@@ -108,16 +108,18 @@ test('automatisk ränta använder bara verifierad startgrund och sparar den i p�
   }
 });
 
-test('påminnelse utan ränta fungerar när startgrunden saknas',()=>{
+test('förfallen bokförd faktura kan alltid beräkna ränta från sparat förfallodatum',()=>{
   const {invoice}=issuedFixture();
-  assert.throws(
-    ()=>Receivables.reminderPreview(invoice,{sentDate:'2026-10-20',includeInterest:true},legalRates),
-    error=>error.code==='INTEREST_START_BASIS_UNVERIFIED'
-  );
-  const preview=Receivables.reminderPreview(invoice,{sentDate:'2026-10-20',includeInterest:false},legalRates);
-  assert.equal(preview.interestOre,0);
-  assert.equal(preview.interestStartBasis,'none');
-  assert.equal(preview.totalDueOre,invoice.remainingOre);
+  const preview=Receivables.reminderPreview(invoice,{sentDate:'2026-10-20',includeInterest:true},legalRates);
+  assert.ok(preview.interestOre>0);
+  assert.equal(preview.interestStartBasis,'predetermined-due-date');
+  assert.equal(preview.interestStartEvidenceSource,'booked-invoice-record');
+  assert.equal(preview.interestStartVerifiedAt,'');
+
+  const withoutInterest=Receivables.reminderPreview(invoice,{sentDate:'2026-10-20',includeInterest:false},legalRates);
+  assert.equal(withoutInterest.interestOre,0);
+  assert.equal(withoutInterest.interestStartBasis,'none');
+  assert.equal(withoutInterest.totalDueOre,invoice.remainingOre);
 });
 
 
