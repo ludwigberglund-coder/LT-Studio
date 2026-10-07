@@ -25,12 +25,12 @@
       return JSON.parse(atob(normalized.padEnd(Math.ceil(normalized.length/4)*4,'=')));
     }catch{return{}}
   }
-  function requiresAal2(){return window.LT_SUPABASE?.environment==='uat'}
+  function requiresAal2(){return window.LT_SUPABASE?.requireMfa!==false}
   function normalizedLoginError(error){
     const message=String(error?.message||'');
     if(Number(error?.status)===400||/invalid login credentials|email not confirmed|invalid email or password/i.test(message)){
-      const friendly=new Error('E-post eller lösenord stämmer inte, eller UAT-kontot är inte aktiverat ännu. Om det är första gången: välj “Aktivera UAT-konto / slutför MFA” nedan.');
-      friendly.code='UAT_LOGIN_NOT_READY';
+      const friendly=new Error('E-post eller lösenord stämmer inte, eller kontot är inte aktiverat ännu. Om det är första gången: öppna er personliga aktiveringslänk från LT Studio.');
+      friendly.code='LOGIN_NOT_READY';
       friendly.status=400;
       return friendly;
     }
@@ -62,7 +62,7 @@
       const factor=(user?.factors||[]).find(item=>item.factor_type==='totp'&&item.status==='verified');
       if(!factor){
         await api().signOut(initialToken,'global').catch(()=>{});
-        throw new Error('Kontot saknar verifierad MFA. Öppna UAT-aktiveringen och slutför TOTP-registreringen.');
+        throw new Error('Kontot saknar verifierad MFA. Öppna kontoaktiveringen och slutför TOTP-registreringen.');
       }
       if(!/^[0-9]{6}$/.test(String(totp||''))){
         await api().signOut(initialToken,'global').catch(()=>{});
