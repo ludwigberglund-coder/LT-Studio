@@ -131,3 +131,15 @@ test('databastransaktionen validerar svenska bolagsuppgifter även utan Edge Fun
   assert.match(migration,/Godkänd för F-skatt/);
   assert.match(migration,/Godkänd för FA-skatt/);
 });
+
+
+test('nya kundadmins får gratis skydd mot kända läckta lösenord',()=>{
+  const activate=read('supabase/functions/company-activate/index.ts');
+
+  assert.match(activate,/api\.pwnedpasswords\.com\/range\//);
+  assert.match(activate,/Add-Padding/);
+  assert.match(activate,/slice\(0,5\)/);
+  assert.match(activate,/PASSWORD_COMPROMISED/);
+  assert.match(activate,/PASSWORD_BREACH_CHECK_UNAVAILABLE/);
+  assert.doesNotMatch(activate,/api\.pwnedpasswords\.com\/range\/"\+hash/);
+});
