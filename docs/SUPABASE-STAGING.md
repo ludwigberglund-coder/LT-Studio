@@ -93,3 +93,23 @@ A real staging environment is not approved merely because CI passes. Issue #364 
 - signoff tied to an exact Git commit.
 
 No real customer, bank, payroll, invoice, document or pilot/production backup may be loaded into staging.
+
+
+## Hosted browser entry
+
+GitHub Pages exposes a dedicated staging entry at:
+
+`/LT-Studio/staging/`
+
+That entry selects the separate `LT-Studio-Staging` Supabase project and forwards to the existing account/MFA setup UI.
+
+The browser configuration deliberately contains only:
+
+- the staging project URL,
+- the staging `sb_publishable_...` key.
+
+Both are public browser configuration. No secret/service-role credential is committed.
+
+The selected environment is held in browser `sessionStorage`. UAT and staging use different session/company storage keys, so a staging JWT is never read as a UAT session or vice versa. A fixed `STAGING · ENDAST SYNTETISK DATA` badge is shown whenever staging is selected, with a direct switch back to UAT.
+
+Both UAT and staging require AAL2/TOTP. Opening a new browser tab defaults to UAT unless staging is explicitly selected again.
