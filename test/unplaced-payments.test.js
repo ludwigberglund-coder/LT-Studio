@@ -58,3 +58,31 @@ test('reskontrakonton och redan placerade bankhändelser är spärrade',()=>{
     assert.throws(()=>Unplaced.resolveOther(db,{companyId:company.id,paymentId:payment.id,resolutionType:'other-income',counterAccount:'3990',description:'För sent',requestId:'unplaced-request-0004',actorId:user.id}),e=>e.code==='INVALID_BANK_PAYMENT_STATUS');
   }finally{db.close()}
 });
+
+
+test('Supabase oplacerade betalningar går genom JWT-verifierad Edge Function och server-only RPC',()=>{
+  const fs=require('node:fs');
+  const path=require('node:path');
+  const root=path.resolve(__dirname,'..');
+  const read=relative=>fs.readFileSync(path.join(root,relative),'utf8');
+  const portal=read('apps/portal/unplaced-payments.js');
+  const bridge=read('supabase/migrations/20261007165000_unplaced_payment_edge_bridge.sql');
+  const edge=read('supabase/functions/resolve-unplaced-payment/index.ts');
+  const config=read('supabase/config.toml');
+
+  assert.match(portal,/functions\.invoke\('resolve-unplaced-payment'/);
+  assert.doesNotMatch(portal,/LTSupabase\.rpc\('resolve_unplaced_bank_payment'/);
+  assert.match(bridge,/create or replace function public\.resolve_unplaced_bank_payment_server/);
+  assert.match(bridge,/join auth\.sessions s/);
+  assert.match(bridge,/u\.disabled=false/);
+  assert.match(bridge,/m\.role in \('admin','accountant'\)/);
+  assert.match(bridge,/set_config\('request\.jwt\.claim\.sub'/);
+  assert.match(bridge,/revoke all on function public\.resolve_unplaced_bank_payment_server[\s\S]*from public,anon,authenticated/);
+  assert.match(bridge,/grant execute on function public\.resolve_unplaced_bank_payment_server[\s\S]*to service_role/);
+  assert.match(bridge,/revoke execute on function public\.resolve_unplaced_bank_payment\(text,text,text,text,text,text\)[\s\S]*from authenticated/);
+  assert.match(edge,/auth\.getUser\(token\)/);
+  assert.match(edge,/claims\.aal!=="aal2"/);
+  assert.match(edge,/claims\.session_id/);
+  assert.match(edge,/admin\.rpc\("resolve_unplaced_bank_payment_server"/);
+  assert.match(config,/\[functions\.resolve-unplaced-payment\][\s\S]*verify_jwt = true/);
+});
