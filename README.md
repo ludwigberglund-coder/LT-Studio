@@ -13,6 +13,7 @@ Börja här:
 - Synthetic-only staging deployment
 - Pilotens deployment-instruktion
 - Produktvision
+- Fortnox-niva: produktroadmap for vad som byggs efter production readiness
 - SaaS-målarkitektur för flera kunder
 - Flerföretagsaudit och luckor för kund nummer två
 - PostgreSQL-migreringsplan
