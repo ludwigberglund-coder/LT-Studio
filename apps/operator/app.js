@@ -117,7 +117,9 @@ function edgeAction(path,options={}){
   if(clean==='/security-alerts/test')return{action:'security-alert-test'};
   if(clean==='/operator-audit')return{action:'operator-audit',limit:100};
   if(clean==='/companies'&&String(options.method||'GET').toUpperCase()==='POST')return{action:'create-company',...body};
-  let match=clean.match(/^\/companies\/([^/]+)$/);
+  let match=clean.match(/^\/companies\/([^/]+)\/activation$/);
+  if(match&&String(options.method||'GET').toUpperCase()==='POST')return{action:'reissue-company-activation',companyId:decodeURIComponent(match[1]),...body};
+  match=clean.match(/^\/companies\/([^/]+)$/);
   if(match)return{action:'company-detail',companyId:decodeURIComponent(match[1])};
   match=clean.match(/^\/companies\/([^/]+)\/users$/);
   if(match)return{action:'create-user',companyId:decodeURIComponent(match[1]),...body};
@@ -270,7 +272,8 @@ function filteredCompanies(){
   const query=companyQuery.trim().toLocaleLowerCase('sv');
   const rows=(overview?.companies||[]).filter(company=>{
     const matchesText=!query||[company.displayName,company.legalName,company.orgNumber].some(value=>String(value||'').toLocaleLowerCase('sv').includes(query));
-    const matchesStatus=companyStatus==='all'||(companyStatus==='active'&&company.accessConfigured)||(companyStatus==='unconfigured'&&!company.accessConfigured);
+    const status=company.onboardingStatus||(company.accessConfigured?'active':'unconfigured');
+    const matchesStatus=companyStatus==='all'||companyStatus===status;
     return matchesText&&matchesStatus;
   });
   return rows.sort((a,b)=>{
@@ -313,7 +316,8 @@ function companyRows(source){
   const rows=source||overview?.companies||[];
   if(!rows.length)return '<tr><td colspan="7" class="empty">Inga företag matchar filtret.</td></tr>';
   return rows.map(company=>{
-    const access=company.accessConfigured?'<span class="status-pill"><span class="dot ok"></span>Aktiv</span>':'<span class="status-pill"><span class="dot warning"></span>Saknar användare</span>';
+    const status=company.onboardingStatus||(company.accessConfigured?'active':'unconfigured');
+    const access=status==='active'?'<span class="status-pill"><span class="dot ok"></span>Aktiv</span>':status==='pending_activation'?'<span class="status-pill"><span class="dot warning"></span>Väntar på aktivering</span>':status==='activation_expired'?'<span class="status-pill"><span class="dot critical"></span>Aktivering utgången</span>':'<span class="status-pill"><span class="dot warning"></span>Saknar admin</span>';
     return `<tr class="click-row" data-company-id="${esc(company.id)}" tabindex="0" role="button"><td><div class="company-cell"><span class="company-avatar">${initials(company.displayName)}</span><div><strong>${esc(company.displayName)}</strong><small>${esc(company.legalName)}</small></div></div></td><td>${esc(company.orgNumber||'—')}</td><td>${company.memberCount}</td><td>${access}</td><td>${company.activeSessionCount}</td><td>${company.invoiceRecordCount}</td><td>${dateTime(company.lastActivityAt)}</td></tr>`;
   }).join('');
 }
@@ -423,7 +427,10 @@ function operatorAuditLabel(action){
     CUSTOMER_USER_REMOVED:'Åtkomst togs bort',
     SECURITY_INCIDENT_STATUS_CHANGED:'Incidentstatus ändrades',
     SECURITY_ALERT_DELIVERY_SUCCEEDED:'Säkerhetslarm levererades',
-    SECURITY_ALERT_DELIVERY_FAILED:'Säkerhetslarm kunde inte levereras'
+    SECURITY_ALERT_DELIVERY_FAILED:'Säkerhetslarm kunde inte levereras',
+    CUSTOMER_COMPANY_CREATED:'Kundföretag skapades',
+    CUSTOMER_INITIAL_ADMIN_ACTIVATED:'Första företagsadmin aktiverades',
+    CUSTOMER_ACTIVATION_REISSUED:'Aktiveringslänk roterades'
   })[String(action||'')]||'Administrativ åtgärd';
 }
 function operatorAuditDetail(event){
@@ -473,7 +480,7 @@ function companiesView(){
   const totals=overview?.totals||{},configuredPct=percent(totals.configuredCompanies,overview?.companyCount||0);
   shell(`<section class="page-intro-card"><div><span class="eyebrow">KUNDBAS</span><h2>${num(overview?.companyCount)} företag använder plattformen</h2><p>Härifrån öppnar ni varje kundmiljö och hanterar användare, behörigheter och teknisk statistik.</p></div><div class="intro-stats"><div><strong>${configuredPct}%</strong><span>aktiverade</span></div><div><strong>${num(totals.activeCompanies30d)}</strong><span>aktiva 30d</span></div><div><strong>${num(totals.members)}</strong><span>användare</span></div></div></section>
   <section class="panel"><div class="panel-head company-panel-head"><div><span class="eyebrow">FÖRETAG</span><h2>Alla kunder & företag</h2><p>Öppna ett företag för användare, behörigheter och statistik.</p></div><div class="row-actions"><button class="button" type="button" data-action="create-company">Lägg till kundföretag</button><span class="panel-stat" id="company-result-count">${filteredCompanies().length} av ${overview?.companyCount||0} företag</span></div></div>
-  <div class="company-toolbar"><div class="company-search-shell"><label class="search-field"><span class="sr-only">Sök företag</span><input type="search" role="combobox" aria-autocomplete="list" aria-controls="operator-company-search-results" aria-expanded="${companySearchOpen&&companyQuery.trim()?'true':'false'}" autocomplete="off" data-company-search value="${esc(companyQuery)}" placeholder="Sök namn eller organisationsnummer…"></label><div id="operator-company-search-results" class="company-search-results" role="listbox" ${companySearchOpen&&companyQuery.trim()?'':'hidden'}>${companySearchOpen&&companyQuery.trim()?companySearchResults():''}</div></div><label><span class="sr-only">Filtrera status</span><select data-company-filter><option value="all" ${companyStatus==='all'?'selected':''}>Alla statusar</option><option value="active" ${companyStatus==='active'?'selected':''}>Aktiverade</option><option value="unconfigured" ${companyStatus==='unconfigured'?'selected':''}>Saknar användare</option></select></label><label><span class="sr-only">Sortera företag</span><select data-company-sort><option value="name" ${companySort==='name'?'selected':''}>Sortera: namn</option><option value="users" ${companySort==='users'?'selected':''}>Flest användare</option><option value="invoices" ${companySort==='invoices'?'selected':''}>Flest fakturor</option><option value="activity" ${companySort==='activity'?'selected':''}>Senast aktiva</option></select></label></div>
+  <div class="company-toolbar"><div class="company-search-shell"><label class="search-field"><span class="sr-only">Sök företag</span><input type="search" role="combobox" aria-autocomplete="list" aria-controls="operator-company-search-results" aria-expanded="${companySearchOpen&&companyQuery.trim()?'true':'false'}" autocomplete="off" data-company-search value="${esc(companyQuery)}" placeholder="Sök namn eller organisationsnummer…"></label><div id="operator-company-search-results" class="company-search-results" role="listbox" ${companySearchOpen&&companyQuery.trim()?'':'hidden'}>${companySearchOpen&&companyQuery.trim()?companySearchResults():''}</div></div><label><span class="sr-only">Filtrera status</span><select data-company-filter><option value="all" ${companyStatus==='all'?'selected':''}>Alla statusar</option><option value="active" ${companyStatus==='active'?'selected':''}>Aktiva</option><option value="pending_activation" ${companyStatus==='pending_activation'?'selected':''}>Väntar på aktivering</option><option value="activation_expired" ${companyStatus==='activation_expired'?'selected':''}>Aktivering utgången</option><option value="unconfigured" ${companyStatus==='unconfigured'?'selected':''}>Saknar admin</option></select></label><label><span class="sr-only">Sortera företag</span><select data-company-sort><option value="name" ${companySort==='name'?'selected':''}>Sortera: namn</option><option value="users" ${companySort==='users'?'selected':''}>Flest användare</option><option value="invoices" ${companySort==='invoices'?'selected':''}>Flest fakturor</option><option value="activity" ${companySort==='activity'?'selected':''}>Senast aktiva</option></select></label></div>
   <div class="table-wrap"><table><thead><tr><th>Företag</th><th>Org.nr</th><th>Användare</th><th>Status</th><th>Sessioner</th><th>Fakturor</th><th>Senaste aktivitet</th></tr></thead><tbody id="company-table-body">${companyRows(filteredCompanies())}</tbody></table></div></section>`,'Kunder & företag','Central administration för varje kundmiljö.');
 }
 function statisticsCompanyOptions(){
@@ -543,7 +550,7 @@ function globalAdminRows(detail){
   return admins.map(admin=>{
     const status=admin.disabled?'<span class="status-pill"><span class="dot critical"></span>Inaktiv</span>':'<span class="status-pill"><span class="dot ok"></span>Aktiv</span>';
     const mfa=admin.mfaConfigured?'<span class="status-pill"><span class="dot ok"></span>MFA konfigurerad</span>':'<span class="status-pill"><span class="dot critical"></span>MFA saknas</span>';
-    return `<tr><td><div class="company-cell"><span class="company-avatar user">${initials(admin.displayName)}</span><div><strong>${esc(admin.displayName)}</strong><small>${esc(admin.username)}</small></div></div></td><td>${status}</td><td>${mfa}</td><td><span class="status-pill"><span class="dot ok"></span>Alla företag</span></td></tr>`;
+    return `<tr><td><div class="company-cell"><span class="company-avatar user">${initials(admin.displayName)}</span><div><strong>${esc(admin.displayName)}</strong><small>${esc(admin.username)}</small></div></div></td><td>${status}</td><td>${mfa}</td><td><span class="status-pill"><span class="dot ok"></span>Adminmetadata</span></td></tr>`;
   }).join('');
 }
 function memberRows(detail){
@@ -574,7 +581,7 @@ function companyDetailView(detail){
     <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">MILJÖDATA</span><h2>Volym</h2><p>Operativ metadata för kundmiljön.</p></div></div><div class="stat-stack"><div><span>Kundposter</span><strong>${num(s.customerRecordCount)}</strong></div><div><span>Fakturaposter</span><strong>${num(s.invoiceRecordCount)}</strong></div><div><span>Senaste aktivitet</span><strong class="date-stat">${dateTime(s.lastActivityAt)}</strong></div></div></article>
     <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">ROLLER</span><h2>Behörigheter</h2><p>Rollfördelning i just detta företag.</p></div></div><div class="role-bars roomy">${memberRoleBars(detail)}</div></article>
   </section>
-  <section class="panel global-access-panel"><div class="panel-head"><div><span class="eyebrow">LT STUDIO</span><h2>Övergripande global åtkomst</h2><p>Dessa LT Studio-konton har åtkomst till alla kundföretag oberoende av lokalt medlemskap. Den globala behörigheten hanteras separat från kundroller.</p></div><span class="panel-stat">${num(s.activePlatformAdminCount)} aktiva</span></div><div class="table-wrap"><table><thead><tr><th>LT Studio-konto</th><th>Status</th><th>MFA</th><th>Omfattning</th></tr></thead><tbody>${globalAdminRows(detail)}</tbody></table></div></section>
+  <section class="panel global-access-panel"><div class="panel-head"><div><span class="eyebrow">LT STUDIO</span><h2>Plattformsoperatörer</h2><p>Dessa konton får administrera LT Studio-plattformens metadata och drift. De får inte automatiskt läsa kundföretagets ekonomiska data; sådan åtkomst kräver ett separat företagsmedlemskap och omfattas av RLS.</p></div><span class="panel-stat">${num(s.activePlatformAdminCount)} aktiva</span></div><div class="table-wrap"><table><thead><tr><th>LT Studio-konto</th><th>Status</th><th>MFA</th><th>Omfattning</th></tr></thead><tbody>${globalAdminRows(detail)}</tbody></table></div></section>
   <section class="panel user-access-panel"><div class="panel-head"><div><span class="eyebrow">ÅTKOMST</span><h2>Användare & behörigheter</h2><p>Endast LT Studio kan skapa, ändra eller ta bort användare.</p></div><span class="panel-stat">${memberCount} användare</span></div><div class="table-wrap"><table><thead><tr><th>Användare</th><th>Roll</th><th>Status</th><th>Åtgärder</th></tr></thead><tbody>${memberRows(detail)}</tbody></table></div></section>
   <section class="panel add-user-panel"><div class="panel-head"><div><span class="eyebrow">ANVÄNDARÅTKOMST</span><h2>Lägg till användare</h2><p>${addUserHelp}</p></div></div>
     <form id="add-user-form" class="form-grid compact-form">
