@@ -138,19 +138,23 @@ test('aktiveringskod och lösenord är maskerade och undantas från autocomplete
 });
 
 
-test('rollbyte gäller omedelbart via company_memberships utan att skapa parallell behörighetskälla',()=>{
+test('rollbyte går genom den atomiska medlemskaps-RPC:n utan parallell behörighetskälla',()=>{
   const operator=read('supabase/functions/operator-admin/index.ts');
   const tenant=read('supabase/migrations/20260925055322_optimize_shared_rls_indexes.sql');
 
-  assert.match(operator,/from\("company_memberships"\)\.update\(\{role\}\)/);
+  assert.match(operator,/admin\.rpc\("operator_change_company_membership"/);
+  assert.match(operator,/p_action:"set-role"/);
+  assert.doesNotMatch(operator,/from\("company_memberships"\)\.update\(\{role\}\)/);
   assert.match(tenant,/m\.role in \(''?admin''?,''?accountant''?\)/i);
   assert.doesNotMatch(operator,/user_metadata.*role/i);
 });
 
-test('borttaget medlemskap är företagsspecifikt och tar inte bort användarens andra medlemskap',()=>{
+test('borttaget medlemskap går genom företagsspecifik RPC och tar inte bort användarens Auth-konto',()=>{
   const operator=read('supabase/functions/operator-admin/index.ts');
 
-  assert.match(operator,/from\("company_memberships"\)\.delete\(\)\.eq\("company_id",companyId\)\.eq\("auth_user_id",target\)/);
+  assert.match(operator,/admin\.rpc\("operator_change_company_membership"/);
+  assert.match(operator,/p_action:"remove"/);
+  assert.doesNotMatch(operator,/from\("company_memberships"\)\.delete\(\)/);
   assert.doesNotMatch(operator,/auth\.admin\.deleteUser\(target\)/);
   assert.match(operator,/sessionScope:"company"/);
 });
