@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
+import { createCompanyOnboarding, reissueCompanyActivation } from "./company-onboarding.ts";
 
 const cors={
   "Access-Control-Allow-Origin":"*",
@@ -80,17 +81,18 @@ async function authContext(req:Request){
 }
 async function overview(admin:any){
   const since30=new Date(Date.now()-30*86400000).toISOString(),months=recentMonths();
-  const [companiesQ,membersQ,usersQ,customersQ,invoicesQ,auditQ,authUsers]=await Promise.all([
+  const [companiesQ,membersQ,usersQ,customersQ,invoicesQ,auditQ,invitesQ,authUsers]=await Promise.all([
     admin.from("companies").select("*"),
     admin.from("company_memberships").select("*"),
     admin.from("app_users").select("*"),
     admin.from("customers").select("id,company_id,created_at"),
     admin.from("invoices").select("id,company_id,created_at"),
     admin.from("audit_events").select("id,company_id,event_type,created_at").order("created_at",{ascending:false}).limit(5000),
+    admin.from("company_activation_invites").select("company_id,recipient_email,recipient_display_name,expires_at,claimed_at,revoked_at,created_at").order("created_at",{ascending:false}),
     allAuthUsers(admin)
   ]);
-  for(const q of [companiesQ,membersQ,usersQ,customersQ,invoicesQ,auditQ])if(q.error)throw q.error;
-  const companies=companiesQ.data||[],members=membersQ.data||[],users=usersQ.data||[],customers=customersQ.data||[],invoices=invoicesQ.data||[],events=auditQ.data||[];
+  for(const q of [companiesQ,membersQ,usersQ,customersQ,invoicesQ,auditQ,invitesQ])if(q.error)throw q.error;
+  const companies=companiesQ.data||[],members=membersQ.data||[],users=usersQ.data||[],customers=customersQ.data||[],invoices=invoicesQ.data||[],events=auditQ.data||[],invites=invitesQ.data||[];
   const userByAuth=new Map(users.map((u:any)=>[String(u.auth_user_id),u]));
   const authById=new Map(authUsers.map((u:any)=>[String(u.id),u]));
   const mfa=(id:string)=>Array.isArray(authById.get(id)?.factors)&&authById.get(id).factors.some((f:any)=>f.status==="verified");
@@ -98,13 +100,20 @@ async function overview(admin:any){
     const cm=members.filter((m:any)=>m.company_id===company.id),active=cm.filter((m:any)=>!userByAuth.get(String(m.auth_user_id))?.disabled);
     const ce=events.filter((e:any)=>e.company_id===company.id),last=ce[0]?.created_at||null;
     const sec=ce.filter((e:any)=>Date.parse(e.created_at)>=Date.now()-24*3600000);
+    const latestInvite=invites.find((i:any)=>i.company_id===company.id)||null;
+    const inviteActive=Boolean(latestInvite&&!latestInvite.claimed_at&&!latestInvite.revoked_at&&Date.parse(latestInvite.expires_at)>Date.now());
+    const mfaProtectedMembers=active.filter((m:any)=>mfa(String(m.auth_user_id)));
+    const mfaProtectedAdmins=mfaProtectedMembers.filter((m:any)=>m.role==="admin");
+    const onboardingStatus=mfaProtectedAdmins.length>0?"active":latestInvite?.claimed_at?"mfa_pending":inviteActive?"pending_activation":latestInvite?"activation_expired":"unconfigured";
     return {
       id:company.id,legalName:company.legal_name,displayName:company.display_name||company.legal_name,orgNumber:company.org_number||"",createdAt:company.created_at,
-      memberCount:cm.length,activeMemberCount:active.length,mfaProtectedMemberCount:active.filter((m:any)=>mfa(String(m.auth_user_id))).length,
+      memberCount:cm.length,activeMemberCount:active.length,mfaProtectedMemberCount:mfaProtectedMembers.length,
       activity30dCount:ce.filter((e:any)=>e.created_at>=since30).length,securityEventCount24h:sec.filter((e:any)=>severity(e.event_type)!=="info").length,
       criticalSecurityCount24h:sec.filter((e:any)=>severity(e.event_type)==="critical").length,activeSessionCount:null,
       customerRecordCount:customers.filter((r:any)=>r.company_id===company.id).length,invoiceRecordCount:invoices.filter((r:any)=>r.company_id===company.id).length,
-      lastActivityAt:last,accessConfigured:active.length>0
+      lastActivityAt:last,accessConfigured:mfaProtectedAdmins.length>0,onboardingStatus,
+      activationRecipientEmail:latestInvite?.recipient_email||null,activationRecipientName:latestInvite?.recipient_display_name||null,
+      activationExpiresAt:latestInvite?.expires_at||null
     };
   });
   const roleDistribution={admin:0,accountant:0,approver:0,readonly:0} as Record<string,number>;
@@ -119,7 +128,7 @@ async function overview(admin:any){
   return {
     generatedAt:new Date().toISOString(),runtimeModel:"supabase-shared-saas",companyCount:rows.length,activeSessionCount:null,sessionMetricAvailable:false,
     totals:{
-      members:members.length,customers:customers.length,invoices:invoices.length,activeSessions:null,configuredCompanies:rows.filter((r:any)=>r.accessConfigured).length,
+      members:members.length,customers:customers.length,invoices:invoices.length,activeSessions:null,configuredCompanies:rows.filter((r:any)=>r.onboardingStatus==="active").length,
       activeCompanies30d:rows.filter((r:any)=>r.lastActivityAt&&r.lastActivityAt>=since30).length,newCompanies30d:rows.filter((r:any)=>r.createdAt>=since30).length,
       disabledUsers:users.filter((u:any)=>u.disabled).length,activeUsers:activeUsers.length,mfaProtectedUsers:activeUsers.filter((u:any)=>mfa(String(u.auth_user_id))).length,
       activity30d:events.filter((e:any)=>e.created_at>=since30).length,companySecurityEvents24h:rows.reduce((s:number,r:any)=>s+r.securityEventCount24h,0),
@@ -131,7 +140,7 @@ async function overview(admin:any){
   };
 }
 async function companyDetail(admin:any,companyId:string){
-  const [companyQ,membersQ,usersQ,customerQ,invoiceQ,auditQ,operatorsQ,authUsers]=await Promise.all([
+  const [companyQ,membersQ,usersQ,customerQ,invoiceQ,auditQ,operatorsQ,settingsQ,inviteQ,authUsers]=await Promise.all([
     admin.from("companies").select("*").eq("id",companyId).maybeSingle(),
     admin.from("company_memberships").select("*").eq("company_id",companyId),
     admin.from("app_users").select("*"),
@@ -139,18 +148,25 @@ async function companyDetail(admin:any,companyId:string){
     admin.from("invoices").select("id").eq("company_id",companyId),
     admin.from("audit_events").select("created_at").eq("company_id",companyId).order("created_at",{ascending:false}).limit(1),
     admin.from("platform_operators").select("*"),
+    admin.from("company_invoice_settings").select("*").eq("company_id",companyId).maybeSingle(),
+    admin.from("company_activation_invites").select("recipient_email,recipient_display_name,expires_at,claimed_at,revoked_at,created_at").eq("company_id",companyId).order("created_at",{ascending:false}).limit(1).maybeSingle(),
     allAuthUsers(admin)
   ]);
-  for(const q of [companyQ,membersQ,usersQ,customerQ,invoiceQ,auditQ,operatorsQ])if(q.error)throw q.error;
+  for(const q of [companyQ,membersQ,usersQ,customerQ,invoiceQ,auditQ,operatorsQ,settingsQ,inviteQ])if(q.error)throw q.error;
   if(!companyQ.data)throw Object.assign(new Error("Kundföretaget hittades inte."),{status:404,code:"COMPANY_NOT_FOUND"});
   const usersByAuth=new Map((usersQ.data||[]).map((u:any)=>[String(u.auth_user_id),u])),authById=new Map(authUsers.map((u:any)=>[String(u.id),u]));
   const members=(membersQ.data||[]).map((m:any)=>{const profile=usersByAuth.get(String(m.auth_user_id))||{},au=authById.get(String(m.auth_user_id));return{
     userId:m.auth_user_id,username:profile.username||au?.email||"",displayName:profile.display_name||au?.user_metadata?.display_name||au?.email||"Användare",
-    role:m.role,disabled:Boolean(profile.disabled),platformAdmin:false,createdAt:m.created_at
+    role:m.role,disabled:Boolean(profile.disabled),mfaConfigured:Boolean(au?.factors?.some((f:any)=>f.status==="verified")),platformAdmin:false,createdAt:m.created_at
   }});
   const platformAdmins=(operatorsQ.data||[]).map((op:any)=>{const au=authById.get(String(op.auth_user_id));return{userId:op.auth_user_id,username:au?.email||"",displayName:op.display_name,disabled:Boolean(op.disabled),mfaConfigured:Boolean(au?.factors?.some((f:any)=>f.status==="verified")),createdAt:op.created_at}});
+  const invite=inviteQ.data||null,inviteActive=Boolean(invite&&!invite.claimed_at&&!invite.revoked_at&&Date.parse(invite.expires_at)>Date.now());
+  const activeMfaAdmins=members.filter((m:any)=>!m.disabled&&m.role==="admin"&&m.mfaConfigured);
+  const onboardingStatus=activeMfaAdmins.length>0?"active":invite?.claimed_at?"mfa_pending":inviteActive?"pending_activation":invite?"activation_expired":"unconfigured";
   return {company:{id:companyQ.data.id,legalName:companyQ.data.legal_name,displayName:companyQ.data.display_name,orgNumber:companyQ.data.org_number,createdAt:companyQ.data.created_at},
     stats:{memberCount:members.length,activeSessionCount:null,customerRecordCount:(customerQ.data||[]).length,invoiceRecordCount:(invoiceQ.data||[]).length,lastActivityAt:auditQ.data?.[0]?.created_at||null,activePlatformAdminCount:platformAdmins.filter((x:any)=>!x.disabled&&x.mfaConfigured).length},
+    onboarding:{status:onboardingStatus,recipientEmail:invite?.recipient_email||null,recipientName:invite?.recipient_display_name||null,expiresAt:invite?.expires_at||null,claimedAt:invite?.claimed_at||null},
+    invoiceSettings:settingsQ.data?{address:settingsQ.data.address,vatNumber:settingsQ.data.vat_number,phone:settingsQ.data.phone,email:settingsQ.data.email,website:settingsQ.data.website,bankgiro:settingsQ.data.bankgiro,taxStatus:settingsQ.data.tax_status}:null,
     members,platformAdmins,roles:[{id:"admin",label:"Admin"},{id:"accountant",label:"Ekonom"},{id:"approver",label:"Attestant"},{id:"readonly",label:"Läsbehörighet"}]};
 }
 async function findAuthUser(admin:any,email:string){
@@ -206,34 +222,12 @@ Deno.serve(async(req)=>{
       return reply(200,{changed:true,incident:{status,updatedAt:new Date().toISOString(),updatedBy:operator.display_name}});
     }
     if(action==="create-company"){
-      const legalName=text(body.legalName),displayName=text(body.displayName),orgNumber=text(body.orgNumber);
-      if(legalName.length<2||legalName.length>160)return reply(422,{error:"Juridiskt namn måste vara 2–160 tecken.",code:"INVALID_COMPANY_NAME"});
-      if(displayName.length<2||displayName.length>80)return reply(422,{error:"Visningsnamn måste vara 2–80 tecken.",code:"INVALID_COMPANY_DISPLAY_NAME"});
-      if(!/UAT/i.test(legalName+" "+displayName))return reply(422,{error:"UAT-företagets namn måste innehålla UAT så att testmiljön inte kan förväxlas med en riktig kund.",code:"UAT_NAME_REQUIRED"});
-      if(!/^000[0-9]{3}-[0-9]{4}$/.test(orgNumber))return reply(422,{error:"Använd ett syntetiskt UAT-organisationsnummer i formatet 000001-0001.",code:"INVALID_UAT_ORG_NUMBER"});
-      const existing=await admin.from("companies").select("id").eq("org_number",orgNumber).maybeSingle();
-      if(existing.error)throw existing.error;
-      if(existing.data)return reply(409,{error:"Det organisationsnumret används redan av ett företag.",code:"COMPANY_ORG_NUMBER_EXISTS"});
-
-      const companyId="uat_"+crypto.randomUUID().replaceAll("-",""),inviteCode=randomInviteCode(),codeHash=await sha256Hex(inviteCode);
-      const expiresAt=new Date(Date.now()+24*3600000).toISOString();
-      let created=false;
-      try{
-        const companyInsert=await admin.from("companies").insert({id:companyId,legal_name:legalName,org_number:orgNumber,display_name:displayName}).select("*").single();
-        if(companyInsert.error)throw companyInsert.error;created=true;
-        const inviteInsert=await admin.from("uat_bootstrap_invites").insert({
-          code_sha256:codeHash,label:(displayName+" · första admin").slice(0,120),company_id:companyId,membership_role:"admin",grant_operator:false,max_uses:1,use_count:0,expires_at:expiresAt
-        });
-        if(inviteInsert.error)throw inviteInsert.error;
-        await audit(admin,user.id,"UAT_COMPANY_CREATED",{companyId,details:{legalName,displayName,orgNumber,inviteExpiresAt:expiresAt,membershipRole:"admin"}});
-      }catch(error){
-        if(created){
-          await admin.from("uat_bootstrap_invites").delete().eq("company_id",companyId);
-          await admin.from("companies").delete().eq("id",companyId);
-        }
-        throw error;
-      }
-      return reply(201,{company:{id:companyId,legalName,displayName,orgNumber},activation:{inviteCode,expiresAt,setupPath:"/portal/uat-setup.html"}});
+      const result=await createCompanyOnboarding(admin,user.id,body);
+      return reply(result.status,result.body);
+    }
+    if(action==="reissue-company-activation"){
+      const result=await reissueCompanyActivation(admin,user.id,body);
+      return reply(result.status,result.body);
     }
     if(action==="create-user"){
       const companyId=text(body.companyId),email=text(body.email||body.username).toLowerCase(),requestedDisplayName=text(body.displayName),role=text(body.role||"readonly"),password=text(body.password);
