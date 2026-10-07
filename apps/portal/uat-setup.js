@@ -6,6 +6,9 @@
   const resumeResult=document.getElementById('resume-result');
   let activeSession=null;
   let activeFactor=null;
+  const staging=window.LT_SUPABASE?.environment==='staging';
+  const envQuery=staging?'?lt-env=staging':'';
+  if(staging){document.title='Aktivera LT Studio Staging';document.querySelectorAll('.eyebrow').forEach(node=>{if(node.textContent.includes('SUPABASE UAT'))node.textContent='LT STUDIO · STAGING'})}
 
   function esc(v=''){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function errorBox(message){return '<div class="error">'+esc(message)+'</div>';}
@@ -43,7 +46,7 @@
     if(!verified?.access_token)throw new Error('MFA-koden kunde inte verifieras.');
     sessionValue(verified);
     const result=document.getElementById('verify-result');
-    result.innerHTML='<div class="result"><strong>Klart – MFA är verifierad.</strong><p>Din session har nu säkerhetsnivå AAL2. UAT-kontot är redo.</p><div class="actions"><a class="button" href="./index.html">Öppna kundportalen</a><a class="button ghost" href="../operator/">Öppna driftadmin</a></div></div>';
+    result.innerHTML='<div class="result"><strong>Klart – MFA är verifierad.</strong><p>Din session har nu säkerhetsnivå AAL2. '+(staging?'Staging-kontot':'UAT-kontot')+' är redo.</p><div class="actions"><a class="button" href="./index.html'+envQuery+'">Öppna kundportalen</a><a class="button ghost" href="../operator/'+envQuery+'">Öppna driftadmin</a></div></div>';
   }
 
   bootstrapForm.addEventListener('submit',async event=>{
