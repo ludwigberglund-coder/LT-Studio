@@ -136,3 +136,29 @@ test('aktiveringskod och lösenord är maskerade och undantas från autocomplete
   assert.match(html,/name="password" type="password"[^>]+autocomplete="new-password"/);
   assert.match(html,/autocomplete="current-password"/);
 });
+
+
+test('rollbyte gäller omedelbart via company_memberships utan att skapa parallell behörighetskälla',()=>{
+  const operator=read('supabase/functions/operator-admin/index.ts');
+  const tenant=read('supabase/migrations/20260925055322_optimize_shared_rls_indexes.sql');
+
+  assert.match(operator,/from\("company_memberships"\)\.update\(\{role\}\)/);
+  assert.match(tenant,/m\.role in \('admin','accountant'\)/);
+  assert.doesNotMatch(operator,/user_metadata.*role/i);
+});
+
+test('borttaget medlemskap är företagsspecifikt och tar inte bort användarens andra medlemskap',()=>{
+  const operator=read('supabase/functions/operator-admin/index.ts');
+
+  assert.match(operator,/from\("company_memberships"\)\.delete\(\)\.eq\("company_id",companyId\)\.eq\("auth_user_id",target\)/);
+  assert.doesNotMatch(operator,/auth\.admin\.deleteUser\(target\)/);
+  assert.match(operator,/sessionScope:"company"/);
+});
+
+test('portalens företagsval kan bara välja bland medlemskap som RLS returnerar',()=>{
+  const session=read('apps/portal/supabase-session.js');
+
+  assert.match(session,/from\('company_memberships',t\)\.select\('\*','auth_user_id=eq\.'/);
+  assert.match(session,/const allowed=new Set\(\(memberships\|\|\[\]\)\.map\(m=>String\(m\.company_id\)\)\)/);
+  assert.match(session,/if\(!allowed\.has\(companyId\)\)companyId=visible\[0\]\?\.id\|\|''/);
+});
