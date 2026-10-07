@@ -270,7 +270,7 @@ Deno.serve(async(req)=>{
         throw result.error;
       }
       const changed=result.data?.[0];if(!changed)return reply(500,{error:"Behörigheten kunde inte uppdateras.",code:"MEMBERSHIP_CHANGE_FAILED"});
-      return reply(200,{membership:{company_id:companyId,auth_user_id:target,role:changed.current_role},sessionsRevoked:false,sessionScope:"supabase"});
+      return reply(200,{membership:{company_id:companyId,auth_user_id:target,role:changed.resulting_role},sessionsRevoked:false,sessionScope:"supabase"});
     }
     if(action==="reset-password"){
       const companyId=text(body.companyId),target=text(body.userId),password=text(body.password);
