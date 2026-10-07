@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(7);
+select plan(10);
 
 select is(
   (
@@ -94,6 +94,60 @@ select ok(
       and has_function_privilege('service_role', p.oid, 'EXECUTE')
   ),
   'manual customer payment server bridge remains executable by service_role'
+);
+
+
+select is(
+  (
+    select count(*)::bigint
+    from pg_policies
+    where schemaname = 'public'
+      and policyname in (
+        'accounting members manage accounting periods',
+        'accounting members manage accounting sequences',
+        'accounting members manage invoice reservations',
+        'accounting members manage supplier payments'
+      )
+  ),
+  0::bigint,
+  'overlapping FOR ALL accounting policies are removed after clean rebuild'
+);
+
+select is(
+  (
+    select count(*)::bigint
+    from pg_policies
+    where schemaname = 'public'
+      and not (
+        tablename = 'financial_batch_events'
+        and policyname = 'members write financial batch events'
+      )
+      and (
+        coalesce(qual, '') like '%current_setting(''app.%'
+        or coalesce(with_check, '') like '%current_setting(''app.%'
+      )
+  ),
+  0::bigint,
+  'public RLS policies do not evaluate app.* current_setting directly per row'
+);
+
+select is(
+  (
+    select count(*)::bigint
+    from pg_constraint c
+    join pg_class t on t.oid = c.conrelid
+    join pg_namespace n on n.oid = t.relnamespace
+    where c.contype = 'f'
+      and n.nspname = 'public'
+      and not exists (
+        select 1
+        from pg_index i
+        where i.indrelid = c.conrelid
+          and (i.indkey::smallint[])[0:cardinality(c.conkey)-1] = c.conkey
+      )
+  ),
+  0::bigint,
+  'all public foreign keys have a covering index after clean rebuild'
 );
 
 select * from finish();
