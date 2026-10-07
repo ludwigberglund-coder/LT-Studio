@@ -50,3 +50,14 @@ test('UAT-företag kräver tydlig testidentitet och syntetiskt organisationsnumm
   assert.match(edge,/COMPANY_ORG_NUMBER_EXISTS/);
   assert.match(edge,/UAT_COMPANY_CREATED/);
 });
+
+
+test('nya UAT-företag får ofarliga fakturainställningar direkt',()=>{
+  const edge=read('supabase/functions/operator-admin/index.ts');
+  assert.match(edge,/from\("company_invoice_settings"\)\.insert/);
+  assert.match(edge,/bankgiro:"EJ-BETALNING"/);
+  assert.match(edge,/example\.invalid/);
+  assert.match(edge,/tax_status:"UAT – EJ SKARP \/ EJ F-SKATT"/);
+  assert.match(edge,/vat_number:"SE"\+orgDigits\+"01"/);
+  assert.doesNotMatch(edge,/bankgiro:"[0-9]{3,}-[0-9]{3,}"/);
+});
