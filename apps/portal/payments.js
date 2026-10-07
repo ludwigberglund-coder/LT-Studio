@@ -251,7 +251,7 @@ document.addEventListener('submit',async event=>{
   try{
     if(!isSupabase)throw new Error('Oplacerade manuella inbetalningar registreras i Supabase-UAT.');
     const amountOre=parsePositiveOre(values.amount),paymentDate=String(values.paymentDate||''),bankAccount=String(values.bankAccount||''),reference=String(values.reference||'').trim(),payerName=String(values.payerName||'').trim(),comment=String(values.comment||'').trim();
-    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(paymentDate))throw new Error('Ange ett giltigt betaldatum.');
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate))throw new Error('Ange ett giltigt betaldatum.');
     if(bankAccount!=='1930')throw new Error('Oplacerade inbetalningar måste registreras mot konto 1930.');
     manualPaymentModal={...manualPaymentModal,submitting:true,error:'',values:{paymentDate,amount:String(values.amount||''),bankAccount,reference,payerName,comment}};render();
     const ctx=await window.LTSupabaseUat.context();
