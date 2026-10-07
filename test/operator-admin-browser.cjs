@@ -35,6 +35,6 @@ assert.match(onboarding,/confirmed!==true/);
 assert.match(activate,/MFA_REQUIRED/);
 assert.match(activate,/INVITED_EMAIL_MISMATCH/);
 assert.match(activate,/PASSWORD_COMPROMISED/);
-assert.match(activate,/api\.pwnedpasswords\.com\/range\//);
+assert.ok(activate.includes('api.pwnedpasswords.com/range/'));
 
 console.log('Operator onboarding UI/security contract passed.');
