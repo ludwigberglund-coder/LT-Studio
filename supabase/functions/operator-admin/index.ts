@@ -23,6 +23,14 @@ function jwtPayload(token:string){
 function passwordOk(value:string){
   return value.length>=8&&/[a-zåäö]/u.test(value)&&/[A-ZÅÄÖ]/u.test(value)&&(/[0-9]/.test(value)||/[^A-Za-zÅÄÖåäö0-9]/u.test(value));
 }
+async function sha256Hex(value:string){
+  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+function randomInviteCode(){
+  const bytes=new Uint8Array(32);crypto.getRandomValues(bytes);
+  return [...bytes].map(b=>b.toString(16).padStart(2,"0")).join("");
+}
 function severity(eventType:string){
   const value=eventType.toUpperCase();
   if(/CRITICAL|BREACH|DIRECT_.*BLOCKED|INTEGRITY_ERROR/.test(value))return "critical";
@@ -196,6 +204,36 @@ Deno.serve(async(req)=>{
       const {error}=await admin.from("operator_security_incidents").upsert({audit_event_id:eventId,status,updated_by:user.id,updated_at:new Date().toISOString()});if(error)throw error;
       await audit(admin,user.id,"SECURITY_INCIDENT_STATUS_CHANGED",{details:{securityEventId:String(eventId),beforeStatus:before,afterStatus:status}});
       return reply(200,{changed:true,incident:{status,updatedAt:new Date().toISOString(),updatedBy:operator.display_name}});
+    }
+    if(action==="create-company"){
+      const legalName=text(body.legalName),displayName=text(body.displayName),orgNumber=text(body.orgNumber);
+      if(legalName.length<2||legalName.length>160)return reply(422,{error:"Juridiskt namn måste vara 2–160 tecken.",code:"INVALID_COMPANY_NAME"});
+      if(displayName.length<2||displayName.length>80)return reply(422,{error:"Visningsnamn måste vara 2–80 tecken.",code:"INVALID_COMPANY_DISPLAY_NAME"});
+      if(!/UAT/i.test(legalName+" "+displayName))return reply(422,{error:"UAT-företagets namn måste innehålla UAT så att testmiljön inte kan förväxlas med en riktig kund.",code:"UAT_NAME_REQUIRED"});
+      if(!/^000[0-9]{3}-[0-9]{4}$/.test(orgNumber))return reply(422,{error:"Använd ett syntetiskt UAT-organisationsnummer i formatet 000001-0001.",code:"INVALID_UAT_ORG_NUMBER"});
+      const existing=await admin.from("companies").select("id").eq("org_number",orgNumber).maybeSingle();
+      if(existing.error)throw existing.error;
+      if(existing.data)return reply(409,{error:"Det organisationsnumret används redan av ett företag.",code:"COMPANY_ORG_NUMBER_EXISTS"});
+
+      const companyId="uat_"+crypto.randomUUID().replaceAll("-",""),inviteCode=randomInviteCode(),codeHash=await sha256Hex(inviteCode);
+      const expiresAt=new Date(Date.now()+24*3600000).toISOString();
+      let created=false;
+      try{
+        const companyInsert=await admin.from("companies").insert({id:companyId,legal_name:legalName,org_number:orgNumber,display_name:displayName}).select("*").single();
+        if(companyInsert.error)throw companyInsert.error;created=true;
+        const inviteInsert=await admin.from("uat_bootstrap_invites").insert({
+          code_sha256:codeHash,label:(displayName+" · första admin").slice(0,120),company_id:companyId,membership_role:"admin",grant_operator:false,max_uses:1,use_count:0,expires_at:expiresAt
+        });
+        if(inviteInsert.error)throw inviteInsert.error;
+        await audit(admin,user.id,"UAT_COMPANY_CREATED",{companyId,details:{legalName,displayName,orgNumber,inviteExpiresAt:expiresAt,membershipRole:"admin"}});
+      }catch(error){
+        if(created){
+          await admin.from("uat_bootstrap_invites").delete().eq("company_id",companyId);
+          await admin.from("companies").delete().eq("id",companyId);
+        }
+        throw error;
+      }
+      return reply(201,{company:{id:companyId,legalName,displayName,orgNumber},activation:{inviteCode,expiresAt,setupPath:"/portal/uat-setup.html"}});
     }
     if(action==="create-user"){
       const companyId=text(body.companyId),email=text(body.email||body.username).toLowerCase(),requestedDisplayName=text(body.displayName),role=text(body.role||"readonly"),password=text(body.password);
