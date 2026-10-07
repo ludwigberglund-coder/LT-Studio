@@ -192,3 +192,22 @@ test('hemliga operator- och aktiveringstabeller ing책r inte i tenant-Realtime-h�
   assert.doesNotMatch(migration,/platform_operators/);
   assert.doesNotMatch(migration,/operator_audit_events/);
 });
+
+
+test('f채rdigst채llda kundfaktura-PDF:er kan inte raderas direkt fr책n browserrollen',()=>{
+  const migration=read('supabase/migrations/20261007152600_customer_invoice_storage_delete_guard.sql');
+
+  assert.match(migration,/drop policy if exists "lt documents accounting delete orphan only"/i);
+  assert.match(migration,/not exists\s*\(\s*select 1 from public\.documents d/s);
+  assert.match(migration,/not exists\s*\(\s*select 1 from public\.customer_invoice_documents d/s);
+  assert.match(migration,/d\.object_path=objects\.name/);
+});
+
+test('Storage-delete 채r fortfarande begr채nsad till r채tt tenant och ekonomroller',()=>{
+  const migration=read('supabase/migrations/20261007152600_customer_invoice_storage_delete_guard.sql');
+
+  assert.match(migration,/m\.company_id=\(storage\.foldername\(name\)\)\[1\]/);
+  assert.match(migration,/m\.auth_user_id=\(select auth\.uid\(\)\)/);
+  assert.match(migration,/m\.role in \('admin','accountant'\)/);
+  assert.match(migration,/bucket_id='lt-documents'/);
+});
