@@ -5,7 +5,7 @@
     {id:'workspace',label:'Arbetsyta',items:[['overview','Översikt','portal/dashboard.html']]},
     {id:'economy',label:'Ekonomi',items:[
       ['invoices','Kundfakturor','portal/invoices.html'],['receivables','Kundreskontra','portal/index.html'],
-      ['payables','Leverantörsfakturor','portal/payables.html'],['supplier-ledger','Leverantörsreskontra','portal/supplier-ledger.html'],['payments','Betalningar','portal/payments.html'],['bank','Bank & avstämning','portal/bank.html'],
+      ['payables','Leverantörsfakturor','portal/payables.html'],['supplier-ledger','Leverantörsreskontra','portal/supplier-ledger.html'],['payments','Betalningar','portal/payments.html'],['bank','Bank & avstämning','portal/bank.html'],['unplaced-payments','Oplacerade betalningar','portal/unplaced-payments.html'],
       ['automation','Automationskö','portal/automation.html'],['batches','Buntar','portal/batches.html'],['accounting','Bokföring','portal/accounting.html'],
       ['reports','Rapporter','portal/reports.html'],['accounts','Kontoplan & intäktskonton','portal/accounts.html'],
       ['payroll','Lön & lönejournal','portal/payroll.html'],['money','Öreskalkylator','admin/#/money'],
@@ -25,7 +25,7 @@
   ];
   const demoOnlyIds=new Set(['money','journal','res-tools','inbox','audit','settings','legacy','assistant','decisions','modules','project','content','uat']);
   const requiredPermission=Object.freeze({
-    invoices:'customer-invoice.view',receivables:'customer-invoice.view',payables:'supplier-invoice.view','supplier-ledger':'supplier-invoice.view',payments:'payment.view',bank:'bank.view',automation:'accounting.view',batches:'accounting.view',accounting:'accounting.view',reports:'reports.view',accounts:'accounting.view',payroll:'payroll.view',customers:'customer-invoice.view',suppliers:'supplier.view',inventory:'inventory.view','company-settings':'platform.settings.manage',website:'website.manage',documents:'documents.view'
+    invoices:'customer-invoice.view',receivables:'customer-invoice.view',payables:'supplier-invoice.view','supplier-ledger':'supplier-invoice.view',payments:'payment.view',bank:'bank.view','unplaced-payments':'bank.view',automation:'accounting.view',batches:'accounting.view',accounting:'accounting.view',reports:'reports.view',accounts:'accounting.view',payroll:'payroll.view',customers:'customer-invoice.view',suppliers:'supplier.view',inventory:'inventory.view','company-settings':'platform.settings.manage',website:'website.manage',documents:'documents.view'
   });
   function visibleGroups({authenticated=false,demo=false,permissions=[]}={}){
     if(demo)return groups;
