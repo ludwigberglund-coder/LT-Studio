@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(10);
+select plan(13);
 
 select is(
   (
@@ -94,6 +94,45 @@ select ok(
       and has_function_privilege('service_role', p.oid, 'EXECUTE')
   ),
   'manual customer payment server bridge remains executable by service_role'
+);
+
+
+select ok(
+  exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname = 'resolve_unplaced_bank_payment_server'
+  ),
+  'unplaced payment server bridge exists'
+);
+
+select ok(
+  not exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname in ('resolve_unplaced_bank_payment','resolve_unplaced_bank_payment_server')
+      and (
+        has_function_privilege('anon', p.oid, 'EXECUTE')
+        or has_function_privilege('authenticated', p.oid, 'EXECUTE')
+      )
+  ),
+  'unplaced payment privileged resolvers are not executable by browser roles'
+);
+
+select ok(
+  exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname = 'resolve_unplaced_bank_payment_server'
+      and has_function_privilege('service_role', p.oid, 'EXECUTE')
+  ),
+  'unplaced payment server bridge remains executable by service_role'
 );
 
 

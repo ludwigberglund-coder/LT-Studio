@@ -84,11 +84,13 @@ test('Supabase-UAT release-evidence kräver alla CI-kontroller och UAT-scenarier
   const fixture=evidenceFixture();
   delete fixture.checks.codeql;
   delete fixture.scenarios['manual-customer-payment'];
+  delete fixture.scenarios['unplaced-payments'];
 
   const result=validateSupabaseUatEvidence(fixture,{now:NOW,expectedCommit:COMMIT});
   assert.equal(result.ok,false);
   assert.ok(result.fail.some(item=>item.includes('codeql')));
   assert.ok(result.fail.some(item=>item.includes('manual-customer-payment')));
+  assert.ok(result.fail.some(item=>item.includes('unplaced-payments')));
 });
 
 test('Supabase-UAT release-evidence kräver färska och spårbara referenser',()=>{
