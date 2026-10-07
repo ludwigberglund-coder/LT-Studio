@@ -112,7 +112,7 @@ test('förfallen bokförd faktura kan alltid beräkna ränta från sparat förfa
   const {invoice}=issuedFixture();
   const preview=Receivables.reminderPreview(invoice,{sentDate:'2026-10-20',includeInterest:true},legalRates);
   assert.ok(preview.interestOre>0);
-  assert.equal(preview.interestStartBasis,'invoice-due-date');
+  assert.equal(preview.interestStartBasis,'predetermined-due-date');
   assert.equal(preview.interestStartEvidenceSource,'booked-invoice-record');
   assert.equal(preview.interestStartVerifiedAt,'');
 

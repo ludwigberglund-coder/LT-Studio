@@ -242,7 +242,7 @@
     // immutable-document evidence fields. This keeps overdue-interest calculation available
     // in both API and Supabase mode while preserving the stronger evidence when it exists.
     return Object.freeze({
-      basis:'invoice-due-date',
+      basis:'predetermined-due-date',
       startDate:dueDate,
       evidenceSource:'booked-invoice-record',
       verifiedAt:''
