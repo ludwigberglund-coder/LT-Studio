@@ -98,23 +98,36 @@ Prepare, release and confirm a synthetic supplier payment. Verify payment state 
 
 Verify synthetic bank events can be listed, filtered, proposed/matched and reviewed without creating duplicate accounting.
 
-### 10. Accounting and reports
+### 10. Unplaced payments
+
+Create a synthetic unmatched bank event and resolve it through the Oplacerade betalningar flow. Verify:
+
+- the browser calls the JWT-verified Edge Function rather than the privileged resolver directly,
+- MFA/AAL2 and personal-session checks are enforced,
+- only admin/accountant membership can resolve the event,
+- the selected counter account is not a blocked subledger/bank account,
+- the bank event becomes posted exactly once,
+- the journal entry balances and carries the expected source reference,
+- a retry with the same request id is idempotent,
+- audit/resolution history remains company-scoped.
+
+### 11. Accounting and reports
 
 Verify journal list, ledger, receivables/payables and available report totals agree for the test transactions. CSV/PDF export where exposed must reflect active filters.
 
-### 11. Documents and PDF
+### 12. Documents and PDF
 
 Open the archived source/PDF from the economic object. Verify company isolation, immutable archived document behavior, PDF-only restrictions and expected visual branding.
 
-### 12. Tenant isolation
+### 13. Tenant isolation
 
 Use at least two synthetic tenants and prove that customer, supplier, invoice, accounting and document data from tenant B cannot be read or mutated by tenant A.
 
-### 13. Idempotency
+### 14. Idempotency
 
 Repeat at least the central customer-invoice and payment mutations. The retry must not create duplicate economic effects.
 
-### 14. Responsive UI, light and dark mode
+### 15. Responsive UI, light and dark mode
 
 Verify the core economic flows on normal desktop width and a narrow/mobile width in both light and dark mode. No hidden navigation, unreadable text or blocked primary action is allowed.
 
@@ -129,7 +142,7 @@ The evidence validator requires:
 - a second synthetic tenant,
 - three named reviewers/roles,
 - all required CI checks passed,
-- all 14 scenarios passed,
+- all 15 scenarios passed,
 - traceable references for every check and scenario,
 - no blocking issues,
 - evidence no older than seven days.
