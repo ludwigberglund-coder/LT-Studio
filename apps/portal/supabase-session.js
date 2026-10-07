@@ -1,7 +1,8 @@
 (function(){
   'use strict';
-  const KEY='lt-studio-supabase-uat-session-v1';
-  const COMPANY_KEY='lt-studio-supabase-uat-company-v1';
+  const ENV=window.LT_SUPABASE?.environment==='staging'?'staging':'uat';
+  const KEY='lt-studio-supabase-'+ENV+'-session-v1';
+  const COMPANY_KEY='lt-studio-supabase-'+ENV+'-company-v1';
   const REFRESH_EARLY_MS=5*60*1000;
   const api=()=>window.LTSupabase;
   function parse(value){try{return JSON.parse(value||'null')}catch{return null}}
@@ -25,7 +26,7 @@
       return JSON.parse(atob(normalized.padEnd(Math.ceil(normalized.length/4)*4,'=')));
     }catch{return{}}
   }
-  function requiresAal2(){return window.LT_SUPABASE?.environment==='uat'}
+  function requiresAal2(){return ENV==='uat'||ENV==='staging'}
   function normalizedLoginError(error){
     const message=String(error?.message||'');
     if(Number(error?.status)===400||/invalid login credentials|email not confirmed|invalid email or password/i.test(message)){
