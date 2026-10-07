@@ -110,4 +110,4 @@ function buildStatic(){
   console.log(`Ny statisk demo byggd: ${target}`);return target;
 }
 if(require.main===module){try{buildStatic();}catch(error){console.error(error.message);process.exitCode=1;}}
-module.exports={buildStatic};
+module.exports={buildStatic,isImmediateRedirectHtml};
