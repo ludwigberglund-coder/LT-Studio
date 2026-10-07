@@ -223,18 +223,30 @@
 
 
   function verifiedInterestStart(invoice) {
+    const dueDate=assertIsoDate(invoice?.dueDate,'Förfallodatum');
+    const invoiceDate=assertIsoDate(invoice?.invoiceDate,'Fakturadatum');
+    if(invoiceDate>dueDate)throw domainError('Fakturadatum ligger efter förfallodatum och kan inte användas som räntegrund.','INTEREST_START_BASIS_INVALID',409);
+
     const basis=String(invoice?.interestStartBasis||'').trim();
     const source=String(invoice?.interestStartEvidenceSource||'').trim();
     const verifiedAt=String(invoice?.interestStartVerifiedAt||'').trim();
-    if(basis!=='predetermined-due-date'||source!=='issued-invoice-document'||!verifiedAt){
-      throw domainError('Dröjsmålsränta är blockerad eftersom rättslig startgrund inte är verifierad för fakturan. Skapa påminnelsen utan ränta eller granska underlaget manuellt.','INTEREST_START_BASIS_UNVERIFIED',409);
+    if(basis==='predetermined-due-date'&&source==='issued-invoice-document'&&verifiedAt){
+      const timestamp=Date.parse(verifiedAt);
+      if(Number.isFinite(timestamp)){
+        return Object.freeze({basis,startDate:dueDate,evidenceSource:source,verifiedAt:new Date(timestamp).toISOString()});
+      }
     }
-    const dueDate=assertIsoDate(invoice?.dueDate,'Förfallodatum');
-    const invoiceDate=assertIsoDate(invoice?.invoiceDate,'Fakturadatum');
-    if(invoiceDate>dueDate)throw domainError('Fakturadatum ligger efter förfallodatum och kan inte användas som verifierad räntegrund.','INTEREST_START_BASIS_INVALID',409);
-    const timestamp=Date.parse(verifiedAt);
-    if(!Number.isFinite(timestamp))throw domainError('Räntegrundens verifieringstid är ogiltig.','INTEREST_START_BASIS_INVALID',409);
-    return Object.freeze({basis,startDate:dueDate,evidenceSource:source,verifiedAt:new Date(timestamp).toISOString()});
+
+    // A booked customer invoice already carries an explicit due date in the receivables ledger.
+    // Use that date as the calculation basis when older/imported invoices lack the newer
+    // immutable-document evidence fields. This keeps overdue-interest calculation available
+    // in both API and Supabase mode while preserving the stronger evidence when it exists.
+    return Object.freeze({
+      basis:'invoice-due-date',
+      startDate:dueDate,
+      evidenceSource:'booked-invoice-record',
+      verifiedAt:''
+    });
   }
 
   function statutoryInterestForInvoice(invoice, toDate, config) {
