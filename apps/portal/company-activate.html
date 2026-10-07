@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f7f5f0">
+  <title>Aktivera LT Studio-konto</title>
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./design-system.css">
+  <style>
+    body{min-height:100vh;margin:0;background:radial-gradient(circle at 80% 0,rgba(104,132,112,.12),transparent 30rem),#f3f5f1;font-family:Inter,system-ui,sans-serif;color:#111713}
+    .activation-shell{max-width:980px;margin:0 auto;padding:46px 20px 80px}
+    .activation-brand{display:flex;align-items:center;gap:12px;margin-bottom:26px;font-weight:900;letter-spacing:-.02em}
+    .activation-brand-mark{width:28px;height:28px;border:3px solid #111713;border-radius:8px;transform:rotate(45deg)}
+    .activation-hero{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr);gap:26px;background:linear-gradient(135deg,#0d120f,#1a241c);color:#fff;border-radius:26px;padding:34px;margin-bottom:20px;box-shadow:0 22px 60px rgba(14,23,17,.14)}
+    .activation-hero h1{font-size:clamp(34px,5vw,58px);line-height:1.02;letter-spacing:-.05em;margin:8px 0 14px}.activation-hero p{color:#b8c0ba;line-height:1.6;margin:0}
+    .security-stack{display:grid;gap:10px;align-content:center}.security-point{padding:14px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:rgba(255,255,255,.04)}.security-point strong,.security-point span{display:block}.security-point span{font-size:12px;color:#aeb8b0;margin-top:4px;line-height:1.45}
+    .activation-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.activation-card{background:#fff;border:1px solid #e1e7df;border-radius:20px;padding:26px;box-shadow:0 12px 34px rgba(14,24,17,.055)}.activation-card.full{grid-column:1/-1}
+    .activation-card h2{margin:5px 0 7px;font-size:24px;letter-spacing:-.03em}.activation-card>p{color:#6f7972;line-height:1.55;margin:0 0 18px}.eyebrow{font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:900;color:#738079}
+    .activation-form{display:grid;gap:13px}.activation-form label{display:grid;gap:7px;font-size:12px;font-weight:800;color:#48534c}.activation-form input{width:100%;box-sizing:border-box;border:1px solid #d7dfd5;border-radius:12px;padding:12px 13px;font:inherit}.activation-form input:focus{outline:none;border-color:#718776;box-shadow:0 0 0 3px rgba(113,135,118,.11)}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}.result{margin-top:16px;padding:14px 16px;border-radius:13px;background:#edf7ef;color:#235f38;line-height:1.5}.error{margin-top:16px;padding:14px 16px;border-radius:13px;background:#fff0f0;color:#912929;line-height:1.5}
+    .mfa-box{margin-top:16px;padding:18px;border:1px solid #dfe6dd;border-radius:16px;background:#fbfdfb}.mfa-box img{display:block;width:230px;max-width:100%;margin:14px 0;background:#fff;padding:8px;border-radius:12px}.secret{word-break:break-all;padding:10px 12px;border-radius:10px;background:#f0f3ef;font-family:ui-monospace,monospace}
+    .invite-code{font-family:ui-monospace,monospace}.fineprint{font-size:11px!important;color:#879089!important;margin-top:15px!important}
+    @media(max-width:760px){.activation-hero,.activation-grid{grid-template-columns:1fr}.activation-card.full{grid-column:auto}.activation-shell{padding-top:24px}.activation-hero{padding:26px}}
+  </style>
+</head>
+<body>
+  <main class="activation-shell">
+    <div class="activation-brand"><span class="activation-brand-mark" aria-hidden="true"></span><span>LT STUDIO</span></div>
+    <section class="activation-hero">
+      <div><span class="eyebrow">SÄKER KONTOAKTIVERING</span><h1>Välkommen till er företagsportal.</h1><p>Aktiveringslänken är personlig och kopplad till den e-postadress som LT Studio har registrerat för företagets första administratör.</p></div>
+      <div class="security-stack">
+        <div class="security-point"><strong>Eget lösenord</strong><span>LT Studio ser eller väljer aldrig ert lösenord.</span></div>
+        <div class="security-point"><strong>Obligatorisk MFA</strong><span>Authenticator-app krävs innan skyddad företagsdata kan öppnas.</span></div>
+        <div class="security-point"><strong>Företagsisolering</strong><span>Åtkomst ges endast till de företag kontot uttryckligen är medlem i.</span></div>
+      </div>
+    </section>
+
+    <section class="activation-grid">
+      <article class="activation-card">
+        <span class="eyebrow">NYTT KONTO</span>
+        <h2>Skapa ditt LT Studio-konto</h2>
+        <p>Välj detta om du inte redan använder LT Studio med samma e-postadress.</p>
+        <form id="new-account-form" class="activation-form" autocomplete="off">
+          <label>E-postadress<input name="email" type="email" maxlength="254" required autocomplete="email"></label>
+          <label>Nytt lösenord<input name="password" type="password" minlength="12" required autocomplete="new-password"></label>
+          <label>Aktiveringskod<input class="invite-code" name="inviteCode" type="password" minlength="64" maxlength="64" required autocomplete="off"></label>
+          <div class="actions"><button class="button" type="submit">Skapa konto och konfigurera MFA</button></div>
+        </form>
+        <p class="fineprint">Minst 12 tecken med stor bokstav, liten bokstav, siffra och specialtecken.</p>
+        <div id="new-account-result" aria-live="polite"></div>
+      </article>
+
+      <article class="activation-card">
+        <span class="eyebrow">BEFINTLIGT KONTO</span>
+        <h2>Koppla ett befintligt konto</h2>
+        <p>Har du redan LT Studio? Logga in med ditt befintliga lösenord och MFA. Ditt nuvarande lösenord ändras inte.</p>
+        <form id="existing-account-form" class="activation-form" autocomplete="off">
+          <label>E-postadress<input name="email" type="email" maxlength="254" required autocomplete="username"></label>
+          <label>Lösenord<input name="password" type="password" required autocomplete="current-password"></label>
+          <label>MFA-kod<input name="totp" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" required autocomplete="one-time-code"></label>
+          <label>Aktiveringskod<input class="invite-code" name="inviteCode" type="password" minlength="64" maxlength="64" required autocomplete="off"></label>
+          <div class="actions"><button class="button" type="submit">Verifiera och koppla företaget</button></div>
+        </form>
+        <div id="existing-account-result" aria-live="polite"></div>
+      </article>
+
+      <article class="activation-card full">
+        <span class="eyebrow">AVBRUTEN MFA</span>
+        <h2>Kontot är skapat men MFA blev inte klar?</h2>
+        <p>Logga in igen här så fortsätter du direkt med MFA-registreringen. Ingen ny aktiveringskod behövs.</p>
+        <form id="resume-form" class="activation-form" style="grid-template-columns:1fr 1fr auto;align-items:end">
+          <label>E-postadress<input name="email" type="email" required autocomplete="username"></label>
+          <label>Lösenord<input name="password" type="password" required autocomplete="current-password"></label>
+          <div class="actions"><button class="button secondary" type="submit">Fortsätt MFA</button></div>
+        </form>
+        <div id="resume-result" aria-live="polite"></div>
+      </article>
+    </section>
+  </main>
+  <script src="./supabase-config.js"></script>
+  <script src="./supabase-client.js"></script>
+  <script src="./supabase-session.js"></script>
+  <script src="./company-activate.js"></script>
+</body>
+</html>
