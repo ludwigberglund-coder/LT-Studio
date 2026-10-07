@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "environment": "supabase-uat",
+  "approved": false,
+  "syntheticDataOnly": true,
+  "sourceOfTruthVerified": false,
+  "releaseCommit": "REPLACE_WITH_FULL_40_CHARACTER_GIT_SHA",
+  "completedAt": "REPLACE_WITH_ISO_TIMESTAMP",
+  "tester": "REPLACE_WITH_TESTER",
+  "accountingReviewer": "REPLACE_WITH_ACCOUNTING_REVIEWER",
+  "technicalReviewer": "REPLACE_WITH_TECHNICAL_REVIEWER",
+  "twoUsersVerified": false,
+  "secondTenantVerified": false,
+  "blockingIssues": [
+    "REMOVE_WHEN_ALL_BLOCKING_ISSUES_ARE_RESOLVED"
+  ],
+  "checks": {
+    "quality": {
+      "passed": false,
+      "reference": "REPLACE_WITH_GITHUB_ACTIONS_REFERENCE"
+    },
+    "codeql": {
+      "passed": false,
+      "reference": "REPLACE_WITH_GITHUB_ACTIONS_REFERENCE"
+    },
+    "supabaseCleanRebuild": {
+      "passed": false,
+      "reference": "REPLACE_WITH_GITHUB_ACTIONS_REFERENCE"
+    }
+  },
+  "scenarios": {
+    "auth-session-mfa": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
+    "customers": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
+    "customer-invoice": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
+    "customer-credit-settlement": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
+    "manual-customer-payment": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
+    "batches-approvals": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
+    "supplier-invoice": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
+    "supplier-payment": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
+    "bank-reconciliation": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
+    "accounting-reports": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
+    "documents-pdf": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
+    "tenant-isolation": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
+    "idempotency": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
+    "responsive-theme": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"}
+  }
+}
