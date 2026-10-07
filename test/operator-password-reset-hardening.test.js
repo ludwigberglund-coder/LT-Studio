@@ -1,0 +1,78 @@
+'use strict';
+
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+
+const root=path.resolve(__dirname,'..');
+const read=file=>fs.readFileSync(path.join(root,file),'utf8');
+
+test('Driftadmin använder samma starka lösenordskrav som produktions-onboarding',()=>{
+  const edge=read('supabase/functions/operator-admin/index.ts');
+
+  assert.match(edge,/value\.length>=12/);
+  assert.match(edge,/\[0-9\]\/\.test\(value\)/);
+  assert.match(edge,/\[\^A-Za-zÅÄÖåäö0-9\]/);
+  assert.match(edge,/minst 12 tecken/i);
+});
+
+test('nya och resetade operatörsskapade lösenord kontrolleras mot kända läckor',()=>{
+  const edge=read('supabase/functions/operator-admin/index.ts');
+
+  assert.ok(edge.includes('api.pwnedpasswords.com/range/'));
+  assert.match(edge,/Add-Padding/);
+  assert.match(edge,/slice\(0,5\)/);
+  assert.match(edge,/PASSWORD_COMPROMISED/);
+  assert.match(edge,/PASSWORD_BREACH_CHECK_UNAVAILABLE/);
+
+  const checks=(edge.match(/await assertPasswordNotCompromised\(password\)/g)||[]).length;
+  assert.equal(checks,2);
+});
+
+test('administrativt lösenordsbyte anger global sessionsåterkallning',()=>{
+  const edge=read('supabase/functions/operator-admin/index.ts');
+
+  const start=edge.indexOf('if(action==="reset-password")');
+  const end=edge.indexOf('if(action==="remove-user")',start);
+  assert.ok(start>=0&&end>start);
+  const reset=edge.slice(start,end);
+
+  assert.match(reset,/admin\.auth\.admin\.updateUserById\(target,\{password\}\)/);
+  assert.match(reset,/CUSTOMER_USER_PASSWORD_RESET/);
+  assert.match(reset,/sessionsRevoked:true/);
+  assert.match(reset,/sessionScope:"global"/);
+  assert.doesNotMatch(reset,/sessionsRevoked:false/);
+});
+
+test('lösenordsreset kräver fortfarande medlemskap i exakt valt företag',()=>{
+  const edge=read('supabase/functions/operator-admin/index.ts');
+
+  const start=edge.indexOf('if(action==="reset-password")');
+  const end=edge.indexOf('if(action==="remove-user")',start);
+  const reset=edge.slice(start,end);
+
+  assert.match(reset,/from\("company_memberships"\)/);
+  assert.match(reset,/\.eq\("company_id",companyId\)\.eq\("auth_user_id",target\)/);
+  assert.match(reset,/MEMBERSHIP_NOT_FOUND/);
+});
+
+
+test('LT Studios RLS stoppar gamla access-token när Supabase-sessionen har återkallats',()=>{
+  const sessionGuard=read('supabase/migrations/20260926151655_personal_session_limits.sql');
+
+  assert.match(sessionGuard,/auth\.sessions s/);
+  assert.match(sessionGuard,/s\.id = v_session_id/);
+  assert.match(sessionGuard,/s\.user_id = v_uid/);
+  assert.match(sessionGuard,/if not found or v_created_at is null then\s+return false;/i);
+});
+
+test('password-reset audit anger explicit sessionsåterkallning',()=>{
+  const edge=read('supabase/functions/operator-admin/index.ts');
+
+  const start=edge.indexOf('if(action==="reset-password")');
+  const end=edge.indexOf('if(action==="remove-user")',start);
+  const reset=edge.slice(start,end);
+
+  assert.match(reset,/details:\{sessionsRevoked:true\}/);
+});
