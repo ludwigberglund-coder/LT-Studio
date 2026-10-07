@@ -56,3 +56,23 @@ test('lösenordsreset kräver fortfarande medlemskap i exakt valt företag',()=>
   assert.match(reset,/\.eq\("company_id",companyId\)\.eq\("auth_user_id",target\)/);
   assert.match(reset,/MEMBERSHIP_NOT_FOUND/);
 });
+
+
+test('LT Studios RLS stoppar gamla access-token när Supabase-sessionen har återkallats',()=>{
+  const sessionGuard=read('supabase/migrations/20260926151655_personal_session_limits.sql');
+
+  assert.match(sessionGuard,/auth\.sessions s/);
+  assert.match(sessionGuard,/s\.id = v_session_id/);
+  assert.match(sessionGuard,/s\.user_id = v_uid/);
+  assert.match(sessionGuard,/if not found or v_created_at is null then\s+return false;/i);
+});
+
+test('password-reset audit anger explicit sessionsåterkallning',()=>{
+  const edge=read('supabase/functions/operator-admin/index.ts');
+
+  const start=edge.indexOf('if(action==="reset-password")');
+  const end=edge.indexOf('if(action==="remove-user")',start);
+  const reset=edge.slice(start,end);
+
+  assert.match(reset,/details:\{sessionsRevoked:true\}/);
+});
