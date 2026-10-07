@@ -22,7 +22,37 @@ function jwtPayload(token:string){
   }catch{return {}}
 }
 function passwordOk(value:string){
-  return value.length>=8&&/[a-zåäö]/u.test(value)&&/[A-ZÅÄÖ]/u.test(value)&&(/[0-9]/.test(value)||/[^A-Za-zÅÄÖåäö0-9]/u.test(value));
+  return value.length>=12
+    && /[a-zåäö]/u.test(value)
+    && /[A-ZÅÄÖ]/u.test(value)
+    && /[0-9]/.test(value)
+    && /[^A-Za-zÅÄÖåäö0-9]/u.test(value);
+}
+async function sha1Hex(value:string){
+  const digest=await crypto.subtle.digest("SHA-1",new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,"0")).join("").toUpperCase();
+}
+async function assertPasswordNotCompromised(password:string){
+  const hash=await sha1Hex(password),prefix=hash.slice(0,5),suffix=hash.slice(5);
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),5000);
+  try{
+    const response=await fetch("https://api.pwnedpasswords.com/range/"+prefix,{
+      method:"GET",
+      headers:{
+        "User-Agent":"LT-Studio-Password-Protection/1.0",
+        "Add-Padding":"true",
+        "Accept":"text/plain"
+      },
+      signal:controller.signal
+    });
+    if(!response.ok)throw Object.assign(new Error("Lösenordskontrollen är tillfälligt otillgänglig. Försök igen senare."),{status:503,code:"PASSWORD_BREACH_CHECK_UNAVAILABLE"});
+    const body=await response.text();
+    const match=body.split(/\r?\n/).find(line=>line.slice(0,35).toUpperCase()===suffix);
+    if(match&&Number(match.split(":")[1]||0)>0)throw Object.assign(new Error("Det lösenordet finns i kända lösenordsläckor. Välj ett helt annat lösenord."),{status:422,code:"PASSWORD_COMPROMISED"});
+  }catch(error){
+    if((error as any)?.name==="AbortError")throw Object.assign(new Error("Lösenordskontrollen är tillfälligt otillgänglig. Försök igen senare."),{status:503,code:"PASSWORD_BREACH_CHECK_UNAVAILABLE"});
+    throw error;
+  }finally{clearTimeout(timer)}
 }
 async function sha256Hex(value:string){
   const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
@@ -237,7 +267,8 @@ Deno.serve(async(req)=>{
       let authUser=await findAuthUser(admin,email),created=false;
       if(!authUser){
         if(requestedDisplayName.length<2||requestedDisplayName.length>120)return reply(422,{error:"Namn krävs för ett nytt konto och måste vara 2–120 tecken.",code:"INVALID_DISPLAY_NAME"});
-        if(!passwordOk(password))return reply(422,{error:"Ett nytt konto kräver ett lösenord som uppfyller lösenordskraven.",code:"WEAK_PASSWORD"});
+        if(!passwordOk(password))return reply(422,{error:"Ett nytt konto kräver minst 12 tecken med stor bokstav, liten bokstav, siffra och specialtecken.",code:"WEAK_PASSWORD"});
+        await assertPasswordNotCompromised(password);
         const result=await admin.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{display_name:requestedDisplayName}});
         if(result.error)throw result.error;authUser=result.data.user;created=true;
       }
@@ -274,11 +305,12 @@ Deno.serve(async(req)=>{
     }
     if(action==="reset-password"){
       const companyId=text(body.companyId),target=text(body.userId),password=text(body.password);
-      if(!passwordOk(password))return reply(422,{error:"Lösenordet uppfyller inte lösenordskraven.",code:"WEAK_PASSWORD"});
+      if(!passwordOk(password))return reply(422,{error:"Lösenordet måste vara minst 12 tecken och innehålla stor bokstav, liten bokstav, siffra och specialtecken.",code:"WEAK_PASSWORD"});
       const member=(await admin.from("company_memberships").select("*").eq("company_id",companyId).eq("auth_user_id",target).maybeSingle()).data;if(!member)return reply(404,{error:"Användaren finns inte i kundföretaget.",code:"MEMBERSHIP_NOT_FOUND"});
+      await assertPasswordNotCompromised(password);
       const result=await admin.auth.admin.updateUserById(target,{password});if(result.error)throw result.error;
-      await audit(admin,user.id,"CUSTOMER_USER_PASSWORD_RESET",{companyId,targetUserId:target});
-      return reply(200,{saved:true,sessionsRevoked:false});
+      await audit(admin,user.id,"CUSTOMER_USER_PASSWORD_RESET",{companyId,targetUserId:target,details:{sessionsRevoked:false}});
+      return reply(200,{saved:true,sessionsRevoked:false,sessionScope:"supabase"});
     }
     if(action==="remove-user"){
       const companyId=text(body.companyId),target=text(body.userId);
