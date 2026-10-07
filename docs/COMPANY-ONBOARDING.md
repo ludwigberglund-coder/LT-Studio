@@ -36,7 +36,7 @@ Första versionen av onboardingguiden är avsiktligt svensk:
 - VAT ska motsvara `SE<organisationsnummer utan bindestreck>01`,
 - webbplats, om angiven, måste använda HTTPS,
 - bankgiro, om angivet, använder svensk bankgiroform,
-- skattestatus väljs från en begränsad lista.
+- skattestatus väljs från en begränsad lista.\n\nSamma centrala kontroller finns både i Edge Function och i den atomiska databasfunktionen som defense-in-depth.
 
 Internationell onboarding ska läggas till som en separat, explicit utökning och inte genom att försvaga svensk validering.
 
@@ -45,7 +45,7 @@ Internationell onboarding ska läggas till som en separat, explicit utökning oc
 Driftadmin skiljer mellan:
 
 - **Väntar på aktivering** – giltig personlig länk finns.
-- **Aktiv** – minst en aktiv företagsanvändare finns.
+- **MFA återstår** – första admin har skapat kontot men ännu inte verifierat TOTP/AAL2.\n- **Aktiv** – minst en aktiv företagsadmin har verifierad MFA/AAL2.
 - **Aktivering utgången** – länken måste roteras.
 - **Saknar admin** – företaget saknar en fungerande första aktivering.
 
