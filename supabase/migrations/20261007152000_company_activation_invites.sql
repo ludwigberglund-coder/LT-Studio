@@ -42,3 +42,10 @@ on public.company_activation_invites(lower(recipient_email),created_at desc);
 create index if not exists company_activation_invites_active_idx
 on public.company_activation_invites(expires_at)
 where claimed_at is null and revoked_at is null;
+
+
+create index if not exists company_activation_invites_claimed_auth_user_idx
+on public.company_activation_invites(claimed_auth_user_id);
+
+create index if not exists company_activation_invites_created_by_operator_idx
+on public.company_activation_invites(created_by_operator);
