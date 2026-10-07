@@ -308,9 +308,29 @@ Deno.serve(async(req)=>{
       if(!passwordOk(password))return reply(422,{error:"Lösenordet måste vara minst 12 tecken och innehålla stor bokstav, liten bokstav, siffra och specialtecken.",code:"WEAK_PASSWORD"});
       const member=(await admin.from("company_memberships").select("*").eq("company_id",companyId).eq("auth_user_id",target).maybeSingle()).data;if(!member)return reply(404,{error:"Användaren finns inte i kundföretaget.",code:"MEMBERSHIP_NOT_FOUND"});
       await assertPasswordNotCompromised(password);
+      const captured=await admin.rpc("operator_capture_user_sessions",{
+        p_company_id:companyId,
+        p_target_auth_user_id:target,
+        p_operator_auth_user_id:user.id
+      });
+      if(captured.error)throw captured.error;
+      const previousSessionIds=Array.isArray(captured.data)?captured.data:[];
       const result=await admin.auth.admin.updateUserById(target,{password});if(result.error)throw result.error;
-      await audit(admin,user.id,"CUSTOMER_USER_PASSWORD_RESET",{companyId,targetUserId:target,details:{sessionsRevoked:false}});
-      return reply(200,{saved:true,sessionsRevoked:false,sessionScope:"supabase"});
+      const verified=await admin.rpc("operator_count_remaining_previous_sessions",{
+        p_company_id:companyId,
+        p_target_auth_user_id:target,
+        p_operator_auth_user_id:user.id,
+        p_previous_session_ids:previousSessionIds
+      });
+      if(verified.error){
+        await audit(admin,user.id,"CUSTOMER_USER_PASSWORD_RESET",{companyId,targetUserId:target,details:{sessionsRevoked:false,verificationFailed:true,previousSessionCount:previousSessionIds.length}});
+        return reply(500,{error:"Lösenordet ändrades men sessionsåterkallningen kunde inte verifieras. Spärra användaren och kontakta systemansvarig.",code:"SESSION_REVOCATION_VERIFICATION_FAILED",saved:true,sessionsRevoked:false,sessionScope:"supabase"});
+      }
+      const remainingPreviousSessions=Number(verified.data||0);
+      const sessionsRevoked=remainingPreviousSessions===0;
+      await audit(admin,user.id,"CUSTOMER_USER_PASSWORD_RESET",{companyId,targetUserId:target,details:{sessionsRevoked,previousSessionCount:previousSessionIds.length,remainingPreviousSessionCount:remainingPreviousSessions}});
+      if(!sessionsRevoked)return reply(500,{error:"Lösenordet ändrades men en äldre session är fortfarande aktiv. Spärra användaren och kontakta systemansvarig.",code:"SESSION_REVOCATION_NOT_CONFIRMED",saved:true,sessionsRevoked:false,sessionScope:"supabase",remainingPreviousSessions});
+      return reply(200,{saved:true,sessionsRevoked:true,sessionScope:"global",previousSessionCount:previousSessionIds.length});
     }
     if(action==="remove-user"){
       const companyId=text(body.companyId),target=text(body.userId);
