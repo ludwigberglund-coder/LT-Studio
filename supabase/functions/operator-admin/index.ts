@@ -111,7 +111,7 @@ async function overview(admin:any){
       activity30dCount:ce.filter((e:any)=>e.created_at>=since30).length,securityEventCount24h:sec.filter((e:any)=>severity(e.event_type)!=="info").length,
       criticalSecurityCount24h:sec.filter((e:any)=>severity(e.event_type)==="critical").length,activeSessionCount:null,
       customerRecordCount:customers.filter((r:any)=>r.company_id===company.id).length,invoiceRecordCount:invoices.filter((r:any)=>r.company_id===company.id).length,
-      lastActivityAt:last,accessConfigured:active.length>0,onboardingStatus,
+      lastActivityAt:last,accessConfigured:mfaProtectedAdmins.length>0,onboardingStatus,
       activationRecipientEmail:latestInvite?.recipient_email||null,activationRecipientName:latestInvite?.recipient_display_name||null,
       activationExpiresAt:latestInvite?.expires_at||null
     };
@@ -128,7 +128,7 @@ async function overview(admin:any){
   return {
     generatedAt:new Date().toISOString(),runtimeModel:"supabase-shared-saas",companyCount:rows.length,activeSessionCount:null,sessionMetricAvailable:false,
     totals:{
-      members:members.length,customers:customers.length,invoices:invoices.length,activeSessions:null,configuredCompanies:rows.filter((r:any)=>r.accessConfigured).length,
+      members:members.length,customers:customers.length,invoices:invoices.length,activeSessions:null,configuredCompanies:rows.filter((r:any)=>r.onboardingStatus==="active").length,
       activeCompanies30d:rows.filter((r:any)=>r.lastActivityAt&&r.lastActivityAt>=since30).length,newCompanies30d:rows.filter((r:any)=>r.createdAt>=since30).length,
       disabledUsers:users.filter((u:any)=>u.disabled).length,activeUsers:activeUsers.length,mfaProtectedUsers:activeUsers.filter((u:any)=>mfa(String(u.auth_user_id))).length,
       activity30d:events.filter((e:any)=>e.created_at>=since30).length,companySecurityEvents24h:rows.reduce((s:number,r:any)=>s+r.securityEventCount24h,0),
