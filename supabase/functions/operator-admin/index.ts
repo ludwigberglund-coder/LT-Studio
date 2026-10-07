@@ -309,8 +309,8 @@ Deno.serve(async(req)=>{
       const member=(await admin.from("company_memberships").select("*").eq("company_id",companyId).eq("auth_user_id",target).maybeSingle()).data;if(!member)return reply(404,{error:"Användaren finns inte i kundföretaget.",code:"MEMBERSHIP_NOT_FOUND"});
       await assertPasswordNotCompromised(password);
       const result=await admin.auth.admin.updateUserById(target,{password});if(result.error)throw result.error;
-      await audit(admin,user.id,"CUSTOMER_USER_PASSWORD_RESET",{companyId,targetUserId:target,details:{sessionsRevoked:true}});
-      return reply(200,{saved:true,sessionsRevoked:true,sessionScope:"global"});
+      await audit(admin,user.id,"CUSTOMER_USER_PASSWORD_RESET",{companyId,targetUserId:target,details:{sessionsRevoked:false}});
+      return reply(200,{saved:true,sessionsRevoked:false,sessionScope:"supabase"});
     }
     if(action==="remove-user"){
       const companyId=text(body.companyId),target=text(body.userId);
