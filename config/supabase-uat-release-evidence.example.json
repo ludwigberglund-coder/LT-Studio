@@ -29,19 +29,65 @@
     }
   },
   "scenarios": {
-    "auth-session-mfa": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
-    "customers": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
-    "customer-invoice": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
-    "customer-credit-settlement": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
-    "manual-customer-payment": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
-    "batches-approvals": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
-    "supplier-invoice": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
-    "supplier-payment": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
-    "bank-reconciliation": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
-    "accounting-reports": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
-    "documents-pdf": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
-    "tenant-isolation": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
-    "idempotency": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"},
-    "responsive-theme": {"passed": false, "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"}
+    "auth-session-mfa": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    },
+    "customers": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    },
+    "customer-invoice": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    },
+    "customer-credit-settlement": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    },
+    "manual-customer-payment": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    },
+    "batches-approvals": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    },
+    "supplier-invoice": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    },
+    "supplier-payment": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    },
+    "bank-reconciliation": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    },
+    "unplaced-payments": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    },
+    "accounting-reports": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    },
+    "documents-pdf": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    },
+    "tenant-isolation": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    },
+    "idempotency": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    },
+    "responsive-theme": {
+      "passed": false,
+      "reference": "REPLACE_WITH_PRIVATE_UAT_REFERENCE"
+    }
   }
 }
