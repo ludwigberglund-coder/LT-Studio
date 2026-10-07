@@ -8,6 +8,7 @@ const Auth=require('./auth.js');
 const Db=require('./database.js');
 const Bank=require('./bank-payments.js');
 const Queues=require('./queues.js');
+const Unplaced=require('./unplaced-payments.js');
 const {readJson,securityHeaders}=require('./app.js');
 
 const DEFAULT_ACCESS=JSON.parse(fs.readFileSync(path.join(__dirname,'..','..','config','access-control.json'),'utf8'));
@@ -16,7 +17,7 @@ function send(res,status,body){if(res.writableEnded)return;res.writeHead(status,
 
 function createBankRouter(options){
   const db=options?.db;if(!db)throw new Error('Databas krävs för bankflödet.');
-  Bank.initializeBankPayments(db);Queues.initializeQueues(db);
+  Bank.initializeBankPayments(db);Queues.initializeQueues(db);Unplaced.initializeUnplacedPayments(db);
   const model=Access.createModel(options.accessConfig||DEFAULT_ACCESS);
   function session(req){const token=Auth.parseCookies(req.headers.cookie).rollands_session;if(!token)return null;const s=Db.sessionByTokenHash(db,Auth.hashToken(token));if(!s||s.disabled)return null;s.actor={id:s.userId,name:s.displayName,companyId:s.companyId,authenticated:true,membershipActive:true,disabled:Boolean(s.disabled),role:s.role};return s}
   function requireSession(req){const s=session(req);if(!s)throw routeError('Personlig inloggning krävs.','AUTH_REQUIRED',401);return s}
@@ -59,6 +60,33 @@ function createBankRouter(options){
           return stored;
         });
         return send(res,200,{analysis,proposal:saved.proposal,duplicate:saved.duplicate,executionStatus:'not-executed'}),true;
+      }
+      const manualMatch=url.pathname.match(/^\/api\/v1\/bank\/payments\/([^/]+)\/manual-match$/);
+      if(manualMatch&&req.method==='POST'){
+        permission(s,'bank.reconcile');const payload=await readJson(req,res);if(!payload)return true;
+        const payment=Bank.byId(db,s.companyId,manualMatch[1]);if(!payment)throw routeError('Bankhändelsen hittades inte.','BANK_PAYMENT_NOT_FOUND',404);
+        if(payment.status!=='unmatched')throw routeError('Endast oplacerade betalningar kan kopplas manuellt.','INVALID_BANK_PAYMENT_STATUS',409);
+        const invoice=Db.invoiceById(db,s.companyId,String(payload.invoiceId||'').trim());if(!invoice)throw routeError('Kundfakturan hittades inte.','TARGET_INVOICE_NOT_FOUND',404);
+        if(invoice.invoiceAccount!=='1510'||Number(invoice.remainingOre)<=0)throw routeError('Kundfakturan är inte öppen i kundreskontran.','TARGET_INVOICE_NOT_OPEN',409);
+        if(Number(payment.amountOre)>Number(invoice.remainingOre))throw routeError('Betalningen är större än fakturans restbelopp.','CUSTOMER_PAYMENT_AMOUNT_MISMATCH',409);
+        const customer=Db.customerById?Db.customerById(db,s.companyId,invoice.customerId):null;
+        const analysis={status:'manual-review',confidence:.5,deterministic:false,ambiguous:true,targetInvoiceId:invoice.id,targetInvoiceNumber:invoice.invoiceNumber,targetCustomerName:customer?.name||'',reason:'Manuell placering från Oplacerade betalningar.',evidence:[{kind:'manual-selection',label:'Manuellt vald faktura',value:invoice.invoiceNumber,sourceId:payment.id}]};
+        const proposal=Matcher.createMatchProposal(payment,analysis,{createdBy:s.userId,engineVersion:'manual-1'});
+        const saved=Db.transaction(db,()=>{
+          const stored=Queues.saveAutomationProposal(db,proposal,{idempotencyKey:`bank-payment-manual-match:${payment.id}:${invoice.id}:v1`});
+          if(!stored.duplicate){
+            Bank.setStatus(db,s.companyId,payment.id,'proposal-created');
+            Db.appendAudit(db,{companyId:s.companyId,userId:s.userId,action:'BANK_PAYMENT_MANUAL_MATCH_PROPOSED',entityType:'bank-payment',entityId:payment.id,details:{proposalId:stored.proposal.id,invoiceId:invoice.id,invoiceNumber:invoice.invoiceNumber}});
+          }
+          return stored;
+        });
+        return send(res,saved.duplicate?200:201,{proposal:saved.proposal,duplicate:saved.duplicate,executionStatus:'not-executed'}),true;
+      }
+      const resolveOther=url.pathname.match(/^\/api\/v1\/bank\/payments\/([^/]+)\/resolve-other$/);
+      if(resolveOther&&req.method==='POST'){
+        permission(s,'bank.reconcile');permission(s,'accounting.post');const payload=await readJson(req,res);if(!payload)return true;
+        const result=Unplaced.resolveOther(db,{companyId:s.companyId,paymentId:resolveOther[1],resolutionType:payload.resolutionType,counterAccount:payload.counterAccount,description:payload.description,requestId:payload.requestId,actorId:s.userId});
+        return send(res,result.duplicate?200:201,{...result,message:result.duplicate?'Betalningen var redan bokförd.':`Betalningen bokfördes i verifikation ${result.entry.number}.`}),true;
       }
       send(res,404,{error:'Hittades inte.',code:'NOT_FOUND'});return true;
     }catch(error){const status=Number(error.statusCode||500);if(status>=500)console.error(error);send(res,status,{error:status>=500?'Ett internt serverfel uppstod.':String(error.message||'Begäran kunde inte behandlas.'),code:error.code||'INTERNAL_ERROR'});return true}
