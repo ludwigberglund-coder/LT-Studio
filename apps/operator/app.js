@@ -203,10 +203,49 @@ function securityFindings(){
   if(!findings.length)return `<div class="security-clear live-clear"><span class="clear-check" aria-hidden="true">${operatorIcon('checkCircle')}</span><div><strong>Inga aktiva säkerhetsflaggor</strong><p>Senaste skanningen hittade inga regler som kräver åtgärd.</p></div></div>`;
   return `<div class="finding-list">${findings.map(item=>`<article class="security-finding ${esc(item.severity)}"><div class="finding-top"><span class="status-pill"><span class="dot ${esc(item.severity)}"></span>${esc(({critical:'Kritisk',warning:'Varning',info:'Information'})[item.severity]||item.severity)}</span><span class="finding-category">${esc(item.category)}</span></div><h3>${esc(item.title)}</h3><p>${esc(item.message)}</p></article>`).join('')}</div>`;
 }
+function activationUrl(activation){
+  if(!activation?.inviteCode)return '';
+  const url=new URL('../portal/company-activate.html',location.href);
+  url.hash='code='+encodeURIComponent(activation.inviteCode);
+  return url.href;
+}
 function modalMarkup(){
   if(!modal)return '';
-  if(modal.kind==='company-create')return `<div class="modal-backdrop" data-modal-backdrop><section class="modal-card portal-modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><div><span class="eyebrow">NY UAT-MILJÖ</span><h2 id="modal-title">Skapa UAT-företag</h2><p>Företaget skapas tomt och isolerat. Ni får en engångskod för den första företagsadministratören.</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div><form id="create-company-form" class="form-grid"><label class="field"><span>Juridiskt namn</span><input name="legalName" minlength="2" maxlength="160" required autofocus placeholder="Exempel UAT AB"></label><label class="field"><span>Visningsnamn</span><input name="displayName" minlength="2" maxlength="120" required placeholder="Exempel UAT"></label><label class="field"><span>Organisationsnummer · syntetiskt UAT</span><input name="orgNumber" inputmode="numeric" pattern="[0-9]{6}-[0-9]{4}" maxlength="11" required placeholder="000001-0001"></label><p class="form-help">Använd endast syntetiska testuppgifter. Företaget får ett eget <code>company_id</code>. Första användaren skapas senare via den engångskod som visas efteråt och måste registrera MFA innan portalen öppnas.</p><div class="modal-actions"><button class="button secondary" type="button" data-action="close-modal">Avbryt</button><button class="button" type="submit">Skapa UAT-företag</button></div></form></section></div>`;
-  if(modal.kind==='company-created')return `<div class="modal-backdrop" data-modal-backdrop><section class="modal-card portal-modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><div><span class="eyebrow">UAT-FÖRETAG SKAPAT</span><h2 id="modal-title">${esc(modal.company?.displayName||'Företaget')}</h2><p>${esc(modal.company?.legalName||'')} · ${esc(modal.company?.orgNumber||'')}</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div><div class="success-box"><strong>Engångskod för första företagsadmin</strong><p>Koden visas bara i detta svar och sparas aldrig i klartext. Kopiera den nu. Den gäller till ${dateTime(modal.activation?.expiresAt)}.</p><div class="activation-code" role="status"><code>${esc(modal.activation?.inviteCode||'')}</code></div></div><p class="modal-copy">Öppna aktiveringssidan, ange koden och välj e-post, lösenord och MFA för den person som ska vara första admin i företaget.</p><div class="modal-actions"><button class="button secondary" type="button" data-action="close-modal">Stäng</button><a class="button" href="../portal/uat-setup.html" target="_blank" rel="noopener">Öppna kontoaktivering</a></div></section></div>`;
+  if(modal.kind==='company-create')return `<div class="modal-backdrop" data-modal-backdrop><section class="modal-card portal-modal-card onboarding-modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><div><span class="eyebrow">NY KUND</span><h2 id="modal-title">Lägg till kundföretag</h2><p>Skapa bolaget, fakturauppgifterna och den första företagsadministratörens säkra aktivering i ett sammanhållet flöde.</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div>
+    <form id="create-company-form" class="onboarding-form">
+      <section class="onboarding-section"><div class="onboarding-section-head"><span>1</span><div><strong>Bolagsidentitet</strong><small>Uppgifter som identifierar kundföretaget.</small></div></div><div class="form-grid">
+        <label class="field"><span>Juridiskt namn</span><input name="legalName" minlength="2" maxlength="160" required autofocus placeholder="Exempelbolaget AB"></label>
+        <label class="field"><span>Visningsnamn</span><input name="displayName" minlength="2" maxlength="80" required placeholder="Exempelbolaget"></label>
+        <label class="field"><span>Organisationsnummer</span><input name="orgNumber" data-onboarding-org inputmode="numeric" pattern="[0-9]{6}-[0-9]{4}" maxlength="11" required placeholder="556000-0000"></label>
+        <label class="field"><span>Momsregistreringsnummer</span><input name="vatNumber" data-onboarding-vat maxlength="14" required placeholder="SE556000000001"></label>
+      </div></section>
+      <section class="onboarding-section"><div class="onboarding-section-head"><span>2</span><div><strong>Faktura & kontakt</strong><small>Sparas direkt som företagets egna fakturainställningar.</small></div></div><div class="form-grid">
+        <label class="field onboarding-wide"><span>Adress</span><input name="address" minlength="4" maxlength="240" required placeholder="Gatuadress, postnummer och ort"></label>
+        <label class="field"><span>Företagets e-post</span><input name="companyEmail" type="email" maxlength="254" required placeholder="ekonomi@foretaget.se"></label>
+        <label class="field"><span>Telefon · valfritt</span><input name="phone" maxlength="40" placeholder="+46 ..."></label>
+        <label class="field"><span>Webbplats · valfritt</span><input name="website" type="url" maxlength="240" placeholder="https://foretaget.se"></label>
+        <label class="field"><span>Bankgiro · valfritt</span><input name="bankgiro" maxlength="9" placeholder="1234-5678"></label>
+        <label class="field"><span>Skattestatus</span><select name="taxStatus" required><option value="Godkänd för F-skatt">Godkänd för F-skatt</option><option value="Godkänd för FA-skatt">Godkänd för FA-skatt</option><option value="Ej godkänd för F-skatt">Ej godkänd för F-skatt</option></select></label>
+      </div></section>
+      <section class="onboarding-section"><div class="onboarding-section-head"><span>3</span><div><strong>Första företagsadmin</strong><small>Personen väljer själv lösenord och måste konfigurera MFA.</small></div></div><div class="form-grid">
+        <label class="field"><span>Namn</span><input name="adminName" minlength="2" maxlength="120" required placeholder="För- och efternamn"></label>
+        <label class="field"><span>E-postadress</span><input name="adminEmail" type="email" maxlength="254" required placeholder="admin@foretaget.se"></label>
+      </div></section>
+      <section class="onboarding-security"><div class="onboarding-security-icon">✓</div><div><strong>Säkerhetsgräns</strong><p>Bolaget får ett eget company_id. Kunddata nås endast via företagsmedlemskap och RLS. LT Studio-operatörer får inte automatiskt kundens ekonomiska data. Aktiveringslänken är personlig, engångsbaserad och giltig i 48 timmar.</p></div></section>
+      <label class="onboarding-confirm"><input name="confirmed" type="checkbox" required><span>Jag har kontrollerat organisationsnumret och e-postadressen till den första administratören.</span></label>
+      <div class="modal-actions"><button class="button secondary" type="button" data-action="close-modal">Avbryt</button><button class="button" type="submit">Skapa kundföretag säkert</button></div>
+    </form>
+  </section></div>`;
+  if(modal.kind==='company-created'){
+    const link=activationUrl(modal.activation);
+    return `<div class="modal-backdrop" data-modal-backdrop><section class="modal-card portal-modal-card onboarding-created-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><div><span class="eyebrow">KUNDFÖRETAG SKAPAT</span><h2 id="modal-title">${esc(modal.company?.displayName||'Företaget')}</h2><p>${esc(modal.company?.legalName||'')} · ${esc(modal.company?.orgNumber||'')}</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div>
+      <div class="onboarding-complete"><span class="clear-check">✓</span><div><strong>Företagsmiljön är skapad och isolerad.</strong><p>Nu återstår att ${esc(modal.activation?.adminName||'företagsadministratören')} aktiverar sitt konto med eget lösenord och MFA.</p></div></div>
+      <div class="activation-delivery"><label><span>Personlig aktiveringslänk · visas endast nu</span><input readonly value="${esc(link)}" aria-label="Personlig aktiveringslänk"></label><button class="button" type="button" data-action="copy-activation-link" data-activation-link="${esc(link)}">Kopiera länk</button></div>
+      <div class="activation-meta"><div><span>Mottagare</span><strong>${esc(modal.activation?.adminEmail||'—')}</strong></div><div><span>Gäller till</span><strong>${dateTime(modal.activation?.expiresAt)}</strong></div><div><span>Skydd</span><strong>Engångslänk + MFA</strong></div></div>
+      <p class="modal-copy">Skicka länken till den registrerade administratören via en säker kanal. LT Studio lagrar bara hash av aktiveringskoden – inte länken eller koden i klartext.</p>
+      <div class="modal-actions"><button class="button secondary" type="button" data-action="close-modal">Klar</button><a class="button secondary" href="${esc(link)}" target="_blank" rel="noopener">Öppna aktiveringssidan</a></div>
+    </section></div>`;
+  }
   if(modal.kind==='password')return `<div class="modal-backdrop" data-modal-backdrop><section class="modal-card portal-modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><div><span class="eyebrow">SÄKER ÅTGÄRD</span><h2 id="modal-title">Byt lösenord</h2><p>${esc(modal.userName)}</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div><form id="reset-password-form"><label class="field"><span>Nytt tillfälligt lösenord</span><input name="password" type="password" required minlength="8" autocomplete="new-password" autofocus></label><p class="form-help">Minst 8 tecken, stor och liten bokstav samt minst en siffra eller ett specialtecken. Lösenordet gäller hela personens konto i alla företag där kontot har åtkomst, och befintliga sessioner kan fortsätta tills deras Supabase-token löper ut; be användaren logga in igen efter bytet.</p><div class="modal-actions"><button class="button secondary" type="button" data-action="close-modal">Avbryt</button><button class="button" type="submit">Spara nytt lösenord</button></div></form></section></div>`;
   if(modal.kind==='remove')return `<div class="modal-backdrop" data-modal-backdrop><section class="modal-card portal-modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><div><span class="eyebrow">BEKRÄFTA ÅTGÄRD</span><h2 id="modal-title">Ta bort åtkomst?</h2><p>${esc(modal.userName)}</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div><p class="modal-copy">Användaren tas bort från just detta företag. Kontot påverkas inte i andra företag där personen har åtkomst. Befintliga Supabase-sessioner kan leva tills token uppdateras, men RLS stoppar åtkomst när medlemskapet inte längre finns.</p><div class="modal-actions"><button class="button secondary" type="button" data-action="close-modal">Avbryt</button><button class="button danger solid" type="button" data-action="confirm-remove-user">Ta bort åtkomst</button></div></section></div>`;
   return '';
@@ -223,7 +262,7 @@ function nav(){
 }
 function shell(body,title,subtitle){
   const operator=session?.operator||{};
-  root.innerHTML=`<div class="operator-shell"><aside class="sidebar"><div><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div class="side-copy">ADMIN CONTROL CENTER</div></div><nav class="side-nav">${nav()}</nav><a class="customer-system-link" href="/portal/" target="_blank" rel="noopener"><span><strong>Öppna kundsystemet</strong><small>UAT på samma webbplats</small></span></a><div class="side-spacer"></div><div class="side-status"><span class="live-dot"></span><div><strong>Operatorportal aktiv</strong><small>Separat säkerhetsgräns</small></div></div><div class="side-footer">Endast LT Studio-operatörer.<br>Alla administrativa ändringar loggas.</div></aside>
+  root.innerHTML=`<div class="operator-shell"><aside class="sidebar"><div><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div class="side-copy">ADMIN CONTROL CENTER</div></div><nav class="side-nav">${nav()}</nav><a class="customer-system-link" href="/portal/" target="_blank" rel="noopener"><span><strong>Öppna företagsportalen</strong><small>Skyddad kundportal</small></span></a><div class="side-spacer"></div><div class="side-status"><span class="live-dot"></span><div><strong>Operatorportal aktiv</strong><small>Separat säkerhetsgräns</small></div></div><div class="side-footer">Endast LT Studio-operatörer.<br>Alla administrativa ändringar loggas.</div></aside>
   <section class="main"><header class="topbar"><div><span class="page-kicker">LT STUDIO / ADMIN</span><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div><div class="actions"><div class="operator-user"><span class="avatar">${initials(operator.displayName)}</span><div><strong>${esc(operator.displayName||operator.username||'Operatör')}</strong><small>LT Studio-operatör</small></div></div><button class="icon-button" data-action="refresh" title="${operatorRefreshing?'Uppdaterar…':'Uppdatera'}" aria-label="${operatorRefreshing?'Uppdaterar':'Uppdatera'}" ${operatorRefreshing?'disabled':''}></button><button class="button secondary" data-action="logout">Logga ut</button></div></header><nav class="mobile-nav">${nav()}</nav>
   <div id="security-live-alert">${securityAlertStrip()}</div>${errorMessage?`<div class="notice">${esc(errorMessage)}</div>`:''}${successNotice()}${body}<footer class="portal-footer"><span>LT Studio Admin</span><span>Senast uppdaterad ${dateTime(overview?.generatedAt)}</span></footer></section></div>${modalMarkup()}`;
 }
@@ -433,7 +472,7 @@ function overviewView(){
 function companiesView(){
   const totals=overview?.totals||{},configuredPct=percent(totals.configuredCompanies,overview?.companyCount||0);
   shell(`<section class="page-intro-card"><div><span class="eyebrow">KUNDBAS</span><h2>${num(overview?.companyCount)} företag använder plattformen</h2><p>Härifrån öppnar ni varje kundmiljö och hanterar användare, behörigheter och teknisk statistik.</p></div><div class="intro-stats"><div><strong>${configuredPct}%</strong><span>aktiverade</span></div><div><strong>${num(totals.activeCompanies30d)}</strong><span>aktiva 30d</span></div><div><strong>${num(totals.members)}</strong><span>användare</span></div></div></section>
-  <section class="panel"><div class="panel-head company-panel-head"><div><span class="eyebrow">FÖRETAG</span><h2>Alla kunder & företag</h2><p>Öppna ett företag för användare, behörigheter och statistik.</p></div><div class="row-actions"><button class="button" type="button" data-action="create-company">Skapa UAT-företag</button><span class="panel-stat" id="company-result-count">${filteredCompanies().length} av ${overview?.companyCount||0} företag</span></div></div>
+  <section class="panel"><div class="panel-head company-panel-head"><div><span class="eyebrow">FÖRETAG</span><h2>Alla kunder & företag</h2><p>Öppna ett företag för användare, behörigheter och statistik.</p></div><div class="row-actions"><button class="button" type="button" data-action="create-company">Lägg till kundföretag</button><span class="panel-stat" id="company-result-count">${filteredCompanies().length} av ${overview?.companyCount||0} företag</span></div></div>
   <div class="company-toolbar"><div class="company-search-shell"><label class="search-field"><span class="sr-only">Sök företag</span><input type="search" role="combobox" aria-autocomplete="list" aria-controls="operator-company-search-results" aria-expanded="${companySearchOpen&&companyQuery.trim()?'true':'false'}" autocomplete="off" data-company-search value="${esc(companyQuery)}" placeholder="Sök namn eller organisationsnummer…"></label><div id="operator-company-search-results" class="company-search-results" role="listbox" ${companySearchOpen&&companyQuery.trim()?'':'hidden'}>${companySearchOpen&&companyQuery.trim()?companySearchResults():''}</div></div><label><span class="sr-only">Filtrera status</span><select data-company-filter><option value="all" ${companyStatus==='all'?'selected':''}>Alla statusar</option><option value="active" ${companyStatus==='active'?'selected':''}>Aktiverade</option><option value="unconfigured" ${companyStatus==='unconfigured'?'selected':''}>Saknar användare</option></select></label><label><span class="sr-only">Sortera företag</span><select data-company-sort><option value="name" ${companySort==='name'?'selected':''}>Sortera: namn</option><option value="users" ${companySort==='users'?'selected':''}>Flest användare</option><option value="invoices" ${companySort==='invoices'?'selected':''}>Flest fakturor</option><option value="activity" ${companySort==='activity'?'selected':''}>Senast aktiva</option></select></label></div>
   <div class="table-wrap"><table><thead><tr><th>Företag</th><th>Org.nr</th><th>Användare</th><th>Status</th><th>Sessioner</th><th>Fakturor</th><th>Senaste aktivitet</th></tr></thead><tbody id="company-table-body">${companyRows(filteredCompanies())}</tbody></table></div></section>`,'Kunder & företag','Central administration för varje kundmiljö.');
 }
@@ -611,6 +650,13 @@ async function refresh(){
 }
 async function mutate(path,options){return api(path,{...options,headers:{'Content-Type':'application/json','X-CSRF-Token':csrf(),...(options?.headers||{})}})}
 document.addEventListener('input',event=>{
+  if(event.target.matches?.('[data-onboarding-org]')){
+    const digits=String(event.target.value||'').replace(/\D/g,'').slice(0,10);
+    if(digits.length>6)event.target.value=digits.slice(0,6)+'-'+digits.slice(6);
+    const vat=document.querySelector('[data-onboarding-vat]');
+    if(vat&&digits.length===10)vat.value='SE'+digits+'01';
+    return;
+  }
   if(!event.target.matches?.('[data-company-search]'))return;
   companyQuery=event.target.value;companySearchOpen=Boolean(companyQuery.trim());companySearchActiveIndex=-1;updateCompanyTable();
 });
@@ -655,15 +701,15 @@ document.addEventListener('submit',async event=>{
     }catch(error){if(useSupabase)globalThis.LTSupabaseUat.storeSession(null);errorMessage=error.message;loginView()}return;
   }
   if(event.target.id==='create-company-form'){
-    event.preventDefault();const data=Object.fromEntries(new FormData(event.target).entries());const button=event.target.querySelector('button[type="submit"]');if(button)button.disabled=true;
+    event.preventDefault();const data=Object.fromEntries(new FormData(event.target).entries());data.confirmed=Boolean(data.confirmed);const button=event.target.querySelector('button[type="submit"]');if(button)button.disabled=true;
     try{
       const created=await mutate('/companies',{method:'POST',body:JSON.stringify(data)});
       overview=await api('/overview');
       modal={kind:'company-created',company:created.company,activation:created.activation};
-      uiNotice='UAT-företaget skapades. Kopiera engångskoden innan dialogen stängs.';
+      uiNotice='Kundföretaget skapades säkert. Aktiveringslänken måste kopieras innan dialogen stängs.';
       errorMessage='';
       render();focusModal();
-    }catch(error){errorMessage=error.message;modal=null;render()}
+    }catch(error){errorMessage=error.message;render();const retry=document.querySelector('#create-company-form button[type="submit"]');if(retry)retry.disabled=false}
     return;
   }
   if(event.target.id==='add-user-form'){
@@ -735,6 +781,12 @@ document.addEventListener('click',async event=>{
   }
   if(action==='back-companies'){selectedCompany=null;view='companies';render();return}
   if(action==='create-company'){modal={kind:'company-create'};errorMessage='';render();focusModal();return}
+  if(action==='copy-activation-link'){
+    const link=button.dataset.activationLink||'';
+    try{await navigator.clipboard.writeText(link);uiNotice='Aktiveringslänken kopierades. Skicka den endast till den registrerade administratören.'}
+    catch{errorMessage='Länken kunde inte kopieras automatiskt. Markera och kopiera den manuellt.'}
+    render();return;
+  }
   if(action==='reset-password'){modal={kind:'password',userId:button.dataset.userId,userName:button.dataset.userName||'Användaren'};render();focusModal();return}
   if(action==='remove-user'){modal={kind:'remove',userId:button.dataset.userId,userName:button.dataset.userName||'Användaren'};render();focusModal();return}
   if(action==='close-modal'){modal=null;render();return}
