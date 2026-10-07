@@ -62,3 +62,12 @@ test('AAL2-databasspärren installeras före produktions-onboardingens nya migra
     assert.ok(migration>guardMigration,'onboarding får inte flyttas före den globala AAL2-spärren utan ny säkerhetsgranskning');
   }
 });
+
+
+test('endast en oanvänd aktiveringslänk kan vara giltig per företag även vid samtidiga rotationer',()=>{
+  const hardening=read('supabase/migrations/20261007152400_single_active_company_activation.sql');
+
+  assert.match(hardening,/create unique index if not exists company_activation_invites_single_active_per_company/i);
+  assert.match(hardening,/on public\.company_activation_invites\(company_id\)/i);
+  assert.match(hardening,/where claimed_at is null and revoked_at is null/i);
+});
