@@ -1,6 +1,6 @@
 # Isolated Supabase staging
 
-Status: staging contract prepared in GitHub. No paid staging resource is created by this document.
+Status: hosted `LT-Studio-Staging` exists on the Supabase Free plan and is built from GitHub. No paid staging resource is required.
 
 GitHub remains the source of truth.
 
@@ -53,7 +53,9 @@ The contract test verifies at minimum:
 - the expected Realtime publication is rebuilt,
 - operator/bootstrap control tables have no direct browser table grants,
 - the manual-customer-payment service bridge cannot be executed by `anon` or `authenticated`,
-- the same bridge remains executable by `service_role`.
+- the same bridge remains executable by `service_role`,
+- the Oplacerade betalningar privileged resolver and its server bridge are not executable by browser roles,
+- the Oplacerade betalningar server bridge remains executable by `service_role`.
 
 These checks exist so staging does not depend on whatever defaults happen to be selected in a new Supabase project's Dashboard.
 
@@ -68,7 +70,7 @@ Before provisioning:
 3. obtain explicit owner approval for any non-zero cost,
 4. create staging with unique project URL/keys/secrets,
 5. apply GitHub migrations and the staging-only seed,
-6. deploy all four Edge Functions with the JWT settings from `supabase/config.toml`,
+6. deploy all five Edge Functions with the JWT settings from `supabase/config.toml`,
 7. create separate synthetic Auth users and enroll MFA,
 8. verify Security and Performance Advisors,
 9. run two-tenant isolation and full end-to-end UAT,
@@ -84,6 +86,7 @@ A real staging environment is not approved merely because CI passes. Issue #364 
 - Realtime behavior,
 - operator security boundary,
 - manual customer payment boundary,
+- Oplacerade betalningar Edge Function/server-only RPC boundary,
 - customer invoice -> batch -> receivables -> payment/credit/settlement -> ledger -> PDF,
 - restore/rebuild procedure,
 - Advisor results,
