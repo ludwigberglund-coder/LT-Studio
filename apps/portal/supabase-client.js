@@ -108,7 +108,7 @@
     const protocol=url.protocol==='https:'?'wss:':'ws:';
     return protocol+'//'+url.host+'/realtime/v1/websocket?apikey='+encodeURIComponent(cfg.publishableKey)+'&vsn=1.0.0';
   }
-  function createRealtimeWatcher({token,tables,onChange,onStatus}){
+  function createRealtimeWatcher({token,tables,filters={},onChange,onStatus}){
     let socket=null,closed=false,heartbeat=0,reconnectTimer=0,reconnectAttempt=0,ref=0,joinRef='',accessToken=token;
     const topic='realtime:lt-studio-'+crypto.randomUUID();
     const nextRef=()=>String(++ref);
@@ -136,7 +136,7 @@
           config:{
             broadcast:{ack:false,self:false},
             presence:{enabled:false},
-            postgres_changes:tables.map(table=>({event:'*',schema:'public',table}))
+            postgres_changes:tables.map(table=>({event:'*',schema:'public',table,...(filters[table]?{filter:filters[table]}:{})}))
           },
           access_token:accessToken
         },topic,joinRef,joinRef);
@@ -186,9 +186,19 @@
     clearTimeout(realtimeReloadTimer);
     realtimeReloadTimer=setTimeout(()=>location.reload(),250);
   }
+  function realtimeFilters(ctx,tables){
+    const companyId=String(ctx?.company?.id||'');
+    const authUserId=String(ctx?.authUser?.id||'');
+    return Object.fromEntries(tables.map(table=>{
+      if(table==='companies')return [table,'id=eq.'+companyId];
+      if(table==='app_users')return [table,'auth_user_id=eq.'+authUserId];
+      return [table,'company_id=eq.'+companyId];
+    }));
+  }
   function autoSync(ctx){
     const tables=PAGE_REALTIME_TABLES[realtimePageName()]||[];
     if(!ctx?.authenticated||!ctx?.company?.id||!ctx?.accessToken||!tables.length)return;
+    const filters=realtimeFilters(ctx,tables);
     const key=ctx.company.id+'|'+tables.join(',');
     if(activeRealtime?.key===key){activeRealtime.watcher.updateToken(ctx.accessToken);return}
     activeRealtime?.watcher?.close?.();
@@ -196,6 +206,7 @@
     const watcher=createRealtimeWatcher({
       token:ctx.accessToken,
       tables,
+      filters,
       onChange:safeRealtimeReload,
       onStatus:status=>document.documentElement.dataset.realtimeStatus=status
     });
