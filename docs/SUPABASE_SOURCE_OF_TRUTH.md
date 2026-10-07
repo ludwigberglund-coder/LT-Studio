@@ -1,6 +1,6 @@
 # Supabase UAT source of truth
 
-Status captured: 2026-10-05.
+Status captured: 2026-10-07.
 
 GitHub is the source of truth for UAT infrastructure. Permanent Supabase schema, RLS, RPC, trigger, Storage, Realtime, and Edge Function changes must have a corresponding version-controlled change in this repository.
 
@@ -66,3 +66,21 @@ The server bridge is `SECURITY DEFINER`, has an empty `search_path`, validates t
 - The stale saved-draft / reserved-request mismatch count is 0 after the one-time recovery.
 - Latest `main` clean-rebuild workflow passed before this reconciliation.
 - Security Advisor has one remaining warning: Leaked Password Protection, tracked in #530 and blocked by the current Supabase Free plan.
+
+
+## Verification 2026-10-07
+
+A fresh live integrity audit was run after the invoice idempotency recovery had been deployed and used in UAT.
+
+- Customer-invoice reservation integrity issues: 0.
+- Cancelled reservation integrity issues: 0.
+- Issued customer invoices missing archived invoice documents: 0.
+- Issued customer invoices missing journal entries: 0.
+- Saved drafts still linked to stale reserved request ids: 0.
+- Active reserved invoice numbers: 0.
+- Reservation history: 11 issued and 1 cancelled. The cancelled row is retained intentionally as audit history and its number is not reused.
+- A new customer invoice was successfully issued after the recovery and its reservation, PDF/document archive, and journal entry are all present.
+- Postgres logs show three `INVOICE_IDEMPOTENCY_CONFLICT` events before the fix on 2026-10-05 and zero such events in the first full 24-hour window after deployment.
+- Hosted migration history still contains 45 entries and remains aligned with the exact GitHub migration versions.
+- Security Advisor still has one warning: Leaked Password Protection is disabled and tracked in #530.
+- Performance Advisor currently has only 77 `unused_index` findings at INFO level. No index is removed solely because of that advisor signal; real query usage must be reviewed first.
