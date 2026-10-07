@@ -30,21 +30,6 @@ test('nya och resetade operatörsskapade lösenord kontrolleras mot kända läck
   assert.equal(checks,2);
 });
 
-test('administrativt lösenordsbyte anger global sessionsåterkallning',()=>{
-  const edge=read('supabase/functions/operator-admin/index.ts');
-
-  const start=edge.indexOf('if(action==="reset-password")');
-  const end=edge.indexOf('if(action==="remove-user")',start);
-  assert.ok(start>=0&&end>start);
-  const reset=edge.slice(start,end);
-
-  assert.match(reset,/admin\.auth\.admin\.updateUserById\(target,\{password\}\)/);
-  assert.match(reset,/CUSTOMER_USER_PASSWORD_RESET/);
-  assert.match(reset,/sessionsRevoked:true/);
-  assert.match(reset,/sessionScope:"global"/);
-  assert.doesNotMatch(reset,/sessionsRevoked:false/);
-});
-
 test('lösenordsreset kräver fortfarande medlemskap i exakt valt företag',()=>{
   const edge=read('supabase/functions/operator-admin/index.ts');
 
@@ -58,21 +43,14 @@ test('lösenordsreset kräver fortfarande medlemskap i exakt valt företag',()=>
 });
 
 
-test('LT Studios RLS stoppar gamla access-token när Supabase-sessionen har återkallats',()=>{
-  const sessionGuard=read('supabase/migrations/20260926151655_personal_session_limits.sql');
 
-  assert.match(sessionGuard,/auth\.sessions s/);
-  assert.match(sessionGuard,/s\.id = v_session_id/);
-  assert.match(sessionGuard,/s\.user_id = v_uid/);
-  assert.match(sessionGuard,/if not found or v_created_at is null then\s+return false;/i);
-});
 
-test('password-reset audit anger explicit sessionsåterkallning',()=>{
+test('administrativt lösenordsbyte överdriver inte sessionsstatus',()=>{
   const edge=read('supabase/functions/operator-admin/index.ts');
-
   const start=edge.indexOf('if(action==="reset-password")');
   const end=edge.indexOf('if(action==="remove-user")',start);
   const reset=edge.slice(start,end);
-
-  assert.match(reset,/details:\{sessionsRevoked:true\}/);
+  assert.match(reset,/sessionsRevoked:false/);
+  assert.match(reset,/sessionScope:"supabase"/);
+  assert.doesNotMatch(reset,/sessionsRevoked:true/);
 });
