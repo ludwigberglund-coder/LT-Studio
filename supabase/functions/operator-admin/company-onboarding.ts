@@ -21,6 +21,17 @@ function emailOk(value:string){
   return value.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function normalizeWebsite(value:unknown){
+  const raw=text(value);
+  if(!raw)return "";
+  const candidate=/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)?raw:"https://"+raw;
+  try{
+    const parsed=new URL(candidate);
+    if(parsed.protocol!=="https:"||!parsed.hostname)return raw;
+    return parsed.toString().replace(/\/$/,"");
+  }catch{return raw}
+}
+
 function websiteOk(value:string){
   if(!value)return true;
   try{
@@ -29,8 +40,21 @@ function websiteOk(value:string){
   }catch{return false}
 }
 
+function normalizeBankgiro(value:unknown){
+  const raw=text(value),digits=raw.replace(/\D/g,"");
+  if(digits.length===7)return digits.slice(0,3)+"-"+digits.slice(3);
+  if(digits.length===8)return digits.slice(0,4)+"-"+digits.slice(4);
+  return raw;
+}
+
 function bankgiroOk(value:string){
   return !value||/^\d{3,4}-\d{4}$/.test(value);
+}
+
+function normalizeVatNumber(value:unknown,orgDigits:string){
+  const compact=text(value).toUpperCase().replace(/[^A-Z0-9]/g,"");
+  if(compact===orgDigits+"01"||compact==="SE"+orgDigits+"01")return "SE"+orgDigits+"01";
+  return compact;
 }
 
 async function sha256Hex(value:string){
@@ -52,9 +76,9 @@ const allowedTaxStatuses=new Set([
 
 export async function createCompanyOnboarding(admin:any,operatorUserId:string,body:any){
   const legalName=text(body.legalName),displayName=text(body.displayName),orgNumber=normalizeOrgNumber(body.orgNumber);
-  const address=text(body.address),companyEmail=text(body.companyEmail).toLowerCase(),phone=text(body.phone),website=text(body.website);
-  const bankgiro=text(body.bankgiro),taxStatus=text(body.taxStatus),adminName=text(body.adminName),adminEmail=text(body.adminEmail).toLowerCase();
-  const orgDigits=orgNumber.replace(/\D/g,""),vatNumber=text(body.vatNumber).toUpperCase().replace(/\s/g,"");
+  const address=text(body.address),companyEmail=text(body.companyEmail).toLowerCase(),phone=text(body.phone),website=normalizeWebsite(body.website);
+  const bankgiro=normalizeBankgiro(body.bankgiro),taxStatus=text(body.taxStatus),adminName=text(body.adminName),adminEmail=text(body.adminEmail).toLowerCase();
+  const orgDigits=orgNumber.replace(/\D/g,""),vatNumber=normalizeVatNumber(body.vatNumber,orgDigits);
 
   if(legalName.length<2||legalName.length>160)return{status:422,body:{error:"Juridiskt namn måste vara 2–160 tecken.",code:"INVALID_COMPANY_NAME"}};
   if(displayName.length<2||displayName.length>80)return{status:422,body:{error:"Visningsnamn måste vara 2–80 tecken.",code:"INVALID_COMPANY_DISPLAY_NAME"}};
