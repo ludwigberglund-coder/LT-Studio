@@ -5,6 +5,7 @@ const {validateContent}=require('./validate-content.js');
 const root=path.resolve(__dirname,'..'),target=path.join(root,'dist');
 function copyDirectory(source,destination){if(!fs.existsSync(source))throw new Error(`Källkatalog saknas: ${path.relative(root,source)}`);fs.mkdirSync(destination,{recursive:true});fs.cpSync(source,destination,{recursive:true});}
 function copyFile(source,destination){if(!fs.existsSync(source))throw new Error(`Källfil saknas: ${path.relative(root,source)}`);fs.mkdirSync(path.dirname(destination),{recursive:true});fs.copyFileSync(source,destination);}
+function isImmediateRedirectHtml(html){return /<meta\b[^>]*http-equiv=["']refresh["'][^>]*content=["']\s*0\s*;/i.test(html)&&/\blocation\.replace\s*\(/.test(html);}
 function installGlobalTheme(directory){
   for(const entry of fs.readdirSync(directory,{withFileTypes:true})){
     const file=path.join(directory,entry.name);
@@ -12,6 +13,7 @@ function installGlobalTheme(directory){
     if(!entry.isFile()||!entry.name.endsWith('.html'))continue;
     const relative=path.relative(path.dirname(file),path.join(target,'shared')).split(path.sep).join('/')||'.';
     let html=fs.readFileSync(file,'utf8');
+    if(isImmediateRedirectHtml(html))continue;
     const themeBoot=`<script>(function(){try{var k='lt-studio-theme-v1',v=localStorage.getItem(k),d=v==='dark'||(!v&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.ltTheme=d?'dark':'light';document.documentElement.style.colorScheme=d?'dark':'light'}catch(e){}})();<\/script>`;
     const themeStyle=`<link rel="stylesheet" href="${relative}/theme.css">`;
     const designSystem=/<link\b[^>]*href=["'][^"']*design-system\.css(?:\?[^"']*)?["'][^>]*>/i;
@@ -49,6 +51,7 @@ function installWorkspaceNavigation(directory){
     if(!name.endsWith('.html'))continue;
     const relative=path.relative(path.dirname(file),path.join(target,'portal')).split(path.sep).join('/')||'.';
     let html=fs.readFileSync(file,'utf8');
+    if(isImmediateRedirectHtml(html))continue;
     html=html.replace(/<script\b[^>]*src=["'][^"']*portal-nav\.js["'][^>]*>\s*<\/script>/gi,'');
     html=html.replace(/<link\b[^>]*href=["'][^"']*shared-nav\.css["'][^>]*>/gi,'');
     const sharedNavigation=`<link rel="stylesheet" href="${relative}/shared-nav.css">`;
@@ -107,4 +110,4 @@ function buildStatic(){
   console.log(`Ny statisk demo byggd: ${target}`);return target;
 }
 if(require.main===module){try{buildStatic();}catch(error){console.error(error.message);process.exitCode=1;}}
-module.exports={buildStatic};
+module.exports={buildStatic,isImmediateRedirectHtml};
