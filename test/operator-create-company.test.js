@@ -141,7 +141,7 @@ test('nya kundadmins får gratis skydd mot kända läckta lösenord',()=>{
   assert.match(activate,/slice\(0,5\)/);
   assert.match(activate,/PASSWORD_COMPROMISED/);
   assert.match(activate,/PASSWORD_BREACH_CHECK_UNAVAILABLE/);
-  assert.doesNotMatch(activate,/api\.pwnedpasswords\.com\/range\/"\+hash/);
+  assert.equal(activate.includes('api.pwnedpasswords.com/range/" + hash'),false);
 });
 
 
