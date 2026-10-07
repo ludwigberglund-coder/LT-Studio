@@ -566,6 +566,17 @@ function memberRows(detail){
     return `<tr><td><div class="company-cell"><span class="company-avatar user">${initials(m.displayName)}</span><div><strong>${esc(m.displayName)}</strong><small>${esc(m.username)}</small></div></div></td><td>${roleControl}</td><td>${status}</td><td>${actions}</td></tr>`;
   }).join('')||'<tr><td colspan="4" class="empty">Inga användare i företaget.</td></tr>';
 }
+function companyOnboardingPanel(detail){
+  const onboarding=detail?.onboarding||{};
+  if(onboarding.status==='active')return '';
+  const title=onboarding.status==='pending_activation'?'Väntar på första admin':onboarding.status==='activation_expired'?'Aktiveringslänken har gått ut':'Företaget saknar första admin';
+  const description=onboarding.recipientEmail
+    ?'Inbjudan är adresserad till '+esc(onboarding.recipientName||'administratören')+' · '+esc(onboarding.recipientEmail)+'.'
+    :'Skapa en personlig aktiveringslänk för företagets första administratör.';
+  const expiry=onboarding.expiresAt?'Gäller till '+dateTime(onboarding.expiresAt):'Inte aktiverad';
+  const tone=onboarding.status==='activation_expired'?'critical':'warning';
+  return '<section class="panel onboarding-status-panel"><div class="panel-head"><div><span class="eyebrow">ONBOARDING</span><h2>'+esc(title)+'</h2><p>'+description+'</p></div><div class="row-actions"><span class="panel-stat '+tone+'">'+esc(expiry)+'</span><button class="button secondary small" type="button" data-action="reissue-activation">Ny aktiveringslänk</button></div></div><div class="onboarding-boundary-note"><strong>Ingen automatisk kunddataåtkomst för LT Studio-operatören</strong><span>Kundens ekonomiska data nås endast av användare med uttryckligt företagsmedlemskap och MFA.</span></div></section>';
+}
 function companyDetailView(detail){
   const addUserIdentityLabel=useSupabase?'E-post':'Användarnamn eller e-post';
   const addUserIdentityType=useSupabase?'email':'text';
@@ -576,7 +587,7 @@ function companyDetailView(detail){
   const userActivity=memberCount?Math.min(100,Math.round(Number(s.activeSessionCount||0)/memberCount*100)):0;
   shell(`<div class="detail-back"><button class="button secondary" data-action="back-companies">← Alla företag</button></div>
   <section class="detail-hero"><div><span class="eyebrow">KUNDFÖRETAG</span><h2>${esc(c.displayName)}</h2><p>${esc(c.legalName)} · ${esc(c.orgNumber)}</p></div><div class="detail-hero-meta"><span><small>Skapad</small><strong>${dateTime(c.createdAt)}</strong></span><span><small>Senaste aktivitet</small><strong>${dateTime(s.lastActivityAt)}</strong></span></div></section>
-  <section class="status-grid"><article class="metric"><span>Användare</span><strong>${num(s.memberCount)}</strong><small>konton med åtkomst</small></article><article class="metric"><span>Aktiva sessioner</span><strong>${num(s.activeSessionCount)}</strong><small>aktiva kundsessioner</small></article><article class="metric"><span>Kundposter</span><strong>${num(s.customerRecordCount)}</strong><small>i kundregistret</small></article><article class="metric"><span>Fakturor</span><strong>${num(s.invoiceRecordCount)}</strong><small>registrerade poster</small></article></section>
+  ${companyOnboardingPanel(detail)}\n  <section class="status-grid"><article class="metric"><span>Användare</span><strong>${num(s.memberCount)}</strong><small>konton med åtkomst</small></article><article class="metric"><span>Aktiva sessioner</span><strong>${num(s.activeSessionCount)}</strong><small>aktiva kundsessioner</small></article><article class="metric"><span>Kundposter</span><strong>${num(s.customerRecordCount)}</strong><small>i kundregistret</small></article><article class="metric"><span>Fakturor</span><strong>${num(s.invoiceRecordCount)}</strong><small>registrerade poster</small></article></section>
   <section class="dashboard-grid detail-analytics">
     <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">ANVÄNDNING</span><h2>Aktivitet</h2><p>Snabb indikator för kundmiljön.</p></div></div><div class="instrument-pad">${ringGauge(userActivity,'Sessionstäthet',`${s.activeSessionCount||0} aktiva sessioner för ${memberCount} användare.`,'neutral')}</div></article>
     <article class="panel dashboard-panel"><div class="panel-head"><div><span class="eyebrow">MILJÖDATA</span><h2>Volym</h2><p>Operativ metadata för kundmiljön.</p></div></div><div class="stat-stack"><div><span>Kundposter</span><strong>${num(s.customerRecordCount)}</strong></div><div><span>Fakturaposter</span><strong>${num(s.invoiceRecordCount)}</strong></div><div><span>Senaste aktivitet</span><strong class="date-stat">${dateTime(s.lastActivityAt)}</strong></div></div></article>
