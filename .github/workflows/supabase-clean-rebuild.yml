@@ -44,6 +44,9 @@ jobs:
       - name: Lint database functions
         run: supabase db lint --local --schema public --fail-on error
 
+      - name: Verify rebuilt database security contract
+        run: supabase test db
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
