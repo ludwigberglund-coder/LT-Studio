@@ -103,3 +103,36 @@ test('aktiveringsinbjudningar publiceras inte till kundportalens realtime-kanal'
 
   assert.doesNotMatch(realtime,/['"]company_activation_invites['"]/);
 });
+
+
+test('aktiveringslänken transporterar hemligheten i URL-fragment och rensar adressfältet direkt',()=>{
+  const operator=read('apps/operator/app.js');
+  const activation=read('apps/portal/company-activate.js');
+
+  assert.match(operator,/url\.hash='code='/);
+  assert.doesNotMatch(operator,/searchParams\.set\(['"]code['"]/);
+  assert.match(activation,/location\.hash/);
+  assert.match(activation,/history\.replaceState\(null,'',location\.pathname\+location\.search\)/);
+});
+
+test('aktiveringssidan laddar endast lokala script och styles',()=>{
+  const html=read('apps/portal/company-activate.html');
+
+  const externalScript=/<script[^>]+src=["']https?:\/\//i;
+  const externalStyle=/<link[^>]+href=["']https?:\/\//i;
+  const externalForm=/<form[^>]+action=["']https?:\/\//i;
+
+  assert.doesNotMatch(html,externalScript);
+  assert.doesNotMatch(html,externalStyle);
+  assert.doesNotMatch(html,externalForm);
+  assert.match(html,/src="\.\/supabase-config\.js"/);
+  assert.match(html,/src="\.\/company-activate\.js"/);
+});
+
+test('aktiveringskod och lösenord är maskerade och undantas från autocomplete',()=>{
+  const html=read('apps/portal/company-activate.html');
+
+  assert.match(html,/name="inviteCode" type="password"[^>]+autocomplete="off"/);
+  assert.match(html,/name="password" type="password"[^>]+autocomplete="new-password"/);
+  assert.match(html,/autocomplete="current-password"/);
+});
