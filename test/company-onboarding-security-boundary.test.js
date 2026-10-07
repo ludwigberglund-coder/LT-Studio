@@ -71,3 +71,35 @@ test('endast en oanvänd aktiveringslänk kan vara giltig per företag även vid
   assert.match(hardening,/on public\.company_activation_invites\(company_id\)/i);
   assert.match(hardening,/where claimed_at is null and revoked_at is null/i);
 });
+
+
+test('LT Studio-operatören blir inte automatiskt medlem i kundföretaget',()=>{
+  const create=read('supabase/migrations/20261007152100_operator_create_company_onboarding.sql');
+
+  assert.match(create,/insert into public\.companies/i);
+  assert.match(create,/insert into public\.company_invoice_settings/i);
+  assert.match(create,/insert into public\.company_activation_invites/i);
+  assert.doesNotMatch(create,/insert into public\.company_memberships/i);
+});
+
+test('driftadmin hämtar bara ekonomisk metadata och inte kundernas eller fakturornas innehåll',()=>{
+  const operator=read('supabase/functions/operator-admin/index.ts');
+
+  // Översikten får räkna poster men ska inte hämta ekonomiska detaljfält.
+  assert.match(operator,/from\("customers"\)\.select\("id,company_id,created_at"\)/);
+  assert.match(operator,/from\("invoices"\)\.select\("id,company_id,created_at"\)/);
+
+  // Företagsdetaljen får bara använda ID:n för statistik.
+  assert.match(operator,/from\("customers"\)\.select\("id"\)\.eq\("company_id",companyId\)/);
+  assert.match(operator,/from\("invoices"\)\.select\("id"\)\.eq\("company_id",companyId\)/);
+
+  // Ingen operatörsväg ska returnera fulla kund- eller fakturarader.
+  assert.doesNotMatch(operator,/from\("customers"\)\.select\("\*"\)/);
+  assert.doesNotMatch(operator,/from\("invoices"\)\.select\("\*"\)/);
+});
+
+test('aktiveringsinbjudningar publiceras inte till kundportalens realtime-kanal',()=>{
+  const realtime=read('supabase/migrations/20260926164726_shared_uat_realtime_completion.sql');
+
+  assert.doesNotMatch(realtime,/['"]company_activation_invites['"]/);
+});
