@@ -30,7 +30,6 @@ declare
   v_org_digits text:=replace(coalesce(p_org_number,''),'-','');
   v_luhn_sum integer:=0;
   v_luhn_digit integer;
-  v_i integer;
 begin
   if p_operator_id is null or not exists(
     select 1
