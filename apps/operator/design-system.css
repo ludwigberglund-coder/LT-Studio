@@ -929,3 +929,116 @@ html[data-operator-motion="off"] .sparkline circle{animation:none!important}
   .statistics-live-hero::before,.statistics-live-hero::after,.security-hero-live::before,.security-hero-live::after,.hero-dashboard::before,.hero-dashboard::after,
   .live-metrics .metric::after,.live-orb::after,.live-dot::after,.side-status .live-dot,.sparkline polyline,.sparkline circle{animation:none!important}
 }
+
+
+/* Readability + stronger motion pass requested in UAT. */
+.statistics-live-hero,
+.security-hero-live,
+.hero-dashboard{
+  border-color:#d4d4d4;
+  box-shadow:0 18px 48px rgb(0 0 0 / .08);
+}
+.statistics-live-hero h2,
+.security-hero-live h2,
+.hero-dashboard h2{
+  font-size:clamp(30px,3vw,42px);
+  line-height:1.08;
+  letter-spacing:-1.2px;
+}
+.statistics-live-hero p,
+.security-hero-live p,
+.hero-dashboard p{
+  color:#404040;
+  font-size:14px;
+  line-height:1.6;
+}
+.statistics-live-hero .eyebrow,
+.security-hero-live .eyebrow,
+.hero-dashboard .eyebrow{
+  color:#525252;
+  font-weight:600;
+}
+.live-ribbon,
+.monitor-live{
+  background:#ffffff;
+  border:1px solid #d4d4d4;
+  color:#171717;
+}
+.live-ribbon strong,
+.monitor-live strong{
+  font-size:12px;
+  font-weight:700;
+}
+.live-ribbon span,
+.monitor-live span{
+  color:#404040;
+}
+.metric>strong{
+  font-size:32px;
+  line-height:1;
+}
+.metric small,
+.metric-top span{
+  color:#525252;
+}
+.chart-head p,
+.chart-total span,
+.role-row span,
+.bar-row span,
+.panel-head p{
+  color:#525252;
+}
+.sparkline polyline{
+  stroke-width:3.5;
+  animation-duration:calc(var(--operator-live-speed) * .55);
+}
+.sparkline circle{
+  r:5;
+}
+.live-orb,
+.live-dot{
+  transform-origin:center;
+  animation:operatorLiveBreathe calc(var(--operator-live-speed) / 2.8) ease-in-out infinite;
+}
+.statistics-live-hero::before,
+.security-hero-live::before,
+.hero-dashboard::before{
+  animation-duration:calc(var(--operator-live-speed) * .72);
+}
+.statistics-live-hero::after,
+.security-hero-live::after,
+.hero-dashboard::after{
+  animation-duration:calc(var(--operator-live-speed) * .95);
+}
+.live-metrics .metric::after{
+  opacity:.35;
+  animation-duration:calc(var(--operator-live-speed) * .62);
+}
+.panel:hover,
+.chart-card:hover,
+.metric:hover{
+  transform:translateY(-3px);
+  box-shadow:0 16px 34px rgb(0 0 0 / .1);
+}
+@keyframes operatorLiveBreathe{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.16)}
+}
+
+html[data-operator-motion="calm"] .live-orb,
+html[data-operator-motion="calm"] .live-dot{
+  animation-duration:calc(var(--operator-live-speed) * 1.4);
+}
+html[data-operator-motion="off"] .live-orb,
+html[data-operator-motion="off"] .live-dot{
+  animation:none!important;
+}
+
+@media(max-width:760px){
+  .statistics-live-hero h2,
+  .security-hero-live h2,
+  .hero-dashboard h2{font-size:30px}
+  .statistics-live-hero p,
+  .security-hero-live p,
+  .hero-dashboard p{font-size:13px}
+}
