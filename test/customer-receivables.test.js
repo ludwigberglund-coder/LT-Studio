@@ -50,13 +50,14 @@ test('ränteberäkning delar upp perioden när referensräntan ändras', () => {
   assert.equal(result.segments[1].referenceRateBasisPoints, 200);
 });
 
-test('automatisk dröjsmålsränta kräver verifierad startgrund men påminnelse utan ränta är tillåten', () => {
-  const unverified={id:'inv-old',invoiceDate:'2026-08-01',dueDate:'2026-09-01',totalOre:100_000,remainingOre:100_000,transactions:[]};
-  assert.throws(
-    ()=>Receivables.reminderPreview(unverified,{sentDate:'2026-09-10',includeInterest:true},legalRates),
-    error=>error.code==='INTEREST_START_BASIS_UNVERIFIED'
-  );
-  const safe=Receivables.reminderPreview(unverified,{sentDate:'2026-09-10',includeInterest:false},legalRates);
+test('bokförd faktura med giltigt förfallodatum kan beräkna dröjsmålsränta även utan ny verifieringsmarkering', () => {
+  const olderInvoice={id:'inv-old',invoiceDate:'2026-08-01',dueDate:'2026-09-01',totalOre:100_000,remainingOre:100_000,transactions:[]};
+  const preview=Receivables.reminderPreview(olderInvoice,{sentDate:'2026-09-10',includeInterest:true},legalRates);
+  assert.ok(preview.interestOre>0);
+  assert.equal(preview.interestStartBasis,'predetermined-due-date');
+  assert.equal(preview.interestStartEvidenceSource,'booked-invoice-record');
+
+  const safe=Receivables.reminderPreview(olderInvoice,{sentDate:'2026-09-10',includeInterest:false},legalRates);
   assert.equal(safe.interestOre,0);
   assert.equal(safe.interestStartBasis,'none');
   assert.equal(safe.statutoryRateOnSentDateBasisPoints,0);

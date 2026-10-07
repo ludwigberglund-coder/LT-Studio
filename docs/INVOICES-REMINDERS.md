@@ -59,6 +59,8 @@ Riksbankens referensränta + 8 procentenheter
 
 När ett bestämt förfallodatum gäller kan ränta enligt huvudregeln räknas från förfallodagen. När det inte finns ett sådant avtalat förfallodatum gäller andra regler och krav på betalningskrav/faktura. Därför ska fakturans avtals- och kundtyp kunna styra det framtida arbetsflödet.
 
+I LT Studio används det sparade förfallodatumet på en bokförd kundfaktura som beräkningsgrund. Nyare fakturor behåller dessutom den starkare kopplingen till det arkiverade, integritetskontrollerade fakturadokumentet. Äldre/importerade fakturor utan denna extra markering ska fortfarande kunna beräknas så länge fakturadatum, förfallodatum och betalningshistorik är giltiga.
+
 För perioden 1 juli–31 december 2026 är referensräntan konfigurerad till 2,00 procent. Det ger 10,00 procent per år enligt standardregeln ovan när den är tillämplig.
 
 Räntan räknas:

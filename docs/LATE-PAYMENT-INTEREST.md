@@ -1,6 +1,6 @@
 # Dröjsmålsränta och betalningspåminnelser
 
-Senast verifierad: 2026-09-18.
+Senast verifierad: 2026-10-07.
 
 Detta dokument beskriver den avgränsade implementationen inför Rolands pilot. Det är inte juridisk rådgivning och ersätter inte redovisnings- eller inkassobedömning i ett enskilt ärende.
 
@@ -27,7 +27,9 @@ Riksbankens verifierade referensränta för 1 juli–31 december 2026 är 2,00 p
 
 Systemet har ännu inte ett komplett källanknutet flöde för kreditfakturor och andra efterhandsjusteringar i räntehistoriken. Sådana ärenden blockeras från automatisk ränteberäkning.
 
-Den rättsliga startpunkten för dröjsmålsränta måste dessutom kopplas till dokumenterade betalningsvillkor för respektive kund-/avtalstyp. Den nuvarande påminnelsevägen använder fakturans förfallodag och får inte betraktas som ett generellt bevis för att ränta alltid får tas ut från just den dagen i alla situationer.
+För bokförda kundfakturor med ett uttryckligt förfallodatum använder systemet nu det sparade förfallodatumet som beräkningsgrund även när en äldre/importerad faktura saknar den nyare verifieringsmarkeringen från det arkiverade fakturadokumentet. Om det integritetskontrollerade utställningsunderlaget finns kvar används det fortfarande som starkare beviskälla.
+
+Detta innebär att en förfallen, obetald faktura inte längre blockeras enbart för att `interestStartBasis` saknas. Övriga säkerhetsspärrar ligger kvar: felaktiga datum, ofullständig eller avvikande betalningshistorik, krediter/justeringar som inte kan härledas säkert och saknad verifierad referensränta stoppar fortfarande beräkningen.
 
 ## Driftregel
 
