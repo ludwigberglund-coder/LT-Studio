@@ -52,3 +52,14 @@ test('giltigt ISO-betaldatum accepteras i formuläret för oplacerad manuell inb
   assert.ok(payments.includes(correct),'datumvalideringen ska använda \\d och acceptera YYYY-MM-DD');
   assert.ok(!payments.includes(broken),'datumvalideringen får inte matcha en bokstavlig backslash');
 });
+
+
+test('manuell oplacerad inbetalning opt-in till kontrollerad finansiell skrivning',()=>{
+  const fix=read('supabase/migrations/20261007204500_manual_unplaced_financial_write_guard.sql');
+
+  assert.match(fix,/create or replace function public\.stage_manual_unplaced_bank_payment_server/i);
+  assert.match(fix,/set_config\('app\.controlled_financial_write','1',true\)/);
+  assert.match(fix,/insert into public\.bank_payments/i);
+  assert.match(fix,/status[^\n]*'unmatched'|'unmatched'/i);
+  assert.match(fix,/grant execute on function public\.stage_manual_unplaced_bank_payment_server[\s\S]*to service_role/i);
+});
