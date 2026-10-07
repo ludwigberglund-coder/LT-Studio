@@ -102,10 +102,12 @@ async function overview(admin:any){
     const sec=ce.filter((e:any)=>Date.parse(e.created_at)>=Date.now()-24*3600000);
     const latestInvite=invites.find((i:any)=>i.company_id===company.id)||null;
     const inviteActive=Boolean(latestInvite&&!latestInvite.claimed_at&&!latestInvite.revoked_at&&Date.parse(latestInvite.expires_at)>Date.now());
-    const onboardingStatus=active.length>0?"active":inviteActive?"pending_activation":latestInvite?"activation_expired":"unconfigured";
+    const mfaProtectedMembers=active.filter((m:any)=>mfa(String(m.auth_user_id)));
+    const mfaProtectedAdmins=mfaProtectedMembers.filter((m:any)=>m.role==="admin");
+    const onboardingStatus=mfaProtectedAdmins.length>0?"active":latestInvite?.claimed_at?"mfa_pending":inviteActive?"pending_activation":latestInvite?"activation_expired":"unconfigured";
     return {
       id:company.id,legalName:company.legal_name,displayName:company.display_name||company.legal_name,orgNumber:company.org_number||"",createdAt:company.created_at,
-      memberCount:cm.length,activeMemberCount:active.length,mfaProtectedMemberCount:active.filter((m:any)=>mfa(String(m.auth_user_id))).length,
+      memberCount:cm.length,activeMemberCount:active.length,mfaProtectedMemberCount:mfaProtectedMembers.length,
       activity30dCount:ce.filter((e:any)=>e.created_at>=since30).length,securityEventCount24h:sec.filter((e:any)=>severity(e.event_type)!=="info").length,
       criticalSecurityCount24h:sec.filter((e:any)=>severity(e.event_type)==="critical").length,activeSessionCount:null,
       customerRecordCount:customers.filter((r:any)=>r.company_id===company.id).length,invoiceRecordCount:invoices.filter((r:any)=>r.company_id===company.id).length,
@@ -155,13 +157,15 @@ async function companyDetail(admin:any,companyId:string){
   const usersByAuth=new Map((usersQ.data||[]).map((u:any)=>[String(u.auth_user_id),u])),authById=new Map(authUsers.map((u:any)=>[String(u.id),u]));
   const members=(membersQ.data||[]).map((m:any)=>{const profile=usersByAuth.get(String(m.auth_user_id))||{},au=authById.get(String(m.auth_user_id));return{
     userId:m.auth_user_id,username:profile.username||au?.email||"",displayName:profile.display_name||au?.user_metadata?.display_name||au?.email||"Användare",
-    role:m.role,disabled:Boolean(profile.disabled),platformAdmin:false,createdAt:m.created_at
+    role:m.role,disabled:Boolean(profile.disabled),mfaConfigured:Boolean(au?.factors?.some((f:any)=>f.status==="verified")),platformAdmin:false,createdAt:m.created_at
   }});
   const platformAdmins=(operatorsQ.data||[]).map((op:any)=>{const au=authById.get(String(op.auth_user_id));return{userId:op.auth_user_id,username:au?.email||"",displayName:op.display_name,disabled:Boolean(op.disabled),mfaConfigured:Boolean(au?.factors?.some((f:any)=>f.status==="verified")),createdAt:op.created_at}});
   const invite=inviteQ.data||null,inviteActive=Boolean(invite&&!invite.claimed_at&&!invite.revoked_at&&Date.parse(invite.expires_at)>Date.now());
+  const activeMfaAdmins=members.filter((m:any)=>!m.disabled&&m.role==="admin"&&m.mfaConfigured);
+  const onboardingStatus=activeMfaAdmins.length>0?"active":invite?.claimed_at?"mfa_pending":inviteActive?"pending_activation":invite?"activation_expired":"unconfigured";
   return {company:{id:companyQ.data.id,legalName:companyQ.data.legal_name,displayName:companyQ.data.display_name,orgNumber:companyQ.data.org_number,createdAt:companyQ.data.created_at},
     stats:{memberCount:members.length,activeSessionCount:null,customerRecordCount:(customerQ.data||[]).length,invoiceRecordCount:(invoiceQ.data||[]).length,lastActivityAt:auditQ.data?.[0]?.created_at||null,activePlatformAdminCount:platformAdmins.filter((x:any)=>!x.disabled&&x.mfaConfigured).length},
-    onboarding:{status:members.length>0?"active":inviteActive?"pending_activation":invite?"activation_expired":"unconfigured",recipientEmail:invite?.recipient_email||null,recipientName:invite?.recipient_display_name||null,expiresAt:invite?.expires_at||null,claimedAt:invite?.claimed_at||null},
+    onboarding:{status:onboardingStatus,recipientEmail:invite?.recipient_email||null,recipientName:invite?.recipient_display_name||null,expiresAt:invite?.expires_at||null,claimedAt:invite?.claimed_at||null},
     invoiceSettings:settingsQ.data?{address:settingsQ.data.address,vatNumber:settingsQ.data.vat_number,phone:settingsQ.data.phone,email:settingsQ.data.email,website:settingsQ.data.website,bankgiro:settingsQ.data.bankgiro,taxStatus:settingsQ.data.tax_status}:null,
     members,platformAdmins,roles:[{id:"admin",label:"Admin"},{id:"accountant",label:"Ekonom"},{id:"approver",label:"Attestant"},{id:"readonly",label:"Läsbehörighet"}]};
 }
