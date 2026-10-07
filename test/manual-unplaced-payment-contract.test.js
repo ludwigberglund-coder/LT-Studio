@@ -43,3 +43,12 @@ test('oplacerad manuell inbetalning har tydlig responsiv styling',()=>{
   assert.match(css,/#manual-unplaced-payment-form/);
   assert.match(css,/html\[data-lt-theme="dark"\] \.manual-unplaced-choice/);
 });
+
+
+test('giltigt ISO-betaldatum accepteras i formuläret för oplacerad manuell inbetalning',()=>{
+  const payments=read('apps/portal/payments.js');
+  const correct="if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(paymentDate))throw new Error('Ange ett giltigt betaldatum.');";
+  const broken="if(!/^\\\\d{4}-\\\\d{2}-\\\\d{2}$/.test(paymentDate))throw new Error('Ange ett giltigt betaldatum.');";
+  assert.ok(payments.includes(correct),'datumvalideringen ska använda \\d och acceptera YYYY-MM-DD');
+  assert.ok(!payments.includes(broken),'datumvalideringen får inte matcha en bokstavlig backslash');
+});
