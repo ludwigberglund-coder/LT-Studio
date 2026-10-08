@@ -595,3 +595,73 @@ html[data-operator-theme="dark"] .security-finding h3,html[data-operator-theme="
   .panel:hover,.metric:hover,.chart-card:hover,.button:hover,.side-nav button:hover{transform:none!important}
   .hero-dashboard::before,.security-hero::before{animation:none!important}
 }
+
+
+/* Integration with LT Studio Liquid Glass (installed LAST by the static builder).
+ * More specific operator rules keep the premium dark sidebar legible while
+ * retaining glass translucency on the navigation chrome. Never affect
+ * accounting/customer portals or their data surfaces.
+ */
+html[data-lt-glass-surface="operator"][data-operator-theme="dark"]{
+  --lt-glass-shell:rgba(23,39,49,.87);
+  --lt-glass-control:rgba(29,48,57,.94);
+  --lt-glass-sheet:rgba(23,39,49,.98);
+  --lt-glass-solid:#172731;
+  --lt-glass-hover:rgba(39,75,71,.96);
+  --lt-glass-highlight:rgba(255,255,255,.08);
+  --lt-glass-stroke:rgba(177,217,209,.22);
+  --lt-glass-shadow:0 1px 0 rgba(255,255,255,.06) inset,0 12px 30px rgba(0,0,0,.23);
+  --lt-glass-float-shadow:0 1px 0 rgba(255,255,255,.08) inset,0 24px 60px rgba(0,0,0,.38);
+  --lt-glass-selection:rgba(93,189,160,.20);
+  --lt-glass-selected-text:#d5fff2;
+  --lt-glass-focus:#66ddc3;
+}
+@media (forced-colors:none){
+  html[data-lt-glass-surface="operator"][data-operator-theme] .sidebar{
+    background:linear-gradient(155deg,rgba(120,196,173,.13),transparent 43%),rgba(14,32,43,.96)!important;
+    border-right:1px solid rgba(180,231,219,.17)!important;
+    color:#edf9fa!important;
+    box-shadow:inset 1px 0 rgba(255,255,255,.08),14px 0 36px rgba(0,0,0,.12)!important;
+  }
+  html[data-lt-glass-surface="operator"][data-operator-theme] .sidebar :is(.mark,.mark-icon,.side-status strong,.customer-system-link strong){
+    color:#f2fffd!important;
+  }
+  html[data-lt-glass-surface="operator"][data-operator-theme] .sidebar :is(.side-nav button,.side-copy,.side-footer,.customer-system-link small,.side-status small){
+    color:#c5d9de;
+  }
+  html[data-lt-glass-surface="operator"][data-operator-theme] .side-nav button.active{
+    color:#f5fffe!important;
+    background:linear-gradient(110deg,rgba(95,194,166,.26),rgba(255,255,255,.08))!important;
+    border-color:rgba(132,218,198,.24)!important;
+    box-shadow:inset 3px 0 #8ce5cc,0 7px 19px rgba(0,0,0,.13)!important;
+  }
+  html[data-lt-glass-surface="operator"][data-operator-theme] .side-nav button:hover:not(.active){
+    color:#ffffff;
+    background:rgba(255,255,255,.12)!important;
+    border-color:rgba(255,255,255,.14)!important;
+  }
+  html[data-lt-glass-surface="operator"][data-operator-theme] :is(.customer-system-link,.side-status){
+    background:rgba(255,255,255,.07)!important;
+    border-color:rgba(200,240,231,.19)!important;
+    color:#f5fffe!important;
+  }
+  html[data-lt-glass-surface="operator"][data-operator-theme] .customer-system-link:hover{
+    background:rgba(255,255,255,.13)!important;
+  }
+}
+@media (prefers-reduced-transparency:reduce){
+  html[data-lt-glass-surface="operator"][data-operator-theme] .sidebar{
+    background:#10232d!important;
+    -webkit-backdrop-filter:none!important;
+    backdrop-filter:none!important;
+  }
+}
+@media (forced-colors:active){
+  html[data-lt-glass-surface="operator"][data-operator-theme] .sidebar :is(.mark,.mark-icon,.side-nav button,.side-copy,.side-footer,.side-status strong,.side-status small,.customer-system-link strong,.customer-system-link small){
+    color:CanvasText!important;
+  }
+  html[data-lt-glass-surface="operator"][data-operator-theme] .side-nav button.active{
+    color:HighlightText!important;
+    background:Highlight!important;
+  }
+}
