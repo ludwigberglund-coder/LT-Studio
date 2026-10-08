@@ -111,6 +111,13 @@ function visible(element){
           const active=document.querySelector('.shared-navigation a[aria-current="page"], .side-nav .active, .nav-item.active');
           const styleSide=side?getComputedStyle(side):null;
           const styleActive=active?getComputedStyle(active):null;
+          const glassSurface=html.dataset.ltGlassSurface||null;
+          const glassChrome=document.querySelector(glassSurface==='website'
+            ? '.site-header'
+            : glassSurface==='operator'
+              ? '.operator-shell .topbar'
+              : '.topbar');
+          const glassChromeStyle=glassChrome?getComputedStyle(glassChrome):null;
           const bodyStyle=getComputedStyle(body);
           const sharedUser=document.querySelector('.shared-user-trigger');
           const sharedAvatar=document.querySelector('.shared-user-avatar');
@@ -172,6 +179,10 @@ function visible(element){
             sidebarBackground:styleSide?.backgroundColor||null,
             activeBackground:styleActive?.backgroundColor||null,
             activeColor:styleActive?.color||null,
+            glassSurface,
+            glassChromeBackgroundImage:glassChromeStyle?.backgroundImage||null,
+            glassChromeShadow:glassChromeStyle?.boxShadow||null,
+            glassChromeBorderTopWidth:glassChromeStyle?.borderTopWidth||null,
             sharedUserDisplay:sharedUserStyle?.display||null,
             sharedUserBorderTopWidth:sharedUserStyle?.borderTopWidth||null,
             sharedAvatarWidth:sharedAvatarStyle?.width||null,
@@ -204,6 +215,14 @@ function visible(element){
         assert.equal(pageErrors.length,0,`${surface.id} ${viewport.id} has uncaught browser errors: ${pageErrors.join('; ')}`);
         assert.equal(layout.iconizedMetrics,0,`${surface.id} ${viewport.id} metric cards must not be converted into inline icon buttons`);
 
+        /* Prevent shipping visually invisible glass again: inspect real computed CSS. */
+        if(viewport.id==='desktop'&&['dashboard','project-admin','website'].includes(surface.id)){
+          const expectedSurface=surface.id==='dashboard'?'portal':surface.id==='website'?'website':'operator';
+          assert.equal(layout.glassSurface,expectedSurface,`${surface.id} glass styling is not installed`);
+          assert.match(layout.glassChromeBackgroundImage||'',/radial-gradient/i,`${surface.id} no visible refraction on the toolbar`);
+          assert.notEqual(layout.glassChromeShadow,'none',`${surface.id} toolbar lacks floating depth`);
+          assert.ok(parseFloat(layout.glassChromeBorderTopWidth)>=1,`${surface.id} toolbar lacks a visible rim`);
+        }
         if(layout.sidebarBackground){
           assert.notEqual(layout.sidebarBackground,'rgb(20, 60, 48)',`${surface.id} ${viewport.id} leaked the old green sidebar`);
         }
