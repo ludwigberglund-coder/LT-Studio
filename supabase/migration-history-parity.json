@@ -1,0 +1,242 @@
+{
+  "project_ref": "bwbhnotpuuhgghjpmflk",
+  "generated_from_main": "ddac5cafb63f514f27a91a023bc689597690989f",
+  "aliases": [
+    {
+      "live_version": "20260926164014",
+      "live_name": "supplier_invoice_date_correction",
+      "repo_version": "20260926163921",
+      "repo_name": "supplier_invoice_date_correction",
+      "repo_path": "supabase/migrations/20260926163921_supplier_invoice_date_correction.sql"
+    },
+    {
+      "live_version": "20261007170158",
+      "live_name": "20261007163100_fresh_staging_advisor_parity",
+      "repo_version": "20261007163100",
+      "repo_name": "fresh_staging_advisor_parity",
+      "repo_path": "supabase/migrations/20261007163100_fresh_staging_advisor_parity.sql"
+    },
+    {
+      "live_version": "20261007170203",
+      "live_name": "20261007164000_unplaced_payments",
+      "repo_version": "20261007164000",
+      "repo_name": "unplaced_payments",
+      "repo_path": "supabase/migrations/20261007164000_unplaced_payments.sql"
+    },
+    {
+      "live_version": "20261007170208",
+      "live_name": "20261007164500_unplaced_payment_fk_indexes",
+      "repo_version": "20261007164500",
+      "repo_name": "unplaced_payment_fk_indexes",
+      "repo_path": "supabase/migrations/20261007164500_unplaced_payment_fk_indexes.sql"
+    },
+    {
+      "live_version": "20261007170212",
+      "live_name": "20261007165000_unplaced_payment_edge_bridge",
+      "repo_version": "20261007165000",
+      "repo_name": "unplaced_payment_edge_bridge",
+      "repo_path": "supabase/migrations/20261007165000_unplaced_payment_edge_bridge.sql"
+    },
+    {
+      "live_version": "20261007192832",
+      "live_name": "20261007185000_manual_unplaced_customer_payments",
+      "repo_version": "20261007185000",
+      "repo_name": "manual_unplaced_customer_payments",
+      "repo_path": "supabase/migrations/20261007185000_manual_unplaced_customer_payments.sql"
+    },
+    {
+      "live_version": "20261007200149",
+      "live_name": "20261007152000_company_activation_invites",
+      "repo_version": "20261007152000",
+      "repo_name": "company_activation_invites",
+      "repo_path": "supabase/migrations/20261007152000_company_activation_invites.sql"
+    },
+    {
+      "live_version": "20261007200153",
+      "live_name": "20261007152100_operator_create_company_onboarding",
+      "repo_version": "20261007152100",
+      "repo_name": "operator_create_company_onboarding",
+      "repo_path": "supabase/migrations/20261007152100_operator_create_company_onboarding.sql"
+    },
+    {
+      "live_version": "20261007200159",
+      "live_name": "20261007152200_claim_company_activation",
+      "repo_version": "20261007152200",
+      "repo_name": "claim_company_activation",
+      "repo_path": "supabase/migrations/20261007152200_claim_company_activation.sql"
+    },
+    {
+      "live_version": "20261007200204",
+      "live_name": "20261007152300_reissue_company_activation",
+      "repo_version": "20261007152300",
+      "repo_name": "reissue_company_activation",
+      "repo_path": "supabase/migrations/20261007152300_reissue_company_activation.sql"
+    },
+    {
+      "live_version": "20261007210646",
+      "live_name": "manual_unplaced_financial_write_guard",
+      "repo_version": "20261007204500",
+      "repo_name": "manual_unplaced_financial_write_guard",
+      "repo_path": "supabase/migrations/20261007204500_manual_unplaced_financial_write_guard.sql"
+    },
+    {
+      "live_version": "20261007213517",
+      "live_name": "verify_operator_password_reset_sessions",
+      "repo_version": "20261007211000",
+      "repo_name": "verify_operator_password_reset_sessions",
+      "repo_path": "supabase/migrations/20261007211000_verify_operator_password_reset_sessions.sql"
+    }
+  ],
+  "unresolved_repo_only": [
+    {
+      "version": "20260925064621",
+      "name": "private_pdf_storage",
+      "path": "supabase/migrations/20260925064621_private_pdf_storage.sql"
+    },
+    {
+      "version": "20260925064842",
+      "name": "supplier_coding_approval",
+      "path": "supabase/migrations/20260925064842_supplier_coding_approval.sql"
+    },
+    {
+      "version": "20260925065024",
+      "name": "supplier_liability_posting",
+      "path": "supabase/migrations/20260925065024_supplier_liability_posting.sql"
+    },
+    {
+      "version": "20260925065143",
+      "name": "supplier_payments",
+      "path": "supabase/migrations/20260925065143_supplier_payments.sql"
+    },
+    {
+      "version": "20260925070609",
+      "name": "customer_invoicing",
+      "path": "supabase/migrations/20260925070609_customer_invoicing.sql"
+    },
+    {
+      "version": "20260925071038",
+      "name": "customer_credit_notes",
+      "path": "supabase/migrations/20260925071038_customer_credit_notes.sql"
+    },
+    {
+      "version": "20260925071351",
+      "name": "document_archive_metadata",
+      "path": "supabase/migrations/20260925071351_document_archive_metadata.sql"
+    },
+    {
+      "version": "20260925071618",
+      "name": "customer_invoice_hardening",
+      "path": "supabase/migrations/20260925071618_customer_invoice_hardening.sql"
+    },
+    {
+      "version": "20260925075745",
+      "name": "bank_reconciliation",
+      "path": "supabase/migrations/20260925075745_bank_reconciliation.sql"
+    },
+    {
+      "version": "20260925080105",
+      "name": "financial_write_guard",
+      "path": "supabase/migrations/20260925080105_financial_write_guard.sql"
+    },
+    {
+      "version": "20260925080318",
+      "name": "inventory",
+      "path": "supabase/migrations/20260925080318_inventory.sql"
+    },
+    {
+      "version": "20260925080510",
+      "name": "inventory_performance_cleanup",
+      "path": "supabase/migrations/20260925080510_inventory_performance_cleanup.sql"
+    },
+    {
+      "version": "20260925080707",
+      "name": "payroll",
+      "path": "supabase/migrations/20260925080707_payroll.sql"
+    },
+    {
+      "version": "20260925094824",
+      "name": "uat_bootstrap_invites",
+      "path": "supabase/migrations/20260925094824_uat_bootstrap_invites.sql"
+    },
+    {
+      "version": "20260925095203",
+      "name": "uat_invoice_settings",
+      "path": "supabase/migrations/20260925095203_uat_invoice_settings.sql"
+    },
+    {
+      "version": "20260925100151",
+      "name": "uat_require_aal2",
+      "path": "supabase/migrations/20260925100151_uat_require_aal2.sql"
+    },
+    {
+      "version": "20260925100603",
+      "name": "customer_browser_grants",
+      "path": "supabase/migrations/20260925100603_customer_browser_grants.sql"
+    },
+    {
+      "version": "20260925130410",
+      "name": "financial_batches_self_approval",
+      "path": "supabase/migrations/20260925130410_financial_batches_self_approval.sql"
+    },
+    {
+      "version": "20260925133748",
+      "name": "financial_batches_audit_write",
+      "path": "supabase/migrations/20260925133748_financial_batches_audit_write.sql"
+    },
+    {
+      "version": "20260925141238",
+      "name": "financial_batch_customer_invoice_gating",
+      "path": "supabase/migrations/20260925141238_financial_batch_customer_invoice_gating.sql"
+    },
+    {
+      "version": "20260926155945",
+      "name": "personal_session_audit_rpc",
+      "path": "supabase/migrations/20260926155945_personal_session_audit_rpc.sql"
+    },
+    {
+      "version": "20260926164726",
+      "name": "shared_uat_realtime_completion",
+      "path": "supabase/migrations/20260926164726_shared_uat_realtime_completion.sql"
+    },
+    {
+      "version": "20260926164727",
+      "name": "website_cms_supabase",
+      "path": "supabase/migrations/20260926164727_website_cms_supabase.sql"
+    },
+    {
+      "version": "20260926164728",
+      "name": "shared_realtime_publication",
+      "path": "supabase/migrations/20260926164728_shared_realtime_publication.sql"
+    },
+    {
+      "version": "20260926171012",
+      "name": "fix_revenue_account_rpc",
+      "path": "supabase/migrations/20260926171012_fix_revenue_account_rpc.sql"
+    },
+    {
+      "version": "20260926171157",
+      "name": "customer_invoice_allowed_vat_rates",
+      "path": "supabase/migrations/20260926171157_customer_invoice_allowed_vat_rates.sql"
+    },
+    {
+      "version": "20261007152400",
+      "name": "single_active_company_activation",
+      "path": "supabase/migrations/20261007152400_single_active_company_activation.sql"
+    },
+    {
+      "version": "20261007152500",
+      "name": "realtime_tenant_filter_hardening",
+      "path": "supabase/migrations/20261007152500_realtime_tenant_filter_hardening.sql"
+    },
+    {
+      "version": "20261007152600",
+      "name": "customer_invoice_storage_delete_guard",
+      "path": "supabase/migrations/20261007152600_customer_invoice_storage_delete_guard.sql"
+    },
+    {
+      "version": "20261007200500",
+      "name": "protect_last_company_admin",
+      "path": "supabase/migrations/20261007200500_protect_last_company_admin.sql"
+    }
+  ]
+}
