@@ -115,7 +115,7 @@ function visible(element){
           const glassChrome=document.querySelector(glassSurface==='website'
             ? '.site-header'
             : glassSurface==='operator'
-              ? '.operator-shell .topbar'
+              ? '.operator-shell .topbar, .login-shell .login-card'
               : '.topbar');
           const glassChromeStyle=glassChrome?getComputedStyle(glassChrome):null;
           const bodyStyle=getComputedStyle(body);
