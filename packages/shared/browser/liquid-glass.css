@@ -439,6 +439,19 @@ html[data-lt-glass-surface="legacy"] :is(.modal,.portal-modal-card) {
   border: 1px solid var(--lt-glass-stroke) !important;
   box-shadow: var(--lt-glass-float-shadow) !important;
 }
+/* Entry experience: the glass is visible even before an operator signs in. */
+html[data-lt-glass-surface="operator"] .login-card,
+html[data-lt-glass-surface="portal"] .login-card {
+  background: var(--lt-liquid-pane) !important;
+  border: 1px solid var(--lt-glass-stroke) !important;
+  box-shadow: var(--lt-glass-float-shadow) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(24px) saturate(150%);
+}
+html[data-lt-glass-surface="operator"] .login-card :is(input,select,textarea),
+html[data-lt-glass-surface="portal"] .login-card :is(input,select,textarea) {
+  background: var(--lt-glass-solid) !important;
+}
 /* A glossy rim on the overview, while the data inside stays opaque. */
 html[data-lt-glass-surface="operator"] :is(.hero-dashboard,.statistics-live-hero,.security-hero-live),
 html[data-lt-glass-surface="portal"] :is(.welcome-card,.today-work) {
