@@ -16,8 +16,8 @@ test('admin redirect shim is detected before workspace assets are injected',()=>
   assert.equal(isImmediateRedirectHtml(operator),false);
 });
 
-test('static build skips redirect shims in both workspace decorators',()=>{
+test('static build skips redirect shims in all three workspace decorators',()=>{
   const source=fs.readFileSync(path.join(root,'scripts','build-static.js'),'utf8');
   const skips=source.match(/if\(isImmediateRedirectHtml\(html\)\)continue;/g)||[];
-  assert.equal(skips.length,2);
+  assert.equal(skips.length,3);
 });
