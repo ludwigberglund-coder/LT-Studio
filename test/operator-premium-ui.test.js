@@ -35,3 +35,13 @@ test('the shared onboarding security checks and real operator actions remain int
   assert.match(css,/@media\(max-width:760px\)/);
   assert.match(css,/\.onboarding-form \.form-grid\{grid-template-columns:1fr\}/);
 });
+
+test('premium operator theme does not lose navigation contrast to Liquid Glass',()=>{
+  const premium=read('apps/operator/premium-ui.css');
+  const glass=read('packages/shared/browser/liquid-glass.css');
+  assert.match(glass,/data-lt-glass-surface="operator"/);
+  assert.match(premium,/html\\[data-lt-glass-surface="operator"\\]\\[data-operator-theme="dark"\\]/);
+  assert.match(premium,/html\\[data-lt-glass-surface="operator"\\]\\[data-operator-theme\\] \\.sidebar/);
+  assert.match(premium,/@media \\(prefers-reduced-transparency:reduce\\)/);
+  assert.match(premium,/@media \\(forced-colors:active\\)/);
+});
