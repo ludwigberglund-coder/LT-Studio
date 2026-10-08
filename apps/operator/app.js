@@ -139,7 +139,9 @@ function edgeAction(path,options={}){
   throw Object.assign(new Error('Operatorfunktionen är ännu inte migrerad till Supabase.'),{code:'OPERATOR_ACTION_NOT_MIGRATED',status:501});
 }
 async function supabaseOperatorApi(path,options={}){
-  const token=globalThis.LTSupabaseUat.token();
+  // Refresh expiring access tokens before every protected operator request.
+  // Without this, long-running Driftadmin tabs keep sending expired JWTs (401).
+  const token=await globalThis.LTSupabaseUat.freshToken();
   if(!token){
     if(String(path).split('?')[0]==='/session')return{authenticated:false};
     throw Object.assign(new Error('LT Studio-operatörsinloggning krävs.'),{code:'OPERATOR_AUTH_REQUIRED',status:401});
