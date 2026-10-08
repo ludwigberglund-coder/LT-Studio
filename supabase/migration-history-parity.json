@@ -91,152 +91,208 @@
     {
       "version": "20260925064621",
       "name": "private_pdf_storage",
-      "path": "supabase/migrations/20260925064621_private_pdf_storage.sql"
+      "path": "supabase/migrations/20260925064621_private_pdf_storage.sql",
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "storage bucket lt-documents"
+      ],
+      "note": "Migration history record missing, but representative schema effects are verified live. Eligible for history-repair review; do not mark applied until full migration effect review is complete."
     },
     {
       "version": "20260925064842",
       "name": "supplier_coding_approval",
-      "path": "supabase/migrations/20260925064842_supplier_coding_approval.sql"
+      "path": "supabase/migrations/20260925064842_supplier_coding_approval.sql",
+      "status": "unverified"
     },
     {
       "version": "20260925065024",
       "name": "supplier_liability_posting",
-      "path": "supabase/migrations/20260925065024_supplier_liability_posting.sql"
+      "path": "supabase/migrations/20260925065024_supplier_liability_posting.sql",
+      "status": "unverified"
     },
     {
       "version": "20260925065143",
       "name": "supplier_payments",
-      "path": "supabase/migrations/20260925065143_supplier_payments.sql"
+      "path": "supabase/migrations/20260925065143_supplier_payments.sql",
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "table supplier_payments",
+        "functions prepare_supplier_payment/release_supplier_payment/confirm_supplier_payment"
+      ],
+      "note": "Migration history record missing, but representative schema effects are verified live. Eligible for history-repair review; do not mark applied until full migration effect review is complete."
     },
     {
       "version": "20260925070609",
       "name": "customer_invoicing",
-      "path": "supabase/migrations/20260925070609_customer_invoicing.sql"
+      "path": "supabase/migrations/20260925070609_customer_invoicing.sql",
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "invoice settings/drafts/reservations/documents/credit tables",
+        "reserve_customer_invoice_number",
+        "finalize_customer_invoice"
+      ],
+      "note": "Migration history record missing, but representative schema effects are verified live. Eligible for history-repair review; do not mark applied until full migration effect review is complete."
     },
     {
       "version": "20260925071038",
       "name": "customer_credit_notes",
-      "path": "supabase/migrations/20260925071038_customer_credit_notes.sql"
+      "path": "supabase/migrations/20260925071038_customer_credit_notes.sql",
+      "status": "unverified"
     },
     {
       "version": "20260925071351",
       "name": "document_archive_metadata",
-      "path": "supabase/migrations/20260925071351_document_archive_metadata.sql"
+      "path": "supabase/migrations/20260925071351_document_archive_metadata.sql",
+      "status": "unverified"
     },
     {
       "version": "20260925071618",
       "name": "customer_invoice_hardening",
-      "path": "supabase/migrations/20260925071618_customer_invoice_hardening.sql"
+      "path": "supabase/migrations/20260925071618_customer_invoice_hardening.sql",
+      "status": "unverified"
     },
     {
       "version": "20260925075745",
       "name": "bank_reconciliation",
-      "path": "supabase/migrations/20260925075745_bank_reconciliation.sql"
+      "path": "supabase/migrations/20260925075745_bank_reconciliation.sql",
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "bank_payments",
+        "automation_proposals",
+        "customer_payment_executions",
+        "bank reconciliation RPCs"
+      ],
+      "note": "Migration history record missing, but representative schema effects are verified live. Eligible for history-repair review; do not mark applied until full migration effect review is complete."
     },
     {
       "version": "20260925080105",
       "name": "financial_write_guard",
-      "path": "supabase/migrations/20260925080105_financial_write_guard.sql"
+      "path": "supabase/migrations/20260925080105_financial_write_guard.sql",
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "private.require_controlled_financial_write"
+      ],
+      "note": "Migration history record missing, but representative schema effects are verified live. Eligible for history-repair review; do not mark applied until full migration effect review is complete."
     },
     {
       "version": "20260925080318",
       "name": "inventory",
-      "path": "supabase/migrations/20260925080318_inventory.sql"
+      "path": "supabase/migrations/20260925080318_inventory.sql",
+      "status": "unverified"
     },
     {
       "version": "20260925080510",
       "name": "inventory_performance_cleanup",
-      "path": "supabase/migrations/20260925080510_inventory_performance_cleanup.sql"
+      "path": "supabase/migrations/20260925080510_inventory_performance_cleanup.sql",
+      "status": "unverified"
     },
     {
       "version": "20260925080707",
       "name": "payroll",
-      "path": "supabase/migrations/20260925080707_payroll.sql"
+      "path": "supabase/migrations/20260925080707_payroll.sql",
+      "status": "unverified"
     },
     {
       "version": "20260925094824",
       "name": "uat_bootstrap_invites",
-      "path": "supabase/migrations/20260925094824_uat_bootstrap_invites.sql"
+      "path": "supabase/migrations/20260925094824_uat_bootstrap_invites.sql",
+      "status": "unverified"
     },
     {
       "version": "20260925095203",
       "name": "uat_invoice_settings",
-      "path": "supabase/migrations/20260925095203_uat_invoice_settings.sql"
+      "path": "supabase/migrations/20260925095203_uat_invoice_settings.sql",
+      "status": "unverified"
     },
     {
       "version": "20260925100151",
       "name": "uat_require_aal2",
-      "path": "supabase/migrations/20260925100151_uat_require_aal2.sql"
+      "path": "supabase/migrations/20260925100151_uat_require_aal2.sql",
+      "status": "unverified"
     },
     {
       "version": "20260925100603",
       "name": "customer_browser_grants",
-      "path": "supabase/migrations/20260925100603_customer_browser_grants.sql"
+      "path": "supabase/migrations/20260925100603_customer_browser_grants.sql",
+      "status": "unverified"
     },
     {
       "version": "20260925130410",
       "name": "financial_batches_self_approval",
-      "path": "supabase/migrations/20260925130410_financial_batches_self_approval.sql"
+      "path": "supabase/migrations/20260925130410_financial_batches_self_approval.sql",
+      "status": "unverified"
     },
     {
       "version": "20260925133748",
       "name": "financial_batches_audit_write",
-      "path": "supabase/migrations/20260925133748_financial_batches_audit_write.sql"
+      "path": "supabase/migrations/20260925133748_financial_batches_audit_write.sql",
+      "status": "unverified"
     },
     {
       "version": "20260925141238",
       "name": "financial_batch_customer_invoice_gating",
-      "path": "supabase/migrations/20260925141238_financial_batch_customer_invoice_gating.sql"
+      "path": "supabase/migrations/20260925141238_financial_batch_customer_invoice_gating.sql",
+      "status": "unverified"
     },
     {
       "version": "20260926155945",
       "name": "personal_session_audit_rpc",
-      "path": "supabase/migrations/20260926155945_personal_session_audit_rpc.sql"
+      "path": "supabase/migrations/20260926155945_personal_session_audit_rpc.sql",
+      "status": "unverified"
     },
     {
       "version": "20260926164726",
       "name": "shared_uat_realtime_completion",
-      "path": "supabase/migrations/20260926164726_shared_uat_realtime_completion.sql"
+      "path": "supabase/migrations/20260926164726_shared_uat_realtime_completion.sql",
+      "status": "unverified"
     },
     {
       "version": "20260926164727",
       "name": "website_cms_supabase",
-      "path": "supabase/migrations/20260926164727_website_cms_supabase.sql"
+      "path": "supabase/migrations/20260926164727_website_cms_supabase.sql",
+      "status": "unverified"
     },
     {
       "version": "20260926164728",
       "name": "shared_realtime_publication",
-      "path": "supabase/migrations/20260926164728_shared_realtime_publication.sql"
+      "path": "supabase/migrations/20260926164728_shared_realtime_publication.sql",
+      "status": "unverified"
     },
     {
       "version": "20260926171012",
       "name": "fix_revenue_account_rpc",
-      "path": "supabase/migrations/20260926171012_fix_revenue_account_rpc.sql"
+      "path": "supabase/migrations/20260926171012_fix_revenue_account_rpc.sql",
+      "status": "unverified"
     },
     {
       "version": "20260926171157",
       "name": "customer_invoice_allowed_vat_rates",
-      "path": "supabase/migrations/20260926171157_customer_invoice_allowed_vat_rates.sql"
+      "path": "supabase/migrations/20260926171157_customer_invoice_allowed_vat_rates.sql",
+      "status": "unverified"
     },
     {
       "version": "20261007152400",
       "name": "single_active_company_activation",
-      "path": "supabase/migrations/20261007152400_single_active_company_activation.sql"
+      "path": "supabase/migrations/20261007152400_single_active_company_activation.sql",
+      "status": "unverified"
     },
     {
       "version": "20261007152500",
       "name": "realtime_tenant_filter_hardening",
-      "path": "supabase/migrations/20261007152500_realtime_tenant_filter_hardening.sql"
+      "path": "supabase/migrations/20261007152500_realtime_tenant_filter_hardening.sql",
+      "status": "unverified"
     },
     {
       "version": "20261007152600",
       "name": "customer_invoice_storage_delete_guard",
-      "path": "supabase/migrations/20261007152600_customer_invoice_storage_delete_guard.sql"
+      "path": "supabase/migrations/20261007152600_customer_invoice_storage_delete_guard.sql",
+      "status": "unverified"
     },
     {
       "version": "20261007200500",
       "name": "protect_last_company_admin",
-      "path": "supabase/migrations/20261007200500_protect_last_company_admin.sql"
+      "path": "supabase/migrations/20261007200500_protect_last_company_admin.sql",
+      "status": "unverified"
     }
   ]
 }
