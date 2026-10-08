@@ -39,9 +39,9 @@ test('the shared onboarding security checks and real operator actions remain int
 test('premium operator theme does not lose navigation contrast to Liquid Glass',()=>{
   const premium=read('apps/operator/premium-ui.css');
   const glass=read('packages/shared/browser/liquid-glass.css');
-  assert.match(glass,/data-lt-glass-surface="operator"/);
-  assert.match(premium,/html\\[data-lt-glass-surface="operator"\\]\\[data-operator-theme="dark"\\]/);
-  assert.match(premium,/html\\[data-lt-glass-surface="operator"\\]\\[data-operator-theme\\] \\.sidebar/);
-  assert.match(premium,/@media \\(prefers-reduced-transparency:reduce\\)/);
-  assert.match(premium,/@media \\(forced-colors:active\\)/);
+  assert.ok(glass.includes('data-lt-glass-surface="operator"'));
+  assert.ok(premium.includes('html[data-lt-glass-surface="operator"][data-operator-theme="dark"]'));
+  assert.ok(premium.includes('html[data-lt-glass-surface="operator"][data-operator-theme] .sidebar'));
+  assert.ok(premium.includes('@media (prefers-reduced-transparency:reduce)'));
+  assert.ok(premium.includes('@media (forced-colors:active)'));
 });
