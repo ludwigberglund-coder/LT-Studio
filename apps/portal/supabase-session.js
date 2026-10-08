@@ -17,6 +17,16 @@
     if(value)(mode==='session'?sessionStorage:localStorage).setItem(KEY,JSON.stringify(value));
   }
   function token(){return read()?.access_token||''}
+  // One refresh at a time: concurrent dashboard/polling requests must not reuse
+  // the same rotating Supabase refresh token.
+  let operatorRefresh=null;
+  async function freshToken(){
+    if(!operatorRefresh){
+      operatorRefresh=refreshIfNeeded(read()).finally(()=>{operatorRefresh=null});
+    }
+    const current=await operatorRefresh;
+    return current?.access_token||'';
+  }
   function storeSession(value){write(value||null,'session');return value||null}
   function jwtClaims(value){
     try{
@@ -139,5 +149,5 @@
     return result;
   }
   function setCompany(id){localStorage.setItem(COMPANY_KEY,String(id||''))}
-  window.LTSupabaseUat={read,token,storeSession,signIn,signOut,context,setCompany};
+  window.LTSupabaseUat={read,token,freshToken,storeSession,signIn,signOut,context,setCompany};
 })();
