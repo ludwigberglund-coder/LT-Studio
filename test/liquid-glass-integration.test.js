@@ -21,12 +21,12 @@ test('Liquid Glass installs on all UI routes, but never on redirect pages',()=>{
   /* Glass must show actual chromatic refraction, not just nearly-white blur. */
   assert.match(css,/--lt-glass-aurora-blue:/);
   assert.match(css,/--lt-glass-aurora-violet:/);
-  assert.match(css,/--lt-liquid-pane:[\\s\\S]*?radial-gradient/);
-  assert.match(css,/--lt-liquid-control:[\\s\\S]*?radial-gradient/);
+  assert.match(css,/--lt-liquid-pane:[\s\S]*?radial-gradient/);
+  assert.match(css,/--lt-liquid-control:[\s\S]*?radial-gradient/);
   assert.match(css,/@keyframes ltLiquidDrift/);
-  assert.match(css,/html\\[data-lt-theme="dark"\\]\\[data-lt-glass-surface\\]/);
-  assert.match(css,/prefers-reduced-transparency:\\s*reduce/);
-  assert.match(css,/prefers-reduced-motion:\\s*reduce/);
+  assert.match(css,/html\[data-lt-theme="dark"\]\[data-lt-glass-surface\]/);
+  assert.match(css,/prefers-reduced-transparency:\s*reduce/);
+  assert.match(css,/prefers-reduced-motion:\s*reduce/);
 
   for(const [route,surface] of [
     ['index.html','website'],
