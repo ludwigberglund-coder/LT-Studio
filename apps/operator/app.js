@@ -9,7 +9,38 @@ function applyOperatorUiPrefs(){const motion=Math.max(0,Math.min(100,Number(oper
 function operatorUiControls(){const motion=Math.max(0,Math.min(100,Number(operatorUiPrefs.motion)||0));return `<div class="operator-control-deck" aria-label="Visningsreglage"><label class="motion-control"><span><strong>Live motion</strong><small>${motion}%</small></span><input type="range" min="0" max="100" step="1" value="${motion}" data-ui-motion aria-label="Animationsnivå"></label><label class="density-switch"><input type="checkbox" data-ui-compact ${operatorUiPrefs.compact?'checked':''}><span class="switch-track" aria-hidden="true"><i></i></span><span><strong>Kompakt</strong><small>Tätare adminvy</small></span></label></div>`}
 
 
+const operatorThemeKey='lt-operator-theme-v1';
+let operatorTheme=(()=>{
+  try{
+    const saved=localStorage.getItem(operatorThemeKey);
+    if(saved==='light'||saved==='dark')return saved;
+  }catch{}
+  return matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+})();
+function applyOperatorTheme(){
+  document.documentElement.dataset.operatorTheme=operatorTheme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content',operatorTheme==='dark'?'#0c161c':'#f2f6f6');
+}
+function themeToggleMarkup(){
+  const dark=operatorTheme==='dark';
+  const label=dark?'Ljust läge':'Mörkt läge';
+  return '<button class="theme-toggle" type="button" data-action="toggle-theme" aria-label="'+label+'" aria-pressed="'+dark+'" title="'+label+'">'+operatorIcon(dark?'sun':'moon')+'<span>'+label+'</span></button>';
+}
+function syncThemeButtons(){
+  document.querySelectorAll('[data-action="toggle-theme"]').forEach(button=>{
+    const template=document.createElement('div');
+    template.innerHTML=themeToggleMarkup();
+    button.innerHTML=template.firstElementChild.innerHTML;
+    button.setAttribute('aria-pressed',String(operatorTheme==='dark'));
+    button.setAttribute('aria-label',operatorTheme==='dark'?'Ljust läge':'Mörkt läge');
+    button.title=button.getAttribute('aria-label');
+  });
+}
+applyOperatorTheme();
+
 const OPERATOR_ICONOIR=Object.freeze({
+  moon:'<path d="M20.95 13.08A9 9 0 0 1 10.92 3.05 9 9 0 1 0 20.95 13.08Z"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/>',
   home:'<path d="M9 21H7C4.79086 21 3 19.2091 3 17V10.7076C3 9.30887 3.73061 8.01175 4.92679 7.28679L9.92679 4.25649C11.2011 3.48421 12.7989 3.48421 14.0732 4.25649L19.0732 7.28679C20.2694 8.01175 21 9.30887 21 10.7076V17C21 19.2091 19.2091 21 17 21H15M9 21V17C9 15.3431 10.3431 14 12 14C13.6569 14 15 15.3431 15 17V21M9 21H15"/>',
   group:'<path d="M1 20V19C1 15.134 4.13401 12 8 12C11.866 12 15 15.134 15 19V20M13 14C13 11.2386 15.2386 9 18 9C20.7614 9 23 11.2386 23 14V14.5M8 12C10.2091 12 12 10.2091 12 8C12 5.79086 10.2091 4 8 4C5.79086 4 4 5.79086 4 8C4 10.2091 5.79086 12 8 12ZM18 9C19.6569 9 21 7.65685 21 6C21 4.34315 19.6569 3 18 3C16.3431 3 15 4.34315 15 6C15 7.65685 16.3431 9 18 9Z"/>',
   stats:'<path d="M10 9H6M15.5 11C14.1193 11 13 9.88071 13 8.5C13 7.11929 14.1193 6 15.5 6C16.8807 6 18 7.11929 18 8.5C18 9.88071 16.8807 11 15.5 11ZM6 6H9M18 18L13.5 15L11 17L6 13M3 20.4V3.6C3 3.26863 3.26863 3 3.6 3H20.4C20.7314 3 21 3.26863 21 3.6V20.4C21 20.7314 20.7314 21 20.4 21H3.6C3.26863 21 3 20.7314 3 20.4Z"/>',
@@ -171,7 +202,7 @@ function loginView(){
   const loginCopy=useSupabase?'Logga in med ert separata LT Studio-operatörskonto. Supabase Auth kräver lösenord och verifierad TOTP-MFA.':'Logga in med ert separata LT Studio-operatörskonto. Den privata operatorservern kräver lösenord och TOTP-MFA.';
   root.innerHTML=`<section class="login-shell">
     <div class="login-brand"><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div><span class="login-kicker">ADMIN CONTROL CENTER</span><h1>Allt viktigt.<br>På ett ställe.</h1><p>Administrera kundföretag, användare, behörigheter, statistik och drift från en separat, MFA-skyddad LT Studio-portal.</p></div><small>${authCopy}</small></div>
-    <div class="login-panel"><form class="card login-card" id="login-form"><div class="login-card-mark"><span class="mark-icon"></span></div><h2>LT Studio-inloggning</h2><p>${loginCopy}</p>
+    <div class="login-panel"><form class="card login-card" id="login-form"><div class="login-card-top"><div class="login-card-mark"><span class="mark-icon"></span></div>${themeToggleMarkup()}</div><h2>LT Studio-inloggning</h2><p>${loginCopy}</p>
       <label class="field"><span>${identityLabel}</span><input name="username" type="${identityType}" autocomplete="username" required></label>
       <label class="field"><span>Lösenord</span><input name="password" type="password" autocomplete="current-password" required></label>
       <label class="field"><span>MFA-kod</span><input name="totp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></label>
@@ -179,6 +210,7 @@ function loginView(){
       ${errorMessage?`<div class="error">${esc(errorMessage)}</div>`:''}
     </form></div>
   </section>`;
+  document.body.classList.remove('operator-modal-open');
 }
 function readinessState(){if(!readiness)return{label:'Laddar',kind:'warning'};return readiness.ok?{label:'OK',kind:'ok'}:{label:'Varning',kind:'critical'}}
 function securityState(){
@@ -264,6 +296,7 @@ function showOnboardingError(form,error){
 function modalMarkup(){
   if(!modal)return '';
   if(modal.kind==='company-create')return `<div class="modal-backdrop" data-modal-backdrop><section class="modal-card portal-modal-card onboarding-modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><div><span class="eyebrow">NY KUND</span><h2 id="modal-title">Lägg till kundföretag</h2><p>Skapa bolaget, fakturauppgifterna och den första företagsadministratörens säkra aktivering i ett sammanhållet flöde.</p></div><button class="icon-button" type="button" data-action="close-modal" aria-label="Stäng">×</button></div>
+    <div class="onboarding-progress" aria-label="Registrering i tre delar"><div><b>1</b><span>Företaget<small>Identitet & organisationsnummer</small></span></div><div><b>2</b><span>Fakturauppgifter<small>Kontakt & ekonomiadress</small></span></div><div><b>3</b><span>Administratör<small>Säker aktivering & MFA</small></span></div></div>
     <form id="create-company-form" class="onboarding-form">
       <section class="onboarding-section"><div class="onboarding-section-head"><span>1</span><div><strong>Bolagsidentitet</strong><small>Uppgifter som identifierar kundföretaget.</small></div></div><div class="form-grid">
         <label class="field"><span>Juridiskt namn</span><input name="legalName" minlength="2" maxlength="160" required autofocus placeholder="Exempelbolaget AB"></label>
@@ -316,9 +349,10 @@ function nav(){
 function shell(body,title,subtitle){
   const operator=session?.operator||{};
   root.innerHTML=`<div class="operator-shell"><aside class="sidebar"><div><div class="mark"><span class="mark-icon"></span><span>LT STUDIO</span></div><div class="side-copy">ADMIN CONTROL CENTER</div></div><nav class="side-nav">${nav()}</nav><a class="customer-system-link" href="/portal/" target="_blank" rel="noopener"><span><strong>Öppna företagsportalen</strong><small>Skyddad kundportal</small></span></a><div class="side-spacer"></div><div class="side-status"><span class="live-dot"></span><div><strong>Operatorportal aktiv</strong><small>Separat säkerhetsgräns</small></div></div><div class="side-footer">Endast LT Studio-operatörer.<br>Alla administrativa ändringar loggas.</div></aside>
-  <section class="main"><header class="topbar"><div><span class="page-kicker">LT STUDIO / ADMIN</span><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div><div class="actions">${operatorUiControls()}<div class="operator-user"><span class="avatar">${initials(operator.displayName)}</span><div><strong>${esc(operator.displayName||operator.username||'Operatör')}</strong><small>LT Studio-operatör</small></div></div><button class="icon-button" data-action="refresh" title="${operatorRefreshing?'Uppdaterar…':'Uppdatera'}" aria-label="${operatorRefreshing?'Uppdaterar':'Uppdatera'}" ${operatorRefreshing?'disabled':''}></button><button class="button secondary" data-action="logout">Logga ut</button></div></header><nav class="mobile-nav">${nav()}</nav>
+  <section class="main"><header class="topbar"><div><span class="page-kicker">LT STUDIO / ADMIN</span><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div><div class="actions"><button class="button topbar-create" type="button" data-action="create-company">${operatorIcon("plus")}<span>Nytt företag</span></button>${themeToggleMarkup()}${operatorUiControls()}<div class="operator-user"><span class="avatar">${initials(operator.displayName)}</span><div><strong>${esc(operator.displayName||operator.username||'Operatör')}</strong><small>LT Studio-operatör</small></div></div><button class="icon-button" data-action="refresh" title="${operatorRefreshing?'Uppdaterar…':'Uppdatera'}" aria-label="${operatorRefreshing?'Uppdaterar':'Uppdatera'}" ${operatorRefreshing?'disabled':''}></button><button class="button secondary" data-action="logout">Logga ut</button></div></header><nav class="mobile-nav">${nav()}</nav>
   <div id="security-live-alert">${securityAlertStrip()}</div>${errorMessage?`<div class="notice">${esc(errorMessage)}</div>`:''}${successNotice()}${body}<footer class="portal-footer"><span>LT Studio Admin</span><span>Senast uppdaterad ${dateTime(overview?.generatedAt)}</span></footer></section></div>${modalMarkup()}`;
   applyOperatorUiPrefs();
+  document.body.classList.toggle('operator-modal-open',Boolean(modal));
 }
 function filteredCompanies(){
   const query=companyQuery.trim().toLocaleLowerCase('sv');
@@ -530,8 +564,8 @@ function overviewView(){
 }
 function companiesView(){
   const totals=overview?.totals||{},configuredPct=percent(totals.configuredCompanies,overview?.companyCount||0);
-  shell(`<section class="page-intro-card"><div><span class="eyebrow">KUNDBAS</span><h2>${num(overview?.companyCount)} företag använder plattformen</h2><p>Härifrån öppnar ni varje kundmiljö och hanterar användare, behörigheter och teknisk statistik.</p></div><div class="intro-stats"><div><strong>${configuredPct}%</strong><span>aktiverade</span></div><div><strong>${num(totals.activeCompanies30d)}</strong><span>aktiva 30d</span></div><div><strong>${num(totals.members)}</strong><span>användare</span></div></div></section>
-  <section class="panel"><div class="panel-head company-panel-head"><div><span class="eyebrow">FÖRETAG</span><h2>Alla kunder & företag</h2><p>Öppna ett företag för användare, behörigheter och statistik.</p></div><div class="row-actions"><button class="button" type="button" data-action="create-company">Lägg till kundföretag</button><span class="panel-stat" id="company-result-count">${filteredCompanies().length} av ${overview?.companyCount||0} företag</span></div></div>
+  shell(`<section class="page-intro-card"><div><span class="eyebrow">KUNDBAS</span><h2>${num(overview?.companyCount)} företag använder plattformen</h2><p>Härifrån öppnar ni varje kundmiljö och hanterar användare, behörigheter och teknisk statistik.</p><div class="company-intro-actions"><button class="button" type="button" data-action="create-company">${operatorIcon("plus")}<span>Skapa kundföretag</span></button><small>Separat kundmiljö med säkra behörigheter.</small></div></div><div class="intro-stats"><div><strong>${configuredPct}%</strong><span>aktiverade</span></div><div><strong>${num(totals.activeCompanies30d)}</strong><span>aktiva 30d</span></div><div><strong>${num(totals.members)}</strong><span>användare</span></div></div></section>
+  <section class="panel"><div class="panel-head company-panel-head"><div><span class="eyebrow">FÖRETAG</span><h2>Alla kunder & företag</h2><p>Öppna ett företag för användare, behörigheter och statistik.</p></div><div class="row-actions"><button class="button secondary" type="button" data-action="create-company">Lägg till kundföretag</button><span class="panel-stat" id="company-result-count">${filteredCompanies().length} av ${overview?.companyCount||0} företag</span></div></div>
   <div class="company-toolbar"><div class="company-search-shell"><label class="search-field"><span class="sr-only">Sök företag</span><input type="search" role="combobox" aria-autocomplete="list" aria-controls="operator-company-search-results" aria-expanded="${companySearchOpen&&companyQuery.trim()?'true':'false'}" autocomplete="off" data-company-search value="${esc(companyQuery)}" placeholder="Sök namn eller organisationsnummer…"></label><div id="operator-company-search-results" class="company-search-results" role="listbox" ${companySearchOpen&&companyQuery.trim()?'':'hidden'}>${companySearchOpen&&companyQuery.trim()?companySearchResults():''}</div></div><label><span class="sr-only">Filtrera status</span><select data-company-filter><option value="all" ${companyStatus==='all'?'selected':''}>Alla statusar</option><option value="active" ${companyStatus==='active'?'selected':''}>Aktiva</option><option value="mfa_pending" ${companyStatus==='mfa_pending'?'selected':''}>MFA återstår</option><option value="pending_activation" ${companyStatus==='pending_activation'?'selected':''}>Väntar på aktivering</option><option value="activation_expired" ${companyStatus==='activation_expired'?'selected':''}>Aktivering utgången</option><option value="unconfigured" ${companyStatus==='unconfigured'?'selected':''}>Saknar admin</option></select></label><label><span class="sr-only">Sortera företag</span><select data-company-sort><option value="name" ${companySort==='name'?'selected':''}>Sortera: namn</option><option value="users" ${companySort==='users'?'selected':''}>Flest användare</option><option value="invoices" ${companySort==='invoices'?'selected':''}>Flest fakturor</option><option value="activity" ${companySort==='activity'?'selected':''}>Senast aktiva</option></select></label></div>
   <div class="table-wrap"><table><thead><tr><th>Företag</th><th>Org.nr</th><th>Användare</th><th>Status</th><th>Sessioner</th><th>Fakturor</th><th>Senaste aktivitet</th></tr></thead><tbody id="company-table-body">${companyRows(filteredCompanies())}</tbody></table></div></section>`,'Kunder & företag','Central administration för varje kundmiljö.');
 }
