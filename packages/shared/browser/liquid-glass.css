@@ -399,6 +399,12 @@ html[data-lt-glass-surface="portal"] :is(.shared-user-dropdown,.column-menu,.con
 html[data-lt-glass-surface="legacy"] :is(.shared-user-dropdown,.column-menu,.context-menu) {
   box-shadow: var(--lt-glass-float-shadow) !important;
 }
+/* Profile controls keep their zero-width native border contract; the rim is inset. */
+html[data-lt-glass-surface="portal"] .shared-user-trigger,
+html[data-lt-glass-surface="legacy"] .shared-user-trigger {
+  border: 0 !important;
+  box-shadow: inset 0 0 0 1px var(--lt-glass-stroke), var(--lt-glass-shadow) !important;
+}
 /* Clearer active-state contrast and a reflected edge in both themes. */
 html[data-lt-glass-surface="portal"] .shared-navigation .shared-links a[aria-current="page"],
 html[data-lt-glass-surface="legacy"] .shared-navigation .shared-links a[aria-current="page"],
