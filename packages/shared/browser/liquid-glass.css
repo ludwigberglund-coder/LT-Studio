@@ -489,7 +489,7 @@ html[data-lt-glass-surface="website"] :is(.menu-button,.button.secondary):hover:
     .shared-user-dropdown,.column-menu,.context-menu,
     .operator-shell .sidebar,.operator-shell .topbar,
     .operator-control-deck,.operator-user,.company-toolbar,.security-toolbar,
-    .modal-card,.lt-dialog,.site-header,.menu-button,.button.secondary,
+    .modal-card,.login-card,.lt-dialog,.site-header,.menu-button,.button.secondary,
     .batch-confirm-modal,.payment-confirm-modal,.documents-modal,.intake-modal
   ) {
     background: var(--lt-glass-solid) !important;
@@ -509,7 +509,7 @@ html[data-operator-motion="calm"][data-lt-glass-surface="operator"] .topbar {
   html[data-lt-glass-surface] :is(
     .sidebar.shared-sidebar,.shared-workspace-shell .topbar,
     .operator-shell .sidebar,.operator-shell .topbar,.site-header,
-    .modal-card,.shared-user-dropdown,.button.secondary
+    .modal-card,.login-card,.shared-user-dropdown,.button.secondary
   ) {
     background: Canvas !important;
     color: CanvasText !important;
