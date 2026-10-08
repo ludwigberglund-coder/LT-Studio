@@ -25,6 +25,25 @@ function installGlobalTheme(directory){
   }
 }
 
+/* Install the material layer last: existing layout, theme and finance CSS stay authoritative. */
+function installLiquidGlass(directory){
+  for(const entry of fs.readdirSync(directory,{withFileTypes:true})){
+    const file=path.join(directory,entry.name);
+    if(entry.isDirectory()){installLiquidGlass(file);continue;}
+    if(!entry.isFile()||!entry.name.endsWith('.html'))continue;
+    let html=fs.readFileSync(file,'utf8');
+    if(isImmediateRedirectHtml(html))continue;
+    const firstPart=path.relative(target,file).split(path.sep)[0];
+    const surface=['portal','operator','legacy','admin'].includes(firstPart)
+      ? (firstPart==='admin'?'legacy':firstPart)
+      : 'website';
+    const stylesheet=path.relative(path.dirname(file),path.join(target,'shared','liquid-glass.css')).split(path.sep).join('/');
+    html=html.replace(/<html\b([^>]*)>/i,(full,attributes)=>`<html${attributes} data-lt-glass-surface="${surface}">`);
+    html=html.replace(/<\/head>/i,`<link rel="stylesheet" href="${stylesheet}">\n</head>`);
+    fs.writeFileSync(file,html);
+  }
+}
+
 function versionStaticAssets(directory,version){
   const encoded=encodeURIComponent(String(version||'local'));
   for(const entry of fs.readdirSync(directory,{withFileTypes:true})){
@@ -82,6 +101,7 @@ function buildStatic(){
   copyDirectory(path.join(root,'public'),path.join(target,'legacy'));
   for(const workspace of ['portal','admin','legacy'])installWorkspaceNavigation(path.join(target,workspace));
   for(const workspace of ['portal','admin','operator','legacy','uat'])installGlobalTheme(path.join(target,workspace));
+  installLiquidGlass(target);
   versionStaticAssets(target,process.env.GITHUB_SHA||'local');
   copyFile(path.join(root,'apps','website','index.html'),path.join(target,'404.html'));
   fs.writeFileSync(path.join(target,'.nojekyll'),'');
@@ -102,7 +122,7 @@ function buildStatic(){
     'portal/website.html','portal/website.js','portal/website.css','shared/content.js',
     'shared/accounting/money.js','shared/accounting/journal.js','shared/access-control/authorization.js','shared/receivables/customer-receivables.js',
     'shared/invoicing/invoice.js','shared/invoicing/pdf.js','shared/vendor/pdf-lib.min.js',
-    'shared/theme.css','shared/theme.js',
+    'shared/theme.css','shared/theme.js','shared/liquid-glass.css',
     'content/company.json','content/site.json','content/admin.json','config/rolands-business-decisions.json','config/access-control.json',
     'config/legal-rates.json','config/accounting-accounts.json','legacy/index.html','legacy/design-system.css'
   ];
