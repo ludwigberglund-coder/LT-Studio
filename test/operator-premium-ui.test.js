@@ -30,7 +30,7 @@ test('the shared onboarding security checks and real operator actions remain int
   assert.match(app,/showOnboardingError\(event\.target,error\)/);
   assert.match(app,/const created=await mutate\('\/companies'/);
   assert.match(app,/document\.body\.classList\.toggle\('operator-modal-open'/);
-  assert.match(app,/event\.key==='Tab'/);
+  assert.match(app,/event\.key!=='Tab'/);
   assert.match(css,/\.onboarding-modal-card/);
   assert.match(css,/@media\(max-width:760px\)/);
   assert.match(css,/\.onboarding-form \.form-grid\{grid-template-columns:1fr\}/);
