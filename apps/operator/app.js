@@ -885,7 +885,17 @@ document.addEventListener('keydown',async event=>{
   event.preventDefault();await openCompany(row.dataset.companyId);
 });
 document.addEventListener('keydown',event=>{
-  if(event.key==='Escape'&&modal){modal=null;render();}
+  if(!modal)return;
+  if(event.key==='Escape'){modal=null;render();return}
+  if(event.key!=='Tab')return;
+  const dialog=document.querySelector('.modal-card');
+  if(!dialog)return;
+  const focusables=[...dialog.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled])')]
+    .filter(element=>element.getClientRects().length>0);
+  if(!focusables.length)return;
+  const first=focusables[0],last=focusables[focusables.length-1];
+  if(event.shiftKey&&(document.activeElement===first||!dialog.contains(document.activeElement))){event.preventDefault();last.focus()}
+  else if(!event.shiftKey&&(document.activeElement===last||!dialog.contains(document.activeElement))){event.preventDefault();first.focus()}
 });
 document.addEventListener('click',async event=>{
   if(event.target.matches?.('[data-modal-backdrop]')){modal=null;render();return}
@@ -895,6 +905,13 @@ document.addEventListener('click',async event=>{
   const viewButton=event.target.closest('[data-view]');if(viewButton){selectedCompany=null;view=viewButton.dataset.view;if(view==='security')await loadOperatorAudit();render();return}
   const button=event.target.closest('[data-action]');if(!button)return;
   const action=button.dataset.action;
+  if(action==='toggle-theme'){
+    operatorTheme=operatorTheme==='dark'?'light':'dark';
+    try{localStorage.setItem(operatorThemeKey,operatorTheme)}catch{}
+    applyOperatorTheme();
+    syncThemeButtons();
+    return;
+  }
   if(action==='refresh'){await refresh();return}
   if(action==='test-security-alert'){
     button.disabled=true;errorMessage='';
