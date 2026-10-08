@@ -87,13 +87,15 @@ test('designsystemet laddas sist på varje gränssnittssida',()=>{
   for(const file of pages){
     const html=source(file),links=styleLinks(html);
     assert.ok(links.length>0,`${file} saknar stylesheet`);
+    const last=(links.at(-1)||'').split('?')[0];
     if(file==='apps/operator/index.html'){
-      // Driftadmin keeps the canonical shared theme, then opts into its
-      // own scoped premium override. All other surfaces retain the usual order.
-      assert.match(links.at(-2),/design-system\\.css(?:\\?|$)/,`${file} måste ladda designsystemet före premiumlagret`);
-      assert.match(links.at(-1),/premium-ui\\.css(?:\\?|$)/,`${file} måste ladda Driftadmin-överstyrningar sist`);
+      // The shared theme remains canonical; the operator-specific overrides
+      // load after it, without changing ordering for other workspaces.
+      const previous=(links.at(-2)||'').split('?')[0];
+      assert.ok(previous.endsWith('/design-system.css'),`${file} måste ladda designsystemet före premiumlagret`);
+      assert.ok(last.endsWith('/premium-ui.css'),`${file} måste ladda Driftadmin-överstyrningar sist`);
     }else{
-      assert.match(links.at(-1),/design-system\\.css(?:\\?|$)/,`${file} måste ladda designsystemet sist`);
+      assert.ok(last.endsWith('/design-system.css'),`${file} måste ladda designsystemet sist`);
     }
     assert.match(html,/<meta name="theme-color" content="#f7f5f0">/,`${file} har fel browser-temafärg`);
   }
