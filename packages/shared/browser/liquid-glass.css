@@ -469,6 +469,15 @@ html[data-lt-glass-surface="website"] :is(.menu-button,.button.secondary):hover:
   from { background-position: 0% 0%; }
   to   { background-position: 100% 85%; }
 }
+/* A full-size profile control must never clip a compact tablet toolbar. */
+@media (min-width:761px) and (max-width:900px) {
+  html[data-lt-glass-surface="portal"] .topbar,
+  html[data-lt-glass-surface="legacy"] .shared-workspace-shell .topbar {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-inline: 12px !important;
+  }
+}
 @media (max-width:760px) {
   html[data-lt-glass-surface="portal"] .topbar,
   html[data-lt-glass-surface="legacy"] .shared-workspace-shell .topbar {
