@@ -20,6 +20,7 @@ const surfaces=[
   {id:'payables',route:'portal/payables.html?demo=1'},
   {id:'supplier-ledger',route:'portal/supplier-ledger.html?demo=1'},
   {id:'payments',route:'portal/payments.html?demo=1'},
+  {id:'unplaced',route:'portal/unplaced-payments.html?demo=1'},
   {id:'batches',route:'portal/batches.html?demo=1'},
   {id:'accounting',route:'portal/accounting.html?demo=1'},
   {id:'accounts',route:'portal/accounts.html?demo=1'},
@@ -118,6 +119,10 @@ function visible(element){
               ? '.operator-shell .topbar, .login-shell .login-card'
               : '.topbar');
           const glassChromeStyle=glassChrome?getComputedStyle(glassChrome):null;
+          const workingChrome=document.querySelector('.payments-toolbar,.unplaced-toolbar');
+          const workingStyle=workingChrome?getComputedStyle(workingChrome):null;
+          const operatorTheme=html.dataset.operatorTheme||null;
+          const operatorGlassSolid=operatorTheme?getComputedStyle(html).getPropertyValue('--lt-glass-solid').trim():null;
           const bodyStyle=getComputedStyle(body);
           const sharedUser=document.querySelector('.shared-user-trigger');
           const sharedAvatar=document.querySelector('.shared-user-avatar');
@@ -183,6 +188,10 @@ function visible(element){
             glassChromeBackgroundImage:glassChromeStyle?.backgroundImage||null,
             glassChromeShadow:glassChromeStyle?.boxShadow||null,
             glassChromeBorderTopWidth:glassChromeStyle?.borderTopWidth||null,
+            workingChromeBackgroundImage:workingStyle?.backgroundImage||null,
+            workingChromeBoxShadow:workingStyle?.boxShadow||null,
+            operatorTheme,
+            operatorGlassSolid,
             sharedUserDisplay:sharedUserStyle?.display||null,
             sharedUserBorderTopWidth:sharedUserStyle?.borderTopWidth||null,
             sharedAvatarWidth:sharedAvatarStyle?.width||null,
@@ -222,6 +231,17 @@ function visible(element){
           assert.match(layout.glassChromeBackgroundImage||'',/radial-gradient/i,`${surface.id} no visible refraction on the toolbar`);
           assert.notEqual(layout.glassChromeShadow,'none',`${surface.id} toolbar lacks floating depth`);
           assert.ok(parseFloat(layout.glassChromeBorderTopWidth)>=1,`${surface.id} toolbar lacks a visible rim`);
+        }
+        if(viewport.id==='desktop'&&['payments','unplaced'].includes(surface.id)){
+          assert.match(layout.workingChromeBackgroundImage||'',/radial-gradient/i,
+            `${surface.id} working toolbar must be visibly refractive`);
+          assert.notEqual(layout.workingChromeBoxShadow,'none',
+            `${surface.id} working toolbar needs a distinct floating layer`);
+        }
+        if(surface.id==='project-admin'&&viewport.id==='desktop'){
+          assert.equal(layout.operatorTheme,theme.id,'operator uses the wrong theme');
+          assert.equal(layout.operatorGlassSolid,theme.id==='dark'?'#172731':'#fff',
+            'operator glass palette does not follow its own theme');
         }
         if(layout.sidebarBackground){
           assert.notEqual(layout.sidebarBackground,'rgb(20, 60, 48)',`${surface.id} ${viewport.id} leaked the old green sidebar`);
