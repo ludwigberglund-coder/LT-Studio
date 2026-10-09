@@ -45,3 +45,17 @@ Innan en repair:
 ## Viktigt
 
 Att en migration saknas i live-historiken betyder inte automatiskt att schemaändringen saknas live. Äldre UAT-ändringar har delvis applicerats via sammanlagda migrationer eller andra verktygsflöden. Därför är blind history repair förbjuden.
+
+
+## Parity classification 2026-10-09
+
+Efter live-verifiering och deployment av saknade säkerhetsmigrationer gäller:
+
+- 86 migrationsfiler i GitHub `main`
+- 61 poster i Supabase live migration history
+- 16 kända alias där live-version och repo-timestamp skiljer sig
+- 25 repo-only migrationer
+- 25 av 25 repo-only migrationer har representativa schemaeffekter verifierade live
+- 0 repo-only migrationer återstår som helt overifierade
+
+Det betyder att den kvarvarande P0-frågan är migration-history-paritet, inte känd saknad schemafunktionalitet. History repair får fortfarande endast göras efter separat full effektgranskning per migration och via Supabases officiella `supabase migration repair`.
