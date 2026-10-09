@@ -41,3 +41,16 @@ test('unresolved repo-only migrations remain explicit and non-overlapping',()=>{
     seen.add(item.version);
   }
 });
+
+
+test('current parity classification has no wholly unverified repo-only migrations',()=>{
+  assert.equal(manifest.summary.unresolved_unverified,0);
+  assert.equal(
+    manifest.unresolved_repo_only.filter(x=>x.status==='unverified').length,
+    0
+  );
+  assert.equal(
+    manifest.unresolved_repo_only.filter(x=>x.status==='schema_effect_confirmed_live').length,
+    manifest.unresolved_repo_only.length
+  );
+});

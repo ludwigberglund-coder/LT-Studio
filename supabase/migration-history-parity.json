@@ -1,14 +1,8 @@
 {
   "project_ref": "bwbhnotpuuhgghjpmflk",
-  "generated_from_main": "ddac5cafb63f514f27a91a023bc689597690989f",
+  "generated_from_main": "46846e4b0c4100ddc2715d742dd8e0d59d90fee5",
+  "generated_at": "2026-10-09",
   "aliases": [
-    {
-      "live_version": "20260926164014",
-      "live_name": "supplier_invoice_date_correction",
-      "repo_version": "20260926163921",
-      "repo_name": "supplier_invoice_date_correction",
-      "repo_path": "supabase/migrations/20260926163921_supplier_invoice_date_correction.sql"
-    },
     {
       "live_version": "20261007170158",
       "live_name": "20261007163100_fresh_staging_advisor_parity",
@@ -85,6 +79,41 @@
       "repo_version": "20261007211000",
       "repo_name": "verify_operator_password_reset_sessions",
       "repo_path": "supabase/migrations/20261007211000_verify_operator_password_reset_sessions.sql"
+    },
+    {
+      "live_version": "20261008075737",
+      "live_name": "single_active_company_activation",
+      "repo_version": "20261007152400",
+      "repo_name": "single_active_company_activation",
+      "repo_path": "supabase/migrations/20261007152400_single_active_company_activation.sql"
+    },
+    {
+      "live_version": "20261008110822",
+      "live_name": "realtime_tenant_filter_hardening",
+      "repo_version": "20261007152500",
+      "repo_name": "realtime_tenant_filter_hardening",
+      "repo_path": "supabase/migrations/20261007152500_realtime_tenant_filter_hardening.sql"
+    },
+    {
+      "live_version": "20261008110825",
+      "live_name": "customer_invoice_storage_delete_guard",
+      "repo_version": "20261007152600",
+      "repo_name": "customer_invoice_storage_delete_guard",
+      "repo_path": "supabase/migrations/20261007152600_customer_invoice_storage_delete_guard.sql"
+    },
+    {
+      "live_version": "20261009082238",
+      "live_name": "customer_invoice_allowed_vat_rates",
+      "repo_version": "20260926171157",
+      "repo_name": "customer_invoice_allowed_vat_rates",
+      "repo_path": "supabase/migrations/20260926171157_customer_invoice_allowed_vat_rates.sql"
+    },
+    {
+      "live_version": "20261009082244",
+      "live_name": "protect_last_company_admin",
+      "repo_version": "20261007200500",
+      "repo_name": "protect_last_company_admin",
+      "repo_path": "supabase/migrations/20261007200500_protect_last_company_admin.sql"
     }
   ],
   "unresolved_repo_only": [
@@ -94,21 +123,30 @@
       "path": "supabase/migrations/20260925064621_private_pdf_storage.sql",
       "status": "schema_effect_confirmed_live",
       "evidence": [
-        "storage bucket lt-documents"
+        "storage bucket lt-documents",
+        "private Storage access policies present"
       ],
-      "note": "Migration history record missing, but representative schema effects are verified live. Eligible for history-repair review; do not mark applied until full migration effect review is complete."
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260925064842",
       "name": "supplier_coding_approval",
       "path": "supabase/migrations/20260925064842_supplier_coding_approval.sql",
-      "status": "unverified"
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "save_supplier_invoice_coding and approve_supplier_invoice RPCs present"
+      ],
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260925065024",
       "name": "supplier_liability_posting",
       "path": "supabase/migrations/20260925065024_supplier_liability_posting.sql",
-      "status": "unverified"
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "accounting_periods/accounting_sequences tables and post_supplier_invoice_liability RPC present"
+      ],
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260925065143",
@@ -116,10 +154,9 @@
       "path": "supabase/migrations/20260925065143_supplier_payments.sql",
       "status": "schema_effect_confirmed_live",
       "evidence": [
-        "table supplier_payments",
-        "functions prepare_supplier_payment/release_supplier_payment/confirm_supplier_payment"
+        "supplier_payments table and supplier payment RPCs present"
       ],
-      "note": "Migration history record missing, but representative schema effects are verified live. Eligible for history-repair review; do not mark applied until full migration effect review is complete."
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260925070609",
@@ -127,29 +164,39 @@
       "path": "supabase/migrations/20260925070609_customer_invoicing.sql",
       "status": "schema_effect_confirmed_live",
       "evidence": [
-        "invoice settings/drafts/reservations/documents/credit tables",
-        "reserve_customer_invoice_number",
-        "finalize_customer_invoice"
+        "customer invoice settings/draft/reservation/document/credit tables and finalize/reserve RPCs present"
       ],
-      "note": "Migration history record missing, but representative schema effects are verified live. Eligible for history-repair review; do not mark applied until full migration effect review is complete."
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260925071038",
       "name": "customer_credit_notes",
       "path": "supabase/migrations/20260925071038_customer_credit_notes.sql",
-      "status": "unverified"
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "finalize_customer_credit and register_customer_credit_refund RPCs present"
+      ],
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260925071351",
       "name": "document_archive_metadata",
       "path": "supabase/migrations/20260925071351_document_archive_metadata.sql",
-      "status": "unverified"
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "documents.title is NOT NULL and documents_company_category_idx present"
+      ],
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260925071618",
       "name": "customer_invoice_hardening",
       "path": "supabase/migrations/20260925071618_customer_invoice_hardening.sql",
-      "status": "unverified"
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "hardened finalize_customer_invoice/finalize_customer_credit RPCs present"
+      ],
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260925075745",
@@ -157,12 +204,9 @@
       "path": "supabase/migrations/20260925075745_bank_reconciliation.sql",
       "status": "schema_effect_confirmed_live",
       "evidence": [
-        "bank_payments",
-        "automation_proposals",
-        "customer_payment_executions",
-        "bank reconciliation RPCs"
+        "bank_payments/automation_proposals/customer_payment_executions tables and bank reconciliation RPCs present"
       ],
-      "note": "Migration history record missing, but representative schema effects are verified live. Eligible for history-repair review; do not mark applied until full migration effect review is complete."
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260925080105",
@@ -170,141 +214,167 @@
       "path": "supabase/migrations/20260925080105_financial_write_guard.sql",
       "status": "schema_effect_confirmed_live",
       "evidence": [
-        "private.require_controlled_financial_write"
+        "private.require_controlled_financial_write present"
       ],
-      "note": "Migration history record missing, but representative schema effects are verified live. Eligible for history-repair review; do not mark applied until full migration effect review is complete."
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260925080318",
       "name": "inventory",
       "path": "supabase/migrations/20260925080318_inventory.sql",
-      "status": "unverified"
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "inventory tables and inventory RPCs present"
+      ],
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260925080510",
       "name": "inventory_performance_cleanup",
       "path": "supabase/migrations/20260925080510_inventory_performance_cleanup.sql",
-      "status": "unverified"
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "inventory_adjustments_company_item_idx present"
+      ],
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260925080707",
       "name": "payroll",
       "path": "supabase/migrations/20260925080707_payroll.sql",
-      "status": "unverified"
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "payroll_runs table, controlled_payroll_write_guard trigger and payroll RPCs present"
+      ],
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260925094824",
       "name": "uat_bootstrap_invites",
       "path": "supabase/migrations/20260925094824_uat_bootstrap_invites.sql",
-      "status": "unverified"
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "uat_bootstrap_invites table and active index present"
+      ],
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260925095203",
       "name": "uat_invoice_settings",
       "path": "supabase/migrations/20260925095203_uat_invoice_settings.sql",
-      "status": "unverified"
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "uat-lt-studio synthetic invoice settings present"
+      ],
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260925100151",
       "name": "uat_require_aal2",
       "path": "supabase/migrations/20260925100151_uat_require_aal2.sql",
-      "status": "unverified"
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "restrictive UAT requires AAL2 policy present on customers"
+      ],
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260925100603",
       "name": "customer_browser_grants",
       "path": "supabase/migrations/20260925100603_customer_browser_grants.sql",
-      "status": "unverified"
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "authenticated customers INSERT/UPDATE granted and DELETE denied"
+      ],
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260925130410",
       "name": "financial_batches_self_approval",
       "path": "supabase/migrations/20260925130410_financial_batches_self_approval.sql",
-      "status": "unverified"
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "approve_financial_batch RPC present"
+      ],
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260925133748",
       "name": "financial_batches_audit_write",
       "path": "supabase/migrations/20260925133748_financial_batches_audit_write.sql",
-      "status": "unverified"
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "controlled authenticated audit inserts policy present"
+      ],
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260925141238",
       "name": "financial_batch_customer_invoice_gating",
       "path": "supabase/migrations/20260925141238_financial_batch_customer_invoice_gating.sql",
-      "status": "unverified"
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "financial_batch_source_activation_unique index and stage_source_financial_batch RPC present"
+      ],
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260926155945",
       "name": "personal_session_audit_rpc",
       "path": "supabase/migrations/20260926155945_personal_session_audit_rpc.sql",
-      "status": "unverified"
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "app_users_personal_session_audit trigger and set_personal_session_duration RPC present"
+      ],
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260926164726",
       "name": "shared_uat_realtime_completion",
       "path": "supabase/migrations/20260926164726_shared_uat_realtime_completion.sql",
-      "status": "unverified"
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "company_revenue_accounts/invoice_comments/invoice_reminders tables and RPCs present"
+      ],
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260926164727",
       "name": "website_cms_supabase",
       "path": "supabase/migrations/20260926164727_website_cms_supabase.sql",
-      "status": "unverified"
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "website_cms_state/revisions tables and CMS RPCs present"
+      ],
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260926164728",
       "name": "shared_realtime_publication",
       "path": "supabase/migrations/20260926164728_shared_realtime_publication.sql",
-      "status": "unverified"
+      "status": "schema_effect_confirmed_live",
+      "evidence": [
+        "supplier_invoice_date_corrections and website CMS tables published in supabase_realtime"
+      ],
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     },
     {
       "version": "20260926171012",
       "name": "fix_revenue_account_rpc",
       "path": "supabase/migrations/20260926171012_fix_revenue_account_rpc.sql",
-      "status": "unverified"
-    },
-    {
-      "version": "20260926171157",
-      "name": "customer_invoice_allowed_vat_rates",
-      "path": "supabase/migrations/20260926171157_customer_invoice_allowed_vat_rates.sql",
-      "status": "unverified"
-    },
-    {
-      "version": "20261007152400",
-      "name": "single_active_company_activation",
-      "path": "supabase/migrations/20261007152400_single_active_company_activation.sql",
-      "status": "deployed_and_verified_live",
+      "status": "schema_effect_confirmed_live",
       "evidence": [
-        "unique index company_activation_invites_single_active_per_company"
+        "save_company_revenue_account RPC present"
       ],
-      "note": "Applied to UAT 2026-10-08 from GitHub main and verified live."
-    },
-    {
-      "version": "20261007152500",
-      "name": "realtime_tenant_filter_hardening",
-      "path": "supabase/migrations/20261007152500_realtime_tenant_filter_hardening.sql",
-      "status": "deployed_and_verified_live",
-      "evidence": [
-        "representative tenant tables have relreplident=f after deployment"
-      ],
-      "note": "Applied to UAT 2026-10-08 from GitHub main and verified live."
-    },
-    {
-      "version": "20261007152600",
-      "name": "customer_invoice_storage_delete_guard",
-      "path": "supabase/migrations/20261007152600_customer_invoice_storage_delete_guard.sql",
-      "status": "deployed_and_verified_live",
-      "evidence": [
-        "storage delete policy protects customer_invoice_documents"
-      ],
-      "note": "Applied to UAT 2026-10-08 from GitHub main and verified live."
-    },
-    {
-      "version": "20261007200500",
-      "name": "protect_last_company_admin",
-      "path": "supabase/migrations/20261007200500_protect_last_company_admin.sql",
-      "status": "unverified"
+      "note": "Representative migration effects are verified live. Treat as migration-history drift until full history repair review."
     }
-  ]
+  ],
+  "summary": {
+    "repo_migration_count": 86,
+    "live_migration_count": 61,
+    "alias_count": 16,
+    "unresolved_repo_only_count": 25,
+    "unresolved_schema_effect_confirmed_live": 25,
+    "unresolved_unverified": 0
+  }
 }
