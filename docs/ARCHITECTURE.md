@@ -1,3 +1,5 @@
+> **HISTORISKT DOKUMENT.** Detta beskriver en äldre arkitekturetapp och är inte den aktuella UAT-arkitekturen. Läs [CURRENT-ARCHITECTURE.md](CURRENT-ARCHITECTURE.md) för verifierat nuläge.
+
 # Arkitektur och drift
 
 ## Körlägen
