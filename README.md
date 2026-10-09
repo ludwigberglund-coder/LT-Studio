@@ -6,6 +6,8 @@ Vi bygger en återanvändbar plattform för småföretag. Referenskunders verkli
 
 Börja här:
 
+- **Aktuell arkitektur och verkligt UAT-nuläge:** `docs/CURRENT-ARCHITECTURE.md`
+
 - Säkerhetspolicy och privat rapportering
 - Audit: konkreta risker, källor och rättelser
 - ROLANDS PILOT READINESS CHECKLIST
