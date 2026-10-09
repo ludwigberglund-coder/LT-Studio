@@ -562,3 +562,25 @@ html[data-lt-theme="dark"] .danger-note span{background:#39413d;color:#dce4df}
   .resolution-secondary-actions{grid-template-columns:1fr}
   .unplaced-table-wrap .table-scroll{min-height:0;max-height:none}
 }
+
+/* Tablet-safe summary cards: the workspace sidebar reduces available content
+ * width far below viewport width. Keep the summary readable and let only the
+ * payment table (not the entire page) scroll horizontally. */
+.unplaced-summary-card{
+  min-width:0;
+}
+.unplaced-summary-card>div:not(.unplaced-summary-icon){
+  min-width:0;
+  flex:1 1 auto;
+}
+.unplaced-summary-card strong{
+  overflow-wrap:anywhere;
+}
+@media (min-width:761px) and (max-width:980px){
+  .unplaced-summary{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .unplaced-summary-card:last-child{
+    grid-column:1/-1;
+  }
+}
