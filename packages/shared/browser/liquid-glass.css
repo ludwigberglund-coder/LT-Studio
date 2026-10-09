@@ -538,3 +538,228 @@ html[data-operator-motion="calm"][data-lt-glass-surface="operator"] .topbar {
     animation: none !important;
   }
 }
+
+/*
+ * Liquid Glass 3.0 — work-area controls, not accounting content.
+ * Apple HIG: controls float above content; values and journals stay solid.
+ * The operator has its OWN theme preference, independent of lt-theme.
+ * These overrides are intentionally last so a light operator theme never
+ * inherits dark glass (or the opposite) from a separate workspace.
+ */
+html[data-lt-glass-surface="operator"][data-operator-theme="light"] {
+  --lt-glass-shell:rgb(230 243 255 / .72);
+  --lt-glass-control:rgb(244 249 255 / .85);
+  --lt-glass-sheet:rgb(249 252 255 / .96);
+  --lt-glass-solid:#fff;
+  --lt-glass-hover:rgb(230 246 255 / .97);
+  --lt-glass-highlight:rgb(255 255 255 / .9);
+  --lt-glass-stroke:rgb(117 153 193 / .52);
+  --lt-glass-selection:rgb(211 235 255 / .98);
+  --lt-glass-selected-text:#153b59;
+  --lt-glass-focus:#286994;
+  --lt-glass-aurora-blue:rgb(80 184 246 / .46);
+  --lt-glass-aurora-violet:rgb(173 132 245 / .36);
+  --lt-glass-aurora-peach:rgb(255 185 142 / .34);
+  --lt-glass-shadow:0 2px 1px rgb(255 255 255 / .85) inset,0 -1px 0 rgb(86 138 194 / .15) inset,0 12px 30px rgb(32 58 94 / .16);
+  --lt-glass-float-shadow:0 2px 1px rgb(255 255 255 / .94) inset,0 -1px 0 rgb(97 137 187 / .22) inset,0 22px 62px rgb(35 55 94 / .21);
+}
+html[data-lt-glass-surface="operator"][data-operator-theme="dark"] {
+  --lt-glass-shell:rgb(33 47 68 / .8);
+  --lt-glass-control:rgb(49 63 86 / .91);
+  --lt-glass-sheet:rgb(46 56 75 / .97);
+  --lt-glass-solid:#172731;
+  --lt-glass-hover:rgb(60 84 112 / .97);
+  --lt-glass-highlight:rgb(225 242 255 / .18);
+  --lt-glass-stroke:rgb(162 203 255 / .36);
+  --lt-glass-selection:rgb(68 118 166 / .52);
+  --lt-glass-selected-text:#fff;
+  --lt-glass-focus:#a8d8ff;
+  --lt-glass-aurora-blue:rgb(43 152 242 / .42);
+  --lt-glass-aurora-violet:rgb(151 95 235 / .35);
+  --lt-glass-aurora-peach:rgb(236 148 127 / .23);
+  --lt-glass-shadow:0 1px 1px rgb(224 244 255 / .23) inset,0 -1px 0 rgb(70 130 195 / .15) inset,0 14px 38px rgb(0 0 0 / .36);
+  --lt-glass-float-shadow:0 1px 1px rgb(224 244 255 / .28) inset,0 -1px 0 rgb(75 142 210 / .18) inset,0 25px 72px rgb(0 0 0 / .48);
+}
+/* Driftadmin navigation must remain dark to preserve its existing pale text.
+ * v2 accidentally made this area light in the light theme. */
+html[data-lt-glass-surface="operator"] .operator-shell .sidebar {
+  background:
+    radial-gradient(ellipse at 8% 4%,rgb(74 151 196 / .42),transparent 52%),
+    radial-gradient(ellipse at 94% 92%,rgb(141 102 205 / .30),transparent 56%),
+    linear-gradient(156deg,rgb(26 56 75 / .97),rgb(11 26 42 / .98)) !important;
+  color:#eef8fa !important;
+  border-right:1px solid rgb(157 210 231 / .36) !important;
+  box-shadow:inset -1px 0 rgb(242 252 255 / .19),14px 0 44px rgb(17 42 68 / .18) !important;
+}
+html[data-lt-glass-surface="operator"] .operator-shell .sidebar .side-nav button:not(.active) {
+  color:#dceaf0 !important;
+}
+html[data-lt-glass-surface="operator"] .operator-shell .sidebar :is(.customer-system-link,.side-status) {
+  color:#f1fcff !important;
+  background:linear-gradient(135deg,rgb(255 255 255 / .16),rgb(255 255 255 / .07)) !important;
+  border-color:rgb(210 241 255 / .24) !important;
+  box-shadow:0 1px 0 rgb(255 255 255 / .13) inset,0 8px 22px rgb(0 0 0 / .1) !important;
+}
+html[data-lt-glass-surface="operator"] .operator-shell .sidebar :is(.customer-system-link strong,.side-status strong) {
+  color:#f7ffff !important;
+}
+
+/* Floating work tools: report filters, payment actions, receivables search,
+ * document actions and unplaced-payment refresh. Data tables are untouched. */
+html[data-lt-glass-surface="portal"] :is(
+  .report-toolbar,.documents-toolbar,.receivable-search,
+  .payments-primary-actions,.unplaced-toolbar
+) {
+  background:var(--lt-liquid-control) !important;
+  border:1px solid var(--lt-glass-stroke) !important;
+  box-shadow:var(--lt-glass-shadow) !important;
+}
+html[data-lt-glass-surface="portal"] :is(.report-toolbar,.documents-toolbar,.receivable-search,.payments-primary-actions) {
+  border-radius:20px !important;
+}
+html[data-lt-glass-surface="portal"] .unplaced-toolbar {
+  border-radius:19px 19px 0 0 !important;
+  border-left:0 !important;
+  border-right:0 !important;
+  border-top:0 !important;
+}
+html[data-lt-glass-surface="portal"] :is(.queue-tabs,.report-tabs,.automation-filter) {
+  background:var(--lt-liquid-control) !important;
+  border:1px solid var(--lt-glass-stroke) !important;
+  box-shadow:var(--lt-glass-shadow) !important;
+  border-radius:15px !important;
+}
+html[data-lt-glass-surface="portal"] :is(
+  .queue-tab.active,.report-tab.active,.automation-filter button.active
+) {
+  color:var(--lt-glass-selected-text) !important;
+  background:
+    linear-gradient(155deg,var(--lt-glass-highlight),transparent 72%),
+    var(--lt-glass-selection) !important;
+  box-shadow:inset 0 1px 0 var(--lt-glass-highlight),0 3px 11px rgb(25 48 80 / .14) !important;
+}
+html[data-lt-glass-surface="portal"] :is(
+  .queue-tab,.report-tab,.automation-filter button
+):hover:not(.active) {
+  background:var(--lt-glass-hover) !important;
+}
+html[data-lt-glass-surface="portal"] :is(
+  .shared-search-results,.supplier-search-results,.receivable-search-results
+) {
+  background:var(--lt-liquid-sheet) !important;
+  border:1px solid var(--lt-glass-stroke) !important;
+  box-shadow:var(--lt-glass-float-shadow) !important;
+  border-radius:18px !important;
+  -webkit-backdrop-filter:blur(24px) saturate(145%);
+  backdrop-filter:blur(24px) saturate(145%);
+}
+html[data-lt-glass-surface="portal"] :is(
+  .shared-search-option,.supplier-search-option,.receivable-search-option
+):is(:hover,.active,[aria-selected="true"]) {
+  background:var(--lt-glass-selection) !important;
+  color:var(--lt-glass-selected-text) !important;
+  border-radius:11px !important;
+}
+html[data-lt-glass-surface="portal"] :is(
+  .shared-search-shell>input[type="search"],
+  .supplier-search-control input,.receivable-search-field input,
+  .queue-search,.invoice-search
+):focus-visible {
+  outline:3px solid var(--lt-glass-focus) !important;
+  outline-offset:2px !important;
+}
+
+/* A confirmation is a sheet above content, not another opaque report card.
+ * Forms and numeric summaries within retain their own solid backgrounds. */
+html[data-lt-glass-surface="portal"] :is(.modal,.modal-sales) {
+  background:var(--lt-liquid-sheet) !important;
+  border:1px solid var(--lt-glass-stroke) !important;
+  box-shadow:var(--lt-glass-float-shadow) !important;
+}
+html[data-lt-glass-surface="portal"] :is(.modal-head,.modal-head-sales),
+html[data-lt-glass-surface="operator"] .onboarding-modal-card>.modal-head {
+  background:var(--lt-liquid-control) !important;
+  border-bottom:1px solid var(--lt-glass-stroke) !important;
+}
+html[data-lt-glass-surface="operator"] :is(
+  .theme-toggle,.company-search-results
+) {
+  background:var(--lt-liquid-control) !important;
+  border-color:var(--lt-glass-stroke) !important;
+  box-shadow:var(--lt-glass-shadow) !important;
+}
+html[data-lt-glass-surface="operator"] .company-search-results {
+  background:var(--lt-liquid-sheet) !important;
+  box-shadow:var(--lt-glass-float-shadow) !important;
+}
+html[data-lt-glass-surface="operator"] :is(.theme-toggle,.topbar-create):hover:not(:disabled) {
+  box-shadow:var(--lt-glass-float-shadow) !important;
+}
+html[data-lt-glass-surface] :is(
+  .report-toolbar,.documents-toolbar,.payments-primary-actions,
+  .shared-search-results,.receivable-search-results,.supplier-search-results,
+  .theme-toggle,.company-search-results
+) {
+  transition:box-shadow .23s ease,border-color .23s ease;
+}
+
+/* Material accessibility: disable special effects where transparency is
+ * disallowed. Operator sidebar stays dark for its white foreground text. */
+@supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))) {
+  html[data-lt-glass-surface="portal"] :is(
+    .report-toolbar,.documents-toolbar,.receivable-search,.payments-primary-actions,
+    .shared-search-results,.supplier-search-results,.receivable-search-results,
+    .modal,.modal-sales
+  ),
+  html[data-lt-glass-surface="operator"] :is(.company-search-results,.theme-toggle) {
+    background:var(--lt-glass-solid) !important;
+  }
+}
+@media (prefers-reduced-transparency:reduce), (prefers-contrast:more) {
+  html[data-lt-glass-surface="portal"] :is(
+    .report-toolbar,.documents-toolbar,.receivable-search,.payments-primary-actions,
+    .unplaced-toolbar,.queue-tabs,.report-tabs,.automation-filter,
+    .shared-search-results,.supplier-search-results,.receivable-search-results,
+    .modal,.modal-sales,.modal-head,.modal-head-sales
+  ),
+  html[data-lt-glass-surface="operator"] :is(
+    .theme-toggle,.company-search-results,.onboarding-modal-card>.modal-head
+  ) {
+    background:var(--lt-glass-solid) !important;
+    -webkit-backdrop-filter:none !important;
+    backdrop-filter:none !important;
+  }
+  html[data-lt-glass-surface="operator"] .operator-shell .sidebar {
+    background:#152c3a !important;
+  }
+}
+@media (prefers-reduced-motion:reduce) {
+  html[data-lt-glass-surface] :is(
+    .report-toolbar,.documents-toolbar,.payments-primary-actions,
+    .shared-search-results,.receivable-search-results,.supplier-search-results,
+    .theme-toggle,.company-search-results
+  ) {transition:none !important}
+}
+@media (forced-colors:active) {
+  html[data-lt-glass-surface="portal"] :is(
+    .report-toolbar,.documents-toolbar,.receivable-search,.payments-primary-actions,
+    .unplaced-toolbar,.queue-tabs,.report-tabs,.automation-filter,
+    .shared-search-results,.supplier-search-results,.receivable-search-results,
+    .modal,.modal-sales,.modal-head,.modal-head-sales
+  ),
+  html[data-lt-glass-surface="operator"] :is(.theme-toggle,.company-search-results,.onboarding-modal-card>.modal-head) {
+    background:Canvas !important;
+    color:CanvasText !important;
+    border-color:CanvasText !important;
+    box-shadow:none !important;
+  }
+}
+@media print {
+  html[data-lt-glass-surface] :is(
+    .report-toolbar,.documents-toolbar,.receivable-search,.payments-primary-actions,
+    .unplaced-toolbar,.queue-tabs,.report-tabs,.automation-filter,.modal,.modal-sales
+  ) {
+    background:transparent !important;
+    box-shadow:none !important;
+  }
+}
