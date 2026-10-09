@@ -1,3 +1,5 @@
+> **HISTORISKT DOKUMENT.** Detta beskriver en äldre arkitekturetapp och är inte den aktuella UAT-arkitekturen. Läs [CURRENT-ARCHITECTURE.md](CURRENT-ARCHITECTURE.md) för verifierat nuläge.
+
 # referenskunden-plattformen – enkel förklaring av nuläge, upplägg och plan
 
 ## Sammanfattning
