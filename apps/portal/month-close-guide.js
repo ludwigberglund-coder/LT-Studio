@@ -127,6 +127,29 @@
       '<p class="month-close-findings-disclaimer">Detta jämför antal enligt Supabase med antal som lästs in. Kontroll gjord: '+escapeHtml(c.checkedAt)+'. Det verifierar inte varje post, bank, moms eller hela månadens avstämning. Pågående ändringar kan kräva ny inläsning.</p>'+reloadAction()+'</div>';
   }
 
+  function renderBankReview(state){
+    // This is a company-wide count of unmatched payments, not confirmation of bank reconciliation.
+    if(state?.demo){
+      return '<div class="month-close-bank-review"><p>Bankantalet verifieras inte mot Supabase i demon. Kontrollera manuellt.</p></div>';
+    }
+    const c=state?.unmatchedBankEvidence;
+    const checkedAt=Date.parse(String(c?.checkedAt||''));
+    const age=Date.now()-checkedAt;
+    const trusted=c?.status==='checked' && state?.companyId
+      && String(c.companyId)===String(state.companyId)
+      && Number.isSafeInteger(c.count) && c.count>=0
+      && Number.isFinite(checkedAt) && age>=-30000 && age<=5*60*1000;
+    if(!trusted){
+      return '<div class="month-close-bank-review" role="status"><p>Antalet oplacerade betalningar kunde inte kontrolleras eller behöver uppdateras. Granska manuellt.</p></div>';
+    }
+    const summary=c.count===0
+      ? 'Inga oplacerade betalningar hittades i företagets registrerade bankhändelser vid kontrollen.'
+      : c.count===1
+        ? '1 oplacerad betalning behöver granskas.'
+        : c.count+' oplacerade betalningar behöver granskas.';
+    return '<div class="month-close-bank-review" role="status"><p>'+
+      escapeHtml(summary)+' Detta gäller hela företaget, inte enbart vald månad. Övriga bankhändelser behöver fortfarande stämmas av.</p></div>';
+  }
   function render(options){
     const state=options||{};
     const period=/^\d{4}-(0[1-9]|1[0-2])$/.test(String(state.period||''))?String(state.period):'Okänd period';
@@ -140,7 +163,8 @@
       : 'Guiden hjälper dig att kontrollera månaden före låsning. Den gör ingen automatisk avstämning.';
     const q=state.demo?'?demo=1':'';
     const items=steps.map(function(step){
-      return '<li><div><strong>'+escapeHtml(step.title)+'</strong><p>'+escapeHtml(step.description)+'</p></div>'+
+      const bankDetails=step.path==='./unplaced-payments.html'?renderBankReview(state):'';
+      return '<li><div><strong>'+escapeHtml(step.title)+'</strong><p>'+escapeHtml(step.description)+'</p>'+bankDetails+'</div>'+
         '<div class="month-close-actions"><span>Kontrollera manuellt</span>'+
         '<a href="'+escapeHtml(step.path+q)+'">Öppna <span aria-hidden="true">→</span></a></div></li>';
     }).join('');
@@ -156,5 +180,5 @@
       '<p class="month-close-notice">Ingen punkt markeras automatiskt som klar. Öppna varje arbetsyta och gör den riktiga kontrollen före eventuellt periodlås.</p>'+
       '</section>';
   }
-  globalThis.LTMonthCloseGuide=Object.freeze({render:render,inspectEntries:inspectEntries,evaluateCoverage:evaluateCoverage,renderCoverage:coveragePanel});
+  globalThis.LTMonthCloseGuide=Object.freeze({render:render,inspectEntries:inspectEntries,evaluateCoverage:evaluateCoverage,renderCoverage:coveragePanel,renderBankReview:renderBankReview});
 })();
