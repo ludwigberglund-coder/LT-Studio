@@ -115,7 +115,7 @@ test('snabbkontroll undviker falska klarsignaler och skyddar verifikationsnumret
     {debitOre:100,creditOre:0},{debitOre:0,creditOre:99}
   ]};
   const html=sample.render({period:'2026-10',periodExists:true,periodStatus:'open',visibleEntries:1,journalEntries:[entry]});
-  assert.match(html,/1 möjliga avvikelser/);
+  assert.match(html,/1 möjlig avvikelse/);
   assert.match(html,/&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
   assert.doesNotMatch(html,/<script>alert/);
   assert.match(html,/href="#journal-entries"/);
