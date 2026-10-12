@@ -2,3 +2,16 @@
 .opening-panel{grid-column:1/-1}.opening-panel .section-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}.opening-year-form{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.opening-year-form label{display:grid;gap:5px;font-size:12px;font-weight:800}.opening-year-form input{width:110px;border:1px solid #cfd9d3;border-radius:9px;padding:9px;font:inherit}.opening-meta{display:flex;gap:18px;align-items:end;flex-wrap:wrap}.opening-meta label{max-width:180px}.opening-meta span{color:#64716b;font-size:13px;padding-bottom:10px}.opening-lines{display:grid;gap:10px}.opening-line-row{display:grid;grid-template-columns:110px minmax(180px,1fr) 140px 140px auto;gap:10px;align-items:end;padding:12px;border:1px solid #e3ebe6;border-radius:12px;background:#fbfcfb}.opening-line-row label{margin:0}.opening-line-row input{min-width:0}.opening-confirm{display:flex!important;grid-template-columns:auto 1fr!important;align-items:flex-start;gap:10px!important;font-weight:600!important;background:#f4f8f6;border-radius:10px;padding:12px}.opening-confirm input{width:auto!important;margin-top:2px}.opening-remove{white-space:nowrap}
 @media(max-width:900px){.opening-line-row{grid-template-columns:100px 1fr 120px 120px}.opening-line-row .opening-remove{grid-column:1/-1;justify-self:start}.opening-panel .section-head{display:grid}.opening-year-form{justify-self:start}}
 @media(max-width:620px){.opening-line-row{grid-template-columns:1fr 1fr}.opening-line-row label:nth-child(2){grid-column:1/-1}.opening-line-row .opening-remove{grid-column:1/-1}.opening-meta{display:grid}.opening-year-form{display:grid;grid-template-columns:1fr auto;align-items:end}}
+
+/* Verifikationslistan har egen vertikal scroll och håller detaljpanelen synlig. */
+.accounting-list-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:20px;font-size:14px}
+.accounting-list-head span{color:#526459}
+.accounting-table-scroll{max-height:340px;overflow:auto;overscroll-behavior:contain;border:1px solid #dfe7e2;border-radius:12px;margin-top:10px}
+.accounting-table{margin-top:0}
+.accounting-table thead th{position:sticky;top:0;z-index:1;background:#f3f8f5;box-shadow:0 1px 0 #dfe7e2}
+.accounting-table tr[data-entry]:focus-visible{outline:3px solid #287e61;outline-offset:-3px}
+.accounting-table tr.is-selected{background:#e7f4ed}
+.accounting-table tr.is-selected:hover{background:#dbebdf}
+.accounting-expand{margin-top:10px;width:100%;justify-content:center}
+.accounting-grid .entry-detail{margin:18px 0 12px;padding:16px;border:1px solid #cbded2;border-radius:12px;background:#f5faf7}
+@media(max-width:620px){.accounting-table-scroll{max-height:310px}.accounting-grid .entry-detail{padding:12px}}
