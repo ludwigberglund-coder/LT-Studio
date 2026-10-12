@@ -12,12 +12,11 @@ function requestId(prefix,id){return `${prefix}-${id}-${crypto.randomUUID()}`}
 // Reuse the same request ID when retrying an uncertain write with unchanged details.
 // The database can then return the original result instead of creating a second journal entry.
 function resolutionRequestId(payment,type,counterAccount,description){
-  const key=JSON.stringify([session?.company?.id||'',payment.id]);
-  const signature=JSON.stringify([type,counterAccount,description]);
+  const key=JSON.stringify([session?.company?.id||'',payment.id,type,counterAccount,description]);
   const previous=resolutionRequests.get(key);
-  if(previous?.signature===signature)return previous.requestId;
+  if(previous)return previous;
   const next=requestId('unplaced',payment.id);
-  resolutionRequests.set(key,{signature,requestId:next});
+  resolutionRequests.set(key,next);
   return next;
 }
 async function api(path,options={}){const headers={'Accept':'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})};if(options.method&&options.method!=='GET'&&csrfToken)headers['X-CSRF-Token']=csrfToken;const response=await fetch(`/api/v1${path}`,{credentials:'same-origin',cache:'no-store',...options,headers,body:options.body?JSON.stringify(options.body):undefined});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Begäran misslyckades.');return data}
