@@ -3600,3 +3600,49 @@ html[data-lt-theme="dark"] .batch-editor>.batch-actions{
     padding-inline: 12px !important;
   }
 }
+
+
+/* Payments: each control belongs to the phone-width column, not a min-content
+ * desktop-width row. Financial tables retain their own horizontal scrolling. */
+@media (max-width: 760px) {
+  .payments-content :where(.payments-primary-actions, .payments-toolbar, .payments-panel-view, .payments-summary) {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .payments-content .payments-primary-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .payments-content .payments-primary-actions .button {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .payments-content .payments-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .payments-content .payments-toolbar > label,
+  .payments-content .payments-search-shell,
+  .payments-content .payments-toolbar :where(select, input) {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0 !important;
+    max-width: 100%;
+  }
+  .payments-content .report-table-wrap {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .payments-content .report-head :where(h2, p) { overflow-wrap: anywhere; }
+}
