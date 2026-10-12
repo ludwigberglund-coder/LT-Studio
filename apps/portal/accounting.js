@@ -74,7 +74,18 @@ function beginnerGuide(){
     '<div><dt>Periodlås</dt><dd>Skyddar en avslutad tidsperiod från nya bokföringar. Bara behöriga personer kan låsa upp.</dd></div>'+
     '</dl><p class="accounting-help-note">Den här hjälpen förklarar begreppen men ändrar inga verifikationer eller perioder. Kontrollera alltid underlaget innan du godkänner bokföring.</p></div></details>';
 }
-function render(){const current=periods.find(p=>p.period===currentPeriod())||{period:currentPeriod(),status:'open'};app.innerHTML=`<div class="accounting-shell">${sidebar()}<section class="accounting-main"><header class="topbar"><div><h1>Bokföring & perioder</h1><p>Verifikationer bevaras. Rättelser sker med nya spårbara poster.</p></div><div class="user-chip"><b>${esc(session?.user?.displayName||'Demoanvändare')}</b></div></header><main class="accounting-content">${isDemo?'<div class="demo-banner"><b>Gemensamt UAT-scenario.</b> Här visas även verifikationer som skapas av andra demoflöden, till exempel bekräftade leverantörsbetalningar.</div>':''}${beginnerGuide()}<section class="accounting-grid"><article class="panel"><span class="eyebrow">Verifikationer</span><h2>Bokförda poster</h2><p>Klicka på en rad för att se exakt konto, debet och kredit.</p>${entryTable()}${entryDetail()}</article><article class="panel"><span class="eyebrow">Periodkontroll</span><h2>${esc(current.period)} · <span class="status-pill ${current.status==='locked'?'locked':''}">${statusLabel(current.status)}</span></h2><p>En låst period kan inte ta emot nya verifikationer. Admin kan alltid låsa upp perioden själv; övriga följer företagets kontrollregler.</p>${periodControls(current)}${periodList()}${unlockList()}</article></section>${openingBalancePanel()}</main></section></div>`;bind()}
+function monthlyGuide(current){
+  const renderer=globalThis.LTMonthCloseGuide?.render;
+  if(typeof renderer!=='function')return '';
+  return renderer({
+    period:current.period,
+    periodStatus:current.status,
+    periodExists:periods.some(p=>p.period===current.period),
+    visibleEntries:entries.filter(e=>String(e.postingDate||'').slice(0,7)===current.period).length,
+    demo:isDemo
+  });
+}
+function render(){const current=periods.find(p=>p.period===currentPeriod())||{period:currentPeriod(),status:'open'};app.innerHTML=`<div class="accounting-shell">${sidebar()}<section class="accounting-main"><header class="topbar"><div><h1>Bokföring & perioder</h1><p>Verifikationer bevaras. Rättelser sker med nya spårbara poster.</p></div><div class="user-chip"><b>${esc(session?.user?.displayName||'Demoanvändare')}</b></div></header><main class="accounting-content">${isDemo?'<div class="demo-banner"><b>Gemensamt UAT-scenario.</b> Här visas även verifikationer som skapas av andra demoflöden, till exempel bekräftade leverantörsbetalningar.</div>':''}${beginnerGuide()}<section class="accounting-grid"><article class="panel"><span class="eyebrow">Verifikationer</span><h2>Bokförda poster</h2><p>Klicka på en rad för att se exakt konto, debet och kredit.</p>${entryTable()}${entryDetail()}</article><article class="panel"><span class="eyebrow">Periodkontroll</span><h2>${esc(current.period)} · <span class="status-pill ${current.status==='locked'?'locked':''}">${statusLabel(current.status)}</span></h2><p>En låst period kan inte ta emot nya verifikationer. Admin kan alltid låsa upp perioden själv; övriga följer företagets kontrollregler.</p>${periodControls(current)}${periodList()}${unlockList()}</article></section>${monthlyGuide(current)}${openingBalancePanel()}</main></section></div>`;bind()}
 function sortedJournalEntries(){
   const timeOf=entry=>{
     const created=Date.parse(String(entry.createdAt||entry.created_at||''));
@@ -199,6 +210,14 @@ function bind(){
   document.querySelector('[data-action="lock-current"]')?.addEventListener('click',async()=>{
     const period=currentPeriod();
     try{
+      const confirmed=await window.LTStudioDialog.confirm({
+        title:'Kontrollera månaden före låsning',
+        message:'Har du själv granskat bank, oplacerade betalningar, fakturor, PDF-underlag, buntar, rapporter och moms? Checklistan i bokföringsvyn gör inte dessa kontroller automatiskt. Ett periodlås innebär inte att bokföringen är avstämd.',
+        confirmLabel:'Jag har kontrollerat – lås perioden',
+        cancelLabel:'Avbryt',
+        tone:'warning'
+      });
+      if(!confirmed)return;
       if(isDemo){
         Demo.patch(state=>{
           const existing=state.accountingPeriods.find(p=>p.period===period);
