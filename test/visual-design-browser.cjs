@@ -255,7 +255,7 @@ function visible(element){
             sharedUserDisplay:sharedUserStyle?.display||null,
             sharedUserBorderTopWidth:sharedUserStyle?.borderTopWidth||null,
             sharedAvatarWidth:sharedAvatarStyle?.width||null,
-            sidebarCompanyHeight:sidebarCompanyStyle?.display==='none'||sidebarCompanyStyle?.visibility==='hidden'?null:(sidebarCompanyRect?.height??null),
+            sidebarCompanyHeight:sidebarCompanyStyle?.display==='none'||sidebarCompanyStyle?.visibility==='hidden'||!sidebarCompanyRect?.height?null:sidebarCompanyRect.height,
             sidebarCompanyClipped:Boolean(sidebarCompany&&sidebarCompanyStyle?.overflow==='hidden'&&sidebarCompany.scrollHeight>sidebarCompany.clientHeight+2),
             cmsFormPaddingTop:cmsFormStyle?.paddingTop||null,
             cmsFormPaddingLeft:cmsFormStyle?.paddingLeft||null,
