@@ -50,3 +50,21 @@ test('operator and global appearance are the same persisted mode',()=>{
   assert.match(operator,/addEventListener\('lt-themechange'/);
   assert.match(global,/localStorage\.setItem\(STORAGE_KEY,normalized\)/);
 });
+
+
+test('visual review protects inverted dashboard actions, number chips and menus',()=>{
+  const css=read('packages/shared/browser/theme-contrast.css');
+  assert.match(css,/\.welcome-next :is\(strong,span\)/);
+  assert.match(css,/\.task-card>strong/);
+  assert.match(css,/\.shared-menu-toggle \.ui-icon svg path/);
+  assert.match(css,/\.shared-user-trigger \.shared-user-avatar/);
+  assert.match(css,/\.shared-navigation \.shared-links a:is\(:hover,\.active,\[aria-current="page"\]\)/);
+  assert.match(css,/\.modal-head button\[data-action="close-modal"\]/);
+  assert.match(css,/\.login-card-mark \.mark-icon/);
+  const browser=read('test/visual-design-browser.cjs');
+  assert.match(browser,/lowContrastControls/);
+  assert.match(browser,/minRatio/);
+  const settlement=read('test/settlement-theme-browser.cjs');
+  assert.match(settlement,/closeButtonVisible/);
+  assert.match(settlement,/settlement-theme-mobile-dark\.png/);
+});
