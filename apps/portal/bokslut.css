@@ -97,3 +97,12 @@ html[data-lt-theme="dark"] .year-close-flag{color:#f5d287}
 .bokslut-guide-actions input{width:18px;height:18px;flex:0 0 auto}
 .bokslut-guide-progress{font-weight:700;padding:10px 0}
 #book-close-guide-reset{min-height:44px;padding:10px 16px;border-radius:8px}
+
+.book-close-server-details{margin-top:24px}
+.book-close-advanced{border:1px solid var(--color-hairline,#ddd);border-radius:12px;padding:12px;margin:14px 0;color:var(--color-ink,#111);background:var(--color-paper,#fff)}
+.book-close-advanced summary{font-weight:700;cursor:pointer;padding:8px 0}
+#book-close-start{padding:14px 18px;min-height:48px;align-self:flex-start;background:var(--color-ink,#111);color:var(--color-paper,#fff);border-radius:12px;border:1px solid var(--color-ink,#111);font-weight:700;cursor:pointer}
+#book-close-start:disabled{opacity:.6;cursor:progress}
+#book-close-simple-status{font-weight:700;margin:16px 0}
+#book-close-simple-actions{padding-inline-start:24px;line-height:1.65}
+#book-close-simple-actions li{margin:8px 0}
