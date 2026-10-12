@@ -4,6 +4,18 @@
 .journal-list-heading{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px 14px;font-size:13px}
 .journal-list-heading strong{font-size:14px;color:var(--color-ink,#173f32)}
 .journal-list-heading span{color:var(--muted,#64716b)}
+/* Read-only client-side search over the company's already loaded journal rows. */
+.journal-search{display:grid;gap:7px;padding:11px 13px;background:var(--surface-alt,#f4f8f6);border:1px solid #d7e5dc;border-radius:12px}
+.journal-search>label{font-size:13px;font-weight:750;color:var(--color-ink,#173f32)}
+.journal-search-controls{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap}
+.journal-search-controls input[type="search"]{flex:1 1 190px;min-width:0;min-height:42px;padding:9px 12px;font:inherit;border:1px solid #b8d0c1;border-radius:10px;background:var(--surface-card,#fff);color:inherit;outline-offset:2px}
+.journal-search-controls input[type="search"]:focus-visible{outline:3px solid var(--brand-forest,#2f8464)}
+.journal-search-clear{min-height:42px;white-space:nowrap}
+.journal-search>p{margin:0;font-size:12px;color:var(--muted,#64716b);line-height:1.4}
+html[data-lt-theme="dark"] .journal-search{background:var(--lt-dark-surface-soft,#303b35);border-color:var(--lt-dark-border,#48544d)}
+html[data-lt-theme="dark"] .journal-search-controls input[type="search"]{background:var(--lt-dark-surface,#242c29);color:inherit;border-color:var(--lt-dark-border,#48544d)}
+@media(max-width:620px){.journal-search-controls{display:grid;grid-template-columns:minmax(0,1fr)}.journal-search-clear{justify-self:start}}
+
 .journal-scroll{max-height:304px;overflow-x:auto;overflow-y:auto;scrollbar-gutter:stable;overscroll-behavior-y:contain;border:1px solid #d9e4dd;border-radius:12px;background:var(--surface-card,#fff)}
 .journal-scroll-expanded{max-height:520px}
 .journal-scroll:focus-visible{outline:3px solid var(--brand-forest,#1c6650);outline-offset:2px}
