@@ -90,3 +90,10 @@ html[data-lt-theme="dark"] .year-close-flag{color:#f5d287}
 .book-close-cutoff-table tbody tr:last-child th,.book-close-cutoff-table tbody tr:last-child td{border-bottom:0}
 .book-close-cutoff-table-wrap:focus-visible{outline:3px solid #275bd0;outline-offset:2px}
 @media(max-width:760px){.book-close-cutoff-table th,.book-close-cutoff-table td{padding:10px}}
+
+/* Scoped book-close review guide; never communicates attestation. */
+.bokslut-guide-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px;margin:16px 0}
+.bokslut-guide-actions label{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--color-hairline,#aaa);border-radius:10px;cursor:pointer;color:inherit}
+.bokslut-guide-actions input{width:18px;height:18px;flex:0 0 auto}
+.bokslut-guide-progress{font-weight:700;padding:10px 0}
+#book-close-guide-reset{min-height:44px;padding:10px 16px;border-radius:8px}
