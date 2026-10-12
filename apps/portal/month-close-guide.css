@@ -1,0 +1,19 @@
+/* Läsguide: granskning före låsning, inte en andra bokföringsmotor. */
+.month-close-guide{grid-column:1/-1;min-width:0}
+.month-close-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.month-close-heading h2{margin:5px 0}
+.month-close-guide>p{line-height:1.55;margin:9px 0;color:var(--muted,#64716b)}
+.month-close-guide .month-close-count{font-size:13px}
+.month-close-list{margin:20px 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;list-style:none}
+.month-close-list li{display:flex;justify-content:space-between;flex-direction:column;gap:14px;border:1px solid var(--color-hairline,#dfe7e2);border-radius:14px;padding:16px;background:var(--surface-alt,#f4f8f6)}
+.month-close-list strong{font-weight:750}
+.month-close-list p{margin:6px 0 0;color:var(--muted,#64716b);font-size:13px;line-height:1.5}
+.month-close-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.month-close-actions>span{font-size:12px;font-weight:650;color:var(--muted,#64716b)}
+.month-close-actions a{font-size:13px;font-weight:750;text-decoration:underline;text-underline-offset:4px;color:var(--brand-forest,#173f32)}
+.month-close-actions a:focus-visible{outline:3px solid var(--brand-forest,#173f32);outline-offset:4px;border-radius:3px}
+.month-close-guide .month-close-notice{border-radius:12px;border:1px solid var(--color-hairline,#dfe7e2);padding:12px 14px;font-size:13px;background:var(--surface-alt,#f4f8f6)}
+html[data-lt-theme="dark"] .month-close-list li,html[data-lt-theme="dark"] .month-close-guide .month-close-notice{border-color:var(--lt-dark-border,#48544d);background:var(--lt-dark-surface-soft,#303b35)}
+html[data-lt-theme="dark"] .month-close-actions a{color:var(--brand-lime,#d5e5aa)}
+html[data-lt-theme="dark"] .month-close-actions a:focus-visible{outline-color:var(--brand-lime,#d5e5aa)}
+@media(max-width:780px){.month-close-list{grid-template-columns:1fr}.month-close-heading{align-items:start;flex-direction:column}}
