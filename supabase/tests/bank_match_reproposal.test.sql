@@ -11,15 +11,17 @@ select ok(
   'bank match RPC remains security invoker'
 );
 
-select like(
-  pg_get_functiondef('public.create_bank_match_proposal(text,text,text,integer,boolean,boolean,text,jsonb)'::regprocedure),
-  '%app.controlled_financial_write%',
+select ok(
+  position('app.controlled_financial_write' in pg_get_functiondef(
+    'public.create_bank_match_proposal(text,text,text,integer,boolean,boolean,text,jsonb)'::regprocedure
+  ))>0,
   'bank match RPC opts into the controlled financial-write guard'
 );
 
-select like(
-  pg_get_functiondef('public.decide_automation_proposal(text,text,text,text)'::regprocedure),
-  '%app.controlled_financial_write%',
+select ok(
+  position('app.controlled_financial_write' in pg_get_functiondef(
+    'public.decide_automation_proposal(text,text,text,text)'::regprocedure
+  ))>0,
   'approve/reject RPC opts into the controlled financial-write guard'
 );
 
