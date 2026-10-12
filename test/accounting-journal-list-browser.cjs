@@ -108,7 +108,7 @@ const server=http.createServer((request,response)=>{
     await page.keyboard.type('A204');
     assert.equal(await page.locator('[data-entry]').count(),1,'search matches journal number');
     assert.equal(await page.locator('[data-entry]').first().getAttribute('data-entry'),'scroll-journal-4');
-    assert.match(await page.locator('#journal-search-status').innerText(),/1 av 12 träffar/);
+    assert.match(await page.locator('#journal-search-status').innerText(),/1 träff av 12 inlästa/);
     assert.equal(await correctionReason.inputValue(),'Utkast till rättelse som ska bevaras vid sökning');
 
     await search.fill('1930');
