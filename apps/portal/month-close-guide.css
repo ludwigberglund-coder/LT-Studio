@@ -17,3 +17,15 @@ html[data-lt-theme="dark"] .month-close-list li,html[data-lt-theme="dark"] .mont
 html[data-lt-theme="dark"] .month-close-actions a{color:var(--brand-lime,#d5e5aa)}
 html[data-lt-theme="dark"] .month-close-actions a:focus-visible{outline-color:var(--brand-lime,#d5e5aa)}
 @media(max-width:780px){.month-close-list{grid-template-columns:1fr}.month-close-heading{align-items:start;flex-direction:column}}
+
+/* Gränssnitt för säker, begränsad kontroll av inlästa bokföringsposter. */
+.month-close-findings{margin-top:16px;padding:15px 16px;border:1px solid var(--color-hairline,#dfe7e2);border-radius:14px;background:var(--surface-alt,#f4f8f6)}
+.month-close-findings h3{margin:0 0 8px;font-size:16px}
+.month-close-findings p{margin:6px 0;line-height:1.5}
+.month-close-findings ul{padding-left:20px;margin:12px 0;display:grid;gap:6px}
+.month-close-findings .month-close-findings-disclaimer{font-size:12px;color:var(--muted,#64716b)}
+.month-close-findings a{display:inline-block;margin-top:8px;font-weight:700;text-underline-offset:4px;color:var(--brand-forest,#173f32)}
+.month-close-findings a:focus-visible{outline:3px solid var(--brand-forest,#173f32);outline-offset:3px}
+html[data-lt-theme="dark"] .month-close-findings{border-color:var(--lt-dark-border,#48544d);background:var(--lt-dark-surface-soft,#303b35)}
+html[data-lt-theme="dark"] .month-close-findings a{color:var(--brand-lime,#d5e5aa)}
+html[data-lt-theme="dark"] .month-close-findings a:focus-visible{outline-color:var(--brand-lime,#d5e5aa)}
