@@ -72,6 +72,9 @@
   }
 
   function menuTarget(){
+    // Public websites can hide navigation responsively. Keep their appearance
+    // button floating so it is always reachable in both desktop and mobile.
+    if(document.querySelector('.site-header'))return null;
     return document.querySelector(
       '.shared-foot, .side-footer, .sidebar-footer, .top-actions, .operator-user, .mobile-nav, nav[aria-label="Huvudmeny"]'
     );

@@ -10,15 +10,18 @@ function operatorUiControls(){const motion=Math.max(0,Math.min(100,Number(operat
 
 
 const operatorThemeKey='lt-operator-theme-v1';
+const sharedThemeKey='lt-studio-theme-v1';
 let operatorTheme=(()=>{
   try{
-    const saved=localStorage.getItem(operatorThemeKey);
+    const saved=localStorage.getItem(sharedThemeKey)||localStorage.getItem(operatorThemeKey);
     if(saved==='light'||saved==='dark')return saved;
   }catch{}
   return matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
 })();
 function applyOperatorTheme(){
   document.documentElement.dataset.operatorTheme=operatorTheme;
+  document.documentElement.dataset.ltTheme=operatorTheme;
+  document.documentElement.style.colorScheme=operatorTheme;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content',operatorTheme==='dark'?'#0c161c':'#f2f6f6');
 }
 function themeToggleMarkup(){
@@ -37,6 +40,15 @@ function syncThemeButtons(){
   });
 }
 applyOperatorTheme();
+/* Both existing appearance switches now control the same light/dark mode. */
+window.addEventListener('lt-themechange',event=>{
+  const next=event.detail?.theme;
+  if(next!=='light'&&next!=='dark')return;
+  operatorTheme=next;
+  applyOperatorTheme();
+  try{localStorage.setItem(operatorThemeKey,next)}catch{}
+  syncThemeButtons();
+});
 
 const OPERATOR_ICONOIR=Object.freeze({
   moon:'<path d="M20.95 13.08A9 9 0 0 1 10.92 3.05 9 9 0 1 0 20.95 13.08Z"/>',
@@ -908,6 +920,7 @@ document.addEventListener('click',async event=>{
   if(action==='toggle-theme'){
     operatorTheme=operatorTheme==='dark'?'light':'dark';
     try{localStorage.setItem(operatorThemeKey,operatorTheme)}catch{}
+    window.LTTheme?.apply(operatorTheme,{persist:true});
     applyOperatorTheme();
     syncThemeButtons();
     return;
