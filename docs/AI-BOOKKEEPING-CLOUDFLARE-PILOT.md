@@ -7,7 +7,7 @@ Datum: 2026-10-12. Spårning: Issue #767. Relaterad beslutsplan: docs/AI-BOOKKEE
 - Ny servermodul: packages/automation/cloudflare-bookkeeping.mjs.
 - Anrop till Cloudflares fasta Workers AI REST-adress med JSON Mode, modell Llama 3.3 70B.
 - Modulen är **avstängd som standard** och har **ingen publik route eller frontend-integration**.
-- Syntetiska leverantörsfakturor får bara prövas när en serververifierad kontext anger aktivt företag, aktör, MFA/AAL2 och särskilt syntetiskt pilotläge.
+- Syntetiska leverantörsfakturor får bara prövas när anroparen lämnar ett kontextobjekt med företags-ID, aktör, markering för verifiering, MFA/AAL2 och pilotläge. **Modulen verifierar ännu inte en faktisk Supabase-session och gör ingen databasuppslagning**. Därför är den inte kopplad till någon publik route och får inte exponeras förrän nästa etapp har verklig serverauktorisering och dokumentägarkontroll.
 - Säkerhetsvalideringen sker **innan ett enda utgående AI-anrop**. Ett internt verifieringsmärke gör att ett vanligt klientobjekt inte kan skickas förbi kontrollerna via providern.
 - Cloudflare-token och Account ID ska i ett framtida serverflöde hämtas från skyddad secret manager, aldrig sparas i GitHub eller läggas i webbläsaren. Tester använder en uppenbart falsk nyckel och mockade nätverkssvar.
 - Tolkningsresultatet är en input till den befintliga automationsmodulen. Källbelopp hämtas enbart från det verifierade syntetiska underlaget och inte från AI-svaret.
