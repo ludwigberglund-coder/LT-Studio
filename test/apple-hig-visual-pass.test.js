@@ -15,12 +15,12 @@ function stage(file,marker){
   return source.slice(index);
 }
 
-test('Apple HIG visual pass uses system typography and visible material chrome',()=>{
+test('Apple HIG visual pass uses system typography and visible solid chrome',()=>{
   const css=stage('apps/portal/design-system.css','LT Studio UI 2.1 — Apple HIG visual pass');
   assert.match(css,/--font-geist:-apple-system,BlinkMacSystemFont/);
-  assert.match(css,/\.sidebar\.shared-sidebar\{[\s\S]*backdrop-filter:blur\(30px\) saturate\(165%\)/);
+  assert.match(css,/--lt-apple-panel:var\(--surface-card\)/);
+  assert.match(css,/\.sidebar\.shared-sidebar\{[\s\S]*background:var\(--lt-apple-panel\)!important/);
   assert.match(css,/\.topbar\{[\s\S]*position:sticky!important/);
-  assert.match(css,/\.topbar\{[\s\S]*backdrop-filter:blur\(30px\) saturate\(170%\)/);
   assert.match(css,/--lt-apple-selection:color-mix\(in srgb,var\(--brand-sky\) 72%,var\(--surface-card\)\)/);
 });
 
@@ -28,13 +28,13 @@ test('primary controls and navigation have a visibly different Apple-style treat
   const css=stage('apps/portal/design-system.css','LT Studio UI 2.1 — Apple HIG visual pass');
   assert.match(css,/\.button\{[\s\S]*border-radius:999px!important/);
   assert.match(css,/\.button\{[\s\S]*background:var\(--brand-forest\)!important/);
-  assert.match(css,/\.shared-menu-toggle,[\s\S]*\.shared-user-trigger\{[\s\S]*border:1px solid var\(--lt-apple-glass-border\)!important/);
+  assert.match(css,/\.shared-menu-toggle,[\s\S]*\.shared-user-trigger\{[\s\S]*border:1px solid var\(--lt-apple-panel-border\)!important/);
   assert.match(css,/\.shared-navigation \.shared-links a\[aria-current="page"\]\{[\s\S]*background:var\(--lt-apple-selection\)!important/);
 });
 
-test('financial content remains solid while navigation and master list may use material',()=>{
+test('financial content remains solid while navigation and master list remain solid',()=>{
   const css=stage('apps/portal/design-system.css','LT Studio UI 2.1 — Apple HIG visual pass');
-  assert.match(css,/\.batch-list\{[\s\S]*background:var\(--lt-apple-glass\)!important/);
+  assert.match(css,/\.batch-list\{[\s\S]*background:var\(--lt-apple-panel\)!important/);
   assert.match(css,/\.batch-editor\{[\s\S]*background:var\(--surface-card\)!important/);
   assert.match(css,/thead th\{[\s\S]*background:color-mix/);
   assert.doesNotMatch(css,/thead th\{[^}]*backdrop-filter/s);
@@ -53,7 +53,7 @@ test('Apple visual pass retains dark mode and accessibility fallbacks',()=>{
   const css=stage('apps/portal/design-system.css','LT Studio UI 2.1 — Apple HIG visual pass');
   const dash=stage('apps/portal/dashboard.css','LT Studio UI 2.1 — Apple HIG dashboard pass');
   assert.match(css,/html\[data-lt-theme="dark"\]/);
-  assert.match(css,/@supports not \(\(-webkit-backdrop-filter:blur\(1px\)\) or \(backdrop-filter:blur\(1px\)\)\)/);
+  assert.doesNotMatch(css,/backdrop-filter\s*:/);
   assert.match(css,/@media\(prefers-reduced-transparency:reduce\)/);
   assert.match(dash,/@media\(prefers-reduced-transparency:reduce\)/);
 });

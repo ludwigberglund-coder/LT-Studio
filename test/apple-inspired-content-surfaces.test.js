@@ -66,5 +66,5 @@ test('content surfaces support dark mode, reduced motion and reduced transparenc
   assert.match(css,/html\[data-lt-theme="dark"\]/);
   assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
   assert.match(css,/@media\(prefers-reduced-transparency:reduce\)/);
-  assert.match(css,/backdrop-filter:none!important/);
+  assert.doesNotMatch(css,/backdrop-filter\s*:/);
 });

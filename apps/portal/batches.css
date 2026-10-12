@@ -37,7 +37,7 @@ html[data-lt-theme="dark"] .batch-workspace .status-badge.status-draft{
 /* Buntgodkännande och felmeddelanden visas inne i LT Studio */
 .batch-confirm-backdrop{
  position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:24px;
- background:rgba(10,14,12,.54);backdrop-filter:blur(8px);
+ background:rgba(10,14,12,.54);
  animation:batch-confirm-fade .16s ease-out both
 }
 .batch-confirm-modal{

@@ -226,7 +226,7 @@ b,
   color: var(--color-ink);
   background: rgb(255 255 255 / 0.92);
   border-color: var(--color-hairline);
-  backdrop-filter: blur(12px);
+  
 }
 
 .content {
@@ -721,7 +721,7 @@ td,
 
 .modal-backdrop {
   background: rgb(10 10 10 / 0.56);
-  backdrop-filter: blur(4px);
+  
 }
 
 .modal {
