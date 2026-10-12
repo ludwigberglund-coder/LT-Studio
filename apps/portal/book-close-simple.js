@@ -162,7 +162,7 @@ button.addEventListener('click',async()=>{
   const plan=planFromResults([counts,ledger,evidence,cutoff]);
   for(const item of [...plan.attention,...plan.unknown,...plan.next])renderTask(item);
   const questions=plan.attention.length,unknown=plan.unknown.length;
-  status.textContent='Förkontroll för '+year+': '+questions+' möjliga frågor att hantera, '+unknown+' kontroller utan säkert resultat. Bokslutet är inte verifierat.';
+  status.textContent='Förkontroll för '+year+': '+(questions===1?'1 möjlig fråga':questions+' möjliga frågor')+' att hantera, '+(unknown===1?'1 kontroll':unknown+' kontroller')+' utan säkert resultat. Bokslutet är inte verifierat.';
  }catch{
   if(ticket!==request)return;
   actions.replaceChildren();
