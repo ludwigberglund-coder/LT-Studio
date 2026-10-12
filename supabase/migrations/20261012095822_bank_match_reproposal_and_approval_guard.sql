@@ -70,7 +70,8 @@ begin
     and p.proposal_type='bank-payment-match'
     and p.source_id=v_bank.id
     and left(p.idempotency_key,char_length(v_prefix))=v_prefix
-    and substring(p.idempotency_key from char_length(v_prefix)+1) ~ '^[0-9]{1,12}
+    and substring(p.idempotency_key from char_length(v_prefix)+1) ~ '^[0-9]{1,12}$';
+  v_key:=v_prefix||v_revision::text;
   if coalesce(p_ambiguous,false) then v_status:='manual-review';v_decision:='Underlaget ger flera möjliga tolkningar.';
   elsif coalesce(p_deterministic,false) and p_confidence_ppm=1000000 then v_status:='ready-for-approval';v_decision:='Deterministiska regler gav en entydig träff. En behörig person ska fortfarande godkänna åtgärden.';
   elsif p_confidence_ppm>=900000 then v_status:='ready-for-approval';v_decision:='Förslaget har hög säkerhet men kräver mänskligt godkännande.';
