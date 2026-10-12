@@ -45,6 +45,9 @@ test('mobil, tangentbord och mörkt läge är tydligt stödda',()=>{
   assert.match(html,/<meta name="theme-color" content="#f7f5f0">/);
   assert.match(html,/href="\.\/bokslut\.css"/);
   assert.ok(html.indexOf('bokslut.css')<html.indexOf('design-system.css'));
+  assert.ok(html.includes('<aside class="sidebar" aria-label="Huvudmeny"></aside>'));
+  assert.ok(html.includes('<header class="topbar">'));
+  assert.match(css,/\.bokslut-main>\.topbar/);
   assert.match(css,/@media\(max-width:760px\)/);
   assert.match(css,/grid-template-columns:1fr/);
   assert.match(css,/min-height:48px/);
