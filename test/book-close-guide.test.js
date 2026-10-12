@@ -100,7 +100,7 @@ test('one click checks existing data and shows safe Swedish actions with relevan
 test('failed source remains unknown, never an approved reconciliation', async () => {
   const h = harness({
     cutoff: async () => {throw Error('UNAVAILABLE');},
-    counts: async () => ({reliable:true,counts:{openBatches:{status:'counted'},unplacedBank:{status:'counted'}}}),
+    counts: async () => ({reliable:true,counts:{journal:{status:'counted',count:12},openBatches:{status:'counted'},unplacedBank:{status:'counted'}}}),
     evidence: async () => ({areas:{bank:{needsReview:false},customer:{needsReview:false},supplier:{needsReview:false}}})
   });
   await h.click();
