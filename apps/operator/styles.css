@@ -23,7 +23,7 @@ select{font:inherit;border:1px solid #cfcfc9;background:#fff;border-radius:10px;
 .button:hover:not(:disabled){transform:translateY(-1px)}.click-row:hover td,.click-row:focus td{background:#f7f7f4}.click-row:focus{outline:none}.click-row:focus-visible td:first-child{box-shadow:inset 3px 0 #111}
 .button:focus-visible,.side-nav button:focus-visible,.mobile-nav button:focus-visible,.icon-button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid rgba(17,17,17,.18);outline-offset:2px}
 .toast{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;padding:13px 15px;border:1px solid #c8e1cf;border-radius:12px;background:#eef8f1;color:#174b31;font-size:13px;font-weight:750}.toast button{border:0;background:transparent;color:inherit;font-size:20px;line-height:1;cursor:pointer}
-.modal-backdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:rgba(17,17,17,.48);backdrop-filter:blur(5px)}.modal-card{width:min(520px,100%);max-height:calc(100vh - 40px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:20px;padding:24px;box-shadow:0 24px 80px rgba(0,0,0,.22)}.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}.modal-head h2{margin:5px 0 2px;font-size:26px;letter-spacing:-.03em}.modal-head p,.modal-copy,.form-help{color:var(--muted);line-height:1.5}.modal-head p{margin:0}.modal-copy{margin:0 0 22px}.form-help{font-size:12px;margin:-4px 0 18px}.icon-button{width:36px;height:36px;border:1px solid var(--line);border-radius:50%;background:#fff;color:#333;font-size:22px;line-height:1;cursor:pointer}.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}.button.danger.solid{background:var(--danger);border-color:var(--danger);color:#fff}
+.modal-backdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:rgba(17,17,17,.48);}.modal-card{width:min(520px,100%);max-height:calc(100vh - 40px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:20px;padding:24px;box-shadow:0 24px 80px rgba(0,0,0,.22)}.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}.modal-head h2{margin:5px 0 2px;font-size:26px;letter-spacing:-.03em}.modal-head p,.modal-copy,.form-help{color:var(--muted);line-height:1.5}.modal-head p{margin:0}.modal-copy{margin:0 0 22px}.form-help{font-size:12px;margin:-4px 0 18px}.icon-button{width:36px;height:36px;border:1px solid var(--line);border-radius:50%;background:#fff;color:#333;font-size:22px;line-height:1;cursor:pointer}.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}.button.danger.solid{background:var(--danger);border-color:var(--danger);color:#fff}
 @media(max-width:480px){.mobile-nav{margin-top:0}.modal-backdrop{padding:12px;align-items:end}.modal-card{border-radius:18px 18px 10px 10px;padding:20px}.modal-actions{display:grid;grid-template-columns:1fr 1fr}.modal-actions .button{width:100%}}
 
 @media(max-width:760px){.mobile-nav{display:flex}}
@@ -264,7 +264,7 @@ body{
   margin:0 -10px 24px;
   padding:24px 10px 18px;
   background:linear-gradient(180deg,rgba(243,245,241,.96) 72%,rgba(243,245,241,.72) 88%,rgba(243,245,241,0));
-  backdrop-filter:blur(14px);
+  
 }
 .page-kicker{color:#8c958e;letter-spacing:.15em}
 .topbar h1{
@@ -469,7 +469,7 @@ tbody tr:hover td{background:#f7faf6}
   border:1px solid rgba(255,255,255,.085);
   border-radius:13px;
   padding:11px 13px;
-  backdrop-filter:blur(8px);
+  
 }
 .global-access-panel{
   border-color:#d9e4da;
@@ -518,7 +518,7 @@ tbody tr:hover td{background:#f7faf6}
 .health-line{background:linear-gradient(90deg,#e9ede7,transparent)}
 .event strong{font-weight:790;color:#263128}
 
-.modal-backdrop{background:rgba(12,18,14,.54);backdrop-filter:blur(8px)}
+.modal-backdrop{background:rgba(12,18,14,.54);}
 .modal-card{
   border-radius:24px;
   border-color:#e2e7e0;
@@ -560,7 +560,7 @@ tbody tr:hover td{background:#f7faf6}
 }
 @media(max-width:760px){
   .main{padding:0 16px 34px}
-  .topbar{position:relative;margin:0 0 14px;padding:20px 0 10px;background:transparent;backdrop-filter:none}
+  .topbar{position:relative;margin:0 0 14px;padding:20px 0 10px;background:transparent;}
   .topbar h1{font-size:28px}
   .operator-user{background:transparent;border:0;padding:0;box-shadow:none}
   .hero-dashboard,.security-hero,.detail-hero{padding:24px;border-radius:21px}
@@ -819,7 +819,7 @@ tbody tr:hover td{background:#f7faf6}
 .live-ribbon strong{color:#fff}
 .live-orb{width:9px;height:9px;border-radius:50%;background:#64d78a;box-shadow:0 0 0 0 rgba(100,215,138,.6);animation:statsLivePulse 1.8s ease-out infinite}
 .live-orb.warning{background:#e5b14e}.live-orb.critical{background:#ef7070}
-.statistics-company-filter{display:grid;gap:8px;padding:16px;border:1px solid rgba(255,255,255,.11);border-radius:17px;background:rgba(255,255,255,.06);backdrop-filter:blur(12px)}
+.statistics-company-filter{display:grid;gap:8px;padding:16px;border:1px solid rgba(255,255,255,.11);border-radius:17px;background:rgba(255,255,255,.06);}
 .statistics-company-filter span{font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#a8b9af}
 .statistics-company-filter select{height:44px;border:1px solid rgba(255,255,255,.14);background:#f8fbf9;color:#142019;font-weight:800}
 .live-metrics .metric{overflow:hidden}
@@ -839,7 +839,7 @@ tbody tr:hover td{background:#f7faf6}
 
 /* Real customer onboarding */
 .onboarding-modal-card{width:min(940px,100%);padding:0;overflow:auto}
-.onboarding-modal-card>.modal-head{position:sticky;top:0;z-index:3;margin:0;padding:24px 26px 18px;background:rgba(255,255,255,.96);border-bottom:1px solid var(--line-premium);backdrop-filter:blur(14px)}
+.onboarding-modal-card>.modal-head{position:sticky;top:0;z-index:3;margin:0;padding:24px 26px 18px;background:rgba(255,255,255,.96);border-bottom:1px solid var(--line-premium);}
 .onboarding-form{display:grid;gap:0;padding:0 26px 26px}
 .onboarding-section{padding:22px 0;border-bottom:1px solid #edf0eb}
 .onboarding-section-head{display:flex;gap:12px;align-items:flex-start;margin-bottom:16px}
