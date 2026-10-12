@@ -104,7 +104,7 @@ test('failed source remains unknown, never an approved reconciliation', async ()
     evidence: async () => ({areas:{bank:{needsReview:false},customer:{needsReview:false},supplier:{needsReview:false}}})
   });
   await h.click();
-  assert.match(h.refs['book-close-simple-status'].textContent,/1 kontroller utan säkert resultat/);
+  assert.match(h.refs['book-close-simple-status'].textContent,/1 kontroll utan säkert resultat/);
   assert.ok(h.texts().some(x=>x.includes('kunde inte kontrolleras')));
   assert.doesNotMatch(h.refs['book-close-simple-status'].textContent,/bokslut (klart|godkänt)/i);
 });
@@ -150,7 +150,7 @@ test('an empty year triggers a real review task instead of a reassuring all-clea
   await h.click();
   assert.ok(h.texts().some(x=>x.includes('Inga bokföringsposter hittades')));
   assert.ok(!h.texts().some(x=>x.includes('Inga tydliga tekniska avvikelser')));
-  assert.match(h.refs['book-close-simple-status'].textContent,/1 möjliga frågor/);
+  assert.match(h.refs['book-close-simple-status'].textContent,/1 möjlig fråga/);
   assert.ok(h.texts().some(x=>x.includes('Återstår innan bokslutet')));
 });
 
@@ -174,7 +174,7 @@ test('partial failure is labeled unknown and comes before optional next steps',a
   await h.click();
   assert.match(h.texts()[0],/Kunde inte kontrolleras/);
   assert.ok(h.texts().some(x=>x.includes('Historiska kontorörelser')));
-  assert.match(h.refs['book-close-simple-status'].textContent,/1 kontroller utan säkert resultat/);
+  assert.match(h.refs['book-close-simple-status'].textContent,/1 kontroll utan säkert resultat/);
   assert.match(h.texts().at(-1),/Nästa steg/);
 });
 
