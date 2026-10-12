@@ -69,3 +69,7 @@ html[data-lt-theme="dark"] .accounting-help{background:var(--lt-dark-surface,#24
 html[data-lt-theme="dark"] .accounting-help[open] summary{border-color:var(--lt-dark-border,#48544d)}
 html[data-lt-theme="dark"] .accounting-help dl>div{background:var(--lt-dark-surface-soft,#303b35);border-color:var(--lt-dark-border,#48544d)}
 @media(max-width:700px){.accounting-help dl{grid-template-columns:1fr}.accounting-help summary{padding:15px}}
+
+/* Warn about incomplete/unknown local journal coverage without claiming a full ledger audit. */
+.journal-coverage-warning{margin:3px 0 0!important;padding:10px 12px;border:1px solid #c49338;border-radius:9px;background:#fff4d5;color:#62430c!important;font-size:13px!important;line-height:1.5!important}
+html[data-lt-theme="dark"] .journal-coverage-warning{background:#493816;border-color:#e2b75e;color:#fff0bd!important}

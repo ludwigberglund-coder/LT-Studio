@@ -120,6 +120,28 @@ function filteredJournalEntries(){
     return searchable.some(value=>String(value??"").toLocaleLowerCase("sv-SE").includes(query));
   });
 }
+function journalSearchCoverage(){
+  // The search never fetches more records: reflect only the already checked,
+  // tenant-scoped count evidence. Count parity is not a full ledger audit.
+  if(!isSupabase)return '';
+  const evidence=monthCoverage;
+  if(!evidence||evidence.status!=='checked'||evidence.companyId!==session?.company?.id){
+    return '<p class="journal-coverage-warning" role="status">Vi kan inte kontrollera hur många bokförda poster som har lästs in. Sökresultatet kan vara ofullständigt. Kontrollera underlaget innan du drar slutsatser.</p>';
+  }
+  const {totalEntries,totalLines,loadedEntries,loadedLines,integrity}=evidence;
+  const validCounts=[totalEntries,totalLines,loadedEntries,loadedLines].every(n=>Number.isSafeInteger(n)&&n>=0);
+  if(!validCounts){
+    return '<p class="journal-coverage-warning" role="status">Antalet bokförda poster kunde inte verifieras. Sökresultatet kan vara ofullständigt.</p>';
+  }
+  const countMismatch=loadedEntries!==totalEntries||loadedLines!==totalLines;
+  const integrityIssue=!integrity||
+    ['duplicateEntryIds','duplicateLineIds','orphanLines','wrongCompanyLines'].some(key=>!Number.isSafeInteger(integrity[key])||integrity[key]!==0);
+  if(!countMismatch&&!integrityIssue)return '';
+  const explanation=countMismatch
+    ?'Vi har läst in '+loadedEntries+' av '+totalEntries+' verifikationer och '+loadedLines+' av '+totalLines+' konteringsrader.'
+    :'Det finns en avvikelse i de inlästa bokföringsraderna.';
+  return '<p class="journal-coverage-warning" role="status">'+explanation+' Sökresultatet kan därför vara ofullständigt. Kontrollera underlaget innan du drar slutsatser.</p>';
+}
 function entryTable(){
   const ordered=filteredJournalEntries(),searched=Boolean(journalQuery.trim());
   const hasOlder=ordered.length>5,expanded=hasOlder&&journalExpanded;
@@ -140,6 +162,7 @@ function entryTable(){
         ${suggestionOpen?suggestions.map((entry,index)=>`<button id="journal-suggestion-${index}" type="button" role="option" aria-selected="${index===journalSuggestionIndex?"true":"false"}" data-journal-suggestion="${esc(entry.id)}" tabindex="-1"><strong>${esc(entry.number)} · ${esc(entry.postingDate)}</strong><span>${esc(entry.description)}</span></button>`).join(""):""}
       </div>
       <p>Sökningen omfattar bara de verifikationer som redan lästs in för detta företag.</p>
+      ${journalSearchCoverage()}
     </div>
     <div id="journal-scroll-region" class="accounting-table-scroll journal-scroll ${expanded?"journal-scroll-expanded":""}" role="region" tabindex="0" aria-label="Verifikationer, rulla med musens hjul för att se äldre">
       <table class="accounting-table journal-table">
