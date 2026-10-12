@@ -274,3 +274,23 @@ test('snabbknappen läser om sidan; tidskontrollen uppdateras även när fliken 
   assert.match(accounting,/setInterval\(updateAge,30000\)/);
   assert.match(accounting,/guide\.renderCoverage/);
 });
+
+test('prioriterar okänd eller felaktig datatäckning framför andra observationer',()=>{
+  const g=guide();
+  const state={period:'2026-10',companyId:'tenant-a',journalEntries:[{number:'A1',postingDate:'2026-10-01',description:'',lines:[]}],unmatchedBankEvidence:{status:'checked',companyId:'tenant-a',count:4,checkedAt:new Date().toISOString()}};
+  assert.match(g.render(state),/Börja med att uppdatera underlaget/);
+  assert.match(g.render(state),/Uppdatera kontrollen/);
+  const coverage={status:'checked',companyId:'tenant-a',period:'2026-10',checkedAt:new Date().toISOString(),totalEntries:2,totalLines:2,periodEntries:2,loadedEntries:1,loadedLines:1,loadedPeriodEntries:1,integrity:{duplicateEntryIds:0,duplicateLineIds:0,orphanLines:0,wrongCompanyLines:0,checkedEntries:1,checkedLines:1}};
+  assert.match(g.render({...state,coverage}),/Granska uppgifter som saknas eller inte stämmer/);
+});
+test('prioriterar journalavvikelser och därefter oplacerade betalningar utan att lova klar avstämning',()=>{
+ const g=guide();
+ const coverage={status:'checked',companyId:'tenant-a',period:'2026-10',checkedAt:new Date().toISOString(),totalEntries:1,totalLines:2,periodEntries:1,loadedEntries:1,loadedLines:2,loadedPeriodEntries:1,integrity:{duplicateEntryIds:0,duplicateLineIds:0,orphanLines:0,wrongCompanyLines:0,checkedEntries:1,checkedLines:2}};
+ const state={period:'2026-10',companyId:'tenant-a',coverage,journalEntries:[{number:'A1',postingDate:'2026-10-01',description:'',lines:[{debitOre:100,creditOre:0},{debitOre:0,creditOre:100}]}],unmatchedBankEvidence:{status:'checked',companyId:'tenant-a',count:3,checkedAt:new Date().toISOString()}};
+ assert.match(g.render(state),/Granska möjliga fel i bokföringen/);
+ const clean={...state,journalEntries:[{...state.journalEntries[0],description:'Verifierad text'}]};
+ assert.match(g.render(clean),/Hantera oplacerade betalningar/);
+ assert.match(g.render({...clean,unmatchedBankEvidence:{...clean.unmatchedBankEvidence,companyId:'tenant-b'}}),/Fortsätt med de återstående kontrollerna/);
+ assert.match(g.render(clean),/Alla sju kontrollområden/);
+ assert.doesNotMatch(g.render(clean),/Alla kontroller klara|Månaden är avstämd/);
+});
