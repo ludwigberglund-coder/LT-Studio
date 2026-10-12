@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f7f5f0">
+<title>Saldobalans · Bokslut · LT Studio</title>
+<link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="./design-system.css">
+<link rel="stylesheet" href="./book-close-trial-balance.css">
+</head>
+<body>
+<div class="tb-workspace"><aside class="sidebar" aria-label="Huvudmeny"></aside>
+<section class="tb-main">
+<header class="topbar"><h1>Bokslut</h1></header>
+<div id="tb-loading" role="status" aria-live="polite">Kontrollerar din session…</div>
+<main id="tb-app" class="tb-shell" hidden>
+<nav class="tb-breadcrumb" aria-label="Sökväg"><a href="./bokslut.html">Bokslut</a><span aria-hidden="true">/</span><span>Saldobalans</span></nav>
+<header class="tb-hero"><div><p class="tb-eyebrow">BOKSLUT · KONTROLL AV HUVUDBOKEN</p>
+<h1>Saldobalans</h1><p class="tb-intro">Alla bokföringskonton och belopp för den period du väljer. Sök, granska och hitta avvikelser utan att ändra bokföringen.</p>
+<p id="tb-company" class="tb-company">Kontrollerar företag…</p></div>
+<div class="tb-hero-side"><span class="tb-status">Inte avstämt</span><p>Inga bokslutsbokningar, låsningar eller godkännanden görs här.</p></div></header>
+<section class="tb-panel" aria-labelledby="tb-period-heading">
+<div class="tb-panel-head"><div><h2 id="tb-period-heading">Välj räkenskapsperiod</h2><p>Välj första dagen och sista dagen i perioden, även för brutna räkenskapsår.</p></div></div>
+<form id="tb-form" class="tb-controls">
+<div><label for="tb-start">Från och med</label><input id="tb-start" type="date" min="2000-01-01" max="2199-12-31" required></div>
+<div><label for="tb-end">Till och med</label><input id="tb-end" type="date" min="2000-01-01" max="2199-12-31" required></div>
+<button id="tb-run" type="submit">Hämta saldobalans <span aria-hidden="true">→</span></button>
+</form>
+<p id="tb-message" role="status" aria-live="polite">Ingen kontroll körd ännu.</p>
+</section>
+<section id="tb-results" hidden aria-labelledby="tb-results-heading">
+<div class="tb-section-title"><div><p class="tb-eyebrow">RESULTAT FRÅN SERVERN</p><h2 id="tb-results-heading">Kontosammanställning</h2></div><span class="tb-status">Ej godkänd</span></div>
+<div class="tb-metrics">
+<div class="tb-metric"><span>Konton</span><strong id="tb-accounts-count">–</strong><small>Med registrerade rörelser</small></div>
+<div class="tb-metric"><span>Debet under perioden</span><strong id="tb-debit">–</strong><small>Summa enligt huvudboken</small></div>
+<div class="tb-metric"><span>Kredit under perioden</span><strong id="tb-credit">–</strong><small>Summa enligt huvudboken</small></div>
+<div class="tb-metric"><span>Skillnad debet/kredit</span><strong id="tb-difference">–</strong><small id="tb-difference-note">Kräver granskning</small></div>
+</div>
+<div id="tb-warning" class="tb-warning" role="status"></div>
+<div class="tb-panel tb-table-panel">
+<div class="tb-table-tools"><div><h3>Alla konton</h3><p id="tb-period-caption"></p></div>
+<div><label for="tb-search">Sök konto</label><input id="tb-search" type="search" placeholder="T.ex. 1930 eller 2440" autocomplete="off"></div></div>
+<div class="tb-table-wrap" role="region" aria-label="Saldobalans per konto" tabindex="0">
+<table><thead><tr><th scope="col">Konto</th><th scope="col">Tidigare rörelser</th><th scope="col">Debet</th><th scope="col">Kredit</th><th scope="col">Periodens netto</th><th scope="col">Ackumulerat</th></tr></thead>
+<tbody id="tb-rows"></tbody></table>
+</div><p id="tb-table-count" class="tb-table-count" aria-live="polite"></p>
+</div>
+<p class="tb-disclaimer"><strong>Viktig begränsning:</strong> Detta är en preliminär sammanställning av tillgängliga bokförda rörelser, inte en verifierad ingående eller utgående balans. Företagets räkenskapsår, bankkontoutdrag, kund-/leverantörsreskontra och ingående balans måste kontrolleras separat innan bokslutet kan godkännas.</p>
+</section>
+</main></section></div>
+<script src="./supabase-config.js"></script>
+<script src="./supabase-client.js"></script>
+<script src="./supabase-session.js"></script>
+<script src="./portal-nav.js"></script>
+<script src="./book-close-trial-balance.js"></script>
+<script src="./book-close-trial-balance-ui.js"></script>
+</body></html>
