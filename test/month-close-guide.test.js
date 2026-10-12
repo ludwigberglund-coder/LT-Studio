@@ -20,9 +20,11 @@ test('månadschecklistan har verkliga länkar utan automatiskt godkända steg',(
   assert.match(html,/4 verifikationer för perioden visas/);
   assert.match(html,/inte ett bevis på att alla poster är med/);
   assert.match(html,/Kontrollera manuellt/);
-  assert.equal((html.match(/Kontrollera manuellt/g)||[]).length,6);
+  assert.equal((html.match(/Kontrollera manuellt/g)||[]).length,7);
   assert.match(html,/href="\.\/bank\.html\?demo=1"/);
   assert.match(html,/href="\.\/unplaced-payments\.html\?demo=1"/);
+  assert.match(html,/href="\.\/documents\.html\?demo=1"/);
+  assert.match(html,/href="\.\/invoices\.html\?demo=1"/);
   assert.match(html,/href="\.\/payables\.html\?demo=1"/);
   assert.match(html,/href="\.\/reports\.html\?demo=1"/);
   assert.doesNotMatch(html,/(?:Alla kontroller klara|Redo att låsa|Allt avstämt)/);
