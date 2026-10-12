@@ -463,3 +463,21 @@ html[data-lt-theme] body .sidebar.shared-sidebar .shared-company{
   text-overflow:clip!important;
   box-sizing:border-box!important;
 }
+
+
+/* Visually inspect expanded account and contextual menus as popup surfaces.
+   Their base styles used a fixed dark label even when the popup was dark. */
+html[data-lt-theme="light"] body :is(.shared-user-dropdown,.context-menu,.column-menu) :is(a,button,summary,label){
+  color:#1c2523!important;
+  -webkit-text-fill-color:#1c2523!important;
+}
+html[data-lt-theme="dark"] body :is(.shared-user-dropdown,.context-menu,.column-menu) :is(a,button,summary,label){
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+}
+html[data-lt-theme="light"] body :is(.shared-user-dropdown,.context-menu,.column-menu) :is(a,button,summary,label):hover{
+  background:#e4eee8!important;
+}
+html[data-lt-theme="dark"] body :is(.shared-user-dropdown,.context-menu,.column-menu) :is(a,button,summary,label):hover{
+  background:#465460!important;
+}
