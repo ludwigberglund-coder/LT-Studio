@@ -99,8 +99,37 @@ const server=http.createServer((request,response)=>{
     await keyboardRow.focus();
     await page.keyboard.press('Enter');
     assert.match(await page.locator('.accounting-grid > .panel:first-child > .entry-detail').innerText(),/Browser test entry 3/);
+
+    // Search must filter only loaded journal data and not wipe partially entered corrections.
+    const correctionReason=page.locator('#correction-form textarea[name="reason"]');
+    await correctionReason.fill('Utkast till rättelse som ska bevaras vid sökning');
+    const search=page.getByRole('searchbox',{name:'Sök verifikation'});
+    await search.focus();
+    await page.keyboard.type('A204');
+    assert.equal(await page.locator('[data-entry]').count(),1,'search matches journal number');
+    assert.equal(await page.locator('[data-entry]').first().getAttribute('data-entry'),'scroll-journal-4');
+    assert.match(await page.locator('#journal-search-status').innerText(),/1 av 12 träffar/);
+    assert.equal(await correctionReason.inputValue(),'Utkast till rättelse som ska bevaras vid sökning');
+
+    await search.fill('1930');
+    assert.equal(await page.locator('[data-entry]').count(),12,'search matches account in journal lines');
+    await search.fill('Browser test entry 7');
+    assert.equal(await page.locator('[data-entry]').count(),1,'search matches description');
+    assert.equal(await page.locator('[data-entry]').first().getAttribute('data-entry'),'scroll-journal-7');
+    await search.fill('2025-01-10');
+    assert.equal(await page.locator('[data-entry]').count(),12,'search matches posting date');
+    await search.fill('NO-SUCH-JOURNAL-ENTRY');
+    assert.equal(await page.locator('[data-entry]').count(),0);
+    assert.match(await page.locator('.journal-list').innerText(),/Inga verifikationer matchar sökningen/);
+    assert.equal(await correctionReason.inputValue(),'Utkast till rättelse som ska bevaras vid sökning');
+    await page.getByRole('button',{name:'Rensa sökning'}).click();
+    assert.equal(await page.locator('#journal-search-field').inputValue(),'');
+    assert.equal(await page.locator('[data-entry]').count(),12,'clear search restores latest journals');
+    assert.equal(await page.locator('[data-entry]').first().getAttribute('data-entry'),'scroll-journal-11');
+    assert.equal(await correctionReason.inputValue(),'Utkast till rättelse som ska bevaras vid sökning');
+    assert.ok(await page.locator('.month-close-guide').count(),'monthly close guide stays intact');
     assert.deepEqual(errors,[],'browser should have no unhandled exceptions');
-    console.log('Journal list browser regression passed: newest five, wheel scroll, expand/collapse, detail and keyboard.');
+    console.log('Journal list browser regression passed: newest five, wheel scroll, expandable list, search and preserved correction draft.');
   }catch(error){
     if(page)await page.screenshot({path:path.join(__dirname,'../test-artifacts/journal-list-failure.png'),fullPage:true}).catch(()=>{});
     throw error;
