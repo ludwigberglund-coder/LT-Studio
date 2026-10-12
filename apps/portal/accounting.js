@@ -3,7 +3,7 @@ const isDemo=new URLSearchParams(location.search).get('demo')==='1';
 const isSupabase=location.hostname==='ludwigberglund-coder.github.io'&&!isDemo;
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 let Demo=globalThis.RollandsDemoScenario;
-let session=null,entries=[],periods=[],unlockRequests=[],unlockPolicy={eligibleCustomerApprovers:0,selfUnlockAllowed:false,adminSelfUnlockAllowed:false},selectedEntry=null,journalExpanded=false,journalQuery='',journalSuggestionsOpen=false,journalSuggestionIndex=-1,openingYear=today().slice(0,4),openingBalance=null,openingBatch=null,openingMessage='';
+let session=null,entries=[],periods=[],monthCoverage=null,unlockRequests=[],unlockPolicy={eligibleCustomerApprovers:0,selfUnlockAllowed:false,adminSelfUnlockAllowed:false},selectedEntry=null,journalExpanded=false,journalQuery='',journalSuggestionsOpen=false,journalSuggestionIndex=-1,openingYear=today().slice(0,4),openingBalance=null,openingBatch=null,openingMessage='';
 function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function ore(v){return new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK',minimumFractionDigits:2}).format(Number(v||0)/100)}
 function today(){return isDemo&&Demo?Demo.AS_OF_DATE:new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
@@ -32,7 +32,7 @@ async function api(path,options={}){const headers={Accept:'application/json',...
 function sidebar(){return `<aside class="sidebar"><div class="logo"><strong>LT Studio</strong><small>LT STUDIO</small></div><div class="company-pill">${esc(session?.company?.name||(isDemo?'Demoföretag':'Företaget'))}<br>${isDemo?'Demoföretag':'Skyddad företagsmiljö'}</div><div class="side-group"><span>Arbetsyta</span><a class="side-link" href="${url('./dashboard.html')}">Översikt</a></div><div class="side-group"><span>Ekonomi</span><a class="side-link" href="${url('./payables.html')}">Leverantörsfakturor</a><a class="side-link active" href="${url('./accounting.html')}">Bokföring</a><a class="side-link" href="${url('./reports.html')}">Rapporter</a><a class="side-link" href="${url('./documents.html')}">Dokument</a></div><div class="sidebar-footer">${isDemo?'Gemensamt UAT-scenario · ingen skarp bokföring':'Personlig session · servervaliderad behörighet'}</div></aside>`}
 function statusLabel(status){return status==='locked'?'Låst':status==='pending'?'Väntar beslut':status==='approved'?'Godkänd':status==='rejected'?'Avslagen':'Öppen'}
 function entryTotal(entry){return (entry.lines||[]).reduce((sum,line)=>sum+Number(line.debitOre||0),0)}
-function syncDemo(selectedId){const state=Demo.state();entries=structuredClone(state.accountingEntries);periods=structuredClone(state.accountingPeriods);unlockRequests=structuredClone(state.accountingUnlockRequests);selectedEntry=entries.find(e=>e.id===(selectedId||selectedEntry?.id))||sortedJournalEntries()[0]||null}
+function syncDemo(selectedId){const state=Demo.state();monthCoverage=null;entries=structuredClone(state.accountingEntries);periods=structuredClone(state.accountingPeriods);unlockRequests=structuredClone(state.accountingUnlockRequests);selectedEntry=entries.find(e=>e.id===(selectedId||selectedEntry?.id))||sortedJournalEntries()[0]||null}
 function openingBalancePanel(){
   if(isDemo)return `<article class="panel opening-panel"><span class="eyebrow">Ingående balans</span><h2>Startsaldo vid systembyte</h2><p>Import av ingående balans är avstängd i den publika demon och används bara i den skyddade företagsmiljön.</p><div class="notice-box">Kundfordringar och leverantörsskulder importeras inte som totalsummor. De måste senare tas in tillsammans med sina öppna fakturor.</div></article>`;
   const selector=`<form class="opening-year-form" id="opening-year-form"><label>Räkenskapsår<input name="year" type="number" min="1900" max="2199" value="${esc(openingYear)}" required></label><button class="button ghost" type="submit">Visa år</button><p class="form-error"></p></form>`;
@@ -74,6 +74,11 @@ function beginnerGuide(){
     '<div><dt>Periodlås</dt><dd>Skyddar en avslutad tidsperiod från nya bokföringar. Bara behöriga personer kan låsa upp.</dd></div>'+
     '</dl><p class="accounting-help-note">Den här hjälpen förklarar begreppen men ändrar inga verifikationer eller perioder. Kontrollera alltid underlaget innan du godkänner bokföring.</p></div></details>';
 }
+function monthBounds(period){
+  const year=Number(period.slice(0,4)),month=Number(period.slice(5,7));
+  const next=month===12?(year+1)+'-01':year+'-'+String(month+1).padStart(2,'0');
+  return {start:period+'-01',end:next+'-01'};
+}
 function monthlyGuide(current){
   const renderer=globalThis.LTMonthCloseGuide?.render;
   if(typeof renderer!=='function')return '';
@@ -83,6 +88,8 @@ function monthlyGuide(current){
     periodExists:periods.some(p=>p.period===current.period),
     visibleEntries:entries.filter(e=>String(e.postingDate||'').slice(0,7)===current.period).length,
     journalEntries:entries.filter(e=>String(e.postingDate||'').slice(0,7)===current.period),
+    companyId:session?.company?.id||null,
+    coverage:monthCoverage,
     demo:isDemo
   });
 }
@@ -175,6 +182,26 @@ async function loadSupabaseAccounting(){
     window.LTSupabase.from('accounting_periods',ctx.accessToken).select('*',filter+'&order=period.desc'),
     window.LTSupabase.from('period_unlock_requests',ctx.accessToken).select('*',filter+'&order=requested_at.desc')
   ]);
+  // Alla tre antalen beräknas i databasen utan att hämta fler kunduppgifter.
+  // Rest API may limit rows; missing/failed counts must never look complete.
+  const period=currentPeriod(),bounds=monthBounds(period);
+  try{
+    const [totalEntries,totalLines,periodEntries]=await Promise.all([
+      window.LTSupabase.from('journal_entries',ctx.accessToken).countExact(filter),
+      window.LTSupabase.from('journal_lines',ctx.accessToken).countExact(filter),
+      window.LTSupabase.from('journal_entries',ctx.accessToken).countExact(
+        filter+'&posting_date=gte.'+bounds.start+'&posting_date=lt.'+bounds.end)
+    ]);
+    monthCoverage={
+      status:'checked',companyId:ctx.company.id,period,
+      totalEntries,totalLines,periodEntries,
+      loadedEntries:entryRows.length,loadedLines:lineRows.length,
+      loadedPeriodEntries:entryRows.filter(row=>String(row.posting_date||'').slice(0,7)===period).length,
+      checkedAt:new Date().toISOString()
+    };
+  }catch{
+    monthCoverage={status:'unavailable',companyId:ctx.company.id,period};
+  }
   const linesByEntry=new Map();
   for(const row of lineRows||[]){
     const key=String(row.journal_entry_id);
@@ -200,7 +227,7 @@ async function loadSupabaseAccounting(){
   await loadOpeningBalance();
   return true;
 }
-async function loadApi(){const s=await api('/session');if(!s.authenticated){location.href='./index.html';return false}session=s;const entryData=await api('/accounting/entries');entries=entryData.entries||[];const detailed=[];for(const entry of entries.slice(0,200)){try{detailed.push((await api(`/accounting/entries/${encodeURIComponent(entry.id)}`)).entry)}catch{detailed.push(entry)}}entries=detailed;selectedEntry=sortedJournalEntries()[0]||null;periods=(await api('/accounting/periods')).periods||[];const unlockData=await api('/accounting/unlock-requests?status=all');unlockRequests=unlockData.requests||[];unlockPolicy=unlockData.unlockPolicy||{eligibleCustomerApprovers:0,selfUnlockAllowed:false,adminSelfUnlockAllowed:false};session.role=s.role||session.role||'';await loadOpeningBalance();return true}
+async function loadApi(){monthCoverage=null;const s=await api('/session');if(!s.authenticated){location.href='./index.html';return false}session=s;const entryData=await api('/accounting/entries');entries=entryData.entries||[];const detailed=[];for(const entry of entries.slice(0,200)){try{detailed.push((await api(`/accounting/entries/${encodeURIComponent(entry.id)}`)).entry)}catch{detailed.push(entry)}}entries=detailed;selectedEntry=sortedJournalEntries()[0]||null;periods=(await api('/accounting/periods')).periods||[];const unlockData=await api('/accounting/unlock-requests?status=all');unlockRequests=unlockData.requests||[];unlockPolicy=unlockData.unlockPolicy||{eligibleCustomerApprovers:0,selfUnlockAllowed:false,adminSelfUnlockAllowed:false};session.role=s.role||session.role||'';await loadOpeningBalance();return true}
 function setError(form,message){const el=form.querySelector('.form-error');if(el)el.textContent=message||''}
 function bindJournalControls(){
   // Keep selected debit/credit details ahead of the scrollable list in DOM and reading order.

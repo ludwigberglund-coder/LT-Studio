@@ -18,7 +18,18 @@
       const response=await fetch(cfg.url+path,requestOptions);
       const text=await response.text(); let data=null;
       if(text){try{data=JSON.parse(text);}catch{data=text;}}
-      if(response.ok){const method=String(options?.method||'GET').toUpperCase();if(!['GET','HEAD'].includes(method))lastMutationAt=Date.now();return data;}
+      if(response.ok){
+        if(options.exactCount){
+          const range=String(response.headers.get('content-range')||'');
+          const match=range.match(/\/(\d+)$/);
+          const count=match?Number(match[1]):NaN;
+          if(!Number.isSafeInteger(count)||count<0)throw new Error('Databasen kunde inte bekräfta ett exakt antal poster.');
+          return count;
+        }
+        const method=String(options?.method||'GET').toUpperCase();
+        if(!['GET','HEAD'].includes(method))lastMutationAt=Date.now();
+        return data;
+      }
       const message=errorMessage(data,response.status);
       const canRetry=isSafeToRetry(options)&&(response.status===401||response.status===403)&&isJwtFutureError(message)&&attempt<CLOCK_SKEW_RETRY_DELAYS.length;
       if(canRetry){await sleep(CLOCK_SKEW_RETRY_DELAYS[attempt]);continue;}
@@ -54,6 +65,7 @@
     functions:{invoke:(name,body,token)=>request('/functions/v1/'+encodeURIComponent(name),{method:'POST',token,body:JSON.stringify(body||{})})},
     from:(table,token)=>({
       select:(query='*',filters='')=>request('/rest/v1/'+encodeURIComponent(table)+'?select='+encodeURIComponent(query)+(filters?'&'+filters:''),{token}),
+      countExact:(filters='')=>request('/rest/v1/'+encodeURIComponent(table)+'?select=id'+(filters?'&'+filters:'')+'&limit=1',{token,headers:{Prefer:'count=exact'},exactCount:true}),
       insert:(rows)=>request('/rest/v1/'+encodeURIComponent(table),{method:'POST',token,headers:{Prefer:'return=representation'},body:JSON.stringify(rows)}),
       upsert:(rows)=>request('/rest/v1/'+encodeURIComponent(table),{method:'POST',token,headers:{Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(rows)}),
       update:(values,filters)=>request('/rest/v1/'+encodeURIComponent(table)+'?'+filters,{method:'PATCH',token,headers:{Prefer:'return=representation'},body:JSON.stringify(values)}),
