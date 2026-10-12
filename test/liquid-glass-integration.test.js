@@ -27,12 +27,30 @@ test('Liquid Glass installs on all UI routes, but never on redirect pages',()=>{
   assert.match(css,/html\[data-lt-theme="dark"\]\[data-lt-glass-surface\]/);
   assert.match(css,/prefers-reduced-transparency:\s*reduce/);
   assert.match(css,/prefers-reduced-motion:\s*reduce/);
+  /* Third pass must reach real filter toolbars, search popovers and the
+   * operator's independently controlled dark/light theme. */
+  for(const selector of [
+    '.report-toolbar','.documents-toolbar','.receivable-search',
+    '.payments-primary-actions','.unplaced-toolbar',
+    '.queue-tabs','.report-tabs','.automation-filter',
+    '.shared-search-results','.supplier-search-results',
+    '.receivable-search-results','.company-search-results',
+    '.onboarding-modal-card>.modal-head'
+  ])assert.ok(css.includes(selector),'Missing glass control '+selector);
+  assert.match(css,/html\[data-lt-glass-surface="operator"\]\[data-operator-theme="light"\]/);
+  assert.match(css,/html\[data-lt-glass-surface="operator"\]\[data-operator-theme="dark"\]/);
+  assert.match(css,/\.operator-shell \.sidebar \{/);
+  const phaseThree=css.slice(css.indexOf('Liquid Glass 3.0'));
+  assert.ok(phaseThree.length>1500,'Liquid Glass 3.0 missing');
+  assert.doesNotMatch(phaseThree,/html\[data-lt-glass-surface="portal"\]\s+(?:table|th|td)\b/);
+
 
   for(const [route,surface] of [
     ['index.html','website'],
     ['portal/dashboard.html','portal'],
     ['portal/invoices.html','portal'],
     ['portal/payments.html','portal'],
+    ['portal/unplaced-payments.html','portal'],
     ['portal/batches.html','portal'],
     ['operator/index.html','operator'],
     ['legacy/index.html','legacy']

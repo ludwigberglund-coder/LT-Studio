@@ -20,10 +20,12 @@ const surfaces=[
   {id:'payables',route:'portal/payables.html?demo=1'},
   {id:'supplier-ledger',route:'portal/supplier-ledger.html?demo=1'},
   {id:'payments',route:'portal/payments.html?demo=1'},
+  {id:'unplaced',route:'portal/unplaced-payments.html?demo=1'},
   {id:'batches',route:'portal/batches.html?demo=1'},
   {id:'accounting',route:'portal/accounting.html?demo=1'},
   {id:'accounts',route:'portal/accounts.html?demo=1'},
   {id:'reports',route:'portal/reports.html?demo=1'},
+  {id:'bokslut',route:'portal/bokslut.html?demo=1'},
   {id:'documents',route:'portal/documents.html?demo=1'},
   {id:'inventory',route:'portal/inventory.html?demo=1'},
   {id:'payroll',route:'portal/payroll.html?demo=1'},
@@ -118,6 +120,10 @@ function visible(element){
               ? '.operator-shell .topbar, .login-shell .login-card'
               : '.topbar');
           const glassChromeStyle=glassChrome?getComputedStyle(glassChrome):null;
+          const workingChrome=document.querySelector('.payments-toolbar,.unplaced-toolbar');
+          const workingStyle=workingChrome?getComputedStyle(workingChrome):null;
+          const operatorTheme=html.dataset.operatorTheme||null;
+          const operatorGlassSolid=operatorTheme?getComputedStyle(html).getPropertyValue('--lt-glass-solid').trim():null;
           const bodyStyle=getComputedStyle(body);
           const sharedUser=document.querySelector('.shared-user-trigger');
           const sharedAvatar=document.querySelector('.shared-user-avatar');
@@ -183,6 +189,10 @@ function visible(element){
             glassChromeBackgroundImage:glassChromeStyle?.backgroundImage||null,
             glassChromeShadow:glassChromeStyle?.boxShadow||null,
             glassChromeBorderTopWidth:glassChromeStyle?.borderTopWidth||null,
+            workingChromeBackgroundImage:workingStyle?.backgroundImage||null,
+            workingChromeBoxShadow:workingStyle?.boxShadow||null,
+            operatorTheme,
+            operatorGlassSolid,
             sharedUserDisplay:sharedUserStyle?.display||null,
             sharedUserBorderTopWidth:sharedUserStyle?.borderTopWidth||null,
             sharedAvatarWidth:sharedAvatarStyle?.width||null,
@@ -223,6 +233,17 @@ function visible(element){
           assert.notEqual(layout.glassChromeShadow,'none',`${surface.id} toolbar lacks floating depth`);
           assert.ok(parseFloat(layout.glassChromeBorderTopWidth)>=1,`${surface.id} toolbar lacks a visible rim`);
         }
+        if(viewport.id==='desktop'&&['payments','unplaced'].includes(surface.id)){
+          assert.match(layout.workingChromeBackgroundImage||'',/radial-gradient/i,
+            `${surface.id} working toolbar must be visibly refractive`);
+          assert.notEqual(layout.workingChromeBoxShadow,'none',
+            `${surface.id} working toolbar needs a distinct floating layer`);
+        }
+        if(surface.id==='project-admin'&&viewport.id==='desktop'){
+          assert.equal(layout.operatorTheme,theme.id,'operator uses the wrong theme');
+          assert.equal(layout.operatorGlassSolid,theme.id==='dark'?'#172731':'#fff',
+            'operator glass palette does not follow its own theme');
+        }
         if(layout.sidebarBackground){
           assert.notEqual(layout.sidebarBackground,'rgb(20, 60, 48)',`${surface.id} ${viewport.id} leaked the old green sidebar`);
         }
@@ -236,6 +257,30 @@ function visible(element){
           assert.equal(layout.systemHeadingColor,'rgb(255, 255, 255)',`${viewport.id} project admin system heading lost contrast`);
           assert.equal(layout.systemRowStrongColor,'rgb(255, 255, 255)',`${viewport.id} project admin status values lost contrast`);
           if(viewport.id==='mobile')assert.ok(layout.projectTopbarHeight<=150,`project admin mobile topbar is too tall: ${layout.projectTopbarHeight}px`);
+        }
+        if(surface.id==='bokslut'){
+          const close=await page.evaluate(()=>{
+            const root=document.querySelector('#lt-bokslut-app');
+            const grid=document.querySelector('.bokslut-grid');
+            const cards=[...document.querySelectorAll('.bokslut-grid .bokslut-card')];
+            const links=cards.map(card=>card.querySelector('a'));
+            return {
+              visible:!!root&&!root.hidden,
+              columns:grid?getComputedStyle(grid).gridTemplateColumns.split(' ').length:0,
+              cards:cards.length,
+              notVerified:cards.every(card=>card.innerText.includes('Inte verifierad')),
+              demoLinks:links.every(link=>link.href.includes('demo=1')),
+              minLinkHeight:Math.min(...links.map(link=>link.getBoundingClientRect().height)),
+              overflow:document.documentElement.scrollWidth>innerWidth+2
+            };
+          });
+          assert.equal(close.visible,true,'bokslut must be visible in explicit demo mode');
+          assert.equal(close.cards,6,'bokslut must show all six review areas');
+          assert.equal(close.notVerified,true,'bokslut must never claim automatic reconciliation');
+          assert.equal(close.demoLinks,true,'book-close destinations must stay in demo mode');
+          assert.equal(close.overflow,false,'bokslut has horizontal overflow');
+          assert.ok(close.minLinkHeight>=44,'bokslut links must be finger-friendly');
+          if(viewport.id==='mobile')assert.equal(close.columns,1,'bokslut must stack cards on phones');
         }
         if(surface.id==='invoices'&&viewport.id==='mobile'){
           assert.equal(layout.invoiceMobileCard,true,'mobile customer invoices must render as labeled stacked rows');

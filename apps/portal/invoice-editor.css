@@ -3,3 +3,16 @@
 @media(max-width:620px){.invoice-grid,.invoice-line-fields,.invoice-preview-meta{grid-template-columns:1fr}.invoice-line-fields .description-field,.invoice-line-fields .account-field{grid-column:1}.invoice-toolbar{display:block}.invoice-toolbar h2{font-size:27px}.invoice-section-body,.invoice-preview-card{padding:16px}.invoice-section>summary{padding:16px}.invoice-actions .button{max-width:100%}.invoice-workspace .sales-table{font-size:12px}}
 
 .invoice-search-shell{width:min(560px,100%);margin-bottom:16px}.invoice-search-shell .invoice-search{width:100%;margin-bottom:0;min-width:0}
+
+
+/* #749 etapp 2B: progressive disclosure without removing any invoice fields. */
+.invoice-extra-details{margin-top:16px;border:1px solid var(--color-hairline,var(--line,#d9e0d9));border-radius:12px;background:var(--surface-alt,var(--paper,#fff))}
+.invoice-extra-details>summary{cursor:pointer;padding:13px 16px;font-weight:700;font-size:13px;color:var(--color-ink,#173b31)}
+.invoice-extra-details>summary:focus-visible{outline:3px solid #729b62;outline-offset:3px;border-radius:9px}
+.invoice-extra-details[open]>summary{border-bottom:1px solid var(--color-hairline,var(--line,#d9e0d9))}
+.invoice-extra-details>.invoice-grid{padding:16px}
+.invoice-line-fields .account-field .account-guidance{display:block;font-size:11px;font-weight:500;line-height:1.45;color:#43594c}
+html[data-lt-theme="dark"] .invoice-extra-details{background:var(--lt-dark-surface,#2d333b)!important;border-color:var(--lt-dark-border,#444c56)!important}
+html[data-lt-theme="dark"] .invoice-extra-details>summary{color:var(--lt-dark-text,#fff)!important}
+html[data-lt-theme="dark"] .invoice-line-fields .account-field .account-guidance{color:#253e31}
+@media(max-width:620px){.invoice-extra-details>.invoice-grid{padding:14px}.invoice-extra-details>summary{min-height:44px}}
