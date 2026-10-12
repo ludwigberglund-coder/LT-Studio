@@ -108,7 +108,12 @@ test('every portal search box exposes an interactive dropdown contract',()=>{
     assert.match(source,/role=["']listbox["']/i,`${name} search must expose a dropdown listbox`);
     assert.match(source,/aria-controls=/i,`${name} search must connect input and dropdown`);
   }
-  assert.deepEqual(searchFiles.sort(),['app.js','documents.js','invoices.js','payables.js','payments.js','suppliers.js']);
+  assert.deepEqual(searchFiles.sort(),['accounting.js','app.js','documents.js','invoices.js','payables.js','payments.js','suppliers.js']);
+  const journal=read('apps/portal/accounting.js');
+  assert.match(journal,/data-journal-suggestion/,'journal combobox offers selectable suggestions');
+  assert.match(journal,/ArrowDown/,'journal combobox offers keyboard suggestion navigation');
+  assert.match(journal,/ArrowUp/,'journal combobox offers reverse keyboard navigation');
+  assert.match(journal,/aria-activedescendant=/,'journal combobox announces the active suggestion');
 });
 
 test('payables UI blocks unbalanced coding and visibly confirms approval',()=>{
