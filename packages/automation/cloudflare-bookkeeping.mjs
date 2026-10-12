@@ -10,6 +10,7 @@ const SOURCE_KEYS = Object.freeze([
   'vatRateBps', 'netOre', 'vatOre', 'grossOre'
 ]);
 const RESPONSE_KEYS = Object.freeze(['expenseAccount', 'reason', 'ambiguous']);
+const VERIFIED_INVOICES = new WeakSet();
 
 function guardError(code, message) {
   const error = new Error(message);
@@ -82,7 +83,7 @@ function validateSyntheticInvoice(input, context) {
       Math.abs(input.vatOre - Math.round(input.netOre / 4)) > 1) {
     throw guardError('INVALID_VAT', 'Belopp och 25 % moms måste stämma.');
   }
-  return {
+  const verifiedInvoice = {
     ...input,
     companyId,
     sourceId,
@@ -91,6 +92,8 @@ function validateSyntheticInvoice(input, context) {
     invoiceDate,
     actorId: trusted.actorId
   };
+  VERIFIED_INVOICES.add(verifiedInvoice);
+  return verifiedInvoice;
 }
 
 const OUTPUT_SCHEMA = Object.freeze({
@@ -162,6 +165,9 @@ function cloudflareProvider({
   const url = 'https://api.cloudflare.com/client/v4/accounts/' +
     accountId + '/ai/run/' + MODEL;
   return async function suggestAccount(validatedInvoice) {
+    if (!VERIFIED_INVOICES.has(validatedInvoice)) {
+      throw guardError('UNTRUSTED_SOURCE', 'Bara verifierat testunderlag får skickas till AI.');
+    }
     const request = promptFor(validatedInvoice);
     let response;
     try {
@@ -204,6 +210,9 @@ function cloudflareProvider({
   };
 }
 function toReviewProposal(invoice, result) {
+  if (!VERIFIED_INVOICES.has(invoice)) {
+    throw guardError('UNTRUSTED_SOURCE', 'Bara verifierat testunderlag får få konteringsförslag.');
+  }
   const recommendation = validateModelAnswer(result);
   const rows = [
     { account: recommendation.expenseAccount, debitOre: invoice.netOre, creditOre: 0 },
