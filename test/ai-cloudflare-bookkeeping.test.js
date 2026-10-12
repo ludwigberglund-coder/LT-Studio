@@ -69,17 +69,18 @@ test('Cloudflare request uses fixed domain, JSON schema and no company identifie
 });
 
 test('JSON string responses are accepted, markdown or extra fields fail closed', async () => {
-  const { cloudflareProvider } = await load();
+  const { cloudflareProvider, validateSyntheticInvoice } = await load();
+  const invoice = validateSyntheticInvoice(SOURCE, TRUSTED);
   const config = { enabled: true, accountId: ACCOUNT, apiToken: TOKEN };
   const success = cloudflareProvider({ ...config,
     fetchImpl: async () => mockResponse(enveloped(JSON.stringify(ANSWER))) });
-  assert.deepEqual(await success(SOURCE), ANSWER);
+  assert.deepEqual(await success(invoice), ANSWER);
   const wrong = cloudflareProvider({ ...config,
     fetchImpl: async () => mockResponse(enveloped('not valid JSON')) });
-  await assert.rejects(() => wrong(SOURCE), e => e.code === 'MODEL_INVALID_RESPONSE');
+  await assert.rejects(() => wrong(invoice), e => e.code === 'MODEL_INVALID_RESPONSE');
   const unexpected = cloudflareProvider({ ...config,
     fetchImpl: async () => mockResponse(enveloped({ ...ANSWER, directPost: true })) });
-  await assert.rejects(() => unexpected(SOURCE), e => e.code === 'MODEL_INVALID_RESPONSE');
+  await assert.rejects(() => unexpected(invoice), e => e.code === 'MODEL_INVALID_RESPONSE');
 });
 
 test('MFA, verified identity and exact company binding are required before inference', async () => {
@@ -193,7 +194,8 @@ test('hostile description is data; hallucinated posting account still blocked', 
 });
 
 test('Cloudflare provider returns safe errors without leaking tokens or silently retrying', async () => {
-  const { cloudflareProvider } = await load();
+  const { cloudflareProvider, validateSyntheticInvoice } = await load();
+  const invoice = validateSyntheticInvoice(SOURCE, TRUSTED);
   const base = { enabled: true, accountId: ACCOUNT, apiToken: TOKEN };
   let attempts = 0;
   const offline = cloudflareProvider({ ...base,
@@ -202,26 +204,39 @@ test('Cloudflare provider returns safe errors without leaking tokens or silently
       throw new Error('upstream token is ' + TOKEN);
     }
   });
-  await assert.rejects(() => offline(SOURCE), e =>
+  await assert.rejects(() => offline(invoice), e =>
     e.code === 'PROVIDER_UNAVAILABLE' && !e.message.includes(TOKEN));
   assert.equal(attempts, 1);
   const rejected = cloudflareProvider({ ...base,
     fetchImpl: async () => mockResponse({ errors: [TOKEN] }, 401)
   });
-  await assert.rejects(() => rejected(SOURCE), e =>
+  await assert.rejects(() => rejected(invoice), e =>
     e.code === 'PROVIDER_REJECTED' && !e.message.includes(TOKEN));
 });
 
 test('malformed, oversized or unsuccessful provider envelope is rejected', async () => {
-  const { cloudflareProvider } = await load();
+  const { cloudflareProvider, validateSyntheticInvoice } = await load();
+  const invoice = validateSyntheticInvoice(SOURCE, TRUSTED);
   const base = { enabled: true, accountId: ACCOUNT, apiToken: TOKEN };
   const malformed = cloudflareProvider({ ...base,
     fetchImpl: async () => new Response('{', { status: 200 }) });
-  await assert.rejects(() => malformed(SOURCE), e => e.code === 'MODEL_INVALID_RESPONSE');
+  await assert.rejects(() => malformed(invoice), e => e.code === 'MODEL_INVALID_RESPONSE');
   const oversized = cloudflareProvider({ ...base,
     fetchImpl: async () => new Response('x'.repeat(40000), { status: 200 }) });
-  await assert.rejects(() => oversized(SOURCE), e => e.code === 'MODEL_INVALID_RESPONSE');
+  await assert.rejects(() => oversized(invoice), e => e.code === 'MODEL_INVALID_RESPONSE');
   const noSuccess = cloudflareProvider({ ...base,
     fetchImpl: async () => mockResponse({ success: false, result: {} }) });
-  await assert.rejects(() => noSuccess(SOURCE), e => e.code === 'PROVIDER_REJECTED');
+  await assert.rejects(() => noSuccess(invoice), e => e.code === 'PROVIDER_REJECTED');
+});
+
+
+test('provider never forwards an unvalidated client object to Cloudflare', async () => {
+  const { cloudflareProvider } = await load();
+  let networkCalls = 0;
+  const provider = cloudflareProvider({
+    enabled: true, accountId: ACCOUNT, apiToken: TOKEN,
+    fetchImpl: async () => { networkCalls += 1; return mockResponse(enveloped(ANSWER)); }
+  });
+  await assert.rejects(() => provider(SOURCE), e => e.code === 'UNTRUSTED_SOURCE');
+  assert.equal(networkCalls, 0);
 });
