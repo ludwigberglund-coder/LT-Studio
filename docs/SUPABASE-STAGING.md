@@ -93,3 +93,7 @@ A real staging environment is not approved merely because CI passes. Issue #364 
 - signoff tied to an exact Git commit.
 
 No real customer, bank, payroll, invoice, document or pilot/production backup may be loaded into staging.
+
+## Latest hosted security and tenant parity check (2026-10-12)
+
+See [STAGING-TENANT-OPERATOR-PARITY-2026-10-12.md](STAGING-TENANT-OPERATOR-PARITY-2026-10-12.md) for verified differences, synthetic AAL2/tenant regression coverage and remaining live Auth/role blockers. Two seeded companies alone do not constitute a completed cross-tenant test.
