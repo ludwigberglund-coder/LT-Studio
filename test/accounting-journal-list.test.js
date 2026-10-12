@@ -133,7 +133,7 @@ test('inga sökträffar visas tydligt med säker escaped söktext',()=>{
   view.setQuery('Finns inte');
   const missing=view.entryTable();
   assert.deepEqual(ids(missing),[]);
-  assert.match(missing,/0 av 1 träffar/);
+  assert.match(missing,/0 träffar av 1 inlästa/);
   assert.match(missing,/Inga verifikationer matchar sökningen/);
   assert.match(missing,/Rensa sökning/);
   assert.doesNotMatch(missing,/data-action="toggle-journals"/);
