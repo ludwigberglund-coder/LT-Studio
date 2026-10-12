@@ -3,14 +3,8 @@ name: Supabase clean rebuild
 on:
   push:
     branches: [main]
-    paths:
-      - 'supabase/**'
-      - '.github/workflows/supabase-clean-rebuild.yml'
   pull_request:
     branches: [main]
-    paths:
-      - 'supabase/**'
-      - '.github/workflows/supabase-clean-rebuild.yml'
   workflow_dispatch:
 
 permissions:
