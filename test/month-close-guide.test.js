@@ -51,3 +51,18 @@ test('guiden fungerar i mobil mörkt läge och med tangentbord',()=>{
   assert.match(css,/@media\(max-width:780px\)/);
   assert.match(css,/:focus-visible/);
 });
+
+test('bokföringsvyn visar läsguiden för den aktuella perioden och bekräftar före låsning',()=>{
+  const accounting=fs.readFileSync(path.join(__dirname,'..','apps','portal','accounting.js'),'utf8');
+  const html=fs.readFileSync(path.join(__dirname,'..','apps','portal','accounting.html'),'utf8');
+  assert.match(accounting,/function monthlyGuide\(current\)/);
+  assert.match(accounting,/periodExists:periods\.some\(p=>p\.period===current\.period\)/);
+  assert.match(accounting,/visibleEntries:entries\.filter/);
+  assert.match(accounting,/\$\{monthlyGuide\(current\)\}/);
+  assert.match(accounting,/LTStudioDialog\.confirm/);
+  assert.match(accounting,/if\(!confirmed\)return/);
+  assert.match(accounting,/Jag har kontrollerat – lås perioden/);
+  assert.match(html,/month-close-guide\.css/);
+  assert.match(html,/month-close-guide\.js/);
+  assert.ok(html.indexOf('month-close-guide.js')<html.indexOf('accounting.js'),'guiden laddas före bokföringsvyn');
+});
