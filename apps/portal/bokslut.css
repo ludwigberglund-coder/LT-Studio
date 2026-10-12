@@ -123,5 +123,4 @@ html[data-lt-theme="dark"] .year-close-flag{color:#f5d287}
 #book-close-simple-actions .book-close-task-title{display:block;font-weight:750;line-height:1.5}
 #book-close-simple-actions .book-close-task p{margin:8px 0 0;line-height:1.55;font-size:14px}
 #book-close-simple-actions .book-close-task a{margin-top:12px}
-.book-close-task-heading{font-size:clamp(17px,2.2vw,21px);margin:18px 0 7px}
 @media(max-width:550px){#book-close-simple-actions .book-close-task{padding:14px}#book-close-simple-actions .book-close-task a{width:100%;justify-content:center;text-align:center}}
