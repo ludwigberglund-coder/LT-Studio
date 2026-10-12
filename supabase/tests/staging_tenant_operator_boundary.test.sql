@@ -131,6 +131,10 @@ values
  ('pgtap-scope-customer-a-364','pgtap-scope-alpha-364','T364-A','Synthetic Customer A'),
  ('pgtap-scope-customer-b-364','pgtap-scope-beta-364','T364-B','Synthetic Customer B');
 
+-- Financial test fixtures must use the existing write guard, never weaken it.
+select set_config('app.controlled_financial_write','1',true);
+select set_config('app.audit_event_write','1',true);
+
 insert into public.invoices(
  id,company_id,customer_id,invoice_number,invoice_date,posting_date,due_date,
  total_ore,remaining_ore,vat_ore,status,invoice_account)
@@ -139,6 +143,9 @@ values
   'T364-A-001','2026-10-01','2026-10-01','2026-10-31',10000,10000,0,'Obetald','1510'),
  ('pgtap-scope-invoice-b-364','pgtap-scope-beta-364','pgtap-scope-customer-b-364',
   'T364-B-001','2026-10-01','2026-10-01','2026-10-31',10000,10000,0,'Obetald','1510');
+
+select set_config('app.controlled_financial_write','',true);
+select set_config('app.audit_event_write','',true);
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000003641',true);
