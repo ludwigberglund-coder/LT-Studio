@@ -60,6 +60,22 @@
 </div>
 <p class="year-close-warning">Viktigt: Den här kontrollen bevisar ännu inte att huvudboken är fullständig. Kontorader räknas tills vidare för företaget totalt, inte för valt år. Bank, 1510/2440 och moms måste fortfarande stämmas av mot separata underlag.</p>
 </section>
+<section class="bokslut-card" aria-labelledby="book-close-guide-title">
+<h2 id="book-close-guide-title">Arbetsordning för bokslutet</h2>
+<p>Börja med att köra serverkontrollerna ovan. Gå sedan igenom alla sex områden nedan. Öppna ett område i den vanliga portalen och återvänd hit efter kontrollen.</p>
+<p><strong>Observera:</strong> Att öppna eller markera ett område innebär inte att saldon har stämts av, bokslutet har godkänts eller uppgifter har sparats.</p>
+<div class="bokslut-guide-progress" aria-live="polite" id="book-close-guide-progress">0 av 6 områden markerade för uppföljning i denna vy. Bokslut ej verifierat.</div>
+<div id="book-close-guide-actions" class="bokslut-guide-actions" role="group" aria-label="Områden att följa upp">
+<label><input type="checkbox" data-book-close-area="bank"> Bank och betalningar</label>
+<label><input type="checkbox" data-book-close-area="customer"> Kundfordringar</label>
+<label><input type="checkbox" data-book-close-area="supplier"> Leverantörsskulder</label>
+<label><input type="checkbox" data-book-close-area="ledger"> Bokföring och buntar</label>
+<label><input type="checkbox" data-book-close-area="vat"> Moms och rapporter</label>
+<label><input type="checkbox" data-book-close-area="documents"> Bokföringsunderlag</label>
+</div>
+<p id="book-close-guide-warning">Markeringarna är en tillfällig arbetslista i webbläsarvyn, inte en sparad attest. De nollställs när sidan öppnas på nytt.</p>
+<button type="button" id="book-close-guide-reset">Nollställ markeringarna</button>
+</section>
 <h2>Det här behöver kontrolleras</h2>
 <p class="bokslut-lead">Välj ett område för att se dina uppgifter i den vanliga företagsportalen.</p>
 <div class="bokslut-grid">
@@ -73,7 +89,7 @@
 <p class="bokslut-notice"><strong>Varför står allt som inte verifierat?</strong> För att vi inte ännu har en fullständig serverbaserad årsavstämning. Tomma listor eller inlästa siffror bevisar inte att allt är kontrollerat. Årsredovisning, deklaration och myndighetsinlämning är inte tillgängliga från denna vy.</p>
 </main></div>
 </section></div>
-<script src="./supabase-config.js"></script><script src="./supabase-client.js"></script><script src="./supabase-session.js"></script><script src="./portal-nav.js"></script><script src="./year-close-counts.js"></script><script src="./book-close-ledger.js"></script><script src="./book-close-ledger-ui.js"></script><script src="./book-close-evidence.js"></script><script src="./book-close-evidence-ui.js"></script><script src="./book-close-cutoff.js"></script><script src="./book-close-cutoff-ui.js"></script>
+<script src="./supabase-config.js"></script><script src="./supabase-client.js"></script><script src="./supabase-session.js"></script><script src="./portal-nav.js"></script><script src="./year-close-counts.js"></script><script src="./book-close-ledger.js"></script><script src="./book-close-ledger-ui.js"></script><script src="./book-close-evidence.js"></script><script src="./book-close-evidence-ui.js"></script><script src="./book-close-cutoff.js"></script><script src="./book-close-cutoff-ui.js"></script><script src="./book-close-guide.js"></script>
 <script>
 (async function(){
  const demo=new URLSearchParams(location.search).get('demo')==='1';
