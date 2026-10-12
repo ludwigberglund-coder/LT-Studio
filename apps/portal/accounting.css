@@ -5,7 +5,7 @@
 .journal-list-heading{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px 14px;font-size:13px}
 .journal-list-heading strong{font-size:14px;color:var(--color-ink,#173f32)}
 .journal-list-heading span{color:var(--muted,#64716b)}
-.journal-scroll{max-height:302px;overflow-x:auto;overflow-y:auto;scrollbar-gutter:stable;overscroll-behavior-y:contain;border:1px solid #d9e4dd;border-radius:12px;background:var(--surface-card,#fff)}
+.journal-scroll{max-height:304px;overflow-x:auto;overflow-y:auto;scrollbar-gutter:stable;overscroll-behavior-y:contain;border:1px solid #d9e4dd;border-radius:12px;background:var(--surface-card,#fff)}
 .journal-scroll-expanded{max-height:520px}
 .journal-scroll:focus-visible{outline:3px solid var(--brand-forest,#1c6650);outline-offset:2px}
 .journal-table{margin-top:0;min-width:480px;table-layout:fixed}
