@@ -258,11 +258,15 @@ function visible(element){
         if(surface.id==='bokslut'){
           const close=await page.evaluate(()=>{
             const root=document.querySelector('#lt-bokslut-app');
+            const advanced=document.querySelector('.book-close-links');
+            const advancedClosed=!!advanced&&!advanced.open;
+            if(advanced)advanced.open=true;
             const grid=document.querySelector('.bokslut-grid');
             const cards=[...document.querySelectorAll('.bokslut-grid .bokslut-card')];
             const links=cards.map(card=>card.querySelector('a'));
             return {
               visible:!!root&&!root.hidden,
+              advancedClosed,
               columns:grid?getComputedStyle(grid).gridTemplateColumns.split(' ').length:0,
               cards:cards.length,
               notVerified:cards.every(card=>card.innerText.includes('Inte verifierad')),
@@ -272,6 +276,7 @@ function visible(element){
             };
           });
           assert.equal(close.visible,true,'bokslut must be visible in explicit demo mode');
+          assert.equal(close.advancedClosed,true,'bokslut must hide advanced accounting areas by default');
           assert.equal(close.cards,6,'bokslut must show all six review areas');
           assert.equal(close.notVerified,true,'bokslut must never claim automatic reconciliation');
           assert.equal(close.demoLinks,true,'book-close destinations must stay in demo mode');
