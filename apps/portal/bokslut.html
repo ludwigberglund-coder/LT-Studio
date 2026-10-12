@@ -30,6 +30,12 @@
 </form>
 <p id="year-close-message" role="status" aria-live="polite">Välj år för att starta kontrollen.</p>
 <dl id="year-close-results" class="year-close-results" hidden></dl>
+<div class="year-ledger-block" aria-labelledby="year-ledger-title">
+<h3 id="year-ledger-title">Huvudbokens tekniska kontroll</h3>
+<p>Servern kontrollerar verifikationer och kontorader under den valda perioden i en sammanhängande läsning. Kontobeloppen är <strong>periodens nettorrörelser</strong>, inte avstämda saldon på bokslutsdagen.</p>
+<p id="year-ledger-message" role="status" aria-live="polite">Kör årskontrollen för att se resultat.</p>
+<dl id="year-ledger-results" class="year-close-results" hidden></dl>
+</div>
 <p class="year-close-warning">Viktigt: Den här kontrollen bevisar ännu inte att huvudboken är fullständig. Kontorader räknas tills vidare för företaget totalt, inte för valt år. Bank, 1510/2440 och moms måste fortfarande stämmas av mot separata underlag.</p>
 </section>
 <h2>Det här behöver kontrolleras</h2>
@@ -45,12 +51,12 @@
 <p class="bokslut-notice"><strong>Varför står allt som inte verifierat?</strong> För att vi inte ännu har en fullständig serverbaserad årsavstämning. Tomma listor eller inlästa siffror bevisar inte att allt är kontrollerat. Årsredovisning, deklaration och myndighetsinlämning är inte tillgängliga från denna vy.</p>
 </main></div>
 </section></div>
-<script src="./supabase-config.js"></script><script src="./supabase-client.js"></script><script src="./supabase-session.js"></script><script src="./portal-nav.js"></script><script src="./year-close-counts.js"></script>
+<script src="./supabase-config.js"></script><script src="./supabase-client.js"></script><script src="./supabase-session.js"></script><script src="./portal-nav.js"></script><script src="./year-close-counts.js"></script><script src="./book-close-ledger.js"></script><script src="./book-close-ledger-ui.js"></script>
 <script>
 (async function(){
  const demo=new URLSearchParams(location.search).get('demo')==='1';
  document.getElementById('year-close-year').value=String(new Date().getFullYear());
- if(demo){document.querySelector('#year-close-form button').disabled=true;document.getElementById('year-close-message').textContent='Serverkontrollen kräver inloggning i ett testföretag. Demoläget visar ingen riktig kontroll.';document.getElementById('bokslut-company').textContent='Demoläge – inga kontroller utförda.';document.querySelectorAll('.bokslut-card a').forEach(function(a){a.href+=(a.href.includes('?')?'&':'?')+'demo=1';});document.getElementById('lt-bokslut-app').hidden=false;document.getElementById('bokslut-loading').hidden=true;return;}
+ if(demo){document.getElementById('year-ledger-message').textContent='Huvudbokskontrollen kräver inloggning i ett testföretag.';document.querySelector('#year-close-form button').disabled=true;document.getElementById('year-close-message').textContent='Serverkontrollen kräver inloggning i ett testföretag. Demoläget visar ingen riktig kontroll.';document.getElementById('bokslut-company').textContent='Demoläge – inga kontroller utförda.';document.querySelectorAll('.bokslut-card a').forEach(function(a){a.href+=(a.href.includes('?')?'&':'?')+'demo=1';});document.getElementById('lt-bokslut-app').hidden=false;document.getElementById('bokslut-loading').hidden=true;return;}
  try {
    if(!globalThis.LTSupabaseUat)throw new Error('Session saknas');
    const context=await globalThis.LTSupabaseUat.context();
