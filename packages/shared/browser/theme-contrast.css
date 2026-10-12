@@ -1,0 +1,330 @@
+/*
+ * LT Studio final readability layer.
+ * Loaded AFTER every module stylesheet on every non-redirect page.
+ * A light theme means dark foreground on opaque light surfaces; a dark theme
+ * means a near-white foreground on opaque dark surfaces. Explicitly inverted
+ * surfaces (navigation, primary buttons, badges, dark hero panels) are handled
+ * separately. Never change finance behavior or hide disabled controls.
+ */
+html[data-lt-theme="light"]{
+  --lt-read-text:#1c2523;
+  --lt-read-subtext:#36443f;
+  --lt-read-surface:#ffffff;
+  --lt-read-soft:#eff2f0;
+  --lt-read-border:#717c76;
+  --lt-read-focus:#215d47;
+}
+html[data-lt-theme="dark"]{
+  --lt-read-text:#ffffff;
+  --lt-read-subtext:#f1f5f8;
+  --lt-read-surface:#2d333b;
+  --lt-read-soft:#373e47;
+  --lt-read-border:#a5b0b8;
+  --lt-read-focus:#b4e4ca;
+}
+
+/* Use high-contrast text defaults, not the original module's stale colors. */
+html[data-lt-theme] :where(body,.main,.main-area,.content,.content-area,.admin-main,.shared-workspace-main,.dashboard-content,.login-panel,.operator-shell){
+  color:var(--lt-read-text);
+}
+html[data-lt-theme] :where(.topbar,.panel,.card,.metric,.metric-card,.module-card,.service-editor,.login-card,.modal,.modal-card,.portal-modal-card,.dialog,.lt-dialog,.table-card,.table-scroll,.detail-panel,.chart-card,.form-card,.worklist-card,.filter-panel,.summary-card,.info-card,.report-panel,.queue-panel,.batch-editor,.batch-list,.documents-panel,.coding-panel,.cms-card,.operator-control-deck){
+  color:var(--lt-read-text);
+}
+
+/* Dense business content including nested captions and read-only values.
+   Do not overwrite color on reversed/intentional status/CTA backgrounds. */
+html[data-lt-theme] :where(.main,.main-area,.content,.content-area,.admin-main,.shared-workspace-main,.dashboard-content,.login-panel,.operator-shell,.portal,.dash-shell)
+  :is(h1,h2,h3,h4,h5,h6,p,small,li,dt,dd,th,td,legend,label)
+  :not(.sidebar *):not(.shared-sidebar *):not(.login-brand *):not(.button *):not(.status-pill *):not(.status-badge *):not(.badge *):not(.avatar *):not(.nav-badge *):not(.notice *):not(.error *):not(.warning *):not(.success *):not(.contact *):not(.button):not(.status-pill):not(.status-badge){
+  color:var(--lt-read-text)!important;
+}
+/* Subheadings and longer descriptions remain fully readable. */
+html[data-lt-theme] :where(.main,.main-area,.content,.content-area,.admin-main,.dashboard-content,.operator-shell,.login-panel)
+  :is(.muted,.fine-print,.hint,.help-text,.field-help,.helper-text,.empty,.empty-state,.form-hint,.metric small,.metric span,.panel-head p,.topbar p,.toolbar .hint)
+  :not(.sidebar *):not(.shared-sidebar *):not(.button *):not(.status-pill *):not(.status-badge *){
+  color:var(--lt-read-subtext)!important;
+}
+/* Icons inherit the color of their control. Never paint SVG paths individually. */
+html[data-lt-theme] :where(.ui-icon,.op-icon,.lt-theme-toggle-icon,.shared-menu-toggle .ui-icon,.theme-toggle .op-icon){
+  color:inherit;
+}
+html[data-lt-theme] :where(a,button,summary,select,input,textarea):focus-visible{
+  outline:3px solid var(--lt-read-focus)!important;
+  outline-offset:2px;
+}
+
+/* Form entries and placeholder text must remain visible even when disabled.
+   Browser-native autofill and read-only fields must not inherit the wrong mode. */
+html[data-lt-theme="light"] :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),textarea,select){
+  color:#1c2523!important;
+  -webkit-text-fill-color:#1c2523!important;
+  background-color:#ffffff!important;
+  border-color:var(--lt-read-border)!important;
+  color-scheme:light;
+}
+html[data-lt-theme="dark"] :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),textarea,select){
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+  background-color:#262c34!important;
+  border-color:var(--lt-read-border)!important;
+  color-scheme:dark;
+}
+html[data-lt-theme="light"] :where(input,textarea)::placeholder{color:#46554e!important;opacity:1}
+html[data-lt-theme="dark"] :where(input,textarea)::placeholder{color:#d5dfe8!important;opacity:1}
+html[data-lt-theme] :where(input,textarea,select):is(:disabled,[readonly]){
+  opacity:1!important;
+}
+html[data-lt-theme="light"] :where(input,textarea,select):is(:disabled,[readonly]){
+  color:#2c3833!important;
+  -webkit-text-fill-color:#2c3833!important;
+  background-color:#edf0ed!important;
+}
+html[data-lt-theme="dark"] :where(input,textarea,select):is(:disabled,[readonly]){
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+  background-color:#373e47!important;
+}
+
+/* Portal navigation uses LIGHT/DARK SOLID backgrounds, with readable labels.
+   Previous Apple-inspired CSS incorrectly used --color-paper as text in dark
+   mode even though that token becomes dark in dark mode. */
+html[data-lt-theme="light"] .sidebar.shared-sidebar{
+  background:#ffffff!important;
+  color:#1c2523!important;
+  border-color:#c7d0cb!important;
+}
+html[data-lt-theme="dark"] .sidebar.shared-sidebar{
+  background:#2d333b!important;
+  color:#ffffff!important;
+  border-color:#626c76!important;
+}
+html[data-lt-theme="light"] .shared-sidebar :is(.shared-brand,.shared-brand strong,.shared-brand small,.shared-company,.shared-navigation summary,.shared-navigation .shared-links a,.shared-navigation .shared-links a .ui-icon,.shared-foot,.shared-foot a,.shared-foot p){
+  color:#1c2523!important;
+}
+html[data-lt-theme="dark"] .shared-sidebar :is(.shared-brand,.shared-brand strong,.shared-brand small,.shared-company,.shared-navigation summary,.shared-navigation .shared-links a,.shared-navigation .shared-links a .ui-icon,.shared-foot,.shared-foot a,.shared-foot p){
+  color:#ffffff!important;
+}
+html[data-lt-theme="light"] .shared-navigation .shared-links a:is(:hover,.active,[aria-current="page"]){
+  color:#172d24!important;
+  background:#e4eee8!important;
+}
+html[data-lt-theme="dark"] .shared-navigation .shared-links a:is(:hover,.active,[aria-current="page"]){
+  color:#ffffff!important;
+  background:#465460!important;
+}
+html[data-lt-theme="dark"] .shared-navigation .shared-links a:is(:hover,.active,[aria-current="page"]) .ui-icon,
+html[data-lt-theme="dark"] .shared-sidebar .shared-navigation .shared-links a[aria-current="page"]>.ui-icon{
+  color:#ffffff!important;
+}
+html[data-lt-theme="light"] .shared-navigation .shared-links a:is(:hover,.active,[aria-current="page"]) .ui-icon{
+  color:#172d24!important;
+}
+
+/* Workspaces: opaque menus and toolbars, consistently readable. */
+html[data-lt-theme="light"] :where(.topbar,.shared-user-dropdown,.column-menu,.context-menu,.lt-dialog,.payment-confirm-modal,.batch-confirm-modal,.documents-modal,.intake-modal){
+  color:#1c2523!important;
+  background-color:#ffffff!important;
+}
+html[data-lt-theme="dark"] :where(.topbar,.shared-user-dropdown,.column-menu,.context-menu,.lt-dialog,.payment-confirm-modal,.batch-confirm-modal,.documents-modal,.intake-modal){
+  color:#ffffff!important;
+  background-color:#2d333b!important;
+}
+html[data-lt-theme="light"] :where(.shared-user-trigger,.shared-menu-toggle,.lt-theme-toggle,.lt-theme-toggle-topbar,.column-picker summary,.queue-tab,.report-tab,.automation-filter button){
+  color:#1c2523!important;
+}
+html[data-lt-theme="dark"] :where(.shared-user-trigger,.shared-menu-toggle,.lt-theme-toggle,.lt-theme-toggle-topbar,.column-picker summary,.queue-tab,.report-tab,.automation-filter button){
+  color:#ffffff!important;
+}
+
+/* Preserve inverted, readable primary CTAs and critical state colors. */
+html[data-lt-theme="light"] :where(.button:not(.ghost):not(.secondary):not(.danger),.button.primary,.topbar-create){
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+}
+html[data-lt-theme="dark"] :where(.button:not(.ghost):not(.secondary):not(.danger),.button.primary,.topbar-create){
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+  background:#275b4e!important;
+}
+html[data-lt-theme] :where(.button,.icon-button,.theme-toggle,.queue-tab,.report-tab,.automation-filter button) :where(.ui-icon,.op-icon,svg){
+  color:inherit!important;
+}
+html[data-lt-theme="light"] :where(.button.ghost,.button.secondary,.icon-button){
+  color:#1c2523!important;
+}
+html[data-lt-theme="dark"] :where(.button.ghost,.button.secondary,.icon-button){
+  color:#ffffff!important;
+}
+html[data-lt-theme="dark"] :where(.status-pill,.status-badge,.status-approved,.status-rejected,.status-ready,.badge,.warning,.notice,.success-box,.error,.form-error){
+  color:#ffffff!important;
+}
+html[data-lt-theme="light"] :where(.status-pill,.status-badge,.badge,.warning,.notice,.success-box,.error,.form-error){
+  color:#232d29!important;
+}
+
+/* Operator sidebar remains deliberately dark even in light mode. */
+html[data-operator-theme] .operator-shell .sidebar{
+  background:#102630!important;
+  color:#ffffff!important;
+}
+html[data-operator-theme] .operator-shell .sidebar :is(.mark,.mark-icon,.side-nav button,.side-nav .nav-label,.side-nav .op-icon,.side-copy,.side-footer,.side-status,.side-status strong,.side-status small,.customer-system-link,.customer-system-link strong,.customer-system-link small){
+  color:#ffffff!important;
+}
+html[data-operator-theme] .operator-shell .side-nav button:is(:hover,.active){
+  background:#2e5055!important;
+  color:#ffffff!important;
+}
+html[data-operator-theme="light"] .operator-shell :where(.topbar,.panel,.card,.chart-card,.metric,.login-card,.modal-card){
+  color:#1c2523!important;
+}
+html[data-operator-theme="dark"] .operator-shell :where(.topbar,.panel,.card,.chart-card,.metric,.modal-card){
+  color:#ffffff!important;
+}
+html[data-operator-theme="dark"] .operator-shell .button:not(.secondary):not(.danger){
+  color:#ffffff!important;
+  background:#275b4e!important;
+}
+html[data-operator-theme="dark"] .operator-shell .theme-toggle .op-icon{
+  color:#ffffff!important;
+}
+
+/* The marketing site is part of the same preview. Its previous styles were
+   light-only and used --color-paper as button text on a white dark-mode CTA. */
+html[data-lt-theme="light"] body:has(.site-header){background:#f7f5f0;color:#1c2523}
+html[data-lt-theme="dark"] body:has(.site-header){background:#22272e;color:#ffffff}
+html[data-lt-theme="dark"] :where(.site-header,.services,.story,.site-footer,.loading-shell,.service-card,.visual-card){
+  background-color:#2d333b!important;
+  color:#ffffff!important;
+}
+html[data-lt-theme="light"] body:has(.site-header) :where(.brand,.site-navigation a,.lead,.section-heading p,.service-card p,.story-panel p,.highlight span,.site-footer a,.site-footer span,.eyebrow){
+  color:#26332d!important;
+}
+html[data-lt-theme="dark"] body:has(.site-header) :where(h1,h2,h3,p,small,strong,li,.brand,.brand small,.site-navigation a,.lead,.section-heading p,.service-card p,.story-panel p,.highlight span,.site-footer a,.site-footer span,.eyebrow){
+  color:#ffffff!important;
+}
+html[data-lt-theme="dark"] body:has(.site-header) :where(.header-action,.button.primary,.button.light-button,.visual-note,.service-number){
+  color:#ffffff!important;
+  background:#275b4e!important;
+  border-color:#a2c6b4!important;
+}
+html[data-lt-theme="light"] body:has(.site-header) :where(.header-action,.button.primary,.button.light-button,.visual-note,.service-number){
+  color:#ffffff!important;
+  background:#225443!important;
+}
+html[data-lt-theme="dark"] body:has(.site-header) :where(.contact,.contact-card){
+  background:#1b242a!important;
+  color:#ffffff!important;
+}
+html[data-lt-theme] body:has(.site-header) .contact :where(h1,h2,h3,p,small,strong,a,span){
+  color:#ffffff!important;
+}
+html[data-lt-theme="light"] body:has(.site-header) :where(.button.secondary,.menu-button){
+  background:#f0f3ef!important;
+  color:#1c2523!important;
+}
+html[data-lt-theme="dark"] body:has(.site-header) :where(.button.secondary,.menu-button){
+  background:#38444d!important;
+  color:#ffffff!important;
+}
+
+/* Prevent higher specificities in module CSS from reviving dark text on
+   common night-mode headings/amounts and white text on day-mode cards. */
+html[data-lt-theme="dark"] :where(.topbar,.panel,.card,.metric,.queue-panel,.report-panel,.batch-list,.batch-editor,.coding-panel,.documents-panel,.modal-card) :is(h1,h2,h3,h4,h5,h6,th,td,legend,label){
+  color:#ffffff!important;
+}
+html[data-lt-theme="light"] :where(.topbar,.panel,.card,.metric,.queue-panel,.report-panel,.batch-list,.batch-editor,.coding-panel,.documents-panel,.modal-card) :is(h1,h2,h3,h4,h5,h6,th,td,legend,label){
+  color:#1c2523!important;
+}
+@media(forced-colors:active){
+  html[data-lt-theme] :is(a,button,input,select,textarea){forced-color-adjust:auto!important}
+}
+
+/* The operator already has a complete signed-in AND login appearance switch.
+   Keep just that one visible; the shared switch still synchronizes in code. */
+html[data-operator-theme] .lt-theme-toggle-topbar,
+html[data-operator-theme] .lt-theme-toggle-floating,
+html[data-operator-theme] .lt-theme-toggle-menu{display:none!important}
+
+/* Night CTAs must not use the former pale-accent/dark-label combination. */
+html[data-lt-theme="dark"] .button:not(.ghost):not(.secondary):not(.danger),
+html[data-lt-theme="dark"] .button.primary,
+html[data-lt-theme="dark"] .operator-shell .button:not(.secondary):not(.danger){
+  background:#275b4e!important;
+  border-color:#91b8a5!important;
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+}
+html[data-lt-theme="dark"] .button:not(.ghost):not(.secondary):not(.danger) :is(.ui-icon,.op-icon,svg),
+html[data-lt-theme="dark"] .operator-shell .button:not(.secondary):not(.danger) :is(.ui-icon,.op-icon,svg){
+  color:#ffffff!important;
+}
+html[data-lt-theme="light"] .button:not(.ghost):not(.secondary):not(.danger),
+html[data-lt-theme="light"] .button.primary{
+  background:#225443!important;
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+}
+html[data-lt-theme="dark"] :where(.button.ghost,.button.secondary){
+  background:#373e47!important;
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+}
+html[data-lt-theme="light"] :where(.button.ghost,.button.secondary){
+  background:#f0f3ef!important;
+  color:#1c2523!important;
+  -webkit-text-fill-color:#1c2523!important;
+}
+
+/* Customer-credit settlement has extra-specific legacy disabled-field rules.
+   Override them so financial amounts are always readable in either theme. */
+html[data-lt-theme="light"] .settlement-grid input:disabled{
+  background:#edf0ed!important;
+  color:#1c2523!important;
+  -webkit-text-fill-color:#1c2523!important;
+}
+html[data-lt-theme="dark"] .settlement-grid input:disabled{
+  background:#373e47!important;
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+}
+html[data-lt-theme="light"] .settlement-grid label{
+  color:#1c2523!important;
+}
+html[data-lt-theme="dark"] .settlement-grid label{
+  color:#ffffff!important;
+}
+
+/* The finance editor has more-specific readonly input rules than the normal
+   theme. Match their specificity in the settlement modal so CSS order cannot
+   turn an amount gray in dark mode. */
+html[data-lt-theme="light"] body .settlement-modal .settlement-grid input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):is(:disabled,[readonly]){
+  color:#1c2523!important;
+  -webkit-text-fill-color:#1c2523!important;
+  background-color:#edf0ed!important;
+  opacity:1!important;
+}
+html[data-lt-theme="dark"] body .settlement-modal .settlement-grid input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):is(:disabled,[readonly]){
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+  background-color:#373e47!important;
+  opacity:1!important;
+}
+html[data-lt-theme="light"] body .settlement-modal .settlement-grid label{
+  color:#1c2523!important;
+}
+html[data-lt-theme="dark"] body .settlement-modal .settlement-grid label{
+  color:#ffffff!important;
+}
+
+/* Legacy settlement CSS uses strongly qualified disabled-input selectors.
+   The dialog-specific override must win over those older declarations. */
+html[data-lt-theme="dark"] body .settlement-modal .settlement-grid input:disabled{
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+  background-color:#373e47!important;
+}
+html[data-lt-theme="light"] body .settlement-modal .settlement-grid input:disabled{
+  color:#1c2523!important;
+  -webkit-text-fill-color:#1c2523!important;
+  background-color:#edf0ed!important;
+}

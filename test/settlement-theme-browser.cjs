@@ -191,10 +191,10 @@ async function styleSnapshot(page){
     const light=await styleSnapshot(page);
     assert.equal(light.theme,'light');
     assert.equal(light.blockBackground,'rgb(255, 255, 255)');
-    assert.equal(light.inputBackground,'rgb(238, 241, 236)');
-    assert.equal(light.inputColor,'rgb(77, 91, 85)');
-    assert.equal(light.inputTextFill,'rgb(77, 91, 85)');
-    assert.equal(light.labelColor,'rgb(95, 109, 102)');
+    assert.equal(light.inputBackground,'rgb(237, 240, 237)');
+    assert.equal(light.inputColor,'rgb(28, 37, 35)');
+    assert.equal(light.inputTextFill,'rgb(28, 37, 35)');
+    assert.equal(light.labelColor,'rgb(28, 37, 35)');
     await page.screenshot({path:path.join(out,'settlement-theme-light.png'),fullPage:false});
 
     // Modalen ligger avsiktligt ovanpå toppbaren. Stäng den, byt tema som en
@@ -211,9 +211,9 @@ async function styleSnapshot(page){
     assert.equal(dark.theme,'dark');
     assert.equal(dark.blockBackground,'rgb(45, 51, 59)');
     assert.equal(dark.inputBackground,'rgb(55, 62, 71)');
-    assert.equal(dark.inputColor,'rgb(220, 228, 236)');
-    assert.equal(dark.inputTextFill,'rgb(220, 228, 236)');
-    assert.equal(dark.labelColor,'rgb(220, 228, 236)');
+    assert.equal(dark.inputColor,'rgb(255, 255, 255)');
+    assert.equal(dark.inputTextFill,'rgb(255, 255, 255)');
+    assert.equal(dark.labelColor,'rgb(255, 255, 255)');
     assert.notEqual(dark.blockBackground,light.blockBackground);
     assert.notEqual(dark.inputBackground,light.inputBackground);
     assert.notEqual(dark.labelColor,light.labelColor);
