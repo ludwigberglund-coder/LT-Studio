@@ -12,6 +12,7 @@ async function harness(){
   const fields={invoice:'invoice-first',account:'',description:''};
   const calls=[];
   const invokeErrors=[];
+  let proposalResult={proposal_id:'proposal-qa',status:'manual-review',duplicate:false};
   const listeners={};
   let uuidCounter=0;
   let renderCount=0;
@@ -56,7 +57,7 @@ async function harness(){
     LTSupabaseUat:{context:async()=>ctx},
     LTSupabase:{
       from:(table)=>({select:async()=>records[table]||[]}),
-      rpc:async(name,args,token)=>{calls.push({name,args,token});return [{id:'proposal-qa'}]},
+      rpc:async(name,args,token)=>{calls.push({name,args,token});return [proposalResult]},
       functions:{
         invoke:async(name,args,token)=>{
           calls.push({name,args,token});
@@ -79,7 +80,7 @@ async function harness(){
   assert.match(html,/Testbetalare/,'the queue must finish loading before the actions run');
 
   return {
-    fields,calls,failNextInvoke:(message)=>invokeErrors.push(message),getRenderCount:()=>renderCount,getHtml:()=>html,
+    fields,calls,failNextInvoke:(message)=>invokeErrors.push(message),setProposalResult:(result)=>{proposalResult=result},getRenderCount:()=>renderCount,getHtml:()=>html,
     async click(action){
       const button={dataset:{action}};
       const target={closest:(selector)=>selector==='[data-action]'?button:null};
@@ -97,6 +98,7 @@ test('manual invoice matching sends the actually selected invoice, not the first
   assert.ok(proposal,'the matching proposal must be sent');
   assert.equal(proposal.args.p_target_invoice_id,'invoice-second');
   assert.equal(proposal.args.p_bank_payment_id,'bank-1');
+  assert.match(ui.getHtml(),/Matchningsförslaget är skapat/);
   assert.ok(ui.getRenderCount()>before,'the UI should update after the operation');
 });
 
@@ -172,4 +174,17 @@ test('changed accounting details create a new idempotency key instead of replayi
   ui.failNextInvoke('Tillfälligt nätverksfel');
   await ui.click('other-income');
   assert.equal(ui.calls[3].args.requestId,initialId);
+});
+
+test('rejected proposal result is not presented as successful matching',async()=>{
+  const ui=await harness();
+  ui.fields.invoice='invoice-second';
+  ui.setProposalResult({proposal_id:'rejected-proposal',status:'rejected',duplicate:true});
+  await ui.click('invoice');
+
+  assert.equal(ui.calls.filter(call=>call.name==='create_bank_match_proposal').length,1);
+  assert.match(ui.getHtml(),/Kunde inte genomföra åtgärden/);
+  assert.match(ui.getHtml(),/Inget nytt matchningsförslag skapades/);
+  assert.doesNotMatch(ui.getHtml(),/Matchningsförslaget är skapat/);
+  assert.equal(ui.fields.invoice,'invoice-second','failed proposal must preserve chosen invoice');
 });
