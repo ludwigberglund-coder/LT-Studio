@@ -165,4 +165,11 @@ test('changed accounting details create a new idempotency key instead of replayi
   await ui.click('outgoing');
   assert.notEqual(ui.calls[2].args.requestId,ui.calls[1].args.requestId);
   assert.equal(ui.calls[2].args.resolutionType,'outgoing');
+
+  // Returning to the original details must recover the original request ID.
+  ui.fields.account='3990';
+  ui.fields.description='Övrig inbetalning';
+  ui.failNextInvoke('Tillfälligt nätverksfel');
+  await ui.click('other-income');
+  assert.equal(ui.calls[3].args.requestId,initialId);
 });
