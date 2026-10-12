@@ -2,7 +2,7 @@ const app=document.getElementById('unplaced-payments-app');
 const demo=new URLSearchParams(location.search).get('demo')==='1';
 const isSupabase=location.hostname==='ludwigberglund-coder.github.io'&&!demo;
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
-let session=null,payments=[],openInvoices=[],selectedId='',message='',busy=false;
+let session=null,payments=[],openInvoices=[],selectedId='',message='',messageError=false,busy=false;
 const resolutionRequests=new Map();
 
 function esc(value=''){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -39,7 +39,7 @@ function resolutionCard(){
 function render(){
   const name=session?.user?.displayName||session?.user?.email||'Inloggad användare';
   const total=payments.reduce((s,p)=>s+Number(p.amountOre||0),0);
-  app.innerHTML=`<div class="portal">${sidebar()}<section class="main"><header class="topbar"><div><h1>Oplacerade betalningar</h1><p>${esc(session?.company?.name||session?.company?.displayName||'Företaget')} / Ekonomi / Oplacerade betalningar</p></div><div class="user-chip"><div><b>${esc(name)}</b><br><small>Inloggad</small></div><div class="avatar">${esc(initials(name))}</div></div></header><main class="content unplaced-content"><div class="page-heading unplaced-heading"><div><span class="eyebrow">Bank & avstämning</span><h2>Oplacerade betalningar</h2><p>Bankhändelser som saknar säker automatisk träff samlas här. Välj en betalning och placera den mot rätt faktura eller bokför den manuellt.</p></div><div class="unplaced-heading-status"><span class="status-pulse" aria-hidden="true"></span><span><strong>${payments.length}</strong> att hantera</span></div></div>${message?`<div class="notice unplaced-notice"><strong>Klart</strong><span>${esc(message)}</span></div>`:''}<section class="unplaced-summary"><article class="unplaced-summary-card"><div class="unplaced-summary-icon unplaced-summary-icon-queue" aria-hidden="true">↓</div><div><span>Oplacerade</span><strong>${payments.length}</strong><small>Betalningar som behöver hanteras</small></div></article><article class="unplaced-summary-card"><div class="unplaced-summary-icon" aria-hidden="true">kr</div><div><span>Belopp i kön</span><strong>${esc(money(total))}</strong><small>Totalt belopp att placera</small></div></article><article class="unplaced-summary-card"><div class="unplaced-summary-icon" aria-hidden="true">✓</div><div><span>Kontroll</span><strong>100 % manuellt</strong><small>Ingen automatisk bokning sker här</small></div></article></section><div class="unplaced-layout"><section class="panel unplaced-list-panel"><div class="toolbar unplaced-toolbar"><div><strong>Betalningar att placera</strong><span class="hint">Välj en betalning för att placera den.</span></div><button class="button ghost small unplaced-refresh" data-action="refresh"><span aria-hidden="true">↻</span>Uppdatera</button></div>${table()}</section>${resolutionCard()}</div></main></section></div>`;
+  app.innerHTML=`<div class="portal">${sidebar()}<section class="main"><header class="topbar"><div><h1>Oplacerade betalningar</h1><p>${esc(session?.company?.name||session?.company?.displayName||'Företaget')} / Ekonomi / Oplacerade betalningar</p></div><div class="user-chip"><div><b>${esc(name)}</b><br><small>Inloggad</small></div><div class="avatar">${esc(initials(name))}</div></div></header><main class="content unplaced-content"><div class="page-heading unplaced-heading"><div><span class="eyebrow">Bank & avstämning</span><h2>Oplacerade betalningar</h2><p>Bankhändelser som saknar säker automatisk träff samlas här. Välj en betalning och placera den mot rätt faktura eller bokför den manuellt.</p></div><div class="unplaced-heading-status"><span class="status-pulse" aria-hidden="true"></span><span><strong>${payments.length}</strong> att hantera</span></div></div>${message?`<div class="notice unplaced-notice" ${messageError?'role="alert"':'role="status"'}><strong>${messageError?'Kunde inte genomföra åtgärden':'Klart'}</strong><span>${esc(message)}</span></div>`:''}<section class="unplaced-summary"><article class="unplaced-summary-card"><div class="unplaced-summary-icon unplaced-summary-icon-queue" aria-hidden="true">↓</div><div><span>Oplacerade</span><strong>${payments.length}</strong><small>Betalningar som behöver hanteras</small></div></article><article class="unplaced-summary-card"><div class="unplaced-summary-icon" aria-hidden="true">kr</div><div><span>Belopp i kön</span><strong>${esc(money(total))}</strong><small>Totalt belopp att placera</small></div></article><article class="unplaced-summary-card"><div class="unplaced-summary-icon" aria-hidden="true">✓</div><div><span>Kontroll</span><strong>100 % manuellt</strong><small>Ingen automatisk bokning sker här</small></div></article></section><div class="unplaced-layout"><section class="panel unplaced-list-panel"><div class="toolbar unplaced-toolbar"><div><strong>Betalningar att placera</strong><span class="hint">Välj en betalning för att placera den.</span></div><button class="button ghost small unplaced-refresh" data-action="refresh"><span aria-hidden="true">↻</span>Uppdatera</button></div>${table()}</section>${resolutionCard()}</div></main></section></div>`;
 }
 function loadDemo(){session={user:{displayName:'Demoanvändare'},company:{name:'Demoföretag'}};payments=[{id:'demo-unplaced-1',bookingDate:'2026-10-07',amountOre:125000,reference:'Okänd inbetalning',message:'Saknar säker fakturaträff',payerName:'Exempelbetalare AB',payerAccount:'BG 5000-0000'}];openInvoices=[{id:'demo-invoice-1',invoiceNumber:'310101',remainingOre:125000,customerName:'Exempelkund AB'}]}
 async function load(){if(demo)loadDemo();else if(isSupabase)await loadSupabase();else await loadApi();if(!selectedId&&payments[0])selectedId=payments[0].id;render()}
@@ -54,19 +54,30 @@ document.addEventListener('click',async event=>{
   const button=event.target.closest('[data-action]');
   if(!button)return;
   const action=button.dataset.action;
+  const fields=['invoice','account','description'];
+  const draft=Object.fromEntries(fields.map(field=>[field,document.querySelector(`[data-field="${field}"]`)?.value??'']));
+  let failed=false;
   try{
     if(action==='refresh'){await load();return}
     if(!['invoice','other-income','outgoing'].includes(action))return;
+    messageError=false;
     busy=true;
     app.querySelectorAll('button[data-action]').forEach(control=>{control.disabled=true});
     if(action==='invoice')await createInvoiceProposal();
     if(action==='other-income')await resolveOther('other-income');
     if(action==='outgoing')await resolveOther('outgoing');
   }catch(error){
+    failed=true;
+    messageError=true;
     message=String(error?.message||'Åtgärden kunde inte slutföras.');
   }finally{
     busy=false;
     render();
+    // A failed request must not erase the user's values: they can safely retry.
+    if(failed)for(const [field,value] of Object.entries(draft)){
+      const input=document.querySelector(`[data-field="${field}"]`);
+      if(input)input.value=value;
+    }
   }
 });
 load().catch(error=>{app.innerHTML=`<main class="boot"><strong>Kunde inte ladda oplacerade betalningar</strong><span>${esc(error.message)}</span></main>`});
