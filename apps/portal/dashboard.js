@@ -164,7 +164,7 @@ function importantTasks(m){
   const tasks=[];
   if(Number(m.accounting.pendingBatches)>0)tasks.push({title:'Godkänn väntande buntar',text:'Buntar är kontrollerade och väntar på godkännande.',href:'./batches.html',count:m.accounting.pendingBatches,priority:'high',tone:'peach'});
   if(Number(m.receivables.overdueCount)>0)tasks.push({title:'Följ upp förfallna kundfakturor',text:`${ore(m.receivables.overdueOre)} är förfallet.`,href:isDemo?'./receivables.html':'./index.html',count:m.receivables.overdueCount,priority:'high',tone:'peach'});
-  if(Number(m.bank.reviewCount)>0)tasks.push({title:'Matcha bankhändelser',text:'Inbetalningar väntar på korrekt matchning.',href:'./bank.html',count:m.bank.reviewCount,priority:'high',tone:'sky'});
+  if(Number(m.bank.reviewCount)>0)tasks.push({title:'Hantera oplacerade betalningar',text:'Inbetalningar utan fakturakoppling behöver granskas.',href:'./unplaced-payments.html',count:m.bank.reviewCount,priority:'high',tone:'sky'});
   if(Number(m.payables.approvalCount)>0)tasks.push({title:'Granska leverantörsfakturor',text:'Fakturor väntar på attest och kontroll.',href:'./payables.html',count:m.payables.approvalCount,priority:'high',tone:'lime'});
   if(Number(m.payables.paymentCount)>0)tasks.push({title:'Hantera leverantörsbetalningar',text:'Godkända fakturor är redo för nästa betalningssteg.',href:'./payments.html',count:m.payables.paymentCount,tone:'lime'});
   if(Number(m.automation.reviewCount)>0)tasks.push({title:'Granska automationsförslag',text:'Förslag väntar på mänsklig kontroll.',href:'./automation.html',count:m.automation.reviewCount,tone:'sky'});
@@ -185,7 +185,18 @@ function pendingTaskCount(m){
     m.inventory.pendingCount
   ].reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
 }
-function render(m){
+async function getQuickActions(){
+  try{
+    const actions=await globalThis.RollandsNavigation?.quickActions?.();
+    return Array.isArray(actions)?actions:[];
+  }catch{return []}
+}
+function quickActionPanel(actions){
+  if(!actions.length)return '';
+  const links=actions.map(action=>`<a class="quick-action-link" href="${url(action.href)}"><strong>${esc(action.label)}</strong><span>${esc(action.description)}</span><b aria-hidden="true">→</b></a>`).join('');
+  return `<section class="dashboard-quick-actions" aria-labelledby="quick-actions-title"><div class="section-head"><div><span class="eyebrow">Färre klick i vardagen</span><h2 id="quick-actions-title">Vanliga uppgifter</h2><p>Öppna rätt del direkt. Ingenting bokförs när du väljer en snabbväg.</p></div></div><nav class="quick-action-links" aria-label="Vanliga uppgifter">${links}</nav></section>`;
+}
+function render(m,quickActions=[]){
   const tasks=importantTasks(m);
   const firstName=String(session?.user?.displayName||session?.user?.username||(isDemo?'Demoanvändare':'')).trim().split(/\s+/)[0]||'';
   const hello=`${greeting()}${firstName?', '+esc(firstName):''}.`;
@@ -205,24 +216,26 @@ function render(m){
   const taskMarkup=tasks.length
     ? tasks.map(taskCard).join('')
     : `<div class="overview-empty"><span class="empty-orbit" aria-hidden="true"></span><div><b>${incomplete?'Vissa arbetsköer kunde inte kontrolleras.':'Inga väntande uppgifter hittades.'}</b><p>${incomplete?'Försök läsa in översikten igen innan du drar slutsatser.':'De viktigaste kontrollerade arbetsköerna har inga öppna uppgifter just nu.'}</p></div></div>`;
-  app.innerHTML=`<div class="dash-shell">${sidebar()}<section class="dash-main"><header class="topbar"><div><h1>Översikt</h1><p>${today()} · företagets arbetsdag</p></div><div class="user-chip"><b>${esc(session?.user?.displayName||'Användare')}</b></div></header><main class="content dashboard-content"><section class="welcome-card"><div class="welcome-copy"><span class="eyebrow">Dagens fokus</span><h2>${hello}</h2><p>Här visas bara det viktigaste som behöver göras idag.</p>${status}${nextLink}</div><div class="welcome-motion" aria-hidden="true"><span></span><span></span><span></span><b></b></div></section>${warning}<section class="today-work"><div class="section-head"><div><span class="eyebrow">Prioriterat idag</span><h2>Det viktigaste just nu</h2><p class="worklist-hint">Börja uppifrån. Varje kort öppnar rätt del av programmet – inget bokförs automatiskt här.</p></div></div><div class="task-grid">${taskMarkup}</div></section></main></section></div>`;
+  app.innerHTML=`<div class="dash-shell">${sidebar()}<section class="dash-main"><header class="topbar"><div><h1>Översikt</h1><p>${today()} · företagets arbetsdag</p></div><div class="user-chip"><b>${esc(session?.user?.displayName||'Användare')}</b></div></header><main class="content dashboard-content"><section class="welcome-card"><div class="welcome-copy"><span class="eyebrow">Dagens fokus</span><h2>${hello}</h2><p>Här visas bara det viktigaste som behöver göras idag.</p>${status}${nextLink}</div><div class="welcome-motion" aria-hidden="true"><span></span><span></span><span></span><b></b></div></section>${warning}<section class="today-work"><div class="section-head"><div><span class="eyebrow">Prioriterat idag</span><h2>Det viktigaste just nu</h2><p class="worklist-hint">Börja uppifrån. Varje kort öppnar rätt del av programmet – inget bokförs automatiskt här.</p></div></div><div class="task-grid">${taskMarkup}</div></section>${quickActionPanel(quickActions)}</main></section></div>`;
   globalThis.RollandsNavigation?.mount?.();
 }
 async function load(){
   if(isDemo){
     if(!Demo)throw new Error('Det gemensamma demoscenariot kunde inte laddas.');
     session={user:{displayName:'Demoanvändare'},company:{name:'Rollands Frukt o Grönt AB'}};
-    render(await loadMetrics());
+    const [metrics,actions]=await Promise.all([loadMetrics(),getQuickActions()]);
+    render(metrics,actions);
     return;
   }
   if(isSupabase){
-    const metrics=await loadMetrics();
-    render(metrics);
+    const [metrics,actions]=await Promise.all([loadMetrics(),getQuickActions()]);
+    render(metrics,actions);
     return;
   }
   const s=await api('/session');
   if(!s.authenticated){location.href='./index.html';return}
   session=s;
-  render(await loadMetrics());
+  const [metrics,actions]=await Promise.all([loadMetrics(),getQuickActions()]);
+  render(metrics,actions);
 }
 load().catch(error=>{app.innerHTML=`<main class="boot"><strong>Översikten kunde inte laddas</strong><span>${esc(error.message)}</span></main>`});
