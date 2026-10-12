@@ -83,7 +83,6 @@ function buildStatic(){
   copyDirectory(path.join(root,'config'),path.join(target,'config'));
   copyDirectory(path.join(root,'public'),path.join(target,'legacy'));
   for(const workspace of ['portal','admin','legacy'])installWorkspaceNavigation(path.join(target,workspace));
-  for(const workspace of ['portal','admin','operator','legacy','uat'])installGlobalTheme(path.join(target,workspace));
   installGlobalTheme(target);
   versionStaticAssets(target,process.env.GITHUB_SHA||'local');
   copyFile(path.join(root,'apps','website','index.html'),path.join(target,'404.html'));
