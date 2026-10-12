@@ -21,6 +21,17 @@
 <p id="bokslut-company">Företag kontrolleras…</p>
 </header>
 <main>
+<section class="bokslut-card year-close-panel" aria-labelledby="year-close-title">
+<h2 id="year-close-title">Årskontroll – serverräknade poster</h2>
+<p>Den första automatiska kontrollen räknar uppgifter direkt på servern. Den avser <strong>kalenderår</strong>, inte ett verifierat räkenskapsår. Den kan visa avvikelser men aldrig godkänna bokslutet.</p>
+<form id="year-close-form">
+<label for="year-close-year">Välj kalenderår</label>
+<div class="year-close-controls"><input id="year-close-year" type="number" min="1900" max="2198" step="1" required inputmode="numeric"><button type="submit">Kontrollera år</button></div>
+</form>
+<p id="year-close-message" role="status" aria-live="polite">Välj år för att starta kontrollen.</p>
+<dl id="year-close-results" class="year-close-results" hidden></dl>
+<p class="year-close-warning">Viktigt: Den här kontrollen bevisar ännu inte att huvudboken är fullständig. Kontorader räknas tills vidare för företaget totalt, inte för valt år. Bank, 1510/2440 och moms måste fortfarande stämmas av mot separata underlag.</p>
+</section>
 <h2>Det här behöver kontrolleras</h2>
 <p class="bokslut-lead">Välj ett område för att se dina uppgifter i den vanliga företagsportalen.</p>
 <div class="bokslut-grid">
@@ -34,16 +45,40 @@
 <p class="bokslut-notice"><strong>Varför står allt som inte verifierat?</strong> För att vi inte ännu har en fullständig serverbaserad årsavstämning. Tomma listor eller inlästa siffror bevisar inte att allt är kontrollerat. Årsredovisning, deklaration och myndighetsinlämning är inte tillgängliga från denna vy.</p>
 </main></div>
 </section></div>
-<script src="./supabase-config.js"></script><script src="./supabase-client.js"></script><script src="./supabase-session.js"></script><script src="./portal-nav.js"></script>
+<script src="./supabase-config.js"></script><script src="./supabase-client.js"></script><script src="./supabase-session.js"></script><script src="./portal-nav.js"></script><script src="./year-close-counts.js"></script>
 <script>
 (async function(){
  const demo=new URLSearchParams(location.search).get('demo')==='1';
- if(demo){document.getElementById('bokslut-company').textContent='Demoläge – inga kontroller utförda.';document.querySelectorAll('.bokslut-card a').forEach(function(a){a.href+=(a.href.includes('?')?'&':'?')+'demo=1';});document.getElementById('lt-bokslut-app').hidden=false;document.getElementById('bokslut-loading').hidden=true;return;}
+ document.getElementById('year-close-year').value=String(new Date().getFullYear());
+ if(demo){document.querySelector('#year-close-form button').disabled=true;document.getElementById('year-close-message').textContent='Serverkontrollen kräver inloggning i ett testföretag. Demoläget visar ingen riktig kontroll.';document.getElementById('bokslut-company').textContent='Demoläge – inga kontroller utförda.';document.querySelectorAll('.bokslut-card a').forEach(function(a){a.href+=(a.href.includes('?')?'&':'?')+'demo=1';});document.getElementById('lt-bokslut-app').hidden=false;document.getElementById('bokslut-loading').hidden=true;return;}
  try {
    if(!globalThis.LTSupabaseUat)throw new Error('Session saknas');
    const context=await globalThis.LTSupabaseUat.context();
    if(!context||context.authenticated!==true||!context.company){location.replace('./index.html');return;}
    document.getElementById('bokslut-company').textContent='Aktivt företag: '+String(context.company.name||'Företag valt')+'. Regelverk och räkenskapsår har inte verifierats.';
+   const form=document.getElementById('year-close-form');
+   const message=document.getElementById('year-close-message');
+   const list=document.getElementById('year-close-results');
+   form.addEventListener('submit',async function(event){
+     event.preventDefault();
+     list.hidden=true;list.replaceChildren();message.textContent='Kontrollerar serverantal…';
+     const year=String(document.getElementById('year-close-year').value);
+     try{
+       const fresh=await globalThis.LTSupabaseUat.context();
+       if(!fresh?.authenticated||fresh.company?.id!==context.company.id)throw new Error('Företagssessionen har ändrats.');
+       const result=await globalThis.LTYearCloseCounts.scan({companyId:fresh.company.id,token:fresh.accessToken,year,client:globalThis.LTSupabase});
+       const labels={journal:'Verifikationer för valt kalenderår',allJournal:'Verifikationer totalt för företaget',allLines:'Kontorader totalt för företaget',openBatches:'Buntar som väntar på granskning (alla år)',unplacedBank:'Oplacerade bankhändelser före årets slut'};
+       for(const [key,info] of Object.entries(result.counts)){
+         const dt=document.createElement('dt');dt.textContent=labels[key];
+         const dd=document.createElement('dd');
+         dd.textContent=info.status==='unknown'?'Antal okänt – kontroll krävs':info.count.toLocaleString('sv-SE')+(info.status==='attention'?' · Behöver hanteras':' · Antal hämtat');
+         if(info.status!=='counted')dd.className='year-close-flag';
+         list.append(dt,dd);
+       }
+       list.hidden=false;
+       message.textContent=result.reliable?'Serverantal har hämtats. Bokslut är fortfarande inte verifierat.':'En eller flera uppgifter kunde inte kontrolleras. Bokslut är inte verifierat.';
+     }catch(error){message.textContent='Årskontrollen kunde inte genomföras. '+String(error.message||'Kontrollera session och nätverk.');}
+   });
    document.getElementById('lt-bokslut-app').hidden=false;
    document.getElementById('bokslut-loading').hidden=true;
  }catch{location.replace('./index.html');}

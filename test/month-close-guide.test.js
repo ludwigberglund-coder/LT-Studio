@@ -147,7 +147,8 @@ test('månadsavstämningen visar serverantal endast när företag och period st�
   const state={companyId:'company-a',coverage:{
     status:'checked',companyId:'company-a',period:'2026-10',
     totalEntries:12,totalLines:25,periodEntries:4,
-    loadedEntries:12,loadedLines:25,loadedPeriodEntries:4
+    loadedEntries:12,loadedLines:25,loadedPeriodEntries:4,
+    integrity:{duplicateEntryIds:0,duplicateLineIds:0,orphanLines:0,wrongCompanyLines:0,checkedEntries:12,checkedLines:25}
   }};
   assert.equal(g.evaluateCoverage(state,'2026-10').status,'matched');
   const html=g.render({...state,period:'2026-10',journalEntries:[]});
@@ -168,7 +169,8 @@ test('ofullständig inläsning visar varning även om de inlästa posterna balan
     ]}],
     coverage:{status:'checked',companyId:'company-a',period:'2026-10',
       totalEntries:20,totalLines:45,periodEntries:8,
-      loadedEntries:10,loadedLines:18,loadedPeriodEntries:1}
+      loadedEntries:10,loadedLines:18,loadedPeriodEntries:1,
+      integrity:{duplicateEntryIds:0,duplicateLineIds:0,orphanLines:0,wrongCompanyLines:0,checkedEntries:10,checkedLines:18}}
   };
   const h=g.render(state);
   assert.equal(g.evaluateCoverage(state,'2026-10').status,'mismatch');
@@ -204,4 +206,21 @@ test('bokföringsvyn använder endast företagets session och avgränsar månad 
   const client=fs.readFileSync(path.join(__dirname,'../apps/portal/supabase-client.js'),'utf8');
   assert.match(client,/countExact:/);
   assert.match(client,/Prefer:'count=exact'/);
+});
+
+
+test('matchade radantal räcker inte om kontorader saknar verifikation eller återkommer',()=>{
+  const g=guide();
+  const base={status:'checked',companyId:'company-a',period:'2026-10',
+    totalEntries:2,totalLines:4,periodEntries:2,
+    loadedEntries:2,loadedLines:4,loadedPeriodEntries:2,
+    integrity:{duplicateEntryIds:0,duplicateLineIds:1,orphanLines:1,wrongCompanyLines:0,
+      checkedEntries:2,checkedLines:4}};
+  const state={companyId:'company-a',period:'2026-10',coverage:base,journalEntries:[]};
+  assert.equal(g.evaluateCoverage(state,'2026-10').status,'mismatch');
+  const html=g.render(state);
+  assert.match(html,/Samma kontorad förekommer flera gånger: 1/);
+  assert.match(html,/Kontorader saknar inläst verifikation: 1/);
+  assert.match(html,/Antalen stämmer inte/);
+  assert.equal(g.evaluateCoverage({...state,coverage:{...base,integrity:null}},'2026-10').status,'unavailable');
 });
