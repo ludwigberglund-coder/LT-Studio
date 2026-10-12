@@ -63,7 +63,7 @@ async function readSmallJson(req: Request) {
   try {return JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(data));}
   catch {throw Object.assign(new Error("INVALID_INPUT"),{code:"INVALID_INPUT"});}
 }
-function corsFor(req: Request) {
+function corsFor(req: Request): Record<string,string> {
   const expected=Deno.env.get("AI_PILOT_ALLOWED_ORIGIN")||"";
   const origin=req.headers.get("origin")||"";
   return expected&&/^https:\/\//.test(expected)&&origin===expected
