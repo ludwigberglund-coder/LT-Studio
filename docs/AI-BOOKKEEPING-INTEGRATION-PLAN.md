@@ -55,7 +55,7 @@ Börja med en leverantörsoberoende adapter och mockad AI för syntetisk UAT. Ut
 
 **Prioritet 3:** Supabase Edge Functions på befintlig Free-plan för serverkoppling. Supabase anger **500 000 anrop/månad** på Free. Andra användningsgränser gäller separat och måste mätas.
 
-**Alternativ, ej rekommenderat till svenska kunders live-API på gratisnivå:** Google Gemini API erbjuder Free för utveckling, men dess Additional Terms (2026-03-23) anger att API-klienter till användare i EES/UK/Schweiz endast får använda **Paid Services**. Gratisnivån kan också innebära annan databehandling, inklusive modellförbättring. Använd inte för riktiga kunduppgifter i detta projekt utan ny bedömning.
+**Alternativ, ej rekommenderat till svenska kunders live-API på gratisnivå:** Google Gemini API erbjuder uttryckligen en kostnadsfri nivå även i EES för utveckling och testning. Googles Additional Terms (2026-03-23) anger dock att när en API-ansluten applikation görs tillgänglig för användare i EES/UK/Schweiz måste den använda **Paid Services**. För just Gemini API definieras det som anrop via ett Cloud Project med aktivt billing-konto. Paid Tier kan kräva minst **5 USD i förskottsbetalning**, och anrop kan bli debiterbara; således inte lämpligt om **0 kr och inget betalsätt** är hårt krav för skarp kunddrift. **Viktig dataskyddsnyans:** Google säger uttryckligen att *Paid Services*-villkoren för hur Google använder data gäller även AI Studio och obetald API-kvot för utvecklare i EES/UK/Schweiz. Beskriv alltså inte kategoriskt deras EES-gratisnivå som att kunddata tränar modeller. Före riktiga underlag krävs fortfarande DPA/GDPR- och leverantörsgranskning samt säker ekonomisk attest. Gemini har tekniskt stöd för PDF-dokumenttolkning och strukturerade JSON-svar, så utvärdera modellen för kvalitet och pris ifall budgetkravet ändras.
 
 **OpenAI API:** separat API-fakturering från ChatGPT och normalt användningskostnader; behåll som alternativ, inte som förstahandskrav.
 
@@ -66,4 +66,6 @@ Källor (kontrollerade 2026-10-12):
 - https://developers.cloudflare.com/workers-ai/platform/data-usage/
 - https://supabase.com/docs/guides/functions/pricing
 - https://ai.google.dev/gemini-api/terms
+- https://ai.google.dev/gemini-api/docs/billing
+- https://ai.google.dev/gemini-api/docs/document-processing
 - https://help.openai.com/en/articles/9039756-managing-billing-for-chatgpt-and-the-api-platform
