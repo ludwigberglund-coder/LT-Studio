@@ -6,10 +6,10 @@ Användaren har bekräftat att `CLOUDFLARE_ACCOUNT_ID` och `CLOUDFLARE_AI_TOKEN`
 
 ## Leverans
 
-`packages/automation/ai-gateway-security.mjs` och `test/ai-gateway-security.test.js` introducerar ett oberoende serverkontrakt för framtida Edge Function:
+`packages/automation/ai-gateway-security.mjs`, `packages/automation/ai-gateway-session.mjs` och tillhörande `test/ai-gateway-*.test.js` introducerar ett oberoende serverkontrakt för framtida Edge Function:
 
 - Begäranden får bara välja ett av tre fördefinierade **syntetiska scenarier** och idempotensnyckel. Fri text, dokument eller underlag avvisas.
-- Den som anropar servern måste först verifiera användaren och den aktiva personliga sessionen via Supabase, AAL2/MFA och medlemskap i rätt företag. Modulen validerar dessa **inmatade verifieringsresultat**, men hämtar ännu inte själv sessionen från Supabase. Därför är den **inte** en autentiseringsgräns i sig.
+- Preflightmodulen har nu även ett separat asynkront lager som begär `auth.getUser(accessToken)` från Supabase Auth, kontrollerar AAL2/personligt `session_id` i det **redan verifierade** JWT:t och läser `company_memberships` med en **användarscoperad Supabase-klient**. Den befintliga restriktiva RLS-policyn blockerar ogiltiga/återkallade sessioner när medlemskapet läses. För en säker implementering måste serverns klient verkligen ha `Authorization: Bearer <samma token>`; det är INTE säkert att använda service-role för medlemskapsfrågan. Detta är fortfarande en adapter och **ingen HTTP-route eller live-testad session**.
 - `readonly`, annat företag, annan användare och ogiltig session avvisas.
 - Testunderlagets leverantör, moms och belopp kommer från en hårdkodad testmall och inte från användare eller AI.
 - Ingen Cloudflare-begäran får göras före uttryckligt syntetiskt pilotgodkännande, integritetsgodkännande och en **beständig, atomär reservation** av budget/kvot. Reservationsfunktionen finns ännu inte och denna PR skapar ingen exekveringsväg.
@@ -17,7 +17,7 @@ Användaren har bekräftat att `CLOUDFLARE_ACCOUNT_ID` och `CLOUDFLARE_AI_TOKEN`
 
 ## Följande saknas innan anslutning får aktiveras
 
-1. En avgränsad Edge Function som verifierar riktig Supabase Auth, sessions-ID mot `auth.sessions` och företagets medlemskap med rätt roll. Lita aldrig på `verified:true` från klienten.
+1. En avgränsad Edge Function som konstruerar rätt användarscoperad klient och anropar preflight. Integrationsverifiera riktig Supabase Auth samt RLS-spärr mot `auth.sessions`, ogiltiga MFA-sessioner och rätt företagsroll. Lita aldrig på `verified:true` från klienten.
 2. Atomär, serverbaserad kvotreservationsfunktion med globala och företagsspecifika tak, återanropsskydd och rate limit, med versionerad migration i GitHub och Supabase clean rebuild.
 3. Feature-flag som är avstängd i UAT som standard och bara kan aktiveras för syntetiska testföretag.
 4. Läs Cloudflare-token från Secrets **efter** alla kontroller. Inga riktiga kunddokument får gå ut.
