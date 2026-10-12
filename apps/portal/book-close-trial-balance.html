@@ -6,8 +6,8 @@
 <meta name="theme-color" content="#f7f5f0">
 <title>Saldobalans · Bokslut · LT Studio</title>
 <link rel="stylesheet" href="./styles.css">
-<link rel="stylesheet" href="./design-system.css">
 <link rel="stylesheet" href="./book-close-trial-balance.css">
+<link rel="stylesheet" href="./design-system.css">
 </head>
 <body>
 <div class="tb-workspace"><aside class="sidebar" aria-label="Huvudmeny"></aside>
@@ -40,7 +40,7 @@
 <div id="tb-warning" class="tb-warning" role="status"></div>
 <div class="tb-panel tb-table-panel">
 <div class="tb-table-tools"><div><h3>Alla konton</h3><p id="tb-period-caption"></p></div>
-<div><label for="tb-search">Sök konto</label><input id="tb-search" type="search" placeholder="T.ex. 1930 eller 2440" autocomplete="off"></div></div>
+<div><label for="tb-search">Sök konto</label><input id="tb-search" type="text" inputmode="search" placeholder="T.ex. 1930 eller 2440" autocomplete="off"></div></div>
 <div class="tb-table-wrap" role="region" aria-label="Saldobalans per konto" tabindex="0">
 <table><thead><tr><th scope="col">Konto</th><th scope="col">Tidigare rörelser</th><th scope="col">Debet</th><th scope="col">Kredit</th><th scope="col">Periodens netto</th><th scope="col">Ackumulerat</th></tr></thead>
 <tbody id="tb-rows"></tbody></table>
