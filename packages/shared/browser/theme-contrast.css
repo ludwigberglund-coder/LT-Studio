@@ -274,3 +274,22 @@ html[data-lt-theme="light"] :where(.button.ghost,.button.secondary){
   color:#1c2523!important;
   -webkit-text-fill-color:#1c2523!important;
 }
+
+/* Customer-credit settlement has extra-specific legacy disabled-field rules.
+   Override them so financial amounts are always readable in either theme. */
+html[data-lt-theme="light"] .settlement-grid input:disabled{
+  background:#edf0ed!important;
+  color:#1c2523!important;
+  -webkit-text-fill-color:#1c2523!important;
+}
+html[data-lt-theme="dark"] .settlement-grid input:disabled{
+  background:#373e47!important;
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+}
+html[data-lt-theme="light"] .settlement-grid label{
+  color:#1c2523!important;
+}
+html[data-lt-theme="dark"] .settlement-grid label{
+  color:#ffffff!important;
+}
