@@ -3,7 +3,7 @@ const isDemo=new URLSearchParams(location.search).get('demo')==='1';
 const isSupabase=location.hostname==='ludwigberglund-coder.github.io'&&!isDemo;
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 let Demo=globalThis.RollandsDemoScenario;
-let session=null,entries=[],periods=[],unlockRequests=[],unlockPolicy={eligibleCustomerApprovers:0,selfUnlockAllowed:false,adminSelfUnlockAllowed:false},selectedEntry=null,journalExpanded=false,journalQuery='',openingYear=today().slice(0,4),openingBalance=null,openingBatch=null,openingMessage='';
+let session=null,entries=[],periods=[],unlockRequests=[],unlockPolicy={eligibleCustomerApprovers:0,selfUnlockAllowed:false,adminSelfUnlockAllowed:false},selectedEntry=null,journalExpanded=false,journalQuery='',journalSuggestionsOpen=false,journalSuggestionIndex=-1,openingYear=today().slice(0,4),openingBalance=null,openingBatch=null,openingMessage='';
 function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function ore(v){return new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK',minimumFractionDigits:2}).format(Number(v||0)/100)}
 function today(){return isDemo&&Demo?Demo.AS_OF_DATE:new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
@@ -117,14 +117,19 @@ function entryTable(){
   const hasOlder=ordered.length>5,expanded=hasOlder&&journalExpanded;
   const count=searched?ordered.length+(ordered.length===1?" träff":" träffar")+" av "+entries.length+" inlästa":entries.length+" totalt";
   const hint=searched?"Sökresultat":"Senaste verifikationerna";
+  const suggestions=searched?ordered.slice(0,5):[];
+  const suggestionOpen=journalSuggestionsOpen&&suggestions.length>0;
   const empty=searched?"Inga verifikationer matchar sökningen. Prova ett annat nummer, datum eller konto.":"Inga verifikationer ännu.";
   return `<section class="journal-list" aria-label="Verifikationslista">
     <div class="journal-list-heading"><strong>${hint}</strong><span id="journal-search-status" role="status" aria-live="polite">${count}${hasOlder?" · rulla i tabellen för äldre":""}</span></div>
     <div class="journal-search">
       <label for="journal-search-field">Sök verifikation</label>
       <div class="journal-search-controls">
-        <input id="journal-search-field" type="search" maxlength="100" autocomplete="off" spellcheck="false" placeholder="Nummer, datum, text eller konto" value="${esc(journalQuery)}">
+        <input id="journal-search-field" type="search" role="combobox" aria-autocomplete="list" aria-controls="journal-search-suggestions" aria-expanded="${suggestionOpen?"true":"false"}" aria-activedescendant="${suggestionOpen&&journalSuggestionIndex>=0?"journal-suggestion-"+journalSuggestionIndex:""}" maxlength="100" autocomplete="off" spellcheck="false" placeholder="Nummer, datum, text eller konto" value="${esc(journalQuery)}">
         ${journalQuery?`<button class="button ghost small journal-search-clear" data-action="clear-journal-search" type="button">Rensa sökning</button>`:""}
+      </div>
+      <div id="journal-search-suggestions" class="journal-search-suggestions" role="listbox" aria-label="Förslag på verifikationer" ${suggestionOpen?"":"hidden"}>
+        ${suggestionOpen?suggestions.map((entry,index)=>`<button id="journal-suggestion-${index}" type="button" role="option" aria-selected="${index===journalSuggestionIndex?"true":"false"}" data-journal-suggestion="${esc(entry.id)}" tabindex="-1"><strong>${esc(entry.number)} · ${esc(entry.postingDate)}</strong><span>${esc(entry.description)}</span></button>`).join(""):""}
       </div>
       <p>Sökningen omfattar bara de verifikationer som redan lästs in för detta företag.</p>
     </div>
@@ -224,17 +229,56 @@ function bindJournalControls(){
     const field=event.currentTarget;
     const caret=field.selectionStart??field.value.length;
     journalQuery=String(field.value||"").slice(0,100);
+    journalSuggestionsOpen=Boolean(journalQuery.trim());
+    journalSuggestionIndex=-1;
     updateJournalList({focusSearch:true,caret:Math.min(caret,journalQuery.length)});
   });
   document.querySelector('[data-action="clear-journal-search"]')?.addEventListener("click",()=>{
     journalQuery="";
+    journalSuggestionsOpen=false;
+    journalSuggestionIndex=-1;
     updateJournalList({focusSearch:true});
   });
+
+  // A normal, interactive suggestion list: arrow keys choose and Enter opens the chosen journal.
+  document.querySelector("#journal-search-field")?.addEventListener("keydown",event=>{
+    const rows=filteredJournalEntries().slice(0,5);
+    const key=event.key;
+    if((key==="ArrowDown"||key==="ArrowUp")&&rows.length){
+      event.preventDefault();
+      journalSuggestionsOpen=true;
+      const step=key==="ArrowDown"?1:-1;
+      journalSuggestionIndex=(journalSuggestionIndex+step+rows.length)%rows.length;
+      const caret=event.currentTarget.selectionStart??event.currentTarget.value.length;
+      updateJournalList({focusSearch:true,caret});
+    }else if(key==="Enter"&&journalSuggestionsOpen&&journalSuggestionIndex>=0&&rows[journalSuggestionIndex]){
+      event.preventDefault();
+      selectedEntry=rows[journalSuggestionIndex];
+      journalSuggestionsOpen=false;
+      journalSuggestionIndex=-1;
+      render();
+    }else if(key==="Escape"&&journalSuggestionsOpen){
+      event.preventDefault();
+      journalSuggestionsOpen=false;
+      journalSuggestionIndex=-1;
+      updateJournalList({focusSearch:true,caret:event.currentTarget.selectionStart??0});
+    }
+  });
+  document.querySelectorAll("[data-journal-suggestion]").forEach(button=>button.addEventListener("click",()=>{
+    const entry=entries.find(item=>String(item.id)===button.dataset.journalSuggestion);
+    if(!entry)return;
+    selectedEntry=entry;
+    journalSuggestionsOpen=false;
+    journalSuggestionIndex=-1;
+    render();
+  }));
 
   function selectJournalRow(row,keyboard=false){
     const scroll=document.getElementById("journal-scroll-region");
     const scrollTop=scroll?.scrollTop||0;
     selectedEntry=entries.find(e=>String(e.id)===row.dataset.entry)||null;
+    journalSuggestionsOpen=false;
+    journalSuggestionIndex=-1;
     render();
     const updated=document.getElementById("journal-scroll-region");
     if(updated)updated.scrollTop=scrollTop;
