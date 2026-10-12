@@ -148,7 +148,7 @@ test('sökning byter endast verifikationslistan och behåller andra utkast och m
   assert.match(source,/existing\.outerHTML=entryTable\(\)/);
   assert.match(source,/journalList\.before\(journalDetail\)/);
   assert.match(source,/journalQuery=String\(field\.value\|\|""\)\.slice\(0,100\)/);
-  const searchHandler=source.split('document.querySelector("#journal-search-field")?.addEventListener("input"')[1]?.split('function selectJournalRow')[0]||'';
+  const searchHandler=source.split('document.querySelector("#journal-search-field")?.addEventListener("input"')[1]?.split('document.querySelector(\'[data-action="clear-journal-search"]\')?.addEventListener')[0]||'';
   assert.ok(searchHandler.includes('updateJournalList'),'input updates just the journal list');
   assert.doesNotMatch(searchHandler,/\brender\(\)/,'typing does not destroy correction/opening-balance forms');
   assert.match(source,/function monthlyGuide\(current\)/);
