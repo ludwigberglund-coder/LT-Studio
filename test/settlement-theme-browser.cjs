@@ -284,10 +284,13 @@ async function styleSnapshot(page){
     await page.screenshot({path:path.join(out,'settlement-theme-mobile-light.png'),fullPage:false});
     await page.evaluate(()=>window.LTTheme.apply('dark',{persist:false}));
     await page.waitForFunction(()=>document.documentElement.dataset.ltTheme==='dark');
+    // Switching while the modal is open animates its colors. Inspect the
+    // finished appearance, just as the user sees after the short transition.
+    await page.waitForTimeout(500);
     const darkMobile=await styleSnapshot(page);
-    assert.ok(contrastRatio(darkMobile.closeColor,darkMobile.closeBackground)>=4.5,
-      'Mörk mobilmodal har osynlig stängningsknapp');
     await page.screenshot({path:path.join(out,'settlement-theme-mobile-dark.png'),fullPage:false});
+    assert.ok(contrastRatio(darkMobile.closeColor,darkMobile.closeBackground)>=4.5,
+      'Mörk mobilmodal har osynlig stängningsknapp: '+JSON.stringify(darkMobile));
     assert.deepEqual(pageErrors,[]);
 
     console.log('Settlement theme browser OK: dialog follows light/dark toggle and built assets are versioned.');
