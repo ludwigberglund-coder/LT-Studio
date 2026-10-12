@@ -33,6 +33,9 @@
     });
     if(!['6110','5460','6540'].includes(rows[0].account)||
        rows[1].account!=='2641'||rows[2].account!=='2440'||
+       rows[0].debitOre!==100000||rows[0].creditOre!==0||
+       rows[1].debitOre!==25000||rows[1].creditOre!==0||
+       rows[2].debitOre!==0||rows[2].creditOre!==125000||
        rows.reduce((sum,row)=>sum+row.debitOre-row.creditOre,0)!==0){
       throw new Error('INVALID_AI_PREVIEW');
     }
