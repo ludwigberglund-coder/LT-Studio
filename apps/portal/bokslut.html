@@ -14,19 +14,33 @@
 <div id="bokslut-loading" role="status" aria-live="polite" class="bokslut-loading">Kontrollerar din session…</div>
 <div id="lt-bokslut-app" class="bokslut-shell" hidden>
 <header class="bokslut-intro">
-<p class="bokslut-eyebrow">BOKSLUT · FÖRBEREDELSE</p>
-<h1>Förbered ditt bokslut</h1>
-<p>Vi samlar de kontroller som behövs inför räkenskapsårets slut. Den här versionen bokför ingenting och ändrar inga ekonomiska uppgifter.</p>
-<p><span class="bokslut-status" role="status">Bokslut inte verifierat</span> <span class="bokslut-count">6 områden att granska</span></p>
+<p class="bokslut-eyebrow">BOKSLUT · AUTOMATISK FÖRKONTROLL</p>
+<h1>Bokslutet börjar här</h1>
+<p>Starta en säker kontroll med ett klick. Du får förslag på nästa steg på vanlig svenska. Ingenting bokförs eller godkänns automatiskt i denna version.</p>
+<p><span class="bokslut-status" role="status">Bokslut inte verifierat</span> <span class="bokslut-count">Börja med en automatisk förkontroll</span></p>
 <p id="bokslut-company">Företag kontrolleras…</p>
 </header>
 <main>
+<section class="bokslut-card book-close-simple-card" aria-labelledby="book-close-guide-title">
+<h2 id="book-close-guide-title">Låt systemet börja med bokslutet</h2>
+<p>Du behöver inte kunna bokföring. LT Studio går igenom befintliga uppgifter och berättar vad som behöver din hjälp.</p>
+<div class="book-close-simple-controls">
+<label for="book-close-simple-year">Vilket kalenderår vill du kontrollera?</label>
+<input id="book-close-simple-year" type="number" min="1900" max="2198" step="1" required inputmode="numeric">
+<button type="button" id="book-close-start">Starta automatisk förkontroll</button>
+</div>
+<p class="book-close-simple-note">Förkontrollen omfattar kalenderår, inte automatiskt brutna räkenskapsår. Den är inte en färdig årsavstämning eller bokslutsattest.</p>
+<p id="book-close-simple-status" role="status" aria-live="polite">Ingen förkontroll körd ännu.</p>
+<ul id="book-close-simple-actions" aria-label="Nästa steg och sådant som kan behöva din hjälp"></ul>
+<p>AI-genererade bokslutsförslag och automatiska bokslutsbokningar är ännu inte aktiverade. Systemet använder nu säkra, regelstyrda förkontroller.</p>
+</section>
+<details class="book-close-advanced book-close-server-details"><summary>Visa tekniska kontroller och belopp (avancerat)</summary>
 <section class="bokslut-card year-close-panel" aria-labelledby="year-close-title">
 <h2 id="year-close-title">Årskontroll – serverräknade poster</h2>
 <p>Den första automatiska kontrollen räknar uppgifter direkt på servern. Den avser <strong>kalenderår</strong>, inte ett verifierat räkenskapsår. Den kan visa avvikelser men aldrig godkänna bokslutet.</p>
 <form id="year-close-form">
-<label for="year-close-year">Välj kalenderår</label>
-<div class="year-close-controls"><input id="year-close-year" type="number" min="1900" max="2198" step="1" required inputmode="numeric"><button type="submit">Kontrollera år</button></div>
+<label for="year-close-year">Välj kalenderår för detaljkontroll</label>
+<div class="year-close-controls"><input id="year-close-year" type="number" min="1900" max="2198" step="1" required inputmode="numeric"><button type="submit">Visa detaljkontroll</button></div>
 </form>
 <p id="year-close-message" role="status" aria-live="polite">Välj år för att starta kontrollen.</p>
 <dl id="year-close-results" class="year-close-results" hidden></dl>
@@ -60,6 +74,8 @@
 </div>
 <p class="year-close-warning">Viktigt: Den här kontrollen bevisar ännu inte att huvudboken är fullständig. Kontorader räknas tills vidare för företaget totalt, inte för valt år. Bank, 1510/2440 och moms måste fortfarande stämmas av mot separata underlag.</p>
 </section>
+</details>
+<details class="book-close-advanced book-close-links"><summary>Visa alla bokföringsområden och underlag</summary>
 <h2>Det här behöver kontrolleras</h2>
 <p class="bokslut-lead">Välj ett område för att se dina uppgifter i den vanliga företagsportalen.</p>
 <div class="bokslut-grid">
@@ -70,15 +86,16 @@
 <article class="bokslut-card"><h3>Moms och rapporter</h3><p>Kontrollera momsperioder, specialfall och huvudbok innan skatteberäkning.</p><p class="bokslut-card-status">Status: Inte verifierad</p><a href="./reports.html">Öppna rapporter →</a></article>
 <article class="bokslut-card"><h3>Bokföringsunderlag</h3><p>Se till att fakturor, kvitton och andra nödvändiga underlag finns.</p><p class="bokslut-card-status">Status: Inte verifierad</p><a href="./documents.html">Öppna dokument →</a></article>
 </div>
+</details>
 <p class="bokslut-notice"><strong>Varför står allt som inte verifierat?</strong> För att vi inte ännu har en fullständig serverbaserad årsavstämning. Tomma listor eller inlästa siffror bevisar inte att allt är kontrollerat. Årsredovisning, deklaration och myndighetsinlämning är inte tillgängliga från denna vy.</p>
 </main></div>
 </section></div>
-<script src="./supabase-config.js"></script><script src="./supabase-client.js"></script><script src="./supabase-session.js"></script><script src="./portal-nav.js"></script><script src="./year-close-counts.js"></script><script src="./book-close-ledger.js"></script><script src="./book-close-ledger-ui.js"></script><script src="./book-close-evidence.js"></script><script src="./book-close-evidence-ui.js"></script><script src="./book-close-cutoff.js"></script><script src="./book-close-cutoff-ui.js"></script>
+<script src="./supabase-config.js"></script><script src="./supabase-client.js"></script><script src="./supabase-session.js"></script><script src="./portal-nav.js"></script><script src="./year-close-counts.js"></script><script src="./book-close-ledger.js"></script><script src="./book-close-ledger-ui.js"></script><script src="./book-close-evidence.js"></script><script src="./book-close-evidence-ui.js"></script><script src="./book-close-cutoff.js"></script><script src="./book-close-cutoff-ui.js"></script><script src="./book-close-simple.js"></script>
 <script>
 (async function(){
  const demo=new URLSearchParams(location.search).get('demo')==='1';
  document.getElementById('year-close-year').value=String(new Date().getFullYear());
- if(demo){document.getElementById('year-ledger-message').textContent='Huvudbokskontrollen kräver inloggning i ett testföretag.';document.querySelector('#year-close-form button').disabled=true;document.getElementById('year-close-message').textContent='Serverkontrollen kräver inloggning i ett testföretag. Demoläget visar ingen riktig kontroll.';document.getElementById('bokslut-company').textContent='Demoläge – inga kontroller utförda.';document.querySelectorAll('.bokslut-card a').forEach(function(a){a.href+=(a.href.includes('?')?'&':'?')+'demo=1';});document.getElementById('lt-bokslut-app').hidden=false;document.getElementById('bokslut-loading').hidden=true;return;}
+ if(demo){document.querySelector('.book-close-links').open=true;document.getElementById('book-close-start').disabled=true;document.getElementById('book-close-simple-status').textContent='Logga in i ett testföretag för att använda förkontrollen.';document.getElementById('year-ledger-message').textContent='Huvudbokskontrollen kräver inloggning i ett testföretag.';document.querySelector('#year-close-form button').disabled=true;document.getElementById('year-close-message').textContent='Serverkontrollen kräver inloggning i ett testföretag. Demoläget visar ingen riktig kontroll.';document.getElementById('bokslut-company').textContent='Demoläge – inga kontroller utförda.';document.querySelectorAll('.bokslut-card a').forEach(function(a){a.href+=(a.href.includes('?')?'&':'?')+'demo=1';});document.getElementById('lt-bokslut-app').hidden=false;document.getElementById('bokslut-loading').hidden=true;return;}
  try {
    if(!globalThis.LTSupabaseUat)throw new Error('Session saknas');
    const context=await globalThis.LTSupabaseUat.context();
