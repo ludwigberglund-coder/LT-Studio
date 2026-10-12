@@ -43,5 +43,5 @@ test('secrets stay backend only with fixed API provider and safe origin',()=>{
   assert.match(file,/AI_PILOT_ALLOWED_ORIGIN/);
   assert.match(file,/Access-Control-Allow-Origin/);
   assert.doesNotMatch(file,/Access-Control-Allow-Origin":"\*"/);
-  assert.match(file,/Cache-Control":"no-store"/);
+  assert.match(file,/"Cache-Control"\s*:\s*"no-store"/);
 });
