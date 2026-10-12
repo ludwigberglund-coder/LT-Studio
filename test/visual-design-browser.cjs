@@ -157,13 +157,24 @@ function visible(element){
           const visibleControls=rendered.filter(element=>element.matches('a,button,input,select,textarea,summary')).length;
           // Theme readability is measured on actual computed colors, not CSS filenames.
           const colorLuminance=value=>{
-            const numbers=String(value).match(/[\\d.]+/g);
-            if(!numbers||numbers.length<3)return null;
-            const channels=numbers.slice(0,3).map(Number).map(v=>{
-              const n=v/255;
-              return n<=.04045?n/12.92:Math.pow((n+.055)/1.055,2.4);
+            const raw=String(value||'').trim().toLowerCase();
+            let channels;
+            if(raw.startsWith('rgb(')||raw.startsWith('rgba(')){
+              const inner=raw.slice(raw.indexOf('(')+1,raw.indexOf(')'));
+              channels=inner.replace(/,/g,' ').split(/\s+/).filter(Boolean).slice(0,3)
+                .map(x=>x.endsWith('%')?Number.parseFloat(x)/100:Number(x)/255);
+            }else if(raw.startsWith('color(srgb ')){
+              channels=raw.slice('color(srgb '.length,raw.indexOf(')'))
+                .trim().split(/\s+/).slice(0,3).map(Number);
+            }else{
+              return null;
+            }
+            if(channels.length!==3||channels.some(v=>!Number.isFinite(v)))return null;
+            const linear=channels.map(v=>{
+              const c=Math.max(0,Math.min(1,v));
+              return c<=.04045?c/12.92:Math.pow((c+.055)/1.055,2.4);
             });
-            return channels[0]*.2126+channels[1]*.7152+channels[2]*.0722;
+            return linear[0]*.2126+linear[1]*.7152+linear[2]*.0722;
           };
           const theme=html.dataset.ltTheme;
           const readableTargets=[...document.querySelectorAll(
