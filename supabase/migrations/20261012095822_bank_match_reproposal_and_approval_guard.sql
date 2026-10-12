@@ -92,28 +92,6 @@ $$;
 revoke all on function public.create_bank_match_proposal(text,text,text,integer,boolean,boolean,text,jsonb) from public,anon;
 grant execute on function public.create_bank_match_proposal(text,text,text,integer,boolean,boolean,text,jsonb) to authenticated;
 
-;
-  v_key:=v_prefix||v_revision::text;
-  if coalesce(p_ambiguous,false) then v_status:='manual-review';v_decision:='Underlaget ger flera möjliga tolkningar.';
-  elsif coalesce(p_deterministic,false) and p_confidence_ppm=1000000 then v_status:='ready-for-approval';v_decision:='Deterministiska regler gav en entydig träff. En behörig person ska fortfarande godkänna åtgärden.';
-  elsif p_confidence_ppm>=900000 then v_status:='ready-for-approval';v_decision:='Förslaget har hög säkerhet men kräver mänskligt godkännande.';
-  else v_status:='manual-review';v_decision:='Säkerheten är för låg för godkännande utan manuell granskning.'; end if;
-  v_suggestion=jsonb_build_object('action','match-customer-payment','bankPaymentId',v_bank.id,'invoiceId',v_invoice.id,'invoiceNumber',v_invoice.invoice_number,
-    'customerName',coalesce(v_customer_name,''),'amountOre',v_bank.amount_ore,'bookingDate',v_bank.booking_date,'externalId',v_bank.external_id,
-    'bankAccount','1930','receivableAccount','1510','accountingLines',jsonb_build_array(
-      jsonb_build_object('account','1930','label','Bankinbetalning','debitOre',v_bank.amount_ore,'creditOre',0),
-      jsonb_build_object('account','1510','label','Kundfordringar','debitOre',0,'creditOre',v_bank.amount_ore)));
-  v_id:='proposal_'||replace(gen_random_uuid()::text,'-','');
-  insert into public.automation_proposals(id,company_id,proposal_type,source_id,status,confidence_ppm,deterministic,ambiguous,reason,decision_reason,evidence_json,suggestion_json,engine_json,created_by,idempotency_key)
-  values(v_id,p_company_id,'bank-payment-match',v_bank.id,v_status,p_confidence_ppm,coalesce(p_deterministic,false),coalesce(p_ambiguous,false),
-    btrim(p_reason),v_decision,coalesce(p_evidence,'[]'::jsonb),v_suggestion,jsonb_build_object('kind','rules','name','incoming-payment-matcher','version','2'),v_uid,v_key);
-  update public.bank_payments b set status='proposal-created',updated_at=now() where b.company_id=p_company_id and b.id=v_bank.id and b.status='unmatched';
-  return query select v_id,v_status,false;
-end;
-$$;
-revoke all on function public.create_bank_match_proposal(text,text,text,integer,boolean,boolean,text,jsonb) from public,anon;
-grant execute on function public.create_bank_match_proposal(text,text,text,integer,boolean,boolean,text,jsonb) to authenticated;
-
 create or replace function public.decide_automation_proposal(p_company_id text,p_proposal_id text,p_decision text,p_reason text default null)
 returns table(proposal_id text,status text)
 language plpgsql security invoker set search_path=''
