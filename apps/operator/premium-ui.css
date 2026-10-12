@@ -597,3 +597,97 @@ html[data-operator-theme="dark"] .security-finding h3,html[data-operator-theme="
 }
 
 
+
+
+/*
+ * Phone-sized operator workspace.
+ * An iPhone zooms into a form automatically if an editable field is below 16px.
+ * Keep ordinary pinch-zoom available; solve the focus zoom at the field level.
+ */
+@media (max-width: 760px) {
+  html, body {
+    max-width: 100%;
+    overflow-x: clip;
+  }
+  .operator-shell,
+  .operator-shell .main {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .operator-shell .main {
+    width: 100%;
+    padding: 12px 12px 34px;
+  }
+  .operator-shell .topbar {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 14px;
+    gap: 10px;
+    border-radius: 16px;
+  }
+  .operator-shell .topbar h1 {
+    font-size: clamp(21px, 6vw, 27px);
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+  .operator-shell :where(.topbar > .actions, .operator-control-deck) {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .operator-shell :where(.hero-dashboard, .security-hero, .detail-hero) {
+    padding: 18px;
+    border-radius: 16px;
+  }
+  .operator-shell :where(.hero-dashboard h2, .security-hero h2) {
+    font-size: clamp(24px, 7vw, 30px);
+    line-height: 1.14;
+    overflow-wrap: anywhere;
+  }
+  .operator-shell :where(.page-intro-card, .panel, .metric, .chart-card, .security-snapshot) {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .operator-shell .page-intro-card { padding: 17px; }
+  .operator-shell :where(.panel-head, .chart-head) { gap: 10px; flex-wrap: wrap; }
+  .operator-shell .metric { padding: 13px; min-height: 90px; }
+  .operator-shell .metric > strong { font-size: clamp(22px, 6.5vw, 29px); }
+  .operator-shell .mobile-nav {
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+  .operator-shell :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select, textarea),
+  .login-shell :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select, textarea) {
+    font-size: 16px !important;
+  }
+  .operator-shell :where(input, select, textarea),
+  .login-shell :where(input, select, textarea) {
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+  .operator-shell :where(.table-wrap, .mobile-nav) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .operator-shell :where(.modal-card, .onboarding-modal-card) {
+    box-sizing: border-box;
+    max-width: min(100%, calc(100vw - 18px));
+    max-height: calc(100dvh - 18px);
+    overflow-y: auto;
+  }
+  .login-shell .login-brand {
+    min-height: 170px;
+    padding: 20px;
+  }
+  .login-shell .login-brand h1 { font-size: clamp(30px, 9vw, 40px); }
+  .login-shell .login-panel { padding: 16px 12px; }
+}
+
+@media (max-width: 390px) {
+  .operator-shell .topbar { padding: 12px; }
+  .operator-shell .status-grid.six { gap: 8px; }
+  .operator-shell .page-intro-card { padding: 14px; }
+}
