@@ -46,3 +46,24 @@ Börja med en leverantörsoberoende adapter och mockad AI för syntetisk UAT. Ut
 5. Välj riktig leverantör och opt-in-pilot efter sekretessgranskning, API-budget, säkerhetstester och godkänd produktion.
 
 **Krav för acceptans:** två testföretag utan dataläckage, felaktiga momsrader/obalans/låsta perioder/dubbletter nekas, prompt injection har ingen effekt, leverantörsfel ger manuell fallback, inga nycklar i källkod, syntetisk UAT och Quality/CodeQL/Supabase clean rebuild gröna. Automatisk exekvering är **inte** en del av denna leverans.
+
+## Kostnadsmål: 0 kr under testning och så långt gratisnivåerna räcker
+
+**Prioritet 1:** befintliga deterministiska regler och företagsvis tidigare godkänd konteringshistorik – inget betalt AI-anrop när ett kontrollerat regelresultat räcker.
+
+**Prioritet 2:** kostnadsfri AI-pilot på **Cloudflare Workers AI** med en modell som är tillåten på Workers Free, för enbart syntetiska fakturor. Enligt Cloudflares prisinformation 2026-10-09 ingår totalt **10 000 Neurons/dag**, därefter får gratisanvändaren fel tills kvoten återställs (ingen automatisk betald överanvändning). Neurons är en förbrukningsenhet, **inte** antal fakturor. Val av modell kräver svensk redovisningskvalitetstest och kontroll av aktuell Free-tillgänglighet. Cloudflare uppger att innehållet inte används för att träna modeller utan explicit samtycke; det ersätter **inte** granskning av DPA, EU-överföring, skydd och modellicens.
+
+**Prioritet 3:** Supabase Edge Functions på befintlig Free-plan för serverkoppling. Supabase anger **500 000 anrop/månad** på Free. Andra användningsgränser gäller separat och måste mätas.
+
+**Alternativ, ej rekommenderat till svenska kunders live-API på gratisnivå:** Google Gemini API erbjuder Free för utveckling, men dess Additional Terms (2026-03-23) anger att API-klienter till användare i EES/UK/Schweiz endast får använda **Paid Services**. Gratisnivån kan också innebära annan databehandling, inklusive modellförbättring. Använd inte för riktiga kunduppgifter i detta projekt utan ny bedömning.
+
+**OpenAI API:** separat API-fakturering från ChatGPT och normalt användningskostnader; behåll som alternativ, inte som förstahandskrav.
+
+**Hårda driftregler:** inga kreditkort eller uppgraderingar utan uttryckligt ägarbeslut; global kostnadsbrytare; gräns per företag och dag; när gratis AI-kvot är slut måste manuell/regeldriven bokföring fungera utan extern AI; endast syntetiska testunderlag tills dataskydd, redovisning och produktionssäkerhet godkänts. AI är ett förslagslager, inte direktbokföring.
+
+Källor (kontrollerade 2026-10-12):
+- https://developers.cloudflare.com/workers-ai/platform/pricing/
+- https://developers.cloudflare.com/workers-ai/platform/data-usage/
+- https://supabase.com/docs/guides/functions/pricing
+- https://ai.google.dev/gemini-api/terms
+- https://help.openai.com/en/articles/9039756-managing-billing-for-chatgpt-and-the-api-platform
