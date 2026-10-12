@@ -4,7 +4,7 @@ Produktinitiativ: [#727](https://github.com/ludwigberglund-coder/LT-Studio/issue
 
 ## Första versionen: hjälp till mänsklig avstämning, inte automatik
 
-Guiden visas inne i befintlig **Bokföring & perioder** och bygger på den aktuella inlästa periodstatusen, kontrollerade tenant-sessionen och visade verifikationerna. Alla ekonomiska datakällor hämtas redan av bokföringsvyn; guiden inför **inga** nya API-anrop.
+Guiden visas inne i befintlig **Bokföring & perioder** och bygger på den aktuella inlästa periodstatusen, kontrollerade tenant-sessionen och visade verifikationerna. Den första guiden använde enbart bokföringsvyns inlästa poster. Nästa steg tillför tre **skrivskyddade, exakt räknade Supabase REST-frågor**. De jämför hur många rader databasen rapporterar med hur många som lästes in.
 
 Den erbjuder länkar till samma portal för att manuellt kontrollera:
 1. Bank och fakturamatchning.
@@ -29,3 +29,28 @@ Före användaren väljer att låsa aktuell period visar gränssnittet en uttryc
 - Verifierbara bank-/reskontra-/momsavstämningar, per-period underlagsstatus och beslutslogg ska byggas via egna granskade server-/databasflöden om de behövs. UI:t ska inte införa ”klart”-markörer förrän dessa kontroller finns.
 - Komplett skarp periodavslutsfunktion kräver redovisningsmässig slutverifiering, formella säkerhetsgrindar och godkänd produktion. **Systemet är fortfarande UAT.**
 - Projektets `AGENTS.md` PDF-policy (endast passiva PDF) och tenant-isolering gäller fortsatt.
+
+## Steg 2 – serverantal och kontroll av ofullständig inläsning (#741)
+
+Från och med nästa etapp räknas i den autentiserade UAT-miljön tre saker direkt i Supabase/PostgREST, med **samma personliga session och `company_id`-filter** som resten av bokföringsvyn:
+
+1. Totalt antal verifikationer användaren har tillgång till för sitt företag.
+2. Totalt antal kontorader användaren har tillgång till för sitt företag.
+3. Antal verifikationer under aktuell kalendermånad.
+
+Dessa värden jämförs med de journal- och kontorader som portalen faktiskt fått tillbaka. Det skyddar särskilt mot tyst trunkering vid PostgRESTs maxantal returnerade rader, exempelvis när det finns fler än 1 000 poster.
+
+**Viktig avgränsning:** Om antalen matchar betyder det *enbart* att de tre antalsjämförelserna stämmer när förfrågningarna gjordes, under aktuell sessions RLS-behörighet. De tre serveranropen och de vanliga läsanropen har inte en gemensam transaktionsögonblicksbild; samtidiga bokföringar kan ge tillfälliga differenser. Antalsmatchning bevisar inte att varje verifikation har identiskt innehåll, att periodens huvudbok är fullt genomgången eller att bank/reskontra/moms är avstämd.
+
+Om någon räkningsförfrågan misslyckas, ger oläsbar `Content-Range`, har fel företag/period eller inte går att lita på visas **"Inläsningen behöver kontrolleras"** i stället för en grön status. När antalen skiljer visas en tydlig varning med vilka tal som inte stämmer. Demo/äldre lokal backend saknar denna verifiering och ska aldrig markeras som fullständigt kontrollerad.
+
+Ingen ny migration, RPC, Edge Function, databasrättighet eller ekonomisk skrivning har tillkommit. Gränsen för företag och användare är fortfarande Supabase RLS tillsammans med personlig session och MFA. Detta är inte en ersättning för serverbaserad periodavstämning och utgör inte produktionsgodkännande.
+
+### Kontrollfall
+- Supabase svarar 0, 1 och över 1 000: `Content-Range` ska hanteras korrekt.
+- Antal huvudboksrader i databasen större än listan → tydlig varning.
+- Antal kontorader större än listan → tydlig varning.
+- Saknat åtkomsttillstånd, fel i nätverk eller inget exakt count-header → okänd status.
+- Fel företag eller fel period får inte återanvända tidigare kontroll.
+- Bokföringsvyns korta, sökbara verifikationslista får inte ändras.
+- Ingen automatiskt attest och ingen ny möjlighet att ändra bokföringen.
