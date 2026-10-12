@@ -41,3 +41,8 @@ html[data-lt-theme="dark"] .month-close-findings a:focus-visible{outline-color:v
 html[data-lt-theme="dark"] .month-close-coverage{background:var(--lt-dark-surface-soft,#303b35);border-color:var(--lt-dark-border,#48544d)}
 html[data-lt-theme="dark"] .month-close-coverage-mismatch{background:#4b3825;border-color:#b88a56;color:#f8dbb6}
 @media(max-width:780px){.month-close-coverage{padding:13px}}
+
+/* Oplacerade betalningar: läsbaserad indikator, inte bankavstämning. */
+.month-close-bank-review{margin-top:10px;padding:10px 12px;border:1px solid var(--color-hairline,#dfe7e2);border-radius:10px;background:var(--surface-card,#fff)}
+.month-close-bank-review p{margin:0;line-height:1.5;font-size:12px}
+html[data-lt-theme="dark"] .month-close-bank-review{background:var(--lt-dark-surface,#242c29);border-color:var(--lt-dark-border,#48544d)}

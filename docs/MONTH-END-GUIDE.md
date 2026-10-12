@@ -62,3 +62,11 @@ De autentiserade antalsjämförelserna är ögonblicksbilder, inte löpande öve
 När användaren återvänder till fliken uppdaterar gränssnittet tidsbedömningen, och det gör även en lättviktig kontroll var 30:e sekund medan sidan är öppen. Ingen bakgrundsbokföring, ny databaskostnad eller ändrad rättighet tillkommer.
 
 **Begränsning:** Ett färskt radantal bekräftar bara att radantalsjämförelsen gjordes nyligen. Det betyder inte att ingen annan användare har bokfört efter tidpunkten, eller att perioden är avstämd. Kontroll med två fiktiva företags-ID:n finns i automatiska testfall; en verklig inloggad UAT med två separata företag kräver fortfarande separat verifiering.
+
+## Oplacerade bankbetalningar – första läsbaserade indikation (2026-10-12)
+
+Månadsavstämningen visar antalet registrerade bankbetalningar med `status=unmatched` för **det personligt inloggade företaget** genom Supabase/PostgREST `countExact`. Räkningsförfrågan är separat från journalernas fullständighetskontroll, och den använder befintlig personlig token, `company_id`-filter och RLS. Fel, utgången tidsgräns (fem minuter), fel företagsidentitet eller misslyckad hämtning ger **okänd** status; det visas aldrig som en lyckad avstämning.
+
+Antalet gäller **hela företagets registrerade bankhändelser** och är inte avgränsat till vald månad eller avstämt mot bankens verkliga kontoutdrag. Noll oplacerade betalningar betyder inte att bank eller moms är avstämd. I demo/äldre backend anges att antalet inte verifierats. Ingen ny databasmigration, ekonomisk skrivning, automatisk betalningsmatchning eller kostnadskrävande tjänst ingår.
+
+Verifieras genom syntetiska testfall för 0, 1, flera, fel tenant, ogiltig tidpunkt, gammalt svar och oläsbart databassvar. Inloggad UAT med två olika testföretag kräver fortfarande separat verifiering.

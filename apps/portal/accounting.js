@@ -3,7 +3,7 @@ const isDemo=new URLSearchParams(location.search).get('demo')==='1';
 const isSupabase=location.hostname==='ludwigberglund-coder.github.io'&&!isDemo;
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 let Demo=globalThis.RollandsDemoScenario;
-let session=null,entries=[],periods=[],monthCoverage=null,unlockRequests=[],unlockPolicy={eligibleCustomerApprovers:0,selfUnlockAllowed:false,adminSelfUnlockAllowed:false},selectedEntry=null,journalExpanded=false,journalQuery='',journalSuggestionsOpen=false,journalSuggestionIndex=-1,openingYear=today().slice(0,4),openingBalance=null,openingBatch=null,openingMessage='';
+let session=null,entries=[],periods=[],monthCoverage=null,unmatchedBankEvidence=null,unlockRequests=[],unlockPolicy={eligibleCustomerApprovers:0,selfUnlockAllowed:false,adminSelfUnlockAllowed:false},selectedEntry=null,journalExpanded=false,journalQuery='',journalSuggestionsOpen=false,journalSuggestionIndex=-1,openingYear=today().slice(0,4),openingBalance=null,openingBatch=null,openingMessage='';
 function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function ore(v){return new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK',minimumFractionDigits:2}).format(Number(v||0)/100)}
 function today(){return isDemo&&Demo?Demo.AS_OF_DATE:new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
@@ -32,7 +32,7 @@ async function api(path,options={}){const headers={Accept:'application/json',...
 function sidebar(){return `<aside class="sidebar"><div class="logo"><strong>LT Studio</strong><small>LT STUDIO</small></div><div class="company-pill">${esc(session?.company?.name||(isDemo?'Demoföretag':'Företaget'))}<br>${isDemo?'Demoföretag':'Skyddad företagsmiljö'}</div><div class="side-group"><span>Arbetsyta</span><a class="side-link" href="${url('./dashboard.html')}">Översikt</a></div><div class="side-group"><span>Ekonomi</span><a class="side-link" href="${url('./payables.html')}">Leverantörsfakturor</a><a class="side-link active" href="${url('./accounting.html')}">Bokföring</a><a class="side-link" href="${url('./reports.html')}">Rapporter</a><a class="side-link" href="${url('./documents.html')}">Dokument</a></div><div class="sidebar-footer">${isDemo?'Gemensamt UAT-scenario · ingen skarp bokföring':'Personlig session · servervaliderad behörighet'}</div></aside>`}
 function statusLabel(status){return status==='locked'?'Låst':status==='pending'?'Väntar beslut':status==='approved'?'Godkänd':status==='rejected'?'Avslagen':'Öppen'}
 function entryTotal(entry){return (entry.lines||[]).reduce((sum,line)=>sum+Number(line.debitOre||0),0)}
-function syncDemo(selectedId){const state=Demo.state();monthCoverage=null;entries=structuredClone(state.accountingEntries);periods=structuredClone(state.accountingPeriods);unlockRequests=structuredClone(state.accountingUnlockRequests);selectedEntry=entries.find(e=>e.id===(selectedId||selectedEntry?.id))||sortedJournalEntries()[0]||null}
+function syncDemo(selectedId){const state=Demo.state();monthCoverage=null;unmatchedBankEvidence=null;entries=structuredClone(state.accountingEntries);periods=structuredClone(state.accountingPeriods);unlockRequests=structuredClone(state.accountingUnlockRequests);selectedEntry=entries.find(e=>e.id===(selectedId||selectedEntry?.id))||sortedJournalEntries()[0]||null}
 function openingBalancePanel(){
   if(isDemo)return `<article class="panel opening-panel"><span class="eyebrow">Ingående balans</span><h2>Startsaldo vid systembyte</h2><p>Import av ingående balans är avstängd i den publika demon och används bara i den skyddade företagsmiljön.</p><div class="notice-box">Kundfordringar och leverantörsskulder importeras inte som totalsummor. De måste senare tas in tillsammans med sina öppna fakturor.</div></article>`;
   const selector=`<form class="opening-year-form" id="opening-year-form"><label>Räkenskapsår<input name="year" type="number" min="1900" max="2199" value="${esc(openingYear)}" required></label><button class="button ghost" type="submit">Visa år</button><p class="form-error"></p></form>`;
@@ -90,6 +90,7 @@ function monthlyGuide(current){
     journalEntries:entries.filter(e=>String(e.postingDate||'').slice(0,7)===current.period),
     companyId:session?.company?.id||null,
     coverage:monthCoverage,
+    unmatchedBankEvidence,
     demo:isDemo
   });
 }
@@ -202,6 +203,16 @@ async function loadSupabaseAccounting(){
   }catch{
     monthCoverage={status:'unavailable',companyId:ctx.company.id,period};
   }
+  // A separate, tenant-scoped indication of unplaced bank payments.
+  // This is company-wide, NOT month-specific and NOT a bank reconciliation.
+  try{
+    const count=await window.LTSupabase.from('bank_payments',ctx.accessToken)
+      .countExact(filter+'&status=eq.unmatched');
+    unmatchedBankEvidence={status:'checked',companyId:ctx.company.id,count,
+      checkedAt:new Date().toISOString()};
+  }catch{
+    unmatchedBankEvidence={status:'unavailable',companyId:ctx.company.id};
+  }
   // Count parity alone cannot reveal duplicate rows or lines attached to an unknown entry.
   // These local integrity checks never mutate or attest the underlying ledger.
   const entryIds=new Set(entryRows.map(row=>String(row.id)));
@@ -246,7 +257,7 @@ async function loadSupabaseAccounting(){
   await loadOpeningBalance();
   return true;
 }
-async function loadApi(){monthCoverage=null;const s=await api('/session');if(!s.authenticated){location.href='./index.html';return false}session=s;const entryData=await api('/accounting/entries');entries=entryData.entries||[];const detailed=[];for(const entry of entries.slice(0,200)){try{detailed.push((await api(`/accounting/entries/${encodeURIComponent(entry.id)}`)).entry)}catch{detailed.push(entry)}}entries=detailed;selectedEntry=sortedJournalEntries()[0]||null;periods=(await api('/accounting/periods')).periods||[];const unlockData=await api('/accounting/unlock-requests?status=all');unlockRequests=unlockData.requests||[];unlockPolicy=unlockData.unlockPolicy||{eligibleCustomerApprovers:0,selfUnlockAllowed:false,adminSelfUnlockAllowed:false};session.role=s.role||session.role||'';await loadOpeningBalance();return true}
+async function loadApi(){monthCoverage=null;unmatchedBankEvidence=null;const s=await api('/session');if(!s.authenticated){location.href='./index.html';return false}session=s;const entryData=await api('/accounting/entries');entries=entryData.entries||[];const detailed=[];for(const entry of entries.slice(0,200)){try{detailed.push((await api(`/accounting/entries/${encodeURIComponent(entry.id)}`)).entry)}catch{detailed.push(entry)}}entries=detailed;selectedEntry=sortedJournalEntries()[0]||null;periods=(await api('/accounting/periods')).periods||[];const unlockData=await api('/accounting/unlock-requests?status=all');unlockRequests=unlockData.requests||[];unlockPolicy=unlockData.unlockPolicy||{eligibleCustomerApprovers:0,selfUnlockAllowed:false,adminSelfUnlockAllowed:false};session.role=s.role||session.role||'';await loadOpeningBalance();return true}
 function setError(form,message){const el=form.querySelector('.form-error');if(el)el.textContent=message||''}
 function bindJournalControls(){
   // Keep selected debit/credit details ahead of the scrollable list in DOM and reading order.
@@ -506,12 +517,19 @@ function monitorMonthCoverage(){
   });
   if(!isSupabase)return;
   const updateAge=()=>{
-    const node=document.querySelector('.month-close-coverage');
-    if(!node||!monthCoverage||node.classList.contains('month-close-coverage-unknown'))return;
     const guide=globalThis.LTMonthCloseGuide;
-    const state={companyId:session?.company?.id||null,coverage:monthCoverage};
-    if(guide?.evaluateCoverage?.(state,currentPeriod()).status!=='unavailable')return;
-    node.outerHTML=guide.renderCoverage(state,currentPeriod());
+    const state={companyId:session?.company?.id||null,coverage:monthCoverage,
+      unmatchedBankEvidence};
+    const node=document.querySelector('.month-close-coverage');
+    if(node&&monthCoverage&&!node.classList.contains('month-close-coverage-unknown')
+      &&guide?.evaluateCoverage?.(state,currentPeriod()).status==='unavailable'){
+      node.outerHTML=guide.renderCoverage(state,currentPeriod());
+    }
+    const bankNode=document.querySelector('.month-close-bank-review');
+    if(bankNode&&guide?.renderBankReview){
+      const fresh=guide.renderBankReview(state);
+      if(bankNode.outerHTML!==fresh)bankNode.outerHTML=fresh;
+    }
   };
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)updateAge()});
   setInterval(updateAge,30000);
