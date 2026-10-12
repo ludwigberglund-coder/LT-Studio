@@ -179,6 +179,34 @@ function visible(element){
             return {tag:el.tagName.toLowerCase(),className:String(el.className||'').slice(0,65),
               text:el.innerText?.trim().slice(0,50)||'icon',color,lum:Number(lum.toFixed(3))};
           }).filter(Boolean).slice(0,12);
+          /* Screenshot-led WCAG checks for actual inverted controls. The
+             earlier theme audit intentionally skipped links and buttons and
+             therefore missed invisible CTAs, SVG strokes and number chips. */
+          const contrastRatio=(foreground,background)=>{
+            const a=colorLuminance(foreground),b=colorLuminance(background);
+            return a===null||b===null?null:
+              (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+          };
+          const selectors=[
+            ['dashboard-cta-title','.welcome-next strong','.welcome-next',4.5],
+            ['dashboard-cta-label','.welcome-next>span','.welcome-next',4.5],
+            ['dashboard-task-count','.task-card>strong','.task-card>strong',4.5],
+            ['menu-icon-stroke','.shared-menu-toggle .ui-icon svg path','.shared-menu-toggle',3],
+            ['user-avatar-initials','.shared-user-avatar','.shared-user-avatar',4.5],
+            ['user-name','.shared-user-label strong','.shared-user-trigger',4.5],
+            ['active-navigation','.shared-navigation .shared-links a[aria-current="page"]','.shared-navigation .shared-links a[aria-current="page"]',4.5]
+          ];
+          const controlContrast=selectors.map(([name,selector,backgroundSelector,minRatio])=>{
+            const target=document.querySelector(selector),background=document.querySelector(backgroundSelector);
+            if(!target||!background)return null;
+            const style=getComputedStyle(target),rect=target.getBoundingClientRect();
+            if(style.display==='none'||style.visibility==='hidden'||Number(style.opacity)===0||rect.width===0||rect.height===0)return null;
+            const fg=name==='menu-icon-stroke'?style.stroke:style.color;
+            const bg=getComputedStyle(background).backgroundColor;
+            const ratio=contrastRatio(fg,bg);
+            return {name,color:fg,background:bg,ratio:ratio===null?null:Number(ratio.toFixed(2)),minRatio};
+          }).filter(Boolean);
+          const lowContrastControls=controlContrast.filter(x=>x.ratio===null||x.ratio+0.01<x.minRatio);
           const overflowing=rendered.map(element=>{
             const rect=element.getBoundingClientRect();
             return {
@@ -197,6 +225,8 @@ function visible(element){
             bodyText:body.innerText.trim().length,
             visibleControls,
             contrastIssues,
+            controlContrast,
+            lowContrastControls,
             checkedColors:readableTargets.length,
             fontFamily:bodyStyle.fontFamily,
             bodyBackground:bodyStyle.backgroundColor,
@@ -232,6 +262,7 @@ function visible(element){
         assert.ok(layout.bodyText>80,`${surface.id} ${viewport.id} ${theme.id} rendered too little content`);
         assert.ok(layout.visibleControls>0,`${surface.id} ${viewport.id} ${theme.id} has no visible controls`);
         assert.equal(layout.contrastIssues.length,0,`${surface.id} ${viewport.id} ${theme.id} has unreadable text/icons: ${JSON.stringify(layout.contrastIssues)}`);
+        assert.equal(layout.lowContrastControls.length,0,`${surface.id} ${viewport.id} ${theme.id} has low contrast CTA, number, icon or navigation: ${JSON.stringify(layout.lowContrastControls)}`);
         if(layout.scrollWidth>layout.innerWidth+2)layoutIssues.push(`${surface.id} ${viewport.id} ${theme.id} has page-level horizontal overflow: ${layout.scrollWidth}px > ${layout.innerWidth}px; offenders=${JSON.stringify(layout.overflowing)}`);
         assert.match(layout.fontFamily,/(-apple-system|BlinkMacSystemFont|SF Pro|system-ui)/i,`${surface.id} ${viewport.id} is not using the shared Apple/system font stack`);
         assert.equal(pageErrors.length,0,`${surface.id} ${viewport.id} has uncaught browser errors: ${pageErrors.join('; ')}`);
