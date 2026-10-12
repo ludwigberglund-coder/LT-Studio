@@ -11,7 +11,9 @@ const source=fs.readFileSync(path.join(__dirname,'../apps/portal/unplaced-paymen
 async function harness(){
   const fields={invoice:'invoice-first',account:'',description:''};
   const calls=[];
+  const invokeErrors=[];
   const listeners={};
+  let uuidCounter=0;
   let renderCount=0;
   let html='';
   const app={
@@ -47,7 +49,7 @@ async function harness(){
     addEventListener:(name,listener)=>{listeners[name]=listener},
     querySelector:(selector)=>{
       const field=selector.match(/data-field="([^"]+)"/)?.[1];
-      return field?{value:fields[field]}:null;
+      return field?{get value(){return fields[field]},set value(value){fields[field]=value}}:null;
     }
   };
   const window={
@@ -58,6 +60,8 @@ async function harness(){
       functions:{
         invoke:async(name,args,token)=>{
           calls.push({name,args,token});
+          const nextError=invokeErrors.shift();
+          if(nextError)throw new Error(nextError);
           return {journal_number:42};
         }
       }
@@ -65,7 +69,7 @@ async function harness(){
   };
 
   vm.runInNewContext(source,{
-    document,window,URLSearchParams,Intl,crypto:{randomUUID:()=>'test-uuid'},
+    document,window,URLSearchParams,Intl,crypto:{randomUUID:()=>`test-uuid-${++uuidCounter}`},
     sessionStorage:{getItem:()=>null},
     location:{search:'',hostname:'ludwigberglund-coder.github.io',href:''}
   },{filename:'unplaced-payments.js'});
@@ -75,7 +79,7 @@ async function harness(){
   assert.match(html,/Testbetalare/,'the queue must finish loading before the actions run');
 
   return {
-    fields,calls,getRenderCount:()=>renderCount,
+    fields,calls,failNextInvoke:(message)=>invokeErrors.push(message),getRenderCount:()=>renderCount,getHtml:()=>html,
     async click(action){
       const button={dataset:{action}};
       const target={closest:(selector)=>selector==='[data-action]'?button:null};
@@ -119,4 +123,46 @@ test('outgoing classification keeps the entered accounting details',async()=>{
   assert.equal(call.args.resolutionType,'outgoing');
   assert.equal(call.args.counterAccount,'6990');
   assert.equal(call.args.description,'Verifierad återbetalning');
+});
+
+test('network failure reuses the same idempotency key and keeps inputs for a safe retry',async()=>{
+  const ui=await harness();
+  ui.fields.account='3990';
+  ui.fields.description='Förskott från bank';
+  ui.failNextInvoke('Nätverksavbrott efter mottagen betalning');
+  await ui.click('other-income');
+
+  assert.equal(ui.calls.length,1);
+  assert.equal(ui.fields.account,'3990','account should be restored after a failed request');
+  assert.equal(ui.fields.description,'Förskott från bank','description should be restored after a failed request');
+  assert.match(ui.getHtml(),/Kunde inte genomföra åtgärden/);
+  const initialRequestId=ui.calls[0].args.requestId;
+
+  await ui.click('other-income');
+  assert.equal(ui.calls.length,2);
+  assert.equal(ui.calls[1].args.requestId,initialRequestId,'a retry must reuse the original request ID');
+  assert.match(ui.getHtml(),/Verifikation 42 skapades/);
+  assert.doesNotMatch(ui.getHtml(),/Kunde inte genomföra åtgärden/);
+});
+
+test('changed accounting details create a new idempotency key instead of replaying stale details',async()=>{
+  const ui=await harness();
+  ui.fields.account='3990';
+  ui.fields.description='Övrig inbetalning';
+  ui.failNextInvoke('Tillfälligt nätverksfel');
+  await ui.click('other-income');
+  const initialId=ui.calls[0].args.requestId;
+
+  ui.fields.account='3980';
+  ui.failNextInvoke('Tillfälligt nätverksfel');
+  await ui.click('other-income');
+  assert.notEqual(ui.calls[1].args.requestId,initialId);
+  assert.equal(ui.calls[1].args.counterAccount,'3980');
+
+  ui.fields.account='3980';
+  ui.fields.description='Återbetalning till kund';
+  ui.failNextInvoke('Tillfälligt nätverksfel');
+  await ui.click('outgoing');
+  assert.notEqual(ui.calls[2].args.requestId,ui.calls[1].args.requestId);
+  assert.equal(ui.calls[2].args.resolutionType,'outgoing');
 });
