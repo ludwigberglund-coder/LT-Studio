@@ -9,12 +9,12 @@ const source=fs.readFileSync(path.join(__dirname,'../apps/portal/accounting.js')
 const css=fs.readFileSync(path.join(__dirname,'../apps/portal/accounting.css'),'utf8');
 const withoutStartup=source.slice(0,source.indexOf('async function init(){'));
 
-function journalView(documentOverride){
+function journalView(documentOverride,{supabase=false}={}){
   assert.ok(withoutStartup.length>0 && withoutStartup.length<source.length,'test must exclude only the startup call');
   const document=documentOverride||{getElementById:()=>({})};
-  const exposed='\n({ setRows(rows){entries=rows;selectedEntry=sortedJournalEntries()[0]||null}, setExpanded(value){journalExpanded=value}, setQuery(value){journalQuery=value}, setSuggestions(open,index=-1){journalSuggestionsOpen=open;journalSuggestionIndex=index}, setSelected(value){selectedEntry=entries.find(row=>row.id===value)||null}, sortedJournalEntries,entryTable,bind })';
+  const exposed='\n({ setCoverage(coverage){monthCoverage=coverage;session={company:{id:"company-a"}}}, setRows(rows){entries=rows;selectedEntry=sortedJournalEntries()[0]||null}, setExpanded(value){journalExpanded=value}, setQuery(value){journalQuery=value}, setSuggestions(open,index=-1){journalSuggestionsOpen=open;journalSuggestionIndex=index}, setSelected(value){selectedEntry=entries.find(row=>row.id===value)||null}, sortedJournalEntries,entryTable,bind })';
   return vm.runInNewContext(withoutStartup+exposed,{
-    document,location:{search:'',hostname:'localhost'},sessionStorage:{getItem:()=>null},
+    document,location:{search:'',hostname:supabase?'ludwigberglund-coder.github.io':'localhost'},sessionStorage:{getItem:()=>null},
     URLSearchParams,Date,Intl
   });
 }
@@ -188,4 +188,40 @@ test('sökförslagen har verkliga tillgängliga roller, säker text och aktivt t
   assert.match(source,/key==="ArrowUp"/);
   assert.match(source,/key==="Enter"/);
   assert.match(source,/key==="Escape"/);
+});
+
+test('journal search explains missing coverage evidence without claiming zero results are complete',()=>{
+  const view=journalView(undefined,{supabase:true});
+  view.setRows([row('one','2026-10-12T08:00:00Z','2026-10-12','A1')]);
+  assert.match(view.entryTable(),/Vi kan inte kontrollera hur många bokförda poster/);
+  view.setCoverage({status:'unavailable',companyId:'company-a'});
+  assert.match(view.entryTable(),/Sökresultatet kan vara ofullständigt/);
+  view.setCoverage({status:'checked',companyId:'another-company',totalEntries:1,totalLines:1,loadedEntries:1,loadedLines:1});
+  assert.match(view.entryTable(),/Vi kan inte kontrollera/,'evidence for another company must never be trusted');
+});
+
+test('journal search warns when only some entries or journal lines are loaded',()=>{
+  const view=journalView(undefined,{supabase:true});
+  view.setRows([row('one','2026-10-12T08:00:00Z','2026-10-12','A1')]);
+  const integrity={duplicateEntryIds:0,duplicateLineIds:0,orphanLines:0,wrongCompanyLines:0};
+  view.setCoverage({status:'checked',companyId:'company-a',totalEntries:4,totalLines:8,loadedEntries:1,loadedLines:2,integrity});
+  view.setQuery('not-found');
+  const html=view.entryTable();
+  assert.match(html,/0 träffar av 1 inlästa/);
+  assert.match(html,/Vi har läst in 1 av 4 verifikationer och 2 av 8 konteringsrader/);
+  assert.match(html,/Sökresultatet kan därför vara ofullständigt/);
+  view.setCoverage({status:'checked',companyId:'company-a',totalEntries:1,totalLines:8,loadedEntries:1,loadedLines:2,integrity});
+  assert.match(view.entryTable(),/1 av 1 verifikationer och 2 av 8 konteringsrader/);
+});
+
+test('journal search does not equate matching counts with validated accounting',()=>{
+  const view=journalView(undefined,{supabase:true});
+  view.setRows([row('one','2026-10-12T08:00:00Z','2026-10-12','A1')]);
+  const coverage={status:'checked',companyId:'company-a',totalEntries:1,totalLines:1,loadedEntries:1,loadedLines:1,integrity:{duplicateEntryIds:0,duplicateLineIds:0,orphanLines:0,wrongCompanyLines:0}};
+  view.setCoverage(coverage);
+  assert.doesNotMatch(view.entryTable(),/journal-coverage-warning/,'count parity does not warrant a misleading success badge');
+  view.setCoverage({...coverage,integrity:{...coverage.integrity,orphanLines:1}});
+  assert.match(view.entryTable(),/avvikelse i de inlästa bokföringsraderna/);
+  assert.match(css,/journal-coverage-warning/);
+  assert.doesNotMatch(journalView().entryTable(),/journal-coverage-warning/,'demo and legacy should not get false warnings');
 });
