@@ -68,6 +68,8 @@ test('lägesväxeln sparas separat per användare och företag och är bara pres
   assert.match(source,/advancedRoute/);
   assert.match(source,/mode==='simple'&&advancedRoute/);
   assert.match(source,/simpleGroups\(authorizedGroups\)/);
+  // New users must be able to click existing customer links without first expanding categories.
+  assert.match(source,/saved\[storageId\]!==false/);
   assert.match(css,/shared-nav-mode-button:focus-visible/);
   assert.match(css,/min-height:44px/);
 });
