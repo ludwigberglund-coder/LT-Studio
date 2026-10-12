@@ -66,7 +66,7 @@
 
 /* LT Studio UI 2.0 — overview pilot.
  * Content cards stay opaque for accounting clarity; only the workspace chrome
- * uses glass-like material.
+ * uses an opaque navigation surface.
  */
 .dashboard-content{
   padding-top:30px;
@@ -166,10 +166,10 @@ html[data-lt-theme="dark"] .task-card:hover{
   padding:10px 15px!important;
   border:1px solid rgb(255 255 255 / .68)!important;
   border-radius:999px!important;
-  background:rgb(255 255 255 / .72)!important;
+  background:var(--surface-card)!important;
   box-shadow:0 1px 0 rgb(255 255 255 / .72) inset,0 7px 18px rgb(23 63 50 / .08)!important;
-  -webkit-backdrop-filter:blur(16px) saturate(150%);
-  backdrop-filter:blur(16px) saturate(150%);
+  
+  
 }
 .welcome-motion{
   width:260px!important;
@@ -179,8 +179,8 @@ html[data-lt-theme="dark"] .task-card:hover{
 .welcome-motion span{
   border:1px solid rgb(255 255 255 / .7);
   box-shadow:0 18px 40px rgb(23 63 50 / .10);
-  -webkit-backdrop-filter:blur(14px);
-  backdrop-filter:blur(14px);
+  
+  
 }
 .welcome-motion span:nth-child(1){
   width:126px!important;height:126px!important;
@@ -307,8 +307,8 @@ html[data-lt-theme="dark"] .task-card>strong{
 }
 @media(prefers-reduced-transparency:reduce){
   .today-count,.welcome-motion span{
-    -webkit-backdrop-filter:none!important;
-    backdrop-filter:none!important;
+    
+    
   }
 }
 

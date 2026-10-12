@@ -674,7 +674,7 @@ h1{
 .contact-card{
   background:rgba(255,255,255,.08);
   border-color:rgba(255,255,255,.16);
-  backdrop-filter:blur(12px);
+  
 }
 .contact-card>div{
   border-color:rgba(255,255,255,.12);

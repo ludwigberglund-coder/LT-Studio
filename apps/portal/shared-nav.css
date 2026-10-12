@@ -59,7 +59,7 @@ html[data-lt-theme="dark"] .shared-navigation .shared-links a[aria-current=page]
 .shared-menu-toggle[aria-expanded="true"] .ui-icon{transform:rotate(90deg) scale(.94)}
 .shared-menu-overlay{
   position:fixed;inset:0;z-index:78;border:0;margin:0;padding:0;background:rgb(10 10 10 / .34);
-  opacity:0;visibility:hidden;pointer-events:none;backdrop-filter:blur(2px);
+  opacity:0;visibility:hidden;pointer-events:none;
   transition:opacity .28s cubic-bezier(.22,1,.36,1),visibility 0s linear .28s;
 }
 .shared-workspace-shell{
