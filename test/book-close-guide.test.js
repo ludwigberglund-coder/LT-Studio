@@ -203,7 +203,7 @@ test('responses for an old year cannot overwrite the new year prompt',async()=>{
 });
 
 test('priority labels remain accessible and navigation targets stay fixed',()=>{
-  assert.match(html,/Din personliga uppgiftslista/);
+  assert.match(html,/Nästa steg och sådant som kan behöva din hjälp/);
   assert.match(js,/Behöver din hjälp:/);
   assert.match(js,/Kunde inte kontrolleras:/);
   assert.match(js,/textContent=item.description/);
