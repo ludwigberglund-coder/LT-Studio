@@ -166,7 +166,8 @@ function visible(element){
           const readableTargets=[...document.querySelectorAll(
             'h1,h2,h3,h4,h5,h6,p,small,label,legend,th,td,summary,.shared-navigation a,.side-nav button,.shared-user-label,.ui-icon,.op-icon'
           )].filter(el=>{
-            if(!visible(el))return false;
+            const style=getComputedStyle(el),rect=el.getBoundingClientRect();
+            if(style.display==='none'||style.visibility==='hidden'||Number(style.opacity)===0||rect.width<=0||rect.height<=0)return false;
             if(!el.matches('.ui-icon,.op-icon')&&!el.innerText?.trim())return false;
             return !el.closest('.button,.header-action,.status-pill,.status-badge,.badge,.avatar,.nav-badge,.notice,.error,.warning,.success-box,.visual-note,.service-number,.login-brand,.topbar-create') &&
               !(theme==='light'&&el.closest('.contact,.operator-shell .sidebar'));
