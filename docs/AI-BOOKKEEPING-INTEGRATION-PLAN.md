@@ -6,6 +6,10 @@ Status: **arkitekturförberedelse, inte driftsatt AI**. Ägare: GitHub issue #76
 
 Aktiv delad UAT: GitHub Pages, Supabase Auth/RLS/PostgreSQL/Storage/Edge Functions. `apps/portal/automation.js` och `packages/automation/proposals.js` erbjuder redan förslagsstrukturer. `docs/AUTOMATION-ROADMAP.md` anger att modellen föreslår men inte skriver till huvudboken. Ingen AI-leverantör är i nuläget ansluten i `supabase/functions`. GitHub är källan för kod och migrationer, inte för ekonomidata, dokument eller API-hemligheter.
 
+## Beslut: gratis AI i första hand
+
+Vald plattform: **Cloudflare Workers AI Free** (10 000 Neurons/dag per Cloudflare-konto, inte per faktura/företag). Ingen automatisk betaluppgradering. Använd befintliga regelbaserade bokföringsförslag först, Cloudflare-modell bara vid behov. När gratisgränsen nås används fortsatt manuell/regelbaserad behandling, inga betalda API-anrop. Välj JSON Mode och ge aldrig modellen rätt att bokföra direkt. Cloudflares PDF-`toMarkdown` stöder textbaserad PDF men kan inte förutsättas OCR-tolka skannade bild-PDF:er: saknas läsbar text, flagga för granskning. Separera alla företag på servern; Cloudflare-konto/token är gemensamt men aldrig exponerat i klienten. Token lagras enbart i Supabase Edge Secrets. Inga verkliga kunddokument skickas innan GDPR/DPA, modelllicens, redovisningsgranskning och säkerhetskrav är godkända. Det här är **arkitekturbeslut, inte driftsatt AI**. Se #767.
+
 ## Rekommenderat användarflöde
 
 1. Behörig användare i företag A laddar upp en **passiv PDF**, enligt `AGENTS.md`. Dokumentinkorgen förvaltas separat i issue #728.
@@ -25,7 +29,7 @@ Svar: förslags-id, status `needs_review` / `rejected`, verifierade källfält (
 
 ## Leverantör och drift
 
-Börja med en leverantörsoberoende adapter och mockad AI för syntetisk UAT. Utvärdera OpenAI API som förstaval, andra leverantörer som alternativ efter verifiering av pris, datahantering, personuppgiftsbiträdesavtal och EU-/Sverige-krav. Starta med ett gemensamt API-konto som LT Studio hanterar: separera kunders data genom strikt auktorisering och isolerade anrop. Lägg per-företag-funktion `ai_enabled` (opt-in), månadskvoter, budgettak, timeout, rate limits, retries, driftlarm, möjlighet att stänga av AI centralt och manuell fallback. Beräkna faktisk kostnad från token-/dokumentvolym innan aktivering. Alla verkliga dataöverföringar till extern modell måste granskas i förväg av ansvarig för dataskydd och redovisning.
+**Leverantörsbeslut 2026-10-12:** Cloudflare Workers AI på Workers Free är förstahandsvalet, via server-side Supabase Edge Function och en leverantörsoberoende adapter. Börja med mockad AI och syntetiska PDF:er. Pilotmodell: `@cf/meta/llama-3.3-70b-instruct-fp8-fast` med JSON Mode (kräver egen schema- och bokföringsvalidering); jämför `@cf/meta/llama-3.1-8b-instruct` som billigare baslinje. Verifiera licens och resultat före skarp drift. Gemini API och OpenAI API är alternativ om separat kostnadsbeslut tas. Starta med ett gemensamt API-konto som LT Studio hanterar: separera kunders data genom strikt auktorisering och isolerade anrop. Lägg per-företag-funktion `ai_enabled` (opt-in), månadskvoter, budgettak, timeout, rate limits, retries, driftlarm, möjlighet att stänga av AI centralt och manuell fallback. Beräkna faktisk kostnad från token-/dokumentvolym innan aktivering. Alla verkliga dataöverföringar till extern modell måste granskas i förväg av ansvarig för dataskydd och redovisning.
 
 ## Hotmodell och säkerhetskrav
 
@@ -63,6 +67,9 @@ Börja med en leverantörsoberoende adapter och mockad AI för syntetisk UAT. Ut
 
 Källor (kontrollerade 2026-10-12):
 - https://developers.cloudflare.com/workers-ai/platform/pricing/
+- https://developers.cloudflare.com/workers-ai/features/json-mode/
+- https://developers.cloudflare.com/workers-ai/features/markdown-conversion/how-it-works/
+- https://developers.cloudflare.com/workers-ai/get-started/rest-api/
 - https://developers.cloudflare.com/workers-ai/platform/data-usage/
 - https://supabase.com/docs/guides/functions/pricing
 - https://ai.google.dev/gemini-api/terms
