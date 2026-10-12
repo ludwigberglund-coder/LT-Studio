@@ -671,6 +671,9 @@
         button.addEventListener('click',()=>{
           if(currentMode===mode)return;
           saveNavigationMode(context.session,mode);
+          // On an expert-only page, return to the overview so the simple menu
+          // can actually be selected (instead of forcing expert mode again).
+          if(mode==='simple'&&advancedRoute){location.assign(href('portal/dashboard.html'));return;}
           delete sidebar.dataset.sharedRoute;
           void mount();
         });
