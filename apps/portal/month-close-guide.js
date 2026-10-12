@@ -15,6 +15,60 @@
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
   }
+
+  function inspectEntries(rows,period){
+    const current=(Array.isArray(rows)?rows:[]).filter(function(entry){
+      return String(entry&&entry.postingDate||'').slice(0,7)===period;
+    });
+    const findings=[];
+    for(const entry of current){
+      const number=String(entry.number||'Okänt nummer');
+      if(!String(entry.description||'').trim()){
+        findings.push({number:number,kind:'Beskrivning saknas'});
+      }
+      if(!Array.isArray(entry.lines)||entry.lines.length<2){
+        findings.push({number:number,kind:'Kontorader kunde inte kontrolleras'});
+        continue;
+      }
+      let debet=0,kredit=0,valid=true;
+      for(const line of entry.lines){
+        const debit=Number(line.debitOre),credit=Number(line.creditOre);
+        if(!Number.isSafeInteger(debit)||debit<0||!Number.isSafeInteger(credit)||credit<0){
+          valid=false;
+          break;
+        }
+        debet+=debit;
+        kredit+=credit;
+      }
+      if(!valid||!Number.isSafeInteger(debet)||!Number.isSafeInteger(kredit)){
+        findings.push({number:number,kind:'Beloppsuppgifter kunde inte kontrolleras'});
+      }else if(debet!==kredit){
+        findings.push({number:number,kind:'Debet och kredit stämmer inte'});
+      }
+    }
+    return {loadedCount:current.length,findings:findings};
+  }
+  function journalReview(state,period){
+    if(!Array.isArray(state.journalEntries)){
+      return '<div class="month-close-findings" role="status"><h3>Snabbkontroll av verifikationer</h3><p>Verifikationsuppgifter saknas. Ingen automatisk kontroll har kunnat göras.</p></div>';
+    }
+    const review=inspectEntries(state.journalEntries,period);
+    const total=review.findings.length;
+    const headline=total
+      ? total===1?'1 möjlig avvikelse i de inlästa uppgifterna behöver granskas.':total+' möjliga avvikelser i de inlästa uppgifterna behöver granskas.'
+      : review.loadedCount
+        ? 'Inga avvikelser hittades bland de inlästa verifikationerna.'
+        : 'Inga verifikationer finns i den inlästa listan för perioden.';
+    const examples=review.findings.slice(0,3).map(function(finding){
+      return '<li><strong>'+escapeHtml(finding.number)+'</strong>: '+escapeHtml(finding.kind)+'</li>';
+    }).join('');
+    return '<div class="month-close-findings" role="status"><h3>Snabbkontroll av verifikationer</h3>'+
+      '<p>'+escapeHtml(headline)+'</p>'+
+      (total?'<ul>'+examples+'</ul>':'')+
+      '<p class="month-close-findings-disclaimer">Kontrollen gäller bara inlästa poster och ersätter inte fullständig avstämning. Saknade kontorader kan bero på ofullständig inläsning.</p>'+
+      '<a href="#journal-entries">Granska verifikationerna ovan</a></div>';
+  }
+
   function render(options){
     const state=options||{};
     const period=/^\d{4}-(0[1-9]|1[0-2])$/.test(String(state.period||''))?String(state.period):'Okänd period';
@@ -38,9 +92,10 @@
       '<span class="status-pill'+(locked?' locked':'')+'">'+escapeHtml(label)+'</span></div>'+
       '<p>'+escapeHtml(message)+'</p>'+
       '<p class="month-close-count">'+shown+' verifikationer för perioden visas i den inlästa listan. Det är inte ett bevis på att alla poster är med.</p>'+
+      journalReview(state,period)+
       '<ol class="month-close-list">'+items+'</ol>'+
       '<p class="month-close-notice">Ingen punkt markeras automatiskt som klar. Öppna varje arbetsyta och gör den riktiga kontrollen före eventuellt periodlås.</p>'+
       '</section>';
   }
-  globalThis.LTMonthCloseGuide=Object.freeze({render:render});
+  globalThis.LTMonthCloseGuide=Object.freeze({render:render,inspectEntries:inspectEntries});
 })();
