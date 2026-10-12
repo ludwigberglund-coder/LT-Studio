@@ -685,7 +685,7 @@
       const details=document.createElement('details');details.dataset.navGroup=group.id;
       const storageId=currentMode==='simple'?'simple:'+group.id:group.id;
       details.open=group.items.some(item=>active(item[2]))||
-        (currentMode==='simple'?(saved[storageId]===true||(group.id==='start'&&saved[storageId]!==false)):saved[storageId]!==false);
+        (saved[storageId]!==false);
       const summary=document.createElement('summary');summary.textContent=group.label;details.append(summary);
       const links=document.createElement('div');links.className='shared-links';
       for(const [id,label,path] of group.items){
