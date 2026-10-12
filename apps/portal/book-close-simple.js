@@ -11,18 +11,113 @@ if(!button||!status||!actions||!yearInput||!detailYear)return;
 let request=0;
 const allowedYears=/^(19|20|21)\d{2}$/;
 const allowedLinks=new Set(['./bank.html','./invoices.html','./payables.html','./accounting.html','./reports.html','./documents.html']);
-function addAction(message,href,label){
- const item=doc.createElement('li');
- const description=doc.createElement('span');
- description.textContent=message;
- item.append(description);
- if(href&&allowedLinks.has(href)){
+function task(kind,title,description,href,label,priority){
+ return {kind,title,description,href,label,priority};
+}
+function renderTask(item){
+ const li=doc.createElement('li');
+ li.className='book-close-task book-close-task--'+item.kind;
+ const title=doc.createElement('span');
+ title.className='book-close-task-title';
+ title.textContent=item.title;
+ li.append(title);
+ // Link targets are fixed by the application, never accepted from RPC results.
+ if(item.href&&allowedLinks.has(item.href)){
   const link=doc.createElement('a');
-  link.href=href;
-  link.textContent=label||'Visa vad du kan göra';
-  item.append(link);
+  link.href=item.href;
+  link.textContent=item.label||'Öppna området';
+  li.append(link);
  }
- actions.append(item);
+ if(item.description){
+  const description=doc.createElement('p');
+  description.textContent=item.description;
+  li.append(description);
+ }
+ actions.append(li);
+}
+function planFromResults(results){
+ const [counts,ledger,evidence,cutoff]=results;
+ const attention=[],unknown=[],next=[];
+ let periodEmpty=false;
+ const add=(list,title,description,href,label,priority)=>{
+  list.push(task(list===attention?'attention':list===unknown?'unknown':'next',
+   title,description,href,label,priority));
+ };
+ if(counts.status==='fulfilled'&&counts.value?.counts){
+  const report=counts.value;
+  if(!report.reliable)
+   add(unknown,'Några uppgifter gick inte att hämta.',
+    'Försök kontrollera igen. Om problemet kvarstår behöver någon hjälpa dig att undersöka underlaget.',null,null,10);
+  const journal=report.counts.journal;
+  if(journal?.status==='counted'&&journal.count===0){
+   periodEmpty=true;
+   add(attention,'Inga bokföringsposter hittades för kalenderåret.',
+    'Kontrollera att du valde rätt år och att företagets bokföring har lagts in. Ett tomt år betyder inte att bokslutet är klart.',
+    './accounting.html','Öppna bokföringen',10);
+  }else if(!journal||journal.status==='unknown'||!Number.isSafeInteger(journal.count)){
+   if(report.reliable)
+    add(unknown,'Antalet bokföringsposter kunde inte bekräftas.',
+     'Vi kan inte avgöra om alla poster finns med. Kontrollera uppgifterna igen.',null,null,12);
+  }
+  if(report.counts.openBatches?.status==='attention')
+   add(attention,'Det finns bokföringsunderlag som väntar på godkännande.',
+    'Granska de väntande posterna innan någon försöker färdigställa bokslutet.',
+    './accounting.html','Öppna bokföringen',20);
+  if(report.counts.unplacedBank?.status==='attention')
+   add(attention,'Vissa betalningar har ännu inte kopplats till rätt händelse.',
+    'Gå till banken och välj vad respektive betalning gäller. Systemet ska inte gissa.',
+    './bank.html','Öppna bankhändelser',30);
+ }else add(unknown,'Antalet bokföringsposter kunde inte kontrolleras.',
+  'Förkontrollen saknar ett tillförlitligt underlag för antalen. Försök igen.',null,null,10);
+ if(ledger.status==='fulfilled'&&typeof ledger.value?.detected==='boolean'){
+  if(ledger.value.detected)
+   add(attention,'Vi hittade skillnader i bokföringen som behöver granskas.',
+    'De tekniska uppgifterna stämmer inte helt. Öppna bokföringen eller be en redovisningskunnig hjälpa dig.',
+    './accounting.html','Öppna bokföringen',5);
+  if(!periodEmpty&&ledger.value.counts?.entries==='0'){
+   add(attention,'Huvudboken innehåller inga verifikationer för kalenderåret.',
+    'Det behöver utredas om året är korrekt och om historiken saknas. Ett nollresultat är inte ett godkänt bokslut.',
+    './accounting.html','Öppna bokföringen',11);
+  }
+ }else add(unknown,'Bokföringens kvalitet kunde inte kontrolleras.',
+  'Vi kan inte bekräfta att posternas uppgifter är korrekta. Försök igen.',null,null,15);
+ if(evidence.status==='fulfilled'&&evidence.value?.areas){
+  const a=evidence.value.areas;
+  if(a.bank?.needsReview)
+   add(attention,'Några bankhändelser behöver kompletteras eller granskas.',
+    'Kontrollera händelser som ännu inte har tillräckligt underlag.',
+    './bank.html','Öppna banken',25);
+  if(a.customer?.needsReview)
+   add(attention,'Några kundfakturor saknar underlag eller behöver granskas.',
+    'Kontrollera fakturornas uppgifter och komplettera dokument där det behövs.',
+    './invoices.html','Öppna kundfakturor',40);
+  if(a.supplier?.needsReview)
+   add(attention,'Några leverantörsfakturor behöver kompletteras.',
+    'Se över underlag och uppgifter så att kostnaderna går att kontrollera.',
+    './payables.html','Öppna leverantörsfakturor',45);
+  if(!a.bank||!a.customer||!a.supplier)
+   add(unknown,'Alla bank- och fakturaområden kunde inte bedömas.',
+    'Något underlag saknas i kontrollresultatet. Försök igen.',null,null,20);
+ }else add(unknown,'Bank- och fakturaunderlagen kunde inte kontrolleras.',
+  'De här uppgifterna behöver hämtas eller kontrolleras separat.',null,null,20);
+ if(cutoff.status==='fulfilled'&&typeof cutoff.value?.hasWarnings==='boolean'){
+  if(cutoff.value.hasWarnings)
+   add(attention,'Det kan finnas fel i äldre bokföringsposter.',
+    'Historiska datum eller kontorader behöver undersökas innan bokslutet kan godkännas.',
+    './accounting.html','Öppna bokföringen',16);
+ }else add(unknown,'Historiska kontorörelser kunde inte kontrolleras.',
+  'Vi kan inte intyga att historiken är komplett. Försök igen.',null,null,25);
+ // These prerequisites have NOT been verified by the current read-only RPCs.
+ add(next,'Återstår innan bokslutet kan godkännas.',
+  'Bankkontoutdrag, ingående balans, faktisk räkenskapsperiod och andra tillämpliga uppgifter behöver fortfarande stämmas av. Detta görs inte av den här förkontrollen.',
+  null,null,100);
+ if(attention.length===0&&unknown.length===0){
+  add(next,'Inga tydliga tekniska avvikelser hittades i förkontrollen.',
+   'Det innebär endast att just dessa läsbara indikatorer inte visade något problem. Bokslutet är ännu inte verifierat.',
+   null,null,90);
+ }
+ const byPriority=(a,b)=>a.priority-b.priority;
+ return {attention:attention.sort(byPriority),unknown:unknown.sort(byPriority),next:next.sort(byPriority)};
 }
 function resetMessage(){
  ++request;
@@ -64,37 +159,15 @@ button.addEventListener('click',async()=>{
   const fresh=await root.LTSupabaseUat.context();
   if(ticket!==request||!fresh?.authenticated||fresh.company?.id!==companyId||
      yearInput.value!==year||detailYear.value!==year)throw Error('STALE_SESSION_OR_YEAR');
-  let questions=0,unknown=0;
-  function needsHelp(message,href,label){questions++;addAction(message,href,label);}
-  function notChecked(message){unknown++;addAction(message);}
-  if(counts.status==='fulfilled'){
-   const data=counts.value;
-   if(!data.reliable)notChecked('Några bokföringsuppgifter kunde inte hämtas. Försök igen eller be om hjälp.');
-   if(data.counts.openBatches?.status==='attention')
-    needsHelp('Det finns bokföringsunderlag som väntar på godkännande.','./accounting.html','Öppna bokföringen');
-   if(data.counts.unplacedBank?.status==='attention')
-    needsHelp('Vissa betalningar har ännu inte kopplats till rätt händelse.','./bank.html','Öppna bankhändelser');
-  }else notChecked('Antalet bokföringsposter kunde inte kontrolleras.');
-  if(ledger.status==='fulfilled'){
-   if(ledger.value.detected)needsHelp('Vi hittade skillnader i bokföringen som behöver granskas.','./accounting.html','Öppna bokföringen');
-  }else notChecked('Bokföringens kvalitet kunde inte kontrolleras.');
-  if(evidence.status==='fulfilled'){
-   const areas=evidence.value.areas;
-   if(areas.bank.needsReview)needsHelp('Några bankhändelser behöver kompletteras eller granskas.','./bank.html','Öppna banken');
-   if(areas.customer.needsReview)needsHelp('Några kundfakturor saknar underlag eller behöver granskas.','./invoices.html','Öppna kundfakturor');
-   if(areas.supplier.needsReview)needsHelp('Några leverantörsfakturor behöver kompletteras.','./payables.html','Öppna leverantörsfakturor');
-  }else notChecked('Bank- och fakturaunderlagen kunde inte kontrolleras.');
-  if(cutoff.status==='fulfilled'){
-   if(cutoff.value.hasWarnings)needsHelp('Det kan finnas fel i tidigare bokföringsposter som behöver granskas.','./accounting.html','Öppna bokföringen');
-  }else notChecked('Historiska kontorörelser kunde inte kontrolleras.');
-  if(questions===0&&unknown===0)
-   addAction('Inga tydliga avvikelser hittades i de kontrollerade posterna. Det innebär inte att bokslutet är klart.');
-  addAction('Bankkontoutdrag, ingående balans och företagets verkliga räkenskapsår har ännu inte stämts av. En redovisningskunnig kan behöva kontrollera dessa uppgifter.');
+  const plan=planFromResults([counts,ledger,evidence,cutoff]);
+  for(const item of [...plan.attention,...plan.unknown,...plan.next])renderTask(item);
+  const questions=plan.attention.length,unknown=plan.unknown.length;
   status.textContent='Förkontroll för '+year+': '+questions+' möjliga frågor att hantera, '+unknown+' kontroller utan säkert resultat. Bokslutet är inte verifierat.';
  }catch{
   if(ticket!==request)return;
   actions.replaceChildren();
-  addAction('Kontrollen kunde inte genomföras. Kontrollera anslutningen och den aktiva företagssessionen och försök igen.');
+  renderTask(task('unknown','Kontrollen kunde inte genomföras.',
+   'Kontrollera anslutningen och din aktiva företagssession och försök igen.',null,null,0));
   status.textContent='Förkontrollen kunde inte slutföras. Bokslutet är inte verifierat.';
  }finally{
   if(ticket===request)button.disabled=false;
