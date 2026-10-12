@@ -22,7 +22,7 @@ function runtime(records){
   };
   const global={
     Promise,Map,Set,Number,String,encodeURIComponent,
-    session:null,invoices:[],receivableCustomers:[],
+    mode:'supabase',session:null,invoices:[],receivableCustomers:[],
     supabaseContext:async()=>userContext,
     pendingBatchInvoice:invoice=>String(invoice?.status||'')==='Väntar på bunt',
     portalView:()=>{renders++},
