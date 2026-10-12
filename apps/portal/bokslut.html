@@ -50,7 +50,7 @@
 (async function(){
  const demo=new URLSearchParams(location.search).get('demo')==='1';
  document.getElementById('year-close-year').value=String(new Date().getFullYear());
- if(demo){document.getElementById('bokslut-company').textContent='Demoläge – inga kontroller utförda.';document.querySelectorAll('.bokslut-card a').forEach(function(a){a.href+=(a.href.includes('?')?'&':'?')+'demo=1';});document.getElementById('lt-bokslut-app').hidden=false;document.getElementById('bokslut-loading').hidden=true;return;}
+ if(demo){document.querySelector('#year-close-form button').disabled=true;document.getElementById('year-close-message').textContent='Serverkontrollen kräver inloggning i ett testföretag. Demoläget visar ingen riktig kontroll.';document.getElementById('bokslut-company').textContent='Demoläge – inga kontroller utförda.';document.querySelectorAll('.bokslut-card a').forEach(function(a){a.href+=(a.href.includes('?')?'&':'?')+'demo=1';});document.getElementById('lt-bokslut-app').hidden=false;document.getElementById('bokslut-loading').hidden=true;return;}
  try {
    if(!globalThis.LTSupabaseUat)throw new Error('Session saknas');
    const context=await globalThis.LTSupabaseUat.context();
