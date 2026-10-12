@@ -183,6 +183,10 @@ function visible(element){
             const style=getComputedStyle(el),rect=el.getBoundingClientRect();
             if(style.display==='none'||style.visibility==='hidden'||Number(style.opacity)===0||rect.width<=0||rect.height<=0)return false;
             if(!el.matches('.ui-icon,.op-icon')&&!el.innerText?.trim())return false;
+            // Do not assume an icon on a deliberately dark button should be
+            // dark in a light page. Inverted button icons need local surface
+            // contrast, not the global text-luminance heuristic.
+            if(el.matches('.ui-icon,.op-icon')&&el.closest('button,[role="button"],.button'))return false;
             return !el.closest('.button,.header-action,.status-pill,.status-badge,.badge,.avatar,.nav-badge,.notice,.error,.warning,.success-box,.visual-note,.service-number,.login-brand,.topbar-create') &&
               !(theme==='light'&&el.closest('.contact,.operator-shell .sidebar'));
           });
