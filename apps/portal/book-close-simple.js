@@ -19,7 +19,7 @@ function renderTask(item){
  li.className='book-close-task book-close-task--'+item.kind;
  const title=doc.createElement('span');
  title.className='book-close-task-title';
- title.textContent=item.title;
+ title.textContent=(item.kind==='attention'?'Behöver din hjälp: ':item.kind==='unknown'?'Kunde inte kontrolleras: ':'Nästa steg: ')+item.title;
  li.append(title);
  // Link targets are fixed by the application, never accepted from RPC results.
  if(item.href&&allowedLinks.has(item.href)){
