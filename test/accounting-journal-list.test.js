@@ -12,7 +12,7 @@ const withoutStartup=source.slice(0,source.indexOf('async function init(){'));
 function journalView(documentOverride){
   assert.ok(withoutStartup.length>0 && withoutStartup.length<source.length,'test must exclude only the startup call');
   const document=documentOverride||{getElementById:()=>({})};
-  const exposed='\n({ setRows(rows){entries=rows;selectedEntry=sortedJournalEntries()[0]||null}, setExpanded(value){journalExpanded=value}, setQuery(value){journalQuery=value}, setSelected(value){selectedEntry=entries.find(row=>row.id===value)||null}, sortedJournalEntries,entryTable,bind })';
+  const exposed='\n({ setRows(rows){entries=rows;selectedEntry=sortedJournalEntries()[0]||null}, setExpanded(value){journalExpanded=value}, setQuery(value){journalQuery=value}, setSuggestions(open,index=-1){journalSuggestionsOpen=open;journalSuggestionIndex=index}, setSelected(value){selectedEntry=entries.find(row=>row.id===value)||null}, sortedJournalEntries,entryTable,bind })';
   return vm.runInNewContext(withoutStartup+exposed,{
     document,location:{search:'',hostname:'localhost'},sessionStorage:{getItem:()=>null},
     URLSearchParams,Date,Intl
@@ -156,4 +156,36 @@ test('sökning byter endast verifikationslistan och behåller andra utkast och m
   assert.match(css,/\.journal-search-controls input\[type="search"\]/);
   assert.match(css,/html\[data-lt-theme="dark"\] \.journal-search/);
   assert.match(css,/@media\(max-width:620px\)\{\.journal-search-controls/);
+});
+
+
+test('sökförslagen har verkliga tillgängliga roller, säker text och aktivt tangentbordsval',()=>{
+  const view=journalView();
+  view.setRows([
+    {id:'first',number:'A102',postingDate:'2026-10-12',description:'Hyra "lokal" <test>',sourceType:'manual',
+     lines:[{account:'5010',text:'Kontorshyra',debitOre:1000,creditOre:0}]},
+    {id:'second',number:'A101',postingDate:'2026-10-11',description:'Andra lokalen',sourceType:'manual',
+     lines:[{account:'5010',text:'Kontorshyra',debitOre:1000,creditOre:0}]}
+  ]);
+  view.setQuery('lokal');
+  view.setSuggestions(true,1);
+  const html=view.entryTable();
+  assert.match(html,/role="combobox"/);
+  assert.match(html,/aria-controls="journal-search-suggestions"/);
+  assert.match(html,/aria-autocomplete="list"/);
+  assert.match(html,/aria-expanded="true"/);
+  assert.match(html,/aria-activedescendant="journal-suggestion-1"/);
+  assert.match(html,/role="listbox"/);
+  assert.equal((html.match(/role="option"/g)||[]).length,2);
+  assert.match(html,/id="journal-suggestion-1"[^>]*aria-selected="true"/);
+  assert.match(html,/Hyra &quot;lokal&quot; &lt;test&gt;/);
+  assert.doesNotMatch(html,/<test>/);
+  view.setSuggestions(false);
+  assert.match(view.entryTable(),/aria-expanded="false"/);
+  assert.match(view.entryTable(),/role="listbox"[^>]*hidden/);
+  assert.match(source,/journalSuggestionIndex=journalSuggestionIndex<0/);
+  assert.match(source,/key==="ArrowDown"/);
+  assert.match(source,/key==="ArrowUp"/);
+  assert.match(source,/key==="Enter"/);
+  assert.match(source,/key==="Escape"/);
 });
