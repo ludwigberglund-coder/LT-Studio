@@ -2,36 +2,32 @@
 <html lang="sv">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f7f5f0">
 <title>Bokslut · LT Studio</title>
-<link rel="stylesheet" href="./styles.css"><link rel="stylesheet" href="./design-system.css">
-<style>
-.bokslut-shell{max-width:1100px;margin:3rem auto;padding:0 1.25rem;color:var(--ink,#172235)}
-.bokslut-intro{background:var(--paper,#fff);border:1px solid #b6bdc8;border-radius:24px;padding:2rem}
-.bokslut-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;margin:1.5rem 0}
-.bokslut-card{background:var(--paper,#fff);border:1px solid #b6bdc8;border-radius:16px;padding:1.25rem}
-.bokslut-card p{line-height:1.5}.bokslut-card a{font-weight:700}
-.bokslut-status{display:inline-block;background:#fff4dc;color:#704500;border:1px solid #ab7400;border-radius:30px;padding:.35rem .7rem;font-weight:700}
-.bokslut-notice{border-left:4px solid #946900;padding:1rem 1.25rem;background:var(--paper,#fff)}
-a:focus-visible{outline:3px solid #275bd0;outline-offset:3px}
-</style>
+<link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="./bokslut.css">
+<link rel="stylesheet" href="./design-system.css">
 </head>
 <body>
+<div id="bokslut-loading" role="status" aria-live="polite" class="bokslut-loading">Kontrollerar din session…</div>
 <div id="lt-bokslut-app" class="bokslut-shell" hidden>
 <header class="bokslut-intro">
-<p>Bokslut / första versionen</p><h1>Förbered ditt bokslut</h1>
+<p class="bokslut-eyebrow">BOKSLUT · FÖRBEREDELSE</p>
+<h1>Förbered ditt bokslut</h1>
 <p>Vi samlar de kontroller som behövs inför räkenskapsårets slut. Den här versionen bokför ingenting och ändrar inga ekonomiska uppgifter.</p>
-<p><span class="bokslut-status">Bokslut inte verifierat</span></p>
+<p><span class="bokslut-status" role="status">Bokslut inte verifierat</span> <span class="bokslut-count">6 områden att granska</span></p>
 <p id="bokslut-company">Företag kontrolleras…</p>
 </header>
 <main>
 <h2>Det här behöver kontrolleras</h2>
+<p class="bokslut-lead">Välj ett område för att se dina uppgifter i den vanliga företagsportalen.</p>
 <div class="bokslut-grid">
-<article class="bokslut-card"><h3>Bank och betalningar</h3><p>Bankens saldo och oplacerade betalningar måste jämföras mot bokföringen.</p><p>Status: Inte verifierad</p><a href="./bank.html">Öppna bankavstämning →</a></article>
-<article class="bokslut-card"><h3>Kundfordringar</h3><p>Obetalda kundfakturor måste stämmas av mot bokförda fordringar.</p><p>Status: Inte verifierad</p><a href="./invoices.html">Öppna kundfakturor →</a></article>
-<article class="bokslut-card"><h3>Leverantörsskulder</h3><p>Öppna fakturor och eventuella kostnader kring årsskiftet behöver granskas.</p><p>Status: Inte verifierad</p><a href="./payables.html">Öppna leverantörsfakturor →</a></article>
-<article class="bokslut-card"><h3>Bokföring och buntar</h3><p>Kontrollera att alla perioder och verifikationer ingår och att inga buntar väntar.</p><p>Status: Inte verifierad</p><a href="./accounting.html">Öppna bokföringen →</a></article>
-<article class="bokslut-card"><h3>Moms och rapporter</h3><p>Kontrollera momsperioder, specialfall och huvudbok innan skatteberäkning.</p><p>Status: Inte verifierad</p><a href="./reports.html">Öppna rapporter →</a></article>
-<article class="bokslut-card"><h3>Bokföringsunderlag</h3><p>Se till att fakturor, kvitton och andra nödvändiga underlag finns.</p><p>Status: Inte verifierad</p><a href="./documents.html">Öppna dokument →</a></article>
+<article class="bokslut-card"><h3>Bank och betalningar</h3><p>Bankens saldo och oplacerade betalningar måste jämföras mot bokföringen.</p><p class="bokslut-card-status">Status: Inte verifierad</p><a href="./bank.html">Öppna bankavstämning →</a></article>
+<article class="bokslut-card"><h3>Kundfordringar</h3><p>Obetalda kundfakturor måste stämmas av mot bokförda fordringar.</p><p class="bokslut-card-status">Status: Inte verifierad</p><a href="./invoices.html">Öppna kundfakturor →</a></article>
+<article class="bokslut-card"><h3>Leverantörsskulder</h3><p>Öppna fakturor och eventuella kostnader kring årsskiftet behöver granskas.</p><p class="bokslut-card-status">Status: Inte verifierad</p><a href="./payables.html">Öppna leverantörsfakturor →</a></article>
+<article class="bokslut-card"><h3>Bokföring och buntar</h3><p>Kontrollera att alla perioder och verifikationer ingår och att inga buntar väntar.</p><p class="bokslut-card-status">Status: Inte verifierad</p><a href="./accounting.html">Öppna bokföringen →</a></article>
+<article class="bokslut-card"><h3>Moms och rapporter</h3><p>Kontrollera momsperioder, specialfall och huvudbok innan skatteberäkning.</p><p class="bokslut-card-status">Status: Inte verifierad</p><a href="./reports.html">Öppna rapporter →</a></article>
+<article class="bokslut-card"><h3>Bokföringsunderlag</h3><p>Se till att fakturor, kvitton och andra nödvändiga underlag finns.</p><p class="bokslut-card-status">Status: Inte verifierad</p><a href="./documents.html">Öppna dokument →</a></article>
 </div>
 <p class="bokslut-notice"><strong>Varför står allt som inte verifierat?</strong> För att vi inte ännu har en fullständig serverbaserad årsavstämning. Tomma listor eller inlästa siffror bevisar inte att allt är kontrollerat. Årsredovisning, deklaration och myndighetsinlämning är inte tillgängliga från denna vy.</p>
 </main></div>
@@ -39,13 +35,14 @@ a:focus-visible{outline:3px solid #275bd0;outline-offset:3px}
 <script>
 (async function(){
  const demo=new URLSearchParams(location.search).get('demo')==='1';
- if(demo){document.getElementById('bokslut-company').textContent='Demoläge – inga kontroller utförda.';document.getElementById('lt-bokslut-app').hidden=false;return;}
+ if(demo){document.getElementById('bokslut-company').textContent='Demoläge – inga kontroller utförda.';document.querySelectorAll('.bokslut-card a').forEach(function(a){a.href+=(a.href.includes('?')?'&':'?')+'demo=1';});document.getElementById('lt-bokslut-app').hidden=false;document.getElementById('bokslut-loading').hidden=true;return;}
  try {
    if(!globalThis.LTSupabaseUat)throw new Error('Session saknas');
    const context=await globalThis.LTSupabaseUat.context();
    if(!context||context.authenticated!==true||!context.company){location.replace('./index.html');return;}
    document.getElementById('bokslut-company').textContent='Aktivt företag: '+String(context.company.name||'Företag valt')+'. Regelverk och räkenskapsår har inte verifierats.';
    document.getElementById('lt-bokslut-app').hidden=false;
+   document.getElementById('bokslut-loading').hidden=true;
  }catch{location.replace('./index.html');}
 })();
 </script>
