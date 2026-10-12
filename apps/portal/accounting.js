@@ -550,6 +550,12 @@ function monitorMonthCoverage(){
     else if(!warning&&replacement){
       document.querySelector('.journal-search')?.insertAdjacentHTML('beforeend',replacement);
     }
+    const nextStepNode=document.querySelector('.month-close-next-step');
+    if(nextStepNode&&guide?.renderNextStep){
+      const nextStepHtml=guide.renderNextStep({...state,journalEntries:entries.filter(
+        entry=>String(entry.postingDate||'').slice(0,7)===currentPeriod())},currentPeriod());
+      if(nextStepNode.outerHTML!==nextStepHtml)nextStepNode.outerHTML=nextStepHtml;
+    }
     const bankNode=document.querySelector('.month-close-bank-review');
     if(bankNode&&guide?.renderBankReview){
       const fresh=guide.renderBankReview(state);
