@@ -97,7 +97,6 @@ function visible(element){
           colorScheme:theme.colorScheme
         });
         for(const surface of surfaces){
-        if(surface.id==='website'&&theme.id==='dark')continue;
         const page=await context.newPage();
         const pageErrors=[];
         page.on('pageerror',error=>pageErrors.push(error.message));
@@ -200,7 +199,7 @@ function visible(element){
           };
         });
 
-        if(surface.id!=='website')assert.equal(layout.theme,theme.id,`${surface.id} ${viewport.id} did not apply ${theme.id} mode`);
+        assert.equal(layout.theme,theme.id,`${surface.id} ${viewport.id} did not apply ${theme.id} mode`);
         assert.ok(layout.bodyText>80,`${surface.id} ${viewport.id} ${theme.id} rendered too little content`);
         assert.ok(layout.visibleControls>0,`${surface.id} ${viewport.id} ${theme.id} has no visible controls`);
         if(layout.scrollWidth>layout.innerWidth+2)layoutIssues.push(`${surface.id} ${viewport.id} ${theme.id} has page-level horizontal overflow: ${layout.scrollWidth}px > ${layout.innerWidth}px; offenders=${JSON.stringify(layout.overflowing)}`);
@@ -276,7 +275,7 @@ function visible(element){
         if(surface.id==='suppliers'&&theme.id==='dark'){
           assert.equal(layout.supplierInputColor,'rgb(255, 255, 255)',`${viewport.id} supplier input text lost dark-mode contrast`);
           assert.equal(layout.supplierInputTextFill,'rgb(255, 255, 255)',`${viewport.id} supplier input text fill lost dark-mode contrast`);
-          assert.equal(layout.supplierPrimaryColor,'rgb(34, 39, 46)',`${viewport.id} supplier primary button text must stay dark on the pale accent surface`);
+          assert.equal(layout.supplierPrimaryColor,'rgb(255, 255, 255)',`${viewport.id} supplier primary button must be light text on a dark surface`);
         }
 
         const file=`visual-${surface.id}-${viewport.id}-${theme.id}.png`;
@@ -290,7 +289,7 @@ function visible(element){
 
     if(layoutIssues.length)throw new Error(`Visual layout issues:\n${layoutIssues.join('\n')}`);
     fs.writeFileSync(path.join(out,'visual-design-results.json'),JSON.stringify({ok:true,checks,errors},null,2));
-    console.log(`Visual design smoke passed: ${checks.length} rendered viewport/theme checks (public website is theme-neutral).`);
+    console.log(`Visual design smoke passed: ${checks.length} rendered viewport/theme checks (including website dark mode).`);
   }catch(error){
     errors.push(error.stack||String(error));
     fs.writeFileSync(path.join(out,'visual-design-results.json'),JSON.stringify({ok:false,checks,errors},null,2));
