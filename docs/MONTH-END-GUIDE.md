@@ -54,3 +54,11 @@ Ingen ny migration, RPC, Edge Function, databasrättighet eller ekonomisk skrivn
 - Fel företag eller fel period får inte återanvända tidigare kontroll.
 - Bokföringsvyns korta, sökbara verifikationslista får inte ändras.
 - Ingen automatiskt attest och ingen ny möjlighet att ändra bokföringen.
+
+## Tidsgräns för antalskontroller (2026-10-12)
+
+De autentiserade antalsjämförelserna är ögonblicksbilder, inte löpande övervakning. När de är äldre än **fem minuter**, saknar tidsstämpel eller innehåller en orimligt framtida tidsstämpel går kontrollstatus från `matched`/`mismatch` till **okänd**. Användaren kan trycka på **Uppdatera kontrollen** för att ladda om bokföringssidan och hämta aktuell data.
+
+När användaren återvänder till fliken uppdaterar gränssnittet tidsbedömningen, och det gör även en lättviktig kontroll var 30:e sekund medan sidan är öppen. Ingen bakgrundsbokföring, ny databaskostnad eller ändrad rättighet tillkommer.
+
+**Begränsning:** Ett färskt radantal bekräftar bara att radantalsjämförelsen gjordes nyligen. Det betyder inte att ingen annan användare har bokfört efter tidpunkten, eller att perioden är avstämd. Kontroll med två fiktiva företags-ID:n finns i automatiska testfall; en verklig inloggad UAT med två separata företag kräver fortfarande separat verifiering.
