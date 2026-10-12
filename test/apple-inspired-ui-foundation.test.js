@@ -8,11 +8,11 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
-test('Apple-inspired UI foundation stays limited to workspace chrome and overview',()=>{
+test('Apple-inspired UI foundation stays limited to solid workspace chrome and overview',()=>{
   const design=read('apps/portal/design-system.css');
   const dashboard=read('apps/portal/dashboard.css');
   assert.match(design,/LT Studio UI 2\.0 — Apple-inspired workspace foundation/);
-  assert.match(design,/backdrop-filter:blur\(22px\) saturate\(145%\)/);
+  assert.match(design,/--lt-shell-panel:var\(--surface-card\)/);
   assert.match(design,/prefers-reduced-transparency:reduce/);
   assert.match(design,/html\[data-lt-theme="dark"\]/);
   assert.match(dashboard,/LT Studio UI 2\.0 — overview pilot/);
