@@ -66,6 +66,7 @@ test('lägesväxeln sparas separat per användare och företag och är bara pres
   assert.match(source,/shared-nav-mode-switch/);
   assert.match(source,/aria-pressed/);
   assert.match(source,/advancedRoute/);
+  assert.match(source,/mode==='simple'&&advancedRoute/);
   assert.match(source,/simpleGroups\(authorizedGroups\)/);
   assert.match(css,/shared-nav-mode-button:focus-visible/);
   assert.match(css,/min-height:44px/);
