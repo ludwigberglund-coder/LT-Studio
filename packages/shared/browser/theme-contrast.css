@@ -293,3 +293,25 @@ html[data-lt-theme="light"] .settlement-grid label{
 html[data-lt-theme="dark"] .settlement-grid label{
   color:#ffffff!important;
 }
+
+/* The finance editor has more-specific readonly input rules than the normal
+   theme. Match their specificity in the settlement modal so CSS order cannot
+   turn an amount gray in dark mode. */
+html[data-lt-theme="light"] body .settlement-modal .settlement-grid input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):is(:disabled,[readonly]){
+  color:#1c2523!important;
+  -webkit-text-fill-color:#1c2523!important;
+  background-color:#edf0ed!important;
+  opacity:1!important;
+}
+html[data-lt-theme="dark"] body .settlement-modal .settlement-grid input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):is(:disabled,[readonly]){
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+  background-color:#373e47!important;
+  opacity:1!important;
+}
+html[data-lt-theme="light"] body .settlement-modal .settlement-grid label{
+  color:#1c2523!important;
+}
+html[data-lt-theme="dark"] body .settlement-modal .settlement-grid label{
+  color:#ffffff!important;
+}
