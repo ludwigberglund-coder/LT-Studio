@@ -22,7 +22,7 @@ test('dashboarden visar mjuk varning om någon viktig kö inte kan läsas',()=>{
 test('dashboarden är gles och visar högst sex konkreta uppgifter',()=>{
   assert.match(source,/return tasks\.slice\(0,6\)/);
   assert.match(source,/Följ upp förfallna kundfakturor/);
-  assert.match(source,/Matcha bankhändelser/);
+  assert.match(source,/Hantera oplacerade betalningar/);
   assert.match(source,/Granska automationsförslag/);
   assert.doesNotMatch(source,/Alla områden/);
   assert.doesNotMatch(source,/Starta testguiden/);
