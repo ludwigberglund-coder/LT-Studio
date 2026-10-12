@@ -76,3 +76,67 @@ test('guiden har inga nätverksanrop eller bokföringsskrivningar',()=>{
   assert.match(accounting,/lock_accounting_period/,'befintlig server-RPC finns kvar');
   assert.match(accounting,/accounting\/periods\/\$\{period\}\/lock/,'äldre privata serverflödet finns kvar');
 });
+
+
+test('snabbkontroll granskar bara aktuell månads inlästa verifikationer',()=>{
+  const check=guide().inspectEntries([
+    {number:'A12',postingDate:'2026-10-01',description:'Hyra',lines:[
+      {debitOre:10000,creditOre:0},{debitOre:0,creditOre:10000}
+    ]},
+    {number:'A13',postingDate:'2026-09-03',description:'Gammal felpost',lines:[
+      {debitOre:10000,creditOre:0},{debitOre:0,creditOre:9000}
+    ]}
+  ],'2026-10');
+  assert.equal(check.loadedCount,1);
+  assert.equal(check.findings.length,0);
+});
+
+test('snabbkontroll skiljer saknad text, otillgängliga detaljer och obalans',()=>{
+  const report=guide().inspectEntries([
+    {number:'A21',postingDate:'2026-10-04',description:'',lines:[
+      {debitOre:600,creditOre:0},{debitOre:0,creditOre:500}
+    ]},
+    {number:'A22',postingDate:'2026-10-05',description:'Källa som saknar laddade rader'},
+    {number:'A23',postingDate:'2026-10-06',description:'Fel beloppsvärde',lines:[
+      {debitOre:'okänd',creditOre:0},{debitOre:0,creditOre:500}
+    ]}
+  ],'2026-10');
+  assert.equal(report.loadedCount,3);
+  assert.equal(report.findings.length,4);
+  assert.ok(report.findings.some(x=>x.kind==='Beskrivning saknas'));
+  assert.ok(report.findings.some(x=>x.kind==='Debet och kredit stämmer inte'));
+  assert.ok(report.findings.some(x=>x.kind==='Kontorader kunde inte kontrolleras'));
+  assert.ok(report.findings.some(x=>x.kind==='Beloppsuppgifter kunde inte kontrolleras'));
+});
+
+test('snabbkontroll undviker falska klarsignaler och skyddar verifikationsnumret',()=>{
+  const sample=guide();
+  const entry={number:'<script>alert(1)</script>',postingDate:'2026-10-12',description:'Prov',lines:[
+    {debitOre:100,creditOre:0},{debitOre:0,creditOre:99}
+  ]};
+  const html=sample.render({period:'2026-10',periodExists:true,periodStatus:'open',visibleEntries:1,journalEntries:[entry]});
+  assert.match(html,/1 möjliga avvikelser/);
+  assert.match(html,/&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.doesNotMatch(html,/<script>alert/);
+  assert.match(html,/href="#journal-entries"/);
+  assert.match(html,/ersätter inte fullständig avstämning/);
+  const clean=sample.render({period:'2026-10',periodExists:true,periodStatus:'open',visibleEntries:1,journalEntries:[{
+    number:'A25',postingDate:'2026-10-10',description:'Korrekt post',lines:[
+      {debitOre:100,creditOre:0},{debitOre:0,creditOre:100}
+    ]
+  }]});
+  assert.match(clean,/Inga avvikelser hittades bland de inlästa verifikationerna/);
+  assert.doesNotMatch(clean,/(?:Månaden är avstämd|Allt klart|Godkänd avstämning)/);
+  const absent=sample.render({period:'2026-10',periodExists:true,visibleEntries:0});
+  assert.match(absent,/Ingen automatisk kontroll har kunnat göras/);
+  const empty=sample.render({period:'2026-10',journalEntries:[],visibleEntries:0});
+  assert.match(empty,/Inga verifikationer finns i den inlästa listan/);
+});
+
+test('bokföringsvyn tillför enbart read-only inläst journaldata till guidens kontroller',()=>{
+  const accounting=fs.readFileSync(path.join(__dirname,'..','apps','portal','accounting.js'),'utf8');
+  assert.match(accounting,/journalEntries:entries\.filter/);
+  assert.match(accounting,/id="journal-entries"/);
+  assert.doesNotMatch(source,/\bfetch\s*\(/);
+  assert.doesNotMatch(source,/LTSupabase|postEntry|accounting\.correct/);
+});
