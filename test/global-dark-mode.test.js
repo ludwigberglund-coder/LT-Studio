@@ -38,9 +38,11 @@ test('static build installs dark mode on every system workspace',()=>{
   assert.match(build,/function installGlobalTheme\(directory\)/);
   assert.match(build,/theme\.css/);
   assert.match(build,/theme\.js/);
-  assert.match(build,/for\(const workspace of \['portal','admin','operator','legacy','uat'\]\)installGlobalTheme\(path\.join\(target,workspace\)\)/);
+  assert.match(build,/installGlobalTheme\(target\)/);
   assert.match(build,/'shared\/theme\.css'/);
   assert.match(build,/'shared\/theme\.js'/);
+  assert.match(build,/'shared\/theme-contrast\.css'/);
+  assert.match(build,/const contrastStyle=/);
 });
 
 test('theme toggle remains keyboard accessible and visible on mobile',()=>{
