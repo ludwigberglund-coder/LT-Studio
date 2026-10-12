@@ -75,6 +75,12 @@
     if(!c||c.status!=='checked'||c.period!==period||!state.companyId||String(c.companyId)!==String(state.companyId)){
       return {status:'unavailable',reason:'Databasen kunde inte bekräfta hur många poster som skulle läsas in.'};
     }
+    // Counts are only a point-in-time comparison. Never present old snapshots as current.
+    const checkedAt=Date.parse(String(c.checkedAt||''));
+    const age=Date.now()-checkedAt;
+    if(!Number.isFinite(checkedAt)||age< -30000||age>5*60*1000){
+      return {status:'unavailable',reason:'Kontrollen är äldre än fem minuter eller saknar en giltig tidpunkt. Läs in uppgifterna igen.'};
+    }
     const keys=['totalEntries','totalLines','periodEntries','loadedEntries','loadedLines','loadedPeriodEntries'];
     if(keys.some(key=>!Number.isSafeInteger(c[key])||c[key]<0)){
       return {status:'unavailable',reason:'Databasen skickade ofullständiga antalsuppgifter.'};
@@ -95,12 +101,15 @@
     ].filter(([,loaded,expected])=>loaded!==expected);
     return {status:differences.length||integrityProblems.length?'mismatch':'matched',differences,integrityProblems,counts:c};
   }
+  function reloadAction(){
+    return '<button class="button ghost small month-close-refresh" type="button" data-action="refresh-month-coverage">Uppdatera kontrollen</button>';
+  }
   function coveragePanel(state,period){
     const coverage=evaluateCoverage(state,period);
     if(coverage.status==='unavailable'){
       return '<div class="month-close-coverage month-close-coverage-unknown" role="status">'+
         '<h3>Inläsningen behöver kontrolleras</h3><p>'+escapeHtml(coverage.reason)+'</p>'+
-        '<p>Du kan granska de synliga posterna, men systemet vet inte om alla verifikationer och kontorader kom med.</p></div>';
+        '<p>Du kan granska de synliga posterna, men systemet vet inte om alla verifikationer och kontorader kom med.</p>'+reloadAction()+'</div>';
     }
     const c=coverage.counts;
     const lines=[
@@ -115,7 +124,7 @@
       : 'Antalen stämmer inte. En del poster kan saknas i den inlästa listan. Läs in sidan igen och granska avvikelsen.';
     return '<div class="month-close-coverage '+(coverage.status==='matched'?'month-close-coverage-matched':'month-close-coverage-mismatch')+'" role="status">'+
       '<h3>Kontroll av inlästa poster</h3><p>'+escapeHtml(notice)+'</p><ul>'+lines+integrityWarnings+'</ul>'+
-      '<p class="month-close-findings-disclaimer">Detta jämför antal enligt Supabase med antal som lästs in. Det verifierar inte varje post, bank, moms eller hela månadens avstämning. Pågående ändringar kan kräva ny inläsning.</p></div>';
+      '<p class="month-close-findings-disclaimer">Detta jämför antal enligt Supabase med antal som lästs in. Kontroll gjord: '+escapeHtml(c.checkedAt)+'. Det verifierar inte varje post, bank, moms eller hela månadens avstämning. Pågående ändringar kan kräva ny inläsning.</p>'+reloadAction()+'</div>';
   }
 
   function render(options){
@@ -147,5 +156,5 @@
       '<p class="month-close-notice">Ingen punkt markeras automatiskt som klar. Öppna varje arbetsyta och gör den riktiga kontrollen före eventuellt periodlås.</p>'+
       '</section>';
   }
-  globalThis.LTMonthCloseGuide=Object.freeze({render:render,inspectEntries:inspectEntries,evaluateCoverage:evaluateCoverage});
+  globalThis.LTMonthCloseGuide=Object.freeze({render:render,inspectEntries:inspectEntries,evaluateCoverage:evaluateCoverage,renderCoverage:coveragePanel});
 })();

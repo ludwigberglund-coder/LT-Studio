@@ -146,6 +146,7 @@ test('månadsavstämningen visar serverantal endast när företag och period st�
   const g=guide();
   const state={companyId:'company-a',coverage:{
     status:'checked',companyId:'company-a',period:'2026-10',
+    checkedAt:new Date().toISOString(),
     totalEntries:12,totalLines:25,periodEntries:4,
     loadedEntries:12,loadedLines:25,loadedPeriodEntries:4,
     integrity:{duplicateEntryIds:0,duplicateLineIds:0,orphanLines:0,wrongCompanyLines:0,checkedEntries:12,checkedLines:25}
@@ -168,6 +169,7 @@ test('ofullständig inläsning visar varning även om de inlästa posterna balan
       {debitOre:100,creditOre:0},{debitOre:0,creditOre:100}
     ]}],
     coverage:{status:'checked',companyId:'company-a',period:'2026-10',
+    checkedAt:new Date().toISOString(),
       totalEntries:20,totalLines:45,periodEntries:8,
       loadedEntries:10,loadedLines:18,loadedPeriodEntries:1,
       integrity:{duplicateEntryIds:0,duplicateLineIds:0,orphanLines:0,wrongCompanyLines:0,checkedEntries:10,checkedLines:18}}
@@ -188,8 +190,10 @@ test('misslyckade, felaktiga och saknade serverantal kan inte ge en klarsignal',
   for(const coverage of [
     null,{status:'unavailable',companyId:'company-a',period:'2026-10'},
     {status:'checked',companyId:'company-a',period:'2026-10',
+    checkedAt:new Date().toISOString(),
       totalEntries:NaN,totalLines:0,periodEntries:0,loadedEntries:0,loadedLines:0,loadedPeriodEntries:0},
     {status:'checked',companyId:'company-a',period:'2026-10',
+    checkedAt:new Date().toISOString(),
       totalEntries:-1,totalLines:0,periodEntries:0,loadedEntries:0,loadedLines:0,loadedPeriodEntries:0}
   ])assert.match(make(coverage),/Inläsningen behöver kontrolleras/);
 });
@@ -212,6 +216,7 @@ test('bokföringsvyn använder endast företagets session och avgränsar månad 
 test('matchade radantal räcker inte om kontorader saknar verifikation eller återkommer',()=>{
   const g=guide();
   const base={status:'checked',companyId:'company-a',period:'2026-10',
+    checkedAt:new Date().toISOString(),
     totalEntries:2,totalLines:4,periodEntries:2,
     loadedEntries:2,loadedLines:4,loadedPeriodEntries:2,
     integrity:{duplicateEntryIds:0,duplicateLineIds:1,orphanLines:1,wrongCompanyLines:0,
@@ -223,4 +228,49 @@ test('matchade radantal räcker inte om kontorader saknar verifikation eller åt
   assert.match(html,/Kontorader saknar inläst verifikation: 1/);
   assert.match(html,/Antalen stämmer inte/);
   assert.equal(g.evaluateCoverage({...state,coverage:{...base,integrity:null}},'2026-10').status,'unavailable');
+});
+
+
+test('gammal, framtida och tidslös kontroll blir okänd, inte godkänd',()=>{
+  const g=guide();
+  const now=Date.now();
+  const base={
+    status:'checked',companyId:'company-a',period:'2026-10',
+    totalEntries:1,totalLines:2,periodEntries:1,loadedEntries:1,loadedLines:2,loadedPeriodEntries:1,
+    integrity:{duplicateEntryIds:0,duplicateLineIds:0,orphanLines:0,wrongCompanyLines:0,
+      checkedEntries:1,checkedLines:2}
+  };
+  const evaluate=checkedAt=>g.evaluateCoverage({
+    companyId:'company-a',coverage:{...base,...(checkedAt===undefined?{}:{checkedAt})}
+  },'2026-10');
+  assert.equal(evaluate(new Date(now).toISOString()).status,'matched');
+  for(const bad of [undefined,'ogiltigt',new Date(now-6*60*1000).toISOString(),
+    new Date(now+60*1000).toISOString()]){
+    const result=evaluate(bad);
+    assert.equal(result.status,'unavailable');
+    assert.match(result.reason,/Kontrollen är äldre än fem minuter|saknar en giltig tidpunkt/);
+  }
+});
+test('samma inlästa siffror för två testföretag får inte återanvända varandras tidpunkt eller status',()=>{
+  const g=guide();
+  const coverage={
+    status:'checked',companyId:'tenant-a',period:'2026-10',checkedAt:new Date().toISOString(),
+    totalEntries:1,totalLines:2,periodEntries:1,
+    loadedEntries:1,loadedLines:2,loadedPeriodEntries:1,
+    integrity:{duplicateEntryIds:0,duplicateLineIds:0,orphanLines:0,wrongCompanyLines:0,
+      checkedEntries:1,checkedLines:2}
+  };
+  assert.equal(g.evaluateCoverage({companyId:'tenant-a',coverage},'2026-10').status,'matched');
+  assert.equal(g.evaluateCoverage({companyId:'tenant-b',coverage},'2026-10').status,'unavailable');
+  assert.equal(g.evaluateCoverage({companyId:'tenant-a',coverage},'2026-09').status,'unavailable');
+});
+test('snabbknappen läser om sidan; tidskontrollen uppdateras även när fliken återgår till synligt läge',()=>{
+  const g=guide();
+  const html=g.render({companyId:'tenant-a',period:'2026-10',journalEntries:[],coverage:null});
+  assert.match(html,/data-action="refresh-month-coverage"/);
+  const accounting=fs.readFileSync(path.join(__dirname,'../apps/portal/accounting.js'),'utf8');
+  assert.match(accounting,/location\.reload\(\)/);
+  assert.match(accounting,/visibilitychange/);
+  assert.match(accounting,/setInterval\(updateAge,30000\)/);
+  assert.match(accounting,/guide\.renderCoverage/);
 });
