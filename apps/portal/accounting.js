@@ -242,13 +242,13 @@ function bindJournalControls(){
 
   // A normal, interactive suggestion list: arrow keys choose and Enter opens the chosen journal.
   document.querySelector("#journal-search-field")?.addEventListener("keydown",event=>{
-    const rows=filteredJournalEntries().slice(0,5);
+    const rows=journalQuery.trim()?filteredJournalEntries().slice(0,5):[];
     const key=event.key;
     if((key==="ArrowDown"||key==="ArrowUp")&&rows.length){
       event.preventDefault();
       journalSuggestionsOpen=true;
       const step=key==="ArrowDown"?1:-1;
-      journalSuggestionIndex=(journalSuggestionIndex+step+rows.length)%rows.length;
+      journalSuggestionIndex=journalSuggestionIndex<0?(step>0?0:rows.length-1):(journalSuggestionIndex+step+rows.length)%rows.length;
       const caret=event.currentTarget.selectionStart??event.currentTarget.value.length;
       updateJournalList({focusSearch:true,caret});
     }else if(key==="Enter"&&journalSuggestionsOpen&&journalSuggestionIndex>=0&&rows[journalSuggestionIndex]){
