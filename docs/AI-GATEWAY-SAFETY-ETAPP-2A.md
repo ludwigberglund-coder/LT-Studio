@@ -6,13 +6,13 @@ Användaren har bekräftat att `CLOUDFLARE_ACCOUNT_ID` och `CLOUDFLARE_AI_TOKEN`
 
 ## Leverans
 
-`packages/automation/ai-gateway-security.mjs`, `packages/automation/ai-gateway-session.mjs` och tillhörande `test/ai-gateway-*.test.js` introducerar ett oberoende serverkontrakt för framtida Edge Function:
+`packages/automation/ai-gateway-security.mjs`, `packages/automation/ai-gateway-session.mjs`, `packages/automation/ai-gateway-orchestrator.mjs` och tillhörande `test/ai-gateway-*.test.js` introducerar ett oberoende serverkontrakt för framtida Edge Function:
 
 - Begäranden får bara välja ett av tre fördefinierade **syntetiska scenarier** och idempotensnyckel. Fri text, dokument eller underlag avvisas.
 - Preflightmodulen har nu även ett separat asynkront lager som begär `auth.getUser(accessToken)` från Supabase Auth, kontrollerar AAL2/personligt `session_id` i det **redan verifierade** JWT:t och läser `company_memberships` med en **användarscoperad Supabase-klient**. Den befintliga restriktiva RLS-policyn blockerar ogiltiga/återkallade sessioner när medlemskapet läses. För en säker implementering måste serverns klient verkligen ha `Authorization: Bearer <samma token>`; det är INTE säkert att använda service-role för medlemskapsfrågan. Detta är fortfarande en adapter och **ingen HTTP-route eller live-testad session**.
 - `readonly`, annat företag, annan användare och ogiltig session avvisas.
 - Testunderlagets leverantör, moms och belopp kommer från en hårdkodad testmall och inte från användare eller AI.
-- Ingen Cloudflare-begäran får göras före uttryckligt syntetiskt pilotgodkännande, integritetsgodkännande och en **beständig, atomär reservation** av budget/kvot. Reservationsfunktionen finns ännu inte och denna PR skapar ingen exekveringsväg.
+- Orkestreringsmodulen kopplar samman verifierad Supabase-session, företagsbehörighet, ett obligatoriskt gränssnitt för **beständig atomär budgetreservation** och den tidigare syntetiska Cloudflare-providern. Anrop till providern sker endast efter godkänd session, rätt företag och reservation. Den riktiga SQL-reservationen **finns ännu inte** och denna PR skapar ingen HTTP-route eller utplacerad AI-funktion. Tester använder fejkad reservation och fejkade AI-svar.
 - Ingen publik Supabase Edge Function, ingen deployment, inga data- eller huvudboksskrivningar. Ingen företagskund kan använda detta än.
 
 ## Följande saknas innan anslutning får aktiveras
