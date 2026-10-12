@@ -152,6 +152,32 @@ function visible(element){
             return style.display!=='none'&&style.visibility!=='hidden'&&Number(style.opacity)!==0&&rect.width>0&&rect.height>0;
           });
           const visibleControls=rendered.filter(element=>element.matches('a,button,input,select,textarea,summary')).length;
+          // Theme readability is measured on actual computed colors, not CSS filenames.
+          const colorLuminance=value=>{
+            const numbers=String(value).match(/[\\d.]+/g);
+            if(!numbers||numbers.length<3)return null;
+            const channels=numbers.slice(0,3).map(Number).map(v=>{
+              const n=v/255;
+              return n<=.04045?n/12.92:Math.pow((n+.055)/1.055,2.4);
+            });
+            return channels[0]*.2126+channels[1]*.7152+channels[2]*.0722;
+          };
+          const theme=html.dataset.ltTheme;
+          const readableTargets=[...document.querySelectorAll(
+            'h1,h2,h3,h4,h5,h6,p,small,label,legend,th,td,summary,.shared-navigation a,.side-nav button,.shared-user-label,.ui-icon,.op-icon'
+          )].filter(el=>{
+            if(!visible(el))return false;
+            if(!el.matches('.ui-icon,.op-icon')&&!el.innerText?.trim())return false;
+            return !el.closest('.button,.header-action,.status-pill,.status-badge,.badge,.avatar,.nav-badge,.notice,.error,.warning,.success-box,.visual-note,.service-number,.login-brand,.topbar-create') &&
+              !(theme==='light'&&el.closest('.contact,.operator-shell .sidebar'));
+          });
+          const contrastIssues=readableTargets.map(el=>{
+            const color=getComputedStyle(el).color;
+            const lum=colorLuminance(color);
+            if(lum===null||(theme==='dark'?lum>=.44:lum<=.32))return null;
+            return {tag:el.tagName.toLowerCase(),className:String(el.className||'').slice(0,65),
+              text:el.innerText?.trim().slice(0,50)||'icon',color,lum:Number(lum.toFixed(3))};
+          }).filter(Boolean).slice(0,12);
           const overflowing=rendered.map(element=>{
             const rect=element.getBoundingClientRect();
             return {
@@ -169,6 +195,8 @@ function visible(element){
             innerWidth:window.innerWidth,
             bodyText:body.innerText.trim().length,
             visibleControls,
+            contrastIssues,
+            checkedColors:readableTargets.length,
             fontFamily:bodyStyle.fontFamily,
             bodyBackground:bodyStyle.backgroundColor,
             sidebarBackground:styleSide?.backgroundColor||null,
@@ -202,6 +230,7 @@ function visible(element){
         assert.equal(layout.theme,theme.id,`${surface.id} ${viewport.id} did not apply ${theme.id} mode`);
         assert.ok(layout.bodyText>80,`${surface.id} ${viewport.id} ${theme.id} rendered too little content`);
         assert.ok(layout.visibleControls>0,`${surface.id} ${viewport.id} ${theme.id} has no visible controls`);
+        assert.equal(layout.contrastIssues.length,0,`${surface.id} ${viewport.id} ${theme.id} has unreadable text/icons: ${JSON.stringify(layout.contrastIssues)}`);
         if(layout.scrollWidth>layout.innerWidth+2)layoutIssues.push(`${surface.id} ${viewport.id} ${theme.id} has page-level horizontal overflow: ${layout.scrollWidth}px > ${layout.innerWidth}px; offenders=${JSON.stringify(layout.overflowing)}`);
         assert.match(layout.fontFamily,/(-apple-system|BlinkMacSystemFont|SF Pro|system-ui)/i,`${surface.id} ${viewport.id} is not using the shared Apple/system font stack`);
         assert.equal(pageErrors.length,0,`${surface.id} ${viewport.id} has uncaught browser errors: ${pageErrors.join('; ')}`);
