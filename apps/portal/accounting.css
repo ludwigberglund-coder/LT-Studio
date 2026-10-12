@@ -2,3 +2,20 @@
 .opening-panel{grid-column:1/-1}.opening-panel .section-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}.opening-year-form{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.opening-year-form label{display:grid;gap:5px;font-size:12px;font-weight:800}.opening-year-form input{width:110px;border:1px solid #cfd9d3;border-radius:9px;padding:9px;font:inherit}.opening-meta{display:flex;gap:18px;align-items:end;flex-wrap:wrap}.opening-meta label{max-width:180px}.opening-meta span{color:#64716b;font-size:13px;padding-bottom:10px}.opening-lines{display:grid;gap:10px}.opening-line-row{display:grid;grid-template-columns:110px minmax(180px,1fr) 140px 140px auto;gap:10px;align-items:end;padding:12px;border:1px solid #e3ebe6;border-radius:12px;background:#fbfcfb}.opening-line-row label{margin:0}.opening-line-row input{min-width:0}.opening-confirm{display:flex!important;grid-template-columns:auto 1fr!important;align-items:flex-start;gap:10px!important;font-weight:600!important;background:#f4f8f6;border-radius:10px;padding:12px}.opening-confirm input{width:auto!important;margin-top:2px}.opening-remove{white-space:nowrap}
 @media(max-width:900px){.opening-line-row{grid-template-columns:100px 1fr 120px 120px}.opening-line-row .opening-remove{grid-column:1/-1;justify-self:start}.opening-panel .section-head{display:grid}.opening-year-form{justify-self:start}}
 @media(max-width:620px){.opening-line-row{grid-template-columns:1fr 1fr}.opening-line-row label:nth-child(2){grid-column:1/-1}.opening-line-row .opening-remove{grid-column:1/-1}.opening-meta{display:grid}.opening-year-form{display:grid;grid-template-columns:1fr auto;align-items:end}}
+
+/* Frivillig ordlista för ovana bokförare. Ingen koppling till ekonomiska skrivningar. */
+.accounting-help{grid-column:1/-1;border:1px solid #d4e1d9;border-radius:16px;background:var(--surface-card,#fff);overflow:hidden}
+.accounting-help summary{cursor:pointer;padding:17px 20px;font-weight:700;color:var(--color-ink,#173f32);list-style-position:inside}
+.accounting-help summary:focus-visible{outline:3px solid var(--brand-forest,#173f32);outline-offset:-4px}
+.accounting-help[open] summary{border-bottom:1px solid #d4e1d9}
+.accounting-help-body{padding:16px 20px 20px;color:var(--color-ink,#173f32)}
+.accounting-help-body>p{margin:0 0 16px;line-height:1.55}
+.accounting-help dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 0 14px}
+.accounting-help dl>div{padding:14px;border-radius:12px;background:var(--surface-alt,#f4f8f6);border:1px solid var(--color-hairline,#dfe7e2)}
+.accounting-help dt{font-weight:750;margin-bottom:6px}
+.accounting-help dd{margin:0;line-height:1.5}
+.accounting-help .accounting-help-note{font-size:13px;color:var(--muted,#64716b);margin:0}
+html[data-lt-theme="dark"] .accounting-help{background:var(--lt-dark-surface,#242c29);border-color:var(--lt-dark-border,#48544d)}
+html[data-lt-theme="dark"] .accounting-help[open] summary{border-color:var(--lt-dark-border,#48544d)}
+html[data-lt-theme="dark"] .accounting-help dl>div{background:var(--lt-dark-surface-soft,#303b35);border-color:var(--lt-dark-border,#48544d)}
+@media(max-width:700px){.accounting-help dl{grid-template-columns:1fr}.accounting-help summary{padding:15px}}
