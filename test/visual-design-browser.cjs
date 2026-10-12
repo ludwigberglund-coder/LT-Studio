@@ -116,6 +116,9 @@ function visible(element){
           const bodyStyle=getComputedStyle(body);
           const sharedUser=document.querySelector('.shared-user-trigger');
           const sharedAvatar=document.querySelector('.shared-user-avatar');
+          const sidebarCompany=document.querySelector('.sidebar.shared-sidebar .shared-company');
+          const sidebarCompanyStyle=sidebarCompany?getComputedStyle(sidebarCompany):null;
+          const sidebarCompanyRect=sidebarCompany?.getBoundingClientRect();
           const cmsForm=document.querySelector('.cms-form');
           const cmsSidePanel=document.querySelector('.cms-side > .panel');
           const supplierDivider=document.querySelector('.supplier-alert > div');
@@ -237,6 +240,8 @@ function visible(element){
             sharedUserDisplay:sharedUserStyle?.display||null,
             sharedUserBorderTopWidth:sharedUserStyle?.borderTopWidth||null,
             sharedAvatarWidth:sharedAvatarStyle?.width||null,
+            sidebarCompanyHeight:sidebarCompanyRect?.height??null,
+            sidebarCompanyClipped:Boolean(sidebarCompany&&sidebarCompanyStyle?.overflow==='hidden'&&sidebarCompany.scrollHeight>sidebarCompany.clientHeight+2),
             cmsFormPaddingTop:cmsFormStyle?.paddingTop||null,
             cmsFormPaddingLeft:cmsFormStyle?.paddingLeft||null,
             cmsSidePaddingTop:cmsSideStyle?.paddingTop||null,
@@ -277,6 +282,12 @@ function visible(element){
         }
         if(layout.sharedBrandText){
           assert.equal(layout.sharedBrandText,'LT Studio',`${surface.id} ${viewport.id} shows outdated workspace branding: ${layout.sharedBrandText}`);
+        }
+        if(layout.sidebarCompanyHeight!==null){
+          assert.ok(layout.sidebarCompanyHeight>=35,
+            `${surface.id} ${viewport.id} ${theme.id} company badge clips its text (height ${layout.sidebarCompanyHeight})`);
+          assert.equal(layout.sidebarCompanyClipped,false,
+            `${surface.id} ${viewport.id} ${theme.id} company badge has hidden overflow`);
         }
         if(layout.themeLabelDisplay){
           assert.equal(layout.themeLabelDisplay,'none',`${surface.id} ${viewport.id} topbar appearance label must not overlap adjacent controls`);
