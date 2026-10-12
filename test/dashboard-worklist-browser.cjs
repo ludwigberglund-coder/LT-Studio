@@ -71,7 +71,7 @@ function json(route,status,body){
     const cards=page.locator('.task-card');
     assert.equal(await cards.count(),6);
     assert.equal(await page.locator('.task-card.is-first').count(),1);
-    assert.equal(await page.locator('.welcome-next').getAttribute('href'),'./bank.html');
+    assert.equal(await page.locator('.welcome-next').getAttribute('href'),'./unplaced-payments.html');
     assert.match(await page.locator('.welcome-next').innerText(),/Öppna första uppgiften/);
     assert.match(await page.locator('.today-count').innerText(),/Översikten är ofullständig/);
     assert.match(await warning.innerText(),/kundreskontra/);
@@ -80,12 +80,19 @@ function json(route,status,body){
     assert.equal(await page.getByText('Öppet kundsaldo').count(),0);
     assert.equal(await page.getByText('Alla områden').count(),0);
 
-    assert.equal(await page.getByText('Matcha bankhändelser',{exact:true}).count(),1);
+    assert.equal(await page.getByText('Hantera oplacerade betalningar',{exact:true}).count(),1);
     assert.equal(await page.getByText('Granska leverantörsfakturor',{exact:true}).count(),1);
     assert.equal(await page.getByText('Granska automationsförslag',{exact:true}).count(),1);
     assert.equal(await page.getByText('Besluta om periodupplåsning',{exact:true}).count(),1);
 
-    console.log('Dashboard sparse worklist and shared navigation flow: OK');
+    const quick=page.locator('.quick-action-link');
+    assert.equal(await quick.count(),5,'authorized reader should see five read-only navigation shortcuts');
+    assert.deepEqual(await quick.evaluateAll(nodes=>nodes.map(link=>link.getAttribute('href'))),[
+      './invoices.html','./payables.html','./documents.html','./unplaced-payments.html','./accounting.html'
+    ]);
+    assert.equal(await page.locator('.quick-action-link[href="./accounts.html"]').count(),0);
+    assert.match(await page.locator('.dashboard-quick-actions').innerText(),/Ingenting bokförs/);
+    console.log('Dashboard sparse worklist, authorized shortcuts, and navigation flow: OK');
   }finally{
     if(browser)await browser.close();
     await close(server);
