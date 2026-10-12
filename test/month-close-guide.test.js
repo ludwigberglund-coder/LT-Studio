@@ -140,3 +140,68 @@ test('bokföringsvyn tillför enbart read-only inläst journaldata till guidens 
   assert.doesNotMatch(source,/\bfetch\s*\(/);
   assert.doesNotMatch(source,/LTSupabase|postEntry|accounting\.correct/);
 });
+
+
+test('månadsavstämningen visar serverantal endast när företag och period stämmer',()=>{
+  const g=guide();
+  const state={companyId:'company-a',coverage:{
+    status:'checked',companyId:'company-a',period:'2026-10',
+    totalEntries:12,totalLines:25,periodEntries:4,
+    loadedEntries:12,loadedLines:25,loadedPeriodEntries:4
+  }};
+  assert.equal(g.evaluateCoverage(state,'2026-10').status,'matched');
+  const html=g.render({...state,period:'2026-10',journalEntries:[]});
+  assert.match(html,/Antalen stämmer med de företagsspecifika databassvaren/);
+  assert.match(html,/Verifikationer för månaden: 4 av 4/);
+  assert.match(html,/Det verifierar inte varje post, bank, moms/);
+  assert.doesNotMatch(html,/Hela månaden är godkänd/);
+  assert.equal(g.evaluateCoverage({...state,companyId:'company-b'},'2026-10').status,'unavailable');
+  assert.equal(g.evaluateCoverage(state,'2026-09').status,'unavailable');
+});
+
+test('ofullständig inläsning visar varning även om de inlästa posterna balanserar',()=>{
+  const g=guide();
+  const state={
+    companyId:'company-a',period:'2026-10',
+    journalEntries:[{number:'A1',postingDate:'2026-10-01',description:'Syntetisk',lines:[
+      {debitOre:100,creditOre:0},{debitOre:0,creditOre:100}
+    ]}],
+    coverage:{status:'checked',companyId:'company-a',period:'2026-10',
+      totalEntries:20,totalLines:45,periodEntries:8,
+      loadedEntries:10,loadedLines:18,loadedPeriodEntries:1}
+  };
+  const h=g.render(state);
+  assert.equal(g.evaluateCoverage(state,'2026-10').status,'mismatch');
+  assert.match(h,/Antalen stämmer inte/);
+  assert.match(h,/Verifikationer för månaden: 1 av 8/);
+  assert.match(h,/Kontorader för företaget: 18 av 45/);
+  assert.match(h,/Inga avvikelser hittades bland de inlästa verifikationerna/);
+  assert.doesNotMatch(h,/Alla uppgifter har kontrollerats/);
+});
+
+test('misslyckade, felaktiga och saknade serverantal kan inte ge en klarsignal',()=>{
+  const g=guide();
+  const make=coverage=>g.render({companyId:'company-a',period:'2026-10',journalEntries:[],
+    coverage});
+  for(const coverage of [
+    null,{status:'unavailable',companyId:'company-a',period:'2026-10'},
+    {status:'checked',companyId:'company-a',period:'2026-10',
+      totalEntries:NaN,totalLines:0,periodEntries:0,loadedEntries:0,loadedLines:0,loadedPeriodEntries:0},
+    {status:'checked',companyId:'company-a',period:'2026-10',
+      totalEntries:-1,totalLines:0,periodEntries:0,loadedEntries:0,loadedLines:0,loadedPeriodEntries:0}
+  ])assert.match(make(coverage),/Inläsningen behöver kontrolleras/);
+});
+
+test('bokföringsvyn använder endast företagets session och avgränsar månad vid läskontrollen',()=>{
+  const accounting=fs.readFileSync(path.join(__dirname,'../apps/portal/accounting.js'),'utf8');
+  assert.match(accounting,/from\('journal_entries',ctx.accessToken\)\.countExact\(filter\)/);
+  assert.match(accounting,/from\('journal_lines',ctx.accessToken\)\.countExact\(filter\)/);
+  assert.match(accounting,/posting_date=gte\./);
+  assert.match(accounting,/posting_date=lt\./);
+  assert.match(accounting,/monthCoverage=\{status:'unavailable',companyId:ctx.company.id,period\}/);
+  assert.match(accounting,/companyId:session\?\.company\?\.id/);
+  assert.match(accounting,/function monthBounds\(period\)/);
+  const client=fs.readFileSync(path.join(__dirname,'../apps/portal/supabase-client.js'),'utf8');
+  assert.match(client,/countExact:/);
+  assert.match(client,/Prefer:'count=exact'/);
+});
