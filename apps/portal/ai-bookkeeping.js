@@ -4,9 +4,9 @@
   const demo=new URLSearchParams(location.search).get('demo')==='1';
   const liveHost=location.hostname==='ludwigberglund-coder.github.io';
   const options=Object.freeze([
-    {id:'office-paper',label:'Kontorsmaterial',supplier:'Testkontor AB',description:'10 paket A4-papper',account:'6110',accountName:'Kontorsmateriel'},
-    {id:'software-service',label:'IT-tjänst',supplier:'Test IT AB',description:'IT-drifttjänst under september',account:'6540',accountName:'IT-tjänster'},
-    {id:'cleaning-supplies',label:'Förbrukningsmaterial',supplier:'Test Städ AB',description:'Städmaterial för kontoret',account:'5460',accountName:'Förbrukningsmaterial'}
+    {id:'office-paper',label:'Kontorsmaterial',supplier:'Syntetiskt Kontor AB',description:'A4-kontorspapper, tio paket',account:'6110',accountName:'Kontorsmateriel'},
+    {id:'software-service',label:'IT-tjänst',supplier:'Syntetisk IT AB',description:'IT-drifttjänst under september',account:'6540',accountName:'IT-tjänster'},
+    {id:'cleaning-supplies',label:'Förbrukningsmaterial',supplier:'Syntetisk Städ AB',description:'Förbrukningsmaterial för städning',account:'5460',accountName:'Förbrukningsmaterial'}
   ]);
   let context=null,selected=options[0].id,busy=false,result=null,status='',statusKind='info';
   const esc=(text)=>String(text??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'":'&#39;'}[char]));
