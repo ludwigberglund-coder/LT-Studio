@@ -371,6 +371,36 @@ function visible(element){
           }
         }
 
+        /* Open a REAL popup and measure its label against its own surface.
+           Screenshots of closed pages never exercised this state. */
+        if(surface.id==='dashboard'){
+          const trigger=page.locator('.shared-user-trigger').first();
+          await trigger.waitFor({state:'visible'});
+          await trigger.click();
+          const popup=page.locator('.shared-user-dropdown').first();
+          await popup.waitFor({state:'visible'});
+          await page.waitForTimeout(150);
+          const popupContrast=await page.evaluate(()=>{
+            const menu=document.querySelector('.shared-user-dropdown');
+            const item=menu?.querySelector('a,button');
+            if(!menu||!item)return null;
+            const read=(v)=>{
+              const m=String(v).match(/[\\d.]+/g)?.slice(0,3).map(Number);
+              if(!m||m.length!==3)return null;
+              const c=m.map(x=>x/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4);
+              return .2126*c[0]+.7152*c[1]+.0722*c[2];
+            };
+            const fg=getComputedStyle(item).color,bg=getComputedStyle(menu).backgroundColor;
+            const a=read(fg),b=read(bg);
+            return a===null||b===null?null:{ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05),fg,bg};
+          });
+          assert.ok(popupContrast&&popupContrast.ratio>=4.5,
+            `${viewport.id} ${theme.id} user dropdown is not readable: ${JSON.stringify(popupContrast)}`);
+          await page.screenshot({path:path.join(out,`user-dropdown-${viewport.id}-${theme.id}.png`),fullPage:false});
+          await trigger.click();
+          await popup.waitFor({state:'hidden'});
+        }
+
         const file=`visual-${surface.id}-${viewport.id}-${theme.id}.png`;
         await page.screenshot({path:path.join(out,file),fullPage:false});
         checks.push({surface:surface.id,viewport:viewport.id,theme:theme.id,...layout,screenshot:file});
