@@ -91,11 +91,17 @@ async function supabasePayments(){
   if(!ctx.authenticated||!ctx.company){location.href='./index.html';throw new Error('Ingen aktiv Supabase-session.')}
   session={user:ctx.user,company:ctx.company};
   const filter='company_id=eq.'+encodeURIComponent(ctx.company.id);
+  const period=periodInfo();
+  const bankPeriodFilter=filter+'&booking_date=gte.'+encodeURIComponent(period.from)+'&booking_date=lte.'+encodeURIComponent(period.to);
+  const supplierPeriodFilter=filter+'&payment_date=gte.'+encodeURIComponent(period.from)+'&payment_date=lte.'+encodeURIComponent(period.to);
+  // The list needs only the chosen period. Do not date-filter manual payments:
+  // older pending payments still reduce the invoice's available balance.
+  // Keep invoice/customer lookups complete for the manual-payment picker.
   const [bankRows,supplierPaymentRows,manualPaymentRows,executionRows,invoiceRows,customerRows,supplierInvoiceRows,supplierRows,batchRows]=await Promise.all([
-    window.LTSupabase.from('bank_payments',ctx.accessToken).select('*',filter),
-    window.LTSupabase.from('supplier_payments',ctx.accessToken).select('*',filter),
-    window.LTSupabase.from('customer_manual_payments',ctx.accessToken).select('*',filter),
-    window.LTSupabase.from('customer_payment_executions',ctx.accessToken).select('*',filter),
+    window.LTSupabase.from('bank_payments',ctx.accessToken).select('id,booking_date,amount_ore,status,reference,external_id,payer_name,payer_account',bankPeriodFilter),
+    window.LTSupabase.from('supplier_payments',ctx.accessToken).select('id,supplier_invoice_id,payment_date,amount_ore,status,confirmation_reference,recipient_bankgiro,recipient_plusgiro,recipient_name,account',supplierPeriodFilter),
+    window.LTSupabase.from('customer_manual_payments',ctx.accessToken).select('id,invoice_id,batch_id,payment_date,amount_ore,status,reference,bank_account',filter),
+    window.LTSupabase.from('customer_payment_executions',ctx.accessToken).select('bank_payment_id,invoice_id',filter),
     window.LTSupabase.from('invoices',ctx.accessToken).select('id,invoice_number,customer_id,total_ore,remaining_ore,invoice_date,due_date,status,journal_number',filter),
     window.LTSupabase.from('customers',ctx.accessToken).select('id,name,customer_number',filter),
     window.LTSupabase.from('supplier_invoices',ctx.accessToken).select('id,supplier_invoice_number,supplier_id',filter),
