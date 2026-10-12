@@ -19,9 +19,9 @@ test('clear readable trial balance with accessible period filters and searchable
   for(const id of ['tb-app','tb-form','tb-start','tb-end','tb-run','tb-search','tb-rows','tb-results','tb-warning','tb-difference'])
     assert.ok(html.includes('id="'+id+'"'),id);
   assert.match(html,/type="date"/);
-  assert.match(html,/type="search"/);
+  assert.match(html,/id="tb-search" type="text" inputmode="search"/);
   assert.match(html,/aria-live="polite"/);
-  assert.match(html,/Ingående balans.*kontrolleras separat/);
+  assert.match(html,/ingående balans måste kontrolleras separat/);
   assert.match(css,/data-lt-theme="dark"/);
   assert.match(css,/@media\(max-width:650px\)/);
   assert.match(css,/focus-visible/);
