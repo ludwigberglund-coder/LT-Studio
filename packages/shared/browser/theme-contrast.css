@@ -315,3 +315,16 @@ html[data-lt-theme="light"] body .settlement-modal .settlement-grid label{
 html[data-lt-theme="dark"] body .settlement-modal .settlement-grid label{
   color:#ffffff!important;
 }
+
+/* Legacy settlement CSS uses strongly qualified disabled-input selectors.
+   The dialog-specific override must win over those older declarations. */
+html[data-lt-theme="dark"] body .settlement-modal .settlement-grid input:disabled{
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+  background-color:#373e47!important;
+}
+html[data-lt-theme="light"] body .settlement-modal .settlement-grid input:disabled{
+  color:#1c2523!important;
+  -webkit-text-fill-color:#1c2523!important;
+  background-color:#edf0ed!important;
+}
