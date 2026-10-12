@@ -156,7 +156,7 @@
       return {heading:'Börja med att uppdatera underlaget',explanation:'Vi kan inte avgöra om alla bokförda poster har lästs in. Kontrollera uppgifterna igen innan du fortsätter.',action:reloadAction()};
     }
     if(!state.demo&&coverage.status==='mismatch'){
-      return {heading:'Granska uppgifter som saknas eller inte stämmer',explanation:'Antalet inlästa verifikationer eller kontorader avviker från databasens kontroll. Undersök skillnaden först.',href:'#journal-entries',label:'Visa bokförda poster'};
+      return {heading:'Granska uppgifter som saknas eller inte stämmer',explanation:'Vi hittade en skillnad i antalet inlästa poster eller i kopplingen mellan bokföringsraderna. Granska underlaget innan du går vidare.',href:'#journal-entries',label:'Visa bokförda poster'};
     }
     if(Array.isArray(state.journalEntries)){
       const review=inspectEntries(state.journalEntries,period);
