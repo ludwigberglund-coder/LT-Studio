@@ -116,7 +116,7 @@ test('sökning hittar verifikation på nummer, datum, text, källa och kontering
   for(const term of ['a43','2026-10-12','LOKALHYRA','supplier-payment','5010','kontorsHYRA']){
     view.setQuery(term);
     assert.deepEqual(ids(view.entryTable()),['rent'],term);
-    assert.match(view.entryTable(),/1 av 2 träffar/);
+    assert.match(view.entryTable(),/1 träff av 2 inlästa/);
   }
   for(const term of ['b17','2026-09-07','kund ab','bank-payment','1930','kundfordran']){
     view.setQuery(term);
