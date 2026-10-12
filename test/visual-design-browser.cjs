@@ -308,6 +308,27 @@ function visible(element){
           assert.equal(layout.supplierPrimaryColor,'rgb(255, 255, 255)',`${viewport.id} supplier primary button must be light text on a dark surface`);
         }
 
+        /* A visible appearance switch must actually change theme and change back. */
+        if(viewport.id==='desktop'&&['dashboard','project-admin','website'].includes(surface.id)){
+          const selector=surface.id==='project-admin'
+            ? '[data-action="toggle-theme"]'
+            : '.lt-theme-toggle-topbar,.lt-theme-toggle-floating';
+          const switcher=page.locator(selector).first();
+          await switcher.waitFor({state:'visible'});
+          const opposite=theme.id==='dark'?'light':'dark';
+          await switcher.click();
+          await page.waitForFunction(expected=>document.documentElement.dataset.ltTheme===expected,opposite);
+          if(surface.id==='project-admin'){
+            assert.equal(await page.locator('html').getAttribute('data-operator-theme'),opposite,
+              'operator theme must stay synchronized with the shared theme');
+          }
+          await switcher.click();
+          await page.waitForFunction(expected=>document.documentElement.dataset.ltTheme===expected,theme.id);
+          if(surface.id==='project-admin'){
+            assert.equal(await page.locator('html').getAttribute('data-operator-theme'),theme.id);
+          }
+        }
+
         const file=`visual-${surface.id}-${viewport.id}-${theme.id}.png`;
         await page.screenshot({path:path.join(out,file),fullPage:false});
         checks.push({surface:surface.id,viewport:viewport.id,theme:theme.id,...layout,screenshot:file});
