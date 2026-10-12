@@ -43,3 +43,20 @@ html[data-lt-theme="dark"] .bokslut-card a{background:var(--color-surface-alt,#2
 }
 @media(max-width:360px){.bokslut-shell{padding-inline:12px}.bokslut-intro{padding:21px 17px}.bokslut-card{padding:17px}}
 @media(prefers-reduced-motion:reduce){.bokslut-card a{transition:none}}
+
+/* Läskontroll av exakt antal, inte en bokslutsattest. */
+.year-close-panel{display:block;margin-top:28px}
+.year-close-panel h2{font-size:clamp(20px,2.4vw,27px);margin:0 0 10px}
+.year-close-panel p{max-width:760px}
+.year-close-panel form{margin:16px 0}
+.year-close-panel label{display:block;font-weight:700;margin-bottom:7px}
+.year-close-controls{display:flex;flex-wrap:wrap;gap:10px}
+.year-close-controls input{box-sizing:border-box;min-height:46px;width:160px;max-width:100%;padding:10px;border:1px solid var(--color-hairline,#ddd);border-radius:12px;background:var(--color-paper,#fff);color:var(--color-ink,#111)}
+.year-close-controls button{min-height:46px;padding:10px 18px;border-radius:12px;border:1px solid var(--color-ink,#111);background:var(--color-ink,#111);color:var(--color-paper,#fff);cursor:pointer}
+.year-close-results{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:0 16px;margin:16px 0}
+.year-close-results dt,.year-close-results dd{border-bottom:1px solid var(--color-hairline,#ddd);padding:12px 0;margin:0}
+.year-close-results dd{font-weight:700;text-align:right}
+.year-close-flag{color:#885a00}
+html[data-lt-theme="dark"] .year-close-flag{color:#f5d287}
+.year-close-panel .year-close-warning{font-size:13px;line-height:1.6;border-left:3px solid #b17d23;padding:10px 14px;background:var(--color-surface-alt,#fafafa)}
+@media(max-width:480px){.year-close-results{grid-template-columns:1fr}.year-close-results dd{padding-top:0;text-align:left}.year-close-results dt{border-bottom:0;padding-bottom:3px}.year-close-controls input,.year-close-controls button{flex:1 1 100%}}

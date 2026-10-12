@@ -242,7 +242,7 @@ function visible(element){
           const close=await page.evaluate(()=>{
             const root=document.querySelector('#lt-bokslut-app');
             const grid=document.querySelector('.bokslut-grid');
-            const cards=[...document.querySelectorAll('.bokslut-card')];
+            const cards=[...document.querySelectorAll('.bokslut-grid .bokslut-card')];
             const links=cards.map(card=>card.querySelector('a'));
             return {
               visible:!!root&&!root.hidden,
