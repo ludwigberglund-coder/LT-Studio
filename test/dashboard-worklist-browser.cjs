@@ -70,6 +70,11 @@ function json(route,status,body){
 
     const cards=page.locator('.task-card');
     assert.equal(await cards.count(),6);
+    assert.equal(await page.locator('.task-card.is-first').count(),1);
+    assert.equal(await page.locator('.welcome-next').getAttribute('href'),'./bank.html');
+    assert.match(await page.locator('.welcome-next').innerText(),/Öppna första uppgiften/);
+    assert.match(await page.locator('.today-count').innerText(),/Översikten är ofullständig/);
+    assert.match(await warning.innerText(),/kundreskontra/);
     assert.match(await page.locator('.welcome-card h2').innerText(),/Dashboard/);
     assert.equal(await page.getByText('Starta testguiden').count(),0);
     assert.equal(await page.getByText('Öppet kundsaldo').count(),0);

@@ -1,0 +1,69 @@
+/* Bokslutets första läsbaserade arbetsyta – inga finansiella statusar härleds av CSS/UI. */
+.bokslut-workspace{min-height:100vh}
+.bokslut-main{min-width:0;width:100%}
+.bokslut-main>.topbar{display:flex;align-items:center;min-height:72px;padding:16px 28px;border-bottom:1px solid var(--color-hairline,#e5e5e5);background:var(--color-paper,#fff)}
+.bokslut-main>.topbar h1{margin:0;font-size:20px;line-height:1.4}
+@media(max-width:760px){.bokslut-main>.topbar{padding:12px 16px 12px 78px;min-height:76px}}
+.bokslut-shell{box-sizing:border-box;max-width:1100px;width:100%;margin:0 auto;padding:clamp(20px,4vw,46px);min-width:0;color:var(--color-ink,#0a0a0a)}
+.bokslut-shell *, .bokslut-shell *::before,.bokslut-shell *::after{box-sizing:border-box}
+.bokslut-loading{max-width:750px;margin:3rem auto;padding:1.5rem;color:var(--color-ink,#0a0a0a)}
+.bokslut-intro{position:relative;overflow:hidden;background:var(--color-paper,#fff);border:1px solid var(--color-hairline,#e5e5e5);border-radius:24px;padding:clamp(22px,4vw,40px);box-shadow:var(--shadow-subtle,0 2px 6px rgb(0 0 0 / .06))}
+.bokslut-intro::before{content:"";position:absolute;top:0;left:0;right:0;height:5px;background:var(--color-ink,#0a0a0a)}
+.bokslut-intro h1{font-size:clamp(28px,4.5vw,44px);line-height:1.16;letter-spacing:-.04em;margin:.45rem 0 1.15rem}
+.bokslut-intro p{max-width:690px;line-height:1.6}
+.bokslut-eyebrow{font-weight:800;font-size:11px;letter-spacing:.13em;color:var(--color-mid-gray,#737373)}
+.bokslut-status{display:inline-flex;align-items:center;max-width:100%;background:#fff2dc;color:#694400;border:1px solid #b17d23;border-radius:999px;padding:.4rem .75rem;font-size:13px;font-weight:750;overflow-wrap:anywhere}
+.bokslut-status::before{content:"!";display:inline-grid;place-items:center;flex:0 0 20px;width:20px;height:20px;border-radius:50%;background:#77520e;color:white;margin-right:.5rem;font-weight:900}
+.bokslut-count{display:inline-block;font-size:13px;color:var(--color-mid-gray,#737373);margin:8px 0 0 10px;font-weight:700}
+.bokslut-shell main{min-width:0}
+.bokslut-shell main>h2{font-size:clamp(21px,3vw,29px);letter-spacing:-.025em;margin:32px 0 7px}
+.bokslut-lead{color:var(--color-mid-gray,#737373);margin:0 0 16px;line-height:1.5}
+.bokslut-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:22px 0 26px}
+.bokslut-card{display:flex;flex-direction:column;min-width:0;background:var(--color-paper,#fff);border:1px solid var(--color-hairline,#e5e5e5);border-radius:20px;padding:24px;box-shadow:var(--shadow-subtle,0 1px 4px rgb(0 0 0 / .05))}
+.bokslut-card h3{font-size:19px;line-height:1.35;margin:0 0 10px}
+.bokslut-card p{line-height:1.55;margin:0 0 15px;overflow-wrap:anywhere}
+.bokslut-card-status{font-size:13px;color:#785000;font-weight:750}
+.bokslut-card a{display:flex;align-items:center;justify-content:space-between;min-height:48px;margin-top:auto;padding:10px 14px;border:1px solid var(--color-hairline,#ddd);border-radius:14px;text-decoration:none;color:var(--color-ink,#0a0a0a);background:var(--color-surface-alt,#fafafa);font-weight:750;line-height:1.35;overflow-wrap:anywhere}
+.bokslut-card a:hover{background:var(--color-canvas,#f7f5f0);border-color:var(--color-ink,#0a0a0a)}
+.bokslut-card a:focus-visible{outline:3px solid #275bd0;outline-offset:3px}
+.bokslut-notice{background:var(--color-paper,#fff);border:1px solid var(--color-hairline,#ddd);border-left:5px solid #946900;border-radius:12px;padding:18px 22px;line-height:1.65;margin:24px 0}
+.bokslut-notice strong{display:block;margin-bottom:6px}
+html[data-lt-theme="dark"] .bokslut-card-status{color:#f8d98f}
+html[data-lt-theme="dark"] .bokslut-status{color:#f9db96;background:#423116;border-color:#bd924c}
+html[data-lt-theme="dark"] .bokslut-status::before{color:#1b1307;background:#f9db96}
+html[data-lt-theme="dark"] .bokslut-card a{background:var(--color-surface-alt,#222);color:var(--color-ink,#fff)}
+@media(max-width:760px){
+  .bokslut-shell{padding:18px 15px 30px}
+  .bokslut-intro{padding:24px 21px}
+  .bokslut-grid{grid-template-columns:1fr;gap:12px;margin-top:18px}
+  .bokslut-card{padding:20px}
+  .bokslut-shell main>h2{margin-top:26px}
+  .bokslut-count{margin-left:0;display:block}
+  .bokslut-notice{padding:16px 18px}
+}
+@media(max-width:360px){.bokslut-shell{padding-inline:12px}.bokslut-intro{padding:21px 17px}.bokslut-card{padding:17px}}
+@media(prefers-reduced-motion:reduce){.bokslut-card a{transition:none}}
+
+/* Läskontroll av exakt antal, inte en bokslutsattest. */
+.year-close-panel{display:block;margin-top:28px}
+.year-close-panel h2{font-size:clamp(20px,2.4vw,27px);margin:0 0 10px}
+.year-close-panel p{max-width:760px}
+.year-close-panel form{margin:16px 0}
+.year-close-panel label{display:block;font-weight:700;margin-bottom:7px}
+.year-close-controls{display:flex;flex-wrap:wrap;gap:10px}
+.year-close-controls input{box-sizing:border-box;min-height:46px;width:160px;max-width:100%;padding:10px;border:1px solid var(--color-hairline,#ddd);border-radius:12px;background:var(--color-paper,#fff);color:var(--color-ink,#111)}
+.year-close-controls button{min-height:46px;padding:10px 18px;border-radius:12px;border:1px solid var(--color-ink,#111);background:var(--color-ink,#111);color:var(--color-paper,#fff);cursor:pointer}
+.year-close-results{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:0 16px;margin:16px 0}
+.year-close-results dt,.year-close-results dd{border-bottom:1px solid var(--color-hairline,#ddd);padding:12px 0;margin:0}
+.year-close-results dd{font-weight:700;text-align:right}
+.year-close-flag{color:#885a00}
+html[data-lt-theme="dark"] .year-close-flag{color:#f5d287}
+.year-close-panel .year-close-warning{font-size:13px;line-height:1.6;border-left:3px solid #b17d23;padding:10px 14px;background:var(--color-surface-alt,#fafafa)}
+@media(max-width:480px){.year-close-results{grid-template-columns:1fr}.year-close-results dd{padding-top:0;text-align:left}.year-close-results dt{border-bottom:0;padding-bottom:3px}.year-close-controls input,.year-close-controls button{flex:1 1 100%}}
+
+/* P1B: evidence listing shares the existing mobile-first year-control layout. */
+.year-ledger-block{margin-top:22px;padding-top:18px;border-top:1px solid var(--color-hairline,#ddd)}
+.year-ledger-block h3{font-size:clamp(18px,2.4vw,22px);margin:0 0 10px}
+.year-ledger-block p{line-height:1.55}
+.year-ledger-block #year-ledger-message{font-weight:650}
+.year-ledger-block .year-close-results{width:100%}

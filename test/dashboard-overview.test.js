@@ -43,3 +43,18 @@ test('delad navigation startar om med öppen desktopmeny efter UAT-fixen',()=>{
   assert.match(nav,/rollands-navigation-v3/);
   assert.match(nav,/read\(\)\.sidebarCollapsed!==true/);
 });
+
+test('översikten ger en tydlig första handling och är ärlig om ofullständiga data',()=>{
+  const js=read('apps/portal/dashboard.js');
+  const css=read('apps/portal/dashboard.css');
+  assert.match(js,/function pendingTaskCount\(m\)/);
+  assert.match(js,/const totalPending=pendingTaskCount\(m\)/);
+  assert.match(js,/const incomplete=Boolean\(m\.loadErrors\?\.length\)/);
+  assert.match(js,/Översikten är ofullständig/);
+  assert.match(js,/Kontrollera de saknade köerna/);
+  assert.match(js,/class="welcome-next"/);
+  assert.match(js,/href="\$\{url\(tasks\[0\]\.href\)\}"/);
+  assert.match(js,/index===0\?'Börja här'/);
+  assert.match(css,/\.welcome-next:focus-visible/);
+  assert.match(css,/\.today-count\.incomplete/);
+});

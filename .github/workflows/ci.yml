@@ -109,6 +109,8 @@ jobs:
         run: npm run test:browser:operator
       - name: Run opening balance browser flow
         run: npm run test:browser:opening-balance
+      - name: Verify newest-five journal UI, wheel scroll and expandable list
+        run: node test/accounting-journal-list-browser.cjs
       - name: Upload invoice and navigation review artifacts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

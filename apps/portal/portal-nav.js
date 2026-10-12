@@ -7,7 +7,7 @@
       ['invoices','Kundfakturor','portal/invoices.html'],['receivables','Kundreskontra','portal/index.html'],
       ['payables','Leverantörsfakturor','portal/payables.html'],['supplier-ledger','Leverantörsreskontra','portal/supplier-ledger.html'],['payments','Betalningar','portal/payments.html'],['bank','Bank & avstämning','portal/bank.html'],['unplaced-payments','Oplacerade betalningar','portal/unplaced-payments.html'],
       ['automation','Automationskö','portal/automation.html'],['batches','Buntar','portal/batches.html'],['accounting','Bokföring','portal/accounting.html'],
-      ['reports','Rapporter','portal/reports.html'],['accounts','Kontoplan & intäktskonton','portal/accounts.html'],
+      ['reports','Rapporter','portal/reports.html'],['bokslut','Bokslut','portal/bokslut.html'],['accounts','Kontoplan & intäktskonton','portal/accounts.html'],
       ['payroll','Lön & lönejournal','portal/payroll.html'],['money','Öreskalkylator','admin/#/money'],
       ['journal','Verifikationer & periodtest','admin/#/journal'],
       ['res-tools','Reskontraverktyg (äldre demo)','legacy/#/res-tools'],
@@ -25,7 +25,7 @@
   ];
   const demoOnlyIds=new Set(['money','journal','res-tools','inbox','audit','settings','legacy','assistant','decisions','modules','project','content','uat']);
   const requiredPermission=Object.freeze({
-    invoices:'customer-invoice.view',receivables:'customer-invoice.view',payables:'supplier-invoice.view','supplier-ledger':'supplier-invoice.view',payments:'payment.view',bank:'bank.view','unplaced-payments':'bank.view',automation:'accounting.view',batches:'accounting.view',accounting:'accounting.view',reports:'reports.view',accounts:'accounting.view',payroll:'payroll.view',customers:'customer-invoice.view',suppliers:'supplier.view',inventory:'inventory.view','company-settings':'platform.settings.manage',website:'website.manage',documents:'documents.view'
+    invoices:'customer-invoice.view',receivables:'customer-invoice.view',payables:'supplier-invoice.view','supplier-ledger':'supplier-invoice.view',payments:'payment.view',bank:'bank.view','unplaced-payments':'bank.view',automation:'accounting.view',batches:'accounting.view',accounting:'accounting.view',reports:'reports.view',bokslut:'reports.view',accounts:'accounting.view',payroll:'payroll.view',customers:'customer-invoice.view',suppliers:'supplier.view',inventory:'inventory.view','company-settings':'platform.settings.manage',website:'website.manage',documents:'documents.view'
   });
   function visibleGroups({authenticated=false,demo=false,permissions=[]}={}){
     if(demo)return groups;
@@ -33,7 +33,28 @@
     const allowed=new Set(Array.isArray(permissions)?permissions:[]);
     return groups.map(group=>({...group,items:group.items.filter(([id])=>!demoOnlyIds.has(id)&&(!requiredPermission[id]||allowed.has(requiredPermission[id]))).map(item=>item[0]==='receivables'?[item[0],item[1],'portal/index.html']:item)})).filter(group=>group.items.length);
   }
-  if(typeof module==='object'&&module.exports){module.exports={groups,visibleGroups};return;}
+  // Simple navigation is a projection of the existing permission-filtered menu.
+  // It does not create privileges, new routes, or economic write operations.
+  const simpleNavigation=Object.freeze([
+    {id:'start',label:'Kom igång',items:[['overview','Översikt']]},
+    {id:'invoices',label:'Fakturor',items:[['invoices','Skapa & visa fakturor'],['receivables','Obetalda fakturor'],['customers','Kunder']]},
+    {id:'purchases',label:'Inköp & kvitton',items:[['payables','Leverantörsfakturor'],['documents','Underlag (PDF)'],['supplier-ledger','Att betala'],['suppliers','Leverantörer'],['automation','Förslag att granska']]},
+    {id:'money',label:'Pengar & bank',items:[['bank','Bankhändelser'],['unplaced-payments','Betalningar att hantera'],['payments','Alla betalningar']]},
+    {id:'results',label:'Resultat & rapporter',items:[['reports','Se rapporter']]},
+    {id:'closing',label:'Månad & bokslut',items:[['accounting','Stäng månaden & bokföring'],['bokslut','Bokslut'],['batches','Godkänn bokföring']]},
+    {id:'preferences',label:'Inställningar',items:[['company-settings','Företagsinställningar']]}
+  ]);
+  function simpleGroups(allowedGroups){
+    const permitted=new Map((Array.isArray(allowedGroups)?allowedGroups:[]).flatMap(group=>group.items.map(item=>[item[0],item])));
+    return simpleNavigation.map(group=>({
+      id:group.id,label:group.label,
+      items:group.items.map(([id,label])=>{
+        const allowed=permitted.get(id);
+        return allowed?[id,label,allowed[2]]:null;
+      }).filter(Boolean)
+    })).filter(group=>group.items.length>0);
+  }
+  if(typeof module==='object'&&module.exports){module.exports={groups,visibleGroups,simpleGroups};return;}
   function ensureFavicon(){
     if(document.querySelector('link[rel~="icon"]'))return;
     const link=document.createElement('link');
@@ -47,6 +68,24 @@
   const supabaseUat=location.hostname==='ludwigberglund-coder.github.io'&&!demo;
   const key='rollands-navigation-v3:'+base.pathname;
   const runtimeKey='rollands-runtime-id:'+base.pathname;
+  let transientNavMode='simple';
+  function navigationModeKey(session){
+    const company=String(session?.company?.id||'');
+    const user=String(session?.user?.id||session?.user?.username||'');
+    return company&&user?key+':mode:'+encodeURIComponent(user)+':'+encodeURIComponent(company):null;
+  }
+  function getSavedNavigationMode(session){
+    const preferenceKey=navigationModeKey(session);
+    if(!preferenceKey)return transientNavMode;
+    try{return localStorage.getItem(preferenceKey)==='advanced'?'advanced':'simple';}
+    catch{return transientNavMode;}
+  }
+  function saveNavigationMode(session,mode){
+    transientNavMode=mode==='advanced'?'advanced':'simple';
+    const preferenceKey=navigationModeKey(session);
+    if(!preferenceKey)return;
+    try{localStorage.setItem(preferenceKey,transientNavMode);}catch{}
+  }
   let runtimeCheckInFlight=false;
   let supabaseSessionGuardInFlight=false;
   function portalLoginUrl(){return href('portal/index.html');}
@@ -602,16 +641,51 @@
     const workspaceMain=[...workspace.children].find(child=>child!==sidebar);if(workspaceMain)workspaceMain.classList.add('shared-workspace-main');
     sidebar.setAttribute('aria-label','Huvudmeny');sidebar.dataset.sharedRoute=route;
     const saved=read();
-    const context=await navigationContext();const allowedGroups=context.groups;
+    const context=await navigationContext();
+    const authorizedGroups=context.groups;
+    const easyGroups=simpleGroups(authorizedGroups);
+    const preferredMode=demo?'advanced':getSavedNavigationMode(context.session);
+    const simpleIds=new Set(easyGroups.flatMap(group=>group.items.map(item=>item[0])));
+    // A direct link to a permitted expert page should keep its entry visible
+    // without silently changing the user's saved simple-mode preference.
+    const advancedRoute=authorizedGroups.some(group=>group.items.some(item=>active(item[2])&&!simpleIds.has(item[0])));
+    const currentMode=preferredMode==='advanced'||advancedRoute?'advanced':'simple';
+    const allowedGroups=currentMode==='advanced'?authorizedGroups:easyGroups;
     const brand=document.createElement('a');brand.className='shared-brand';brand.href=href('portal/dashboard.html');
     const companyName=demo?'Demoföretag':String(context.session?.company?.name||'Företaget');
     const brandName=document.createElement('strong');brandName.textContent='LT Studio';
     const brandPlatform=document.createElement('small');brandPlatform.textContent='Ekonomisystem';brand.append(brandName,brandPlatform);
     const info=document.createElement('p');info.className='shared-company';info.textContent=demo?'Demoföretag · fiktiv data':companyName+' · skyddad företagsportal';
-    const nav=document.createElement('nav');nav.className='shared-navigation';nav.setAttribute('aria-label','Systemets alla verktyg');
+    let modeSwitch=null;
+    if(!demo&&context.session?.authenticated===true){
+      modeSwitch=document.createElement('div');
+      modeSwitch.className='shared-nav-mode-switch';
+      modeSwitch.setAttribute('role','group');
+      modeSwitch.setAttribute('aria-label','Välj visningsläge för menyn');
+      for(const [mode,label] of [['simple','Enkelt'],['advanced','Avancerat']]){
+        const button=document.createElement('button');
+        button.type='button';
+        button.className='shared-nav-mode-button';
+        button.textContent=label;
+        button.setAttribute('aria-pressed',String(currentMode===mode));
+        button.addEventListener('click',()=>{
+          if(currentMode===mode)return;
+          saveNavigationMode(context.session,mode);
+          // On an expert-only page, return to the overview so the simple menu
+          // can actually be selected (instead of forcing expert mode again).
+          if(mode==='simple'&&advancedRoute){location.assign(href('portal/dashboard.html'));return;}
+          delete sidebar.dataset.sharedRoute;
+          void mount();
+        });
+        modeSwitch.append(button);
+      }
+    }
+    const nav=document.createElement('nav');nav.className='shared-navigation';nav.setAttribute('aria-label',currentMode==='simple'?'Förenklad meny':'Avancerad meny');
     for(const group of allowedGroups){
       const details=document.createElement('details');details.dataset.navGroup=group.id;
-      details.open=group.items.some(item=>active(item[2]))||saved[group.id]!==false;
+      const storageId=currentMode==='simple'?'simple:'+group.id:group.id;
+      details.open=group.items.some(item=>active(item[2]))||
+        (saved[storageId]!==false);
       const summary=document.createElement('summary');summary.textContent=group.label;details.append(summary);
       const links=document.createElement('div');links.className='shared-links';
       for(const [id,label,path] of group.items){
@@ -619,12 +693,12 @@
         if(active(path)){a.setAttribute('aria-current','page');a.classList.add('active');}links.append(a);
       }
       details.append(links);nav.append(details);
-      details.addEventListener('toggle',()=>{const s=read();s[group.id]=details.open;persist(s);});
+      details.addEventListener('toggle',()=>{const s=read();s[storageId]=details.open;persist(s);});
     }
     const foot=document.createElement('div');foot.className='shared-foot';
     const home=document.createElement('a');home.href=href(demo?'./':'portal/dashboard.html');home.textContent=demo?'Visa företagets hemsida':'Till arbetsöversikten';foot.append(home);
     const note=document.createElement('p');note.textContent=demo?'Äldre referensverktyg har separat demodata.':'Menyn följer din roll. Servern kontrollerar varje skyddad åtgärd oavsett vad som visas här.';foot.append(note);
-    sidebar.replaceChildren(brand,info,nav,foot);decorateUi();applySidebarPreference();await mountPendingBatchBadge(context);
+    sidebar.replaceChildren(brand,info,...(modeSwitch?[modeSwitch]:[]),nav,foot);decorateUi();applySidebarPreference();await mountPendingBatchBadge(context);
     try{sidebar.scrollTop=Number(sessionStorage.getItem(key+':scroll')||0)}catch{}
     if(!sidebar.dataset.scrollBound){sidebar.addEventListener('scroll',()=>{try{sessionStorage.setItem(key+':scroll',String(sidebar.scrollTop))}catch{}});sidebar.dataset.scrollBound='1';}
   }
