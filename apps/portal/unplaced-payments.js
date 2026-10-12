@@ -33,5 +33,28 @@ function loadDemo(){session={user:{displayName:'Demoanvändare'},company:{name:'
 async function load(){if(demo)loadDemo();else if(isSupabase)await loadSupabase();else await loadApi();if(!selectedId&&payments[0])selectedId=payments[0].id;render()}
 async function createInvoiceProposal(){const p=selected(),invoiceId=document.querySelector('[data-field="invoice"]')?.value||'';if(!p||!invoiceId)throw new Error('Välj en kundfaktura.');if(demo){message='Demo: matchningsförslaget skulle skickas till Automationskön.';render();return}if(isSupabase){const ctx=session.ctx;const target=openInvoices.find(i=>i.id===invoiceId);const saved=(await window.LTSupabase.rpc('create_bank_match_proposal',{p_company_id:ctx.company.id,p_bank_payment_id:p.id,p_target_invoice_id:invoiceId,p_confidence_ppm:500000,p_deterministic:false,p_ambiguous:true,p_reason:'Manuell placering från Oplacerade betalningar.',p_evidence:[{kind:'manual-selection',label:'Manuellt vald faktura',value:target?.invoiceNumber||invoiceId,sourceId:p.id}]},ctx.accessToken))?.[0];if(!saved)throw new Error('Matchningsförslaget kunde inte skapas.')}else{await api(`/bank/payments/${encodeURIComponent(p.id)}/manual-match`,{method:'POST',body:{invoiceId}})}message='Matchningsförslaget är skapat. Öppna Automationskön för granskning och bokföring.';await load()}
 async function resolveOther(type){const p=selected(),counterAccount=(document.querySelector('[data-field="account"]')?.value||'').trim(),description=(document.querySelector('[data-field="description"]')?.value||'').trim();if(!p)throw new Error('Välj en betalning.');if(!/^\d{4}$/.test(counterAccount))throw new Error('Ange ett fyrsiffrigt motkonto.');if(description.length<3)throw new Error('Skriv en kort beskrivning.');const rid=requestId('unplaced',p.id);if(demo){message=type==='outgoing'?'Demo: utbetalningen skulle bokföras mot valt konto.':'Demo: inbetalningen skulle bokföras mot valt konto.';render();return}if(isSupabase){const result=await window.LTSupabase.functions.invoke('resolve-unplaced-payment',{companyId:session.ctx.company.id,bankPaymentId:p.id,resolutionType:type,counterAccount,description,requestId:rid},session.ctx.accessToken);if(!result)throw new Error('Betalningen kunde inte bokföras.');message=`Klart. Verifikation ${result.journal_number} skapades.`}else{const data=await api(`/bank/payments/${encodeURIComponent(p.id)}/resolve-other`,{method:'POST',body:{resolutionType:type,counterAccount,description,requestId:rid}});message=data.message||'Betalningen är bokförd.'}selectedId='';await load()}
-document.addEventListener('click',async event=>{const row=event.target.closest('[data-select]');if(row){selectedId=row.dataset.select;render();return}const button=event.target.closest('[data-action]');if(!button)return;try{if(button.dataset.action==='refresh'){await load();return}busy=true;render();if(button.dataset.action==='invoice')await createInvoiceProposal();if(button.dataset.action==='other-income')await resolveOther('other-income');if(button.dataset.action==='outgoing')await resolveOther('outgoing')}catch(error){message=error.message;busy=false;render()}finally{busy=false}});
+document.addEventListener('click',async event=>{
+  // Keep entered invoice/account/description values in the DOM until the action reads them.
+  // Re-rendering before createInvoiceProposal/resolveOther resets the form to defaults.
+  if(busy)return;
+  const row=event.target.closest('[data-select]');
+  if(row){selectedId=row.dataset.select;render();return}
+  const button=event.target.closest('[data-action]');
+  if(!button)return;
+  const action=button.dataset.action;
+  try{
+    if(action==='refresh'){await load();return}
+    if(!['invoice','other-income','outgoing'].includes(action))return;
+    busy=true;
+    app.querySelectorAll('button[data-action]').forEach(control=>{control.disabled=true});
+    if(action==='invoice')await createInvoiceProposal();
+    if(action==='other-income')await resolveOther('other-income');
+    if(action==='outgoing')await resolveOther('outgoing');
+  }catch(error){
+    message=String(error?.message||'Åtgärden kunde inte slutföras.');
+  }finally{
+    busy=false;
+    render();
+  }
+});
 load().catch(error=>{app.innerHTML=`<main class="boot"><strong>Kunde inte ladda oplacerade betalningar</strong><span>${esc(error.message)}</span></main>`});
