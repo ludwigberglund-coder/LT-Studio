@@ -158,7 +158,7 @@ async function loadMetrics(){
   return loadPrivateMetrics();
 }
 function taskCard({title,text,href,count,priority='normal',tone='plain'},index){
-  return `<a class="task-card ${esc(priority)} tone-${esc(tone)}" style="--task-delay:${index*55}ms" href="${url(href)}"><div><span class="task-state">${priority==='high'?'Prioriterat':'Att göra'}</span><h3>${esc(title)}</h3><p>${esc(text)}</p></div><strong>${esc(String(count))}</strong></a>`
+  return `<a class="task-card ${esc(priority)} tone-${esc(tone)}${index===0?' is-first':''}" style="--task-delay:${index*55}ms" href="${url(href)}"><div><span class="task-state">${index===0?'Börja här':priority==='high'?'Prioriterat':'Att göra'}</span><h3>${esc(title)}</h3><p>${esc(text)}</p></div><strong>${esc(String(count))}</strong></a>`
 }
 function importantTasks(m){
   const tasks=[];
@@ -172,18 +172,40 @@ function importantTasks(m){
   if(Number(m.inventory.pendingCount)>0)tasks.push({title:'Granska lagerjusteringar',text:'Inventerings- eller justeringsposter väntar.',href:'./inventory.html',count:m.inventory.pendingCount,tone:'plain'});
   return tasks.slice(0,6);
 }
+function pendingTaskCount(m){
+  // Summa av faktiska ärenden i kända köer, inte antalet kort på skärmen.
+  return [
+    m.accounting.pendingBatches,
+    m.receivables.overdueCount,
+    m.bank.reviewCount,
+    m.payables.approvalCount,
+    m.payables.paymentCount,
+    m.automation.reviewCount,
+    m.accounting.pendingUnlocks,
+    m.inventory.pendingCount
+  ].reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
+}
 function render(m){
   const tasks=importantTasks(m);
   const firstName=String(session?.user?.displayName||session?.user?.username||(isDemo?'Demoanvändare':'')).trim().split(/\s+/)[0]||'';
   const hello=`${greeting()}${firstName?', '+esc(firstName):''}.`;
-  const status=tasks.length
-    ? `<span class="today-count"><i aria-hidden="true"></i>${tasks.length} ${tasks.length===1?'sak':'saker'} behöver din uppmärksamhet</span>`
-    : '<span class="today-count calm"><i aria-hidden="true"></i>Inget akut i de viktigaste köerna</span>';
-  const warning=m.loadErrors?.length?'<div class="overview-soft-warning">Några köer kunde inte läsas just nu. Övriga poster visas som vanligt.</div>':'';
+  const totalPending=pendingTaskCount(m);
+  const incomplete=Boolean(m.loadErrors?.length);
+  const status=incomplete
+    ? '<span class="today-count incomplete"><i aria-hidden="true"></i>Översikten är ofullständig – vissa köer kunde inte läsas</span>'
+    : totalPending
+    ? `<span class="today-count"><i aria-hidden="true"></i>${totalPending} ${totalPending===1?'ärende':'ärenden'} väntar på åtgärd</span>`
+    : '<span class="today-count calm"><i aria-hidden="true"></i>Inga väntande uppgifter i de kontrollerade köerna</span>';
+  const warning=incomplete
+    ? `<div class="overview-soft-warning" role="status">Några köer kunde inte läsas just nu (${esc(m.loadErrors.join(', '))}). Övriga poster visas som vanligt. Kontrollera de saknade köerna innan du bedömer att allt är klart.</div>`
+    : '';
+  const nextLink=tasks.length
+    ? `<a class="welcome-next" href="${url(tasks[0].href)}" aria-label="Börja med: ${esc(tasks[0].title)}"><span>Rekommenderat nästa steg</span><strong>Öppna första uppgiften <span aria-hidden="true">→</span></strong></a>`
+    : '';
   const taskMarkup=tasks.length
     ? tasks.map(taskCard).join('')
-    : '<div class="overview-empty"><span class="empty-orbit" aria-hidden="true"></span><div><b>Arbetsdagen ser lugn ut.</b><p>Det finns inga kända akuta uppgifter i de viktigaste köerna just nu.</p></div></div>';
-  app.innerHTML=`<div class="dash-shell">${sidebar()}<section class="dash-main"><header class="topbar"><div><h1>Översikt</h1><p>${today()} · företagets arbetsdag</p></div><div class="user-chip"><b>${esc(session?.user?.displayName||'Användare')}</b></div></header><main class="content dashboard-content"><section class="welcome-card"><div class="welcome-copy"><span class="eyebrow">Dagens fokus</span><h2>${hello}</h2><p>Här visas bara det viktigaste som behöver göras idag.</p>${status}</div><div class="welcome-motion" aria-hidden="true"><span></span><span></span><span></span><b></b></div></section>${warning}<section class="today-work"><div class="section-head"><div><span class="eyebrow">Prioriterat idag</span><h2>Det viktigaste just nu</h2></div></div><div class="task-grid">${taskMarkup}</div></section></main></section></div>`;
+    : '<div class="overview-empty"><span class="empty-orbit" aria-hidden="true"></span><div><b>${incomplete?'Vissa arbetsköer kunde inte kontrolleras.':'Inga väntande uppgifter hittades.'}</b><p>${incomplete?'Försök läsa in översikten igen innan du drar slutsatser.':'De viktigaste kontrollerade arbetsköerna har inga öppna uppgifter just nu.'}</p></div></div>';
+  app.innerHTML=`<div class="dash-shell">${sidebar()}<section class="dash-main"><header class="topbar"><div><h1>Översikt</h1><p>${today()} · företagets arbetsdag</p></div><div class="user-chip"><b>${esc(session?.user?.displayName||'Användare')}</b></div></header><main class="content dashboard-content"><section class="welcome-card"><div class="welcome-copy"><span class="eyebrow">Dagens fokus</span><h2>${hello}</h2><p>Här visas bara det viktigaste som behöver göras idag.</p>${status}${nextLink}</div><div class="welcome-motion" aria-hidden="true"><span></span><span></span><span></span><b></b></div></section>${warning}<section class="today-work"><div class="section-head"><div><span class="eyebrow">Prioriterat idag</span><h2>Det viktigaste just nu</h2><p class="worklist-hint">Börja uppifrån. Varje kort öppnar rätt del av programmet – inget bokförs automatiskt här.</p></div></div><div class="task-grid">${taskMarkup}</div></section></main></section></div>`;
   globalThis.RollandsNavigation?.mount?.();
 }
 async function load(){
