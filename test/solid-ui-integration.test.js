@@ -22,7 +22,9 @@ test('active UI uses solid panels instead of frosted material',()=>{
   for(const file of ['apps/portal/design-system.css','apps/portal/dashboard.css',
     'apps/portal/shared-nav.css','apps/operator/premium-ui.css',
     'apps/operator/styles.css','apps/operator/design-system.css',
-    'apps/website/styles.css','apps/website/design-system.css']){
+    'apps/website/styles.css','apps/website/design-system.css',
+    'apps/portal/batches.css','apps/admin/design-system.css',
+    'apps/admin/system-status.css','public/design-system.css']){
     const css=fs.readFileSync(path.join(root,file),'utf8');
     assert.doesNotMatch(css,/\bbackdrop-filter\s*:/,file+' still blurs its material');
     assert.doesNotMatch(css,/--lt-(?:apple|shell)-glass|data-lt-glass-surface/,file);
