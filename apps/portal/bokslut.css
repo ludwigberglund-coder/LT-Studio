@@ -113,3 +113,15 @@ html[data-lt-theme="dark"] .year-close-flag{color:#f5d287}
 .book-close-advanced summary:focus-visible,#book-close-start:focus-visible,#book-close-simple-actions li a:focus-visible{outline:3px solid #275bd0;outline-offset:3px}
 .book-close-links .bokslut-grid{margin-top:16px}
 @media(max-width:550px){.book-close-simple-controls{grid-template-columns:1fr}.book-close-simple-controls label{grid-column:1}#book-close-start{width:100%}}
+
+/* #745: prioritized explanations are derived only from validated, read-only checks. */
+#book-close-simple-actions{display:grid;gap:12px;margin:12px 0 20px;padding:0;list-style:none}
+#book-close-simple-actions .book-close-task{min-width:0;margin:0;padding:16px;border:1px solid var(--color-hairline,#d0d0d0);border-inline-start:4px solid var(--color-ink,#333);border-radius:12px;background:var(--color-surface-alt,#fafafa);color:var(--color-ink,#111);overflow-wrap:anywhere}
+#book-close-simple-actions .book-close-task--attention{border-inline-start-color:#a9690a}
+#book-close-simple-actions .book-close-task--unknown{border-inline-start-color:#51748b}
+#book-close-simple-actions .book-close-task--next{border-inline-start-color:var(--color-mid-gray,#737373)}
+#book-close-simple-actions .book-close-task-title{display:block;font-weight:750;line-height:1.5}
+#book-close-simple-actions .book-close-task p{margin:8px 0 0;line-height:1.55;font-size:14px}
+#book-close-simple-actions .book-close-task a{margin-top:12px}
+.book-close-task-heading{font-size:clamp(17px,2.2vw,21px);margin:18px 0 7px}
+@media(max-width:550px){#book-close-simple-actions .book-close-task{padding:14px}#book-close-simple-actions .book-close-task a{width:100%;justify-content:center;text-align:center}}
