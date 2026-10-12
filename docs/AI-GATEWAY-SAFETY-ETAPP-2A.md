@@ -25,3 +25,7 @@ Användaren har bekräftat att `CLOUDFLARE_ACCOUNT_ID` och `CLOUDFLARE_AI_TOKEN`
 6. Anslutning till befintlig automationskö utan direktbokföring. Allt måste gå via godkännandeflödena.
 
 Kod- och säkerhetsförändringar hanteras enbart via GitHub PR och QA/CodeQL/Supabase rebuild. Relaterat #767, #771, #774.
+
+## Verifiering mot ansluten LT-Studio Supabase (read-only)
+
+Databasens faktiska `public.company_memberships` RLS har en permissiv policy för användarens eget `auth_user_id` och en **restriktiv** policy `UAT requires AAL2`, som använder `lt_security.request_has_aal2_personal_session()`. Den i sin tur anropar `lt_security.session_within_personal_limit()`, som slår upp den personliga sessionen i `auth.sessions` och kontrollerar att användaren inte är avstängd och inte har passerat sin personliga tidsgräns. Denna metadata verifierades med read-only SQL, inga data/schema ändrades. `ai-gateway-session.mjs` ska alltid läsa medlemskap via en användarscoperad klient och aldrig via service-role. Verifiering av verkliga testidentiteter återstår.
