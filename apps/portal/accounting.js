@@ -499,5 +499,22 @@ async function ensureDemoScenario(){
     document.head.appendChild(script);
   });
 }
-async function init(){if(isDemo){await ensureDemoScenario();if(!Demo)throw new Error('Det gemensamma demoscenariot kunde inte laddas.');session={user:{displayName:'Demoanvändare'},company:{name:'Rollands Frukt o Grönt AB'}};syncDemo();return render()}if(isSupabase){if(await loadSupabaseAccounting())render();return}if(await loadApi())render()}
+function monitorMonthCoverage(){
+  // Reload is explicit: do not write anything or silently mark the month reconciled.
+  document.addEventListener('click',event=>{
+    if(event.target?.closest?.('[data-action="refresh-month-coverage"]'))location.reload();
+  });
+  if(!isSupabase)return;
+  const updateAge=()=>{
+    const node=document.querySelector('.month-close-coverage');
+    if(!node||!monthCoverage||node.classList.contains('month-close-coverage-unknown'))return;
+    const guide=globalThis.LTMonthCloseGuide;
+    const state={companyId:session?.company?.id||null,coverage:monthCoverage};
+    if(guide?.evaluateCoverage?.(state,currentPeriod()).status!=='unavailable')return;
+    node.outerHTML=guide.renderCoverage(state,currentPeriod());
+  };
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)updateAge()});
+  setInterval(updateAge,30000);
+}
+async function init(){monitorMonthCoverage();if(isDemo){await ensureDemoScenario();if(!Demo)throw new Error('Det gemensamma demoscenariot kunde inte laddas.');session={user:{displayName:'Demoanvändare'},company:{name:'Rollands Frukt o Grönt AB'}};syncDemo();return render()}if(isSupabase){if(await loadSupabaseAccounting())render();return}if(await loadApi())render()}
 init().catch(error=>{app.innerHTML=`<main class="boot"><strong>Bokföringen kunde inte laddas</strong><span>${esc(error.message)}</span></main>`});
