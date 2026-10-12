@@ -21,7 +21,6 @@ test('Apple HIG visual pass uses system typography and visible solid chrome',()=
   assert.match(css,/--lt-apple-panel:var\(--surface-card\)/);
   assert.match(css,/\.sidebar\.shared-sidebar\{[\s\S]*background:var\(--lt-apple-panel\)!important/);
   assert.match(css,/\.topbar\{[\s\S]*position:sticky!important/);
-  assert.match(css,/\.topbar\{[\s\S]*position:sticky!important/);
   assert.match(css,/--lt-apple-selection:color-mix\(in srgb,var\(--brand-sky\) 72%,var\(--surface-card\)\)/);
 });
 
