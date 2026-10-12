@@ -202,6 +202,25 @@ async function loadSupabaseAccounting(){
   }catch{
     monthCoverage={status:'unavailable',companyId:ctx.company.id,period};
   }
+  // Count parity alone cannot reveal duplicate rows or lines attached to an unknown entry.
+  // These local integrity checks never mutate or attest the underlying ledger.
+  const entryIds=new Set(entryRows.map(row=>String(row.id)));
+  const lineIds=new Set();
+  let duplicateEntryIds=entryRows.length-entryIds.size;
+  let duplicateLineIds=0,orphanLines=0,wrongCompanyLines=0;
+  for(const line of lineRows){
+    const lineId=String(line.id);
+    if(lineIds.has(lineId))duplicateLineIds++;
+    lineIds.add(lineId);
+    if(!entryIds.has(String(line.journal_entry_id)))orphanLines++;
+    if(String(line.company_id)!==String(ctx.company.id))wrongCompanyLines++;
+  }
+  if(monthCoverage?.status==='checked'){
+    monthCoverage.integrity={
+      duplicateEntryIds,duplicateLineIds,orphanLines,wrongCompanyLines,
+      checkedEntries:entryRows.length,checkedLines:lineRows.length
+    };
+  }
   const linesByEntry=new Map();
   for(const row of lineRows||[]){
     const key=String(row.journal_entry_id);
