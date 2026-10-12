@@ -79,12 +79,21 @@
     if(keys.some(key=>!Number.isSafeInteger(c[key])||c[key]<0)){
       return {status:'unavailable',reason:'Databasen skickade ofullständiga antalsuppgifter.'};
     }
+    const integrity=c.integrity;
+    if(!integrity||integrity.checkedEntries!==c.loadedEntries||integrity.checkedLines!==c.loadedLines){
+      return {status:'unavailable',reason:'Kontoradernas koppling till verifikationerna kunde inte kontrolleras.'};
+    }
+    const keys=['duplicateEntryIds','duplicateLineIds','orphanLines','wrongCompanyLines'];
+    if(keys.some(key=>!Number.isSafeInteger(integrity[key])||integrity[key]<0)){
+      return {status:'unavailable',reason:'Integritetskontrollen gav ogiltiga värden.'};
+    }
+    const integrityProblems=keys.filter(key=>integrity[key]>0);
     const differences=[
       ['verifikationer för företaget',c.loadedEntries,c.totalEntries],
       ['kontorader för företaget',c.loadedLines,c.totalLines],
       ['verifikationer för månaden',c.loadedPeriodEntries,c.periodEntries]
     ].filter(([,loaded,expected])=>loaded!==expected);
-    return {status:differences.length?'mismatch':'matched',differences,counts:c};
+    return {status:differences.length||integrityProblems.length?'mismatch':'matched',differences,integrityProblems,counts:c};
   }
   function coveragePanel(state,period){
     const coverage=evaluateCoverage(state,period);
@@ -99,11 +108,13 @@
       'Kontorader för företaget: '+c.loadedLines+' av '+c.totalLines,
       'Verifikationer för '+period+': '+c.loadedPeriodEntries+' av '+c.periodEntries
     ].map(value=>'<li>'+escapeHtml(value)+'</li>').join('');
+    const integrityLabels={duplicateEntryIds:'Samma verifikation förekommer flera gånger',duplicateLineIds:'Samma kontorad förekommer flera gånger',orphanLines:'Kontorader saknar inläst verifikation',wrongCompanyLines:'Kontorader har fel företagskoppling'};
+    const integrityWarnings=(coverage.integrityProblems||[]).map(key=>'<li>'+escapeHtml(integrityLabels[key])+': '+c.integrity[key]+'</li>').join('');
     const notice=coverage.status==='matched'
       ? 'Antalen stämmer med de företagsspecifika databassvaren vid kontrolltillfället.'
       : 'Antalen stämmer inte. En del poster kan saknas i den inlästa listan. Läs in sidan igen och granska avvikelsen.';
     return '<div class="month-close-coverage '+(coverage.status==='matched'?'month-close-coverage-matched':'month-close-coverage-mismatch')+'" role="status">'+
-      '<h3>Kontroll av inlästa poster</h3><p>'+escapeHtml(notice)+'</p><ul>'+lines+'</ul>'+
+      '<h3>Kontroll av inlästa poster</h3><p>'+escapeHtml(notice)+'</p><ul>'+lines+integrityWarnings+'</ul>'+
       '<p class="month-close-findings-disclaimer">Detta jämför antal enligt Supabase med antal som lästs in. Det verifierar inte varje post, bank, moms eller hela månadens avstämning. Pågående ändringar kan kräva ny inläsning.</p></div>';
   }
 
