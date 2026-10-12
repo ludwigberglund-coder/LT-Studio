@@ -130,7 +130,7 @@
   function renderBankReview(state){
     // This is a company-wide count of unmatched payments, not confirmation of bank reconciliation.
     if(state?.demo){
-      return '<div class="month-close-bank-review"><p>Bankantalet verifieras inte mot Supabase i demon. Kontrollera manuellt.</p></div>';
+      return '<div class="month-close-bank-review"><p>Bankantalet verifieras inte mot Supabase i demon. Öppna listan för att granska betalningarna.</p></div>';
     }
     const c=state?.unmatchedBankEvidence;
     const checkedAt=Date.parse(String(c?.checkedAt||''));
