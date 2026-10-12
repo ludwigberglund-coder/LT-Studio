@@ -62,8 +62,18 @@ function net2440(entries){return entries.flatMap(entry=>entry.lines||[]).filter(
     assert.equal(db.prepare('SELECT COUNT(*) AS n FROM supplier_invoices WHERE company_id=?').get(company.id).n,0);
     await form.locator('select[name="vatTreatment"]').selectOption('se-domestic-full-input-vat');
     await Promise.all([page.waitForNavigation({waitUntil:'networkidle'}),form.getByRole('button',{name:'Registrera faktura'}).click()]);
-    await page.getByText('BKS-771',{exact:true}).first().click();await page.getByText('Svensk faktura · full avdragsrätt',{exact:true}).waitFor();await page.getByRole('button',{name:'Hämta konteringsförslag'}).click();
-    await page.getByText('Balanserad',{exact:true}).waitFor();await page.getByRole('button',{name:'Spara kontering'}).click();
+    await page.getByText('BKS-771',{exact:true}).first().click();await page.getByText('Svensk faktura · full avdragsrätt',{exact:true}).waitFor();
+    const guide=page.locator('.invoice-next-step');
+    await page.getByRole('heading',{name:'Granska faktura och bokföringsförslag'}).waitFor();
+    assert.equal(await guide.getAttribute('data-guide-stage'),'review');
+    assert.match(await guide.innerText(),/Spara och attestera först när allt stämmer/);
+    const accountingHelp=page.locator('.invoice-accounting-help');
+    assert.equal(await accountingHelp.getAttribute('open'),null,'technical explanation is optional, not the actual coding table');
+    await accountingHelp.locator('summary').click();
+    assert.match(await accountingHelp.innerText(),/Attest betyder/);
+    assert.equal(await page.locator('.coding-table').isVisible(),true,'accounting fields must remain visible');
+    await page.getByRole('button',{name:'Hämta konteringsförslag'}).click();
+    await page.getByText('Balanserad',{exact:true}).waitFor();await page.getByRole('button',{name:'Spara kontering'}).click();await page.locator('.invoice-next-step[data-guide-stage="approval"]').waitFor({timeout:10000});
     const queueSearch=page.locator('.queue-search');await queueSearch.click();await page.keyboard.type('BKS-771');assert.equal(await queueSearch.inputValue(),'BKS-771');assert.equal(await queueSearch.evaluate(node=>document.activeElement===node),true);const searchResults=page.locator('#payables-search-results');await searchResults.waitFor();assert.equal(await searchResults.isVisible(),true);assert.match(await searchResults.innerText(),/BKS-771/);assert.equal(await page.locator('.queue-row').count(),1);assert.match(await page.locator('.queue-row').innerText(),/BKS-771/);await queueSearch.fill('');
 
     await setSession(approverSession);await page.getByText('BKS-771',{exact:true}).first().click();
@@ -73,8 +83,10 @@ function net2440(entries){return entries.flatMap(entry=>entry.lines||[]).filter(
     await approveButton.click();await page.locator('.payables-action-toast.is-error').getByText(/osparade ändringar/i).waitFor({timeout:10000});assert.equal(await reviewedAccount.inputValue(),'5460');
     const rejectedApproval=Payables.invoiceById(db,company.id,db.prepare("SELECT id FROM supplier_invoices WHERE company_id=? AND supplier_invoice_number='BKS-771'").get(company.id).id);assert.equal(rejectedApproval.status,'coded');assert.equal(rejectedApproval.coding[0].account,'4010');
     await page.reload({waitUntil:'networkidle'});await page.getByText('BKS-771',{exact:true}).first().click();assert.equal(await page.locator('[data-line="0"][data-field="account"]').inputValue(),'4010');
-    await page.getByRole('button',{name:'Attestera faktura'}).click();await page.locator('.payables-action-toast').getByText(/Fakturan är attesterad/).waitFor({timeout:10000});await page.locator('.status-pill.approved').getByText('Attesterad – skuld ej bokförd',{exact:true}).waitFor();await page.getByRole('button',{name:'Skapa bunt för leverantörsskuld'}).waitFor({timeout:10000});
-    await setSession(accountantSession);await page.getByText('BKS-771',{exact:true}).first().click();await page.getByRole('button',{name:'Skapa bunt för leverantörsskuld'}).click();await page.getByRole('button',{name:'Rätta datum'}).waitFor({timeout:10000});
+    await page.getByRole('button',{name:'Attestera faktura'}).click();await page.locator('.payables-action-toast').getByText(/Fakturan är attesterad/).waitFor({timeout:10000});await page.locator('.status-pill.approved').getByText('Attesterad – skuld ej bokförd',{exact:true}).waitFor();
+    await page.locator('.invoice-next-step[data-guide-stage="posting"]').getByText('Skapa bokföringsbunt').waitFor();
+    await page.getByRole('button',{name:'Skapa bunt för leverantörsskuld'}).waitFor({timeout:10000});
+    await setSession(accountantSession);await page.getByText('BKS-771',{exact:true}).first().click();await page.getByRole('button',{name:'Skapa bunt för leverantörsskuld'}).click();await page.getByRole('button',{name:'Rätta datum'}).waitFor({timeout:10000});await page.locator('.invoice-next-step[data-guide-stage="payment"]').getByText('Skulden är bokförd').waitFor();
     await page.getByText('Leverantörsskulden är bokförd. Hantera betalningen under Leverantörsreskontra.',{exact:true}).waitFor({timeout:10000});
     await page.goto(`${base}/supplier-ledger.html`,{waitUntil:'networkidle'});await page.getByRole('heading',{name:'Leverantörsreskontra'}).waitFor();await page.getByText('BKS-771',{exact:true}).first().click();await page.getByRole('button',{name:'Förbered betalning idag'}).waitFor({timeout:10000});
     db.prepare('UPDATE suppliers SET bankgiro=NULL WHERE company_id=? AND id=?').run(company.id,supplier.id);
@@ -96,6 +108,7 @@ function net2440(entries){return entries.flatMap(entry=>entry.lines||[]).filter(
     const payment=db.prepare(`SELECT id,status,amount_ore AS amountOre,confirmation_reference AS confirmationReference FROM supplier_payments WHERE company_id=? AND supplier_invoice_id=?`).get(company.id,invoice.id);assert.ok(payment);assert.equal(payment.status,'paid');assert.equal(payment.amountOre,125000);assert.equal(payment.confirmationReference,'BANK-BKS-771-BROWSER');
     const invoiceEntry=Accounting.entryBySource(db,company.id,'supplier-invoice',invoice.id),paymentEntry=Accounting.entryBySource(db,company.id,'supplier-payment',payment.id);assert.ok(invoiceEntry);assert.ok(paymentEntry);assert.deepEqual(invoiceEntry.lines.map(line=>[line.account,line.debitOre,line.creditOre]),[['4010',100000,0],['2641',25000,0],['2440',0,125000]]);assert.deepEqual(paymentEntry.lines.map(line=>[line.account,line.debitOre,line.creditOre]),[['2440',125000,0],['1930',0,125000]]);assert.equal(net2440([invoiceEntry,paymentEntry]),0);
     db.prepare('UPDATE supplier_invoices SET vat_treatment=NULL WHERE company_id=? AND id=?').run(company.id,invoice.id);await page.goto(`${base}/payables.html`,{waitUntil:'networkidle'});await page.locator('[data-filter="all"]').click();await page.getByText('BKS-771',{exact:true}).first().click();await page.getByText('Äldre bokförd post · momsmarkering saknas',{exact:true}).waitFor({timeout:10000});
+    await page.locator('.invoice-next-step[data-guide-stage="completed"]').getByText('Betalningen är registrerad').waitFor();
     assert.equal(pageErrors.length,0,pageErrors.map(error=>error.message).join('\n'));
     console.log('Browserflöde BKS-771: OK');
   }finally{
