@@ -54,7 +54,25 @@
       }).filter(Boolean)
     })).filter(group=>group.items.length>0);
   }
-  if(typeof module==='object'&&module.exports){module.exports={groups,visibleGroups,simpleGroups};return;}
+  // Homepage shortcuts reuse authorized navigation destinations. Nothing here
+  // alters role permissions or bypasses server-side authorization.
+  const quickActionDefinitions=Object.freeze([
+    ['invoices','Fakturor','Visa och hantera kundfakturor'],
+    ['payables','Inköp','Visa leverantörsfakturor'],
+    ['documents','Underlag','Öppna dokumentinkorgen'],
+    ['unplaced-payments','Oplacerade betalningar','Ta hand om betalningar utan fakturakoppling'],
+    ['accounting','Månadskontroll','Kontrollera bokföring och period']
+  ]);
+  function quickActionLinks(allowedGroups){
+    const authorized=new Map((Array.isArray(allowedGroups)?allowedGroups:[])
+      .flatMap(group=>group.items.map(item=>[item[0],item[2]])));
+    return quickActionDefinitions.flatMap(([id,label,description])=>{
+      const path=authorized.get(id);
+      if(typeof path!=='string'||!/^portal\/[a-z-]+\.html$/.test(path))return [];
+      return [{id,label,description,href:'./'+path.slice('portal/'.length)}];
+    });
+  }
+  if(typeof module==='object'&&module.exports){module.exports={groups,visibleGroups,simpleGroups,quickActionLinks};return;}
   function ensureFavicon(){
     if(document.querySelector('link[rel~="icon"]'))return;
     const link=document.createElement('link');
@@ -713,5 +731,6 @@
   addEventListener('focus',()=>{enforceSupabaseSession();});
   addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){ensureFreshRuntime();enforceSupabaseSession();}});
   setInterval(ensureFreshRuntime,30000);
-  root.RollandsNavigation={groups,mount,mountUserMenu,mountSidebarToggle,setSidebarOpen,href};ensureFreshRuntime();mount();mountUserMenu();mountSidebarToggle();decorateUi();
+  root.RollandsNavigation={groups,mount,mountUserMenu,mountSidebarToggle,setSidebarOpen,href,
+    quickActions:async()=>quickActionLinks((await navigationContext()).groups)};ensureFreshRuntime();mount();mountUserMenu();mountSidebarToggle();decorateUi();
 })(globalThis);
