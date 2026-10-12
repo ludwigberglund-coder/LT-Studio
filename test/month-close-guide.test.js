@@ -294,3 +294,16 @@ test('prioriterar journalavvikelser och därefter oplacerade betalningar utan at
  assert.match(g.render(clean),/Alla sju kontrollområden/);
  assert.doesNotMatch(g.render(clean),/Alla kontroller klara|Månaden är avstämd/);
 });
+
+test('läsbar nästa åtgärd beskriver även relationsfel när alla antal stämmer',()=>{
+ const g=guide();
+ const c={status:'checked',companyId:'tenant-a',period:'2026-10',checkedAt:new Date().toISOString(),
+  totalEntries:1,totalLines:2,periodEntries:1,loadedEntries:1,loadedLines:2,loadedPeriodEntries:1,
+  integrity:{duplicateEntryIds:0,duplicateLineIds:0,orphanLines:1,wrongCompanyLines:0,checkedEntries:1,checkedLines:2}};
+ const s={period:'2026-10',companyId:'tenant-a',coverage:c,journalEntries:[]};
+ assert.equal(g.evaluateCoverage(s,'2026-10').status,'mismatch');
+ const step=g.nextStep(s,'2026-10');
+ assert.match(step.explanation,/kopplingen mellan bokföringsraderna/);
+ assert.doesNotMatch(step.explanation,/Antalet inlästa verifikationer.*avviker/);
+ assert.match(g.render(s),/Granska uppgifter som saknas eller inte stämmer/);
+});
