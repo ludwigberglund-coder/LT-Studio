@@ -66,3 +66,13 @@ test('bokföringsvyn visar läsguiden för den aktuella perioden och bekräftar 
   assert.match(html,/month-close-guide\.js/);
   assert.ok(html.indexOf('month-close-guide.js')<html.indexOf('accounting.js'),'guiden laddas före bokföringsvyn');
 });
+
+test('guiden har inga nätverksanrop eller bokföringsskrivningar',()=>{
+  assert.doesNotMatch(source,/\bfetch\s*\(/);
+  assert.doesNotMatch(source,/LTSupabase/);
+  assert.doesNotMatch(source,/\blocalStorage\b/);
+  assert.doesNotMatch(source,/\bpostEntry\b|\block_accounting_period\b/);
+  const accounting=fs.readFileSync(path.join(__dirname,'..','apps','portal','accounting.js'),'utf8');
+  assert.match(accounting,/lock_accounting_period/,'befintlig server-RPC finns kvar');
+  assert.match(accounting,/accounting\/periods\/\$\{period\}\/lock/,'äldre privata serverflödet finns kvar');
+});
