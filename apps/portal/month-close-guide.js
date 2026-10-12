@@ -83,11 +83,11 @@
     if(!integrity||integrity.checkedEntries!==c.loadedEntries||integrity.checkedLines!==c.loadedLines){
       return {status:'unavailable',reason:'Kontoradernas koppling till verifikationerna kunde inte kontrolleras.'};
     }
-    const keys=['duplicateEntryIds','duplicateLineIds','orphanLines','wrongCompanyLines'];
-    if(keys.some(key=>!Number.isSafeInteger(integrity[key])||integrity[key]<0)){
+    const integrityKeys=['duplicateEntryIds','duplicateLineIds','orphanLines','wrongCompanyLines'];
+    if(integrityKeys.some(key=>!Number.isSafeInteger(integrity[key])||integrity[key]<0)){
       return {status:'unavailable',reason:'Integritetskontrollen gav ogiltiga värden.'};
     }
-    const integrityProblems=keys.filter(key=>integrity[key]>0);
+    const integrityProblems=integrityKeys.filter(key=>integrity[key]>0);
     const differences=[
       ['verifikationer för företaget',c.loadedEntries,c.totalEntries],
       ['kontorader för företaget',c.loadedLines,c.totalLines],
