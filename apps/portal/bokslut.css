@@ -60,3 +60,10 @@ html[data-lt-theme="dark"] .bokslut-card a{background:var(--color-surface-alt,#2
 html[data-lt-theme="dark"] .year-close-flag{color:#f5d287}
 .year-close-panel .year-close-warning{font-size:13px;line-height:1.6;border-left:3px solid #b17d23;padding:10px 14px;background:var(--color-surface-alt,#fafafa)}
 @media(max-width:480px){.year-close-results{grid-template-columns:1fr}.year-close-results dd{padding-top:0;text-align:left}.year-close-results dt{border-bottom:0;padding-bottom:3px}.year-close-controls input,.year-close-controls button{flex:1 1 100%}}
+
+/* P1B: evidence listing shares the existing mobile-first year-control layout. */
+.year-ledger-block{margin-top:22px;padding-top:18px;border-top:1px solid var(--color-hairline,#ddd)}
+.year-ledger-block h3{font-size:clamp(18px,2.4vw,22px);margin:0 0 10px}
+.year-ledger-block p{line-height:1.55}
+.year-ledger-block #year-ledger-message{font-weight:650}
+.year-ledger-block .year-close-results{width:100%}
