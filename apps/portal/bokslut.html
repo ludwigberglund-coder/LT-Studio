@@ -36,6 +36,21 @@
 <p id="year-ledger-message" role="status" aria-live="polite">Kör årskontrollen för att se resultat.</p>
 <dl id="year-ledger-results" class="year-close-results" hidden></dl>
 </div>
+<div class="book-close-cutoff-block" aria-labelledby="book-close-cutoff-heading">
+<h3 id="book-close-cutoff-heading">Bokföringens rörelser fram till årsskiftet</h3>
+<p>Här visas det som går att räkna fram ur verifikationerna: tidigare bokförda rörelser, årets förändring och summan fram till periodens slut. Summan är <strong>inte</strong> ett bekräftat banksaldo eller en verifierad ingående/utgående balans.</p>
+<p id="book-close-cutoff-message" role="status" aria-live="polite">Kör årskontrollen för att hämta rörelserna.</p>
+<div id="book-close-cutoff-results" hidden>
+<p id="book-close-cutoff-coverage"></p>
+<div class="book-close-cutoff-table-wrap" role="region" aria-label="Kontorörelser före och under kalenderåret" tabindex="0">
+<table class="book-close-cutoff-table">
+<thead><tr><th scope="col">Konto</th><th scope="col">Före året</th><th scope="col">Under året</th><th scope="col">Ackumulerat vid årets slut</th></tr></thead>
+<tbody id="book-close-cutoff-rows"></tbody>
+</table>
+</div>
+</div>
+<p class="book-close-cutoff-warning"><strong>Ej avstämt.</strong> Bokföring före systemstart, importerad ingående balans, kontoutdrag och historisk kund-/leverantörsreskontra måste verifieras separat. Ett belopp som är noll betyder inte att kontot är godkänt.</p>
+</div>
 <div class="book-close-evidence-block" aria-labelledby="book-close-evidence-heading">
 <h3 id="book-close-evidence-heading">Bank och fakturor – kontroll av underlag</h3>
 <p>Systemet söker automatiskt efter möjliga luckor i bankhändelser, kundfakturor och leverantörsfakturor. Antalen avser valt kalenderår, utom odaterade bankhändelser som granskas för hela företaget.</p>
@@ -58,7 +73,7 @@
 <p class="bokslut-notice"><strong>Varför står allt som inte verifierat?</strong> För att vi inte ännu har en fullständig serverbaserad årsavstämning. Tomma listor eller inlästa siffror bevisar inte att allt är kontrollerat. Årsredovisning, deklaration och myndighetsinlämning är inte tillgängliga från denna vy.</p>
 </main></div>
 </section></div>
-<script src="./supabase-config.js"></script><script src="./supabase-client.js"></script><script src="./supabase-session.js"></script><script src="./portal-nav.js"></script><script src="./year-close-counts.js"></script><script src="./book-close-ledger.js"></script><script src="./book-close-ledger-ui.js"></script><script src="./book-close-evidence.js"></script><script src="./book-close-evidence-ui.js"></script>
+<script src="./supabase-config.js"></script><script src="./supabase-client.js"></script><script src="./supabase-session.js"></script><script src="./portal-nav.js"></script><script src="./year-close-counts.js"></script><script src="./book-close-ledger.js"></script><script src="./book-close-ledger-ui.js"></script><script src="./book-close-evidence.js"></script><script src="./book-close-evidence-ui.js"></script><script src="./book-close-cutoff.js"></script><script src="./book-close-cutoff-ui.js"></script>
 <script>
 (async function(){
  const demo=new URLSearchParams(location.search).get('demo')==='1';
