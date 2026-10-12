@@ -152,7 +152,7 @@ test('månadsavstämningen visar serverantal endast när företag och period st�
   assert.equal(g.evaluateCoverage(state,'2026-10').status,'matched');
   const html=g.render({...state,period:'2026-10',journalEntries:[]});
   assert.match(html,/Antalen stämmer med de företagsspecifika databassvaren/);
-  assert.match(html,/Verifikationer för månaden: 4 av 4/);
+  assert.match(html,/Verifikationer för 2026-10: 4 av 4/);
   assert.match(html,/Det verifierar inte varje post, bank, moms/);
   assert.doesNotMatch(html,/Hela månaden är godkänd/);
   assert.equal(g.evaluateCoverage({...state,companyId:'company-b'},'2026-10').status,'unavailable');
@@ -173,7 +173,7 @@ test('ofullständig inläsning visar varning även om de inlästa posterna balan
   const h=g.render(state);
   assert.equal(g.evaluateCoverage(state,'2026-10').status,'mismatch');
   assert.match(h,/Antalen stämmer inte/);
-  assert.match(h,/Verifikationer för månaden: 1 av 8/);
+  assert.match(h,/Verifikationer för 2026-10: 1 av 8/);
   assert.match(h,/Kontorader för företaget: 18 av 45/);
   assert.match(h,/Inga avvikelser hittades bland de inlästa verifikationerna/);
   assert.doesNotMatch(h,/Alla uppgifter har kontrollerats/);
