@@ -245,7 +245,7 @@ function bindJournalControls(){
   document.querySelectorAll("[data-entry]").forEach(row=>{
     row.addEventListener("click",()=>selectJournalRow(row));
     row.addEventListener("keydown",event=>{
-      if(event.key==="Enter"||event.key===" "){event.preventDefault();selectJournalRow(row,true)}
+      if(event.key==='Enter'||event.key===' '){event.preventDefault();selectJournalRow(row,true)}
     });
   });
   document.querySelector('[data-action="toggle-journals"]')?.addEventListener("click",()=>{
