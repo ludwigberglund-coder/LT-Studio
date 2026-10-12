@@ -69,6 +69,44 @@
       '<a href="#journal-entries">Granska verifikationerna ovan</a></div>';
   }
 
+
+  function evaluateCoverage(state,period){
+    const c=state&&state.coverage;
+    if(!c||c.status!=='checked'||c.period!==period||!state.companyId||String(c.companyId)!==String(state.companyId)){
+      return {status:'unavailable',reason:'Databasen kunde inte bekräfta hur många poster som skulle läsas in.'};
+    }
+    const keys=['totalEntries','totalLines','periodEntries','loadedEntries','loadedLines','loadedPeriodEntries'];
+    if(keys.some(key=>!Number.isSafeInteger(c[key])||c[key]<0)){
+      return {status:'unavailable',reason:'Databasen skickade ofullständiga antalsuppgifter.'};
+    }
+    const differences=[
+      ['verifikationer för företaget',c.loadedEntries,c.totalEntries],
+      ['kontorader för företaget',c.loadedLines,c.totalLines],
+      ['verifikationer för månaden',c.loadedPeriodEntries,c.periodEntries]
+    ].filter(([,loaded,expected])=>loaded!==expected);
+    return {status:differences.length?'mismatch':'matched',differences,counts:c};
+  }
+  function coveragePanel(state,period){
+    const coverage=evaluateCoverage(state,period);
+    if(coverage.status==='unavailable'){
+      return '<div class="month-close-coverage month-close-coverage-unknown" role="status">'+
+        '<h3>Inläsningen behöver kontrolleras</h3><p>'+escapeHtml(coverage.reason)+'</p>'+
+        '<p>Du kan granska de synliga posterna, men systemet vet inte om alla verifikationer och kontorader kom med.</p></div>';
+    }
+    const c=coverage.counts;
+    const lines=[
+      'Verifikationer för företaget: '+c.loadedEntries+' av '+c.totalEntries,
+      'Kontorader för företaget: '+c.loadedLines+' av '+c.totalLines,
+      'Verifikationer för '+period+': '+c.loadedPeriodEntries+' av '+c.periodEntries
+    ].map(value=>'<li>'+escapeHtml(value)+'</li>').join('');
+    const notice=coverage.status==='matched'
+      ? 'Antalen stämmer med de företagsspecifika databassvaren vid kontrolltillfället.'
+      : 'Antalen stämmer inte. En del poster kan saknas i den inlästa listan. Läs in sidan igen och granska avvikelsen.';
+    return '<div class="month-close-coverage '+(coverage.status==='matched'?'month-close-coverage-matched':'month-close-coverage-mismatch')+'" role="status">'+
+      '<h3>Kontroll av inlästa poster</h3><p>'+escapeHtml(notice)+'</p><ul>'+lines+'</ul>'+
+      '<p class="month-close-findings-disclaimer">Detta jämför antal enligt Supabase med antal som lästs in. Det verifierar inte varje post, bank, moms eller hela månadens avstämning. Pågående ändringar kan kräva ny inläsning.</p></div>';
+  }
+
   function render(options){
     const state=options||{};
     const period=/^\d{4}-(0[1-9]|1[0-2])$/.test(String(state.period||''))?String(state.period):'Okänd period';
@@ -92,10 +130,11 @@
       '<span class="status-pill'+(locked?' locked':'')+'">'+escapeHtml(label)+'</span></div>'+
       '<p>'+escapeHtml(message)+'</p>'+
       '<p class="month-close-count">'+shown+' verifikationer för perioden visas i den inlästa listan. Det är inte ett bevis på att alla poster är med.</p>'+
+      coveragePanel(state,period)+
       journalReview(state,period)+
       '<ol class="month-close-list">'+items+'</ol>'+
       '<p class="month-close-notice">Ingen punkt markeras automatiskt som klar. Öppna varje arbetsyta och gör den riktiga kontrollen före eventuellt periodlås.</p>'+
       '</section>';
   }
-  globalThis.LTMonthCloseGuide=Object.freeze({render:render,inspectEntries:inspectEntries});
+  globalThis.LTMonthCloseGuide=Object.freeze({render:render,inspectEntries:inspectEntries,evaluateCoverage:evaluateCoverage});
 })();
