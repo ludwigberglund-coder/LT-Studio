@@ -311,3 +311,46 @@ html[data-lt-theme="dark"] .task-card>strong{
     backdrop-filter:none!important;
   }
 }
+
+/* Småföretagarflöde: utpekad nästa åtgärd utan att göra automatisk bokföring. */
+.welcome-next{
+  display:inline-flex;flex-direction:column;gap:4px;max-width:100%;
+  margin-top:16px;padding:13px 18px;border-radius:16px;
+  color:#fff!important;background:var(--brand-forest,#173f32);
+  border:1px solid rgb(255 255 255 / .14);text-decoration:none;
+  box-shadow:0 10px 22px rgb(16 47 37 / .14);
+  transition:transform .2s ease,box-shadow .2s ease
+}
+.welcome-next>span{font-size:11px;letter-spacing:.05em;font-weight:650;opacity:.84}
+.welcome-next strong{display:flex;align-items:center;justify-content:space-between;gap:18px;font-size:15px}
+.welcome-next:hover{transform:translateY(-2px);box-shadow:0 14px 28px rgb(16 47 37 / .2)}
+.welcome-next:focus-visible,.task-card:focus-visible{
+  outline:3px solid var(--brand-forest,#173f32);outline-offset:4px
+}
+.task-card.is-first{
+  border-color:color-mix(in srgb,var(--brand-forest) 33%,var(--color-hairline))!important;
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--brand-forest) 12%,transparent),0 12px 32px rgb(15 24 21 / .055)!important
+}
+.worklist-hint{margin:7px 0 0;color:var(--muted);font-size:13px;line-height:1.55}
+.today-count.incomplete{
+  color:#73400e!important;
+  background:#fff3df!important;
+  border-color:#e0be87!important
+}
+.today-count.incomplete i{background:#9e5915;animation:none}
+html[data-lt-theme="dark"] .today-count.incomplete{
+  color:#ffe0ae!important;background:#49351f!important;border-color:#8b663b!important
+}
+html[data-lt-theme="dark"] .task-card.is-first{
+  border-color:color-mix(in srgb,var(--brand-lime) 36%,var(--lt-dark-border))!important
+}
+html[data-lt-theme="dark"] .welcome-next:focus-visible,
+html[data-lt-theme="dark"] .task-card:focus-visible{outline-color:var(--brand-lime)}
+@media(max-width:720px){
+  .welcome-next{width:100%;box-sizing:border-box}
+  .worklist-hint{font-size:13px}
+}
+@media(prefers-reduced-motion:reduce){
+  .welcome-next{transition:none}
+  .welcome-next:hover{transform:none}
+}
