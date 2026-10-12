@@ -52,7 +52,7 @@ function harness(overrides = {}) {
   const context = overrides.context || (async () => { contexts++; return session; });
   const counts = overrides.counts || (async args => {
     calls.push({type: 'counts', ...args});
-    return {reliable: true, counts: {openBatches: {status:'counted'}, unplacedBank: {status:'attention'}}};
+    return {reliable: true, counts: {journal: {status:'counted',count:12}, openBatches: {status:'counted'}, unplacedBank: {status:'attention'}}};
   });
   const ledger = overrides.ledger || (async args => {calls.push({type:'ledger', ...args}); return {detected:false};});
   const evidence = overrides.evidence || (async args => {
@@ -100,11 +100,11 @@ test('one click checks existing data and shows safe Swedish actions with relevan
 test('failed source remains unknown, never an approved reconciliation', async () => {
   const h = harness({
     cutoff: async () => {throw Error('UNAVAILABLE');},
-    counts: async () => ({reliable:true,counts:{openBatches:{status:'counted'},unplacedBank:{status:'counted'}}}),
+    counts: async () => ({reliable:true,counts:{journal:{status:'counted',count:12},openBatches:{status:'counted'},unplacedBank:{status:'counted'}}}),
     evidence: async () => ({areas:{bank:{needsReview:false},customer:{needsReview:false},supplier:{needsReview:false}}})
   });
   await h.click();
-  assert.match(h.refs['book-close-simple-status'].textContent,/1 kontroller utan säkert resultat/);
+  assert.match(h.refs['book-close-simple-status'].textContent,/1 kontroll utan säkert resultat/);
   assert.ok(h.texts().some(x=>x.includes('kunde inte kontrolleras')));
   assert.doesNotMatch(h.refs['book-close-simple-status'].textContent,/bokslut (klart|godkänt)/i);
 });
@@ -134,4 +134,79 @@ test('demo does not call the secure server or pretend checks ran', () => {
   assert.equal(h.refs['book-close-start'].disabled,true);
   assert.equal(h.refs['book-close-start'].listeners.click,undefined);
   assert.match(h.refs['book-close-simple-status'].textContent,/Logga in i ett testföretag/);
+});
+
+test('an empty year triggers a real review task instead of a reassuring all-clear', async () => {
+  const h=harness({
+    counts:async()=>({reliable:true,counts:{
+      journal:{status:'counted',count:0},
+      openBatches:{status:'counted'},unplacedBank:{status:'counted'}
+    }}),
+    ledger:async()=>({counts:{entries:'0'},detected:false}),
+    evidence:async()=>({areas:{
+      bank:{needsReview:false},customer:{needsReview:false},supplier:{needsReview:false}
+    }})
+  });
+  await h.click();
+  assert.ok(h.texts().some(x=>x.includes('Inga bokföringsposter hittades')));
+  assert.ok(!h.texts().some(x=>x.includes('Inga tydliga tekniska avvikelser')));
+  assert.match(h.refs['book-close-simple-status'].textContent,/1 möjlig fråga/);
+  assert.ok(h.texts().some(x=>x.includes('Återstår innan bokslutet')));
+});
+
+test('higher-risk ledger problems appear before simpler issues', async () => {
+  const h=harness({ledger:async()=>({detected:true,counts:{entries:'12'}})});
+  await h.click();
+  assert.match(h.texts()[0],/Behöver din hjälp: Vi hittade skillnader i bokföringen/);
+  assert.ok(h.texts().findIndex(x=>x.includes('skillnader')) <
+    h.texts().findIndex(x=>x.includes('betalningar')));
+  assert.ok(h.refs['book-close-simple-actions'].children.some(li=>
+    li.className==='book-close-task book-close-task--next'));
+});
+
+test('partial failure is labeled unknown and comes before optional next steps',async()=>{
+  const h=harness({
+    cutoff:async()=>{throw Error('OFFLINE');},
+    ledger:async()=>({counts:{entries:'12'},detected:false}),
+    counts:async()=>({reliable:true,counts:{journal:{status:'counted',count:12},openBatches:{status:'counted'},unplacedBank:{status:'counted'}}}),
+    evidence:async()=>({areas:{bank:{needsReview:false},customer:{needsReview:false},supplier:{needsReview:false}}})
+  });
+  await h.click();
+  assert.match(h.texts()[0],/Kunde inte kontrolleras/);
+  assert.ok(h.texts().some(x=>x.includes('Historiska kontorörelser')));
+  assert.match(h.refs['book-close-simple-status'].textContent,/1 kontroll utan säkert resultat/);
+  assert.match(h.texts().at(-1),/Nästa steg/);
+});
+
+test('all available checks without exceptions still require external reconciliation',async()=>{
+  const h=harness({
+    counts:async()=>({reliable:true,counts:{journal:{status:'counted',count:4},openBatches:{status:'counted'},unplacedBank:{status:'counted'}}}),
+    ledger:async()=>({counts:{entries:'4'},detected:false}),
+    evidence:async()=>({areas:{bank:{needsReview:false},customer:{needsReview:false},supplier:{needsReview:false}}})
+  });
+  await h.click();
+  assert.match(h.refs['book-close-simple-status'].textContent,/0 möjliga frågor att hantera, 0 kontroller utan säkert resultat/);
+  assert.ok(h.texts().some(x=>x.includes('Återstår innan bokslutet')));
+  assert.ok(h.texts().some(x=>x.includes('Inga tydliga tekniska avvikelser')));
+});
+
+test('responses for an old year cannot overwrite the new year prompt',async()=>{
+  let release;
+  const waiting=new Promise(resolve=>{release=resolve;});
+  const h=harness({counts:async()=>waiting});
+  const pending=h.click();
+  h.year('2025');
+  release({reliable:true,counts:{journal:{status:'counted',count:16},openBatches:{status:'counted'},unplacedBank:{status:'counted'}}});
+  await pending;
+  assert.match(h.refs['book-close-simple-status'].textContent,/Året har ändrats/);
+  assert.equal(h.refs['book-close-simple-actions'].children.length,0);
+});
+
+test('priority labels remain accessible and navigation targets stay fixed',()=>{
+  assert.match(html,/Nästa steg och sådant som kan behöva din hjälp/);
+  assert.match(js,/Behöver din hjälp:/);
+  assert.match(js,/Kunde inte kontrolleras:/);
+  assert.match(js,/textContent=item.description/);
+  assert.match(js,/allowedLinks\.has\(item.href\)/);
+  assert.doesNotMatch(js,/\.innerHTML\s*=|new URL\(.*href/);
 });
