@@ -238,3 +238,39 @@ html[data-lt-theme="light"] :where(.topbar,.panel,.card,.metric,.queue-panel,.re
 @media(forced-colors:active){
   html[data-lt-theme] :is(a,button,input,select,textarea){forced-color-adjust:auto!important}
 }
+
+/* The operator already has a complete signed-in AND login appearance switch.
+   Keep just that one visible; the shared switch still synchronizes in code. */
+html[data-operator-theme] .lt-theme-toggle-topbar,
+html[data-operator-theme] .lt-theme-toggle-floating,
+html[data-operator-theme] .lt-theme-toggle-menu{display:none!important}
+
+/* Night CTAs must not use the former pale-accent/dark-label combination. */
+html[data-lt-theme="dark"] .button:not(.ghost):not(.secondary):not(.danger),
+html[data-lt-theme="dark"] .button.primary,
+html[data-lt-theme="dark"] .operator-shell .button:not(.secondary):not(.danger){
+  background:#275b4e!important;
+  border-color:#91b8a5!important;
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+}
+html[data-lt-theme="dark"] .button:not(.ghost):not(.secondary):not(.danger) :is(.ui-icon,.op-icon,svg),
+html[data-lt-theme="dark"] .operator-shell .button:not(.secondary):not(.danger) :is(.ui-icon,.op-icon,svg){
+  color:#ffffff!important;
+}
+html[data-lt-theme="light"] .button:not(.ghost):not(.secondary):not(.danger),
+html[data-lt-theme="light"] .button.primary{
+  background:#225443!important;
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+}
+html[data-lt-theme="dark"] :where(.button.ghost,.button.secondary){
+  background:#373e47!important;
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+}
+html[data-lt-theme="light"] :where(.button.ghost,.button.secondary){
+  background:#f0f3ef!important;
+  color:#1c2523!important;
+  -webkit-text-fill-color:#1c2523!important;
+}
