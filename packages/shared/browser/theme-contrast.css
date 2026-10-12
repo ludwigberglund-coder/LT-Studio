@@ -328,3 +328,121 @@ html[data-lt-theme="light"] body .settlement-modal .settlement-grid input:disabl
   -webkit-text-fill-color:#1c2523!important;
   background-color:#edf0ed!important;
 }
+
+
+/*
+ * Visually verified contrast corrections (2026-10-12).
+ * Chromium screenshots exposed failures not covered by the former heading-only
+ * theme audit: dashboard CTA, task counters, hovered navigation, hamburger SVG,
+ * user avatar/trigger and dialog close buttons.
+ * Keep these surface-specific rules rather than forcing all text to one color.
+ */
+
+/* Inverted call to action: white label AND arrow on dark green, even in light mode. */
+html[data-lt-theme] body .dash-shell .welcome-card .welcome-next,
+html[data-lt-theme] body .dash-shell .welcome-card .welcome-next :is(strong,span) {
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+}
+html[data-lt-theme] body .dash-shell .welcome-card .welcome-next{
+  background:#164a39!important;
+  border-color:#6b9586!important;
+}
+
+/* The number chips were dark text on a dark chip in night mode. */
+html[data-lt-theme="dark"] body .dash-shell .task-card>strong{
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+  background:#465360!important;
+  border-color:#8796a2!important;
+}
+html[data-lt-theme="light"] body .dash-shell .task-card>strong{
+  color:#1c2523!important;
+  -webkit-text-fill-color:#1c2523!important;
+}
+
+/* A late navigation stylesheet turns hovered links dark, leaving dark lettering.
+   Always use the same readable light surface for hover and current-page state. */
+html[data-lt-theme="light"] body .shared-workspace-shell .shared-navigation .shared-links a:is(:hover,.active,[aria-current="page"]){
+  color:#172d24!important;
+  background:#e4eee8!important;
+}
+html[data-lt-theme="light"] body .shared-workspace-shell .shared-navigation .shared-links a:is(:hover,.active,[aria-current="page"])>.ui-icon{
+  color:#172d24!important;
+  opacity:1!important;
+}
+html[data-lt-theme="dark"] body .shared-workspace-shell .shared-navigation .shared-links a:is(:hover,.active,[aria-current="page"]){
+  color:#ffffff!important;
+  background:#43545f!important;
+}
+
+/* Iconoir SVG strokes, not only button labels, must remain visible. */
+html[data-lt-theme="light"] body .shared-workspace-shell .shared-menu-toggle{
+  color:#1c2523!important;
+  background-color:#f1f3f0!important;
+  border-color:#aebbb3!important;
+}
+html[data-lt-theme="dark"] body .shared-workspace-shell .shared-menu-toggle{
+  color:#ffffff!important;
+  background-color:#37414b!important;
+  border-color:#8897a3!important;
+}
+html[data-lt-theme="light"] body .shared-workspace-shell .shared-menu-toggle .ui-icon,
+html[data-lt-theme="light"] body .shared-workspace-shell .shared-menu-toggle .ui-icon svg,
+html[data-lt-theme="light"] body .shared-workspace-shell .shared-menu-toggle .ui-icon svg path{
+  color:#1c2523!important;
+  stroke:#1c2523!important;
+  opacity:1!important;
+}
+html[data-lt-theme="dark"] body .shared-workspace-shell .shared-menu-toggle .ui-icon,
+html[data-lt-theme="dark"] body .shared-workspace-shell .shared-menu-toggle .ui-icon svg,
+html[data-lt-theme="dark"] body .shared-workspace-shell .shared-menu-toggle .ui-icon svg path{
+  color:#ffffff!important;
+  stroke:#ffffff!important;
+  opacity:1!important;
+}
+
+/* Avatar initials and dropdown trigger were indistinct in both appearances. */
+html[data-lt-theme="light"] body .shared-workspace-shell .topbar .shared-user-trigger{
+  color:#1c2523!important;
+  background:#f1f3f0!important;
+}
+html[data-lt-theme="dark"] body .shared-workspace-shell .topbar .shared-user-trigger{
+  color:#ffffff!important;
+  background:#37414b!important;
+}
+html[data-lt-theme] body .shared-workspace-shell .shared-user-trigger .shared-user-avatar{
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+  background:#195843!important;
+  border:1px solid #8bb9a4!important;
+}
+html[data-lt-theme="light"] body .shared-workspace-shell .shared-user-trigger :is(.shared-user-label strong,.shared-user-label small,.shared-user-caret){
+  color:#1c2523!important;
+}
+html[data-lt-theme="dark"] body .shared-workspace-shell .shared-user-trigger :is(.shared-user-label strong,.shared-user-label small,.shared-user-caret){
+  color:#ffffff!important;
+}
+
+/* The × close button appears in settlement, payment, reminder and comment dialogs. */
+html[data-lt-theme="light"] body .modal-head button[data-action="close-modal"]{
+  color:#1c2523!important;
+  -webkit-text-fill-color:#1c2523!important;
+  background:#eef1ee!important;
+  border-color:#b5bfb8!important;
+  opacity:1!important;
+}
+html[data-lt-theme="dark"] body .modal-head button[data-action="close-modal"]{
+  color:#ffffff!important;
+  -webkit-text-fill-color:#ffffff!important;
+  background:#43505d!important;
+  border-color:#8797a2!important;
+  opacity:1!important;
+}
+
+/* Operator sign-in's decorative glyph also needs enough separation. */
+html[data-operator-theme] .login-card-mark .mark-icon{
+  border-color:#ffffff!important;
+  color:#ffffff!important;
+  opacity:1!important;
+}
