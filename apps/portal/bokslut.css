@@ -91,13 +91,6 @@ html[data-lt-theme="dark"] .year-close-flag{color:#f5d287}
 .book-close-cutoff-table-wrap:focus-visible{outline:3px solid #275bd0;outline-offset:2px}
 @media(max-width:760px){.book-close-cutoff-table th,.book-close-cutoff-table td{padding:10px}}
 
-/* Scoped book-close review guide; never communicates attestation. */
-.bokslut-guide-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px;margin:16px 0}
-.bokslut-guide-actions label{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--color-hairline,#aaa);border-radius:10px;cursor:pointer;color:inherit}
-.bokslut-guide-actions input{width:18px;height:18px;flex:0 0 auto}
-.bokslut-guide-progress{font-weight:700;padding:10px 0}
-#book-close-guide-reset{min-height:44px;padding:10px 16px;border-radius:8px}
-
 .book-close-server-details{margin-top:24px}
 .book-close-advanced{border:1px solid var(--color-hairline,#ddd);border-radius:12px;padding:12px;margin:14px 0;color:var(--color-ink,#111);background:var(--color-paper,#fff)}
 .book-close-advanced summary{font-weight:700;cursor:pointer;padding:8px 0}
@@ -106,3 +99,17 @@ html[data-lt-theme="dark"] .year-close-flag{color:#f5d287}
 #book-close-simple-status{font-weight:700;margin:16px 0}
 #book-close-simple-actions{padding-inline-start:24px;line-height:1.65}
 #book-close-simple-actions li{margin:8px 0}
+
+/* User-facing book-close preflight: actions, not a manual accounting checklist. */
+.book-close-simple-card{margin-top:24px}
+.book-close-simple-card h2{font-size:clamp(21px,3vw,29px);margin:0 0 12px}
+.book-close-simple-controls{display:grid;grid-template-columns:minmax(0,190px) minmax(0,max-content);gap:12px;align-items:end;margin:12px 0}
+.book-close-simple-controls label{grid-column:1 / -1;font-weight:700}
+.book-close-simple-controls input{width:100%;min-height:48px;padding:10px 12px;border:1px solid var(--color-hairline,#bbb);border-radius:12px;background:var(--color-paper,#fff);color:var(--color-ink,#111);font:inherit}
+.book-close-simple-controls button{margin:0}
+.book-close-simple-note{font-size:13px;color:var(--color-mid-gray,#666)}
+#book-close-simple-actions li{padding:8px 0}
+#book-close-simple-actions li a{display:inline-flex;margin:8px 12px 0 0;min-height:42px;align-items:center;padding:8px 12px;border:1px solid var(--color-hairline,#bbb);border-radius:10px;color:var(--color-ink,#111);background:var(--color-surface-alt,#fafafa);font-weight:700;text-decoration:underline}
+.book-close-advanced summary:focus-visible,#book-close-start:focus-visible,#book-close-simple-actions li a:focus-visible{outline:3px solid #275bd0;outline-offset:3px}
+.book-close-links .bokslut-grid{margin-top:16px}
+@media(max-width:550px){.book-close-simple-controls{grid-template-columns:1fr}.book-close-simple-controls label{grid-column:1}#book-close-start{width:100%}}
