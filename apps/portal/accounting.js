@@ -115,7 +115,7 @@ function filteredJournalEntries(){
 function entryTable(){
   const ordered=filteredJournalEntries(),searched=Boolean(journalQuery.trim());
   const hasOlder=ordered.length>5,expanded=hasOlder&&journalExpanded;
-  const count=searched?ordered.length+" av "+entries.length+" träffar":entries.length+" totalt";
+  const count=searched?ordered.length+(ordered.length===1?" träff":" träffar")+" av "+entries.length+" inlästa":entries.length+" totalt";
   const hint=searched?"Sökresultat":"Senaste verifikationerna";
   const empty=searched?"Inga verifikationer matchar sökningen. Prova ett annat nummer, datum eller konto.":"Inga verifikationer ännu.";
   return `<section class="journal-list" aria-label="Verifikationslista">
