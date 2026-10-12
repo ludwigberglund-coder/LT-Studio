@@ -93,7 +93,8 @@ test('kundfakturor går via en källstyrd bunt före huvudbok och visas direkt i
  assert.match(receivables,/function pendingBatchInvoice\(invoice\)/);
  assert.match(receivables,/const visible=visibleReceivableInvoices\(\)\.map\(withDemoState\)/);
  assert.match(receivables,/list=visible\.filter\(invoice=>!pendingBatchInvoice\(invoice\)\)/);
- assert.match(receivables,/openInvoiceCount:list\.filter\(i=>!pendingBatchInvoice\(i\)/);
+ assert.match(receivables,/if\(!pendingBatchInvoice\(invoice\)\)/);
+ assert.match(receivables,/if\(Number\(invoice\.remainingOre\)!==0\)totals\.openInvoiceCount\+\+/);
  assert.match(receivables,/Väntar på bunt · påverkar inte saldo ännu/);
  assert.match(receivables,/!row\.receivablesPending&&row\.remainingOre>0/);
  assert.match(batches,/const sourceBatch=selected\.kind==='source'/);

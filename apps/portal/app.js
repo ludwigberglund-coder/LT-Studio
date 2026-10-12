@@ -105,7 +105,7 @@ function visibleReceivableInvoices(){const ids=matchingCustomerIds();return invo
 function apiUrl(path){return `/api/v1${path}`}
 
 async function supabaseContext(){return window.LTSupabaseUat.context()}
-function supabaseRows(table,token,filters=''){return window.LTSupabase.from(table,token).select('*',filters)}
+function supabaseRows(table,token,filters='',columns='*'){return window.LTSupabase.from(table,token).select(columns,filters)}
 
 async function api(path,options={}){
   const headers={'Accept':'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})};
@@ -412,16 +412,17 @@ async function loadReceivables(){
   if(!ctx.authenticated||!ctx.company){loginView();return}
   session={user:ctx.user,company:ctx.company};
   const companyFilter='company_id=eq.'+encodeURIComponent(ctx.company.id);
-  const [customersData,invoicesData,transactionsData,manualPaymentRows,creditAdjustmentsData,creditRefundsData,commentRows,reminderRows,documentRows]=await Promise.all([
-    supabaseRows('customers',ctx.accessToken,companyFilter+'&archived_at=is.null'),
-    supabaseRows('invoices',ctx.accessToken,companyFilter),
+  // Only load the information needed for the overview. Full invoice PDF
+  // documents are fetched for one invoice by openInvoicePdf() on demand.
+  const [customersData,invoicesData,transactionsData,manualPaymentRows,creditAdjustmentsData,creditRefundsData,commentRows,reminderRows]=await Promise.all([
+    supabaseRows('customers',ctx.accessToken,companyFilter+'&archived_at=is.null','id,customer_number,name,org_number,customer_type,reminder_fee_agreed'),
+    supabaseRows('invoices',ctx.accessToken,companyFilter,'id,customer_id,invoice_number,ocr,invoice_date,posting_date,due_date,total_ore,remaining_ore,vat_ore,status,payment_method,payment_account,invoice_account,batch_number,journal_number'),
     supabaseRows('invoice_transactions',ctx.accessToken,companyFilter),
     supabaseRows('customer_manual_payments',ctx.accessToken,companyFilter+'&order=created_at.asc'),
     supabaseRows('customer_invoice_credit_adjustments',ctx.accessToken,companyFilter),
     supabaseRows('customer_credit_refunds',ctx.accessToken,companyFilter),
     supabaseRows('invoice_comments',ctx.accessToken,companyFilter+'&order=created_at.asc'),
-    supabaseRows('invoice_reminders',ctx.accessToken,companyFilter+'&order=reminder_date.asc'),
-    supabaseRows('customer_invoice_documents',ctx.accessToken,companyFilter)
+    supabaseRows('invoice_reminders',ctx.accessToken,companyFilter+'&order=reminder_date.asc')
   ]);
   const customersById=new Map((customersData||[]).map(row=>[String(row.id),row]));
   const txByInvoice=new Map();
@@ -429,18 +430,31 @@ async function loadReceivables(){
     id:tx.id,transactionType:tx.transaction_type,paymentMethod:tx.payment_method,paymentDate:tx.payment_date,postingDate:tx.posting_date,batchNumber:tx.batch_number,journalNumber:tx.journal_number,amountOre:Number(tx.amount_ore||0),approved:tx.approved,account:tx.account,bankReference:tx.bank_reference
   })}
   const manualByInvoice=new Map();for(const row of manualPaymentRows||[]){const key=String(row.invoice_id);if(!manualByInvoice.has(key))manualByInvoice.set(key,[]);manualByInvoice.get(key).push({id:row.id,amountOre:Number(row.amount_ore||0),paymentDate:row.payment_date,bankAccount:row.bank_account,reference:row.reference||'',comment:row.comment||'',status:row.status,batchId:row.batch_id,batchNumber:null,createdAt:row.created_at,approvedAt:row.approved_at,rejectedAt:row.rejected_at,rejectionReason:row.rejection_reason||''})}
-  const batchIds=[...new Set((manualPaymentRows||[]).map(row=>row.batch_id).filter(Boolean))];let paymentBatchRows=[];if(batchIds.length)paymentBatchRows=await supabaseRows('financial_batches',ctx.accessToken,companyFilter+'&id=in.('+batchIds.map(encodeURIComponent).join(',')+')');const batchNumberById=new Map((paymentBatchRows||[]).map(row=>[String(row.id),row.batch_number]));for(const list of manualByInvoice.values())for(const payment of list)payment.batchNumber=batchNumberById.get(String(payment.batchId))||null;
+  const batchIds=[...new Set((manualPaymentRows||[]).map(row=>row.batch_id).filter(Boolean))];let paymentBatchRows=[];if(batchIds.length)paymentBatchRows=await supabaseRows('financial_batches',ctx.accessToken,companyFilter+'&id=in.('+batchIds.map(encodeURIComponent).join(',')+')','id,batch_number');const batchNumberById=new Map((paymentBatchRows||[]).map(row=>[String(row.id),row.batch_number]));for(const list of manualByInvoice.values())for(const payment of list)payment.batchNumber=batchNumberById.get(String(payment.batchId))||null;
   const commentsByInvoice=new Map();for(const row of commentRows||[]){const key=String(row.invoice_id);if(!commentsByInvoice.has(key))commentsByInvoice.set(key,[]);commentsByInvoice.get(key).push({id:row.id,companyId:row.company_id,invoiceId:row.invoice_id,text:row.comment_text,authorId:row.author_user_id,authorName:row.author_name,createdAt:row.created_at})}
   const remindersByInvoice=new Map();for(const row of reminderRows||[]){const key=String(row.invoice_id);if(!remindersByInvoice.has(key))remindersByInvoice.set(key,[]);remindersByInvoice.get(key).push(row.record_json||{id:row.id,reminderNumber:row.reminder_number,reminderDate:row.reminder_date,kind:row.kind,createdAt:row.created_at})}
   const adjustmentByCredit=new Map((creditAdjustmentsData||[]).map(row=>[String(row.credit_invoice_id),row]));
   const refundByCredit=new Map((creditRefundsData||[]).map(row=>[String(row.credit_invoice_id),row]));
-  const documentByInvoice=new Map((documentRows||[]).map(row=>[String(row.invoice_id),row]));
   invoices=(invoicesData||[]).map(row=>{const customer=customersById.get(String(row.customer_id))||{},adjustment=adjustmentByCredit.get(String(row.id))||null,refund=refundByCredit.get(String(row.id))||null,refundDueOre=Number(adjustment?.refund_due_ore||0),refundPaidOre=Number(refund?.amount_ore||0),refundOutstandingOre=Math.max(0,refundDueOre-refundPaidOre),credit=adjustment?{originalInvoiceId:adjustment.original_invoice_id,creditInvoiceId:adjustment.credit_invoice_id,reason:adjustment.reason||'',creditAmountOre:Number(adjustment.credit_amount_ore||0),offsetAmountOre:Number(adjustment.offset_amount_ore||0),refundDueOre,refund:refund?{amountOre:refundPaidOre,refundDate:refund.refund_date,refundAccount:refund.refund_account,bankReference:refund.bank_reference}:null,refundPaidOre,refundOutstandingOre,refundStatus:refundDueOre===0?'not-required':refundOutstandingOre===0?'refunded':'pending'}:null;return{
-    id:row.id,kind:'customer',customerId:row.customer_id,customerNumber:customer.customer_number||'',customerName:customer.name||'',customerOrgNumber:customer.org_number||'',invoiceNumber:row.invoice_number,ocr:row.ocr||'',invoiceDate:row.invoice_date,postingDate:row.posting_date,dueDate:row.due_date,totalOre:Number(row.total_ore||0),remainingOre:Number(row.remaining_ore||0),vatOre:Number(row.vat_ore||0),status:row.status,paymentMethod:row.payment_method,paymentAccount:row.payment_account,invoiceAccount:row.invoice_account,batchNumber:row.batch_number,journalNumber:row.journal_number,customerType:customer.customer_type||'business',reminderFeeAgreed:Boolean(customer.reminder_fee_agreed),commentCount:(commentsByInvoice.get(String(row.id))||[]).length,transactions:txByInvoice.get(String(row.id))||[],manualPayments:manualByInvoice.get(String(row.id))||[],reminders:remindersByInvoice.get(String(row.id))||[],pdfObjectPath:documentByInvoice.get(String(row.id))?.object_path||'',pdfDocument:documentByInvoice.get(String(row.id))?.document_json||null,credit
+    id:row.id,kind:'customer',customerId:row.customer_id,customerNumber:customer.customer_number||'',customerName:customer.name||'',customerOrgNumber:customer.org_number||'',invoiceNumber:row.invoice_number,ocr:row.ocr||'',invoiceDate:row.invoice_date,postingDate:row.posting_date,dueDate:row.due_date,totalOre:Number(row.total_ore||0),remainingOre:Number(row.remaining_ore||0),vatOre:Number(row.vat_ore||0),status:row.status,paymentMethod:row.payment_method,paymentAccount:row.payment_account,invoiceAccount:row.invoice_account,batchNumber:row.batch_number,journalNumber:row.journal_number,customerType:customer.customer_type||'business',reminderFeeAgreed:Boolean(customer.reminder_fee_agreed),commentCount:(commentsByInvoice.get(String(row.id))||[]).length,transactions:txByInvoice.get(String(row.id))||[],manualPayments:manualByInvoice.get(String(row.id))||[],reminders:remindersByInvoice.get(String(row.id))||[],credit
   }});
-  receivableCustomers=(customersData||[]).map(customer=>{const list=invoices.filter(i=>String(i.customerId)===String(customer.id));return{
-    customerId:customer.id,customerNumber:customer.customer_number,customerName:customer.name,orgNumber:customer.org_number||'',invoiceCount:list.length,openInvoiceCount:list.filter(i=>!pendingBatchInvoice(i)&&Number(i.remainingOre)!==0).length,remainingOre:list.filter(i=>!pendingBatchInvoice(i)).reduce((sum,i)=>sum+Number(i.remainingOre||0),0)
-  }});
+  // A single pass replaces repeated invoice scans for every customer.
+  // Totals still include every invoice (not merely currently displayed rows).
+  const totalsByCustomer=new Map();
+  for(const invoice of invoices){
+    const key=String(invoice.customerId);
+    let totals=totalsByCustomer.get(key);
+    if(!totals){totals={invoiceCount:0,openInvoiceCount:0,remainingOre:0};totalsByCustomer.set(key,totals)}
+    totals.invoiceCount++;
+    if(!pendingBatchInvoice(invoice)){
+      if(Number(invoice.remainingOre)!==0)totals.openInvoiceCount++;
+      totals.remainingOre+=Number(invoice.remainingOre||0);
+    }
+  }
+  receivableCustomers=(customersData||[]).map(customer=>{
+    const totals=totalsByCustomer.get(String(customer.id))||{invoiceCount:0,openInvoiceCount:0,remainingOre:0};
+    return{customerId:customer.id,customerNumber:customer.customer_number,customerName:customer.name,orgNumber:customer.org_number||'',...totals};
+  });
   portalView();
 }
 async function openComments(invoiceId,{compose=false}={}){
