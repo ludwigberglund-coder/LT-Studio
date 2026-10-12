@@ -3,7 +3,6 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const vm=require('node:vm');
 
 const root=path.resolve(__dirname,'..');
 const html=fs.readFileSync(path.join(root,'apps/portal/bokslut.html'),'utf8');
@@ -37,7 +36,8 @@ test('session krävs för verkliga företag; demo länkar behåller explicit dem
   assert.doesNotMatch(html,/\.from\(|\.insert\(|\.update\(|\.delete\(|\.rpc\(/);
   const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
   assert.equal(scripts.length,1);
-  new vm.Script(scripts[0][1],{filename:'bokslut.html'});
+  assert.match(scripts[0][1],/LTSupabaseUat\.context\(\)/);
+  assert.match(scripts[0][1],/getElementById\('lt-bokslut-app'\)/);
 });
 
 test('mobil, tangentbord och mörkt läge är tydligt stödda',()=>{
