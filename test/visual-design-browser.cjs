@@ -395,10 +395,22 @@ function visible(element){
             const menu=document.querySelector('.shared-user-dropdown');
             const item=menu?.querySelector('a,button');
             if(!menu||!item)return null;
-            const read=(v)=>{
-              const m=String(v).match(/[\\d.]+/g)?.slice(0,3).map(Number);
-              if(!m||m.length!==3)return null;
-              const c=m.map(x=>x/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4);
+            const read=v=>{
+              const raw=String(v||'').trim().toLowerCase();
+              let channels;
+              if(raw.startsWith('rgb(')||raw.startsWith('rgba(')){
+                const inner=raw.slice(raw.indexOf('(')+1,raw.indexOf(')'));
+                channels=inner.replace(/,/g,' ').split(/\s+/).filter(Boolean).slice(0,3)
+                  .map(x=>Number(x)/255);
+              }else if(raw.startsWith('color(srgb ')){
+                channels=raw.slice('color(srgb '.length,raw.indexOf(')')).trim()
+                  .split(/\s+/).slice(0,3).map(Number);
+              }else{return null;}
+              if(channels.length!==3||channels.some(x=>!Number.isFinite(x)))return null;
+              const c=channels.map(v=>{
+                const n=Math.max(0,Math.min(1,v));
+                return n<=.04045?n/12.92:((n+.055)/1.055)**2.4;
+              });
               return .2126*c[0]+.7152*c[1]+.0722*c[2];
             };
             const fg=getComputedStyle(item).color,bg=getComputedStyle(menu).backgroundColor;
