@@ -446,3 +446,20 @@ html[data-operator-theme] .login-card-mark .mark-icon{
   color:#ffffff!important;
   opacity:1!important;
 }
+
+
+/* Visual QA: company identity badge was only ~22px high with its second line
+   visibly cut off on the desktop sidebar in BOTH themes. Never crop it. */
+html[data-lt-theme] body .sidebar.shared-sidebar .shared-company{
+  display:block!important;
+  height:auto!important;
+  min-height:44px!important;
+  max-height:none!important;
+  padding:10px 12px!important;
+  line-height:1.45!important;
+  white-space:normal!important;
+  overflow:visible!important;
+  overflow-wrap:anywhere!important;
+  text-overflow:clip!important;
+  box-sizing:border-box!important;
+}
