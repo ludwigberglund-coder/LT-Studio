@@ -36,6 +36,13 @@
 <p id="year-ledger-message" role="status" aria-live="polite">Kör årskontrollen för att se resultat.</p>
 <dl id="year-ledger-results" class="year-close-results" hidden></dl>
 </div>
+<div class="book-close-evidence-block" aria-labelledby="book-close-evidence-heading">
+<h3 id="book-close-evidence-heading">Bank och fakturor – kontroll av underlag</h3>
+<p>Systemet söker automatiskt efter möjliga luckor i bankhändelser, kundfakturor och leverantörsfakturor. Antalen avser valt kalenderår, utom odaterade bankhändelser som granskas för hela företaget.</p>
+<p id="book-close-evidence-message" role="status" aria-live="polite">Kör årskontrollen för att granska underlagen.</p>
+<dl id="book-close-evidence-results" class="year-close-results" hidden></dl>
+<p class="book-close-evidence-warning"><strong>Inte avstämt:</strong> Vi saknar ännu verifierat externt kontoutdrag och historiska restbelopp per bokslutsdag. Även om inga avvikelser hittas behöver bank 1930/1940, kundfordringar 1510 och leverantörsskulder 2440 fortfarande stämmas av.</p>
+</div>
 <p class="year-close-warning">Viktigt: Den här kontrollen bevisar ännu inte att huvudboken är fullständig. Kontorader räknas tills vidare för företaget totalt, inte för valt år. Bank, 1510/2440 och moms måste fortfarande stämmas av mot separata underlag.</p>
 </section>
 <h2>Det här behöver kontrolleras</h2>
@@ -51,7 +58,7 @@
 <p class="bokslut-notice"><strong>Varför står allt som inte verifierat?</strong> För att vi inte ännu har en fullständig serverbaserad årsavstämning. Tomma listor eller inlästa siffror bevisar inte att allt är kontrollerat. Årsredovisning, deklaration och myndighetsinlämning är inte tillgängliga från denna vy.</p>
 </main></div>
 </section></div>
-<script src="./supabase-config.js"></script><script src="./supabase-client.js"></script><script src="./supabase-session.js"></script><script src="./portal-nav.js"></script><script src="./year-close-counts.js"></script><script src="./book-close-ledger.js"></script><script src="./book-close-ledger-ui.js"></script>
+<script src="./supabase-config.js"></script><script src="./supabase-client.js"></script><script src="./supabase-session.js"></script><script src="./portal-nav.js"></script><script src="./year-close-counts.js"></script><script src="./book-close-ledger.js"></script><script src="./book-close-ledger-ui.js"></script><script src="./book-close-evidence.js"></script><script src="./book-close-evidence-ui.js"></script>
 <script>
 (async function(){
  const demo=new URLSearchParams(location.search).get('demo')==='1';
