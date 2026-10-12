@@ -76,3 +76,17 @@ html[data-lt-theme="dark"] .year-close-flag{color:#f5d287}
 .book-close-evidence-block .book-close-evidence-subheading{margin-top:14px;padding-top:14px;font-weight:800;border-bottom:1px solid var(--color-hairline,#ddd)}
 .book-close-evidence-block .book-close-evidence-subheading + dd{font-size:13px}
 @media(max-width:480px){.book-close-evidence-block .book-close-evidence-subheading + dd{padding-top:0}}
+
+/* P1D: scoped cut-off table, never style an unverified figure as approved. */
+.book-close-cutoff-block{margin-top:24px;padding-top:20px;border-top:1px solid var(--color-hairline,#ddd)}
+.book-close-cutoff-block h3{margin:0 0 12px;font-size:clamp(18px,2.4vw,23px)}
+.book-close-cutoff-block p{max-width:850px;line-height:1.6}
+.book-close-cutoff-warning{border-left:4px solid #a46d0f;background:var(--color-surface-alt,#fafafa);padding:14px 16px;border-radius:10px}
+.book-close-cutoff-table-wrap{overflow-x:auto;max-width:100%;margin:14px 0;border:1px solid var(--color-hairline,#ddd);border-radius:12px}
+.book-close-cutoff-table{border-collapse:collapse;min-width:700px;width:100%;font-variant-numeric:tabular-nums}
+.book-close-cutoff-table th,.book-close-cutoff-table td{padding:11px 12px;text-align:right;border-bottom:1px solid var(--color-hairline,#ddd);white-space:nowrap}
+.book-close-cutoff-table thead th{background:var(--color-surface-alt,#fafafa);font-size:12px;white-space:normal}
+.book-close-cutoff-table th:first-child{text-align:left}
+.book-close-cutoff-table tbody tr:last-child th,.book-close-cutoff-table tbody tr:last-child td{border-bottom:0}
+.book-close-cutoff-table-wrap:focus-visible{outline:3px solid #275bd0;outline-offset:2px}
+@media(max-width:760px){.book-close-cutoff-table th,.book-close-cutoff-table td{padding:10px}}
