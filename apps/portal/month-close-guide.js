@@ -55,7 +55,7 @@
     const review=inspectEntries(state.journalEntries,period);
     const total=review.findings.length;
     const headline=total
-      ? total+' möjliga avvikelser i de inlästa uppgifterna behöver granskas.'
+      ? total===1?'1 möjlig avvikelse i de inlästa uppgifterna behöver granskas.':total+' möjliga avvikelser i de inlästa uppgifterna behöver granskas.'
       : review.loadedCount
         ? 'Inga avvikelser hittades bland de inlästa verifikationerna.'
         : 'Inga verifikationer finns i den inlästa listan för perioden.';
