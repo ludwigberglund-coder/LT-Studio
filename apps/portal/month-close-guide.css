@@ -29,3 +29,15 @@ html[data-lt-theme="dark"] .month-close-actions a:focus-visible{outline-color:va
 html[data-lt-theme="dark"] .month-close-findings{border-color:var(--lt-dark-border,#48544d);background:var(--lt-dark-surface-soft,#303b35)}
 html[data-lt-theme="dark"] .month-close-findings a{color:var(--brand-lime,#d5e5aa)}
 html[data-lt-theme="dark"] .month-close-findings a:focus-visible{outline-color:var(--brand-lime,#d5e5aa)}
+
+/* Granskning av antal som Supabase rapporterar: aldrig en hel månadsattest. */
+.month-close-coverage{margin-top:16px;padding:16px;border:1px solid var(--color-hairline,#dfe7e2);border-radius:14px;background:var(--surface-alt,#f4f8f6)}
+.month-close-coverage h3{font-size:16px;margin:0 0 9px}
+.month-close-coverage p{margin:8px 0;line-height:1.55}
+.month-close-coverage ul{padding-left:20px;margin:9px 0;display:grid;gap:6px}
+.month-close-coverage .month-close-findings-disclaimer{font-size:12px;color:var(--muted,#64716b)}
+.month-close-coverage-mismatch{border-color:#c47d3b;background:#fff5e6;color:#653c12}
+.month-close-coverage-unknown{border-style:dashed}
+html[data-lt-theme="dark"] .month-close-coverage{background:var(--lt-dark-surface-soft,#303b35);border-color:var(--lt-dark-border,#48544d)}
+html[data-lt-theme="dark"] .month-close-coverage-mismatch{background:#4b3825;border-color:#b88a56;color:#f8dbb6}
+@media(max-width:780px){.month-close-coverage{padding:13px}}
