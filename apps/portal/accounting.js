@@ -3,7 +3,7 @@ const isDemo=new URLSearchParams(location.search).get('demo')==='1';
 const isSupabase=location.hostname==='ludwigberglund-coder.github.io'&&!isDemo;
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
 let Demo=globalThis.RollandsDemoScenario;
-let session=null,entries=[],periods=[],unlockRequests=[],unlockPolicy={eligibleCustomerApprovers:0,selfUnlockAllowed:false,adminSelfUnlockAllowed:false},selectedEntry=null,journalExpanded=false,openingYear=today().slice(0,4),openingBalance=null,openingBatch=null,openingMessage='';
+let session=null,entries=[],periods=[],unlockRequests=[],unlockPolicy={eligibleCustomerApprovers:0,selfUnlockAllowed:false,adminSelfUnlockAllowed:false},selectedEntry=null,journalExpanded=false,journalQuery='',openingYear=today().slice(0,4),openingBalance=null,openingBatch=null,openingMessage='';
 function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function ore(v){return new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK',minimumFractionDigits:2}).format(Number(v||0)/100)}
 function today(){return isDemo&&Demo?Demo.AS_OF_DATE:new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
@@ -101,17 +101,40 @@ function sortedJournalEntries(){
     return byNumber||String(right.id||'').localeCompare(String(left.id||''));
   });
 }
+function filteredJournalEntries(){
+  const query=journalQuery.trim().toLocaleLowerCase("sv-SE");
+  const ordered=sortedJournalEntries();
+  if(!query)return ordered;
+  return ordered.filter(entry=>{
+    const lines=Array.isArray(entry.lines)?entry.lines:[];
+    const searchable=[entry.number,entry.postingDate,entry.description,entry.sourceType,
+      ...lines.flatMap(line=>[line.account,line.text])];
+    return searchable.some(value=>String(value??"").toLocaleLowerCase("sv-SE").includes(query));
+  });
+}
 function entryTable(){
-  const ordered=sortedJournalEntries(),hasOlder=ordered.length>5,expanded=hasOlder&&journalExpanded;
+  const ordered=filteredJournalEntries(),searched=Boolean(journalQuery.trim());
+  const hasOlder=ordered.length>5,expanded=hasOlder&&journalExpanded;
+  const count=searched?ordered.length+" av "+entries.length+" träffar":entries.length+" totalt";
+  const hint=searched?"Sökresultat":"Senaste verifikationerna";
+  const empty=searched?"Inga verifikationer matchar sökningen. Prova ett annat nummer, datum eller konto.":"Inga verifikationer ännu.";
   return `<section class="journal-list" aria-label="Verifikationslista">
-    <div class="journal-list-heading"><strong>Senaste verifikationerna</strong><span>${ordered.length} totalt${hasOlder?' · rulla i tabellen för äldre':''}</span></div>
-    <div id="journal-scroll-region" class="accounting-table-scroll journal-scroll ${expanded?'journal-scroll-expanded':''}" role="region" tabindex="0" aria-label="Verifikationer, rulla med musens hjul för att se äldre">
+    <div class="journal-list-heading"><strong>${hint}</strong><span id="journal-search-status" role="status" aria-live="polite">${count}${hasOlder?" · rulla i tabellen för äldre":""}</span></div>
+    <div class="journal-search">
+      <label for="journal-search-field">Sök verifikation</label>
+      <div class="journal-search-controls">
+        <input id="journal-search-field" type="search" maxlength="100" autocomplete="off" spellcheck="false" placeholder="Nummer, datum, text eller konto" value="${esc(journalQuery)}">
+        ${journalQuery?`<button class="button ghost small journal-search-clear" data-action="clear-journal-search" type="button">Rensa sökning</button>`:""}
+      </div>
+      <p>Sökningen omfattar bara de verifikationer som redan lästs in för detta företag.</p>
+    </div>
+    <div id="journal-scroll-region" class="accounting-table-scroll journal-scroll ${expanded?"journal-scroll-expanded":""}" role="region" tabindex="0" aria-label="Verifikationer, rulla med musens hjul för att se äldre">
       <table class="accounting-table journal-table">
         <thead><tr><th>Nr</th><th>Datum</th><th>Text</th><th>Källa</th><th class="money">Belopp</th></tr></thead>
-        <tbody>${ordered.map(e=>`<tr data-entry="${esc(e.id)}" tabindex="0" aria-current="${selectedEntry?.id===e.id?'true':'false'}" title="Visa verifikation ${esc(e.number)}"><td><b>${esc(e.number)}</b></td><td>${esc(e.postingDate)}</td><td title="${esc(e.description)}">${esc(e.description)}</td><td title="${esc(e.sourceType)}">${esc(e.sourceType)}</td><td class="money">${ore(entryTotal(e))}</td></tr>`).join('')||'<tr><td colspan="5" class="empty-state">Inga verifikationer ännu.</td></tr>'}</tbody>
+        <tbody>${ordered.map(e=>`<tr data-entry="${esc(e.id)}" tabindex="0" aria-current="${selectedEntry?.id===e.id?"true":"false"}" title="Visa verifikation ${esc(e.number)}"><td><b>${esc(e.number)}</b></td><td>${esc(e.postingDate)}</td><td title="${esc(e.description)}">${esc(e.description)}</td><td title="${esc(e.sourceType)}">${esc(e.sourceType)}</td><td class="money">${ore(entryTotal(e))}</td></tr>`).join("")||`<tr><td colspan="5" class="empty-state">${empty}</td></tr>`}</tbody>
       </table>
     </div>
-    ${hasOlder?`<button class="button ghost journal-toggle" type="button" data-action="toggle-journals" aria-expanded="${expanded?'true':'false'}" aria-controls="journal-scroll-region">${expanded?'Visa färre':'Visa fler verifikationer'} <span aria-hidden="true">${expanded?'▴':'▾'}</span></button>`:''}
+    ${hasOlder?`<button class="button ghost journal-toggle" type="button" data-action="toggle-journals" aria-expanded="${expanded?"true":"false"}" aria-controls="journal-scroll-region">${expanded?"Visa färre":"Visa fler verifikationer"} <span aria-hidden="true">${expanded?"▴":"▾"}</span></button>`:""}
   </section>`;
 }
 function entryDetail(){if(!selectedEntry)return'';const opening=selectedEntry.sourceType==='opening-balance';if(isSupabase){const manual=['manual','manual-journal'].includes(selectedEntry.sourceType)&&!(selectedEntry.lines||[]).some(line=>/^(151|244)\d$/.test(String(line.account)));const action=opening?'<div class="notice-box warning">Ingående balans rättas inte genom det generella rättelseflödet.</div>':manual?`<div class="notice-box">Originalverifikationen ändras aldrig. Rättelsen skapar en ny motverifikation med omvänd debet/kredit.</div><form class="accounting-form" id="correction-form"><label>Rättelsedatum<input name="postingDate" type="date" value="${today()}" required></label><label>Orsak<textarea name="reason" minlength="5" maxlength="500" required></textarea></label><button class="button" type="submit">Skapa motverifikation</button><p class="form-error"></p></form>`:'<div class="notice-box warning">Den här posten kommer från faktura, betalning, lön eller annat källflöde. En fristående motverifikation kan ge fel reskontra och är därför spärrad här.</div>';return `<div class="entry-detail"><div class="section-head"><div><span class="eyebrow">${esc(selectedEntry.number)}</span><h2>${esc(selectedEntry.description)}</h2></div></div><div class="entry-lines">${(selectedEntry.lines||[]).map(line=>`<div class="entry-line"><b>${esc(line.account)}</b><span>${esc(line.text||'')}</span><span class="money">Debet ${line.debitOre?ore(line.debitOre):'—'}</span><span class="money">Kredit ${line.creditOre?ore(line.creditOre):'—'}</span></div>`).join('')}</div>${action}</div>`}return `<div class="entry-detail"><div class="section-head"><div><span class="eyebrow">${esc(selectedEntry.number)}</span><h2>${esc(selectedEntry.description)}</h2></div></div><div class="entry-lines">${(selectedEntry.lines||[]).map(line=>`<div class="entry-line"><b>${esc(line.account)}</b><span>${esc(line.text||'')}</span><span class="money">Debet ${line.debitOre?ore(line.debitOre):'—'}</span><span class="money">Kredit ${line.creditOre?ore(line.creditOre):'—'}</span></div>`).join('')}</div>${opening?'<div class="notice-box warning">Ingående balans rättas inte genom det generella rättelseflödet. Granska migreringsunderlaget och använd ett särskilt dokumenterat migrations-/rättelseflöde.</div>':`<div class="notice-box">Originalverifikationen ändras aldrig. En rättelse skapar en ny motverifikation med omvänd debet/kredit.</div><form class="accounting-form" id="correction-form"><label>Rättelsedatum<input name="postingDate" type="date" value="${today()}" required></label><label>Orsak<textarea name="reason" minlength="5" maxlength="500" required></textarea></label><button class="button" type="submit">Skapa motverifikation</button><p class="form-error"></p></form>`}</div>`}
@@ -174,39 +197,67 @@ async function loadSupabaseAccounting(){
 }
 async function loadApi(){const s=await api('/session');if(!s.authenticated){location.href='./index.html';return false}session=s;const entryData=await api('/accounting/entries');entries=entryData.entries||[];const detailed=[];for(const entry of entries.slice(0,200)){try{detailed.push((await api(`/accounting/entries/${encodeURIComponent(entry.id)}`)).entry)}catch{detailed.push(entry)}}entries=detailed;selectedEntry=sortedJournalEntries()[0]||null;periods=(await api('/accounting/periods')).periods||[];const unlockData=await api('/accounting/unlock-requests?status=all');unlockRequests=unlockData.requests||[];unlockPolicy=unlockData.unlockPolicy||{eligibleCustomerApprovers:0,selfUnlockAllowed:false,adminSelfUnlockAllowed:false};session.role=s.role||session.role||'';await loadOpeningBalance();return true}
 function setError(form,message){const el=form.querySelector('.form-error');if(el)el.textContent=message||''}
-function bind(){
-  // Keep the selected journal's debit/credit details next to the title, not after a long list.
-  // Moving the DOM node (rather than styling visual order) preserves reading order for assistive tech.
-  const journalList=document.querySelector('.journal-list');
-  const journalDetail=document.querySelector('.accounting-grid > .panel:first-child > .entry-detail');
+function bindJournalControls(){
+  // Keep selected debit/credit details ahead of the scrollable list in DOM and reading order.
+  const journalList=document.querySelector(".journal-list");
+  const journalDetail=document.querySelector(".accounting-grid > .panel:first-child > .entry-detail");
   if(journalList&&journalDetail&&journalList.parentNode===journalDetail.parentNode)journalList.before(journalDetail);
 
+  // Rebuild only the journal list, not other forms or month-close controls.
+  function updateJournalList({focusSearch=false,caret=0,scrollTop=0}={}){
+    const existing=document.querySelector(".journal-list");
+    if(!existing)return;
+    existing.outerHTML=entryTable();
+    bindJournalControls();
+    const updated=document.getElementById("journal-scroll-region");
+    if(updated)updated.scrollTop=scrollTop;
+    if(focusSearch){
+      const field=document.getElementById("journal-search-field");
+      if(field){
+        field.focus({preventScroll:true});
+        if(typeof field.setSelectionRange==="function")field.setSelectionRange(caret,caret);
+      }
+    }
+  }
+
+  document.querySelector("#journal-search-field")?.addEventListener("input",event=>{
+    const field=event.currentTarget;
+    const caret=field.selectionStart??field.value.length;
+    journalQuery=String(field.value||"").slice(0,100);
+    updateJournalList({focusSearch:true,caret:Math.min(caret,journalQuery.length)});
+  });
+  document.querySelector('[data-action="clear-journal-search"]')?.addEventListener("click",()=>{
+    journalQuery="";
+    updateJournalList({focusSearch:true});
+  });
+
   function selectJournalRow(row,keyboard=false){
-    const scroll=document.getElementById('journal-scroll-region');
+    const scroll=document.getElementById("journal-scroll-region");
     const scrollTop=scroll?.scrollTop||0;
     selectedEntry=entries.find(e=>String(e.id)===row.dataset.entry)||null;
     render();
-    const updated=document.getElementById('journal-scroll-region');
+    const updated=document.getElementById("journal-scroll-region");
     if(updated)updated.scrollTop=scrollTop;
-    if(keyboard)for(const next of document.querySelectorAll('[data-entry]')){
+    if(keyboard)for(const next of document.querySelectorAll("[data-entry]")){
       if(next.dataset.entry===row.dataset.entry){next.focus({preventScroll:true});break}
     }
   }
-  document.querySelectorAll('[data-entry]').forEach(row=>{
-    row.addEventListener('click',()=>selectJournalRow(row));
-    row.addEventListener('keydown',event=>{
-      if(event.key==='Enter'||event.key===' '){event.preventDefault();selectJournalRow(row,true)}
+  document.querySelectorAll("[data-entry]").forEach(row=>{
+    row.addEventListener("click",()=>selectJournalRow(row));
+    row.addEventListener("keydown",event=>{
+      if(event.key==="Enter"||event.key===" "){event.preventDefault();selectJournalRow(row,true)}
     });
   });
-  document.querySelector('[data-action="toggle-journals"]')?.addEventListener('click',()=>{
-    const previous=document.getElementById('journal-scroll-region');
+  document.querySelector('[data-action="toggle-journals"]')?.addEventListener("click",()=>{
+    const previous=document.getElementById("journal-scroll-region");
     const scrollTop=previous?.scrollTop||0;
     journalExpanded=!journalExpanded;
-    render();
-    const updated=document.getElementById('journal-scroll-region');
-    if(updated)updated.scrollTop=scrollTop;
+    updateJournalList({scrollTop});
     document.querySelector('[data-action="toggle-journals"]')?.focus({preventScroll:true});
   });
+}
+function bind(){
+  bindJournalControls();
 
   document.querySelector('[data-action="lock-current"]')?.addEventListener('click',async()=>{
     const period=currentPeriod();
