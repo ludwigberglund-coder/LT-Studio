@@ -4,9 +4,10 @@
   const steps=[
     {title:'Stäm av bankhändelser',description:'Kontrollera att alla bankhändelser hör till rätt faktura eller affärshändelse.',path:'./bank.html'},
     {title:'Hantera oplacerade betalningar',description:'Granska betalningar som ännu inte kopplats till en faktura eller annan bokföring.',path:'./unplaced-payments.html'},
-    {title:'Kontrollera kundfakturorna',description:'Se över obetalda, krediterade och förfallna kundfakturor.',path:'./index.html'},
+    {title:'Kontrollera kundfakturorna',description:'Se över obetalda, krediterade och förfallna kundfakturor.',path:'./invoices.html'},
     {title:'Kontrollera leverantörsfakturorna',description:'Se över attester, bokförda skulder och betalningsstatus.',path:'./payables.html'},
-    {title:'Kontrollera underlag och buntar',description:'Säkerställ att underlag finns och att väntande buntar är granskade.',path:'./batches.html'},
+    {title:'Kontrollera bokföringsunderlag',description:'Granska PDF-underlagens koppling till rätt affärshändelser.',path:'./documents.html'},
+    {title:'Godkänn väntande buntar',description:'Kontrollera att alla aktuella buntar har granskats innan du avslutar månaden.',path:'./batches.html'},
     {title:'Granska rapporter och moms',description:'Jämför rapporterna mot verifikationer och underlag; kontrollera moms separat.',path:'./reports.html'}
   ];
   function escapeHtml(value){
