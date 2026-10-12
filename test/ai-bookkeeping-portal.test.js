@@ -94,6 +94,18 @@ test('AI not released fails safely and leaves manual preview available',async()=
   f.click('example');
   assert.match(f.app.innerHTML,/FAST RÄKNEEXEMPEL – INTE AI/);
 });
+test('even a balanced but changed synthetic VAT/amount response fails closed',async()=>{
+  const f=fixture({response:{status:'manual-review',posted:false,companyId:'tenant-a-001',
+    reason:'Wrong numbers',suggestion:{requiresHumanApproval:true,rows:[
+      {account:'6110',debitOre:200000,creditOre:0},
+      {account:'2641',debitOre:50000,creditOre:0},
+      {account:'2440',debitOre:0,creditOre:250000}
+    ]}}});
+  await settle();f.click('analyze');await settle();
+  assert.equal(f.calls,1);
+  assert.doesNotMatch(f.app.innerHTML,/AI-FÖRSLAG/);
+  assert.match(f.app.innerHTML,/Ingen bokföring ändrades/);
+});
 test('malicious provider body or different tenant is never displayed as a trusted AI suggestion',async()=>{
   const f=fixture({response:{status:'manual-review',posted:false,companyId:'tenant-b-002',suggestion:{rows:sample,requiresHumanApproval:true}}});
   await settle();f.click('analyze');await settle();
