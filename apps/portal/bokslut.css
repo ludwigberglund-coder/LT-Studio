@@ -67,3 +67,12 @@ html[data-lt-theme="dark"] .year-close-flag{color:#f5d287}
 .year-ledger-block p{line-height:1.55}
 .year-ledger-block #year-ledger-message{font-weight:650}
 .year-ledger-block .year-close-results{width:100%}
+
+/* P1C: separate, accessible evidence panel (does not imply reconciliation). */
+.book-close-evidence-block{margin-top:24px;padding-top:20px;border-top:1px solid var(--color-hairline,#ddd)}
+.book-close-evidence-block h3{margin:0 0 12px;font-size:clamp(18px,2.4vw,23px)}
+.book-close-evidence-block p{max-width:780px;line-height:1.55}
+.book-close-evidence-block .book-close-evidence-warning{margin-top:16px;padding:14px 16px;border-radius:10px;border-left:4px solid #a46d0f;background:var(--color-surface-alt,#fafafa)}
+.book-close-evidence-block .book-close-evidence-subheading{margin-top:14px;padding-top:14px;font-weight:800;border-bottom:1px solid var(--color-hairline,#ddd)}
+.book-close-evidence-block .book-close-evidence-subheading + dd{font-size:13px}
+@media(max-width:480px){.book-close-evidence-block .book-close-evidence-subheading + dd{padding-top:0}}
