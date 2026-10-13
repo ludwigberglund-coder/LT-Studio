@@ -173,7 +173,8 @@
        !session?.authenticated||!session?.company?.id)return;
     pilotBusy=true;pilotResult=null;pilotMessage='Kontrollerar AI-pilotens tillgänglighet…';render();
     try{
-      if(typeof crypto?.randomUUID!=='function'||typeof window.LTSupabase?.functions?.invoke!=='function'){
+      if(typeof crypto==='undefined'||typeof crypto.randomUUID!=='function'||
+         typeof window.LTSupabase?.functions?.invoke!=='function'){
         throw new Error('AI_PILOT_UNAVAILABLE');
       }
       const current=await window.LTSupabaseUat.context();
