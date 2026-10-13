@@ -697,12 +697,12 @@
     section.className='lt-contextual-ai';
     section.setAttribute('aria-label','AI-hjälp för '+workflow[0]);
     const info=document.createElement('div');
-    const heading=document.createElement('strong');heading.textContent='✦ AI-hjälp för '+workflow[0];
+    const heading=document.createElement('strong');heading.textContent='✦ AI-bokförare · '+workflow[0];
     const note=document.createElement('p');
-    note.textContent='Få steg-för-steg-hjälp här. AI-analys av verkliga underlag är ännu inte aktiverad. Ingenting bokförs utan granskning.';
+    note.textContent='Öppna AI-arbetsytan med underlag och befintlig granskningskö. AI-analys av verkliga underlag är ännu inte aktiverad. Ingenting bokförs utan granskning.';
     info.append(heading,note);
     const action=document.createElement('a');action.className='lt-contextual-ai-action';
-    action.textContent=workflow[1]+' →';
+    action.textContent='Öppna AI-arbetsytan →';
     action.href=assistantHrefForCurrentPage();
     section.append(info,action);
     content.prepend(section);
