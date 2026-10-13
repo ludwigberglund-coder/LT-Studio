@@ -33,6 +33,10 @@ create index ai_pilot_reservations_day_company_idx
   on public.ai_pilot_request_reservations(quota_day,company_id);
 create index ai_pilot_reservations_day_actor_idx
   on public.ai_pilot_request_reservations(quota_day,actor_uid);
+create index ai_pilot_reservations_company_fk_idx
+  on public.ai_pilot_request_reservations(company_id);
+create index ai_pilot_reservations_actor_fk_idx
+  on public.ai_pilot_request_reservations(actor_uid);
 create index ai_pilot_reservations_ip_time_idx
   on public.ai_pilot_request_reservations(client_ip_hash,reserved_at desc);
 
