@@ -92,7 +92,7 @@ async function harness(options={}){
 
   // load() fetches the mocked company-scoped Supabase rows before rendering.
   await new Promise(resolve=>setImmediate(resolve));
-  assert.match(html,/Testbetalare/,'the queue must finish loading before the actions run');
+  assert.match(html,/data-select="bank-1"/,'the selected synthetic bank payment must be loaded before the actions run');
 
   return {
     fields,calls,failNextInvoke:(message)=>invokeErrors.push(message),setProposalResult:(result)=>{proposalResult=result},getSelectedInvoice:()=>fields.invoice,getRenderCount:()=>renderCount,getHtml:()=>html,
