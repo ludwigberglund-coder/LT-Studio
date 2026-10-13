@@ -3700,3 +3700,32 @@ html[data-lt-theme="dark"] .shared-sidebar .shared-navigation .shared-links a[da
   .lt-contextual-ai{padding:15px 16px;margin-bottom:16px}
   .lt-contextual-ai .lt-contextual-ai-action{width:100%;flex-basis:100%}
 }
+
+
+/* Dark-mode contrast for the embedded AI guide and its sidebar entry. */
+html[data-lt-theme="dark"] .shared-navigation .shared-links a[data-nav-id="ai-assistant"],
+html[data-lt-theme="dark"] .shared-navigation .shared-links a[data-nav-id="ai-assistant"]:hover,
+html[data-lt-theme="dark"] .shared-navigation .shared-links a[data-nav-id="ai-assistant"][aria-current="page"]{
+  background:var(--lt-dark-surface, #222222)!important;
+  color:var(--lt-dark-text, #ffffff)!important;
+  border-color:var(--lt-dark-border, #555555)!important;
+}
+html[data-lt-theme="dark"] .shared-sidebar .shared-navigation .shared-links a[data-nav-id="ai-assistant"]>.ui-icon{
+  color:var(--lt-dark-text, #ffffff)!important;
+}
+html[data-lt-theme="dark"] .lt-contextual-ai{
+  background:var(--lt-dark-surface, #222222)!important;
+  border-color:var(--lt-dark-border, #555555)!important;
+  color:var(--lt-dark-text, #ffffff)!important;
+}
+html[data-lt-theme="dark"] .lt-contextual-ai :is(strong,p){
+  color:var(--lt-dark-text, #ffffff)!important;
+}
+html[data-lt-theme="dark"] .lt-contextual-ai .lt-contextual-ai-action{
+  background:var(--lt-dark-text, #ffffff)!important;
+  color:var(--lt-dark-surface, #222222)!important;
+  border-color:var(--lt-dark-text, #ffffff)!important;
+}
+html[data-lt-theme="dark"] .lt-contextual-ai .lt-contextual-ai-action:focus-visible{
+  outline-color:var(--lt-dark-text, #ffffff);
+}
