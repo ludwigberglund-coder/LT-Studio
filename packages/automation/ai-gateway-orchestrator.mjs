@@ -27,16 +27,20 @@ async function runSyntheticPilot({
     reservation=await reserveBudget({
       companyId:verified.trustedContext.companyId,
       actorId:verified.trustedContext.actorId,
+      sessionId:verified.trustedContext.sessionId,
       requestId:verified.request.requestId
     });
   } catch {
     throw blocked('BUDGET_NOT_RESERVED');
   }
   mayContactCloudflare({pilotEnabled,privacyApproved,reservation});
+  // Keep the verified session identifier inside the quota boundary. It must not
+  // enter the provider context or the minimized synthetic model request.
+  const {sessionId: _sessionId, ...providerContext}=verified.trustedContext;
   // The pilot proposal is ephemeral, remains manual-review, never posts a journal.
   return suggestSyntheticInvoice({
     invoice:verified.invoice,
-    trustedContext:verified.trustedContext,
+    trustedContext:providerContext,
     provider
   });
 }
