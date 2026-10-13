@@ -104,3 +104,8 @@ test('the workspace is read-only and does not release AI posting',()=>{
   assert.match(css,/@media\(max-width:780px\)/);
   assert.match(css,/html\[data-lt-theme="dark"\] \.ai-bookkeeper-workspace/);
 });
+
+test('collapsed guide filters are hidden and have accessible labels',()=>{
+  assert.match(css,/\.ai-assistant-guides:not\(\[open\]\)>section\{display:none!important\}/);
+  assert.match(source,/aria-label=\"Visa guider för /);
+});
