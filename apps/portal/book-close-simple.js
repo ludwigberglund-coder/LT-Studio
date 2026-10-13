@@ -174,6 +174,23 @@ function planFromResults(results){
    add(attention,'Bokföringens debet och kredit stämmer inte överens.',
     'Summorna skiljer sig. Du behöver inte själv kunna kontona – låt en redovisningskunnig granska differensen.',
     './book-close-trial-balance.html','Se saldobalansen',4);
+  // A booked movement is not a verified bank balance. Never fill in an external balance.
+  // The trial balance RPC already enforces company, period and all-account totals.
+  if(Array.isArray(report.accounts)){
+   const bankAccounts=report.accounts.filter(row=>
+    (row.account==='1930'||row.account==='1940')&&
+    typeof row.period_net_ore==='string'&&/^-?(?:0|[1-9][0-9]*)$/.test(row.period_net_ore));
+   if(bankAccounts.length){
+    const formatOre=value=>{
+     const amount=BigInt(value),absolute=amount<0n?-amount:amount;
+     return (amount<0n?'-':'')+String(absolute/100n)+','+String(absolute%100n).padStart(2,'0')+' kr';
+    };
+    const movements=bankAccounts.map(row=>row.account+': '+formatOre(row.period_net_ore)).join('; ');
+    add(next,'Jämför banken med bokföringen.',
+     'Bokförda rörelser under perioden ('+movements+'). Dessa är inte bankens saldo. Ett kontoutdrag på balansdagen och verifierad ingående balans behövs för att fastställa om kontona stämmer.',
+     './bank.html','Öppna banken',70);
+   }
+  }
   if(periodLines>0n&&invalidLines===0n&&debit===credit)
    add(next,'Se saldobalansens automatiskt summerade konton.',
     'Systemet har summerat periodens kontorörelser, men bankkontoutdrag och ingående balans är fortfarande inte verifierade.',
