@@ -122,6 +122,31 @@ async function waitForSettledDialog(page){
   });
 }
 
+function contrastRatio(foreground,background){
+  function luminance(value){
+    const raw=String(value||'').trim().toLowerCase();
+    let channels;
+    if(raw.startsWith('rgb(')||raw.startsWith('rgba(')){
+      const inner=raw.slice(raw.indexOf('(')+1,raw.indexOf(')'));
+      channels=inner.replace(/,/g,' ').split(/\s+/).filter(Boolean).slice(0,3)
+        .map(x=>x.endsWith('%')?Number.parseFloat(x)/100:Number(x)/255);
+    }else if(raw.startsWith('color(srgb ')){
+      channels=raw.slice('color(srgb '.length,raw.indexOf(')')).trim().split(/\s+/)
+        .slice(0,3).map(Number);
+    }else{
+      return null;
+    }
+    if(channels.length!==3||channels.some(v=>!Number.isFinite(v)))return null;
+    const linear=channels.map(v=>{
+      const c=Math.max(0,Math.min(1,v));
+      return c<=.04045?c/12.92:Math.pow((c+.055)/1.055,2.4);
+    });
+    return .2126*linear[0]+.7152*linear[1]+.0722*linear[2];
+  }
+  const a=luminance(foreground),b=luminance(background);
+  return a===null||b===null?null:(Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+}
+
 async function styleSnapshot(page){
   return page.evaluate(()=>{
     const block=document.querySelector('.settlement-block');
@@ -133,6 +158,10 @@ async function styleSnapshot(page){
     const inputStyle=getComputedStyle(disabled);
     const labelStyle=getComputedStyle(label);
     const modalStyle=getComputedStyle(modal);
+    const close=modal.querySelector('.modal-head button[data-action="close-modal"]');
+    if(!close)throw new Error('Kvittningsdialogen saknar synlig stängningsknapp.');
+    const closeStyle=getComputedStyle(close);
+    const closeRect=close.getBoundingClientRect();
     return {
       theme:document.documentElement.dataset.ltTheme,
       blockBackground:blockStyle.backgroundColor,
@@ -142,7 +171,10 @@ async function styleSnapshot(page){
       inputColor:inputStyle.color,
       inputTextFill:inputStyle.webkitTextFillColor,
       labelColor:labelStyle.color,
-      modalBackground:modalStyle.backgroundColor
+      modalBackground:modalStyle.backgroundColor,
+      closeColor:closeStyle.color,
+      closeBackground:closeStyle.backgroundColor,
+      closeButtonVisible:closeRect.width>=24&&closeRect.height>=24&&closeStyle.visibility!=='hidden'
     };
   });
 }
@@ -195,6 +227,9 @@ async function styleSnapshot(page){
     assert.equal(light.inputColor,'rgb(28, 37, 35)');
     assert.equal(light.inputTextFill,'rgb(28, 37, 35)');
     assert.equal(light.labelColor,'rgb(28, 37, 35)');
+    assert.equal(light.closeButtonVisible,true,'Stängningsknappen saknar synlig yta i ljust läge');
+    assert.ok(contrastRatio(light.closeColor,light.closeBackground)>=4.5,
+      'Stängningsknappen går inte att se i ljust läge: '+JSON.stringify(light));
     await page.screenshot({path:path.join(out,'settlement-theme-light.png'),fullPage:false});
 
     // Modalen ligger avsiktligt ovanpå toppbaren. Stäng den, byt tema som en
@@ -214,6 +249,9 @@ async function styleSnapshot(page){
     assert.equal(dark.inputColor,'rgb(255, 255, 255)');
     assert.equal(dark.inputTextFill,'rgb(255, 255, 255)');
     assert.equal(dark.labelColor,'rgb(255, 255, 255)');
+    assert.equal(dark.closeButtonVisible,true,'Stängningsknappen saknar synlig yta i mörkt läge');
+    assert.ok(contrastRatio(dark.closeColor,dark.closeBackground)>=4.5,
+      'Stängningsknappen går inte att se i mörkt läge: '+JSON.stringify(dark));
     assert.notEqual(dark.blockBackground,light.blockBackground);
     assert.notEqual(dark.inputBackground,light.inputBackground);
     assert.notEqual(dark.labelColor,light.labelColor);
@@ -229,6 +267,30 @@ async function styleSnapshot(page){
     const lightAgain=await styleSnapshot(page);
     assert.equal(lightAgain.blockBackground,light.blockBackground);
     assert.equal(lightAgain.inputBackground,light.inputBackground);
+    await page.setViewportSize({width:390,height:844});
+    await page.waitForTimeout(150);
+    const mobilePopup=await page.evaluate(()=>{
+      const popup=document.querySelector('.settlement-modal');
+      const close=popup?.querySelector('.modal-head button[data-action="close-modal"]');
+      const rect=popup?.getBoundingClientRect(),closeRect=close?.getBoundingClientRect();
+      return {
+        popupFits:!!rect&&rect.width<=window.innerWidth+2&&rect.left>=-2&&rect.right<=window.innerWidth+2,
+        closeFits:!!closeRect&&closeRect.left>=0&&closeRect.right<=window.innerWidth,
+        closePresent:Boolean(close)
+      };
+    });
+    assert.equal(mobilePopup.popupFits,true,'Kvittningsdialogen får inte klippas på mobil: '+JSON.stringify(mobilePopup));
+    assert.equal(mobilePopup.closeFits,true,'Stängningsknappen måste få plats på mobilen');
+    await page.screenshot({path:path.join(out,'settlement-theme-mobile-light.png'),fullPage:false});
+    await page.evaluate(()=>window.LTTheme.apply('dark',{persist:false}));
+    await page.waitForFunction(()=>document.documentElement.dataset.ltTheme==='dark');
+    // Switching while the modal is open animates its colors. Inspect the
+    // finished appearance, just as the user sees after the short transition.
+    await page.waitForTimeout(500);
+    const darkMobile=await styleSnapshot(page);
+    await page.screenshot({path:path.join(out,'settlement-theme-mobile-dark.png'),fullPage:false});
+    assert.ok(contrastRatio(darkMobile.closeColor,darkMobile.closeBackground)>=4.5,
+      'Mörk mobilmodal har osynlig stängningsknapp: '+JSON.stringify(darkMobile));
     assert.deepEqual(pageErrors,[]);
 
     console.log('Settlement theme browser OK: dialog follows light/dark toggle and built assets are versioned.');
