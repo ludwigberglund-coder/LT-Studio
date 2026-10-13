@@ -6,7 +6,7 @@
     {id:'economy',label:'Ekonomi',items:[
       ['invoices','Kundfakturor','portal/invoices.html'],['receivables','Kundreskontra','portal/index.html'],
       ['payables','Leverantörsfakturor','portal/payables.html'],['supplier-ledger','Leverantörsreskontra','portal/supplier-ledger.html'],['payments','Betalningar','portal/payments.html'],['bank','Bank & avstämning','portal/bank.html'],['unplaced-payments','Oplacerade betalningar','portal/unplaced-payments.html'],
-      ['ai-bookkeeping','AI-bokföring (pilot)','portal/ai-bookkeeping.html'],['automation','Automationskö','portal/automation.html'],['batches','Buntar','portal/batches.html'],['accounting','Bokföring','portal/accounting.html'],
+      ['ai-bookkeeping','AI-bokföring','portal/ai-bookkeeping.html'],['automation','Automationskö','portal/automation.html'],['batches','Buntar','portal/batches.html'],['accounting','Bokföring','portal/accounting.html'],
       ['reports','Rapporter','portal/reports.html'],['bokslut','Bokslut','portal/bokslut.html'],['trial-balance','Saldobalans · bokslut','portal/book-close-trial-balance.html'],['accounts','Kontoplan & intäktskonton','portal/accounts.html'],
       ['payroll','Lön & lönejournal','portal/payroll.html'],['money','Öreskalkylator','admin/#/money'],
       ['journal','Verifikationer & periodtest','admin/#/journal'],
@@ -37,8 +37,7 @@
   // Simple navigation is a projection of the existing permission-filtered menu.
   // It does not create privileges, new routes, or economic write operations.
   const simpleNavigation=Object.freeze([
-    {id:'start',label:'Kom igång',items:[['overview','Översikt']]},
-    {id:'ai',label:'AI-assistent',items:[['ai-assistant','AI-assistent & guider']]},
+    {id:'start',label:'Kom igång',items:[['overview','Översikt'],['ai-assistant','AI-assistent & guider']]},
     {id:'invoices',label:'Fakturor',items:[['invoices','Skapa & visa fakturor'],['receivables','Obetalda fakturor'],['customers','Kunder']]},
     {id:'purchases',label:'Inköp & kvitton',items:[['payables','Leverantörsfakturor'],['documents','Underlag (PDF)'],['supplier-ledger','Att betala'],['suppliers','Leverantörer'],['automation','Förslag att granska']]},
     {id:'money',label:'Pengar & bank',items:[['bank','Bankhändelser'],['unplaced-payments','Betalningar att hantera'],['payments','Alla betalningar']]},
@@ -675,6 +674,7 @@
   const aiWorkflows=Object.freeze({
     'invoices.html':['Kundfakturor','Hjälp mig skapa en korrekt kundfaktura'],
     'payables.html':['Leverantörsfakturor','Hjälp mig kontrollera en leverantörsfaktura'],
+    'supplier-ledger.html':['Leverantörsreskontra','Hjälp mig granska en leverantörsbetalning'],
     'documents.html':['Kvitton och dokument','Hjälp mig hantera ett kvitto eller PDF-underlag'],
     'bank.html':['Bankhändelser','Hjälp mig stämma av en bankhändelse'],
     'unplaced-payments.html':['Oplacerade betalningar','Hjälp mig hantera en betalning utan koppling'],
@@ -689,35 +689,39 @@
   function mountContextualAi(context){
     const page=location.pathname.split('/').pop();
     const workflow=aiWorkflows[page];
-    const permitted=context.groups.some(group=>group.items.some(item=>item[0]==='ai-assistant'));
-    const content=document.querySelector('.content');
+    const permitted=Array.isArray(context?.groups)&&context.groups.some(group=>group.items.some(item=>item[0]==='ai-assistant'));
+    const content=document.querySelector('.content, .accounting-content, .bokslut-shell, .batch-shell');
     if(!workflow||!permitted||!content||document.getElementById('lt-contextual-ai'))return;
     const section=document.createElement('section');
     section.id='lt-contextual-ai';
-    section.setAttribute('aria-label','AI-assistent för '+workflow[0]);
-    section.style.cssText='display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;margin-bottom:20px;border:1px solid var(--line, #b5b5b5);border-radius:14px;background:var(--surface, var(--paper, transparent));color:var(--ink, inherit)';
+    section.className='lt-contextual-ai';
+    section.setAttribute('aria-label','AI-hjälp för '+workflow[0]);
     const info=document.createElement('div');
     const heading=document.createElement('strong');heading.textContent='✦ AI-hjälp för '+workflow[0];
-    const note=document.createElement('p');note.style.cssText='margin:5px 0 0;font-size:.9rem;max-width:580px';
+    const note=document.createElement('p');
     note.textContent='Få steg-för-steg-hjälp här. AI-analys av verkliga underlag är ännu inte aktiverad. Ingenting bokförs utan granskning.';
     info.append(heading,note);
-    const action=document.createElement('a');action.className='button';
+    const action=document.createElement('a');action.className='lt-contextual-ai-action';
     action.textContent=workflow[1]+' →';
     action.href=assistantHrefForCurrentPage();
-    action.style.cssText='white-space:normal;text-align:center;max-width:100%';
     section.append(info,action);
     content.prepend(section);
   }
+  let lastNavigationContext=null;
   async function mount(){
     const sidebar=document.querySelector('.sidebar');if(!sidebar)return;
     const route=location.pathname+location.hash;
-    if(sidebar.dataset.sharedRoute===route&&sidebar.querySelector('.shared-navigation'))return;
+    if(sidebar.dataset.sharedRoute===route&&sidebar.querySelector('.shared-navigation')){
+      if(lastNavigationContext)mountContextualAi(lastNavigationContext);
+      return;
+    }
     sidebar.classList.add('shared-sidebar');
     const workspace=sidebar.parentElement;workspace.classList.add('shared-workspace-shell');
     const workspaceMain=[...workspace.children].find(child=>child!==sidebar);if(workspaceMain)workspaceMain.classList.add('shared-workspace-main');
     sidebar.setAttribute('aria-label','Huvudmeny');sidebar.dataset.sharedRoute=route;
     const saved=read();
     const context=await navigationContext();
+    lastNavigationContext=context;
     const authorizedGroups=context.groups;
     const easyGroups=simpleGroups(authorizedGroups);
     const preferredMode=demo?'advanced':getSavedNavigationMode(context.session);
