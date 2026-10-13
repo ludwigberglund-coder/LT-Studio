@@ -319,7 +319,7 @@ test('invalid year hides previous company figures and avoids new requests',async
   h.year('2200');
   await h.click();
   assert.equal(h.refs['book-close-review'].hidden,true);
-  assert.equal(h.calls.length,4);
+  assert.equal(h.calls.length,5);
   assert.match(h.refs['book-close-simple-status'].textContent,/giltigt kalenderår/);
 });
 
