@@ -107,7 +107,7 @@
   });
   const stopWords=new Set(['jag','och','med','det','min','mitt','mina','hur','vad','var','kan','ska','skall','vill','ett','en','har','som','den','att','för','om','man','till','gör','göra','visa','behöver']);
   function normalized(value){
-    return String(value??'').toLocaleLowerCase('sv-SE').replace(/\s+/g,' ').trim().slice(0,160);
+    return String(value??'').toLocaleLowerCase('sv-SE').replace(/\s+/g,' ').trim();
   }
   function scope(value){
     return processes.some(item=>item.id===value)?value:'all';
@@ -117,7 +117,7 @@
     return Object.hasOwn(pages,filename)?pages[filename]:'all';
   }
   function search(query,selectedScope='all'){
-    const current=scope(selectedScope),input=normalized(query);
+    const current=scope(selectedScope),input=normalized(query).slice(0,160);
     const tokens=[...new Set(input.split(/[^a-z0-9åäö]+/i).filter(word=>word.length>=3&&!stopWords.has(word)))].slice(0,12);
     const matched=guides.map((guide,index)=>{
       if(current!=='all'&&guide.process!==current)return null;
