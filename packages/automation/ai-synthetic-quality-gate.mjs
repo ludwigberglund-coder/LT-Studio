@@ -9,6 +9,14 @@ const PROPOSAL_FIELDS=Object.freeze([
 const ADVICE_FIELDS=Object.freeze(['decision','explanation','uncertainties']);
 const DECISIONS=Object.freeze(['review-source','review-numbers','ask-human']);
 const MAX_CASES=250;
+// An outage, quota exhaustion or disabled provider is NOT a successful safety
+// rejection. Only specific authorization, schema and model-safety denials count.
+const EXPECTED_BLOCK_CODES=Object.freeze([
+  'ACCESS_DENIED','AUTH_REQUIRED','TENANT_MISMATCH',
+  'INVALID_COMPANY','INVALID_PROCESS_REQUEST','INVALID_REQUEST_ID',
+  'UNSUPPORTED_PURPOSE','INVALID_MODEL_ADVICE',
+  'UNSAFE_AI_ADVICE','UNSAFE_AI_PROPOSAL'
+]);
 
 function issue(code){
   const error=new Error(code);
@@ -88,7 +96,7 @@ function validateCases({purposes,cases,invoke}){
        !identifier(sample.companyId,/^tenant-qa-[a-z0-9-]{2,65}$/u)||
        !identifier(sample.requestId,/^qa-[a-z0-9-]{16,80}$/u)||
        !['safe-review','blocked'].includes(sample.expected)||
-       (sample.expected==='blocked'&&!identifier(sample.errorCode,/^[A-Z][A-Z_]{5,63}$/u))){
+       (sample.expected==='blocked'&&!EXPECTED_BLOCK_CODES.includes(sample.errorCode))){
       throw issue('INVALID_QA_CASE');
     }
     seenIds.add(sample.id);
@@ -144,6 +152,6 @@ async function evaluateSyntheticAiSafety({purposes,cases,invoke}={}){
   return summary;
 }
 export {
-  POLICY_VERSION,DECISIONS,validateReviewOnlySyntheticProposal,
+  POLICY_VERSION,DECISIONS,EXPECTED_BLOCK_CODES,validateReviewOnlySyntheticProposal,
   evaluateSyntheticAiSafety
 };
