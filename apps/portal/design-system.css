@@ -3650,19 +3650,19 @@ html[data-lt-theme="dark"] .batch-editor>.batch-actions{
 
 /* Accessible AI entry point and in-workflow guidance. No AI or financial write action. */
 .shared-navigation .shared-links a[data-nav-id="ai-assistant"]{
-  background:#dce79a!important;
-  color:#143c30!important;
-  border:1px solid #b5c779!important;
+  background:#dfe9ad!important;
+  color:#173f32!important;
+  border:1px solid #e5e5e5!important;
   font-weight:800!important;
 }
 .shared-navigation .shared-links a[data-nav-id="ai-assistant"]:hover,
 .shared-navigation .shared-links a[data-nav-id="ai-assistant"][aria-current="page"]{
-  background:#eff5cc!important;
-  color:#143c30!important;
+  background:#ffffff!important;
+  color:#173f32!important;
 }
 .shared-sidebar .shared-navigation .shared-links a[data-nav-id="ai-assistant"]>.ui-icon,
 html[data-lt-theme="dark"] .shared-sidebar .shared-navigation .shared-links a[data-nav-id="ai-assistant"]>.ui-icon{
-  color:#143c30!important;
+  color:#173f32!important;
   opacity:1!important;
 }
 .lt-contextual-ai{
