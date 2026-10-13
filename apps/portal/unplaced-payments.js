@@ -71,10 +71,50 @@ function invoiceSuggestionCard(payment){
   const detail=suggestion.partial?'Beloppet kan vara en delbetalning. Kontrollera återstående saldo.':'Beloppet stämmer med fakturans restbelopp.';
   return `<div class="invoice-match-tip" role="note"><span class="invoice-match-eyebrow">Möjlig fakturaträff</span><strong>${esc(invoice.invoiceNumber)} · ${esc(invoice.customerName||'Okänd kund')}</strong><p>${esc(suggestion.by)} matchar betalningens referens. ${detail} Granska innan du skapar förslaget.</p><button type="button" class="button ghost small" data-action="use-suggestion" ${busy?'disabled':''}>Välj föreslagen faktura</button></div>`;
 }
+
+function postingType(kind){
+  if(kind==='other-income')return 'other-income';
+  if(kind==='outgoing'||kind==='bank-fee')return 'outgoing';
+  return '';
+}
+function postingPreview(){
+  const payment=selected();
+  const kind=document.querySelector('[data-field="kind"]')?.value||'';
+  if(!payment||!kind)return '<p>Välj först vad bankhändelsen gäller. Ingenting bokförs innan du bekräftar.</p>';
+  if(kind==='unsure')return '<p>Vänta med bokföringen. Kontrollera kontoutdrag och underlag, eller be om hjälp med konteringen.</p>';
+  const account=(document.querySelector('[data-field="account"]')?.value||'').trim();
+  const description=(document.querySelector('[data-field="description"]')?.value||'').trim();
+  const type=postingType(kind);
+  const hint=kind==='bank-fee'
+    ?'Endast avgifter för företagets egna banktjänster. Ränta, kortinlösen eller tjänster med moms kan behöva annan hantering.'
+    :'Om betalningen gäller en kund- eller leverantörsfaktura ska den hanteras i fakturaflödet i stället.';
+  if(!/^\d{4}$/.test(account)||['1510','1930','2440'].includes(account))
+    return `<p>${esc(hint)}</p><p>Fyll i ett korrekt fyrsiffrigt motkonto innan du bokför. Inget konto gissas automatiskt för övriga händelser.</p>`;
+  const amount=esc(money(payment.amountOre));
+  const debit=type==='outgoing'?esc(account):'1930';
+  const credit=type==='outgoing'?'1930':esc(account);
+  return `<strong>Förhandskontroll · ${amount}</strong><p>${esc(hint)}</p><div class="posting-lines"><span>Debet ${debit}: ${amount}</span><span>Kredit ${credit}: ${amount}</span></div><p>${esc(description||'Beskrivning saknas.')}</p><p>Riktningen är inte automatiskt verifierad mot banken. Kontrollera själv att pengar kom in eller gick ut.</p>`;
+}
+function updatePostingGuide(reset=false){
+  const kind=document.querySelector('[data-field="kind"]')?.value||'';
+  const account=document.querySelector('[data-field="account"]');
+  const description=document.querySelector('[data-field="description"]');
+  const confirmation=document.querySelector('[data-field="confirmed"]');
+  if(reset){
+    if(account)account.value=kind==='bank-fee'?'6570':'';
+    if(description)description.value=kind==='bank-fee'?'Bankavgift enligt kontoutdrag':'';
+    if(confirmation)confirmation.checked=false;
+  }
+  if(account)account.readOnly=kind==='bank-fee';
+  const preview=document.querySelector('[data-role="posting-preview"]');
+  if(preview)preview.innerHTML=postingPreview();
+  const button=document.querySelector('[data-action="resolve"]');
+  if(button)button.disabled=busy||!postingType(kind);
+}
 function resolutionCard(){
   const p=selected();
   if(!p)return '<section class="panel resolution-card resolution-card-empty"><div class="empty-choice"><span class="empty-choice-icon" aria-hidden="true">✓</span><strong>Inget att hantera</strong><p>När en betalning inte kan matchas automatiskt hamnar den här.</p></div></section>';
-  return `<section class="panel resolution-card"><header class="resolution-header"><div><span class="eyebrow">Hantera vald betalning</span><h3>${esc(money(p.amountOre))}</h3><p>${esc(p.payerName||'Okänd betalare')} · ${esc(p.reference||'Ingen referens')}</p></div><span class="manual-badge">Manuell kontroll</span></header><div class="resolution-meta"><div><span>Datum</span><b>${esc(p.bookingDate)}</b></div><div><span>Referens</span><b>${esc(p.reference||'—')}</b></div><div><span>Betalare</span><b>${esc(p.payerName||'Okänd')}</b></div></div><div class="resolution-actions"><div class="resolution-block resolution-block-match"><div class="resolution-block-head"><span class="resolution-icon" aria-hidden="true">↗</span><div><b>Koppla till kundfaktura</b><small>Skapa ett granskningsbart matchningsförslag</small></div></div><p>Välj rätt faktura. LT Studio skapar ett manuellt matchningsförslag som därefter granskas och bokförs i Automationskön.</p><label><span>Faktura</span><select data-field="invoice" ${!invoiceCandidates(p).length?'disabled':''}>${invoiceOptions(p)}</select></label>${invoiceSuggestionCard(p)}<button class="button resolution-primary" data-action="invoice" ${busy||!invoiceCandidates(p).length?'disabled':''}><span aria-hidden="true">＋</span>Skapa matchningsförslag</button></div><div class="resolution-block resolution-block-other"><div class="resolution-block-head"><span class="resolution-icon" aria-hidden="true">≡</span><div><b>Bokför på annat sätt</b><small>För poster utanför kund- och leverantörsreskontran</small></div></div><label><span>Motkonto</span><input data-field="account" inputmode="numeric" maxlength="4" placeholder="t.ex. 3990 eller 6990"></label><label><span>Beskrivning</span><textarea data-field="description" maxlength="240" placeholder="Beskriv vad betalningen avser"></textarea></label><div class="bank-toolbar-actions resolution-secondary-actions"><button class="button secondary" data-action="other-income" ${busy?'disabled':''}>Annan inbetalning</button><button class="button secondary" data-action="outgoing" ${busy?'disabled':''}>Utbetalning</button></div><p class="danger-note"><span aria-hidden="true">i</span>Konto 1510, 1930 och 2440 är spärrade här eftersom de måste gå via sina särskilda reskontraflöden.</p></div></div></section>`;
+  return `<section class="panel resolution-card"><header class="resolution-header"><div><span class="eyebrow">Hantera vald betalning</span><h3>${esc(money(p.amountOre))}</h3><p>${esc(p.payerName||'Okänd betalare')} · ${esc(p.reference||'Ingen referens')}</p></div><span class="manual-badge">Manuell kontroll</span></header><div class="resolution-meta"><div><span>Datum</span><b>${esc(p.bookingDate)}</b></div><div><span>Referens</span><b>${esc(p.reference||'—')}</b></div><div><span>Betalare</span><b>${esc(p.payerName||'Okänd')}</b></div></div><div class="resolution-actions"><div class="resolution-block resolution-block-match"><div class="resolution-block-head"><span class="resolution-icon" aria-hidden="true">↗</span><div><b>Koppla till kundfaktura</b><small>Skapa ett granskningsbart matchningsförslag</small></div></div><p>Välj rätt faktura. LT Studio skapar ett manuellt matchningsförslag som därefter granskas och bokförs i Automationskön.</p><label><span>Faktura</span><select data-field="invoice" ${!invoiceCandidates(p).length?'disabled':''}>${invoiceOptions(p)}</select></label>${invoiceSuggestionCard(p)}<button class="button resolution-primary" data-action="invoice" ${busy||!invoiceCandidates(p).length?'disabled':''}><span aria-hidden="true">＋</span>Skapa matchningsförslag</button></div><div class="resolution-block resolution-block-other"><div class="resolution-block-head"><span class="resolution-icon" aria-hidden="true">≡</span><div><b>Hantera annan bankhändelse</b><small>Tre steg – granska innan någon bokföring skapas</small></div></div><label><span>1. Vad gäller händelsen?</span><select data-field="kind"><option value="">Välj ett alternativ</option><option value="bank-fee">Banken har dragit en vanlig kontoavgift</option><option value="other-income">Pengar har kommit in (ingen kundfaktura)</option><option value="outgoing">Pengar har gått ut (annan utbetalning)</option><option value="unsure">Jag är osäker – bokför inte ännu</option></select></label><p class="posting-caution">Valet är inte automatiskt kontrollerat mot banken. Använd inte detta flöde för kundfakturor, leverantörsfakturor, ränta eller osäkra momshändelser.</p><label><span>2. Bokföringskonto</span><input data-field="account" inputmode="numeric" maxlength="4" placeholder="Ange motkonto – eller välj bankavgift ovan"></label><p class="posting-account-help">Vid vanlig bankavgift fylls konto 6570 i som ett förslag. För andra händelser behöver du välja ett korrekt konto eller få hjälp av en redovisningskunnig.</p><label><span>Beskrivning</span><textarea data-field="description" maxlength="240" placeholder="Beskriv vad bankhändelsen gäller"></textarea></label><div class="posting-preview" role="note" aria-live="polite"><span class="posting-preview-eyebrow">3. Så här bokförs betalningen</span><div data-role="posting-preview"><p>Välj först vad händelsen gäller. Ingenting är bokfört ännu.</p></div></div><label class="posting-review-check"><input type="checkbox" data-field="confirmed"><span>Jag har jämfört med kontoutdraget, kontrollerat om pengar gick in eller ut och granskat konto och underlag.</span></label><button type="button" class="button resolution-primary" data-action="resolve" disabled>Bokför kontrollerad bankhändelse</button><p class="posting-irreversible">När du klickar skapas en verifikation direkt. Om du är osäker – välj ”Jag är osäker” och bokför inte.</p><p class="danger-note"><span aria-hidden="true">i</span>Konto 1510, 1930 och 2440 är spärrade här eftersom de måste gå via sina särskilda reskontraflöden.</p></div></div></section>`;
 }
 function render(){
   const name=session?.user?.displayName||session?.user?.email||'Inloggad användare';
@@ -84,7 +124,54 @@ function render(){
 function loadDemo(){session={user:{displayName:'Demoanvändare'},company:{name:'Demoföretag'}};payments=[{id:'demo-unplaced-1',bookingDate:'2026-10-07',amountOre:125000,reference:'Okänd inbetalning',message:'Saknar säker fakturaträff',payerName:'Exempelbetalare AB',payerAccount:'BG 5000-0000'}];openInvoices=[{id:'demo-invoice-1',invoiceNumber:'310101',remainingOre:125000,customerName:'Exempelkund AB'}]}
 async function load(){if(demo)loadDemo();else if(isSupabase)await loadSupabase();else await loadApi();if(!selectedId&&payments[0])selectedId=payments[0].id;render()}
 async function createInvoiceProposal(){const p=selected(),invoiceId=document.querySelector('[data-field="invoice"]')?.value||'';if(!p||!invoiceId)throw new Error('Välj en kundfaktura.');if(!invoiceCandidates(p).some(i=>String(i.id)===invoiceId))throw new Error('Den valda fakturan kan inte ta emot betalningen. Välj en annan faktura.');if(demo){message='Demo: matchningsförslaget skulle skickas till Automationskön.';render();return}if(isSupabase){const ctx=session.ctx;const target=openInvoices.find(i=>i.id===invoiceId);const saved=(await window.LTSupabase.rpc('create_bank_match_proposal',{p_company_id:ctx.company.id,p_bank_payment_id:p.id,p_target_invoice_id:invoiceId,p_confidence_ppm:500000,p_deterministic:false,p_ambiguous:true,p_reason:'Manuell placering från Oplacerade betalningar.',p_evidence:[{kind:'manual-selection',label:'Manuellt vald faktura',value:target?.invoiceNumber||invoiceId,sourceId:p.id}]},ctx.accessToken))?.[0];if(!saved?.proposal_id||!['manual-review','ready-for-approval'].includes(saved.status))throw new Error('Inget nytt matchningsförslag skapades. Uppdatera betalningarna och försök igen.')}else{await api(`/bank/payments/${encodeURIComponent(p.id)}/manual-match`,{method:'POST',body:{invoiceId}})}message='Matchningsförslaget är skapat. Öppna Automationskön för granskning och bokföring.';await load()}
-async function resolveOther(type){const p=selected(),counterAccount=(document.querySelector('[data-field="account"]')?.value||'').trim(),description=(document.querySelector('[data-field="description"]')?.value||'').trim();if(!p)throw new Error('Välj en betalning.');if(!/^\d{4}$/.test(counterAccount))throw new Error('Ange ett fyrsiffrigt motkonto.');if(description.length<3)throw new Error('Skriv en kort beskrivning.');const rid=resolutionRequestId(p,type,counterAccount,description);if(demo){message=type==='outgoing'?'Demo: utbetalningen skulle bokföras mot valt konto.':'Demo: inbetalningen skulle bokföras mot valt konto.';render();return}if(isSupabase){const result=await window.LTSupabase.functions.invoke('resolve-unplaced-payment',{companyId:session.ctx.company.id,bankPaymentId:p.id,resolutionType:type,counterAccount,description,requestId:rid},session.ctx.accessToken);if(!result)throw new Error('Betalningen kunde inte bokföras.');message=`Klart. Verifikation ${result.journal_number} skapades.`}else{const data=await api(`/bank/payments/${encodeURIComponent(p.id)}/resolve-other`,{method:'POST',body:{resolutionType:type,counterAccount,description,requestId:rid}});message=data.message||'Betalningen är bokförd.'}selectedId='';await load()}
+async function resolveOther(){
+  const p=selected();
+  const kind=document.querySelector('[data-field="kind"]')?.value||'';
+  const type=postingType(kind);
+  const counterAccount=(document.querySelector('[data-field="account"]')?.value||'').trim();
+  const description=(document.querySelector('[data-field="description"]')?.value||'').trim();
+  const confirmed=document.querySelector('[data-field="confirmed"]')?.checked===true;
+  if(!p)throw new Error('Välj en betalning.');
+  if(!type)throw new Error('Välj vad bankhändelsen gäller, eller be om hjälp om du är osäker.');
+  if(!/^\d{4}$/.test(counterAccount)||['1510','1930','2440'].includes(counterAccount))
+    throw new Error('Ange ett tillåtet fyrsiffrigt bokföringskonto.');
+  if(kind==='bank-fee'&&counterAccount!=='6570')
+    throw new Error('För bankavgift ska konto 6570 användas i detta snabbval. Byt till annan utbetalning för ett annat konto.');
+  if(description.length<3||description.length>240)throw new Error('Skriv en beskrivning på 3–240 tecken.');
+  if(!confirmed)throw new Error('Kontrollera bankhändelsen och markera bekräftelserutan innan bokföring.');
+  if(!Number.isSafeInteger(Number(p.amountOre))||Number(p.amountOre)<=0||p.currency&&p.currency!=='SEK')
+    throw new Error('Betalningen saknar ett giltigt positivt SEK-belopp.');
+  const rid=resolutionRequestId(p,type,counterAccount,description);
+  if(demo){
+    message=type==='outgoing'?'Demo: kontrollerad utbetalning skulle bokföras.':'Demo: kontrollerad inbetalning skulle bokföras.';
+    render();
+    return;
+  }
+  if(isSupabase){
+    const result=await window.LTSupabase.functions.invoke('resolve-unplaced-payment',{
+      companyId:session.ctx.company.id,bankPaymentId:p.id,resolutionType:type,
+      counterAccount,description,requestId:rid
+    },session.ctx.accessToken);
+    if(!result?.journal_number)throw new Error('Betalningen kunde inte bekräftas som bokförd.');
+    message=`Klart. Verifikation ${result.journal_number} skapades.`;
+  }else{
+    const data=await api(`/bank/payments/${encodeURIComponent(p.id)}/resolve-other`,{
+      method:'POST',body:{resolutionType:type,counterAccount,description,requestId:rid}
+    });
+    message=data.message||'Betalningen är bokförd.';
+  }
+  selectedId='';
+  await load();
+}
+document.addEventListener('change',event=>{
+  if(busy)return;
+  if(event.target?.dataset?.field==='kind')updatePostingGuide(true);
+  if(event.target?.dataset?.field==='confirmed')updatePostingGuide();
+});
+document.addEventListener('input',event=>{
+  if(busy)return;
+  if(['account','description'].includes(event.target?.dataset?.field))updatePostingGuide();
+});
 document.addEventListener('click',async event=>{
   // Keep entered invoice/account/description values in the DOM until the action reads them.
   // Re-rendering before createInvoiceProposal/resolveOther resets the form to defaults.
@@ -100,18 +187,18 @@ document.addEventListener('click',async event=>{
     if(suggestion.kind==='unique'&&input){input.value=String(suggestion.invoice.id);input.focus?.()}
     return;
   }
-  const fields=['invoice','account','description'];
+  const fields=['invoice','kind','account','description'];
   const draft=Object.fromEntries(fields.map(field=>[field,document.querySelector(`[data-field="${field}"]`)?.value??'']));
+  draft.confirmed=document.querySelector('[data-field="confirmed"]')?.checked===true;
   let failed=false;
   try{
     if(action==='refresh'){await load();return}
-    if(!['invoice','other-income','outgoing'].includes(action))return;
+    if(!['invoice','resolve'].includes(action))return;
     messageError=false;
     busy=true;
     app.querySelectorAll('button[data-action]').forEach(control=>{control.disabled=true});
     if(action==='invoice')await createInvoiceProposal();
-    if(action==='other-income')await resolveOther('other-income');
-    if(action==='outgoing')await resolveOther('outgoing');
+    if(action==='resolve')await resolveOther();
   }catch(error){
     failed=true;
     messageError=true;
@@ -124,6 +211,11 @@ document.addEventListener('click',async event=>{
       const input=document.querySelector(`[data-field="${field}"]`);
       if(input)input.value=value;
     }
+    if(failed){
+      const confirmed=document.querySelector('[data-field="confirmed"]');
+      if(confirmed)confirmed.checked=draft.confirmed;
+    }
+    updatePostingGuide();
   }
 });
 load().catch(error=>{app.innerHTML=`<main class="boot"><strong>Kunde inte ladda oplacerade betalningar</strong><span>${esc(error.message)}</span></main>`});
