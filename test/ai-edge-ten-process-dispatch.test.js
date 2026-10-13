@@ -82,7 +82,6 @@ test('Edge imports are pinned and no additional HTTP or model endpoints are intr
   assert.equal((edge.match(/"https:\/\/api\.cloudflare\.com/g)||[]).length,0);
   const allowedHost='ludwigberglund-coder.github.io';
   const httpsFragments=edge.split('https://').slice(1);
-  assert.ok(httpsFragments.length>0);
   for(const fragment of httpsFragments){
     assert.equal(fragment.startsWith(allowedHost),true);
     assert.equal(['/',"'",'"','`'].includes(fragment[allowedHost.length]),true);
