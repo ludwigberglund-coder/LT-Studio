@@ -46,7 +46,7 @@ async function preflightSyntheticPilot({ body, accessToken, userClient }) {
   if (auth.error || typeof auth.data?.user?.id !== 'string') throw fail('AUTH_REQUIRED');
   const userId = auth.data.user.id;
   const claims = decodeVerifiedClaims(accessToken);
-  verifiedSessionId(claims, userId);
+  const sessionId = verifiedSessionId(claims, userId);
 
   // This MUST be a user-scoped client (Authorization: Bearer <accessToken>).
   // Existing company_memberships restrictive RLS invokes the personal-session
@@ -75,7 +75,8 @@ async function preflightSyntheticPilot({ body, accessToken, userClient }) {
     invoice,
     trustedContext: Object.freeze({
       verified: true, pilotMode: 'synthetic',
-      companyId: access.companyId, actorId: userId, aal: 'aal2'
+      companyId: access.companyId, actorId: userId,
+      sessionId, aal: 'aal2'
     })
   });
 }

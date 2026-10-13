@@ -49,6 +49,7 @@ test('real verified test request creates manually reviewed balanced proposal onl
   });
   assert.deepEqual(reservations,[{
     companyId:'tenant-a-001',actorId:'11111111-1111-4111-8111-111111111111',
+    sessionId:'22222222-2222-4222-8222-222222222222',
     requestId:'request-pilot-001234'
   }]);
   assert.equal(providers,1);

@@ -38,6 +38,7 @@ test('preflight loads real user-scoped membership and derives company and actor 
   assert.equal(actual.invoice.companyId,COMPANY);
   assert.equal(actual.invoice.description,'A4-kontorspapper, tio paket');
   assert.equal(actual.trustedContext.actorId,USER);
+  assert.equal(actual.trustedContext.sessionId,SESSION);
   assert.equal(actual.trustedContext.verified,true);
   assert.equal(client.seen.token,token());
   assert.deepEqual(client.seen.queries,[

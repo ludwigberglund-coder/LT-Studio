@@ -1,14 +1,13 @@
 // Cloudflare AI pilot gateway: intentionally NOT activated or deployed.
 // GitHub remains the source of truth for any future security/release change.
-// Never turn this gate on until a real, atomic global/company/user/IP limiter,
-// full signed-in tenant tests and explicit privacy review have passed.
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 import { runSyntheticPilot } from "../../../packages/automation/ai-gateway-orchestrator.mjs";
 import { cloudflareProvider } from "../../../packages/automation/cloudflare-bookkeeping.mjs";
 
-// Hard-code false: secret/config toggles cannot unlock this before a reviewed PR.
+// Hard-code false: config and secrets cannot unlock this before a reviewed release.
 const RELEASE_APPROVED = false;
 const DURABLE_IP_LIMITER_VERIFIED = false;
+const TRUSTED_IP_HEADER = "x-real-ip";
 const REPLY_HEADERS = {
   "Content-Type": "application/json; charset=utf-8",
   "Cache-Control": "no-store",
@@ -16,6 +15,9 @@ const REPLY_HEADERS = {
 };
 function respond(status: number, body: object, extra: Record<string,string> = {}) {
   return new Response(JSON.stringify(body), {status, headers:{...REPLY_HEADERS,...extra}});
+}
+function gatewayError(code: string) {
+  return Object.assign(new Error(code), {code});
 }
 function safeError(error: unknown) {
   const allowed = new Set([
@@ -41,12 +43,42 @@ function projectKeys() {
   })() || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   return { url, publishable, serviceKey };
 }
+function trustedClientIp(req: Request) {
+  // Hosted UAT must prove that Supabase's gateway overwrites this header before
+  // DURABLE_IP_LIMITER_VERIFIED may change. Never fall back to x-forwarded-for,
+  // cf-connecting-ip or a caller-selected header.
+  if (Deno.env.get("AI_PILOT_TRUSTED_IP_HEADER") !== TRUSTED_IP_HEADER) {
+    throw gatewayError("UNTRUSTED_SOURCE");
+  }
+  const value=(req.headers.get(TRUSTED_IP_HEADER)||"").trim();
+  const ipv4=value.split('.');
+  const validV4=ipv4.length===4&&ipv4.every((part)=>
+    /^\d{1,3}$/.test(part)&&Number(part)>=0&&Number(part)<=255&&
+    (part==='0'||!part.startsWith('0')));
+  if (validV4) return value;
+  if (value.length<2||value.length>45||!value.includes(':')||
+      !/^[0-9a-f:.]+$/i.test(value)) throw gatewayError("UNTRUSTED_SOURCE");
+  try {
+    const host=new URL(`http://[${value}]/`).hostname;
+    if (!host.startsWith('[')||!host.endsWith(']')) throw new Error('Not IPv6');
+    return host.slice(1,-1).toLowerCase();
+  } catch {
+    throw gatewayError("UNTRUSTED_SOURCE");
+  }
+}
+async function clientIpHash(req: Request) {
+  const salt=Deno.env.get("AI_PILOT_IP_HASH_SALT")||"";
+  if (salt.length<32||salt.length>256) throw gatewayError("UNTRUSTED_SOURCE");
+  const bytes=new TextEncoder().encode(`${salt}\0${trustedClientIp(req)}`);
+  const digest=await crypto.subtle.digest("SHA-256",bytes);
+  return Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('');
+}
 async function readSmallJson(req: Request) {
   if (!req.headers.get("content-type")?.startsWith("application/json")) {
-    throw Object.assign(new Error("INVALID_INPUT"),{code:"INVALID_INPUT"});
+    throw gatewayError("INVALID_INPUT");
   }
   const reader=req.body?.getReader();
-  if (!reader) throw Object.assign(new Error("INVALID_INPUT"),{code:"INVALID_INPUT"});
+  if (!reader) throw gatewayError("INVALID_INPUT");
   let size=0;
   const chunks: Uint8Array[]=[];
   try {
@@ -54,14 +86,14 @@ async function readSmallJson(req: Request) {
       const {value,done}=await reader.read();
       if(done)break;
       size+=value.length;
-      if(size>1024)throw new Error("TOO_LARGE");
+      if(size>1024)throw gatewayError("INVALID_INPUT");
       chunks.push(value);
     }
   }finally{reader.releaseLock();}
   const data=new Uint8Array(size); let offset=0;
   for(const chunk of chunks){data.set(chunk,offset);offset+=chunk.length;}
   try {return JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(data));}
-  catch {throw Object.assign(new Error("INVALID_INPUT"),{code:"INVALID_INPUT"});}
+  catch {throw gatewayError("INVALID_INPUT");}
 }
 function corsFor(req: Request): Record<string,string> {
   const expected=Deno.env.get("AI_PILOT_ALLOWED_ORIGIN")||"";
@@ -98,6 +130,7 @@ Deno.serve(async(req:Request)=>{
   }
   try{
     const body=await readSmallJson(req);
+    const ipHash=await clientIpHash(req);
     const userClient=createClient(keys.url,keys.publishable,{
       auth:{persistSession:false,autoRefreshToken:false},
       global:{headers:{Authorization:bearer}}
@@ -105,15 +138,15 @@ Deno.serve(async(req:Request)=>{
     const admin=createClient(keys.url,keys.serviceKey,{
       auth:{persistSession:false,autoRefreshToken:false}
     });
-    // A later reviewed release must provide a platform-trusted client IP.
-    // Do not infer trusted IP from x-forwarded-for or cf-connecting-ip.
     const reserveBudget=async(params: {
-      companyId:string;actorId:string;requestId:string;
+      companyId:string;actorId:string;sessionId:string;requestId:string;
     })=>{
       const {data,error}=await admin.rpc("reserve_ai_pilot_request_server",{
         p_company_id:params.companyId,
         p_actor_uid:params.actorId,
-        p_request_id:params.requestId
+        p_session_id:params.sessionId,
+        p_request_id:params.requestId,
+        p_client_ip_hash:ipHash
       });
       if(error||!data)return null;
       return Array.isArray(data)?data[0]:data;
