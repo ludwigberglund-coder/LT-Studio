@@ -13,7 +13,7 @@
       ['res-tools','Reskontraverktyg (äldre demo)','legacy/#/res-tools'],
       ['inbox','Fakturainkorg (äldre demo)','legacy/#/inbox']
     ]},
-    {id:'ai',label:'AI',items:[['ai-assistant','AI-assistent & guider','portal/ai-assistant.html']]},
+    {id:'ai',label:'AI',items:[['ai-assistant','AI-bokförare','portal/ai-assistant.html']]},
     {id:'operations',label:'Register & verksamhet',items:[['customers','Kunder','portal/customers.html'],['suppliers','Leverantörer','portal/suppliers.html'],['inventory','Lager & svinn','portal/inventory.html']]},
     {id:'administration',label:'Systemadministration',items:[
       ['company-settings','Företagsinställningar','portal/company-settings.html'],['website','Webbplats & innehåll','portal/website.html'],['documents','Dokument','portal/documents.html'],
@@ -37,7 +37,7 @@
   // Simple navigation is a projection of the existing permission-filtered menu.
   // It does not create privileges, new routes, or economic write operations.
   const simpleNavigation=Object.freeze([
-    {id:'start',label:'Kom igång',items:[['overview','Översikt'],['ai-assistant','AI-assistent & guider']]},
+    {id:'start',label:'Kom igång',items:[['overview','Översikt'],['ai-assistant','AI-bokförare']]},
     {id:'invoices',label:'Fakturor',items:[['invoices','Skapa & visa fakturor'],['receivables','Obetalda fakturor'],['customers','Kunder']]},
     {id:'purchases',label:'Inköp & kvitton',items:[['payables','Leverantörsfakturor'],['documents','Underlag (PDF)'],['supplier-ledger','Att betala'],['suppliers','Leverantörer'],['automation','Förslag att granska']]},
     {id:'money',label:'Pengar & bank',items:[['bank','Bankhändelser'],['unplaced-payments','Betalningar att hantera'],['payments','Alla betalningar']]},
@@ -660,8 +660,8 @@
         const help=document.createElement('a');
         help.className='shared-ai-trigger';
         help.href=assistantHrefForCurrentPage();
-        help.textContent='✦ AI-hjälp';
-        help.setAttribute('aria-label','Öppna guidad AI-hjälp för den här ekonomisidan');
+        help.textContent='✦ AI-bokförare';
+        help.setAttribute('aria-label','Öppna AI-bokförarens arbetsyta för den här ekonomisidan');
         topbar.append(help);
       }
       wrap.append(button,menu);topbar.append(wrap);decorateUi();
@@ -697,12 +697,12 @@
     section.className='lt-contextual-ai';
     section.setAttribute('aria-label','AI-hjälp för '+workflow[0]);
     const info=document.createElement('div');
-    const heading=document.createElement('strong');heading.textContent='✦ AI-hjälp för '+workflow[0];
+    const heading=document.createElement('strong');heading.textContent='✦ AI-bokförare · '+workflow[0];
     const note=document.createElement('p');
-    note.textContent='Få steg-för-steg-hjälp här. AI-analys av verkliga underlag är ännu inte aktiverad. Ingenting bokförs utan granskning.';
+    note.textContent='Öppna AI-arbetsytan med underlag och befintlig granskningskö. AI-analys av verkliga underlag är ännu inte aktiverad. Ingenting bokförs utan granskning.';
     info.append(heading,note);
     const action=document.createElement('a');action.className='lt-contextual-ai-action';
-    action.textContent=workflow[1]+' →';
+    action.textContent='Öppna AI-arbetsytan →';
     action.href=assistantHrefForCurrentPage();
     section.append(info,action);
     content.prepend(section);
