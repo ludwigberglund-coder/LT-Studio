@@ -15,7 +15,7 @@ Detta är en **ren, provideroberoende servermodul** i `packages/automation/ai-sy
 - Inga extra fält såsom `approvedBy`, `journalNumber`, `paymentAmountOre` eller modellpåståenden om attest får passera.
 - Svaret måste innehålla exakt `decision`, `explanation` och `uncertainties`. Tillåtna beslut: `review-source`, `review-numbers`, `ask-human`. Text och listor storleksbegränsas; HTML, kontrolltecken och Unicode-tecken som kan vända textens läsriktning avvisas.
 - Testkorpusen kräver **minst ett säkert granskningsfall och ett uttryckligen blockerat fall för varje process**. Det räcker inte att bara få modellen att säga nej till allt.
-- Ett blockerat fall godkänns endast om det avvisas med exakt förväntad felkod. Att modellen ligger nere räknas **inte** som en lyckad säkerhetskontroll.
+- Ett blockerat fall godkänns endast om det avvisas med exakt förväntad felkod ur en låst lista för autentisering, företagsisolering, indata och osäker modellutdata. **Driftstopp, kvotfel och avstängt pilotläge kan aldrig väljas som förväntat lyckat säkerhetsutfall.**
 - Testrapporten innehåller enbart syntetiska test-id:n, processnamn, stabila bedömningskoder och totalsiffror. Den innehåller inte företagets ID, token, promptar, fulla modelltexter eller felmeddelanden.
 
 ### Vad ett grönt test **inte** bevisar
