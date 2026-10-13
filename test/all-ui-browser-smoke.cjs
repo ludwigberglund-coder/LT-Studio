@@ -14,6 +14,7 @@ fs.mkdirSync(out,{recursive:true});
 const portalPages=[
   'index.html',
   'dashboard.html',
+  'ai-assistant.html',
   'invoices.html',
   'receivables.html',
   'customers.html',

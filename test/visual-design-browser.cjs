@@ -13,6 +13,7 @@ fs.mkdirSync(out,{recursive:true});
 
 const surfaces=[
   {id:'dashboard',route:'portal/dashboard.html?demo=1'},
+  {id:'ai-assistant',route:'portal/ai-assistant.html?demo=1'},
   {id:'customers',route:'portal/customers.html?demo=1'},
   {id:'invoices',route:'portal/invoices.html?demo=1'},
   {id:'receivables',route:'portal/index.html?demo=1'},
