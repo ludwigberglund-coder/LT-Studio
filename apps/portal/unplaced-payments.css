@@ -584,3 +584,26 @@ html[data-lt-theme="dark"] .danger-note span{background:#39413d;color:#dce4df}
     grid-column:1/-1;
   }
 }
+
+
+/* Read-only invoice recommendations. Never style suggestions like an approved posting. */
+.invoice-match-tip{
+  margin-top:12px;
+  padding:12px;
+  border:1px solid var(--unplaced-border);
+  border-radius:12px;
+  background:var(--unplaced-soft);
+  color:var(--ink,#173b31);
+}
+.invoice-match-tip strong{display:block;margin-top:3px;font-size:12px}
+.invoice-match-eyebrow{display:block;font-size:10px;font-weight:800}
+.invoice-match-tip p{margin-top:6px}
+.invoice-match-tip .button{margin-top:10px;max-width:100%}
+.invoice-match-ambiguous{background:var(--surface,#fff)}
+.invoice-match-hint{padding:9px 0}
+html[data-lt-theme="dark"] .invoice-match-tip,
+html[data-lt-theme="dark"] .invoice-match-tip strong,
+html[data-lt-theme="dark"] .invoice-match-tip .invoice-match-eyebrow{
+  color:#fff!important;
+}
+html[data-lt-theme="dark"] .invoice-match-ambiguous{background:#303934}

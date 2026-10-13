@@ -8,7 +8,7 @@ const vm=require('node:vm');
 
 const source=fs.readFileSync(path.join(__dirname,'../apps/portal/unplaced-payments.js'),'utf8');
 
-async function harness(){
+async function harness(options={}){
   const fields={invoice:'invoice-first',account:'',description:''};
   const calls=[];
   const invokeErrors=[];
@@ -37,11 +37,11 @@ async function harness(){
   const records={
     bank_payments:[{
       id:'bank-1',booking_date:'2026-10-12',amount_ore:10000,
-      reference:'QA',payer_name:'Testbetalare'
+      reference:options.reference??'QA',payer_name:'Testbetalare',currency:'SEK',company_id:'company-qa'
     }],
     invoices:[
-      {id:'invoice-first',invoice_number:'F-100',remaining_ore:20000,invoice_account:'1510',customer_id:'customer-1'},
-      {id:'invoice-second',invoice_number:'F-200',remaining_ore:20000,invoice_account:'1510',customer_id:'customer-1'}
+      {id:'invoice-first',invoice_number:'F-100',ocr:options.firstOcr??'',total_ore:20000,remaining_ore:20000,invoice_account:'1510',company_id:'company-qa',customer_id:'customer-1'},
+      {id:'invoice-second',invoice_number:'F-200',ocr:options.secondOcr??'',total_ore:20000,remaining_ore:20000,invoice_account:'1510',company_id:'company-qa',customer_id:'customer-1'}
     ],
     customers:[{id:'customer-1',name:'Testkunden'}]
   };
@@ -80,7 +80,7 @@ async function harness(){
   assert.match(html,/Testbetalare/,'the queue must finish loading before the actions run');
 
   return {
-    fields,calls,failNextInvoke:(message)=>invokeErrors.push(message),setProposalResult:(result)=>{proposalResult=result},getRenderCount:()=>renderCount,getHtml:()=>html,
+    fields,calls,failNextInvoke:(message)=>invokeErrors.push(message),setProposalResult:(result)=>{proposalResult=result},getSelectedInvoice:()=>fields.invoice,getRenderCount:()=>renderCount,getHtml:()=>html,
     async click(action){
       const button={dataset:{action}};
       const target={closest:(selector)=>selector==='[data-action]'?button:null};
@@ -187,4 +187,36 @@ test('rejected proposal result is not presented as successful matching',async()=
   assert.match(ui.getHtml(),/Inget nytt matchningsförslag skapades/);
   assert.doesNotMatch(ui.getHtml(),/Matchningsförslaget är skapat/);
   assert.equal(ui.fields.invoice,'invoice-second','failed proposal must preserve chosen invoice');
+});
+
+test('invoice dropdown begins with an explicit choice, never implicitly assigns the first invoice',async()=>{
+  const ui=await harness();
+  assert.equal(ui.getSelectedInvoice(),'invoice-first','harness only initializes its mock field');
+  assert.match(ui.getHtml(),/<option value="">Välj kundfaktura<\/option>/);
+  assert.match(ui.getHtml(),/Ingen tydlig träff på OCR eller fakturanummer/);
+});
+
+test('unique OCR match suggests the correct invoice without submitting automatically',async()=>{
+  const ui=await harness({reference:'OCR 99112233',secondOcr:'99112233'});
+  assert.match(ui.getHtml(),/Möjlig fakturaträff/);
+  assert.match(ui.getHtml(),/OCR matchar betalningens referens/);
+  assert.equal(ui.calls.length,0);
+  await ui.click('use-suggestion');
+  assert.equal(ui.getSelectedInvoice(),'invoice-second');
+  assert.equal(ui.calls.length,0,'a suggestion click cannot book or create a proposal');
+  await ui.click('invoice');
+  assert.equal(ui.calls[0].args.p_target_invoice_id,'invoice-second');
+});
+
+test('multiple invoices sharing a reference must not recommend either invoice',async()=>{
+  const ui=await harness({reference:'99112233',firstOcr:'99112233',secondOcr:'99112233'});
+  assert.match(ui.getHtml(),/Flera möjliga fakturor/);
+  assert.doesNotMatch(ui.getHtml(),/Välj föreslagen faktura/);
+  assert.equal(ui.calls.length,0);
+});
+
+test('an invoice number alone is not sent to the server without an explicit user choice',async()=>{
+  const ui=await harness({reference:'F-200'});
+  assert.match(ui.getHtml(),/Möjlig fakturaträff/);
+  assert.equal(ui.calls.length,0);
 });
