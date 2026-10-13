@@ -120,7 +120,7 @@
       '<h2>Din bokföring, automatiserad</h2><p>Målet är att AI ska ta hand om det löpande arbetet. Du hanterar bara osäkra poster och viktiga beslut. Under uppbyggnaden finns tydliga kontrollsteg.</p></div>'+
       '<div class="ai-assistant-state"><span class="ai-assistant-state-dot" aria-hidden="true"></span><div><strong>Guidad hjälp aktiv</strong><small>AI-kontering och automatbokföring på riktiga underlag är ännu inte aktiverade.</small></div></div></section>'+
       bookkeeperMarkup(mayReadExistingProposals())+
-      '<details class="ai-assistant-guides" id="ai-assistant-guides"><summary>Behöver du hjälp? Visa guider för ekonomin</summary>'+
+      '<details class="ai-assistant-guides" id="ai-assistant-guides"><summary>AI-hjälp: visa guider för ekonomin</summary>'+
       '<section class="ai-assistant-search-panel" aria-labelledby="ai-assistant-query-label"><label id="ai-assistant-query-label" for="ai-assistant-query">Beskriv vad du behöver göra</label>'+
       '<input id="ai-assistant-query" type="text" role="searchbox" inputmode="search" maxlength="160" autocomplete="off" placeholder="Exempel: Jag har en betalning som inte matchar en faktura" value="'+esc(query)+'">'+
       '<p>Sökningen matchar färdiga guider lokalt i webbläsaren. Den är <strong>inte ett AI-svar</strong>, skickar ingen text till AI och sparar inga sökningar. Skriv inte in känsliga kunduppgifter.</p>'+
