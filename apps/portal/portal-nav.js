@@ -6,7 +6,7 @@
     {id:'economy',label:'Ekonomi',items:[
       ['invoices','Kundfakturor','portal/invoices.html'],['receivables','Kundreskontra','portal/index.html'],
       ['payables','Leverantörsfakturor','portal/payables.html'],['supplier-ledger','Leverantörsreskontra','portal/supplier-ledger.html'],['payments','Betalningar','portal/payments.html'],['bank','Bank & avstämning','portal/bank.html'],['unplaced-payments','Oplacerade betalningar','portal/unplaced-payments.html'],
-      ['ai-bookkeeping','AI-bokföring','portal/ai-bookkeeping.html'],['automation','Automationskö','portal/automation.html'],['batches','Buntar','portal/batches.html'],['accounting','Bokföring','portal/accounting.html'],
+      ['ai-assistant','AI-hjälp','portal/ai-assistant.html'],['ai-bookkeeping','AI-bokföring','portal/ai-bookkeeping.html'],['automation','Automationskö','portal/automation.html'],['batches','Buntar','portal/batches.html'],['accounting','Bokföring','portal/accounting.html'],
       ['reports','Rapporter','portal/reports.html'],['bokslut','Bokslut','portal/bokslut.html'],['trial-balance','Saldobalans · bokslut','portal/book-close-trial-balance.html'],['accounts','Kontoplan & intäktskonton','portal/accounts.html'],
       ['payroll','Lön & lönejournal','portal/payroll.html'],['money','Öreskalkylator','admin/#/money'],
       ['journal','Verifikationer & periodtest','admin/#/journal'],
@@ -25,7 +25,7 @@
   ];
   const demoOnlyIds=new Set(['money','journal','res-tools','inbox','audit','settings','legacy','assistant','decisions','modules','project','content','uat']);
   const requiredPermission=Object.freeze({
-    invoices:'customer-invoice.view',receivables:'customer-invoice.view',payables:'supplier-invoice.view','supplier-ledger':'supplier-invoice.view',payments:'payment.view',bank:'bank.view','unplaced-payments':'bank.view','ai-bookkeeping':'accounting.view',automation:'accounting.view',batches:'accounting.view',accounting:'accounting.view',reports:'reports.view',bokslut:'reports.view','trial-balance':'reports.view',accounts:'accounting.view',payroll:'payroll.view',customers:'customer-invoice.view',suppliers:'supplier.view',inventory:'inventory.view','company-settings':'platform.settings.manage',website:'website.manage',documents:'documents.view'
+    invoices:'customer-invoice.view',receivables:'customer-invoice.view',payables:'supplier-invoice.view','supplier-ledger':'supplier-invoice.view',payments:'payment.view',bank:'bank.view','unplaced-payments':'bank.view','ai-assistant':'reports.view','ai-bookkeeping':'accounting.view',automation:'accounting.view',batches:'accounting.view',accounting:'accounting.view',reports:'reports.view',bokslut:'reports.view','trial-balance':'reports.view',accounts:'accounting.view',payroll:'payroll.view',customers:'customer-invoice.view',suppliers:'supplier.view',inventory:'inventory.view','company-settings':'platform.settings.manage',website:'website.manage',documents:'documents.view'
   });
   function visibleGroups({authenticated=false,demo=false,permissions=[]}={}){
     if(demo)return groups;
@@ -36,7 +36,7 @@
   // Simple navigation is a projection of the existing permission-filtered menu.
   // It does not create privileges, new routes, or economic write operations.
   const simpleNavigation=Object.freeze([
-    {id:'start',label:'Kom igång',items:[['overview','Översikt']]},
+    {id:'start',label:'Kom igång',items:[['overview','Översikt'],['ai-assistant','AI-hjälp för hela ekonomin']]},
     {id:'invoices',label:'Fakturor',items:[['invoices','Skapa & visa fakturor'],['receivables','Obetalda fakturor'],['customers','Kunder']]},
     {id:'purchases',label:'Inköp & kvitton',items:[['payables','Leverantörsfakturor'],['documents','Underlag (PDF)'],['supplier-ledger','Att betala'],['suppliers','Leverantörer'],['automation','Förslag att granska']]},
     {id:'money',label:'Pengar & bank',items:[['bank','Bankhändelser'],['unplaced-payments','Betalningar att hantera'],['payments','Alla betalningar']]},
@@ -174,6 +174,12 @@
   function href(path){const u=new URL(path,base);if(demo&&path!=='./')u.searchParams.set('demo','1');return u.href;}
   const normalizePath=path=>path.replace(/\/index\.html$/,'/');
   function active(path){const u=new URL(path,base);return normalizePath(u.pathname)===normalizePath(location.pathname)&&(!u.hash||u.hash===(location.hash||'#/overview'));}
+  function assistantHrefForCurrentPage(){
+    const url=new URL(href('portal/ai-assistant.html'));
+    const page=location.pathname.split('/').pop();
+    if(/^[a-z-]{1,60}\.html$/.test(page))url.searchParams.set('from',page);
+    return url.href;
+  }
   async function navigationContext(){
     if(demo)return{groups,session:null};
     if(supabaseUat&&root.LTSupabaseUat){
@@ -645,6 +651,16 @@
       }
       button.addEventListener('click',()=>{const open=menu.hidden;menu.hidden=!open;button.setAttribute('aria-expanded',String(open));});
       document.addEventListener('click',event=>{if(!wrap.contains(event.target)){menu.hidden=true;button.setAttribute('aria-expanded','false');}});
+      // The same read-only assistant entry point is available from every authorized workspace.
+      const assistantPermitted=context.groups.some(group=>group.items.some(item=>item[0]==='ai-assistant'));
+      if(assistantPermitted&&!active('portal/ai-assistant.html')&&!topbar.querySelector('.shared-ai-trigger')){
+        const help=document.createElement('a');
+        help.className='shared-ai-trigger';
+        help.href=assistantHrefForCurrentPage();
+        help.textContent='✦ AI-hjälp';
+        help.setAttribute('aria-label','Öppna guidad AI-hjälp för den här ekonomisidan');
+        topbar.append(help);
+      }
       wrap.append(button,menu);topbar.append(wrap);decorateUi();
     }finally{
       delete topbar.dataset.sharedUserMenuMounting;
