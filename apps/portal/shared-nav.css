@@ -293,3 +293,20 @@ body.shared-mobile-nav-lock{overflow:hidden}
   .shared-sidebar .shared-nav-mode-switch{margin:0 2px}
   .shared-sidebar .shared-nav-mode-button{min-height:44px;font-size:13px}
 }
+
+
+/* AI #767: one contextual entry point throughout the private finance portal. */
+.shared-workspace-shell .topbar>.shared-ai-trigger{
+  display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
+  gap:7px;min-height:44px;padding:10px 15px;margin-left:auto;
+  border:1px solid var(--line);border-radius:13px;
+  background:var(--surface-card,var(--paper));color:var(--color-ink);
+  font-size:13px;font-weight:800;line-height:1.2;text-decoration:none;
+  white-space:nowrap;
+}
+.shared-workspace-shell .topbar>.shared-ai-trigger:hover{background:var(--surface-alt,var(--paper));border-color:var(--color-ink)}
+.shared-workspace-shell .topbar>.shared-ai-trigger:focus-visible{outline:3px solid var(--color-ink);outline-offset:2px}
+.shared-workspace-shell .topbar>.shared-ai-trigger~.shared-user-menu{margin-left:0}
+@media(max-width:760px){
+  .shared-workspace-shell .topbar>.shared-ai-trigger{font-size:12px;padding:10px 9px;border-radius:11px;min-height:44px}
+}
