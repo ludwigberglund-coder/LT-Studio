@@ -15,7 +15,7 @@
 .ai-assistant-search-panel p{color:var(--muted);font-size:13px;line-height:1.6;margin:13px 0 19px}
 .ai-assistant-search-panel p strong{color:var(--color-ink)}
 .ai-assistant-scopes{display:flex;gap:9px;flex-wrap:wrap}
-.ai-assistant-scopes button{border:1px solid var(--line);background:var(--surface-alt,var(--paper));color:var(--color-ink);font:700 13px/1.3 inherit;border-radius:999px;padding:10px 15px;min-height:44px;cursor:pointer}
+.ai-assistant-scopes button{border:1px solid var(--line);background:var(--surface-alt,var(--paper));color:var(--color-ink);font-family:inherit;font-size:13px;font-weight:700;line-height:1.3;border-radius:999px;padding:10px 15px;min-height:44px;cursor:pointer}
 .ai-assistant-scopes button[aria-pressed=true]{color:var(--surface-card,var(--paper));background:var(--color-ink);border-color:var(--color-ink)}
 .ai-assistant-scopes button:hover:not([aria-pressed=true]){border-color:var(--color-ink)}
 .ai-assistant-section-heading{display:flex;align-items:baseline;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:15px}
