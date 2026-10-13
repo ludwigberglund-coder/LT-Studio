@@ -68,7 +68,7 @@ test('finance output exposes only synthetic, human-reviewed advice and no postin
 });
 
 test('malformed purpose requests are categorized as invalid without leaking model details',()=>{
-  assert.match(edge,/"INVALID_PROCESS_REQUEST","UNSUPPORTED_PURPOSE"/);
+  assert.match(edge,/"INVALID_PROCESS_REQUEST"\s*,\s*"UNSUPPORTED_PURPOSE"/);
   assert.match(edge,/"INVALID_MODEL_ADVICE", "UNSAFE_AI_PROPOSAL", "UNSAFE_AI_ADVICE"/);
   assert.match(edge,/code==="UNSUPPORTED_SCENARIO"\|\|code==="UNSUPPORTED_PURPOSE"/);
   assert.match(edge,/code==="INVALID_PROCESS_REQUEST"\|\|code==="INVALID_REQUEST_ID"\?422/);
