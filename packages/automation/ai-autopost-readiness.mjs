@@ -17,6 +17,7 @@ const CHECK_KEYS=Object.freeze([
 ]);
 const TEMPLATE_KEYS=Object.freeze(['expenseAccount','vatAccount','payableAccount']);
 const LINE_KEYS=Object.freeze(['account','debitOre','creditOre']);
+const INPUT_KEYS=Object.freeze(['candidate','session','companyPolicy','checks','template']);
 
 function exactObject(value,keys){
   return value!==null&&typeof value==='object'&&!Array.isArray(value)&&
@@ -55,7 +56,12 @@ function eligibleLines(candidate,template){
     rows.reduce((sum,row)=>sum+row.debitOre,0)===
     rows.reduce((sum,row)=>sum+row.creditOre,0);
 }
-function evaluateAutoPostReadiness({candidate,session,companyPolicy,checks,template}={}){
+function evaluateAutoPostReadiness(input={}){
+  if(!exactObject(input,INPUT_KEYS)){
+    return Object.freeze({schemaVersion:1,simulationEligible:false,canPost:false,
+      action:'manual-review',reasons:Object.freeze(['INVALID_INPUT'])});
+  }
+  const {candidate,session,companyPolicy,checks,template}=input;
   const reasons=[];
   const block=code=>{if(!reasons.includes(code))reasons.push(code);};
   if(!exactObject(candidate,CANDIDATE_KEYS)||
