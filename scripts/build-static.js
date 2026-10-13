@@ -91,7 +91,7 @@ function buildStatic(){
   const required=[
     'index.html','app.js','styles.css','design-system.css','uat/index.html','operator/index.html','operator/app.js','operator/styles.css','operator/design-system.css','admin/index.html','admin/app.js','admin/money-view.js','admin/money.css','admin/design-system.css',
     'admin/access-view.js','admin/access.css','admin/journal-view.js','admin/journal.css',
-    'portal/dashboard.html','portal/dashboard.js','portal/dashboard.css','portal/portal-nav.js','portal/shared-nav.css','portal/profile.html','portal/profile.js','portal/company-settings.html','portal/company-settings.js','portal/company-settings.css',
+    'portal/dashboard.html','portal/dashboard.js','portal/dashboard.css','portal/portal-nav.js','portal/shared-nav.css','portal/ai-assistant.html','portal/ai-assistant.js','portal/ai-assistant.css','portal/ai-process-guides.js','portal/profile.html','portal/profile.js','portal/company-settings.html','portal/company-settings.js','portal/company-settings.css',
     'portal/index.html','portal/app.js','portal/styles.css','portal/design-system.css','portal/automation-link.js','portal/supabase-config.js','portal/supabase-client.js','portal/supabase-session.js','portal/uat-setup.html','portal/uat-setup.js',
     'portal/customers.html','portal/customers.js','portal/invoices.html','portal/invoices.js','portal/receivables.html','portal/sales.css',
     'portal/accounts.html','portal/accounts.js','portal/invoice-editor.css',
