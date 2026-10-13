@@ -310,3 +310,13 @@ body.shared-mobile-nav-lock{overflow:hidden}
 @media(max-width:760px){
   .shared-workspace-shell .topbar>.shared-ai-trigger{font-size:12px;padding:10px 9px;border-radius:11px;min-height:44px}
 }
+
+@media(max-width:520px){
+  /* Keep the AI entry usable next to the profile and menu on narrow phones. */
+  .shared-workspace-shell .topbar>.shared-ai-trigger{
+    min-width:46px;min-height:44px;padding:10px 8px;font-size:0;
+  }
+  .shared-workspace-shell .topbar>.shared-ai-trigger::after{
+    content:"✦ AI";font-size:12px;font-weight:800;line-height:1;
+  }
+}
