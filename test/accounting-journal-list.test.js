@@ -15,7 +15,19 @@ function journalView(documentOverride,{supabase=false}={}){
   const exposed='\n({ setCoverage(coverage){monthCoverage=coverage;session={company:{id:"company-a"}}}, setRows(rows){entries=rows;selectedEntry=sortedJournalEntries()[0]||null}, setExpanded(value){journalExpanded=value}, setQuery(value){journalQuery=value}, setSuggestions(open,index=-1){journalSuggestionsOpen=open;journalSuggestionIndex=index}, setSelected(value){selectedEntry=entries.find(row=>row.id===value)||null}, sortedJournalEntries,entryTable,bind })';
   return vm.runInNewContext(withoutStartup+exposed,{
     document,location:{search:'',hostname:supabase?'ludwigberglund-coder.github.io':'localhost'},sessionStorage:{getItem:()=>null},
-    URLSearchParams,Date,Intl
+    URLSearchParams,Date,Intl,globalThis:{LTMonthCloseGuide:{evaluateCoverage({companyId,coverage},period){
+      if(!coverage||coverage.status!=='checked'||companyId!==coverage.companyId||coverage.period!==period)return {status:'unavailable'};
+      const age=Date.now()-Date.parse(coverage.checkedAt||'');
+      if(!Number.isFinite(age)||age< -30000||age>300000)return {status:'unavailable'};
+      const keys=['totalEntries','totalLines','loadedEntries','loadedLines','periodEntries','loadedPeriodEntries'];
+      if(keys.some(k=>!Number.isSafeInteger(coverage[k])||coverage[k]<0))return {status:'unavailable'};
+      const integrity=coverage.integrity;
+      if(!integrity||integrity.checkedEntries!==coverage.loadedEntries||integrity.checkedLines!==coverage.loadedLines)return {status:'unavailable'};
+      const ik=['duplicateEntryIds','duplicateLineIds','orphanLines','wrongCompanyLines'];
+      if(ik.some(k=>!Number.isSafeInteger(integrity[k])||integrity[k]<0))return {status:'unavailable'};
+      const mismatch=coverage.totalEntries!==coverage.loadedEntries||coverage.totalLines!==coverage.loadedLines||coverage.periodEntries!==coverage.loadedPeriodEntries||ik.some(k=>integrity[k]>0);
+      return {status:mismatch?'mismatch':'matched',counts:coverage};
+    }}}
   });
 }
 function row(id,createdAt,postingDate,number){
@@ -190,38 +202,33 @@ test('sökförslagen har verkliga tillgängliga roller, säker text och aktivt t
   assert.match(source,/key==="Escape"/);
 });
 
-test('journal search explains missing coverage evidence without claiming zero results are complete',()=>{
-  const view=journalView(undefined,{supabase:true});
-  view.setRows([row('one','2026-10-12T08:00:00Z','2026-10-12','A1')]);
-  assert.match(view.entryTable(),/Vi kan inte kontrollera hur många bokförda poster/);
-  view.setCoverage({status:'unavailable',companyId:'company-a'});
-  assert.match(view.entryTable(),/Sökresultatet kan vara ofullständigt/);
-  view.setCoverage({status:'checked',companyId:'another-company',totalEntries:1,totalLines:1,loadedEntries:1,loadedLines:1});
-  assert.match(view.entryTable(),/Vi kan inte kontrollera/,'evidence for another company must never be trusted');
-});
 
-test('journal search warns when only some entries or journal lines are loaded',()=>{
+function evidence(overrides={}){
+  return {status:'checked',companyId:'company-a',period:new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',year:'numeric',month:'2-digit'}).format(new Date()),checkedAt:new Date().toISOString(),totalEntries:1,totalLines:1,periodEntries:1,loadedEntries:1,loadedLines:1,loadedPeriodEntries:1,integrity:{duplicateEntryIds:0,duplicateLineIds:0,orphanLines:0,wrongCompanyLines:0,checkedEntries:1,checkedLines:1},...overrides};
+}
+test('unknown, expired, wrong tenant and wrong period coverage all warn',()=>{
   const view=journalView(undefined,{supabase:true});
   view.setRows([row('one','2026-10-12T08:00:00Z','2026-10-12','A1')]);
-  const integrity={duplicateEntryIds:0,duplicateLineIds:0,orphanLines:0,wrongCompanyLines:0};
-  view.setCoverage({status:'checked',companyId:'company-a',totalEntries:4,totalLines:8,loadedEntries:1,loadedLines:2,integrity});
-  view.setQuery('not-found');
-  const html=view.entryTable();
-  assert.match(html,/0 träffar av 1 inlästa/);
-  assert.match(html,/Vi har läst in 1 av 4 verifikationer och 2 av 8 konteringsrader/);
-  assert.match(html,/Sökresultatet kan därför vara ofullständigt/);
-  view.setCoverage({status:'checked',companyId:'company-a',totalEntries:1,totalLines:8,loadedEntries:1,loadedLines:2,integrity});
-  assert.match(view.entryTable(),/1 av 1 verifikationer och 2 av 8 konteringsrader/);
+  assert.match(view.entryTable(),/Sökningens kontrolluppgifter saknas/);
+  for(const coverage of [evidence({status:'unavailable'}),evidence({checkedAt:new Date(Date.now()-6*60000).toISOString()}),evidence({companyId:'another-company'}),evidence({period:'2020-01'})]){
+    view.setCoverage(coverage);
+    assert.match(view.entryTable(),/Sökresultatet kan vara ofullständigt/);
+  }
 });
-
-test('journal search does not equate matching counts with validated accounting',()=>{
+test('recent matching coverage does not give false reconciliation success',()=>{
   const view=journalView(undefined,{supabase:true});
   view.setRows([row('one','2026-10-12T08:00:00Z','2026-10-12','A1')]);
-  const coverage={status:'checked',companyId:'company-a',totalEntries:1,totalLines:1,loadedEntries:1,loadedLines:1,integrity:{duplicateEntryIds:0,duplicateLineIds:0,orphanLines:0,wrongCompanyLines:0}};
-  view.setCoverage(coverage);
-  assert.doesNotMatch(view.entryTable(),/journal-coverage-warning/,'count parity does not warrant a misleading success badge');
-  view.setCoverage({...coverage,integrity:{...coverage.integrity,orphanLines:1}});
+  view.setCoverage(evidence());
+  assert.doesNotMatch(view.entryTable(),/journal-coverage-warning/);
+  view.setCoverage(evidence({totalEntries:4,totalLines:8}));
+  assert.match(view.entryTable(),/1 av 4 verifikationer och 1 av 8 konteringsrader/);
+  view.setCoverage(evidence({integrity:{...evidence().integrity,orphanLines:1}}));
   assert.match(view.entryTable(),/avvikelse i de inlästa bokföringsraderna/);
-  assert.match(css,/journal-coverage-warning/);
-  assert.doesNotMatch(journalView().entryTable(),/journal-coverage-warning/,'demo and legacy should not get false warnings');
+  assert.doesNotMatch(journalView().entryTable(),/journal-coverage-warning/);
+});
+test('age refresh updates only the search warning, not search field or correction form',()=>{
+  assert.match(source,/const warning=document.querySelector\('\.journal-coverage-warning'\)/);
+  assert.match(source,/warning.outerHTML=replacement/);
+  assert.match(source,/insertAdjacentHTML\('beforeend',replacement\)/);
+  assert.match(source,/document.addEventListener\('visibilitychange'/);
 });

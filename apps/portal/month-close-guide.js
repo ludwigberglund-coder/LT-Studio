@@ -150,6 +150,41 @@
     return '<div class="month-close-bank-review" role="status"><p>'+
       escapeHtml(summary)+' Detta gäller hela företaget, inte enbart vald månad. Övriga bankhändelser behöver fortfarande stämmas av.</p></div>';
   }
+  function nextStep(state,period){
+    const coverage=evaluateCoverage(state,period);
+    if(!state.demo&&coverage.status==='unavailable'){
+      return {heading:'Börja med att uppdatera underlaget',explanation:'Vi kan inte avgöra om alla bokförda poster har lästs in. Kontrollera uppgifterna igen innan du fortsätter.',action:reloadAction()};
+    }
+    if(!state.demo&&coverage.status==='mismatch'){
+      return {heading:'Granska uppgifter som saknas eller inte stämmer',explanation:'Vi hittade en skillnad i antalet inlästa poster eller i kopplingen mellan bokföringsraderna. Granska underlaget innan du går vidare.',href:'#journal-entries',label:'Visa bokförda poster'};
+    }
+    if(Array.isArray(state.journalEntries)){
+      const review=inspectEntries(state.journalEntries,period);
+      if(review.findings.length){
+        return {heading:'Granska möjliga fel i bokföringen',explanation:review.findings.length===1?'En möjlig avvikelse har hittats i de inlästa verifikationerna.':'Flera möjliga avvikelser har hittats i de inlästa verifikationerna.',href:'#journal-entries',label:'Granska verifikationerna'};
+      }
+    }
+    if(!state.demo){
+      const bank=state.unmatchedBankEvidence;
+      const age=Date.now()-Date.parse(String(bank?.checkedAt||''));
+      const trusted=bank?.status==='checked'&&state.companyId&&String(bank.companyId)===String(state.companyId)
+        &&Number.isSafeInteger(bank.count)&&bank.count>=0&&Number.isFinite(age)&&age>=-30000&&age<=5*60*1000;
+      if(trusted&&bank.count>0){
+        return {heading:'Hantera oplacerade betalningar',explanation:bank.count===1?'En registrerad betalning behöver granskas.':'Det finns registrerade betalningar som ännu inte placerats.',href:'./unplaced-payments.html',label:'Visa betalningarna'};
+      }
+    }
+    return {heading:'Fortsätt med de återstående kontrollerna',explanation:'Tillgängliga snabbkontroller räcker inte för att avgöra om bank, fakturor, moms och underlag är avstämda. Granska områdena nedan.',href:'#month-close-all-checks',label:'Visa kontrollområden'};
+  }
+  function nextStepPanel(state,period){
+    const step=nextStep(state,period);
+    const q=state.demo?'?demo=1':'';
+    const link=step.href?'<a href="'+escapeHtml(step.href.startsWith('./')?step.href+q:step.href)+'">'+escapeHtml(step.label)+'</a>':step.action;
+    return '<div class="month-close-next-step" role="region" aria-labelledby="month-close-next-step-title">'+
+      '<span class="eyebrow">Rekommenderat nästa steg</span>'+
+      '<h3 id="month-close-next-step-title">'+escapeHtml(step.heading)+'</h3>'+
+      '<p>'+escapeHtml(step.explanation)+'</p><div class="month-close-next-action">'+link+'</div>'+
+      '</div>';
+  }
   function render(options){
     const state=options||{};
     const period=/^\d{4}-(0[1-9]|1[0-2])$/.test(String(state.period||''))?String(state.period):'Okänd period';
@@ -174,11 +209,12 @@
       '<span class="status-pill'+(locked?' locked':'')+'">'+escapeHtml(label)+'</span></div>'+
       '<p>'+escapeHtml(message)+'</p>'+
       '<p class="month-close-count">'+shown+' verifikationer för perioden visas i den inlästa listan. Det är inte ett bevis på att alla poster är med.</p>'+
+      nextStepPanel(state,period)+
       coveragePanel(state,period)+
       journalReview(state,period)+
-      '<ol class="month-close-list">'+items+'</ol>'+
+      '<details class="month-close-all-checks" id="month-close-all-checks" open><summary>Alla sju kontrollområden – öppna eller dölj</summary><ol class="month-close-list">'+items+'</ol></details>'+
       '<p class="month-close-notice">Ingen punkt markeras automatiskt som klar. Öppna varje arbetsyta och gör den riktiga kontrollen före eventuellt periodlås.</p>'+
       '</section>';
   }
-  globalThis.LTMonthCloseGuide=Object.freeze({render:render,inspectEntries:inspectEntries,evaluateCoverage:evaluateCoverage,renderCoverage:coveragePanel,renderBankReview:renderBankReview});
+  globalThis.LTMonthCloseGuide=Object.freeze({render:render,inspectEntries:inspectEntries,evaluateCoverage:evaluateCoverage,renderCoverage:coveragePanel,renderBankReview:renderBankReview,nextStep:nextStep,renderNextStep:nextStepPanel});
 })();

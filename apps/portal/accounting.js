@@ -121,26 +121,21 @@ function filteredJournalEntries(){
   });
 }
 function journalSearchCoverage(){
-  // The search never fetches more records: reflect only the already checked,
-  // tenant-scoped count evidence. Count parity is not a full ledger audit.
+  // Reuse the month guide's tenant-, period-, age- and integrity-aware checks.
+  // Matching row counts cannot establish that the ledger is reconciled.
   if(!isSupabase)return '';
-  const evidence=monthCoverage;
-  if(!evidence||evidence.status!=='checked'||evidence.companyId!==session?.company?.id){
-    return '<p class="journal-coverage-warning" role="status">Vi kan inte kontrollera hur många bokförda poster som har lästs in. Sökresultatet kan vara ofullständigt. Kontrollera underlaget innan du drar slutsatser.</p>';
+  const state={companyId:session?.company?.id||null,coverage:monthCoverage};
+  const coverage=globalThis.LTMonthCloseGuide?.evaluateCoverage?.(state,currentPeriod());
+  if(!coverage||coverage.status==='unavailable'){
+    return '<p class="journal-coverage-warning" role="status">Sökningens kontrolluppgifter saknas, är för gamla eller kunde inte verifieras. Sökresultatet kan vara ofullständigt. Uppdatera sidan och kontrollera underlaget.</p>';
   }
-  const {totalEntries,totalLines,loadedEntries,loadedLines,integrity}=evidence;
-  const validCounts=[totalEntries,totalLines,loadedEntries,loadedLines].every(n=>Number.isSafeInteger(n)&&n>=0);
-  if(!validCounts){
-    return '<p class="journal-coverage-warning" role="status">Antalet bokförda poster kunde inte verifieras. Sökresultatet kan vara ofullständigt.</p>';
-  }
-  const countMismatch=loadedEntries!==totalEntries||loadedLines!==totalLines;
-  const integrityIssue=!integrity||
-    ['duplicateEntryIds','duplicateLineIds','orphanLines','wrongCompanyLines'].some(key=>!Number.isSafeInteger(integrity[key])||integrity[key]!==0);
-  if(!countMismatch&&!integrityIssue)return '';
-  const explanation=countMismatch
-    ?'Vi har läst in '+loadedEntries+' av '+totalEntries+' verifikationer och '+loadedLines+' av '+totalLines+' konteringsrader.'
+  if(coverage.status==='matched')return '';
+  const c=coverage.counts;
+  const missing=c.loadedEntries!==c.totalEntries||c.loadedLines!==c.totalLines;
+  const detail=missing
+    ? 'Vi har läst in '+c.loadedEntries+' av '+c.totalEntries+' verifikationer och '+c.loadedLines+' av '+c.totalLines+' konteringsrader.'
     :'Det finns en avvikelse i de inlästa bokföringsraderna.';
-  return '<p class="journal-coverage-warning" role="status">'+explanation+' Sökresultatet kan därför vara ofullständigt. Kontrollera underlaget innan du drar slutsatser.</p>';
+  return '<p class="journal-coverage-warning" role="status">'+detail+' Sökresultatet kan därför vara ofullständigt. Kontrollera underlaget innan du drar slutsatser.</p>';
 }
 function entryTable(){
   const ordered=filteredJournalEntries(),searched=Boolean(journalQuery.trim());
@@ -547,6 +542,19 @@ function monitorMonthCoverage(){
     if(node&&monthCoverage&&!node.classList.contains('month-close-coverage-unknown')
       &&guide?.evaluateCoverage?.(state,currentPeriod()).status==='unavailable'){
       node.outerHTML=guide.renderCoverage(state,currentPeriod());
+    }
+    // Update only the warning: never replace search input or any accounting drafts.
+    const warning=document.querySelector('.journal-coverage-warning');
+    const replacement=journalSearchCoverage();
+    if(warning&&replacement!==warning.outerHTML)warning.outerHTML=replacement;
+    else if(!warning&&replacement){
+      document.querySelector('.journal-search')?.insertAdjacentHTML('beforeend',replacement);
+    }
+    const nextStepNode=document.querySelector('.month-close-next-step');
+    if(nextStepNode&&guide?.renderNextStep){
+      const nextStepHtml=guide.renderNextStep({...state,journalEntries:entries.filter(
+        entry=>String(entry.postingDate||'').slice(0,7)===currentPeriod())},currentPeriod());
+      if(nextStepNode.outerHTML!==nextStepHtml)nextStepNode.outerHTML=nextStepHtml;
     }
     const bankNode=document.querySelector('.month-close-bank-review');
     if(bankNode&&guide?.renderBankReview){

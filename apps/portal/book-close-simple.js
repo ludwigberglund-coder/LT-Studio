@@ -7,7 +7,18 @@ const status=doc.getElementById('book-close-simple-status');
 const actions=doc.getElementById('book-close-simple-actions');
 const yearInput=doc.getElementById('book-close-simple-year');
 const detailYear=doc.getElementById('year-close-year');
-if(!button||!status||!actions||!yearInput||!detailYear)return;
+const review=doc.getElementById('book-close-review');
+const overview=doc.getElementById('book-close-overview');
+const overviewTitle=doc.getElementById('book-close-overview-title');
+const overviewLead=doc.getElementById('book-close-overview-lead');
+const attentionCount=doc.getElementById('book-close-attention-count');
+const unknownCount=doc.getElementById('book-close-unknown-count');
+const firstTitle=doc.getElementById('book-close-first-title');
+const firstLink=doc.getElementById('book-close-first-link');
+if(!button||!status||!actions||!yearInput||!detailYear||
+ !review||!overview||!overviewTitle||!overviewLead||
+ !attentionCount||!unknownCount||!firstTitle||!firstLink)return;
+const defaultButtonLabel=button.textContent;
 let request=0;
 const allowedYears=/^(19|20|21)\d{2}$/;
 const allowedLinks=new Set(['./bank.html','./invoices.html','./payables.html','./accounting.html','./reports.html','./documents.html']);
@@ -34,6 +45,42 @@ function renderTask(item){
   li.append(description);
  }
  actions.append(li);
+}
+// Overview is derived only from the same validated, read-only checks as the task list.
+function clearResults(){
+ review.hidden=true;
+ overview.hidden=true;
+ firstLink.hidden=true;
+ actions.replaceChildren();
+}
+function renderOverview(plan){
+ const questions=plan.attention.length;
+ const unknown=plan.unknown.length;
+ attentionCount.textContent=String(questions);
+ unknownCount.textContent=String(unknown);
+ if(questions>0){
+  overviewTitle.textContent='Här behöver vi din hjälp';
+  overviewLead.textContent='Vi hittade saker som bör undersökas innan bokslutet kan gå vidare.';
+ }else if(unknown>0){
+  overviewTitle.textContent='Några uppgifter saknas';
+  overviewLead.textContent='Vi kan ännu inte kontrollera allt. Ett okänt resultat är inte ett godkänt bokslut.';
+ }else{
+  overviewTitle.textContent='Förkontrollen är genomförd';
+  overviewLead.textContent='Inga tydliga avvikelser hittades i dessa kontroller. Externa saldon och övriga bokslutssteg är inte avstämda.';
+ }
+ // An unverified prerequisite must take priority over a reassuring "no anomaly" note.
+ const first=plan.attention[0]||plan.unknown[0]||
+  plan.next.find(item=>item.priority===100)||plan.next[0];
+ firstTitle.textContent=first?first.title:'Fortsätt med den slutliga avstämningen.';
+ if(first?.href&&allowedLinks.has(first.href)){
+  firstLink.href=first.href;
+  firstLink.textContent=first.label||'Öppna området';
+  firstLink.hidden=false;
+ }else{
+  firstLink.hidden=true;
+ }
+ overview.hidden=false;
+ review.hidden=false;
 }
 function planFromResults(results){
  const [counts,ledger,evidence,cutoff]=results;
@@ -122,7 +169,8 @@ function planFromResults(results){
 function resetMessage(){
  ++request;
  button.disabled=false;
- actions.replaceChildren();
+ button.textContent=defaultButtonLabel;
+ clearResults();
  status.textContent='Året har ändrats. Starta förkontrollen igen.';
 }
 yearInput.value=detailYear.value||String(new Date().getFullYear());
@@ -137,13 +185,14 @@ if(new URLSearchParams(root.location?.search||'').get('demo')==='1'){
 button.addEventListener('click',async()=>{
  const year=String(yearInput.value);
  if(!allowedYears.test(year)||Number(year)>2198){
-  actions.replaceChildren();
+  clearResults();
   status.textContent='Välj ett giltigt kalenderår mellan 1900 och 2198.';
   return;
  }
  const ticket=++request;
- actions.replaceChildren();
+ clearResults();
  button.disabled=true;
+ button.textContent='Kontrollerar…';
  status.textContent='Systemet läser bokföringen och söker efter sådant som behöver din hjälp…';
  try{
   const session=await root.LTSupabaseUat.context();
@@ -160,17 +209,22 @@ button.addEventListener('click',async()=>{
   if(ticket!==request||!fresh?.authenticated||fresh.company?.id!==companyId||
      yearInput.value!==year||detailYear.value!==year)throw Error('STALE_SESSION_OR_YEAR');
   const plan=planFromResults([counts,ledger,evidence,cutoff]);
+  renderOverview(plan);
   for(const item of [...plan.attention,...plan.unknown,...plan.next])renderTask(item);
   const questions=plan.attention.length,unknown=plan.unknown.length;
   status.textContent='Förkontroll för '+year+': '+(questions===1?'1 möjlig fråga':questions+' möjliga frågor')+' att hantera, '+(unknown===1?'1 kontroll':unknown+' kontroller')+' utan säkert resultat. Bokslutet är inte verifierat.';
  }catch{
   if(ticket!==request)return;
-  actions.replaceChildren();
+  clearResults();
+  review.hidden=false;
   renderTask(task('unknown','Kontrollen kunde inte genomföras.',
    'Kontrollera anslutningen och din aktiva företagssession och försök igen.',null,null,0));
   status.textContent='Förkontrollen kunde inte slutföras. Bokslutet är inte verifierat.';
  }finally{
-  if(ticket===request)button.disabled=false;
+  if(ticket===request){
+   button.disabled=false;
+   button.textContent=defaultButtonLabel;
+  }
  }
 });
 })(globalThis);

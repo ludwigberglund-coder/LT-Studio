@@ -116,6 +116,9 @@ function visible(element){
           const bodyStyle=getComputedStyle(body);
           const sharedUser=document.querySelector('.shared-user-trigger');
           const sharedAvatar=document.querySelector('.shared-user-avatar');
+          const sidebarCompany=document.querySelector('.sidebar.shared-sidebar .shared-company');
+          const sidebarCompanyStyle=sidebarCompany?getComputedStyle(sidebarCompany):null;
+          const sidebarCompanyRect=sidebarCompany?.getBoundingClientRect();
           const cmsForm=document.querySelector('.cms-form');
           const cmsSidePanel=document.querySelector('.cms-side > .panel');
           const supplierDivider=document.querySelector('.supplier-alert > div');
@@ -154,13 +157,24 @@ function visible(element){
           const visibleControls=rendered.filter(element=>element.matches('a,button,input,select,textarea,summary')).length;
           // Theme readability is measured on actual computed colors, not CSS filenames.
           const colorLuminance=value=>{
-            const numbers=String(value).match(/[\\d.]+/g);
-            if(!numbers||numbers.length<3)return null;
-            const channels=numbers.slice(0,3).map(Number).map(v=>{
-              const n=v/255;
-              return n<=.04045?n/12.92:Math.pow((n+.055)/1.055,2.4);
+            const raw=String(value||'').trim().toLowerCase();
+            let channels;
+            if(raw.startsWith('rgb(')||raw.startsWith('rgba(')){
+              const inner=raw.slice(raw.indexOf('(')+1,raw.indexOf(')'));
+              channels=inner.replace(/,/g,' ').split(/\s+/).filter(Boolean).slice(0,3)
+                .map(x=>x.endsWith('%')?Number.parseFloat(x)/100:Number(x)/255);
+            }else if(raw.startsWith('color(srgb ')){
+              channels=raw.slice('color(srgb '.length,raw.indexOf(')'))
+                .trim().split(/\s+/).slice(0,3).map(Number);
+            }else{
+              return null;
+            }
+            if(channels.length!==3||channels.some(v=>!Number.isFinite(v)))return null;
+            const linear=channels.map(v=>{
+              const c=Math.max(0,Math.min(1,v));
+              return c<=.04045?c/12.92:Math.pow((c+.055)/1.055,2.4);
             });
-            return channels[0]*.2126+channels[1]*.7152+channels[2]*.0722;
+            return linear[0]*.2126+linear[1]*.7152+linear[2]*.0722;
           };
           const theme=html.dataset.ltTheme;
           const readableTargets=[...document.querySelectorAll(
@@ -169,6 +183,10 @@ function visible(element){
             const style=getComputedStyle(el),rect=el.getBoundingClientRect();
             if(style.display==='none'||style.visibility==='hidden'||Number(style.opacity)===0||rect.width<=0||rect.height<=0)return false;
             if(!el.matches('.ui-icon,.op-icon')&&!el.innerText?.trim())return false;
+            // Do not assume an icon on a deliberately dark button should be
+            // dark in a light page. Inverted button icons need local surface
+            // contrast, not the global text-luminance heuristic.
+            if(el.matches('.ui-icon,.op-icon')&&el.closest('button,[role="button"],.button'))return false;
             return !el.closest('.button,.header-action,.status-pill,.status-badge,.badge,.avatar,.nav-badge,.notice,.error,.warning,.success-box,.visual-note,.service-number,.login-brand,.topbar-create') &&
               !(theme==='light'&&el.closest('.contact,.operator-shell .sidebar'));
           });
@@ -179,6 +197,34 @@ function visible(element){
             return {tag:el.tagName.toLowerCase(),className:String(el.className||'').slice(0,65),
               text:el.innerText?.trim().slice(0,50)||'icon',color,lum:Number(lum.toFixed(3))};
           }).filter(Boolean).slice(0,12);
+          /* Screenshot-led WCAG checks for actual inverted controls. The
+             earlier theme audit intentionally skipped links and buttons and
+             therefore missed invisible CTAs, SVG strokes and number chips. */
+          const contrastRatio=(foreground,background)=>{
+            const a=colorLuminance(foreground),b=colorLuminance(background);
+            return a===null||b===null?null:
+              (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+          };
+          const selectors=[
+            ['dashboard-cta-title','.welcome-next strong','.welcome-next',4.5],
+            ['dashboard-cta-label','.welcome-next>span','.welcome-next',4.5],
+            ['dashboard-task-count','.task-card>strong','.task-card>strong',4.5],
+            ['menu-icon-stroke','.shared-menu-toggle .ui-icon svg path','.shared-menu-toggle',3],
+            ['user-avatar-initials','.shared-user-avatar','.shared-user-avatar',4.5],
+            ['user-name','.shared-user-label strong','.shared-user-trigger',4.5],
+            ['active-navigation','.shared-navigation .shared-links a[aria-current="page"]','.shared-navigation .shared-links a[aria-current="page"]',4.5]
+          ];
+          const controlContrast=selectors.map(([name,selector,backgroundSelector,minRatio])=>{
+            const target=document.querySelector(selector),background=document.querySelector(backgroundSelector);
+            if(!target||!background)return null;
+            const style=getComputedStyle(target),rect=target.getBoundingClientRect();
+            if(style.display==='none'||style.visibility==='hidden'||Number(style.opacity)===0||rect.width===0||rect.height===0)return null;
+            const fg=name==='menu-icon-stroke'?style.stroke:style.color;
+            const bg=getComputedStyle(background).backgroundColor;
+            const ratio=contrastRatio(fg,bg);
+            return {name,color:fg,background:bg,ratio:ratio===null?null:Number(ratio.toFixed(2)),minRatio};
+          }).filter(Boolean);
+          const lowContrastControls=controlContrast.filter(x=>x.ratio===null||x.ratio+0.01<x.minRatio);
           const overflowing=rendered.map(element=>{
             const rect=element.getBoundingClientRect();
             return {
@@ -197,6 +243,8 @@ function visible(element){
             bodyText:body.innerText.trim().length,
             visibleControls,
             contrastIssues,
+            controlContrast,
+            lowContrastControls,
             checkedColors:readableTargets.length,
             fontFamily:bodyStyle.fontFamily,
             bodyBackground:bodyStyle.backgroundColor,
@@ -207,6 +255,8 @@ function visible(element){
             sharedUserDisplay:sharedUserStyle?.display||null,
             sharedUserBorderTopWidth:sharedUserStyle?.borderTopWidth||null,
             sharedAvatarWidth:sharedAvatarStyle?.width||null,
+            sidebarCompanyHeight:sidebarCompanyStyle?.display==='none'||sidebarCompanyStyle?.visibility==='hidden'||!sidebarCompanyRect?.height?null:sidebarCompanyRect.height,
+            sidebarCompanyClipped:Boolean(sidebarCompany&&sidebarCompanyStyle?.overflow==='hidden'&&sidebarCompany.scrollHeight>sidebarCompany.clientHeight+2),
             cmsFormPaddingTop:cmsFormStyle?.paddingTop||null,
             cmsFormPaddingLeft:cmsFormStyle?.paddingLeft||null,
             cmsSidePaddingTop:cmsSideStyle?.paddingTop||null,
@@ -232,6 +282,7 @@ function visible(element){
         assert.ok(layout.bodyText>80,`${surface.id} ${viewport.id} ${theme.id} rendered too little content`);
         assert.ok(layout.visibleControls>0,`${surface.id} ${viewport.id} ${theme.id} has no visible controls`);
         assert.equal(layout.contrastIssues.length,0,`${surface.id} ${viewport.id} ${theme.id} has unreadable text/icons: ${JSON.stringify(layout.contrastIssues)}`);
+        assert.equal(layout.lowContrastControls.length,0,`${surface.id} ${viewport.id} ${theme.id} has low contrast CTA, number, icon or navigation: ${JSON.stringify(layout.lowContrastControls)}`);
         if(layout.scrollWidth>layout.innerWidth+2)layoutIssues.push(`${surface.id} ${viewport.id} ${theme.id} has page-level horizontal overflow: ${layout.scrollWidth}px > ${layout.innerWidth}px; offenders=${JSON.stringify(layout.overflowing)}`);
         assert.match(layout.fontFamily,/(-apple-system|BlinkMacSystemFont|SF Pro|system-ui)/i,`${surface.id} ${viewport.id} is not using the shared Apple/system font stack`);
         assert.equal(pageErrors.length,0,`${surface.id} ${viewport.id} has uncaught browser errors: ${pageErrors.join('; ')}`);
@@ -246,6 +297,12 @@ function visible(element){
         }
         if(layout.sharedBrandText){
           assert.equal(layout.sharedBrandText,'LT Studio',`${surface.id} ${viewport.id} shows outdated workspace branding: ${layout.sharedBrandText}`);
+        }
+        if(layout.sidebarCompanyHeight!==null){
+          assert.ok(layout.sidebarCompanyHeight>=35,
+            `${surface.id} ${viewport.id} ${theme.id} company badge clips its text (height ${layout.sidebarCompanyHeight})`);
+          assert.equal(layout.sidebarCompanyClipped,false,
+            `${surface.id} ${viewport.id} ${theme.id} company badge has hidden overflow`);
         }
         if(layout.themeLabelDisplay){
           assert.equal(layout.themeLabelDisplay,'none',`${surface.id} ${viewport.id} topbar appearance label must not overlap adjacent controls`);
@@ -327,6 +384,48 @@ function visible(element){
           if(surface.id==='project-admin'){
             assert.equal(await page.locator('html').getAttribute('data-operator-theme'),theme.id);
           }
+        }
+
+        /* Open a REAL popup and measure its label against its own surface.
+           Screenshots of closed pages never exercised this state. */
+        if(surface.id==='dashboard'){
+          const trigger=page.locator('.shared-user-trigger').first();
+          await trigger.waitFor({state:'visible'});
+          await trigger.click();
+          const popup=page.locator('.shared-user-dropdown').first();
+          await popup.waitFor({state:'visible'});
+          await page.waitForTimeout(150);
+          const popupContrast=await page.evaluate(()=>{
+            const menu=document.querySelector('.shared-user-dropdown');
+            const item=menu?.querySelector('a,button');
+            if(!menu||!item)return null;
+            const read=v=>{
+              const raw=String(v||'').trim().toLowerCase();
+              let channels;
+              if(raw.startsWith('rgb(')||raw.startsWith('rgba(')){
+                const inner=raw.slice(raw.indexOf('(')+1,raw.indexOf(')'));
+                channels=inner.replace(/,/g,' ').split(/\s+/).filter(Boolean).slice(0,3)
+                  .map(x=>Number(x)/255);
+              }else if(raw.startsWith('color(srgb ')){
+                channels=raw.slice('color(srgb '.length,raw.indexOf(')')).trim()
+                  .split(/\s+/).slice(0,3).map(Number);
+              }else{return null;}
+              if(channels.length!==3||channels.some(x=>!Number.isFinite(x)))return null;
+              const c=channels.map(v=>{
+                const n=Math.max(0,Math.min(1,v));
+                return n<=.04045?n/12.92:((n+.055)/1.055)**2.4;
+              });
+              return .2126*c[0]+.7152*c[1]+.0722*c[2];
+            };
+            const fg=getComputedStyle(item).color,bg=getComputedStyle(menu).backgroundColor;
+            const a=read(fg),b=read(bg);
+            return a===null||b===null?null:{ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05),fg,bg};
+          });
+          assert.ok(popupContrast&&popupContrast.ratio>=4.5,
+            `${viewport.id} ${theme.id} user dropdown is not readable: ${JSON.stringify(popupContrast)}`);
+          await page.screenshot({path:path.join(out,`user-dropdown-${viewport.id}-${theme.id}.png`),fullPage:false});
+          await trigger.click();
+          await popup.waitFor({state:'hidden'});
         }
 
         const file=`visual-${surface.id}-${viewport.id}-${theme.id}.png`;

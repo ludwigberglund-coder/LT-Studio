@@ -24,6 +24,11 @@
 <section class="bokslut-card book-close-simple-card" aria-labelledby="book-close-guide-title">
 <h2 id="book-close-guide-title">Låt systemet börja med bokslutet</h2>
 <p>Du behöver inte kunna bokföring. LT Studio går igenom befintliga uppgifter och berättar vad som behöver din hjälp.</p>
+<ol class="book-close-flow" aria-label="Så fungerar bokslutsförberedelsen">
+<li class="book-close-flow-step book-close-flow-step--active"><span class="book-close-flow-number" aria-hidden="true">1</span><span><strong>Vi kontrollerar</strong><small>Hämtar det som redan finns.</small></span></li>
+<li class="book-close-flow-step"><span class="book-close-flow-number" aria-hidden="true">2</span><span><strong>Du får enkla frågor</strong><small>Bara när något behöver din hjälp.</small></span></li>
+<li class="book-close-flow-step"><span class="book-close-flow-number" aria-hidden="true">3</span><span><strong>Bokslutet granskas</strong><small>Slutlig avstämning återstår.</small></span></li>
+</ol>
 <div class="book-close-simple-controls">
 <label for="book-close-simple-year">Vilket kalenderår vill du kontrollera?</label>
 <input id="book-close-simple-year" type="number" min="1900" max="2198" step="1" required inputmode="numeric">
@@ -31,7 +36,25 @@
 </div>
 <p class="book-close-simple-note">Förkontrollen omfattar kalenderår, inte automatiskt brutna räkenskapsår. Den är inte en färdig årsavstämning eller bokslutsattest.</p>
 <p id="book-close-simple-status" role="status" aria-live="polite">Ingen förkontroll körd ännu.</p>
+<div id="book-close-review" class="book-close-review" hidden>
+<section id="book-close-overview" class="book-close-overview" aria-labelledby="book-close-overview-title">
+<div class="book-close-overview-copy"><p class="book-close-overview-eyebrow">Din förkontroll</p>
+<h3 id="book-close-overview-title">Det här har vi hittat</h3>
+<p id="book-close-overview-lead">Vi visar vad som behöver din hjälp – aldrig ett godkänt bokslut.</p></div>
+<div class="book-close-metrics" aria-label="Sammanfattning av kontrollerna">
+<div class="book-close-metric book-close-metric--attention"><strong id="book-close-attention-count">0</strong><span>Frågor att hantera</span></div>
+<div class="book-close-metric book-close-metric--unknown"><strong id="book-close-unknown-count">0</strong><span>Osäkra kontroller</span></div>
+<div class="book-close-metric book-close-metric--pending"><strong>Ej klart</strong><span>Slutlig avstämning</span></div>
+</div>
+<div class="book-close-first" id="book-close-first">
+<div><span class="book-close-first-eyebrow">Börja här</span><strong id="book-close-first-title">Vi letar efter nästa steg.</strong></div>
+<a id="book-close-first-link" href="./accounting.html" hidden>Öppna området</a>
+</div>
+</section>
+<h3 class="book-close-list-heading">Dina nästa steg</h3>
+<p class="book-close-list-intro">Vi lägger det viktigaste överst. Du kan öppna rätt del av programmet direkt.</p>
 <ul id="book-close-simple-actions" aria-label="Nästa steg och sådant som kan behöva din hjälp"></ul>
+</div>
 <p>AI-genererade bokslutsförslag och automatiska bokslutsbokningar är ännu inte aktiverade. Systemet använder nu säkra, regelstyrda förkontroller.</p>
 </section>
 <section class="bokslut-card" aria-labelledby="book-close-trial-link-heading">
