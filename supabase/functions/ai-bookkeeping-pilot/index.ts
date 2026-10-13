@@ -3,6 +3,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 import { runSyntheticPilot } from "../../../packages/automation/ai-gateway-orchestrator.mjs";
 import { cloudflareProvider } from "../../../packages/automation/cloudflare-bookkeeping.mjs";
+import { runSyntheticFinanceProcess } from "../../../packages/automation/ai-finance-process-orchestrator.mjs";
+import { createFinanceCloudflareProvider } from "../../../packages/automation/ai-finance-cloudflare.mjs";
 
 // Hard-code false: config and secrets cannot unlock this before a reviewed release.
 const RELEASE_APPROVED = false;
@@ -25,7 +27,8 @@ function safeError(error: unknown) {
     "AUTH_REQUIRED","ACCESS_DENIED","TENANT_MISMATCH","AI_PILOT_DISABLED",
     "BUDGET_NOT_CONFIGURED","BUDGET_NOT_RESERVED","AI_DISABLED",
     "UNTRUSTED_SOURCE","MODEL_INVALID_RESPONSE","PROVIDER_UNAVAILABLE",
-    "PROVIDER_REJECTED"
+    "PROVIDER_REJECTED", "INVALID_PROCESS_REQUEST", "UNSUPPORTED_PURPOSE",
+    "INVALID_MODEL_ADVICE", "UNSAFE_AI_PROPOSAL", "UNSAFE_AI_ADVICE"
   ]);
   const code = error instanceof Error && "code" in error
     ? String(error.code) : "AI_PILOT_ERROR";
@@ -151,6 +154,31 @@ Deno.serve(async(req:Request)=>{
       if(error||!data)return null;
       return Array.isArray(data)?data[0]:data;
     };
+    // The same protected endpoint supports legacy invoice scenarios and the
+    // future ten-process synthetic contract. Selection is by the PRESENCE of
+    // one allowlisted key only; each orchestrator rejects every unexpected key.
+    // No free-form prompts, uploads, real source IDs or tenant-selected providers.
+    const isFinanceRequest=body!==null&&typeof body==="object"&&
+      !Array.isArray(body)&&Object.hasOwn(body,"purpose");
+    if(isFinanceRequest){
+      const provider=createFinanceCloudflareProvider({
+        enabled:true,accountId,apiToken,timeoutMs:12000
+      });
+      const proposal=await runSyntheticFinanceProcess({
+        body,accessToken:token,userClient,
+        enabled:true,
+        privacyApproved:Deno.env.get("AI_PILOT_PRIVACY_APPROVED")==="true",
+        reserveBudget,provider
+      });
+      // Even a valid proposal remains synthetic and not saved or posted.
+      return respond(200,{
+        schemaVersion:proposal.schemaVersion,
+        companyId:proposal.companyId,purpose:proposal.purpose,
+        sourceId:proposal.sourceId,
+        status:"manual-review",posted:false,synthetic:true,
+        requiresHumanApproval:true,advice:proposal.advice
+      },cors);
+    }
     const provider=cloudflareProvider({
       enabled:true,accountId,apiToken,timeoutMs:12000
     });
@@ -170,7 +198,8 @@ Deno.serve(async(req:Request)=>{
     const code=safeError(error);
     const status=code==="AUTH_REQUIRED"?401:code==="ACCESS_DENIED"?403:
       code==="INVALID_INPUT"||code==="INVALID_COMPANY"||
-      code==="UNSUPPORTED_SCENARIO"||code==="INVALID_REQUEST_ID"?422:
+      code==="UNSUPPORTED_SCENARIO"||code==="UNSUPPORTED_PURPOSE"||
+      code==="INVALID_PROCESS_REQUEST"||code==="INVALID_REQUEST_ID"?422:
       code==="BUDGET_NOT_RESERVED"||code==="BUDGET_NOT_CONFIGURED"?429:503;
     return respond(status,{code,error:"Testförslaget kunde inte behandlas."},cors);
   }
