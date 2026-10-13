@@ -607,3 +607,105 @@ html[data-lt-theme="dark"] .invoice-match-tip .invoice-match-eyebrow{
   color:#fff!important;
 }
 html[data-lt-theme="dark"] .invoice-match-ambiguous{background:#303934}
+
+
+/* Guided other-payment workflow: ordinary language before account numbers. */
+.posting-caution,
+.posting-account-help,
+.posting-irreversible{
+  font-size:12px!important;
+  line-height:1.55!important;
+}
+.posting-account-help{
+  margin-top:6px!important;
+}
+.posting-caution{
+  padding:9px 11px;
+  border-left:3px solid var(--unplaced-accent);
+  background:var(--unplaced-soft-2);
+  border-radius:8px;
+}
+.posting-preview{
+  margin-top:14px;
+  padding:13px;
+  border:1px solid var(--unplaced-border);
+  border-radius:12px;
+  background:var(--unplaced-soft-2);
+  color:var(--ink,#173b31);
+}
+.posting-preview-eyebrow{
+  display:block;
+  margin-bottom:7px;
+  font-size:12px;
+  font-weight:900;
+  color:var(--ink,#173b31);
+}
+.posting-preview [data-role="posting-preview"]>strong{
+  display:block;
+  font-size:13px;
+}
+.posting-preview p{font-size:11px!important;margin:7px 0 0!important}
+.posting-lines{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:7px;
+  margin-top:10px;
+}
+.posting-lines span{
+  padding:9px;
+  border:1px solid var(--unplaced-border);
+  border-radius:9px;
+  background:var(--surface,#fff);
+  color:var(--ink,#173b31);
+  font-size:11px;
+  font-weight:800;
+  overflow-wrap:anywhere;
+}
+.resolution-block .posting-review-check{
+  display:flex;
+  align-items:flex-start;
+  gap:11px;
+  padding:10px 0;
+  font-weight:600;
+  line-height:1.5;
+  cursor:pointer;
+}
+.resolution-block .posting-review-check input[type="checkbox"]{
+  flex:0 0 19px;
+  width:19px;
+  height:19px;
+  margin:1px 0 0;
+  padding:0;
+  accent-color:var(--unplaced-accent);
+  cursor:pointer;
+}
+.resolution-block .posting-review-check span{
+  color:var(--ink,#173b31);
+  font-size:12px;
+}
+.resolution-block input[readonly]{
+  background:var(--unplaced-soft-2);
+  border-style:dashed;
+}
+html[data-lt-theme="dark"] .posting-caution,
+html[data-lt-theme="dark"] .posting-preview,
+html[data-lt-theme="dark"] .resolution-block input[readonly]{
+  background:#27332f!important;
+  border-color:#5b7568!important;
+  color:#fff!important;
+}
+html[data-lt-theme="dark"] .posting-preview-eyebrow,
+html[data-lt-theme="dark"] .posting-preview [data-role="posting-preview"],
+html[data-lt-theme="dark"] .resolution-block .posting-review-check span{
+  color:#fff!important;
+}
+html[data-lt-theme="dark"] .posting-lines span{
+  background:#252b32!important;
+  border-color:#59645f!important;
+  color:#fff!important;
+}
+@media(max-width:600px){
+  .posting-lines{grid-template-columns:1fr}
+  .resolution-block .posting-review-check{gap:9px}
+  .resolution-card .resolution-primary{min-height:44px}
+}
