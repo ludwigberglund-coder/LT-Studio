@@ -9,13 +9,25 @@ const source=fs.readFileSync(path.join(__dirname,'../apps/portal/accounting.js')
 const css=fs.readFileSync(path.join(__dirname,'../apps/portal/accounting.css'),'utf8');
 const withoutStartup=source.slice(0,source.indexOf('async function init(){'));
 
-function journalView(documentOverride){
+function journalView(documentOverride,{supabase=false}={}){
   assert.ok(withoutStartup.length>0 && withoutStartup.length<source.length,'test must exclude only the startup call');
   const document=documentOverride||{getElementById:()=>({})};
-  const exposed='\n({ setRows(rows){entries=rows;selectedEntry=sortedJournalEntries()[0]||null}, setExpanded(value){journalExpanded=value}, setQuery(value){journalQuery=value}, setSuggestions(open,index=-1){journalSuggestionsOpen=open;journalSuggestionIndex=index}, setSelected(value){selectedEntry=entries.find(row=>row.id===value)||null}, sortedJournalEntries,entryTable,bind })';
+  const exposed='\n({ setCoverage(coverage){monthCoverage=coverage;session={company:{id:"company-a"}}}, setRows(rows){entries=rows;selectedEntry=sortedJournalEntries()[0]||null}, setExpanded(value){journalExpanded=value}, setQuery(value){journalQuery=value}, setSuggestions(open,index=-1){journalSuggestionsOpen=open;journalSuggestionIndex=index}, setSelected(value){selectedEntry=entries.find(row=>row.id===value)||null}, sortedJournalEntries,entryTable,bind })';
   return vm.runInNewContext(withoutStartup+exposed,{
-    document,location:{search:'',hostname:'localhost'},sessionStorage:{getItem:()=>null},
-    URLSearchParams,Date,Intl
+    document,location:{search:'',hostname:supabase?'ludwigberglund-coder.github.io':'localhost'},sessionStorage:{getItem:()=>null},
+    URLSearchParams,Date,Intl,globalThis:{LTMonthCloseGuide:{evaluateCoverage({companyId,coverage},period){
+      if(!coverage||coverage.status!=='checked'||companyId!==coverage.companyId||coverage.period!==period)return {status:'unavailable'};
+      const age=Date.now()-Date.parse(coverage.checkedAt||'');
+      if(!Number.isFinite(age)||age< -30000||age>300000)return {status:'unavailable'};
+      const keys=['totalEntries','totalLines','loadedEntries','loadedLines','periodEntries','loadedPeriodEntries'];
+      if(keys.some(k=>!Number.isSafeInteger(coverage[k])||coverage[k]<0))return {status:'unavailable'};
+      const integrity=coverage.integrity;
+      if(!integrity||integrity.checkedEntries!==coverage.loadedEntries||integrity.checkedLines!==coverage.loadedLines)return {status:'unavailable'};
+      const ik=['duplicateEntryIds','duplicateLineIds','orphanLines','wrongCompanyLines'];
+      if(ik.some(k=>!Number.isSafeInteger(integrity[k])||integrity[k]<0))return {status:'unavailable'};
+      const mismatch=coverage.totalEntries!==coverage.loadedEntries||coverage.totalLines!==coverage.loadedLines||coverage.periodEntries!==coverage.loadedPeriodEntries||ik.some(k=>integrity[k]>0);
+      return {status:mismatch?'mismatch':'matched',counts:coverage};
+    }}}
   });
 }
 function row(id,createdAt,postingDate,number){
@@ -188,4 +200,35 @@ test('sökförslagen har verkliga tillgängliga roller, säker text och aktivt t
   assert.match(source,/key==="ArrowUp"/);
   assert.match(source,/key==="Enter"/);
   assert.match(source,/key==="Escape"/);
+});
+
+
+function evidence(overrides={}){
+  return {status:'checked',companyId:'company-a',period:new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',year:'numeric',month:'2-digit'}).format(new Date()),checkedAt:new Date().toISOString(),totalEntries:1,totalLines:1,periodEntries:1,loadedEntries:1,loadedLines:1,loadedPeriodEntries:1,integrity:{duplicateEntryIds:0,duplicateLineIds:0,orphanLines:0,wrongCompanyLines:0,checkedEntries:1,checkedLines:1},...overrides};
+}
+test('unknown, expired, wrong tenant and wrong period coverage all warn',()=>{
+  const view=journalView(undefined,{supabase:true});
+  view.setRows([row('one','2026-10-12T08:00:00Z','2026-10-12','A1')]);
+  assert.match(view.entryTable(),/Sökningens kontrolluppgifter saknas/);
+  for(const coverage of [evidence({status:'unavailable'}),evidence({checkedAt:new Date(Date.now()-6*60000).toISOString()}),evidence({companyId:'another-company'}),evidence({period:'2020-01'})]){
+    view.setCoverage(coverage);
+    assert.match(view.entryTable(),/Sökresultatet kan vara ofullständigt/);
+  }
+});
+test('recent matching coverage does not give false reconciliation success',()=>{
+  const view=journalView(undefined,{supabase:true});
+  view.setRows([row('one','2026-10-12T08:00:00Z','2026-10-12','A1')]);
+  view.setCoverage(evidence());
+  assert.doesNotMatch(view.entryTable(),/journal-coverage-warning/);
+  view.setCoverage(evidence({totalEntries:4,totalLines:8}));
+  assert.match(view.entryTable(),/1 av 4 verifikationer och 1 av 8 konteringsrader/);
+  view.setCoverage(evidence({integrity:{...evidence().integrity,orphanLines:1}}));
+  assert.match(view.entryTable(),/avvikelse i de inlästa bokföringsraderna/);
+  assert.doesNotMatch(journalView().entryTable(),/journal-coverage-warning/);
+});
+test('age refresh updates only the search warning, not search field or correction form',()=>{
+  assert.match(source,/const warning=document.querySelector\('\.journal-coverage-warning'\)/);
+  assert.match(source,/warning.outerHTML=replacement/);
+  assert.match(source,/insertAdjacentHTML\('beforeend',replacement\)/);
+  assert.match(source,/document.addEventListener\('visibilitychange'/);
 });

@@ -120,6 +120,23 @@ function filteredJournalEntries(){
     return searchable.some(value=>String(value??"").toLocaleLowerCase("sv-SE").includes(query));
   });
 }
+function journalSearchCoverage(){
+  // Reuse the month guide's tenant-, period-, age- and integrity-aware checks.
+  // Matching row counts cannot establish that the ledger is reconciled.
+  if(!isSupabase)return '';
+  const state={companyId:session?.company?.id||null,coverage:monthCoverage};
+  const coverage=globalThis.LTMonthCloseGuide?.evaluateCoverage?.(state,currentPeriod());
+  if(!coverage||coverage.status==='unavailable'){
+    return '<p class="journal-coverage-warning" role="status">Sökningens kontrolluppgifter saknas, är för gamla eller kunde inte verifieras. Sökresultatet kan vara ofullständigt. Uppdatera sidan och kontrollera underlaget.</p>';
+  }
+  if(coverage.status==='matched')return '';
+  const c=coverage.counts;
+  const missing=c.loadedEntries!==c.totalEntries||c.loadedLines!==c.totalLines;
+  const detail=missing
+    ? 'Vi har läst in '+c.loadedEntries+' av '+c.totalEntries+' verifikationer och '+c.loadedLines+' av '+c.totalLines+' konteringsrader.'
+    :'Det finns en avvikelse i de inlästa bokföringsraderna.';
+  return '<p class="journal-coverage-warning" role="status">'+detail+' Sökresultatet kan därför vara ofullständigt. Kontrollera underlaget innan du drar slutsatser.</p>';
+}
 function entryTable(){
   const ordered=filteredJournalEntries(),searched=Boolean(journalQuery.trim());
   const hasOlder=ordered.length>5,expanded=hasOlder&&journalExpanded;
@@ -140,6 +157,7 @@ function entryTable(){
         ${suggestionOpen?suggestions.map((entry,index)=>`<button id="journal-suggestion-${index}" type="button" role="option" aria-selected="${index===journalSuggestionIndex?"true":"false"}" data-journal-suggestion="${esc(entry.id)}" tabindex="-1"><strong>${esc(entry.number)} · ${esc(entry.postingDate)}</strong><span>${esc(entry.description)}</span></button>`).join(""):""}
       </div>
       <p>Sökningen omfattar bara de verifikationer som redan lästs in för detta företag.</p>
+      ${journalSearchCoverage()}
     </div>
     <div id="journal-scroll-region" class="accounting-table-scroll journal-scroll ${expanded?"journal-scroll-expanded":""}" role="region" tabindex="0" aria-label="Verifikationer, rulla med musens hjul för att se äldre">
       <table class="accounting-table journal-table">
@@ -524,6 +542,19 @@ function monitorMonthCoverage(){
     if(node&&monthCoverage&&!node.classList.contains('month-close-coverage-unknown')
       &&guide?.evaluateCoverage?.(state,currentPeriod()).status==='unavailable'){
       node.outerHTML=guide.renderCoverage(state,currentPeriod());
+    }
+    // Update only the warning: never replace search input or any accounting drafts.
+    const warning=document.querySelector('.journal-coverage-warning');
+    const replacement=journalSearchCoverage();
+    if(warning&&replacement!==warning.outerHTML)warning.outerHTML=replacement;
+    else if(!warning&&replacement){
+      document.querySelector('.journal-search')?.insertAdjacentHTML('beforeend',replacement);
+    }
+    const nextStepNode=document.querySelector('.month-close-next-step');
+    if(nextStepNode&&guide?.renderNextStep){
+      const nextStepHtml=guide.renderNextStep({...state,journalEntries:entries.filter(
+        entry=>String(entry.postingDate||'').slice(0,7)===currentPeriod())},currentPeriod());
+      if(nextStepNode.outerHTML!==nextStepHtml)nextStepNode.outerHTML=nextStepHtml;
     }
     const bankNode=document.querySelector('.month-close-bank-review');
     if(bankNode&&guide?.renderBankReview){
