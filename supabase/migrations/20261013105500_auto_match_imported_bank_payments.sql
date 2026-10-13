@@ -115,6 +115,11 @@ begin
     return;
   end if;
 
+  -- Serialize bank events per company to avoid racing proposals for the same invoice.
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(p_company_id||':auto-bank-match',0)
+  );
+
   v_payer_name:=public.bank_match_normalize_name(v_bank.payer_name);
   v_payer_text:=pg_catalog.concat_ws(' ',v_bank.payer_name,v_bank.reference,v_bank.message);
 
@@ -176,8 +181,16 @@ begin
         select 1 from public.automation_proposals a
         where a.company_id=i.company_id
           and a.proposal_type='bank-payment-match'
-          and a.status in ('manual-review','ready-for-approval','approved')
           and a.suggestion_json->>'invoiceId'=i.id
+          and (
+            a.status in ('manual-review','ready-for-approval')
+            or (
+              a.status='approved' and not exists (
+                select 1 from public.customer_payment_executions e
+                where e.company_id=a.company_id and e.proposal_id=a.id
+              )
+            )
+          )
       )
   )
   select
@@ -297,6 +310,7 @@ declare
   v_id text;
   v_status text;
 begin
+  perform pg_catalog.set_config('app.controlled_financial_write','1',true);
   if v_uid is null then raise exception 'AUTH_REQUIRED'; end if;
   if not exists (
     select 1 from public.company_memberships m
