@@ -3,6 +3,7 @@
 // The calling Edge gateway MUST verify the proxy IP and reserve quotas atomically.
 import { verifyAiCompanySession } from './ai-gateway-session.mjs';
 import { mayContactCloudflare } from './ai-gateway-security.mjs';
+import { validateReviewOnlySyntheticProposal } from './ai-synthetic-quality-gate.mjs';
 import {
   validateProcessRequest,buildSyntheticProcessCase,
   formatProcessProposal
@@ -46,8 +47,13 @@ async function runSyntheticFinanceProcess({
   // No company, actor, session, request ID, document ID or private source data.
   const testCase=buildSyntheticProcessCase(request,trusted);
   const modelOutput=await provider(testCase);
-  return formatProcessProposal({
+  const draft=formatProcessProposal({
     request,session:trusted,advice:modelOutput
+  });
+  // Independent postcondition: even if a future model/formatter changes, the
+  // server must never return approved, posted or wrong-tenant AI proposals.
+  return validateReviewOnlySyntheticProposal(draft,{
+    companyId:trusted.companyId,purpose:request.purpose,requestId:request.requestId
   });
 }
 export {runSyntheticFinanceProcess};
