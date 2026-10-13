@@ -132,16 +132,13 @@ test('invalid session cannot render protected assistant and redirects to login',
   assert.doesNotMatch(f.app.innerHTML,/ai-assistant-card/);
 });
 
-test('guidance search stays offline while optional synthetic pilot is strictly scoped',()=>{
+test('new files are only user interface: no new model calls, uploads or financial mutations',()=>{
   assert.match(html,/ai-process-guides\.js/);
   assert.match(html,/supabase-session\.js/);
   assert.match(html,/portal-nav\.js/);
   assert.match(html,/ai-assistant\.js/);
   assert.doesNotMatch(script,/CLOUDFLARE_AI_TOKEN|SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SECRET_KEY/);
-  assert.doesNotMatch(script,/\bfetch\s*\(|\.rpc\s*\(/);
-  assert.match(script,/\.functions\.invoke\('ai-bookkeeping-pilot'/);
-  assert.match(script,/const requestId='ai-finance-'\+crypto\.randomUUID\(\)/);
-  assert.match(script,/validatedPilotResult\(response,requestId/);
+  assert.doesNotMatch(script,/\bfetch\s*\(|\.functions\.invoke\s*\(|\.rpc\s*\(/);
   assert.doesNotMatch(script,/localStorage|sessionStorage/);
   assert.match(script,/inte ett AI-svar/);
   assert.match(css,/@media\(max-width:780px\)/);
