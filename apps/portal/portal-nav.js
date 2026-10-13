@@ -6,13 +6,14 @@
     {id:'economy',label:'Ekonomi',items:[
       ['invoices','Kundfakturor','portal/invoices.html'],['receivables','Kundreskontra','portal/index.html'],
       ['payables','Leverantörsfakturor','portal/payables.html'],['supplier-ledger','Leverantörsreskontra','portal/supplier-ledger.html'],['payments','Betalningar','portal/payments.html'],['bank','Bank & avstämning','portal/bank.html'],['unplaced-payments','Oplacerade betalningar','portal/unplaced-payments.html'],
-      ['ai-assistant','AI-hjälp','portal/ai-assistant.html'],['ai-bookkeeping','AI-bokföring','portal/ai-bookkeeping.html'],['automation','Automationskö','portal/automation.html'],['batches','Buntar','portal/batches.html'],['accounting','Bokföring','portal/accounting.html'],
+      ['ai-bookkeeping','AI-bokföring (pilot)','portal/ai-bookkeeping.html'],['automation','Automationskö','portal/automation.html'],['batches','Buntar','portal/batches.html'],['accounting','Bokföring','portal/accounting.html'],
       ['reports','Rapporter','portal/reports.html'],['bokslut','Bokslut','portal/bokslut.html'],['trial-balance','Saldobalans · bokslut','portal/book-close-trial-balance.html'],['accounts','Kontoplan & intäktskonton','portal/accounts.html'],
       ['payroll','Lön & lönejournal','portal/payroll.html'],['money','Öreskalkylator','admin/#/money'],
       ['journal','Verifikationer & periodtest','admin/#/journal'],
       ['res-tools','Reskontraverktyg (äldre demo)','legacy/#/res-tools'],
       ['inbox','Fakturainkorg (äldre demo)','legacy/#/inbox']
     ]},
+    {id:'ai',label:'AI',items:[['ai-assistant','AI-assistent & guider','portal/ai-assistant.html']]},
     {id:'operations',label:'Register & verksamhet',items:[['customers','Kunder','portal/customers.html'],['suppliers','Leverantörer','portal/suppliers.html'],['inventory','Lager & svinn','portal/inventory.html']]},
     {id:'administration',label:'Systemadministration',items:[
       ['company-settings','Företagsinställningar','portal/company-settings.html'],['website','Webbplats & innehåll','portal/website.html'],['documents','Dokument','portal/documents.html'],
@@ -36,7 +37,8 @@
   // Simple navigation is a projection of the existing permission-filtered menu.
   // It does not create privileges, new routes, or economic write operations.
   const simpleNavigation=Object.freeze([
-    {id:'start',label:'Kom igång',items:[['overview','Översikt'],['ai-assistant','AI-hjälp för hela ekonomin']]},
+    {id:'start',label:'Kom igång',items:[['overview','Översikt']]},
+    {id:'ai',label:'AI-assistent',items:[['ai-assistant','AI-assistent & guider']]},
     {id:'invoices',label:'Fakturor',items:[['invoices','Skapa & visa fakturor'],['receivables','Obetalda fakturor'],['customers','Kunder']]},
     {id:'purchases',label:'Inköp & kvitton',items:[['payables','Leverantörsfakturor'],['documents','Underlag (PDF)'],['supplier-ledger','Att betala'],['suppliers','Leverantörer'],['automation','Förslag att granska']]},
     {id:'money',label:'Pengar & bank',items:[['bank','Bankhändelser'],['unplaced-payments','Betalningar att hantera'],['payments','Alla betalningar']]},
@@ -243,7 +245,7 @@
   });
   const NAV_ICONS=Object.freeze({
     overview:'home',invoices:'page',receivables:'wallet',payables:'page','supplier-ledger':'book',payments:'card',bank:'bank',
-    automation:'settings',accounting:'book',reports:'stats',accounts:'book',payroll:'wallet',money:'card',journal:'book','res-tools':'database',
+    'ai-assistant':'chat','ai-bookkeeping':'book',automation:'settings',accounting:'book',reports:'stats',accounts:'book',payroll:'wallet',money:'card',journal:'book','res-tools':'database',
     batches:'package',inbox:'page',customers:'group',suppliers:'group',inventory:'package','company-settings':'settings',website:'page',documents:'page',decisions:'shield',
     modules:'package',project:'stats',content:'page',audit:'shield',settings:'settings',uat:'shield',legacy:'database',assistant:'help'
   });
@@ -668,6 +670,44 @@
       delete topbar.dataset.sharedUserMenuMounting;
     }
   }
+  // Contextual, read-only guidance in every major bookkeeping-source workflow.
+  // Never reads form fields, sends business data or bypasses the existing approval flows.
+  const aiWorkflows=Object.freeze({
+    'invoices.html':['Kundfakturor','Hjälp mig skapa en korrekt kundfaktura'],
+    'payables.html':['Leverantörsfakturor','Hjälp mig kontrollera en leverantörsfaktura'],
+    'documents.html':['Kvitton och dokument','Hjälp mig hantera ett kvitto eller PDF-underlag'],
+    'bank.html':['Bankhändelser','Hjälp mig stämma av en bankhändelse'],
+    'unplaced-payments.html':['Oplacerade betalningar','Hjälp mig hantera en betalning utan koppling'],
+    'payments.html':['Betalningar','Hjälp mig kontrollera en betalning'],
+    'accounting.html':['Bokföring','Hjälp mig kontrollera ett bokföringsförslag'],
+    'automation.html':['Granskning','Hjälp mig granska ett automatiskt förslag'],
+    'batches.html':['Buntar','Hjälp mig granska en bokföringsbunt'],
+    'bokslut.html':['Bokslut','Hjälp mig förbereda bokslutet'],
+    'payroll.html':['Löner','Hjälp mig kontrollera löneunderlag'],
+    'inventory.html':['Lager','Hjälp mig kontrollera lagerunderlag']
+  });
+  function mountContextualAi(context){
+    const page=location.pathname.split('/').pop();
+    const workflow=aiWorkflows[page];
+    const permitted=context.groups.some(group=>group.items.some(item=>item[0]==='ai-assistant'));
+    const content=document.querySelector('.content');
+    if(!workflow||!permitted||!content||document.getElementById('lt-contextual-ai'))return;
+    const section=document.createElement('section');
+    section.id='lt-contextual-ai';
+    section.setAttribute('aria-label','AI-assistent för '+workflow[0]);
+    section.style.cssText='display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;margin-bottom:20px;border:1px solid var(--line, #b5b5b5);border-radius:14px;background:var(--surface, var(--paper, transparent));color:var(--ink, inherit)';
+    const info=document.createElement('div');
+    const heading=document.createElement('strong');heading.textContent='✦ AI-hjälp för '+workflow[0];
+    const note=document.createElement('p');note.style.cssText='margin:5px 0 0;font-size:.9rem;max-width:580px';
+    note.textContent='Få steg-för-steg-hjälp här. AI-analys av verkliga underlag är ännu inte aktiverad. Ingenting bokförs utan granskning.';
+    info.append(heading,note);
+    const action=document.createElement('a');action.className='button';
+    action.textContent=workflow[1]+' →';
+    action.href=assistantHrefForCurrentPage();
+    action.style.cssText='white-space:normal;text-align:center;max-width:100%';
+    section.append(info,action);
+    content.prepend(section);
+  }
   async function mount(){
     const sidebar=document.querySelector('.sidebar');if(!sidebar)return;
     const route=location.pathname+location.hash;
@@ -734,7 +774,7 @@
     const foot=document.createElement('div');foot.className='shared-foot';
     const home=document.createElement('a');home.href=href(demo?'./':'portal/dashboard.html');home.textContent=demo?'Visa företagets hemsida':'Till arbetsöversikten';foot.append(home);
     const note=document.createElement('p');note.textContent=demo?'Äldre referensverktyg har separat demodata.':'Menyn följer din roll. Servern kontrollerar varje skyddad åtgärd oavsett vad som visas här.';foot.append(note);
-    sidebar.replaceChildren(brand,info,...(modeSwitch?[modeSwitch]:[]),nav,foot);decorateUi();applySidebarPreference();await mountPendingBatchBadge(context);
+    sidebar.replaceChildren(brand,info,...(modeSwitch?[modeSwitch]:[]),nav,foot);mountContextualAi(context);decorateUi();applySidebarPreference();await mountPendingBatchBadge(context);
     try{sidebar.scrollTop=Number(sessionStorage.getItem(key+':scroll')||0)}catch{}
     if(!sidebar.dataset.scrollBound){sidebar.addEventListener('scroll',()=>{try{sessionStorage.setItem(key+':scroll',String(sidebar.scrollTop))}catch{}});sidebar.dataset.scrollBound='1';}
   }
