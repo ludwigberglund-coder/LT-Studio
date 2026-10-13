@@ -79,7 +79,7 @@
       '<h2>Vad vill du få hjälp med?</h2><p>Hitta nästa steg för fakturor, bank, bokföring, moms, bokslut och mer – på enkel svenska.</p></div>'+
       '<div class="ai-assistant-state"><span class="ai-assistant-state-dot" aria-hidden="true"></span><div><strong>Guidad hjälp aktiv</strong><small>AI-analys av företagets uppgifter är ännu inte aktiverad.</small></div></div></section>'+
       '<section class="ai-assistant-search-panel" aria-labelledby="ai-assistant-query-label"><label id="ai-assistant-query-label" for="ai-assistant-query">Beskriv vad du behöver göra</label>'+
-      '<input id="ai-assistant-query" type="search" maxlength="160" autocomplete="off" placeholder="Exempel: Jag har en betalning som inte matchar en faktura" value="'+esc(query)+'">'+
+      '<input id="ai-assistant-query" type="text" role="searchbox" inputmode="search" maxlength="160" autocomplete="off" placeholder="Exempel: Jag har en betalning som inte matchar en faktura" value="'+esc(query)+'">'+
       '<p>Sökningen matchar färdiga guider lokalt i webbläsaren. Den är <strong>inte ett AI-svar</strong>, skickar ingen text till AI och sparar inga sökningar. Skriv inte in känsliga kunduppgifter.</p>'+
       '<div class="ai-assistant-scopes" role="group" aria-label="Välj ekonomiområde">'+
       allowed.map(item=>'<button type="button" data-ai-scope="'+esc(item.id)+'" aria-pressed="'+String(item.id===selectedScope)+'">'+esc(item.label)+'</button>').join('')+
