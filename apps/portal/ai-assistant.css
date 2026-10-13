@@ -42,3 +42,22 @@
 @media(max-width:1000px){.ai-assistant-hero{grid-template-columns:1fr}.ai-assistant-pilot{grid-template-columns:1fr}.ai-assistant-pilot-action{max-width:none}}
 @media(max-width:780px){.ai-assistant-grid{grid-template-columns:1fr}.ai-assistant-content{gap:16px;padding:14px 14px 30px}.ai-assistant-hero,.ai-assistant-search-panel,.ai-assistant-pilot{padding:18px;border-radius:17px}.ai-assistant-card{padding:18px}.ai-assistant-hero h2{font-size:29px}.ai-assistant-scopes button{min-height:44px}}
 @media(prefers-reduced-motion:reduce){.ai-assistant-card,.ai-assistant-scopes button,.ai-assistant-action{transition:none!important}}
+
+/* Only pre-defined synthetic cases can be submitted to the disabled AI pilot. */
+.ai-finance-pilot{min-width:0;background:var(--surface-card,var(--paper));border:1px solid var(--line);border-radius:20px;padding:clamp(18px,3vw,28px)}
+.ai-finance-pilot h2{color:var(--color-ink);font-size:22px;letter-spacing:-.025em;margin:9px 0 10px;line-height:1.25}
+.ai-finance-pilot>p{color:var(--muted);font-size:14px;line-height:1.6;margin:0 0 16px;max-width:800px}
+.ai-finance-pilot-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,280px) auto;gap:12px;align-items:center;max-width:860px}
+.ai-finance-pilot-controls label{font-size:14px;font-weight:800;color:var(--color-ink)}
+.ai-finance-pilot-controls select{font:inherit;font-size:14px;min-width:0;min-height:46px;border-radius:12px;padding:10px 12px;border:1px solid var(--line);background:var(--surface-alt,var(--paper));color:var(--color-ink)}
+.ai-finance-pilot-controls button{font:inherit;font-size:13px;font-weight:850;min-height:46px;border:1px solid var(--color-ink);border-radius:12px;background:var(--color-ink);color:var(--surface-card,var(--paper));padding:11px 16px;cursor:pointer}
+.ai-finance-pilot-controls button:disabled{opacity:.55;cursor:not-allowed}
+.ai-finance-pilot-controls button:focus-visible,.ai-finance-pilot-controls select:focus-visible{outline:3px solid var(--color-ink);outline-offset:3px}
+.ai-finance-pilot .ai-finance-pilot-note{font-size:12px;margin-top:12px;margin-bottom:10px}
+.ai-finance-pilot-status{font-size:13px;color:var(--color-ink);line-height:1.55;min-height:20px}
+.ai-finance-pilot-result{margin-top:16px;border:1px solid var(--line);background:var(--surface-alt,var(--paper));border-radius:14px;padding:17px;overflow-wrap:anywhere}
+.ai-finance-pilot-result strong{display:block;color:var(--color-ink)}
+.ai-finance-pilot-result p{margin:10px 0;color:var(--color-ink);line-height:1.6}
+.ai-finance-pilot-result ul{padding-left:20px;color:var(--color-ink);line-height:1.6}
+.ai-finance-pilot-result small{font-size:12px;color:var(--muted)}
+@media(max-width:780px){.ai-finance-pilot{padding:18px;border-radius:17px}.ai-finance-pilot-controls{grid-template-columns:1fr}.ai-finance-pilot-controls label{margin:0}.ai-finance-pilot-controls select,.ai-finance-pilot-controls button{width:100%;box-sizing:border-box}}
