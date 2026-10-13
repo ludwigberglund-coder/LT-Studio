@@ -42,3 +42,89 @@
 @media(max-width:1000px){.ai-assistant-hero{grid-template-columns:1fr}.ai-assistant-pilot{grid-template-columns:1fr}.ai-assistant-pilot-action{max-width:none}}
 @media(max-width:780px){.ai-assistant-grid{grid-template-columns:1fr}.ai-assistant-content{gap:16px;padding:14px 14px 30px}.ai-assistant-hero,.ai-assistant-search-panel,.ai-assistant-pilot{padding:18px;border-radius:17px}.ai-assistant-card{padding:18px}.ai-assistant-hero h2{font-size:29px}.ai-assistant-scopes button{min-height:44px}}
 @media(prefers-reduced-motion:reduce){.ai-assistant-card,.ai-assistant-scopes button,.ai-assistant-action{transition:none!important}}
+
+
+/* The AI tab is a bookkeeping workspace first; legacy guidance is secondary. */
+.ai-bookkeeper-workspace{
+  display:grid;gap:19px;min-width:0;padding:clamp(19px,3vw,32px);
+  background:var(--surface-card,var(--paper));
+  color:var(--color-ink);
+  border:1px solid var(--line);
+  border-radius:22px;
+}
+.ai-bookkeeper-head{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px 22px}
+.ai-bookkeeper-head>div{flex:1 1 290px;min-width:0}
+.ai-bookkeeper-head h2{font-size:clamp(22px,2.5vw,30px);line-height:1.18;letter-spacing:-.03em;margin:9px 0;color:var(--color-ink)}
+.ai-bookkeeper-head p{font-size:14px;line-height:1.65;color:var(--muted);max-width:740px;margin:0}
+.ai-bookkeeper-phase{
+  display:inline-flex;align-items:center;min-height:34px;max-width:100%;
+  padding:8px 12px;border:1px solid var(--line);border-radius:12px;
+  font-size:12px;line-height:1.3;font-weight:800;text-align:center;
+  background:var(--surface-alt,var(--paper));color:var(--color-ink);
+}
+.ai-bookkeeper-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.ai-bookkeeper-steps>div{
+  display:grid;align-content:start;gap:8px;min-width:0;padding:17px;
+  border-radius:15px;border:1px solid var(--line);background:var(--surface-alt,var(--paper));
+}
+.ai-bookkeeper-steps strong{color:var(--color-ink);font-size:14px}
+.ai-bookkeeper-steps span{color:var(--muted);font-size:13px;line-height:1.55}
+.ai-bookkeeper-actions{display:flex;flex-wrap:wrap;gap:9px}
+.ai-bookkeeper-actions a{
+  display:inline-flex;align-items:center;justify-content:center;min-height:44px;
+  max-width:100%;padding:11px 16px;border:1px solid var(--color-ink);border-radius:12px;
+  background:var(--color-ink);color:var(--surface-card,var(--paper));
+  font-weight:800;font-size:13px;text-decoration:none;line-height:1.3;text-align:center;
+}
+.ai-bookkeeper-actions a+ a{background:var(--surface-card,var(--paper));color:var(--color-ink)}
+.ai-bookkeeper-actions a:hover{opacity:.87}
+.ai-bookkeeper-actions a:focus-visible,.ai-assistant-guides>summary:focus-visible{
+  outline:3px solid var(--color-ink);outline-offset:3px;
+}
+.ai-bookkeeper-queue{
+  margin:0;padding:14px 16px;border-radius:12px;
+  border:1px solid var(--line);color:var(--color-ink);
+  background:var(--surface-alt,var(--paper));font-size:13px;line-height:1.6;
+}
+.ai-bookkeeper-caution{margin:0;font-size:12px;line-height:1.55;color:var(--muted)}
+.ai-assistant-guides{min-width:0;border:1px solid var(--line);border-radius:17px;background:var(--surface-card,var(--paper))}
+.ai-assistant-guides>summary{
+  cursor:pointer;padding:18px 22px;min-height:53px;
+  font-size:15px;font-weight:800;color:var(--color-ink);line-height:1.5;
+}
+.ai-assistant-guides[open]>summary{border-bottom:1px solid var(--line)}
+.ai-assistant-guides .ai-assistant-search-panel{border:none;border-radius:0;box-shadow:none}
+.ai-assistant-guides>section[aria-label]{padding:0 23px 23px}
+@media(max-width:780px){
+  .ai-bookkeeper-workspace{gap:15px;padding:17px;border-radius:17px}
+  .ai-bookkeeper-steps{grid-template-columns:1fr}
+  .ai-bookkeeper-steps>div{padding:14px}
+  .ai-bookkeeper-actions a{width:100%}
+  .ai-assistant-guides>section[aria-label]{padding:0 16px 17px}
+  .ai-assistant-guides>summary{padding:15px 17px}
+}
+html[data-lt-theme="dark"] .ai-bookkeeper-workspace,
+html[data-lt-theme="dark"] .ai-assistant-guides{
+  background:var(--lt-dark-surface,var(--surface-card))!important;
+  border-color:var(--lt-dark-border,var(--line))!important;
+}
+html[data-lt-theme="dark"] .ai-bookkeeper-workspace :is(h2,strong,span.ai-bookkeeper-phase,p, .ai-bookkeeper-queue),
+html[data-lt-theme="dark"] .ai-assistant-guides>summary{
+  color:var(--lt-dark-text,#ffffff)!important;
+}
+html[data-lt-theme="dark"] .ai-bookkeeper-steps>div,
+html[data-lt-theme="dark"] .ai-bookkeeper-queue,
+html[data-lt-theme="dark"] .ai-bookkeeper-phase{
+  background:var(--lt-dark-surface-soft,var(--lt-dark-surface))!important;
+  border-color:var(--lt-dark-border,var(--line))!important;
+}
+html[data-lt-theme="dark"] .ai-bookkeeper-steps span{color:var(--lt-dark-text,#ffffff)!important}
+html[data-lt-theme="dark"] .ai-bookkeeper-actions a{
+  background:var(--lt-dark-text,#ffffff)!important;
+  color:var(--lt-dark-surface,#222222)!important;
+}
+html[data-lt-theme="dark"] .ai-bookkeeper-actions a+a{
+  background:var(--lt-dark-surface,#222222)!important;
+  color:var(--lt-dark-text,#ffffff)!important;
+  border-color:var(--lt-dark-text,#ffffff)!important;
+}
