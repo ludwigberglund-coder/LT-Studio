@@ -342,3 +342,30 @@ test('missing calendar period rows do not produce a green outcome',async()=>{
  assert.ok(h.texts().some(x=>x.includes('Inga bokförda kontorader')));
  assert.match(h.refs['book-close-simple-status'].textContent,/Bokslutet är inte verifierat/);
 });
+
+test('bank account movements are explanatory evidence, never external bank balances',async()=>{
+ const h=harness({trial:async()=>({
+  status:'not_reconciled',counts:{period_lines:'8',invalid_lines:'0'},
+  totals:{period_debit_ore:'120000',period_credit_ore:'120000'},
+  accounts:[{account:'1930',period_net_ore:'-105',prior_net_ore:'0'}]
+ })});
+ await h.click();
+ const item=h.refs['book-close-simple-actions'].children.find(li=>
+  li.children[0]?.textContent.includes('Jämför banken med bokföringen'));
+ assert.ok(item);
+ assert.match(item.children[2].textContent,/1930: -1,05 kr/);
+ assert.match(item.children[2].textContent,/inte bankens saldo/);
+ assert.equal(item.children[1].href,'./bank.html');
+ assert.match(h.refs['book-close-simple-status'].textContent,/Bokslutet är inte verifierat/);
+});
+
+test('missing bank accounts never imply a zero bank balance',async()=>{
+ const h=harness({trial:async()=>({
+  status:'not_reconciled',counts:{period_lines:'3',invalid_lines:'0'},
+  totals:{period_debit_ore:'500',period_credit_ore:'500'},
+  accounts:[{account:'1510',period_net_ore:'500'}]
+ })});
+ await h.click();
+ assert.ok(!h.texts().some(x=>x.includes('Jämför banken med bokföringen')));
+ assert.ok(h.texts().some(x=>x.includes('Återstår innan bokslutet')));
+});
