@@ -3676,14 +3676,14 @@ html[data-lt-theme="dark"] .shared-sidebar .shared-navigation .shared-links a[da
   width:100%;
   margin:0 0 20px;
   padding:18px 20px;
-  border:1px solid var(--line, #d7ddd6);
+  border:1px solid var(--line, #e5e5e5);
   border-radius:16px;
   background:var(--surface-card, var(--paper, #fff));
   color:var(--color-ink, #0a0a0a);
 }
 .lt-contextual-ai>div{flex:1 1 260px;min-width:0}
 .lt-contextual-ai strong{display:block;color:var(--color-ink, #0a0a0a);font-size:16px;line-height:1.4}
-.lt-contextual-ai p{margin:6px 0 0;max-width:610px;color:var(--muted, #69766f);font-size:13px;line-height:1.6}
+.lt-contextual-ai p{margin:6px 0 0;max-width:610px;color:var(--muted, #737373);font-size:13px;line-height:1.6}
 .lt-contextual-ai .lt-contextual-ai-action{
   display:inline-flex;align-items:center;justify-content:center;
   flex:0 1 auto;max-width:100%;min-height:44px;
