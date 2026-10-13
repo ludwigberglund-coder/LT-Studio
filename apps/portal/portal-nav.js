@@ -653,7 +653,9 @@
       document.addEventListener('click',event=>{if(!wrap.contains(event.target)){menu.hidden=true;button.setAttribute('aria-expanded','false');}});
       // The same read-only assistant entry point is available from every authorized workspace.
       const assistantPermitted=context.groups.some(group=>group.items.some(item=>item[0]==='ai-assistant'));
-      if(assistantPermitted&&!active('portal/ai-assistant.html')&&!topbar.querySelector('.shared-ai-trigger')){
+      const financePages=new Set(['dashboard.html','invoices.html','index.html','receivables.html','customers.html','payables.html','supplier-ledger.html','suppliers.html','documents.html','payments.html','bank.html','unplaced-payments.html','automation.html','batches.html','accounting.html','accounts.html','reports.html','bokslut.html','book-close-trial-balance.html','payroll.html','inventory.html']);
+      const financePage=location.pathname.split('/').pop();
+      if(assistantPermitted&&financePages.has(financePage)&&!active('portal/ai-assistant.html')&&!topbar.querySelector('.shared-ai-trigger')){
         const help=document.createElement('a');
         help.className='shared-ai-trigger';
         help.href=assistantHrefForCurrentPage();
