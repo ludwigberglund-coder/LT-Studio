@@ -9,7 +9,7 @@ const vm=require('node:vm');
 const source=fs.readFileSync(path.join(__dirname,'../apps/portal/unplaced-payments.js'),'utf8');
 
 async function harness(options={}){
-  const fields={invoice:'invoice-first',kind:'',account:'',description:'',confirmed:false};
+  const fields={invoice:'',kind:'',account:'',description:'',confirmed:false};
   const preview={innerHTML:''};
   const resolveButton={disabled:true};
   const accountControl={readOnly:false};
@@ -27,7 +27,7 @@ async function harness(options={}){
       html=markup;
       renderCount+=1;
       // Assign the real select/input defaults that a fresh render would create.
-      fields.invoice='invoice-first';
+      fields.invoice='';
       fields.kind='';
       fields.account='';
       fields.description='';
@@ -45,13 +45,13 @@ async function harness(options={}){
   const records={
     bank_payments:[{
       id:'bank-1',booking_date:'2026-10-12',amount_ore:10000,
-      reference:options.reference??'QA',payer_name:'Testbetalare',currency:'SEK',company_id:'company-qa'
+      reference:options.reference??'QA',message:options.message??'',payer_name:options.payerName??'Testbetalare',currency:'SEK',company_id:options.paymentCompanyId??'company-qa'
     }],
-    invoices:[
+    invoices:options.invoices??[
       {id:'invoice-first',invoice_number:'F-100',ocr:options.firstOcr??'',total_ore:20000,remaining_ore:20000,invoice_account:'1510',company_id:'company-qa',customer_id:'customer-1'},
       {id:'invoice-second',invoice_number:'F-200',ocr:options.secondOcr??'',total_ore:20000,remaining_ore:20000,invoice_account:'1510',company_id:'company-qa',customer_id:'customer-1'}
     ],
-    customers:[{id:'customer-1',name:'Testkunden'}]
+    customers:options.customers??[{id:'customer-1',name:'Testkunden'}]
   };
   const document={
     getElementById:(id)=>id==='unplaced-payments-app'?app:null,
@@ -92,7 +92,7 @@ async function harness(options={}){
 
   // load() fetches the mocked company-scoped Supabase rows before rendering.
   await new Promise(resolve=>setImmediate(resolve));
-  assert.match(html,/Testbetalare/,'the queue must finish loading before the actions run');
+  assert.match(html,/data-select="bank-1"/,'the selected synthetic bank payment must be loaded before the actions run');
 
   return {
     fields,calls,failNextInvoke:(message)=>invokeErrors.push(message),setProposalResult:(result)=>{proposalResult=result},getSelectedInvoice:()=>fields.invoice,getRenderCount:()=>renderCount,getHtml:()=>html,
@@ -224,7 +224,7 @@ test('rejected proposal result is not presented as successful matching',async()=
 
 test('invoice dropdown begins with an explicit choice, never implicitly assigns the first invoice',async()=>{
   const ui=await harness();
-  assert.equal(ui.getSelectedInvoice(),'invoice-first','harness only initializes its mock field');
+  assert.equal(ui.getSelectedInvoice(),'','the real browser must start without a selected invoice');
   assert.match(ui.getHtml(),/<option value="">Välj kundfaktura<\/option>/);
   assert.match(ui.getHtml(),/Ingen tydlig träff på OCR eller fakturanummer/);
 });
@@ -340,4 +340,126 @@ test('untrusted description in preview is HTML-escaped',async()=>{
   ui.type('description','<img src=x onerror=alert(1)>');
   assert.match(ui.getPreview(),/&lt;img src=x onerror=alert\(1\)&gt;/);
   assert.doesNotMatch(ui.getPreview(),/<img/);
+});
+
+test('customer organisation number and exact balance produce a manual-only suggestion',async()=>{
+  const ui=await harness({
+    reference:'Org.nr 556677-8899',
+    invoices:[{id:'invoice-first',invoice_number:'F-300',ocr:'',total_ore:10000,remaining_ore:10000,invoice_account:'1510',customer_id:'customer-1',company_id:'company-qa'}],
+    customers:[{id:'customer-1',name:'Kundföretaget AB',org_number:'556677-8899'}]
+  });
+  assert.match(ui.getHtml(),/Möjlig kundträff/);
+  assert.match(ui.getHtml(),/Organisationsnummer i betalningsinformationen/);
+  assert.match(ui.getHtml(),/inte identitetsverifierad/);
+  assert.equal(ui.getSelectedInvoice(),'','a customer hint must not auto-select');
+  assert.equal(ui.calls.length,0);
+  await ui.click('use-suggestion');
+  assert.equal(ui.getSelectedInvoice(),'invoice-first');
+  assert.equal(ui.calls.length,0,'choosing a suggestion does not create a proposal');
+  await ui.click('invoice');
+  const proposal=ui.calls.find(call=>call.name==='create_bank_match_proposal');
+  assert.ok(proposal,'proposal is only sent after explicit creation');
+  assert.equal(proposal.args.p_target_invoice_id,'invoice-first');
+  assert.equal(proposal.args.p_deterministic,false);
+  assert.equal(proposal.args.p_ambiguous,true);
+});
+
+test('an exact organisation number in a message supports the Swedish 16-prefix',async()=>{
+  const ui=await harness({
+    reference:'Saknar OCR',
+    message:'Avsändare: 165566778899',
+    invoices:[{id:'invoice-first',invoice_number:'F-301',total_ore:10000,remaining_ore:10000,invoice_account:'1510',customer_id:'customer-1',company_id:'company-qa'}],
+    customers:[{id:'customer-1',name:'Kundföretaget AB',org_number:'5566778899'}]
+  });
+  assert.match(ui.getHtml(),/Möjlig kundträff/);
+  assert.equal(ui.calls.length,0);
+});
+
+test('payer name handles Swedish accents and legal suffixes but does not prove identity',async()=>{
+  const ui=await harness({
+    reference:'Betalning utan OCR',
+    payerName:'AKER CAFE AB',
+    invoices:[{id:'invoice-first',invoice_number:'F-302',total_ore:10000,remaining_ore:10000,invoice_account:'1510',customer_id:'customer-1',company_id:'company-qa'}],
+    customers:[{id:'customer-1',name:'Åker Café Aktiebolag'}]
+  });
+  assert.match(ui.getHtml(),/Möjlig kundträff/);
+  assert.match(ui.getHtml(),/Betalarnamnet stämmer med kundregistret/);
+  assert.equal(ui.getSelectedInvoice(),'');
+  assert.equal(ui.calls.length,0);
+});
+
+test('name or organisation hint with partial balance cannot recommend a specific invoice',async()=>{
+  const ui=await harness({
+    payerName:'Åker Café AB',
+    invoices:[{id:'invoice-first',invoice_number:'F-303',total_ore:20000,remaining_ore:20000,invoice_account:'1510',customer_id:'customer-1',company_id:'company-qa'}],
+    customers:[{id:'customer-1',name:'Åker Café AB'}]
+  });
+  assert.match(ui.getHtml(),/Kunduppgifter matchar, men beloppet är inte exakt/);
+  assert.doesNotMatch(ui.getHtml(),/Välj föreslagen faktura/);
+  assert.equal(ui.calls.length,0);
+});
+
+test('multiple open invoices for the same payer must remain ambiguous even if one balance is exact',async()=>{
+  const ui=await harness({
+    payerName:'Kundföretaget AB',
+    invoices:[
+      {id:'invoice-first',invoice_number:'F-304',total_ore:10000,remaining_ore:10000,invoice_account:'1510',customer_id:'customer-1',company_id:'company-qa'},
+      {id:'invoice-second',invoice_number:'F-305',total_ore:20000,remaining_ore:20000,invoice_account:'1510',customer_id:'customer-1',company_id:'company-qa'}
+    ],
+    customers:[{id:'customer-1',name:'Kundföretaget AB'}]
+  });
+  assert.match(ui.getHtml(),/Flera möjliga fakturor/);
+  assert.match(ui.getHtml(),/Flera öppna fakturor passar samma kunduppgift/);
+  assert.doesNotMatch(ui.getHtml(),/Välj föreslagen faktura/);
+});
+
+test('contradicting OCR and customer-name evidence must be sent to manual review',async()=>{
+  const ui=await harness({
+    reference:'F-304',payerName:'Andra Kunden AB',
+    invoices:[
+      {id:'invoice-first',invoice_number:'F-304',total_ore:10000,remaining_ore:10000,invoice_account:'1510',customer_id:'customer-1',company_id:'company-qa'},
+      {id:'invoice-second',invoice_number:'F-305',total_ore:10000,remaining_ore:10000,invoice_account:'1510',customer_id:'customer-2',company_id:'company-qa'}
+    ],
+    customers:[{id:'customer-1',name:'Första Kunden AB'},{id:'customer-2',name:'Andra Kunden AB'}]
+  });
+  assert.match(ui.getHtml(),/Referens och kunduppgifter pekar på olika kunder/);
+  assert.doesNotMatch(ui.getHtml(),/Välj föreslagen faktura/);
+  assert.equal(ui.calls.length,0);
+});
+
+test('an organisation number embedded inside a longer number is not a match',async()=>{
+  const ui=await harness({
+    reference:'556677889900',
+    invoices:[{id:'invoice-first',invoice_number:'F-401',total_ore:10000,remaining_ore:10000,invoice_account:'1510',customer_id:'customer-1',company_id:'company-qa'}],
+    customers:[{id:'customer-1',name:'Kundföretaget AB',org_number:'556677-8899'}]
+  });
+  assert.doesNotMatch(ui.getHtml(),/Möjlig kundträff/);
+});
+
+test('generic payment sender labels do not create customer-name suggestions',async()=>{
+  const ui=await harness({
+    payerName:'Bankgirot',
+    invoices:[{id:'invoice-first',invoice_number:'F-402',total_ore:10000,remaining_ore:10000,invoice_account:'1510',customer_id:'customer-1',company_id:'company-qa'}],
+    customers:[{id:'customer-1',name:'Bankgirot AB'}]
+  });
+  assert.doesNotMatch(ui.getHtml(),/Möjlig kundträff/);
+});
+
+test('customer identity from another company cannot create a suggestion',async()=>{
+  const ui=await harness({
+    reference:'org.nr 5566778899',payerName:'Andra Kunden AB',
+    invoices:[{id:'invoice-other-tenant',invoice_number:'F-403',total_ore:10000,remaining_ore:10000,invoice_account:'1510',customer_id:'customer-2',company_id:'different-company'}],
+    customers:[{id:'customer-2',name:'Andra Kunden AB',org_number:'5566778899'}]
+  });
+  assert.doesNotMatch(ui.getHtml(),/Möjlig kundträff/);
+  assert.match(ui.getHtml(),/Ingen öppen faktura kan ta emot hela beloppet/);
+  assert.equal(ui.calls.length,0);
+});
+
+test('proposal creation with no manually chosen invoice never calls the RPC',async()=>{
+  const ui=await harness({payerName:'Bankgirot'});
+  assert.equal(ui.getSelectedInvoice(),'');
+  await ui.click('invoice');
+  assert.equal(ui.calls.length,0);
+  assert.match(ui.getHtml(),/Välj en kundfaktura/);
 });

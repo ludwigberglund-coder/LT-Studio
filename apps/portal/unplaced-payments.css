@@ -709,3 +709,16 @@ html[data-lt-theme="dark"] .posting-lines span{
   .resolution-block .posting-review-check{gap:9px}
   .resolution-card .resolution-primary{min-height:44px}
 }
+
+
+/* Customer-identity hints are weaker than an invoice/OCR reference. */
+.invoice-match-customer{
+  border-style:dashed;
+}
+.invoice-match-customer .invoice-match-eyebrow{
+  letter-spacing:.01em;
+}
+html[data-lt-theme="dark"] .invoice-match-customer{
+  border-color:#718c80!important;
+  color:#fff!important;
+}
