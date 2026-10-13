@@ -20,6 +20,14 @@ Samma server hanterar origin-kontroll, verifierad JWT, personlig AAL2-session, f
 
 `test/ai-edge-ten-process-dispatch.test.js` testar statiskt att samma Edge-funktion används, att spärren ligger först, att alla fem kvotfält skickas vidare, att det gamla fakturasvaret bevaras och att den nya processgrenen aldrig skriver pengar eller bokföring.
 
+## Gränssnitt: säker syntetisk testpanel
+
+`apps/portal/ai-assistant.js` och `ai-assistant.css` lägger till en responsiv testpanel i den redan befintliga AI-fliken för inloggade administratörer och redovisare.
+Det går att välja alla tio fasta ekonomiska testprocesser och – först när serverpiloten separat godkänts – klicka **Prova AI (pilot)**. Fram till dess visar servern 503/404 och ett begripligt meddelande.
+Panelen skickar **endast** `companyId`, en fördefinierad `purpose` och ett nytt `requestId` via `LTSupabase.functions.invoke('ai-bookkeeping-pilot', ...)`, aldrig sökfrågor, belopp, PDF eller annan inmatad data.
+UI:t verifierar företag, källa, process, schema och manuellt granskningskrav i svaret innan det visas. Svaret HTML-escapas och sparas aldrig som bokföring eller automationsförslag.
+I demovyn sker inga externa anrop och användare utan rätt roll får inga pilotkontroller. `test/ai-assistant-synthetic-pilot.test.js` och uppdaterade portaltester täcker alla tio processer, säkerhetsfel, obehörighet, tenant-byte och svarsförfalskning.
+
 ## Kvar innan verklig AI
 
 1. Bevisa i hostad Supabase UAT att `x-real-ip` kommer från betrodd proxy och inte kan förfalskas. Välj och dokumentera explicit `verify_jwt = true` före en godkänd framtida deployment.
