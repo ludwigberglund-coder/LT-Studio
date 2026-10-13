@@ -70,7 +70,7 @@ function renderOverview(plan){
  }
  // An unverified prerequisite must take priority over a reassuring "no anomaly" note.
  const first=plan.attention[0]||plan.unknown[0]||
-  plan.next.find(item=>item.priority===80)||plan.next.find(item=>item.priority===100)||plan.next[0];
+  plan.next.find(item=>item.priority===100)||plan.next.find(item=>item.priority===80)||plan.next[0];
  firstTitle.textContent=first?first.title:'Fortsätt med den slutliga avstämningen.';
  if(first?.href&&allowedLinks.has(first.href)){
   firstLink.href=first.href;
