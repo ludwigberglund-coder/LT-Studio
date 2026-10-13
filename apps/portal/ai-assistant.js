@@ -15,6 +15,7 @@
   }[char]));
   let session=null;
   let selectedScope=catalog.scope(params.get('from'));
+  if(selectedScope==='all')selectedScope=catalog.contextForPage(params.get('from'));
   let query='';
   function role(){
     return demo?'admin':String(session?.membership?.role||'');
