@@ -21,8 +21,8 @@ function resolutionRequestId(payment,type,counterAccount,description){
 }
 async function api(path,options={}){const headers={'Accept':'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})};if(options.method&&options.method!=='GET'&&csrfToken)headers['X-CSRF-Token']=csrfToken;const response=await fetch(`/api/v1${path}`,{credentials:'same-origin',cache:'no-store',...options,headers,body:options.body?JSON.stringify(options.body):undefined});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Begäran misslyckades.');return data}
 async function supabaseContext(){const ctx=await window.LTSupabaseUat.context();if(!ctx?.authenticated||!ctx.company){location.href='./index.html';throw new Error('Ingen aktiv session.')}return ctx}
-async function loadSupabase(){const ctx=await supabaseContext(),filter='company_id=eq.'+encodeURIComponent(ctx.company.id);const [bankRows,invoiceRows,customerRows]=await Promise.all([window.LTSupabase.from('bank_payments',ctx.accessToken).select('*',filter+'&status=eq.unmatched&order=booking_date.desc,created_at.desc'),window.LTSupabase.from('invoices',ctx.accessToken).select('*',filter+'&remaining_ore=gt.0'),window.LTSupabase.from('customers',ctx.accessToken).select('*',filter)]);const customers=new Map((customerRows||[]).map(r=>[String(r.id),r]));payments=(bankRows||[]).map(r=>({id:r.id,bookingDate:r.booking_date,amountOre:Number(r.amount_ore||0),companyId:r.company_id,currency:r.currency||'SEK',reference:r.reference||'',message:r.message||'',payerName:r.payer_name||'',payerAccount:r.payer_account||''}));openInvoices=(invoiceRows||[]).filter(r=>Number(r.total_ore)>0&&Number(r.remaining_ore)>0&&String(r.invoice_account||'1510')==='1510').map(r=>({id:r.id,companyId:r.company_id,invoiceNumber:r.invoice_number,ocr:r.ocr||'',remainingOre:Number(r.remaining_ore||0),customerName:customers.get(String(r.customer_id))?.name||''}));session={user:ctx.user,company:ctx.company,ctx}}
-async function loadApi(){const state=await api('/session');if(!state.authenticated){location.href='./index.html';return}session=state;payments=((await api('/bank/payments?status=unmatched')).payments||[]);const receivables=await api('/receivables');openInvoices=(receivables.receivables||receivables.invoices||[]).filter(r=>Number(r.remainingOre||0)>0&&String(r.invoiceAccount||'1510')==='1510')}
+async function loadSupabase(){const ctx=await supabaseContext(),filter='company_id=eq.'+encodeURIComponent(ctx.company.id);const [bankRows,invoiceRows,customerRows]=await Promise.all([window.LTSupabase.from('bank_payments',ctx.accessToken).select('*',filter+'&status=eq.unmatched&order=booking_date.desc,created_at.desc'),window.LTSupabase.from('invoices',ctx.accessToken).select('*',filter+'&remaining_ore=gt.0'),window.LTSupabase.from('customers',ctx.accessToken).select('*',filter)]);const customers=new Map((customerRows||[]).map(r=>[String(r.id),r]));payments=(bankRows||[]).map(r=>({id:r.id,bookingDate:r.booking_date,amountOre:Number(r.amount_ore||0),companyId:r.company_id,currency:r.currency||'SEK',reference:r.reference||'',message:r.message||'',payerName:r.payer_name||'',payerAccount:r.payer_account||''}));openInvoices=(invoiceRows||[]).filter(r=>Number(r.total_ore)>0&&Number(r.remaining_ore)>0&&String(r.invoice_account||'1510')==='1510').map(r=>({id:r.id,companyId:r.company_id,invoiceNumber:r.invoice_number,ocr:r.ocr||'',remainingOre:Number(r.remaining_ore||0),customerName:customers.get(String(r.customer_id))?.name||'',customerId:r.customer_id,customerOrgNumber:customers.get(String(r.customer_id))?.org_number||''}));session={user:ctx.user,company:ctx.company,ctx}}
+async function loadApi(){const state=await api('/session');if(!state.authenticated){location.href='./index.html';return}session=state;payments=((await api('/bank/payments?status=unmatched')).payments||[]);const receivables=await api('/receivables');openInvoices=(receivables.receivables||receivables.invoices||[]).filter(r=>Number(r.remainingOre||0)>0&&String(r.invoiceAccount||'1510')==='1510').map(r=>({...r,customerId:r.customerId||r.customer_id||'',customerOrgNumber:r.customerOrgNumber||r.orgNumber||r.customer_org_number||''}))}
 function selected(){return payments.find(p=>p.id===selectedId)||payments[0]||null}
 function sidebar(){return `<aside class="sidebar"><div class="logo"><strong>LT Studio</strong><small>LT STUDIO</small></div><div class="company-pill">${esc(session?.company?.name||session?.company?.displayName||'Företaget')}<br>Personlig session</div><div class="side-group"><span>Arbetsyta</span><a class="side-link side-link-link" href="./dashboard.html">Översikt</a></div><div class="side-group"><span>Ekonomi</span><a class="side-link side-link-link" href="./bank.html">Bank & avstämning</a><button class="side-link active">Oplacerade betalningar</button><a class="side-link side-link-link" href="./automation.html">Automationskö</a><a class="side-link side-link-link" href="./accounting.html">Bokföring</a></div><div class="sidebar-footer">Inget försvinner. Varje placering och bokföring sparas i revisionsspåret.</div></aside>`}
 function table(){
@@ -46,13 +46,73 @@ function invoiceCandidates(payment){
   return openInvoices.filter(invoice=>Number.isSafeInteger(Number(invoice.remainingOre))&&Number(invoice.remainingOre)>=amount
     &&(!payment?.companyId||!invoice.companyId||payment.companyId===invoice.companyId));
 }
+// These are explanatory UI hints only; no name or organisation number proves the payer's identity.
+// The existing RPC still receives a manual selection that must be reviewed in Automationskön.
+function canonicalCustomerName(value){
+  const raw=String(value??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('sv');
+  const parts=raw.replace(/[^a-z0-9]+/g,' ').trim().split(/\s+/).filter(Boolean);
+  while(parts.length&&['ab','aktiebolag','hb','handelsbolag','kb','kommanditbolag'].includes(parts[parts.length-1]))parts.pop();
+  const name=parts.join(' ');
+  if(name.length<6||['bankgirot','bankgiro','plusgiro','betalning','okand betalare','swish','transfer','unknown'].includes(name))return '';
+  return name;
+}
+function customerNameMatches(payment,invoice){
+  const payer=canonicalCustomerName(payment?.payerName);
+  return Boolean(payer&&payer===canonicalCustomerName(invoice?.customerName));
+}
+function normalizedOrganisationNumber(value){
+  const raw=String(value??'').trim().replace(/\s+/g,'');
+  if(!/^(?:16)?\d{6}-?\d{4}$/.test(raw))return '';
+  const digits=raw.replace(/\D/g,'');
+  return digits.length===12?digits.slice(2):digits;
+}
+function organisationMatches(payment,invoice){
+  const org=normalizedOrganisationNumber(invoice?.customerOrgNumber);
+  if(!org)return false;
+  const pattern=/(^|[^0-9])((?:16)?[0-9]{6}[- ]?[0-9]{4})(?=$|[^0-9])/g;
+  return [payment?.payerName,payment?.reference,payment?.message].some(value=>{
+    const text=String(value??'').slice(0,1000);
+    pattern.lastIndex=0;
+    return [...text.matchAll(pattern)].some(match=>normalizedOrganisationNumber(match[2])===org);
+  });
+}
+function sameCustomer(left,right){
+  if(left.customerId&&right.customerId)return String(left.customerId)===String(right.customerId);
+  const leftOrg=normalizedOrganisationNumber(left.customerOrgNumber);
+  const rightOrg=normalizedOrganisationNumber(right.customerOrgNumber);
+  if(leftOrg&&rightOrg)return leftOrg===rightOrg;
+  const leftName=canonicalCustomerName(left.customerName);
+  return Boolean(leftName&&leftName===canonicalCustomerName(right.customerName));
+}
 function invoiceSuggestion(payment){
-  const matches=invoiceCandidates(payment).map(invoice=>{
-    const by=referenceHasIdentifier(payment,invoice.ocr)?'OCR':referenceHasIdentifier(payment,invoice.invoiceNumber)?'fakturanummer':'';
-    return by?{invoice,by}:null;
-  }).filter(Boolean);
-  if(matches.length!==1)return{kind:matches.length>1?'ambiguous':'none'};
-  return{kind:'unique',...matches[0],partial:Number(payment.amountOre)<Number(matches[0].invoice.remainingOre)};
+  const amount=Number(payment?.amountOre);
+  const candidates=invoiceCandidates(payment).map(invoice=>({
+    invoice,
+    reference:referenceHasIdentifier(payment,invoice.ocr)?'OCR':referenceHasIdentifier(payment,invoice.invoiceNumber)?'fakturanummer':'',
+    org:organisationMatches(payment,invoice),
+    name:customerNameMatches(payment,invoice)
+  }));
+  const references=candidates.filter(candidate=>candidate.reference);
+  if(references.length>1)return{kind:'ambiguous',reason:'reference'};
+  if(references.length===1){
+    const only=references[0];
+    if(candidates.some(candidate=>(candidate.org||candidate.name)&&!sameCustomer(candidate.invoice,only.invoice)))
+      return{kind:'ambiguous',reason:'conflict'};
+    return{kind:'unique',invoice:only.invoice,by:only.reference,source:'reference',partial:amount<Number(only.invoice.remainingOre)};
+  }
+  const byOrg=candidates.filter(candidate=>candidate.org);
+  const byName=candidates.filter(candidate=>candidate.name);
+  if(byOrg.length&&byName.some(candidate=>!byOrg.some(org=>sameCustomer(org.invoice,candidate.invoice))))
+    return{kind:'ambiguous',reason:'conflict'};
+  const identity=byOrg.length?byOrg:byName;
+  if(identity.length>1)return{kind:'ambiguous',reason:'customer'};
+  if(identity.length===1){
+    const only=identity[0];
+    if(Number(only.invoice.remainingOre)!==amount)
+      return{kind:'partial',by:only.org?'organisationsnummer':'kundnamn'};
+    return{kind:'unique',invoice:only.invoice,by:only.org?'organisationsnummer':'kundnamn',source:'customer',partial:false};
+  }
+  return{kind:'none'};
 }
 function invoiceOptions(payment){
   const suggestion=invoiceSuggestion(payment);
@@ -65,11 +125,24 @@ function invoiceOptions(payment){
 }
 function invoiceSuggestionCard(payment){
   const suggestion=invoiceSuggestion(payment);
-  if(suggestion.kind==='ambiguous')return '<div class="invoice-match-tip invoice-match-ambiguous" role="note"><strong>Flera möjliga fakturor</strong><p>Flera fakturor har en matchande referens. Välj själv efter att ha kontrollerat underlaget.</p></div>';
-  if(suggestion.kind!=='unique')return `<p class="invoice-match-hint">${invoiceCandidates(payment).length?'Ingen tydlig träff på OCR eller fakturanummer. Kontrollera fakturan själv innan du väljer.':'Ingen öppen faktura kan ta emot hela beloppet. Kontrollera fakturorna innan du fortsätter.'}</p>`;
+  if(suggestion.kind==='ambiguous'){
+    const detail=suggestion.reason==='conflict'
+      ?'Referens och kunduppgifter pekar på olika kunder. Kontrollera vem betalningen avser innan du väljer faktura.'
+      :suggestion.reason==='customer'
+        ?'Flera öppna fakturor passar samma kunduppgift. Kontrollera fakturanummer och betalningsunderlag.'
+        :'Flera fakturor har en matchande referens. Välj själv efter att ha kontrollerat underlaget.';
+    return `<div class="invoice-match-tip invoice-match-ambiguous" role="note"><strong>Flera möjliga fakturor</strong><p>${esc(detail)}</p></div>`;
+  }
+  if(suggestion.kind==='partial')
+    return '<p class="invoice-match-hint">Kunduppgifter matchar, men beloppet är inte exakt lika med restbeloppet. Det kan vara en delbetalning. Välj faktura själv efter kontroll.</p>';
+  if(suggestion.kind!=='unique')
+    return `<p class="invoice-match-hint">${invoiceCandidates(payment).length?'Ingen tydlig träff på OCR eller fakturanummer. Inte heller en entydig kund- och beloppsträff. Kontrollera fakturan innan du väljer.':'Ingen öppen faktura kan ta emot hela beloppet. Kontrollera fakturorna innan du fortsätter.'}</p>`;
   const invoice=suggestion.invoice;
-  const detail=suggestion.partial?'Beloppet kan vara en delbetalning. Kontrollera återstående saldo.':'Beloppet stämmer med fakturans restbelopp.';
-  return `<div class="invoice-match-tip" role="note"><span class="invoice-match-eyebrow">Möjlig fakturaträff</span><strong>${esc(invoice.invoiceNumber)} · ${esc(invoice.customerName||'Okänd kund')}</strong><p>${esc(suggestion.by)} matchar betalningens referens. ${detail} Granska innan du skapar förslaget.</p><button type="button" class="button ghost small" data-action="use-suggestion" ${busy?'disabled':''}>Välj föreslagen faktura</button></div>`;
+  const weaker=suggestion.source==='customer';
+  const detail=weaker
+    ?`${suggestion.by==='organisationsnummer'?'Organisationsnummer i betalningsinformationen':'Betalarnamnet'} stämmer med kundregistret, och beloppet är exakt lika med fakturans restbelopp. Bankens betalare är inte identitetsverifierad. Kontrollera underlaget.`
+    :`${suggestion.by} matchar betalningens referens. ${suggestion.partial?'Beloppet kan vara en delbetalning. Kontrollera återstående saldo.':'Beloppet stämmer med fakturans restbelopp.'} Granska innan du skapar förslaget.`;
+  return `<div class="invoice-match-tip ${weaker?'invoice-match-customer':''}" role="note"><span class="invoice-match-eyebrow">${weaker?'Möjlig kundträff – extra kontroll':'Möjlig fakturaträff'}</span><strong>${esc(invoice.invoiceNumber)} · ${esc(invoice.customerName||'Okänd kund')}</strong><p>${esc(detail)}</p><button type="button" class="button ghost small" data-action="use-suggestion" ${busy?'disabled':''}>Välj föreslagen faktura</button></div>`;
 }
 
 function postingType(kind){
