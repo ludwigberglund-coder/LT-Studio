@@ -21,7 +21,7 @@ if(!button||!status||!actions||!yearInput||!detailYear||
 const defaultButtonLabel=button.textContent;
 let request=0;
 const allowedYears=/^(19|20|21)\d{2}$/;
-const allowedLinks=new Set(['./bank.html','./invoices.html','./payables.html','./accounting.html','./reports.html','./documents.html']);
+const allowedLinks=new Set(['./bank.html','./invoices.html','./payables.html','./accounting.html','./reports.html','./documents.html','./book-close-trial-balance.html']);
 function task(kind,title,description,href,label,priority){
  return {kind,title,description,href,label,priority};
 }
@@ -70,7 +70,7 @@ function renderOverview(plan){
  }
  // An unverified prerequisite must take priority over a reassuring "no anomaly" note.
  const first=plan.attention[0]||plan.unknown[0]||
-  plan.next.find(item=>item.priority===100)||plan.next[0];
+  plan.next.find(item=>item.priority===80)||plan.next.find(item=>item.priority===100)||plan.next[0];
  firstTitle.textContent=first?first.title:'Fortsätt med den slutliga avstämningen.';
  if(first?.href&&allowedLinks.has(first.href)){
   firstLink.href=first.href;
@@ -83,7 +83,7 @@ function renderOverview(plan){
  review.hidden=false;
 }
 function planFromResults(results){
- const [counts,ledger,evidence,cutoff]=results;
+ const [counts,ledger,evidence,cutoff,trial]=results;
  const attention=[],unknown=[],next=[];
  let periodEmpty=false;
  const add=(list,title,description,href,label,priority)=>{
@@ -154,6 +154,33 @@ function planFromResults(results){
     './accounting.html','Öppna bokföringen',16);
  }else add(unknown,'Historiska kontorörelser kunde inte kontrolleras.',
   'Vi kan inte intyga att historiken är komplett. Försök igen.',null,null,25);
+ // The trial balance checks period movements, not verified opening/closing balances.
+ if(trial.status==='fulfilled'&&trial.value?.status==='not_reconciled'&&
+    trial.value.counts&&trial.value.totals){
+  const report=trial.value;
+  const periodLines=BigInt(report.counts.period_lines);
+  const invalidLines=BigInt(report.counts.invalid_lines);
+  const debit=BigInt(report.totals.period_debit_ore);
+  const credit=BigInt(report.totals.period_credit_ore);
+  if(periodLines===0n&&!periodEmpty)
+   add(attention,'Inga bokförda kontorader hittades för kalenderåret.',
+    'Systemet hittar inga bokförda kontorader för perioden. Kontrollera att årets verifikationer har bokförts.',
+    './accounting.html','Öppna bokföringen',8);
+  if(invalidLines>0n)
+   add(attention,'Några kontorader innehåller felaktiga uppgifter.',
+    'Vi har granskat alla konton och hittat rader som behöver rättas eller granskas.',
+    './book-close-trial-balance.html','Se saldobalansen',3);
+  if(debit!==credit)
+   add(attention,'Bokföringens debet och kredit stämmer inte överens.',
+    'Summorna skiljer sig. Du behöver inte själv kunna kontona – låt en redovisningskunnig granska differensen.',
+    './book-close-trial-balance.html','Se saldobalansen',4);
+  if(periodLines>0n&&invalidLines===0n&&debit===credit)
+   add(next,'Se saldobalansens automatiskt summerade konton.',
+    'Systemet har summerat periodens kontorörelser, men bankkontoutdrag och ingående balans är fortfarande inte verifierade.',
+    './book-close-trial-balance.html','Visa saldobalansen',80);
+ }else add(unknown,'Saldobalansen kunde inte kontrolleras.',
+  'Det går inte att bekräfta kontonas summering för perioden. Försök igen eller be om hjälp.',
+  null,null,18);
  // These prerequisites have NOT been verified by the current read-only RPCs.
  add(next,'Återstår innan bokslutet kan godkännas.',
   'Bankkontoutdrag, ingående balans, faktisk räkenskapsperiod och andra tillämpliga uppgifter behöver fortfarande stämmas av. Detta görs inte av den här förkontrollen.',
@@ -199,16 +226,20 @@ button.addEventListener('click',async()=>{
   if(!session?.authenticated||!session.company?.id||!session.accessToken)throw Error('SESSION_REQUIRED');
   const companyId=session.company.id;
   const args={companyId,year,token:session.accessToken,client:root.LTSupabase};
-  const [counts,ledger,evidence,cutoff]=await Promise.allSettled([
+  const [counts,ledger,evidence,cutoff,trial]=await Promise.allSettled([
    root.LTYearCloseCounts.scan(args),
    root.LTBookCloseLedger.inspect(args),
    root.LTBookCloseEvidence.inspect(args),
-   root.LTBookCloseCutoff.inspect(args)
+   root.LTBookCloseCutoff.inspect(args),
+   root.LTBookCloseTrialBalance.inspect({
+    companyId,token:session.accessToken,client:root.LTSupabase,
+    start:year+'-01-01',end:(Number(year)+1)+'-01-01'
+   })
   ]);
   const fresh=await root.LTSupabaseUat.context();
   if(ticket!==request||!fresh?.authenticated||fresh.company?.id!==companyId||
      yearInput.value!==year||detailYear.value!==year)throw Error('STALE_SESSION_OR_YEAR');
-  const plan=planFromResults([counts,ledger,evidence,cutoff]);
+  const plan=planFromResults([counts,ledger,evidence,cutoff,trial]);
   renderOverview(plan);
   for(const item of [...plan.attention,...plan.unknown,...plan.next])renderTask(item);
   const questions=plan.attention.length,unknown=plan.unknown.length;
