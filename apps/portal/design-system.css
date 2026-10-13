@@ -3646,3 +3646,86 @@ html[data-lt-theme="dark"] .batch-editor>.batch-actions{
   }
   .payments-content .report-head :where(h2, p) { overflow-wrap: anywhere; }
 }
+
+
+/* Accessible AI entry point and in-workflow guidance. No AI or financial write action. */
+.shared-navigation .shared-links a[data-nav-id="ai-assistant"]{
+  background:#dfe9ad!important;
+  color:#173f32!important;
+  border:1px solid #e5e5e5!important;
+  font-weight:800!important;
+}
+.shared-navigation .shared-links a[data-nav-id="ai-assistant"]:hover,
+.shared-navigation .shared-links a[data-nav-id="ai-assistant"][aria-current="page"]{
+  background:#ffffff!important;
+  color:#173f32!important;
+}
+.shared-sidebar .shared-navigation .shared-links a[data-nav-id="ai-assistant"]>.ui-icon,
+html[data-lt-theme="dark"] .shared-sidebar .shared-navigation .shared-links a[data-nav-id="ai-assistant"]>.ui-icon{
+  color:#173f32!important;
+  opacity:1!important;
+}
+.lt-contextual-ai{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px 22px;
+  grid-column:1/-1;
+  min-width:0;
+  width:100%;
+  margin:0 0 20px;
+  padding:18px 20px;
+  border:1px solid var(--line, #e5e5e5);
+  border-radius:16px;
+  background:var(--surface-card, var(--paper, #fff));
+  color:var(--color-ink, #0a0a0a);
+}
+.lt-contextual-ai>div{flex:1 1 260px;min-width:0}
+.lt-contextual-ai strong{display:block;color:var(--color-ink, #0a0a0a);font-size:16px;line-height:1.4}
+.lt-contextual-ai p{margin:6px 0 0;max-width:610px;color:var(--muted, #737373);font-size:13px;line-height:1.6}
+.lt-contextual-ai .lt-contextual-ai-action{
+  display:inline-flex;align-items:center;justify-content:center;
+  flex:0 1 auto;max-width:100%;min-height:44px;
+  padding:11px 16px;border-radius:11px;border:1px solid var(--color-ink, #0a0a0a);
+  background:var(--color-ink, #0a0a0a);color:var(--color-paper, #fff);
+  font-weight:750;font-size:13px;line-height:1.4;text-align:center;
+  text-decoration:none;white-space:normal;overflow-wrap:anywhere;
+}
+.lt-contextual-ai .lt-contextual-ai-action:hover{opacity:.86}
+.lt-contextual-ai .lt-contextual-ai-action:focus-visible{
+  outline:3px solid var(--color-ink, #0a0a0a);outline-offset:3px;
+}
+@media(max-width:700px){
+  .lt-contextual-ai{padding:15px 16px;margin-bottom:16px}
+  .lt-contextual-ai .lt-contextual-ai-action{width:100%;flex-basis:100%}
+}
+
+
+/* Dark-mode contrast for the embedded AI guide and its sidebar entry. */
+html[data-lt-theme="dark"] .shared-navigation .shared-links a[data-nav-id="ai-assistant"],
+html[data-lt-theme="dark"] .shared-navigation .shared-links a[data-nav-id="ai-assistant"]:hover,
+html[data-lt-theme="dark"] .shared-navigation .shared-links a[data-nav-id="ai-assistant"][aria-current="page"]{
+  background:var(--lt-dark-surface, #222222)!important;
+  color:var(--lt-dark-text, #ffffff)!important;
+  border-color:var(--lt-dark-border, #555555)!important;
+}
+html[data-lt-theme="dark"] .shared-sidebar .shared-navigation .shared-links a[data-nav-id="ai-assistant"]>.ui-icon{
+  color:var(--lt-dark-text, #ffffff)!important;
+}
+html[data-lt-theme="dark"] .lt-contextual-ai{
+  background:var(--lt-dark-surface, #222222)!important;
+  border-color:var(--lt-dark-border, #555555)!important;
+  color:var(--lt-dark-text, #ffffff)!important;
+}
+html[data-lt-theme="dark"] .lt-contextual-ai :is(strong,p){
+  color:var(--lt-dark-text, #ffffff)!important;
+}
+html[data-lt-theme="dark"] .lt-contextual-ai .lt-contextual-ai-action{
+  background:var(--lt-dark-text, #ffffff)!important;
+  color:var(--lt-dark-surface, #222222)!important;
+  border-color:var(--lt-dark-text, #ffffff)!important;
+}
+html[data-lt-theme="dark"] .lt-contextual-ai .lt-contextual-ai-action:focus-visible{
+  outline-color:var(--lt-dark-text, #ffffff);
+}
