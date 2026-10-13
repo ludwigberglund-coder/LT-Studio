@@ -125,7 +125,7 @@
       '<input id="ai-assistant-query" type="text" role="searchbox" inputmode="search" maxlength="160" autocomplete="off" placeholder="Exempel: Jag har en betalning som inte matchar en faktura" value="'+esc(query)+'">'+
       '<p>Sökningen matchar färdiga guider lokalt i webbläsaren. Den är <strong>inte ett AI-svar</strong>, skickar ingen text till AI och sparar inga sökningar. Skriv inte in känsliga kunduppgifter.</p>'+
       '<div class="ai-assistant-scopes" role="group" aria-label="Välj ekonomiområde">'+
-      allowed.map(item=>'<button type="button" data-ai-scope="'+esc(item.id)+'" aria-pressed="'+String(item.id===selectedScope)+'">'+esc(item.label)+'</button>').join('')+
+      allowed.map(item=>'<button type="button" data-ai-scope="'+esc(item.id)+'" aria-pressed="'+String(item.id===selectedScope)+'" aria-label="Visa guider för '+esc(item.label)+'">'+esc(item.label)+'</button>').join('')+
       '</div></section>'+
       '<section aria-label="Guider och nästa steg"><div class="ai-assistant-section-heading"><h2>Så kan du gå vidare</h2><p id="ai-assistant-results-status" role="status" aria-live="polite"></p></div>'+
       '<div id="ai-assistant-results" class="ai-assistant-grid"></div></section></details>'+
