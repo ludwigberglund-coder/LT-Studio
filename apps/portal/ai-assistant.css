@@ -128,3 +128,6 @@ html[data-lt-theme="dark"] .ai-bookkeeper-actions a+a{
   color:var(--lt-dark-text,#ffffff)!important;
   border-color:var(--lt-dark-text,#ffffff)!important;
 }
+
+/* Closed guide content must not expose focusable or apparently visible controls. */
+.ai-assistant-guides:not([open])>section{display:none!important}
