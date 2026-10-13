@@ -20,13 +20,11 @@ Samma server hanterar origin-kontroll, verifierad JWT, personlig AAL2-session, f
 
 `test/ai-edge-ten-process-dispatch.test.js` testar statiskt att samma Edge-funktion används, att spärren ligger först, att alla fem kvotfält skickas vidare, att det gamla fakturasvaret bevaras och att den nya processgrenen aldrig skriver pengar eller bokföring.
 
-## Gränssnitt: säker syntetisk testpanel
+## Gränssnitt och samordning
 
-`apps/portal/ai-assistant.js` och `ai-assistant.css` lägger till en responsiv testpanel i den redan befintliga AI-fliken för inloggade administratörer och redovisare.
-Det går att välja alla tio fasta ekonomiska testprocesser och – först när serverpiloten separat godkänts – klicka **Prova AI (pilot)**. Fram till dess visar servern 503/404 och ett begripligt meddelande.
-Panelen skickar **endast** `companyId`, en fördefinierad `purpose` och ett nytt `requestId` via `LTSupabase.functions.invoke('ai-bookkeeping-pilot', ...)`, aldrig sökfrågor, belopp, PDF eller annan inmatad data.
-UI:t verifierar företag, källa, process, schema och manuellt granskningskrav i svaret innan det visas. Svaret HTML-escapas och sparas aldrig som bokföring eller automationsförslag.
-I demovyn sker inga externa anrop och användare utan rätt roll får inga pilotkontroller. `test/ai-assistant-synthetic-pilot.test.js` och uppdaterade portaltester täcker alla tio processer, säkerhetsfel, obehörighet, tenant-byte och svarsförfalskning.
+Den separata AI-bokförararbetsytan byggs i PR #800. Denna PR avgränsas avsiktligt till **befintlig Edge-gateway, säkert syntetiskt processkontrakt och serverregressioner** så att flera agenter inte redigerar samma kundportal.
+
+När PR #800 är mergad kan en separat gränssnitts-PR ansluta testknappen till samma spärrade `ai-bookkeeping-pilot` med exakt `{companyId,purpose,requestId}`. Den ska inte skicka fritext, kvitton eller privata kunduppgifter, och ska granska `manual-review`, `posted:false`, `synthetic:true` före visning.
 
 ## Kvar innan verklig AI
 
