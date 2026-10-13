@@ -10,6 +10,21 @@
     readonly:new Set(['invoices.html','index.html','payables.html','supplier-ledger.html','documents.html','reports.html','bokslut.html']),
     approver:new Set(['payables.html','supplier-ledger.html','documents.html','payments.html','automation.html','batches.html','accounting.html','reports.html','bokslut.html'])
   });
+  // The options mirror the server's fixed synthetic purpose enum. A future
+  // release may expose these only after the same authenticated Edge gateway
+  // passes hosted UAT; this page cannot enable or bypass that gateway.
+  const pilotPurposes=Object.freeze([
+    ['customer-invoice-review','Kundfakturor'],
+    ['supplier-invoice-review','Leverantörsfakturor'],
+    ['bank-reconciliation','Bankavstämning'],
+    ['unplaced-payment','Oplacerade betalningar'],
+    ['vat-review','Moms'],
+    ['report-explanation','Ekonomirapporter'],
+    ['month-close','Månadsavstämning'],
+    ['year-close','Bokslut'],
+    ['payroll-review','Löner'],
+    ['inventory-review','Lager']
+  ]);
   const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[char]));
@@ -17,6 +32,7 @@
   let selectedScope=catalog.scope(params.get('from'));
   if(selectedScope==='all')selectedScope=catalog.contextForPage(params.get('from'));
   let query='';
+  let pilotPurpose=pilotPurposes[0][0],pilotBusy=false,pilotMessage='',pilotResult=null;
   function role(){
     return demo?'admin':String(session?.membership?.role||'');
   }
@@ -56,6 +72,55 @@
     list.innerHTML=guides.length?guides.map(guideMarkup).join(''):
       '<div class="ai-assistant-empty"><strong>Inga träffar ännu</strong><p>Prova till exempel ”oidentifierad betalning”, ”kvitto” eller ”bokslut”.</p></div>';
   }
+  function validatedPilotResult(value,requestId,companyId,purpose){
+    const allowedKeys=['schemaVersion','companyId','purpose','sourceId','status','posted','synthetic','requiresHumanApproval','advice'];
+    const isRecord=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
+    if(!isRecord(value)||Object.keys(value).length!==allowedKeys.length||
+       Object.keys(value).some(key=>!allowedKeys.includes(key))||
+       value.schemaVersion!==1||value.companyId!==companyId||
+       value.purpose!==purpose||value.sourceId!=='synthetic-'+purpose+'-'+requestId||
+       value.status!=='manual-review'||value.posted!==false||
+       value.synthetic!==true||value.requiresHumanApproval!==true){
+      throw new Error('UNSAFE_AI_PREVIEW');
+    }
+    const advice=value.advice;
+    if(!isRecord(advice)||Object.keys(advice).length!==3||
+       Object.keys(advice).some(key=>!['decision','explanation','uncertainties'].includes(key))||
+       !['review-source','review-numbers','ask-human'].includes(advice.decision)||
+       typeof advice.explanation!=='string'||advice.explanation.length<16||
+       advice.explanation.length>240||/[\u0000-\u001f\u007f<>\u202a-\u202e\u2066-\u2069]/u.test(advice.explanation)||
+       !Array.isArray(advice.uncertainties)||advice.uncertainties.length>3||
+       !advice.uncertainties.every(text=>typeof text==='string'&&text.length>=8&&
+         text.length<=120&&!/[\u0000-\u001f\u007f<>\u202a-\u202e\u2066-\u2069]/u.test(text))){
+      throw new Error('UNSAFE_AI_PREVIEW');
+    }
+    return {decision:advice.decision,explanation:advice.explanation,
+      uncertainties:[...advice.uncertainties]};
+  }
+  function pilotPanel(canTest){
+    if(!canTest)return '';
+    const canCall=!demo&&liveHost&&Boolean(session?.authenticated&&session?.company?.id);
+    const ready=canCall&&!pilotBusy;
+    const result=pilotResult
+      ?'<div class="ai-finance-pilot-result"><strong>AI:s syntetiska granskningsförslag – inte bokfört</strong>'+
+       '<p>'+esc(pilotResult.explanation)+'</p>'+
+       (pilotResult.uncertainties.length?'<ul>'+pilotResult.uncertainties.map(item=>'<li>'+esc(item)+'</li>').join('')+'</ul>':'')+
+       '<small>Detta är ett test med påhittade uppgifter. Förslaget sparas inte i bokföringen eller automationskön.</small></div>'
+      :'';
+    return '<section class="ai-finance-pilot" aria-labelledby="ai-finance-pilot-heading">'+
+      '<span class="eyebrow">Syntetiskt AI-test</span>'+
+      '<h2 id="ai-finance-pilot-heading">Testa AI inom tio ekonomiområden</h2>'+
+      '<p>Välj ett påhittat testfall. Inga fakturor, saldon, dokument eller personuppgifter skickas. Modellen är fortfarande avstängd tills säkerhetstester och separat aktivering godkänts.</p>'+
+      '<div class="ai-finance-pilot-controls"><label for="ai-finance-purpose">Ekonomiområde</label>'+
+      '<select id="ai-finance-purpose" '+(pilotBusy?'disabled':'')+'>'+
+      pilotPurposes.map(item=>'<option value="'+esc(item[0])+'"'+(pilotPurpose===item[0]?' selected':'')+'>'+esc(item[1])+'</option>').join('')+
+      '</select><button type="button" data-ai-run-pilot '+(ready?'':'disabled')+'>'+
+      (pilotBusy?'Kontrollerar…':'Prova AI (pilot)')+'</button></div>'+
+      '<p class="ai-finance-pilot-note">Sökfrågan ovan skickas aldrig till AI. Testet går via samma spärrade serverfunktion och dess budgetkontroller.</p>'+
+      '<div class="ai-finance-pilot-status" role="status" aria-live="polite">'+
+      esc(pilotMessage||(canCall?'Inget AI-förslag har hämtats.':'I demovyn kan du endast använda guider och fasta exempel.'))+'</div>'+
+      result+'</section>';
+  }
   function sidebar(){
     const suffix=demo?'?demo=1':'';
     return '<aside class="sidebar"><div class="logo"><strong>LT Studio</strong><small>FÖRETAGSPORTAL</small></div>'+
@@ -88,7 +153,7 @@
       '<div id="ai-assistant-results" class="ai-assistant-grid"></div></section>'+
       '<section class="ai-assistant-pilot"><div><span class="eyebrow">Nästa steg: riktig AI</span><h2>AI-förslag kommer byggas in i varje arbetsflöde</h2>'+
       '<p>Det befintliga AI-testet använder endast påhittade fakturor. För verkliga ekonomidata krävs först verifierad serverbehörighet, företagsisolering, budgetskydd och granskning. AI ska alltid lämna förslag – aldrig bokföra eller betala utan godkännande.</p></div>'+
-      '<div class="ai-assistant-pilot-action">'+pilotLink+'</div></section>'+
+      '<div class="ai-assistant-pilot-action">'+pilotLink+'</div></section>'+pilotPanel(canTest)+
       '</main></section></div>';
     renderResults();
   }
@@ -97,7 +162,50 @@
     query=String(event.target.value||'').slice(0,160);
     renderResults();
   });
+  document.addEventListener('change',event=>{
+    if(event.target?.id!=='ai-finance-purpose'||pilotBusy)return;
+    const next=String(event.target.value||'');
+    if(!pilotPurposes.some(item=>item[0]===next))return;
+    pilotPurpose=next;pilotResult=null;pilotMessage='';render();
+  });
+  async function runPilot(){
+    if(pilotBusy||demo||!liveHost||!['admin','accountant'].includes(role())||
+       !session?.authenticated||!session?.company?.id)return;
+    pilotBusy=true;pilotResult=null;pilotMessage='Kontrollerar AI-pilotens tillgänglighet…';render();
+    try{
+      if(typeof crypto?.randomUUID!=='function'||typeof window.LTSupabase?.functions?.invoke!=='function'){
+        throw new Error('AI_PILOT_UNAVAILABLE');
+      }
+      const current=await window.LTSupabaseUat.context();
+      if(!current?.authenticated||!current?.company?.id||
+         String(current.company.id)!==String(session.company.id)||
+         !['admin','accountant'].includes(current.membership?.role)){
+        throw new Error('AI_TEST_ACCESS_DENIED');
+      }
+      const requestId='ai-finance-'+crypto.randomUUID();
+      const response=await window.LTSupabase.functions.invoke('ai-bookkeeping-pilot',{
+        companyId:String(current.company.id),purpose:pilotPurpose,requestId
+      },current.accessToken);
+      pilotResult=validatedPilotResult(response,requestId,String(current.company.id),pilotPurpose);
+      pilotMessage='Förslaget är ett syntetiskt AI-test. Ingenting är bokfört eller sparat.';
+    }catch(error){
+      const code=String(error?.code||error?.data?.code||'');
+      pilotMessage=code==='AI_TEST_ACCESS_DENIED'||error?.status===401||error?.status===403
+        ?'Du saknar giltig session eller behörighet för AI-testet.'
+        :code==='AI_PILOT_NOT_RELEASED'||code==='AI_PILOT_DISABLED'||error?.status===404
+          ?'AI-piloten är ännu inte aktiverad. De lokala guiderna fungerar som vanligt.'
+          :code==='BUDGET_NOT_RESERVED'||error?.status===429
+            ?'AI-testets kostnadsgräns är nådd. Inga uppgifter har ändrats.'
+            :'AI-förslaget kunde inte visas säkert. Inga uppgifter har ändrats.';
+      pilotResult=null;
+    }finally{pilotBusy=false;render();}
+  }
   document.addEventListener('click',event=>{
+    const pilotButton=event.target?.closest?.('[data-ai-run-pilot]');
+    if(pilotButton){
+      if(!pilotButton.disabled)void runPilot();
+      return;
+    }
     const button=event.target?.closest?.('[data-ai-scope]');
     if(!button)return;
     const next=catalog.scope(button.dataset.aiScope);
