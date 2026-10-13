@@ -26,11 +26,13 @@ Ett grönt `structurallySafe` visar bara att det testade flödet håller sig ino
 
 - `packages/automation/ai-synthetic-quality-gate.mjs` – två rena funktioner: `validateReviewOnlySyntheticProposal` för ett förslag och `evaluateSyntheticAiSafety` för ett helt testbatteri.
 - `test/ai-synthetic-quality-gate.test.js` – tio ekonomiområden med åtminstone två scenarier per område, osäkra AI-svar, falsk företagsidentitet, ändrade faktakällor, oväntad godkännandestatus, prompt injection, övertagande av metadata, driftfel, luckor i testtäckning och sekretess i rapporter.
+- `test/ai-finance-quality-integration.test.js` – 40 fall mot den riktiga, avstängda AI-processmotorn med simulerad Auth, RLS, kvot och leverantör, inklusive att fel stoppas före modell- och kvotanrop.
+- `packages/automation/ai-finance-process-orchestrator.mjs` – återanvänder grinden som obligatoriskt, leverantörsoberoende postvillkor; även om formataren ändras får inget AI-förslag läcka som bokfört, godkänt eller fel företags data.
 - Existerande `npm test` plockar automatiskt upp filen som en del av GitHubs kvalitetstester. Inga nya beroenden.
 
-## Nästa integration när pågående AI-motor-PR är mergad
+## Integrerad mot den mergade AI-motorn, med fortsatta releasegrindar
 
-1. Kör samma matris **mot den riktiga syntetiska processorkestratorn**, med mockad verifierad Supabase-session, atomär kvotreservation och en simulerad modell, så att testen granskar faktiskt produktionsnära kod i stället för endast gränsens egen logik.
+1. **Genomfört:** `test/ai-finance-quality-integration.test.js` kör 40 verifieringar på den riktiga syntetiska processorkestratorn med mockad Supabase-session, AAL2/JWT, företag A/B, atomär kvot och en simulerad modell. Otillåtna roller, annat företag, modellfält som försöker bokföra och osäkra Unicode-tecken ska stoppas. `ai-finance-process-orchestrator.mjs` tillämpar nu dessutom `validateReviewOnlySyntheticProposal` som ett obligatoriskt sista servervillkor innan ett förslag returneras. Ingen live-anslutning eller ekonomisk skrivning aktiveras.
 2. Lägg till en separat versionsstyrd *bokföringskvalitetsmatris* för svenska skattesatser och undantag, utlands- och kreditfakturor, bruten period, dubbletter, otydligt underlag och intrångsförsök. Bokföringskorrekthet måste mätas och godkännas separat.
 3. Verifiera varje leverantörsmodell med samma testfall och kostnadsgränser före varje modellbyte. Fäll hellre tillbaka till regelstyrt/manuellt flöde än betald leverantör utan användarens beslut.
 4. Lås inte upp avstängda `ai-bookkeeping-pilot` eller motsvarande funktion förrän hostad trusted-IP-kontroll, tvåföretags-UAT, GDPR/DPA, redovisningsgranskning och separat releasegodkännande är dokumenterat.
