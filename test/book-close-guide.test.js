@@ -84,6 +84,7 @@ function harness(overrides = {}) {
     LTBookCloseLedger: {inspect:ledger},
     LTBookCloseEvidence: {inspect:evidence},
     LTBookCloseCutoff: {inspect:cutoff},
+    LTBookCloseTrialBalance: {inspect:overrides.trial || (async args => {calls.push({type:'trial',...args});return {status:'not_reconciled',counts:{period_lines:'12',invalid_lines:'0'},totals:{period_debit_ore:'1500',period_credit_ore:'1500'}};})},
     URLSearchParams
   };
   vm.runInNewContext(js, sandbox, {filename:'book-close-simple.js'});
@@ -97,8 +98,8 @@ function harness(overrides = {}) {
 test('one click checks existing data and shows safe Swedish actions with relevant links', async () => {
   const h = harness();
   await h.click();
-  assert.equal(h.calls.length, 4);
-  assert.ok(h.calls.every(entry=>entry.companyId==='company-A' && entry.year==='2026'));
+  assert.equal(h.calls.length, 5);
+  assert.ok(h.calls.every(entry=>entry.companyId==='company-A' && (entry.year==='2026'||(entry.start==='2026-01-01'&&entry.end==='2027-01-01'))));
   assert.match(h.refs['book-close-simple-status'].textContent,/2 möjliga frågor/);
   assert.match(h.refs['book-close-simple-status'].textContent,/Bokslutet är inte verifierat/);
   assert.ok(h.texts().some(x=>x.includes('betalningar')));
@@ -138,7 +139,7 @@ test('changing the selected year invalidates old results and syncs the advanced 
   assert.equal(h.refs['year-close-year'].value,'2025');
   assert.match(h.refs['book-close-simple-status'].textContent,/Starta förkontrollen igen/);
   await h.click();
-  assert.ok(h.calls.every(x=>x.year==='2025'));
+  assert.ok(h.calls.every(x=>x.year==='2025'||(x.start==='2025-01-01'&&x.end==='2026-01-01')));
 });
 
 test('demo does not call the secure server or pretend checks ran', () => {
@@ -314,10 +315,30 @@ test('a failed session cannot leave stale success summary visible',async()=>{
 test('invalid year hides previous company figures and avoids new requests',async()=>{
   const h=harness();
   await h.click();
-  assert.equal(h.calls.length,4);
+  assert.equal(h.calls.length,5);
   h.year('2200');
   await h.click();
   assert.equal(h.refs['book-close-review'].hidden,true);
-  assert.equal(h.calls.length,4);
+  assert.equal(h.calls.length,5);
   assert.match(h.refs['book-close-simple-status'].textContent,/giltigt kalenderår/);
+});
+
+test('trial balance discrepancy requires attention and safe drilldown',async()=>{
+ const h=harness({trial:async()=>({status:'not_reconciled',counts:{period_lines:'8',invalid_lines:'1'},totals:{period_debit_ore:'1200',period_credit_ore:'1000'}})});
+ await h.click();
+ assert.ok(h.texts().some(x=>x.includes('debet och kredit')));
+ assert.ok(h.texts().some(x=>x.includes('felaktiga uppgifter')));
+ assert.equal(h.refs['book-close-first-link'].href,'./book-close-trial-balance.html');
+});
+test('missing trial balance is unknown, not verified',async()=>{
+ const h=harness({trial:async()=>{throw Error('DENIED');}});
+ await h.click();
+ assert.ok(h.texts().some(x=>x.includes('Saldobalansen kunde inte kontrolleras')));
+ assert.match(h.refs['book-close-simple-status'].textContent,/1 kontroll utan säkert resultat/);
+});
+test('missing calendar period rows do not produce a green outcome',async()=>{
+ const h=harness({trial:async()=>({status:'not_reconciled',counts:{period_lines:'0',invalid_lines:'0'},totals:{period_debit_ore:'0',period_credit_ore:'0'}})});
+ await h.click();
+ assert.ok(h.texts().some(x=>x.includes('Inga bokförda kontorader')));
+ assert.match(h.refs['book-close-simple-status'].textContent,/Bokslutet är inte verifierat/);
 });
