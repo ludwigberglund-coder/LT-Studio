@@ -46,3 +46,18 @@ html[data-lt-theme="dark"] .month-close-coverage-mismatch{background:#4b3825;bor
 .month-close-bank-review{margin-top:10px;padding:10px 12px;border:1px solid var(--color-hairline,#dfe7e2);border-radius:10px;background:var(--surface-card,#fff)}
 .month-close-bank-review p{margin:0;line-height:1.5;font-size:12px}
 html[data-lt-theme="dark"] .month-close-bank-review{background:var(--lt-dark-surface,#242c29);border-color:var(--lt-dark-border,#48544d)}
+
+/* Prioriterad läsbaserad vägledning. Ingen automatisk avstämning. */
+.month-close-next-step{margin-top:16px;padding:16px 18px;border:1px solid #b5d8c6;border-left:4px solid #338563;border-radius:13px;background:var(--surface-alt,#f4f8f6)}
+.month-close-next-step h3{font-size:17px;margin:7px 0 8px;color:var(--color-ink,#173f32)}
+.month-close-next-step p{margin:0;line-height:1.6}
+.month-close-next-action{margin-top:12px}
+.month-close-next-action a{font-weight:750;text-decoration:underline;text-underline-offset:4px;color:var(--brand-forest,#173f32)}
+.month-close-next-action a:focus-visible,.month-close-all-checks summary:focus-visible{outline:3px solid var(--brand-forest,#173f32);outline-offset:4px}
+.month-close-all-checks{margin-top:18px}
+.month-close-all-checks summary{cursor:pointer;font-weight:750;padding:13px;border-radius:10px;background:var(--surface-alt,#f4f8f6)}
+html[data-lt-theme="dark"] .month-close-next-step{background:var(--lt-dark-surface-soft,#303b35);border-color:#658c79}
+html[data-lt-theme="dark"] .month-close-next-step h3{color:#f5fbf7}
+html[data-lt-theme="dark"] .month-close-next-action a{color:var(--brand-lime,#d5e5aa)}
+html[data-lt-theme="dark"] .month-close-all-checks summary{background:var(--lt-dark-surface-soft,#303b35);color:#f5fbf7}
+@media(max-width:780px){.month-close-next-step{padding:14px}}
