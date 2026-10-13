@@ -80,7 +80,13 @@ test('Edge imports are pinned and no additional HTTP or model endpoints are intr
   assert.match(edge,/npm:@supabase\/supabase-js@2\.117\.1/);
   assert.equal((edge.match(/Deno\.serve\(/g)||[]).length,1);
   assert.equal((edge.match(/"https:\/\/api\.cloudflare\.com/g)||[]).length,0);
-  assert.doesNotMatch(edge,/https:\/\/(?!ludwigberglund-coder\.github\.io)/);
+  const allowedHost='ludwigberglund-coder.github.io';
+  const httpsFragments=edge.split('https://').slice(1);
+  assert.ok(httpsFragments.length>0);
+  for(const fragment of httpsFragments){
+    assert.equal(fragment.startsWith(allowedHost),true);
+    assert.equal(['/',"'",'"','`'].includes(fragment[allowedHost.length]),true);
+  }
   assert.doesNotMatch(edge,/CLOUDFLARE_AI_TOKEN.*console\.log/);
   assert.doesNotMatch(edge,/Access-Control-Allow-Origin":"\*"/);
 });
