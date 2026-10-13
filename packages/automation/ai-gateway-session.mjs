@@ -34,8 +34,16 @@ function verifiedSessionId(claims, verifiedUserId) {
   }
   return claims.session_id;
 }
-async function preflightSyntheticPilot({ body, accessToken, userClient }) {
-  const request = validateRequest(body);
+// Only server-authenticated membership reads can mint an accepted session proof.
+// A caller cannot emulate this with {verified:true} in a request body.
+const VERIFIED_AI_SESSIONS=new WeakSet();
+function isVerifiedAiSession(context) {
+  return Boolean(context&&typeof context==='object'&&VERIFIED_AI_SESSIONS.has(context));
+}
+async function verifyAiCompanySession({ companyId, accessToken, userClient }) {
+  if(typeof companyId!=='string'||!/^[a-zA-Z0-9._:-]{6,100}$/.test(companyId)){
+    throw fail('INVALID_COMPANY');
+  }
   if (!userClient || typeof userClient.auth?.getUser !== 'function' ||
       typeof userClient.from !== 'function') throw fail('BACKEND_NOT_CONFIGURED');
 
@@ -49,35 +57,43 @@ async function preflightSyntheticPilot({ body, accessToken, userClient }) {
   const sessionId = verifiedSessionId(claims, userId);
 
   // This MUST be a user-scoped client (Authorization: Bearer <accessToken>).
-  // Existing company_memberships restrictive RLS invokes the personal-session
-  // server guard, including auth.sessions revocation and disabled user checks.
+  // The restrictive company_memberships RLS invokes the personal session guard,
+  // including auth.sessions revocation and disabled user checks.
   // Never replace this with service-role/admin table reads.
   let membershipResult;
   try {
     membershipResult = await userClient
       .from('company_memberships')
       .select('company_id,auth_user_id,role')
-      .eq('company_id', request.companyId)
+      .eq('company_id', companyId)
       .eq('auth_user_id', userId)
       .maybeSingle();
   } catch { throw fail('ACCESS_DENIED'); }
   if (membershipResult?.error) throw fail('ACCESS_DENIED');
   const access = validateAuthorization({
-    requestedCompany: request.companyId,
+    requestedCompany: companyId,
     verifiedUserId: userId,
     membership: membershipResult?.data,
     aal: claims.aal,
-    sessionIsCurrent: true // RLS-personal-session guard required on membership read.
+    sessionIsCurrent: true // Personal-session guard required in membership RLS.
   });
-  const invoice = syntheticInvoice(request, access);
-  return Object.freeze({
-    request,
-    invoice,
-    trustedContext: Object.freeze({
-      verified: true, pilotMode: 'synthetic',
-      companyId: access.companyId, actorId: userId,
-      sessionId, aal: 'aal2'
-    })
+  const trustedContext=Object.freeze({
+    verified:true,pilotMode:'synthetic',
+    companyId:access.companyId,actorId:userId,
+    sessionId,aal:'aal2'
   });
+  VERIFIED_AI_SESSIONS.add(trustedContext);
+  return trustedContext;
 }
-export { decodeVerifiedClaims, verifiedSessionId, preflightSyntheticPilot };
+async function preflightSyntheticPilot({ body, accessToken, userClient }) {
+  const request = validateRequest(body);
+  const trustedContext=await verifyAiCompanySession({
+    companyId:request.companyId, accessToken, userClient
+  });
+  const invoice = syntheticInvoice(request, trustedContext);
+  return Object.freeze({ request, invoice, trustedContext });
+}
+export {
+  decodeVerifiedClaims, verifiedSessionId, verifyAiCompanySession,
+  isVerifiedAiSession, preflightSyntheticPilot
+};
