@@ -9,7 +9,10 @@ const vm=require('node:vm');
 const source=fs.readFileSync(path.join(__dirname,'../apps/portal/unplaced-payments.js'),'utf8');
 
 async function harness(options={}){
-  const fields={invoice:'invoice-first',account:'',description:''};
+  const fields={invoice:'invoice-first',kind:'',account:'',description:'',confirmed:false};
+  const preview={innerHTML:''};
+  const resolveButton={disabled:true};
+  const accountControl={readOnly:false};
   const calls=[];
   const invokeErrors=[];
   let proposalResult={proposal_id:'proposal-qa',status:'manual-review',duplicate:false};
@@ -25,8 +28,13 @@ async function harness(options={}){
       renderCount+=1;
       // Assign the real select/input defaults that a fresh render would create.
       fields.invoice='invoice-first';
+      fields.kind='';
       fields.account='';
       fields.description='';
+      fields.confirmed=false;
+      preview.innerHTML='';
+      resolveButton.disabled=true;
+      accountControl.readOnly=false;
     }
   };
   const ctx={
@@ -49,8 +57,15 @@ async function harness(options={}){
     getElementById:(id)=>id==='unplaced-payments-app'?app:null,
     addEventListener:(name,listener)=>{listeners[name]=listener},
     querySelector:(selector)=>{
+      if(selector==='[data-role="posting-preview"]')return preview;
+      if(selector==='[data-action="resolve"]')return resolveButton;
       const field=selector.match(/data-field="([^"]+)"/)?.[1];
-      return field?{get value(){return fields[field]},set value(value){fields[field]=value}}:null;
+      if(!field)return null;
+      return {
+        get value(){return fields[field]},set value(value){fields[field]=value},
+        get checked(){return Boolean(fields[field])},set checked(value){fields[field]=Boolean(value)},
+        get readOnly(){return accountControl.readOnly},set readOnly(value){accountControl.readOnly=Boolean(value)}
+      };
     }
   };
   const window={
@@ -81,6 +96,10 @@ async function harness(options={}){
 
   return {
     fields,calls,failNextInvoke:(message)=>invokeErrors.push(message),setProposalResult:(result)=>{proposalResult=result},getSelectedInvoice:()=>fields.invoice,getRenderCount:()=>renderCount,getHtml:()=>html,
+    getPreview:()=>preview.innerHTML,getPostDisabled:()=>resolveButton.disabled,getAccountReadOnly:()=>accountControl.readOnly,
+    choose(kind){fields.kind=kind;listeners.change({target:{dataset:{field:'kind'}}})},
+    confirm(checked=true){fields.confirmed=checked;listeners.change({target:{dataset:{field:'confirmed'}}})},
+    type(field,value){fields[field]=value;listeners.input({target:{dataset:{field}}})},
     async click(action){
       const button={dataset:{action}};
       const target={closest:(selector)=>selector==='[data-action]'?button:null};
@@ -102,11 +121,13 @@ test('manual invoice matching sends the actually selected invoice, not the first
   assert.ok(ui.getRenderCount()>before,'the UI should update after the operation');
 });
 
-test('other-income preserves the manually entered accounting account and description',async()=>{
+test('other-income preserves explicitly entered account and description',async()=>{
   const ui=await harness();
-  ui.fields.account='3990';
-  ui.fields.description='Övrig verifierad inbetalning';
-  await ui.click('other-income');
+  ui.choose('other-income');
+  ui.type('account','3990');
+  ui.type('description','Övrig verifierad inbetalning');
+  ui.confirm();
+  await ui.click('resolve');
   const call=ui.calls.find(item=>item.name==='resolve-unplaced-payment');
   assert.ok(call,'the settlement function must be called');
   assert.equal(call.args.resolutionType,'other-income');
@@ -115,11 +136,14 @@ test('other-income preserves the manually entered accounting account and descrip
   assert.equal(call.args.bankPaymentId,'bank-1');
 });
 
-test('outgoing classification keeps the entered accounting details',async()=>{
+test('outgoing preserves entered accounting details and only posts after confirmation',async()=>{
   const ui=await harness();
-  ui.fields.account='6990';
-  ui.fields.description='Verifierad återbetalning';
-  await ui.click('outgoing');
+  ui.choose('outgoing');
+  ui.type('account','6990');
+  ui.type('description','Verifierad återbetalning');
+  assert.equal(ui.calls.length,0);
+  ui.confirm();
+  await ui.click('resolve');
   const call=ui.calls.find(item=>item.name==='resolve-unplaced-payment');
   assert.ok(call,'the settlement function must be called');
   assert.equal(call.args.resolutionType,'outgoing');
@@ -127,53 +151,62 @@ test('outgoing classification keeps the entered accounting details',async()=>{
   assert.equal(call.args.description,'Verifierad återbetalning');
 });
 
-test('network failure reuses the same idempotency key and keeps inputs for a safe retry',async()=>{
+test('network failure reuses the same idempotency key and keeps entered details for retry',async()=>{
   const ui=await harness();
-  ui.fields.account='3990';
-  ui.fields.description='Förskott från bank';
+  ui.choose('other-income');
+  ui.type('account','3990');
+  ui.type('description','Förskott från bank');
+  ui.confirm();
   ui.failNextInvoke('Nätverksavbrott efter mottagen betalning');
-  await ui.click('other-income');
+  await ui.click('resolve');
 
   assert.equal(ui.calls.length,1);
-  assert.equal(ui.fields.account,'3990','account should be restored after a failed request');
-  assert.equal(ui.fields.description,'Förskott från bank','description should be restored after a failed request');
+  assert.equal(ui.fields.kind,'other-income');
+  assert.equal(ui.fields.account,'3990');
+  assert.equal(ui.fields.description,'Förskott från bank');
+  assert.equal(ui.fields.confirmed,true);
   assert.match(ui.getHtml(),/Kunde inte genomföra åtgärden/);
   const initialRequestId=ui.calls[0].args.requestId;
 
-  await ui.click('other-income');
+  await ui.click('resolve');
   assert.equal(ui.calls.length,2);
   assert.equal(ui.calls[1].args.requestId,initialRequestId,'a retry must reuse the original request ID');
   assert.match(ui.getHtml(),/Verifikation 42 skapades/);
   assert.doesNotMatch(ui.getHtml(),/Kunde inte genomföra åtgärden/);
 });
 
-test('changed accounting details create a new idempotency key instead of replaying stale details',async()=>{
+test('different accounting details and payment types produce different idempotency keys',async()=>{
   const ui=await harness();
-  ui.fields.account='3990';
-  ui.fields.description='Övrig inbetalning';
-  ui.failNextInvoke('Tillfälligt nätverksfel');
-  await ui.click('other-income');
-  const initialId=ui.calls[0].args.requestId;
+  ui.choose('other-income');
+  ui.type('account','3990');
+  ui.type('description','Övrig inbetalning');
+  ui.confirm();
+  ui.failNextInvoke('Nätverksfel');
+  await ui.click('resolve');
+  const first=ui.calls[0].args.requestId;
 
-  ui.fields.account='3980';
-  ui.failNextInvoke('Tillfälligt nätverksfel');
-  await ui.click('other-income');
-  assert.notEqual(ui.calls[1].args.requestId,initialId);
-  assert.equal(ui.calls[1].args.counterAccount,'3980');
+  ui.type('account','3980');
+  ui.failNextInvoke('Nätverksfel');
+  await ui.click('resolve');
+  const second=ui.calls[1].args.requestId;
+  assert.notEqual(first,second);
 
-  ui.fields.account='3980';
-  ui.fields.description='Återbetalning till kund';
-  ui.failNextInvoke('Tillfälligt nätverksfel');
-  await ui.click('outgoing');
-  assert.notEqual(ui.calls[2].args.requestId,ui.calls[1].args.requestId);
-  assert.equal(ui.calls[2].args.resolutionType,'outgoing');
+  ui.choose('outgoing');
+  ui.type('account','3980');
+  ui.type('description','Återbetalning till kund');
+  ui.confirm();
+  ui.failNextInvoke('Nätverksfel');
+  await ui.click('resolve');
+  const third=ui.calls[2].args.requestId;
+  assert.notEqual(third,second);
 
-  // Returning to the original details must recover the original request ID.
-  ui.fields.account='3990';
-  ui.fields.description='Övrig inbetalning';
-  ui.failNextInvoke('Tillfälligt nätverksfel');
-  await ui.click('other-income');
-  assert.equal(ui.calls[3].args.requestId,initialId);
+  ui.choose('other-income');
+  ui.type('account','3990');
+  ui.type('description','Övrig inbetalning');
+  ui.confirm();
+  ui.failNextInvoke('Nätverksfel');
+  await ui.click('resolve');
+  assert.equal(ui.calls[3].args.requestId,first,'returning to the original details reuses the original ID');
 });
 
 test('rejected proposal result is not presented as successful matching',async()=>{
@@ -219,4 +252,92 @@ test('an invoice number alone is not sent to the server without an explicit user
   const ui=await harness({reference:'F-200'});
   assert.match(ui.getHtml(),/Möjlig fakturaträff/);
   assert.equal(ui.calls.length,0);
+});
+
+test('bank fee shortcut fills 6570 without posting automatically',async()=>{
+  const ui=await harness();
+  ui.choose('bank-fee');
+  assert.equal(ui.fields.account,'6570');
+  assert.equal(ui.fields.description,'Bankavgift enligt kontoutdrag');
+  assert.equal(ui.getAccountReadOnly(),true);
+  assert.match(ui.getPreview(),/Debet 6570/);
+  assert.match(ui.getPreview(),/Kredit 1930/);
+  assert.equal(ui.calls.length,0);
+  assert.equal(ui.getPostDisabled(),false);
+});
+
+test('bank fee requires explicit bank statement confirmation before direct booking',async()=>{
+  const ui=await harness();
+  ui.choose('bank-fee');
+  await ui.click('resolve');
+  assert.equal(ui.calls.length,0);
+  assert.match(ui.getHtml(),/Kontrollera bankhändelsen och markera bekräftelserutan/);
+  assert.equal(ui.fields.kind,'bank-fee');
+  assert.equal(ui.fields.account,'6570');
+  assert.equal(ui.fields.confirmed,false);
+
+  ui.confirm();
+  await ui.click('resolve');
+  const call=ui.calls.find(item=>item.name==='resolve-unplaced-payment');
+  assert.ok(call);
+  assert.equal(call.args.resolutionType,'outgoing');
+  assert.equal(call.args.counterAccount,'6570');
+  assert.equal(call.args.description,'Bankavgift enligt kontoutdrag');
+  assert.match(ui.getHtml(),/Verifikation 42 skapades/);
+});
+
+test('bank fee type refuses modified preset account',async()=>{
+  const ui=await harness();
+  ui.choose('bank-fee');
+  ui.fields.account='3990';
+  ui.confirm();
+  await ui.click('resolve');
+  assert.equal(ui.calls.length,0);
+  assert.match(ui.getHtml(),/För bankavgift ska konto 6570 användas/);
+});
+
+test('switching kind clears a prior bank-fee preset and confirmation',async()=>{
+  const ui=await harness();
+  ui.choose('bank-fee');
+  ui.confirm();
+  ui.choose('other-income');
+  assert.equal(ui.fields.account,'');
+  assert.equal(ui.fields.description,'');
+  assert.equal(ui.fields.confirmed,false);
+  assert.equal(ui.getAccountReadOnly(),false);
+  assert.match(ui.getPreview(),/Fyll i ett korrekt fyrsiffrigt motkonto/);
+});
+
+test('uncertain payment cannot be posted in any direction',async()=>{
+  const ui=await harness();
+  ui.choose('unsure');
+  assert.equal(ui.getPostDisabled(),true);
+  assert.match(ui.getPreview(),/Vänta med bokföringen/);
+  await ui.click('resolve');
+  assert.equal(ui.calls.length,0);
+  assert.match(ui.getHtml(),/Välj vad bankhändelsen gäller/);
+});
+
+test('manual income preview shows bank debit and the selected account credit',async()=>{
+  const ui=await harness();
+  ui.choose('other-income');
+  ui.type('account','3990');
+  ui.type('description','Övrig inbetalning');
+  assert.match(ui.getPreview(),/Debet 1930/);
+  assert.match(ui.getPreview(),/Kredit 3990/);
+  assert.equal(ui.calls.length,0);
+  ui.confirm();
+  await ui.click('resolve');
+  const call=ui.calls.find(item=>item.name==='resolve-unplaced-payment');
+  assert.equal(call.args.resolutionType,'other-income');
+  assert.equal(call.args.counterAccount,'3990');
+});
+
+test('untrusted description in preview is HTML-escaped',async()=>{
+  const ui=await harness();
+  ui.choose('outgoing');
+  ui.type('account','6570');
+  ui.type('description','<img src=x onerror=alert(1)>');
+  assert.match(ui.getPreview(),/&lt;img src=x onerror=alert\(1\)&gt;/);
+  assert.doesNotMatch(ui.getPreview(),/<img/);
 });
