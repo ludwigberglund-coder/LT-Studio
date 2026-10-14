@@ -68,7 +68,9 @@
   }
   function render(){
     const current=scenario();
-    const canCall=Boolean(!demo&&liveHost&&context?.authenticated&&context?.company&&['admin','accountant'].includes(context?.membership?.role));
+    // The Edge gateway is intentionally not deployed and has hard-coded release locks.
+    // Keep the action disabled until a separately reviewed release changes that contract.
+    const canCall=false;
     app.innerHTML='<div class="portal">'+sidebar()+
       '<section class="main"><header class="topbar"><div><h1>AI-bokföring</h1><p>'+esc(context?.company?.name||(demo?'Demoföretag':'Företaget'))+' / Ekonomi / AI-bokföring</p></div>'+
       '<div class="user-chip"><span>'+esc(context?.user?.displayName||(demo?'Demoanvändare':'Inloggad användare'))+'</span></div></header>'+
@@ -82,7 +84,7 @@
       '<div class="ai-bookkeeping-total"><small>Att betala</small><strong>1 250 kr</strong></div></div>'+
       '<div class="ai-bookkeeping-actions"><button class="button" type="button" data-ai-action="example" '+(busy?'disabled':'')+'>Visa bokföringsexempel</button>'+
       '<button class="button ghost" type="button" data-ai-action="analyze" '+(!canCall||busy?'disabled':'')+'>'+(busy?'Analyserar…':'Prova med AI (pilot)')+'</button></div>'+
-      '<small class="ai-bookkeeping-hint">'+(canCall?'AI-knappen kontaktar bara den säkrade pilotfunktionen. Om den inte är aktiverad visas ett tydligt meddelande.':'För att prova AI-knappen krävs inloggning i den delade kundportalen med behörig roll.')+'</small>'+
+      '<small class="ai-bookkeeping-hint">'+(canCall?'AI-knappen kontaktar bara den säkrade pilotfunktionen. Om den inte är aktiverad visas ett tydligt meddelande.':'AI-anslutningen är ännu inte aktiverad. Använd det fasta bokföringsexemplet; inga kunduppgifter skickas till någon AI-modell.')+'</small>'+
       '<div id="ai-bookkeeping-status" class="ai-bookkeeping-status '+esc(statusKind)+'" role="status" aria-live="polite">'+esc(status)+'</div></section>'+
       '<section class="ai-bookkeeping-panel ai-bookkeeping-result-panel"><h3>2. Granska förslaget</h3>'+resultMarkup()+'</section></div>'+
       '<div class="ai-bookkeeping-next"><h3>Vad händer när AI-bokföringen är färdig?</h3><p>Då ska kunden välja en befintlig faktura eller ett kvitto i LT Studio, få ett kontrollerat förslag och godkänna det i samma automationskö som används i dag. Vi aktiverar inte hantering av riktiga underlag förrän dataskydd, bokföringsregler och företagsisolering har verifierats.</p></div>'+
