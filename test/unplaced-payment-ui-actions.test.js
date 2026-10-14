@@ -9,7 +9,8 @@ const vm=require('node:vm');
 const source=fs.readFileSync(path.join(__dirname,'../apps/portal/unplaced-payments.js'),'utf8');
 
 async function harness(options={}){
-  const fields={invoice:'',kind:'',account:'',description:'',confirmed:false};
+  const fields={invoice:'',kind:'',account:'',description:'',confirmed:false,'incoming-confirmed':false};
+  const invoiceButton={disabled:true};
   const preview={innerHTML:''};
   const resolveButton={disabled:true};
   const accountControl={readOnly:false};
@@ -28,6 +29,8 @@ async function harness(options={}){
       renderCount+=1;
       // Assign the real select/input defaults that a fresh render would create.
       fields.invoice='';
+      fields['incoming-confirmed']=false;
+      invoiceButton.disabled=true;
       fields.kind='';
       fields.account='';
       fields.description='';
@@ -59,6 +62,7 @@ async function harness(options={}){
     querySelector:(selector)=>{
       if(selector==='[data-role="posting-preview"]')return preview;
       if(selector==='[data-action="resolve"]')return resolveButton;
+      if(selector==='[data-action="invoice"]')return invoiceButton;
       const field=selector.match(/data-field="([^"]+)"/)?.[1];
       if(!field)return null;
       return {
@@ -97,6 +101,9 @@ async function harness(options={}){
   return {
     fields,calls,failNextInvoke:(message)=>invokeErrors.push(message),setProposalResult:(result)=>{proposalResult=result},getSelectedInvoice:()=>fields.invoice,getRenderCount:()=>renderCount,getHtml:()=>html,
     getPreview:()=>preview.innerHTML,getPostDisabled:()=>resolveButton.disabled,getAccountReadOnly:()=>accountControl.readOnly,
+    getInvoiceDisabled:()=>invoiceButton.disabled,getIncomingConfirmed:()=>fields['incoming-confirmed'],
+    selectInvoice(invoiceId){fields.invoice=invoiceId;listeners.change({target:{dataset:{field:'invoice'}}})},
+    confirmIncoming(checked=true){fields['incoming-confirmed']=Boolean(checked);listeners.change({target:{dataset:{field:'incoming-confirmed'}}})},
     choose(kind){fields.kind=kind;listeners.change({target:{dataset:{field:'kind'}}})},
     confirm(checked=true){fields.confirmed=checked;listeners.change({target:{dataset:{field:'confirmed'}}})},
     type(field,value){fields[field]=value;listeners.input({target:{dataset:{field}}})},
@@ -110,7 +117,8 @@ async function harness(options={}){
 
 test('manual invoice matching sends the actually selected invoice, not the first option',async()=>{
   const ui=await harness();
-  ui.fields.invoice='invoice-second';
+  ui.selectInvoice('invoice-second');
+  ui.confirmIncoming();
   const before=ui.getRenderCount();
   await ui.click('invoice');
   const proposal=ui.calls.find(call=>call.name==='create_bank_match_proposal');
@@ -211,7 +219,8 @@ test('different accounting details and payment types produce different idempoten
 
 test('rejected proposal result is not presented as successful matching',async()=>{
   const ui=await harness();
-  ui.fields.invoice='invoice-second';
+  ui.selectInvoice('invoice-second');
+  ui.confirmIncoming();
   ui.setProposalResult({proposal_id:'rejected-proposal',status:'rejected',duplicate:true});
   await ui.click('invoice');
 
@@ -220,6 +229,7 @@ test('rejected proposal result is not presented as successful matching',async()=
   assert.match(ui.getHtml(),/Inget nytt matchningsförslag skapades/);
   assert.doesNotMatch(ui.getHtml(),/Matchningsförslaget är skapat/);
   assert.equal(ui.fields.invoice,'invoice-second','failed proposal must preserve chosen invoice');
+  assert.equal(ui.getIncomingConfirmed(),true,'failed proposal preserves the manual review for a safe retry');
 });
 
 test('invoice dropdown begins with an explicit choice, never implicitly assigns the first invoice',async()=>{
@@ -237,6 +247,8 @@ test('unique OCR match suggests the correct invoice without submitting automatic
   await ui.click('use-suggestion');
   assert.equal(ui.getSelectedInvoice(),'invoice-second');
   assert.equal(ui.calls.length,0,'a suggestion click cannot book or create a proposal');
+  assert.equal(ui.getInvoiceDisabled(),true,'suggestion never automatically confirms incoming direction');
+  ui.confirmIncoming();
   await ui.click('invoice');
   assert.equal(ui.calls[0].args.p_target_invoice_id,'invoice-second');
 });
@@ -356,6 +368,8 @@ test('customer organisation number and exact balance produce a manual-only sugge
   await ui.click('use-suggestion');
   assert.equal(ui.getSelectedInvoice(),'invoice-first');
   assert.equal(ui.calls.length,0,'choosing a suggestion does not create a proposal');
+  assert.equal(ui.getInvoiceDisabled(),true,'customer name/org number is not proof of incoming payment');
+  ui.confirmIncoming();
   await ui.click('invoice');
   const proposal=ui.calls.find(call=>call.name==='create_bank_match_proposal');
   assert.ok(proposal,'proposal is only sent after explicit creation');
@@ -462,4 +476,62 @@ test('proposal creation with no manually chosen invoice never calls the RPC',asy
   await ui.click('invoice');
   assert.equal(ui.calls.length,0);
   assert.match(ui.getHtml(),/Välj en kundfaktura/);
+});
+
+test('invoice selection alone cannot propose an unverified incoming bank payment',async()=>{
+  const ui=await harness();
+  ui.selectInvoice('invoice-second');
+  assert.equal(ui.getInvoiceDisabled(),true);
+  assert.match(ui.getHtml(),/Bankuppgifterna bevisar ännu inte att detta är en inbetalning/);
+  assert.match(ui.getHtml(),/Jag har kontrollerat bankutdraget/);
+  await ui.click('invoice'); // Simulate bypassing the disabled button: the action must also reject.
+  assert.equal(ui.calls.length,0,'no proposal RPC without explicit direction verification');
+  assert.match(ui.getHtml(),/Bekräfta med bankutdraget att pengarna kom in/);
+  assert.equal(ui.fields.invoice,'invoice-second','failed attempt preserves the selected invoice');
+});
+
+test('a checked incoming confirmation cannot submit without an explicitly selected invoice',async()=>{
+  const ui=await harness();
+  ui.confirmIncoming();
+  assert.equal(ui.getInvoiceDisabled(),true);
+  await ui.click('invoice');
+  assert.equal(ui.calls.length,0);
+  assert.match(ui.getHtml(),/Välj en kundfaktura/);
+});
+
+test('changing invoices invalidates the prior incoming-direction confirmation',async()=>{
+  const ui=await harness();
+  ui.selectInvoice('invoice-first');
+  ui.confirmIncoming();
+  assert.equal(ui.getInvoiceDisabled(),false);
+  ui.selectInvoice('invoice-second');
+  assert.equal(ui.getIncomingConfirmed(),false);
+  assert.equal(ui.getInvoiceDisabled(),true);
+  await ui.click('invoice');
+  assert.equal(ui.calls.length,0);
+});
+
+test('clicking an OCR suggestion resets confirmation from a previously selected invoice',async()=>{
+  const ui=await harness({reference:'OCR 99112233',secondOcr:'99112233'});
+  ui.selectInvoice('invoice-first');
+  ui.confirmIncoming();
+  assert.equal(ui.getInvoiceDisabled(),false);
+  await ui.click('use-suggestion');
+  assert.equal(ui.getSelectedInvoice(),'invoice-second');
+  assert.equal(ui.getIncomingConfirmed(),false);
+  assert.equal(ui.getInvoiceDisabled(),true);
+  assert.equal(ui.calls.length,0);
+});
+
+test('a user-confirmed incoming bank payment can generate a manual proposal but never post automatically',async()=>{
+  const ui=await harness();
+  ui.selectInvoice('invoice-first');
+  ui.confirmIncoming();
+  assert.equal(ui.getInvoiceDisabled(),false);
+  await ui.click('invoice');
+  assert.deepEqual(ui.calls.map(call=>call.name),['create_bank_match_proposal']);
+  assert.equal(ui.calls[0].args.p_deterministic,false);
+  assert.equal(ui.calls[0].args.p_ambiguous,true);
+  assert.match(ui.getHtml(),/Automationskön för granskning och bokföring/);
+  assert.equal(ui.getIncomingConfirmed(),false,'freshly rendered selection must require a new review');
 });
