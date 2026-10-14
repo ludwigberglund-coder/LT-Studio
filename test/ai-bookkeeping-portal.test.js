@@ -30,8 +30,14 @@ function fixture({demo=false,role='accountant',response,throwInvoke,simulateRevi
       assert.match(body.requestId,/^ai-pilot-/);
       assert.deepEqual(Object.keys(body).sort(),['companyId','requestId','scenario']);
       if(throwInvoke)throw throwInvoke;
-      return response??{status:'manual-review',posted:false,companyId:'tenant-a-001',
-        reason:'Denna leverantör är ett kontorsmaterialtest.',suggestion:{rows:sample,requiresHumanApproval:true}};
+      const account={'office-paper':'6110','software-service':'6540','cleaning-supplies':'5460'}[body.scenario];
+      const valid={status:'manual-review',posted:false,companyId:body.companyId,
+        sourceId:'synthetic-'+body.requestId,
+        reason:'Detta är en påhittad leverantörsfaktura som måste granskas.',
+        suggestion:{expenseAccount:account,invoiceDate:'2026-09-15',
+          rows:sample.map((row,index)=>index===0?{...row,account}:row),
+          requiresHumanApproval:true}};
+      return typeof response==='function'?response(valid):response??valid;
     }}}
   };
   const sandbox={
@@ -101,23 +107,63 @@ test('isolated future-release simulation fails safely when backend is not releas
   assert.match(f.app.innerHTML,/FAST RÄKNEEXEMPEL – INTE AI/);
 });
 test('even a balanced but changed synthetic VAT/amount response fails closed',async()=>{
-  const f=fixture({simulateReviewedRelease:true,response:{status:'manual-review',posted:false,companyId:'tenant-a-001',
-    reason:'Wrong numbers',suggestion:{requiresHumanApproval:true,rows:[
+  const f=fixture({simulateReviewedRelease:true,response:valid=>({...valid,
+    reason:'Wrong numbers',suggestion:{...valid.suggestion,rows:[
       {account:'6110',debitOre:200000,creditOre:0},
       {account:'2641',debitOre:50000,creditOre:0},
       {account:'2440',debitOre:0,creditOre:250000}
-    ]}}});
+    ]}})});
   await settle();f.click('analyze');await settle();
   assert.equal(f.calls,1);
   assert.doesNotMatch(f.app.innerHTML,/AI-FÖRSLAG/);
   assert.match(f.app.innerHTML,/Ingen bokföring ändrades/);
 });
 test('malicious provider body or different tenant is never displayed as a trusted AI suggestion',async()=>{
-  const f=fixture({simulateReviewedRelease:true,response:{status:'manual-review',posted:false,companyId:'tenant-b-002',suggestion:{rows:sample,requiresHumanApproval:true}}});
+  const f=fixture({simulateReviewedRelease:true,response:valid=>({...valid,companyId:'tenant-b-002'})});
   await settle();f.click('analyze');await settle();
   assert.equal(f.calls,1);
   assert.doesNotMatch(f.app.innerHTML,/AI-FÖRSLAG/);
   assert.match(f.app.innerHTML,/Ingen bokföring ändrades/);
+});
+test('future synthetic pilot correlates source ID and selected expense account',async()=>{
+  const f=fixture({simulateReviewedRelease:true});
+  await settle();
+  f.select('software-service');
+  f.click('analyze');await settle();
+  assert.equal(f.calls,1);
+  assert.match(f.app.innerHTML,/AI-FÖRSLAG/);
+  assert.match(f.app.innerHTML,/6540/);
+});
+test('different request source is never shown as current AI proposal',async()=>{
+  const f=fixture({simulateReviewedRelease:true,response:valid=>({...valid,
+    sourceId:'synthetic-ai-pilot-other-request'})});
+  await settle();f.click('analyze');await settle();
+  assert.equal(f.calls,1);
+  assert.doesNotMatch(f.app.innerHTML,/AI-FÖRSLAG/);
+  assert.match(f.app.innerHTML,/Ingen bokföring ändrades/);
+});
+test('balanced but wrong expense account for a fixed synthetic supplier is blocked',async()=>{
+  const f=fixture({simulateReviewedRelease:true,response:valid=>({...valid,suggestion:{
+    ...valid.suggestion,expenseAccount:'6540',
+    rows:[{...valid.suggestion.rows[0],account:'6540'},...valid.suggestion.rows.slice(1)]
+  }})});
+  await settle();f.click('analyze');await settle();
+  assert.equal(f.calls,1);
+  assert.doesNotMatch(f.app.innerHTML,/AI-FÖRSLAG/);
+  assert.match(f.app.innerHTML,/Ingen bokföring ändrades/);
+});
+test('synthetic preview rejects coerced amounts and altered invoice dates',async()=>{
+  for(const response of [
+    valid=>({...valid,suggestion:{...valid.suggestion,
+      rows:[{...valid.suggestion.rows[0],debitOre:'100000'},...valid.suggestion.rows.slice(1)]}}),
+    valid=>({...valid,suggestion:{...valid.suggestion,invoiceDate:'2026-09-14'}})
+  ]){
+    const f=fixture({simulateReviewedRelease:true,response});
+    await settle();f.click('analyze');await settle();
+    assert.equal(f.calls,1);
+    assert.doesNotMatch(f.app.innerHTML,/AI-FÖRSLAG/);
+    assert.match(f.app.innerHTML,/Ingen bokföring ändrades/);
+  }
 });
 test('readonly user can see an example but never trigger AI',async()=>{
   const f=fixture({role:'readonly',simulateReviewedRelease:true});
