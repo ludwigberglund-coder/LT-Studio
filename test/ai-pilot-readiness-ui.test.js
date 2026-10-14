@@ -10,7 +10,9 @@ const edge=fs.readFileSync(path.join(root,'supabase/functions/ai-bookkeeping-pil
 test('AI pilot action stays disabled while server pilot is hard locked',()=>{
   assert.match(edge,/const RELEASE_APPROVED = false;/);
   assert.match(edge,/const DURABLE_IP_LIMITER_VERIFIED = false;/);
-  assert.match(pilot,/const canCall=false;/);
+  assert.match(pilot,/const AI_PILOT_RELEASED = false;/);
+  assert.match(pilot,/const canCall=Boolean\(AI_PILOT_RELEASED&&!demo/);
+  assert.match(pilot,/if\(!AI_PILOT_RELEASED\)/);
   assert.match(pilot,/!canCall\|\|busy\?'disabled'/);
   assert.match(pilot,/AI-anslutningen är ännu inte aktiverad/);
   assert.match(assistant,/Guider tillgängliga · AI avstängd/);
