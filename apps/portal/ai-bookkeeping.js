@@ -21,20 +21,27 @@
     {account:'2440',debitOre:0,creditOre:125000,label:'Leverantörsskuld'}
   ];
   const accountNames=Object.freeze({'6110':'Kontorsmateriel','6540':'IT-tjänster','5460':'Förbrukningsmaterial','2641':'Ingående moms','2440':'Leverantörsskulder'});
-  function validateResponse(response,companyId) {
-    if(!response||response.status!=='manual-review'||response.posted!==false||
-      String(response.companyId)!==String(companyId)||
+  function validateResponse(response,companyId,requestedScenario,requestId) {
+    // A plausible set of balanced rows is not enough: correlate the answer with
+    // the exact synthetic request, company and expected invoice category.
+    const expected=options.find(option=>option.id===requestedScenario);
+    if(!expected||typeof requestId!=='string'||!requestId.startsWith('ai-pilot-')||
+      !response||response.status!=='manual-review'||response.posted!==false||
+      response.companyId!==companyId||response.sourceId!=='synthetic-'+requestId||
       !Array.isArray(response.suggestion?.rows)||response.suggestion.rows.length!==3||
-      response.suggestion.requiresHumanApproval!==true)throw new Error('INVALID_AI_PREVIEW');
+      response.suggestion.requiresHumanApproval!==true||
+      response.suggestion.expenseAccount!==expected.account||
+      response.suggestion.invoiceDate!=='2026-09-15')throw new Error('INVALID_AI_PREVIEW');
     const rows=response.suggestion.rows.map(row=>{
-      const account=String(row.account||'');
-      const debitOre=Number(row.debitOre),creditOre=Number(row.creditOre);
-      if(!Object.hasOwn(accountNames,account)||!Number.isSafeInteger(debitOre)||
+      const account=row.account;
+      const debitOre=row.debitOre,creditOre=row.creditOre;
+      if(typeof account!=='string'||!Object.hasOwn(accountNames,account)||
+        !Number.isSafeInteger(debitOre)||
         !Number.isSafeInteger(creditOre)||debitOre<0||creditOre<0||
         debitOre>10_000_000||creditOre>10_000_000)throw new Error('INVALID_AI_PREVIEW');
       return {account,debitOre,creditOre,label:accountNames[account]};
     });
-    if(!['6110','5460','6540'].includes(rows[0].account)||
+    if(rows[0].account!==expected.account||
        rows[1].account!=='2641'||rows[2].account!=='2440'||
        rows[0].debitOre!==100000||rows[0].creditOre!==0||
        rows[1].debitOre!==25000||rows[1].creditOre!==0||
@@ -78,7 +85,7 @@
       '<section class="main"><header class="topbar"><div><h1>AI-bokföring</h1><p>'+esc(context?.company?.name||(demo?'Demoföretag':'Företaget'))+' / Ekonomi / AI-bokföring</p></div>'+
       '<div class="user-chip"><span>'+esc(context?.user?.displayName||(demo?'Demoanvändare':'Inloggad användare'))+'</span></div></header>'+
       '<main class="content ai-bookkeeping-content"><div class="ai-bookkeeping-intro"><span class="eyebrow">Bokföring på enkelt språk</span>'+
-      '<h2>Få hjälp att förstå hur en faktura ska bokföras</h2><p>Testa med påhittade inköp innan AI-bokföringen öppnas för riktiga kundunderlag. AI:n får aldrig bokföra eller betala något på egen hand.</p></div>'+
+      '<h2>Få hjälp att förstå hur en faktura ska bokföras</h2><p>Testa med påhittade inköp innan AI-bokföringen öppnas för riktiga kundunderlag. I detta test bokför eller betalar AI aldrig. Säker automatbokföring kräver separata kontroller och uttryckligt godkännande.</p></div>'+
       '<section class="ai-bookkeeping-notice"><strong>Begränsat testläge</strong><span>Inga riktiga fakturor får laddas upp här. AI-anslutningen öppnas först efter säkerhetskontroller och godkänd aktivering. Förhandsvisningarna nedan är exempel tills dess.</span></section>'+
       '<div class="ai-bookkeeping-grid"><section class="ai-bookkeeping-panel"><h3>1. Välj ett exempel</h3><label for="ai-scenario">Påhittad leverantörsfaktura</label>'+
       '<select id="ai-scenario" '+(busy?'disabled':'')+'>'+options.map(opt=>'<option value="'+esc(opt.id)+'"'+(opt.id===selected?' selected':'')+'>'+esc(opt.label)+'</option>').join('')+'</select>'+
@@ -114,7 +121,7 @@
       const payload={companyId:String(ctx.company.id),scenario:selected,
         requestId:'ai-pilot-'+crypto.randomUUID()};
       const response=await window.LTSupabase.functions.invoke('ai-bookkeeping-pilot',payload,ctx.accessToken);
-      result=validateResponse(response,ctx.company.id);
+      result=validateResponse(response,payload.companyId,payload.scenario,payload.requestId);
       status='AI-förslaget är klart. Det är inte bokfört eller sparat.';
       statusKind='success';
     }catch(error){
