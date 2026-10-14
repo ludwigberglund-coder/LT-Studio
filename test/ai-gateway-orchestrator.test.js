@@ -61,6 +61,31 @@ test('real verified test request creates manually reviewed balanced proposal onl
     ['6110',100000,0],['2641',25000,0],['2440',0,125000]
   ]);
 });
+test('server quality gate rejects semantically wrong yet balanced synthetic account proposals',async()=>{
+  const {runSyntheticPilot}=await load();
+  const cases=[
+    ['office-paper','6110'],['software-service','6540'],['cleaning-supplies','5460']
+  ];
+  for(const [scenario,correctAccount] of cases){
+    const proposal=await runSyntheticPilot({
+      body:{...body,scenario},accessToken:token(),userClient:client(),
+      pilotEnabled:true,privacyApproved:true,reserveBudget:reserve,
+      provider:async(invoice)=>{
+        assert.equal(Object.hasOwn(invoice,'expectedAccount'),false);
+        return {...provider(),expenseAccount:correctAccount};
+      }
+    });
+    assert.equal(proposal.suggestion.expenseAccount,correctAccount);
+    assert.equal(proposal.ambiguous,true);
+  }
+  let providerCalls=0;
+  await assert.rejects(()=>runSyntheticPilot({
+    body:{...body,scenario:'software-service'},accessToken:token(),userClient:client(),
+    pilotEnabled:true,privacyApproved:true,reserveBudget:reserve,
+    provider:async()=>{providerCalls++;return provider();}
+  }),error=>error.code==='UNSAFE_AI_PROPOSAL');
+  assert.equal(providerCalls,1);
+});
 test('wrong-company or readonly membership blocks BEFORE durable reservation or inference',async()=>{
   const {runSyntheticPilot}=await load();let reservations=0,providers=0;
   const opts={body,accessToken:token(),userClient:client('readonly'),
