@@ -8,6 +8,9 @@
     {id:'software-service',label:'IT-tjänst',supplier:'Syntetisk IT AB',description:'IT-drifttjänst under september',account:'6540',accountName:'IT-tjänster'},
     {id:'cleaning-supplies',label:'Förbrukningsmaterial',supplier:'Syntetisk Städ AB',description:'Förbrukningsmaterial för städning',account:'5460',accountName:'Förbrukningsmaterial'}
   ]);
+  // Matches the hard-disabled server release. A future release requires a reviewed
+  // server + frontend change, not a client-side preference or environment flag.
+  const AI_PILOT_RELEASED = false;
   let context=null,selected=options[0].id,busy=false,result=null,status='',statusKind='info';
   const esc=(text)=>String(text??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'":'&#39;'}[char]));
   const kronor=(ore)=>new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK'}).format(Number(ore)/100);
@@ -70,7 +73,7 @@
     const current=scenario();
     // The Edge gateway is intentionally not deployed and has hard-coded release locks.
     // Keep the action disabled until a separately reviewed release changes that contract.
-    const canCall=false;
+    const canCall=Boolean(AI_PILOT_RELEASED&&!demo&&liveHost&&context?.authenticated&&context?.company&&['admin','accountant'].includes(context?.membership?.role));
     app.innerHTML='<div class="portal">'+sidebar()+
       '<section class="main"><header class="topbar"><div><h1>AI-bokföring</h1><p>'+esc(context?.company?.name||(demo?'Demoföretag':'Företaget'))+' / Ekonomi / AI-bokföring</p></div>'+
       '<div class="user-chip"><span>'+esc(context?.user?.displayName||(demo?'Demoanvändare':'Inloggad användare'))+'</span></div></header>'+
@@ -97,6 +100,9 @@
   }
   async function runAiPilot(){
     if(busy)return;
+    // Never trust disabled HTML buttons alone: the delegated event handler
+    // must also reject calls while the server release is locked.
+    if(!AI_PILOT_RELEASED){status='AI-testet är ännu inte aktiverat. Visa bokföringsexemplet så länge.';statusKind='warning';render();return;}
     if(demo||!liveHost){status='AI kräver den inloggade LT Studio-portalen.';statusKind='warning';render();return;}
     busy=true;result=null;status='Kontrollerar session och skickar endast det påhittade exemplet…';statusKind='info';render();
     try{
