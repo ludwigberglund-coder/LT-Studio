@@ -118,7 +118,7 @@
       '<main class="content ai-assistant-content">'+
       '<section class="ai-assistant-hero"><div><span class="eyebrow">LT Studio · AI-bokförare</span>'+
       '<h2>Din bokföring, automatiserad</h2><p>Målet är att AI ska ta hand om det löpande arbetet. Du hanterar bara osäkra poster och viktiga beslut. Under uppbyggnaden finns tydliga kontrollsteg.</p></div>'+
-      '<div class="ai-assistant-state"><span class="ai-assistant-state-dot" aria-hidden="true"></span><div><strong>Guidad hjälp aktiv</strong><small>AI-kontering och automatbokföring på riktiga underlag är ännu inte aktiverade.</small></div></div></section>'+
+      '<div class="ai-assistant-state"><span class="ai-assistant-state-dot" aria-hidden="true"></span><div><strong>Guider tillgängliga · AI avstängd</strong><small>AI-kontering och automatbokföring på riktiga underlag är ännu inte aktiverade.</small></div></div></section>'+
       bookkeeperMarkup(mayReadExistingProposals())+
       '<details class="ai-assistant-guides" id="ai-assistant-guides"><summary>AI-hjälp: visa guider för ekonomin</summary>'+
       '<section class="ai-assistant-search-panel" aria-labelledby="ai-assistant-query-label"><label id="ai-assistant-query-label" for="ai-assistant-query">Beskriv vad du behöver göra</label>'+
