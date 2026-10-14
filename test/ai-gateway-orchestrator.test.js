@@ -72,7 +72,7 @@ test('server quality gate rejects semantically wrong yet balanced synthetic acco
       pilotEnabled:true,privacyApproved:true,reserveBudget:reserve,
       provider:async(invoice)=>{
         assert.equal(Object.hasOwn(invoice,'expectedAccount'),false);
-        return {...provider(),expenseAccount:correctAccount};
+        return {...await provider(),expenseAccount:correctAccount};
       }
     });
     assert.equal(proposal.suggestion.expenseAccount,correctAccount);
