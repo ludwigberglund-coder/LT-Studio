@@ -8,6 +8,9 @@
     {id:'software-service',label:'IT-tjänst',supplier:'Syntetisk IT AB',description:'IT-drifttjänst under september',account:'6540',accountName:'IT-tjänster'},
     {id:'cleaning-supplies',label:'Förbrukningsmaterial',supplier:'Syntetisk Städ AB',description:'Förbrukningsmaterial för städning',account:'5460',accountName:'Förbrukningsmaterial'}
   ]);
+  // Matches the hard-disabled server release. A future release requires a reviewed
+  // server + frontend change, not a client-side preference or environment flag.
+  const AI_PILOT_RELEASED = false;
   let context=null,selected=options[0].id,busy=false,result=null,status='',statusKind='info';
   const esc=(text)=>String(text??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'":'&#39;'}[char]));
   const kronor=(ore)=>new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK'}).format(Number(ore)/100);
@@ -18,20 +21,27 @@
     {account:'2440',debitOre:0,creditOre:125000,label:'Leverantörsskuld'}
   ];
   const accountNames=Object.freeze({'6110':'Kontorsmateriel','6540':'IT-tjänster','5460':'Förbrukningsmaterial','2641':'Ingående moms','2440':'Leverantörsskulder'});
-  function validateResponse(response,companyId) {
-    if(!response||response.status!=='manual-review'||response.posted!==false||
-      String(response.companyId)!==String(companyId)||
+  function validateResponse(response,companyId,requestedScenario,requestId) {
+    // A plausible set of balanced rows is not enough: correlate the answer with
+    // the exact synthetic request, company and expected invoice category.
+    const expected=options.find(option=>option.id===requestedScenario);
+    if(!expected||typeof requestId!=='string'||!requestId.startsWith('ai-pilot-')||
+      !response||response.status!=='manual-review'||response.posted!==false||
+      response.companyId!==companyId||response.sourceId!=='synthetic-'+requestId||
       !Array.isArray(response.suggestion?.rows)||response.suggestion.rows.length!==3||
-      response.suggestion.requiresHumanApproval!==true)throw new Error('INVALID_AI_PREVIEW');
+      response.suggestion.requiresHumanApproval!==true||
+      response.suggestion.expenseAccount!==expected.account||
+      response.suggestion.invoiceDate!=='2026-09-15')throw new Error('INVALID_AI_PREVIEW');
     const rows=response.suggestion.rows.map(row=>{
-      const account=String(row.account||'');
-      const debitOre=Number(row.debitOre),creditOre=Number(row.creditOre);
-      if(!Object.hasOwn(accountNames,account)||!Number.isSafeInteger(debitOre)||
+      const account=row.account;
+      const debitOre=row.debitOre,creditOre=row.creditOre;
+      if(typeof account!=='string'||!Object.hasOwn(accountNames,account)||
+        !Number.isSafeInteger(debitOre)||
         !Number.isSafeInteger(creditOre)||debitOre<0||creditOre<0||
         debitOre>10_000_000||creditOre>10_000_000)throw new Error('INVALID_AI_PREVIEW');
       return {account,debitOre,creditOre,label:accountNames[account]};
     });
-    if(!['6110','5460','6540'].includes(rows[0].account)||
+    if(rows[0].account!==expected.account||
        rows[1].account!=='2641'||rows[2].account!=='2440'||
        rows[0].debitOre!==100000||rows[0].creditOre!==0||
        rows[1].debitOre!==25000||rows[1].creditOre!==0||
@@ -68,12 +78,14 @@
   }
   function render(){
     const current=scenario();
-    const canCall=Boolean(!demo&&liveHost&&context?.authenticated&&context?.company&&['admin','accountant'].includes(context?.membership?.role));
+    // The Edge gateway is intentionally not deployed and has hard-coded release locks.
+    // Keep the action disabled until a separately reviewed release changes that contract.
+    const canCall=Boolean(AI_PILOT_RELEASED&&!demo&&liveHost&&context?.authenticated&&context?.company&&['admin','accountant'].includes(context?.membership?.role));
     app.innerHTML='<div class="portal">'+sidebar()+
       '<section class="main"><header class="topbar"><div><h1>AI-bokföring</h1><p>'+esc(context?.company?.name||(demo?'Demoföretag':'Företaget'))+' / Ekonomi / AI-bokföring</p></div>'+
       '<div class="user-chip"><span>'+esc(context?.user?.displayName||(demo?'Demoanvändare':'Inloggad användare'))+'</span></div></header>'+
       '<main class="content ai-bookkeeping-content"><div class="ai-bookkeeping-intro"><span class="eyebrow">Bokföring på enkelt språk</span>'+
-      '<h2>Få hjälp att förstå hur en faktura ska bokföras</h2><p>Testa med påhittade inköp innan AI-bokföringen öppnas för riktiga kundunderlag. AI:n får aldrig bokföra eller betala något på egen hand.</p></div>'+
+      '<h2>Få hjälp att förstå hur en faktura ska bokföras</h2><p>Testa med påhittade inköp innan AI-bokföringen öppnas för riktiga kundunderlag. I detta test bokför eller betalar AI aldrig. Säker automatbokföring kräver separata kontroller och uttryckligt godkännande.</p></div>'+
       '<section class="ai-bookkeeping-notice"><strong>Begränsat testläge</strong><span>Inga riktiga fakturor får laddas upp här. AI-anslutningen öppnas först efter säkerhetskontroller och godkänd aktivering. Förhandsvisningarna nedan är exempel tills dess.</span></section>'+
       '<div class="ai-bookkeeping-grid"><section class="ai-bookkeeping-panel"><h3>1. Välj ett exempel</h3><label for="ai-scenario">Påhittad leverantörsfaktura</label>'+
       '<select id="ai-scenario" '+(busy?'disabled':'')+'>'+options.map(opt=>'<option value="'+esc(opt.id)+'"'+(opt.id===selected?' selected':'')+'>'+esc(opt.label)+'</option>').join('')+'</select>'+
@@ -82,7 +94,7 @@
       '<div class="ai-bookkeeping-total"><small>Att betala</small><strong>1 250 kr</strong></div></div>'+
       '<div class="ai-bookkeeping-actions"><button class="button" type="button" data-ai-action="example" '+(busy?'disabled':'')+'>Visa bokföringsexempel</button>'+
       '<button class="button ghost" type="button" data-ai-action="analyze" '+(!canCall||busy?'disabled':'')+'>'+(busy?'Analyserar…':'Prova med AI (pilot)')+'</button></div>'+
-      '<small class="ai-bookkeeping-hint">'+(canCall?'AI-knappen kontaktar bara den säkrade pilotfunktionen. Om den inte är aktiverad visas ett tydligt meddelande.':'För att prova AI-knappen krävs inloggning i den delade kundportalen med behörig roll.')+'</small>'+
+      '<small class="ai-bookkeeping-hint">'+(canCall?'AI-knappen kontaktar bara den säkrade pilotfunktionen. Om den inte är aktiverad visas ett tydligt meddelande.':'AI-anslutningen är ännu inte aktiverad. Använd det fasta bokföringsexemplet; inga kunduppgifter skickas till någon AI-modell.')+'</small>'+
       '<div id="ai-bookkeeping-status" class="ai-bookkeeping-status '+esc(statusKind)+'" role="status" aria-live="polite">'+esc(status)+'</div></section>'+
       '<section class="ai-bookkeeping-panel ai-bookkeeping-result-panel"><h3>2. Granska förslaget</h3>'+resultMarkup()+'</section></div>'+
       '<div class="ai-bookkeeping-next"><h3>Vad händer när AI-bokföringen är färdig?</h3><p>Då ska kunden välja en befintlig faktura eller ett kvitto i LT Studio, få ett kontrollerat förslag och godkänna det i samma automationskö som används i dag. Vi aktiverar inte hantering av riktiga underlag förrän dataskydd, bokföringsregler och företagsisolering har verifierats.</p></div>'+
@@ -95,6 +107,9 @@
   }
   async function runAiPilot(){
     if(busy)return;
+    // Never trust disabled HTML buttons alone: the delegated event handler
+    // must also reject calls while the server release is locked.
+    if(!AI_PILOT_RELEASED){status='AI-testet är ännu inte aktiverat. Visa bokföringsexemplet så länge.';statusKind='warning';render();return;}
     if(demo||!liveHost){status='AI kräver den inloggade LT Studio-portalen.';statusKind='warning';render();return;}
     busy=true;result=null;status='Kontrollerar session och skickar endast det påhittade exemplet…';statusKind='info';render();
     try{
@@ -106,7 +121,7 @@
       const payload={companyId:String(ctx.company.id),scenario:selected,
         requestId:'ai-pilot-'+crypto.randomUUID()};
       const response=await window.LTSupabase.functions.invoke('ai-bookkeeping-pilot',payload,ctx.accessToken);
-      result=validateResponse(response,ctx.company.id);
+      result=validateResponse(response,payload.companyId,payload.scenario,payload.requestId);
       status='AI-förslaget är klart. Det är inte bokfört eller sparat.';
       statusKind='success';
     }catch(error){

@@ -93,7 +93,7 @@ test('demo reads no session or customer information; opens bank-context help',()
   const f=fixture({from:'unplaced-payments.html'});
   assert.equal(f.externalCalls,0);
   assert.match(f.app.innerHTML,/AI-hjälp/);
-  assert.match(f.app.innerHTML,/Guidad hjälp aktiv/);
+  assert.match(f.app.innerHTML,/Guider tillgängliga · AI avstängd/);
   assert.match(f.app.innerHTML,/inte ett AI-svar/);
   assert.match(f.app.innerHTML,/data-ai-scope="bank" aria-pressed="true"/);
   assert.match(f.results.innerHTML,/Hitta en betalning utan koppling/);

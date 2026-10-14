@@ -13,7 +13,7 @@ const sample=[
   {account:'2641',debitOre:25000,creditOre:0},
   {account:'2440',debitOre:0,creditOre:125000}
 ];
-function fixture({demo=false,role='accountant',response,throwInvoke}={}){
+function fixture({demo=false,role='accountant',response,throwInvoke,simulateReviewedRelease=false}={}){
   const callbacks={};
   const app={innerHTML:''};
   let calls=0,authCalls=0;
@@ -30,8 +30,14 @@ function fixture({demo=false,role='accountant',response,throwInvoke}={}){
       assert.match(body.requestId,/^ai-pilot-/);
       assert.deepEqual(Object.keys(body).sort(),['companyId','requestId','scenario']);
       if(throwInvoke)throw throwInvoke;
-      return response??{status:'manual-review',posted:false,companyId:'tenant-a-001',
-        reason:'Denna leverantör är ett kontorsmaterialtest.',suggestion:{rows:sample,requiresHumanApproval:true}};
+      const account={'office-paper':'6110','software-service':'6540','cleaning-supplies':'5460'}[body.scenario];
+      const valid={status:'manual-review',posted:false,companyId:body.companyId,
+        sourceId:'synthetic-'+body.requestId,
+        reason:'Detta är en påhittad leverantörsfaktura som måste granskas.',
+        suggestion:{expenseAccount:account,invoiceDate:'2026-09-15',
+          rows:sample.map((row,index)=>index===0?{...row,account}:row),
+          requiresHumanApproval:true}};
+      return typeof response==='function'?response(valid):response??valid;
     }}}
   };
   const sandbox={
@@ -41,7 +47,13 @@ function fixture({demo=false,role='accountant',response,throwInvoke}={}){
     URLSearchParams,Intl,Set,Number,Object,Error,String,Array,
     crypto:{randomUUID:()=> '11111111-1111-4111-8111-111111111111'}
   };
-  vm.runInNewContext(script,sandbox,{filename:'ai-bookkeeping.js'});
+  // Only this isolated VM can emulate a reviewed release. The committed
+  // production file stays hard-disabled, and must never expose a runtime toggle.
+  const simulatedScript=simulateReviewedRelease
+    ?script.replace('const AI_PILOT_RELEASED = false;', 'const AI_PILOT_RELEASED = true;')
+    :script;
+  if(simulateReviewedRelease)assert.notEqual(simulatedScript,script);
+  vm.runInNewContext(simulatedScript,sandbox,{filename:'ai-bookkeeping.js'});
   const select=(value)=>callbacks.change({target:{id:'ai-scenario',value}});
   const click=(action)=>callbacks.click({target:{
     closest:(key)=>key==='[data-ai-action]'?{disabled:false,dataset:{aiAction:action}}:null
@@ -60,7 +72,7 @@ test('demo makes no external calls, renders honest example and 25% VAT balanced 
   const f=fixture({demo:true});
   assert.match(f.app.innerHTML,/Begränsat testläge/);
   assert.match(f.app.innerHTML,/Visa bokföringsexempel/);
-  assert.match(f.app.innerHTML,/För att prova AI-knappen krävs inloggning/);
+  assert.match(f.app.innerHTML,/AI-anslutningen är ännu inte aktiverad/);
   f.click('example');
   assert.match(f.app.innerHTML,/FAST RÄKNEEXEMPEL – INTE AI/);
   assert.match(f.app.innerHTML,/6110/);
@@ -73,8 +85,8 @@ test('demo makes no external calls, renders honest example and 25% VAT balanced 
   assert.match(f.app.innerHTML,/6540/);
   assert.equal(f.calls,0);
 });
-test('real portal calls only fixed synthetic scenario, not user-entered amounts or PDFs',async()=>{
-  const f=fixture();
+test('isolated future-release simulation calls only fixed synthetic scenario, not real amounts or PDFs',async()=>{
+  const f=fixture({simulateReviewedRelease:true});
   await settle();
   f.click('analyze');
   await settle();
@@ -84,8 +96,8 @@ test('real portal calls only fixed synthetic scenario, not user-entered amounts 
   assert.match(f.app.innerHTML,/Förslaget är bara en förhandsvisning/);
   assert.ok(!f.app.innerHTML.includes('test-access-token'));
 });
-test('AI not released fails safely and leaves manual preview available',async()=>{
-  const f=fixture({throwInvoke:Object.assign(new Error('provider internal detail'),{status:503,code:'AI_PILOT_NOT_RELEASED'})});
+test('isolated future-release simulation fails safely when backend is not released',async()=>{
+  const f=fixture({simulateReviewedRelease:true,throwInvoke:Object.assign(new Error('provider internal detail'),{status:503,code:'AI_PILOT_NOT_RELEASED'})});
   await settle();
   f.click('analyze');await settle();
   assert.equal(f.calls,1);
@@ -95,32 +107,81 @@ test('AI not released fails safely and leaves manual preview available',async()=
   assert.match(f.app.innerHTML,/FAST RÄKNEEXEMPEL – INTE AI/);
 });
 test('even a balanced but changed synthetic VAT/amount response fails closed',async()=>{
-  const f=fixture({response:{status:'manual-review',posted:false,companyId:'tenant-a-001',
-    reason:'Wrong numbers',suggestion:{requiresHumanApproval:true,rows:[
+  const f=fixture({simulateReviewedRelease:true,response:valid=>({...valid,
+    reason:'Wrong numbers',suggestion:{...valid.suggestion,rows:[
       {account:'6110',debitOre:200000,creditOre:0},
       {account:'2641',debitOre:50000,creditOre:0},
       {account:'2440',debitOre:0,creditOre:250000}
-    ]}}});
+    ]}})});
   await settle();f.click('analyze');await settle();
   assert.equal(f.calls,1);
   assert.doesNotMatch(f.app.innerHTML,/AI-FÖRSLAG/);
   assert.match(f.app.innerHTML,/Ingen bokföring ändrades/);
 });
 test('malicious provider body or different tenant is never displayed as a trusted AI suggestion',async()=>{
-  const f=fixture({response:{status:'manual-review',posted:false,companyId:'tenant-b-002',suggestion:{rows:sample,requiresHumanApproval:true}}});
+  const f=fixture({simulateReviewedRelease:true,response:valid=>({...valid,companyId:'tenant-b-002'})});
   await settle();f.click('analyze');await settle();
   assert.equal(f.calls,1);
   assert.doesNotMatch(f.app.innerHTML,/AI-FÖRSLAG/);
   assert.match(f.app.innerHTML,/Ingen bokföring ändrades/);
 });
+test('future synthetic pilot correlates source ID and selected expense account',async()=>{
+  const f=fixture({simulateReviewedRelease:true});
+  await settle();
+  f.select('software-service');
+  f.click('analyze');await settle();
+  assert.equal(f.calls,1);
+  assert.match(f.app.innerHTML,/AI-FÖRSLAG/);
+  assert.match(f.app.innerHTML,/6540/);
+});
+test('different request source is never shown as current AI proposal',async()=>{
+  const f=fixture({simulateReviewedRelease:true,response:valid=>({...valid,
+    sourceId:'synthetic-ai-pilot-other-request'})});
+  await settle();f.click('analyze');await settle();
+  assert.equal(f.calls,1);
+  assert.doesNotMatch(f.app.innerHTML,/AI-FÖRSLAG/);
+  assert.match(f.app.innerHTML,/Ingen bokföring ändrades/);
+});
+test('balanced but wrong expense account for a fixed synthetic supplier is blocked',async()=>{
+  const f=fixture({simulateReviewedRelease:true,response:valid=>({...valid,suggestion:{
+    ...valid.suggestion,expenseAccount:'6540',
+    rows:[{...valid.suggestion.rows[0],account:'6540'},...valid.suggestion.rows.slice(1)]
+  }})});
+  await settle();f.click('analyze');await settle();
+  assert.equal(f.calls,1);
+  assert.doesNotMatch(f.app.innerHTML,/AI-FÖRSLAG/);
+  assert.match(f.app.innerHTML,/Ingen bokföring ändrades/);
+});
+test('synthetic preview rejects coerced amounts and altered invoice dates',async()=>{
+  for(const response of [
+    valid=>({...valid,suggestion:{...valid.suggestion,
+      rows:[{...valid.suggestion.rows[0],debitOre:'100000'},...valid.suggestion.rows.slice(1)]}}),
+    valid=>({...valid,suggestion:{...valid.suggestion,invoiceDate:'2026-09-14'}})
+  ]){
+    const f=fixture({simulateReviewedRelease:true,response});
+    await settle();f.click('analyze');await settle();
+    assert.equal(f.calls,1);
+    assert.doesNotMatch(f.app.innerHTML,/AI-FÖRSLAG/);
+    assert.match(f.app.innerHTML,/Ingen bokföring ändrades/);
+  }
+});
 test('readonly user can see an example but never trigger AI',async()=>{
-  const f=fixture({role:'readonly'});
+  const f=fixture({role:'readonly',simulateReviewedRelease:true});
   await settle();
   assert.match(f.app.innerHTML,/Prova med AI \(pilot\)/);
   assert.match(f.app.innerHTML,/\bdisabled\b/);
   f.click('example');
   assert.match(f.app.innerHTML,/FAST RÄKNEEXEMPEL – INTE AI/);
   assert.equal(f.calls,0);
+});
+test('current live portal never invokes an AI model even on forged delegated click',async()=>{
+  const f=fixture();
+  await settle();
+  assert.match(f.app.innerHTML,/data-ai-action="analyze" disabled/);
+  f.click('analyze');
+  await settle();
+  assert.equal(f.calls,0);
+  assert.match(f.app.innerHTML,/AI-testet är ännu inte aktiverat/);
 });
 test('the customer browser never contains Cloudflare token or admin secret usage',()=>{
   assert.doesNotMatch(script,/CLOUDFLARE_AI_TOKEN|CLOUDFLARE_ACCOUNT_ID|SUPABASE_SERVICE_ROLE_KEY/);

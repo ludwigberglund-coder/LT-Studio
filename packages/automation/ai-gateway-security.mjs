@@ -4,13 +4,13 @@
 const SUPPORTED_SCENARIOS = Object.freeze(['office-paper', 'software-service', 'cleaning-supplies']);
 const PILOT_INVOICE = Object.freeze({
   'office-paper': Object.freeze({
-    supplierName: 'Syntetiskt Kontor AB', description: 'A4-kontorspapper, tio paket'
+    supplierName: 'Syntetiskt Kontor AB', description: 'A4-kontorspapper, tio paket', expectedAccount: '6110'
   }),
   'software-service': Object.freeze({
-    supplierName: 'Syntetisk IT AB', description: 'IT-drifttjänst under september'
+    supplierName: 'Syntetisk IT AB', description: 'IT-drifttjänst under september', expectedAccount: '6540'
   }),
   'cleaning-supplies': Object.freeze({
-    supplierName: 'Syntetisk Städ AB', description: 'Förbrukningsmaterial för städning'
+    supplierName: 'Syntetisk Städ AB', description: 'Förbrukningsmaterial för städning', expectedAccount: '5460'
   })
 });
 function problem(code) {
@@ -49,6 +49,13 @@ function validateAuthorization({requestedCompany, verifiedUserId, membership, aa
     throw problem('ACCESS_DENIED');
   }
   return Object.freeze({companyId:requestedCompany,actorId:verifiedUserId});
+}
+// Ground truth is server-only and deliberately excluded from invoice/model input.
+function expectedPilotAccount(scenario) {
+  if(typeof scenario!=='string'||!Object.hasOwn(PILOT_INVOICE,scenario)){
+    throw problem('UNSUPPORTED_SCENARIO');
+  }
+  return PILOT_INVOICE[scenario].expectedAccount;
 }
 function syntheticInvoice(request, access) {
   if (!access || access.companyId !== request.companyId) throw problem('TENANT_MISMATCH');
@@ -89,4 +96,4 @@ function mayContactCloudflare({pilotEnabled, privacyApproved, reservation}) {
   return true;
 }
 export {SUPPORTED_SCENARIOS, validateRequest, validateAuthorization,
-  syntheticInvoice, requireBudgetReservation, mayContactCloudflare};
+  syntheticInvoice, expectedPilotAccount, requireBudgetReservation, mayContactCloudflare};
