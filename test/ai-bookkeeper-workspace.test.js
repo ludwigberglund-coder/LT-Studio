@@ -50,7 +50,7 @@ test('AI tab prioritizes automated bookkeeping over guides and marks actual read
   assert.match(f.app.innerHTML,/Säker pilot · ingen automatbokföring/);
   assert.match(f.app.innerHTML,/AI har ännu inte åtkomst till dina riktiga underlag/);
   assert.match(f.app.innerHTML,/<details class="ai-assistant-guides"/);
-  assert.match(f.app.innerHTML,/Guidad hjälp aktiv/);
+  assert.match(f.app.innerHTML,/Guider tillgängliga · AI avstängd/);
   assert.match(f.app.innerHTML,/inte ett AI-svar/);
   assert.equal(f.sessions,0);
   assert.equal(f.reads,0);
