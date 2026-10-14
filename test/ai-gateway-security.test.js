@@ -35,6 +35,12 @@ test('no customer content or arbitrary prompt may enter generated invoice',async
   assert.equal(source.netOre+source.vatOre,source.grossOre);
   assert.equal(source.vatRateBps,2500);
   assert.equal(source.supplierName,'Syntetiskt Kontor AB');
+  assert.equal(Object.hasOwn(source,'expectedAccount'),false);
+  const {expectedPilotAccount}=await get();
+  assert.equal(expectedPilotAccount('office-paper'),'6110');
+  assert.equal(expectedPilotAccount('software-service'),'6540');
+  assert.equal(expectedPilotAccount('cleaning-supplies'),'5460');
+  throws(()=>expectedPilotAccount('__proto__'),'UNSUPPORTED_SCENARIO');
   throws(()=>syntheticInvoice(valid,{companyId:'tenant-b-002'}),'TENANT_MISMATCH');
 });
 test('Cloudflare requires explicit pilot authorization plus durable budget',async()=>{

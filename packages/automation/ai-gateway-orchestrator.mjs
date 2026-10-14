@@ -2,7 +2,7 @@
 // user-scoped Supabase client AND a durable atomic budget reservation backend.
 // Never let browser input select the provider, model, quota or trusted context.
 import { preflightSyntheticPilot } from './ai-gateway-session.mjs';
-import { mayContactCloudflare } from './ai-gateway-security.mjs';
+import { mayContactCloudflare, expectedPilotAccount } from './ai-gateway-security.mjs';
 import { suggestSyntheticInvoice } from './cloudflare-bookkeeping.mjs';
 
 function blocked(code) {
@@ -38,10 +38,17 @@ async function runSyntheticPilot({
   // enter the provider context or the minimized synthetic model request.
   const {sessionId: _sessionId, ...providerContext}=verified.trustedContext;
   // The pilot proposal is ephemeral, remains manual-review, never posts a journal.
-  return suggestSyntheticInvoice({
+  const proposal=await suggestSyntheticInvoice({
     invoice:verified.invoice,
     trustedContext:providerContext,
     provider
   });
+  // Structural validity and a balanced 25% VAT journal do not prove the
+  // model chose the right expense account for these fixed synthetic examples.
+  // Never send an obviously misclassified pilot result to the client.
+  if(proposal?.suggestion?.expenseAccount!==expectedPilotAccount(verified.request.scenario)){
+    throw blocked('UNSAFE_AI_PROPOSAL');
+  }
+  return proposal;
 }
 export {runSyntheticPilot};
