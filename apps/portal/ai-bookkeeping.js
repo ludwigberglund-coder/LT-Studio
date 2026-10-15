@@ -13,7 +13,9 @@
   const AI_PILOT_RELEASED = false;
   let context=null,selected=options[0].id,busy=false,result=null,status='',statusKind='info';
   let localPdfType='supplier-invoice',localPdfResult=null,localPdfStatus='',localPdfBusy=false;
-  let localPdfAccount='6110',localPdfPayment='1930',localPdfProposal=null;
+  // Never silently choose an expense or payment account for a new PDF.
+  let localPdfAccount='',localPdfPayment='',localPdfProposal=null,accountSource='none';
+  let localPdfRevision=0,learningRequest=0,accountEdited=false;
   let learnBusy=false,learnStatus='',learnResult=null;
   const esc=(text)=>String(text??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'":'&#39;'}[char]));
   const kronor=(ore)=>new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK'}).format(Number(ore)/100);
@@ -76,7 +78,7 @@
       ['admin','accountant'].includes(context?.membership?.role);
     return '<section class="ai-pdf-learning" aria-label="Lär av tidigare bokföring">'+
       '<h4>Lär av företagets tidigare bokföring</h4>'+
-      '<p>Jämför med fakturor som redan är attesterade och bokförda i just detta företag. Minst tre likadana, säkra exempel krävs. Ingenting skickas till en AI-modell och inget bokförs automatiskt.</p>'+
+      '<p>Efter PDF-läsning jämför vi automatiskt med redan attesterade och bokförda fakturor i ditt företag. Minst tre oberoende, entydiga exempel krävs. Inget skickas till AI och inget bokförs.</p>'+
       (canLearn?'<button type="button" class="button ghost" data-ai-action="learn-pdf" '+(learnBusy||localPdfBusy?'disabled':'')+'>'+
         (learnBusy?'Jämför historik…':'Hitta konto från tidigare bokföring')+'</button>':
         '<small>Historikjämförelse kräver en inloggad ekonomiansvarig.</small>')+
@@ -84,7 +86,8 @@
       (learnResult?.status==='suggested'?
         '<div class="ai-pdf-learning-match"><strong>Förslag: '+esc(learnResult.account)+' – '+esc(learnResult.accountName)+'</strong>'+
         '<p>'+esc(learnResult.reason)+' Antal jämförda original: '+esc(learnResult.sampleCount)+'.</p>'+
-        '<button type="button" class="button" data-ai-action="use-learned-account">Välj föreslaget konto</button>'+
+        (accountSource==='history'&&localPdfAccount===learnResult.account?'<small>Kontot är redan ifyllt automatiskt. Du kan ändra det före granskning.</small>':
+          '<button type="button" class="button" data-ai-action="use-learned-account">Välj föreslaget konto</button>')+
         '<small>Förslaget är inte AI-träning, attest eller bokföring. Kontrollera original, moms och kontoval själv.</small></div>':'')+
       '</section>';
   }
@@ -111,10 +114,10 @@
       localPdfLearningMarkup()+
       '<section class="ai-pdf-proposal"><h4>Visa ett bokföringsutkast</h4><p>Välj själv vad inköpet gäller. Vi räknar ut ett granskningsutkast med beloppen från PDF:en. Det är inte AI och sparas inte.</p>'+
       '<div class="ai-pdf-proposal-controls"><label for="ai-pdf-account">Vad köptes?<select id="ai-pdf-account">'+
-      Object.entries(window.LTStudioDocumentReview?.ACCOUNTS||{}).map(([key,name])=>'<option value="'+esc(key)+'"'+(localPdfAccount===key?' selected':'')+'>'+esc(name)+'</option>').join('')+
+      '<option value=""'+(localPdfAccount===''?' selected':'')+'>Välj vad som köptes</option>'+Object.entries(window.LTStudioDocumentReview?.ACCOUNTS||{}).map(([key,name])=>'<option value="'+esc(key)+'"'+(localPdfAccount===key?' selected':'')+'>'+esc(name)+'</option>').join('')+
       '</select></label>'+
       (localPdfType==='receipt'?'<label for="ai-pdf-payment">Hur betalades kvittot?<select id="ai-pdf-payment">'+
-        Object.entries(window.LTStudioDocumentReview?.PAYMENT||{}).map(([key,name])=>'<option value="'+esc(key)+'"'+(localPdfPayment===key?' selected':'')+'>'+esc(name)+'</option>').join('')+'</select></label>':'')+
+        '<option value=""'+(localPdfPayment===''?' selected':'')+'>Välj betalningssätt</option>'+Object.entries(window.LTStudioDocumentReview?.PAYMENT||{}).map(([key,name])=>'<option value="'+esc(key)+'"'+(localPdfPayment===key?' selected':'')+'>'+esc(name)+'</option>').join('')+'</select></label>':'')+
       '<button type="button" class="button" data-ai-action="preview-pdf">Visa granskningsutkast</button></div>'+
       localPdfProposalMarkup()+'</section></div>';
   }
@@ -125,8 +128,8 @@
     return '<div class="ai-pdf-proposal-result" role="status" aria-live="polite">'+
       '<div class="ai-pdf-result-title"><strong>'+(blocked?'Kan inte skapa säkert utkast':'Granskningsutkast – inte AI')+'</strong>'+
       '<span>Ej bokfört · ej sparat</span></div>'+
-      (!blocked?'<p>Momssats som stämmer med beloppen: <strong>'+esc(localPdfProposal.checks.vatRate)+' %</strong>. Konto är valt manuellt.</p>'+
-        rowsMarkup(localPdfProposal.rows):'')+
+      (!blocked?'<p>Momssats som stämmer med beloppen: <strong>'+esc(localPdfProposal.checks.vatRate)+' %</strong>. Ingen uppgift är slutligt verifierad.</p>'+
+        '<p>'+(accountSource==='history'?'Kontot har fyllts i från företagets bokförda historik. Kontrollera om inköpet verkligen är likadant.':'Konto är valt manuellt eller behöver bekräftas.')+'</p>'+rowsMarkup(localPdfProposal.rows):'')+
       '<div class="ai-pdf-warnings"><strong>'+(blocked?'Blockerande fel och kontroller':'Måste kontrolleras före eventuell bokföring')+'</strong>'+
       '<ul>'+notes.map(note=>'<li>'+esc(note)+'</li>').join('')+'</ul></div>'+
       '<p class="ai-bookkeeping-footnote">Utkastet kan inte godkännas, sparas eller bokföras här. För verklig bokföring används LT Studios ordinarie behörighetskontroller.</p></div>';
@@ -207,12 +210,27 @@
       statusKind='warning';
     }finally{busy=false;render();}
   }
-  async function learnFromPostedHistory(){
+  function safeAutomaticHistoryCheck(extraction){
+    return extraction?.documentType==='supplier-invoice'&&
+      extraction?.checks?.amountBalance===true&&
+      extraction.checks.creditNote===false&&extraction.checks.negativeSummary===false&&
+      extraction.checks.mixedVatRates===false&&
+      Array.isArray(extraction.warnings)&&
+      !extraction.warnings.some(w=>/utländsk valuta|motstridiga/i.test(String(w)));
+  }
+  async function learnFromPostedHistory({automatic=false}={}){
     if(learnBusy||localPdfBusy||!localPdfResult||localPdfType!=='supplier-invoice'||
       demo||!liveHost||!window.LTStudioPostedHistory)return;
     const original=localPdfResult;
+    const revision=localPdfRevision,request=++learningRequest;
     const companyId=String(context?.company?.id||'');
     if(!companyId||!context?.authenticated||!['admin','accountant'].includes(context?.membership?.role))return;
+    // Never retain a previously history-derived preview while the underlying
+    // historical evidence is being re-checked. An explicit manual account is
+    // never silently replaced or erased by this background lookup.
+    if(accountSource==='history'&&!accountEdited){
+      localPdfAccount='';accountSource='none';localPdfProposal=null;
+    }
     learnBusy=true;learnResult=null;learnStatus='Söker endast bland tidigare attesterade och bokförda fakturor i ditt företag…';render();
     try{
       const ctx=await window.LTSupabaseUat.context();
@@ -229,24 +247,44 @@
             filter+'&approved_at=not.is.null&liability_posted_at=not.is.null&order=approved_at.desc&limit=200')
       ]);
       const fresh=await window.LTSupabaseUat.context();
-      if(original!==localPdfResult||localPdfType!=='supplier-invoice'||
+      if(request!==learningRequest||revision!==localPdfRevision||
+         original!==localPdfResult||localPdfType!=='supplier-invoice'||
         !fresh?.authenticated||String(fresh.company?.id||'')!==companyId||
         String(fresh.authUser?.id||'')!==String(ctx.authUser?.id||'')||
         !['admin','accountant'].includes(fresh.membership?.role))throw Error('SESSION_CHANGED');
       learnResult=window.LTStudioPostedHistory.recommend({companyId,extraction:original,suppliers,invoices});
-      learnStatus=learnResult.status==='suggested'
-        ?'Ett historiskt kontoförslag finns. Du måste själv välja om du vill använda det.'
-        :'Inget tillräckligt säkert mönster hittades. Välj konto manuellt; systemet gissar inte.';
+      if(automatic&&learnResult.status==='suggested'&&!accountEdited&&
+         Object.hasOwn(window.LTStudioDocumentReview?.ACCOUNTS||{},learnResult.account)){
+        // This is still a local, non-persisted and UNVERIFIED draft. The history
+        // suggestion is never an approval or proof that the current invoice is new.
+        const preview=window.LTStudioDocumentReview.buildReview(original,{expenseAccount:learnResult.account});
+        if(preview.status==='manual-review'){
+          localPdfAccount=learnResult.account;accountSource='history';localPdfProposal=preview;
+          learnStatus='Tidigare bokföring gav ett entydigt kontoförslag. Utkastet är förberett automatiskt – granska originalet. Inget har bokförts.';
+        }else{
+          learnStatus='Underlaget behöver din hjälp. Ett automatiskt utkast kunde inte göras säkert.';
+        }
+      }else{
+        learnStatus=learnResult.status==='suggested'
+          ?'Ett historiskt kontoförslag finns. Du kan själv välja om du vill använda det.'
+          :'Inget tillräckligt säkert mönster hittades. Välj konto manuellt; systemet gissar inte.';
+      }
     }catch{
+      if(request!==learningRequest)return;
       learnResult=null;
       learnStatus='Historiken kunde inte jämföras säkert. Ingen bokföring ändrades.';
-    }finally{learnBusy=false;render();}
+    }finally{
+      if(request===learningRequest){learnBusy=false;render();}
+    }
   }
   async function readLocalPdf(){
     if(localPdfBusy)return;
     const file=document.getElementById('ai-pdf-file')?.files?.[0];
     if(!file){localPdfStatus='Välj en PDF-fil först.';render();return;}
     if(!window.LTStudioDocumentReader){localPdfStatus='PDF-läsaren kunde inte laddas.';render();return;}
+    // Invalidate any asynchronous history match from the previous PDF.
+    localPdfRevision++;learningRequest++;learnBusy=false;accountEdited=false;
+    localPdfAccount='';localPdfPayment='';accountSource='none';
     localPdfBusy=true;localPdfResult=null;localPdfProposal=null;learnResult=null;learnStatus='';localPdfStatus='Läser PDF lokalt på din enhet…';render();
     try{
       localPdfResult=await window.LTStudioDocumentReader.readPdf(file,localPdfType);
@@ -266,9 +304,16 @@
       localPdfStatus=messages[error?.code]||'PDF:en kunde inte läsas. Ingen information skickades eller sparades.';
       localPdfResult=null;
     }finally{localPdfBusy=false;render();}
+    if(localPdfResult&&safeAutomaticHistoryCheck(localPdfResult)){
+      // Authenticated, RLS-scoped READ only. No provider or bookkeeping call.
+      void learnFromPostedHistory({automatic:true});
+    }
   }
   function previewLocalPdf(){
     if(!localPdfResult||!window.LTStudioDocumentReview)return;
+    if(!localPdfAccount||(localPdfType==='receipt'&&!localPdfPayment)){
+      localPdfStatus='Välj först vad som köptes och, för kvitto, hur det betalades.';render();return;
+    }
     try{
       localPdfProposal=window.LTStudioDocumentReview.buildReview(localPdfResult,{
         expenseAccount:localPdfAccount,
@@ -285,14 +330,19 @@
   document.addEventListener('change',event=>{
     const target=event.target;
     if(target?.id==='ai-pdf-type'&&!localPdfBusy){
-      if(['supplier-invoice','receipt'].includes(target.value)){localPdfType=target.value;localPdfResult=null;localPdfProposal=null;learnResult=null;learnStatus='';localPdfStatus='';render();}
+      if(['supplier-invoice','receipt'].includes(target.value)){
+        localPdfRevision++;learningRequest++;learnBusy=false;accountEdited=false;
+        localPdfAccount='';localPdfPayment='';accountSource='none';
+        localPdfType=target.value;localPdfResult=null;localPdfProposal=null;learnResult=null;learnStatus='';localPdfStatus='';render();
+      }
       return;
     }
     if(target?.id==='ai-pdf-account'&&Object.hasOwn(window.LTStudioDocumentReview?.ACCOUNTS||{},target.value)){
-      localPdfAccount=target.value;localPdfProposal=null;render();return;
+      localPdfAccount=target.value;accountSource='manual';accountEdited=true;
+      localPdfProposal=null;render();return;
     }
     if(target?.id==='ai-pdf-payment'&&Object.hasOwn(window.LTStudioDocumentReview?.PAYMENT||{},target.value)){
-      localPdfPayment=target.value;localPdfProposal=null;render();return;
+      localPdfPayment=target.value;accountEdited=true;localPdfProposal=null;render();return;
     }
     if(target?.id!=='ai-scenario'||busy)return;
     if(options.some(item=>item.id===target.value)){
@@ -309,7 +359,7 @@
     if(button.dataset.aiAction==='learn-pdf')void learnFromPostedHistory();
     if(button.dataset.aiAction==='use-learned-account'&&learnResult?.status==='suggested'&&
       localPdfResult&&Object.hasOwn(window.LTStudioDocumentReview?.ACCOUNTS||{},learnResult.account)){
-      localPdfAccount=learnResult.account;localPdfProposal=null;
+      localPdfAccount=learnResult.account;accountSource='history';accountEdited=true;localPdfProposal=null;
       learnStatus='Kontot är valt från historiken. Granska och skapa därefter ett utkast manuellt.';
       render();
     }
