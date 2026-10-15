@@ -96,7 +96,7 @@
       let match,last=0,parts=[];
       while((match=operands.exec(block))!==null){
         const between=block.slice(last,match.index);
-        if(/\b(?:Td|TD|T\*)\b/.test(between)&&parts.length){lines.push(parts.join(' ').trim());parts=[];}
+        if(/(?:\b(?:Td|TD)\b|T\*)/.test(between)&&parts.length){lines.push(parts.join(' ').trim());parts=[];}
         const value=decodeTextOperand(match[1]).replace(/[\x00-\x08\x0b-\x1f\x7f]/g,'').trim();
         if(value)parts.push(value);
         last=operands.lastIndex;
