@@ -239,3 +239,13 @@ test('wrong company session, possible duplicate and unsafe PDF never prefill liv
     assert.equal(u.writes,0);
   }
 });
+
+
+test('duplicate document records for the same invoice never produce a preview',async()=>{
+  const duplicateDocument=document({id:'document-second',object_path:'tenant-a/invoice-new-copy.pdf'});
+  const u=liveUi(list(),[document(),duplicateDocument]);
+  await u.settle();
+  await u.click('suggest-coding');await u.settle();
+  assert.doesNotMatch(u.app.innerHTML,/Historikbaserat utkast är förberett/);
+  assert.equal(u.writes,0);
+});
