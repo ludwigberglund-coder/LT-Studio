@@ -74,3 +74,14 @@ Efter att lokal PDF-avläsning och bokföringsutkast kopplats till både `AI-bok
 Resultatet visas med svenska förklaringar i båda gränssnitten. **Inga kreditnotor bokförs automatiskt.** Kreditflöde, momsfördelning och riktiga kundunderlag kräver fortfarande serververifiering och separat redovisnings-/driftsgodkännande. Skyddet är en fail-closed granskningsregel, inte en fullständig klassificerare eller ett bokföringsbeslut.
 
 Automatiska tester finns i `test/ai-document-risk-gates.test.js`, samt de tidigare reader-/review-/dokumentarkivstesterna.
+
+## 2026-10-15: Striktare belopp och explicit Unicode i digitala PDF:er
+
+Den lokala PDF-läsaren har förstärkts för vanliga digitala leverantörsfakturor och kvitton:
+
+- **Belopp med svensk eller internationell tusentalsgruppering** stöds när grupperna är konsekventa, t.ex. `1 234,56`, `1.234,56`, `1,234.56` och `1 234 567,89`. Endast heltalsören används.
+- **Felaktiga belopp avvisas** i stället för att ta bort skiljetecken och skapa ett falskt belopp. Exempel: `1,2`, `12,34,56`, `1.234.56` och felaktig tusentalsgruppering. Ett sådant saknat totalbelopp stoppar även granskningsutkastet.
+- **UTF-16 med uttrycklig BOM i PDF-hexsträngar** kan avkodas, inklusive svenska tecken. PDF-text som består av tvåbytes-glyfkoder utan BOM avvisas när en fontspecifik ToUnicode-tabell behövs. Läsaren får inte gissa att glyfkoder är fakturatext.
+- Detta är **fortfarande lokal PDF-textläsning, inte OCR eller AI**. Den tolkar inte generella ToUnicode-fontmappningar eller skannade dokument. Den gör inga nätverks-, databas-, AI- eller bokföringsanrop.
+
+Regressionstester: `test/ai-document-reader-numeric-unicode.test.js` samt tidigare PDF- och konteringstester. Releaseflaggorna för extern AI är fortsatt avstängda.
