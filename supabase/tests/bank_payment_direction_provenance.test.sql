@@ -3,7 +3,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(14);
+select plan(16);
 
 select has_column('public','bank_payments','direction','bank events expose explicit direction');
 select has_column('public','bank_payments','direction_source','bank direction records a source');
@@ -81,7 +81,29 @@ select throws_ok(
 );
 
 select throws_ok(
-  $$update public.bank_payments
+  $update public.bank_payments
+      set direction_source=null,
+          direction_source_reference='event-801-missing-source',
+          direction_evidence_sha256=repeat('c',64),
+          direction_verified_at=now()
+      where id='pgtap-direction-bank-unknown'$,
+  '23514',null,
+  'provenance with a missing source is rejected instead of evaluating to null'
+);
+
+select throws_ok(
+  $update public.bank_payments
+      set direction_source='synthetic-import',
+          direction_source_reference='event-801-missing-hash',
+          direction_evidence_sha256=null,
+          direction_verified_at=now()
+      where id='pgtap-direction-bank-unknown'$,
+  '23514',null,
+  'provenance with a missing evidence hash is rejected instead of evaluating to null'
+);
+
+select throws_ok(
+  $update public.bank_payments
       set direction='outgoing',
           direction_source='synthetic-import',
           direction_source_reference='event-801-invalid-hash',
