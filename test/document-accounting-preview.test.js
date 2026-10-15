@@ -19,10 +19,10 @@ function pdf(body){
   ]);
 }
 const invoice=pdf([
-  '(Leverantor: Testkontor AB) Tj',
+  '(Butik: Testkontor AB) Tj',
   '(Fakturanummer: INV-55) Tj',
   '(Fakturadatum: 2026-10-15) Tj',
-  '(Forfallodatum: 2026-11-15) Tj',
+  '(Betalas senast: 2026-11-15) Tj',
   '(Netto: 100,00 kr) Tj',
   '(Moms: 25,00 kr) Tj',
   '(Totalt: 125,00 kr) Tj'
@@ -30,7 +30,7 @@ const invoice=pdf([
 const receipt=pdf([
   '(Butik: Testbutiken AB) Tj',
   '(Kvittonummer: KV-4) Tj',
-  '(Kopdatum: 2026-10-15) Tj',
+  '(Datum: 2026-10-15) Tj',
   '(Totalt: 125,00 kr) Tj',
   '(Varav moms: 25,00 kr) Tj'
 ].join('\n'));
@@ -160,7 +160,7 @@ test('changed tenant or altered original hash invalidates existing local review'
 });
 test('untrusted PDF text is escaped in original fields and never trusted as HTML',async()=>{
   const malicious=pdf([
-    '(Leverantor: <img src=x onerror=alert(1)>) Tj',
+    '(Butik: <img src=x onerror=alert(1)>) Tj',
     '(Fakturanummer: INV-55) Tj',
     '(Fakturadatum: 2026-10-15) Tj',
     '(Netto: 100,00 kr) Tj',
