@@ -59,3 +59,18 @@ Vid varje begäran om konteringsutkast kontrolleras aktuell session, användare,
 **Begränsningar:** Textbaserade, passiva PDF:er; ingen OCR för skannade bilder. En användarvald kostnadskategori är inte ett AI-beslut och garanterar inte korrekt konto eller avdragsgill moms. Faktisk betalning, dubbletter, kreditnotor, komplexa fakturor och momsundantag måste fortfarande kontrolleras i de ordinarie ekonomiflödena. AI-releasegrindarna är oförändrade.
 
 Regressionstest: `test/document-accounting-preview.test.js`, tillsammans med befintliga `test/ai-document-reader.test.js` och `test/ai-document-review.test.js`.
+
+## 2026-10-15: Säkrare hantering av krediter och momssatser
+
+Efter att lokal PDF-avläsning och bokföringsutkast kopplats till både `AI-bokföring` och `Dokument` har regelmotorn förstärkts. Tidigare kunde en **kreditfaktura med positiva belopp** se ut som en vanlig leverantörsfaktura: netto + moms = total stämde matematiskt, men bokföringsriktningen var fel. Det är nu ett uttryckligt stoppvillkor.
+
+- **Kreditfaktura, kreditnota, credit note och returkvitto:** identifieras från PDF-text även när beloppen är positiva. Det vanliga kostnad-/leverantörsskuldsutkastet blockeras i stället för att vända tecken eller gissa konton.
+- **Negativa summor:** negativt netto, moms eller totalbelopp i sammanfattningsrader ger stopp, även om ett annat positivt totalbelopp hittats. En separat negativ rabattrad stoppar inte automatiskt en i övrigt entydig vanlig faktura.
+- **Flera angivna momssatser:** blockerar det enkla utkastet, eftersom inköpet kan kräva flera kostnads-/momskonton.
+- **Angiven momssats måste stämma med beloppen:** exempelvis `Momssats: 25 %` tillsammans med belopp som motsvarar 12 % blockeras även om netto + moms = total.
+- **Fler utländska valutor:** NOK, DKK, CHF, PLN, CAD, AUD, JPY och CNY markeras nu liksom EUR, USD och GBP.
+- **Saknade eller förfalskade riskfält:** den gemensamma granskningsmotorn avvisar resultaten; det räcker inte att ändra en klientflagga för att få ett utkast godkänt.
+
+Resultatet visas med svenska förklaringar i båda gränssnitten. **Inga kreditnotor bokförs automatiskt.** Kreditflöde, momsfördelning och riktiga kundunderlag kräver fortfarande serververifiering och separat redovisnings-/driftsgodkännande. Skyddet är en fail-closed granskningsregel, inte en fullständig klassificerare eller ett bokföringsbeslut.
+
+Automatiska tester finns i `test/ai-document-risk-gates.test.js`, samt de tidigare reader-/review-/dokumentarkivstesterna.
