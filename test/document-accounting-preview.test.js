@@ -12,7 +12,8 @@ const script=fs.readFileSync(path.join(root,'apps/portal/documents.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'apps/portal/documents.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'apps/portal/documents.css'),'utf8');
 function pdf(body){
-  const bytes=Buffer.from('BT /F1 12 Tf\n'+body+'\nET','latin1');
+  // PDF text operands need Td moves between rows; otherwise the reader sees one long line.
+  const bytes=Buffer.from('BT /F1 12 Tf\n'+body.replace(/\) Tj\n/g,') Tj 0 -18 Td\n')+'\nET','latin1');
   return Buffer.concat([
     Buffer.from('%PDF-1.4\n1 0 obj\n<< /Length '+bytes.length+' >>\nstream\n','latin1'),
     bytes,Buffer.from('\nendstream\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n','latin1')
@@ -176,7 +177,7 @@ test('changed tenant or altered original hash invalidates existing local review'
 });
 test('untrusted PDF text is escaped in original fields and never trusted as HTML',async()=>{
   const malicious=pdf([
-    '(Butik: <img src=x onerror=alert(1)>) Tj',
+    '(Butik: <img src=x onerror=alert>) Tj',
     '(Fakturanummer: INV-55) Tj',
     '(Fakturadatum: 2026-10-15) Tj',
     '(Netto: 100,00 kr) Tj',
@@ -184,7 +185,7 @@ test('untrusted PDF text is escaped in original fields and never trusted as HTML
     '(Totalt: 125,00 kr) Tj'
   ].join('\n'));
   const f=fixture({data:malicious});await settle();await f.click('read');
-  assert.match(f.modalHtml,/&lt;img src=x onerror=alert\(1\)&gt;/);
+  assert.match(f.modalHtml,/&lt;img src=x onerror=alert&gt;/);
   assert.doesNotMatch(f.modalHtml,/<img src=x onerror/);
   f.expense.value='6110';
   await f.click('preview');
