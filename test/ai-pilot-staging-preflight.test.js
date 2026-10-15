@@ -39,3 +39,19 @@ test('preflight uses metadata-only reads and requires staging before release',()
   assert.match(runbook,/enabled=false/);
   assert.doesNotMatch(runbook,/\b(delete from|truncate table|drop table|insert into|update public\.)/i);
 });
+
+test('staging-only installation and migration version alias are documented without enabling AI',()=>{
+  const parity=read('docs/SUPABASE-PARITY.md');
+  assert.match(runbook,/20261015071358_ai_pilot_atomic_quota/);
+  assert.match(runbook,/20261013071500_ai_pilot_atomic_quota\.sql/);
+  assert.match(runbook,/enabled=false/);
+  assert.match(runbook,/0 reservationsrader/);
+  assert.match(parity,/AI-kvot: separat staging-paritet 2026-10-15/);
+  assert.match(parity,/20261015071358/);
+  assert.match(parity,/UAT har inte fått migreringen/);
+  // UAT-only aliases must not silently inherit the staging migration record.
+  const uatHistory=JSON.parse(read('supabase/migration-history-parity.json'));
+  assert.equal(uatHistory.project_ref,'bwbhnotpuuhgghjpmflk');
+  assert.equal(uatHistory.aliases.some(item=>item.live_version==='20261015071358'),false);
+  assert.match(browser,/const AI_PILOT_RELEASED = false;/);
+});
