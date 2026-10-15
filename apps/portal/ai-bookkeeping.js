@@ -225,6 +225,12 @@
     const revision=localPdfRevision,request=++learningRequest;
     const companyId=String(context?.company?.id||'');
     if(!companyId||!context?.authenticated||!['admin','accountant'].includes(context?.membership?.role))return;
+    // Never retain a previously history-derived preview while the underlying
+    // historical evidence is being re-checked. An explicit manual account is
+    // never silently replaced or erased by this background lookup.
+    if(accountSource==='history'&&!accountEdited){
+      localPdfAccount='';accountSource='none';localPdfProposal=null;
+    }
     learnBusy=true;learnResult=null;learnStatus='Söker endast bland tidigare attesterade och bokförda fakturor i ditt företag…';render();
     try{
       const ctx=await window.LTSupabaseUat.context();
