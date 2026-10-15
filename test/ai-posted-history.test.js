@@ -148,7 +148,7 @@ function uiFixture({switchTenant=false,extract=facts(),invoiceHistory=history(),
       id==='ai-pdf-file'?{files:[selected]}:null,
       addEventListener:(name,fn)=>{handlers[name]=fn}},
     window:{
-      LTStudioDocumentReader:{readPdf:async()=>{reads++;return extract;}},
+      LTStudioDocumentReader:{readPdf:async()=>{reads++;return typeof extract==='function'?extract(reads):extract;}},
       LTStudioDocumentReview:review,LTStudioPostedHistory:learning,
       LTSupabaseUat:{context:async()=>{contexts++;return switchTenant&&contexts>=3?
         {...ctx,company:{id:'tenant-b',name:'Annat AB'}}:ctx;}},
@@ -157,7 +157,7 @@ function uiFixture({switchTenant=false,extract=facts(),invoiceHistory=history(),
           select:async(columns,filter)=>{
             readCalls++;assert.match(filter,/company_id=eq\.tenant-a/);
             assert.match(filter,/limit=200/);
-            return table==='suppliers'?suppliers:(deferInvoice||invoiceHistory);
+            return table==='suppliers'?suppliers:(typeof invoiceHistory==='function'?invoiceHistory():(deferInvoice||invoiceHistory));
           },
           insert:()=>{writes++;throw Error('unexpected insert')},
           update:()=>{writes++;throw Error('unexpected update')}
@@ -248,5 +248,38 @@ test('manual account choice during slow history read wins over later automation'
   assert.match(u.app.innerHTML,/Granskningsutkast – inte AI/);
   assert.match(u.app.innerHTML,/Kontorsmateriel/);
   assert.doesNotMatch(u.app.innerHTML,/Utkastet är förberett automatiskt/);
+  assert.equal(u.writes,0);
+});
+
+test('re-reading a different PDF suppresses a stale tenant history response',async()=>{
+  let release,lookupCount=0;
+  const slow=new Promise(resolve=>{release=resolve;});
+  const different=reader.parseFacts(lines.map(row=>
+    row.startsWith('Leverantör:')?'Leverantör: Ny Leverantör AB':row).join('\n'),'supplier-invoice');
+  const u=uiFixture({
+    extract:readCount=>readCount===1?facts():different,
+    invoiceHistory:()=>++lookupCount===1?slow:history()
+  });await settle();
+  u.click('read-pdf');await settle();
+  u.click('read-pdf');await settle();
+  assert.equal(u.reads,2);
+  assert.equal(u.readCalls,4);
+  assert.doesNotMatch(u.app.innerHTML,/Granskningsutkast – inte AI/);
+  assert.match(u.app.innerHTML,/Välj vad som köptes/);
+  release(history());await settle();
+  assert.doesNotMatch(u.app.innerHTML,/Granskningsutkast – inte AI/);
+  assert.doesNotMatch(u.app.innerHTML,/Förslag: 6540/);
+  assert.equal(u.writes,0);
+});
+
+test('switching PDF document type revokes prior automatic suggestion requests',async()=>{
+  let release;
+  const slow=new Promise(resolve=>{release=resolve;});
+  const u=uiFixture({deferInvoice:slow});await settle();
+  u.click('read-pdf');await settle();
+  u.choose('ai-pdf-type','receipt');await settle();
+  release(history());await settle();
+  assert.doesNotMatch(u.app.innerHTML,/Granskningsutkast – inte AI/);
+  assert.doesNotMatch(u.app.innerHTML,/Förslag: 6540/);
   assert.equal(u.writes,0);
 });
