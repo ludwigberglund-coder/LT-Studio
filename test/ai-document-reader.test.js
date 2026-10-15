@@ -125,3 +125,38 @@ test('existing private document archive checks tenant path and SHA-256 before lo
   assert.match(docs,/LTStudioDocumentReader\.readPdf\(file,doc\.category\)/);
   assert.doesNotMatch(docs,/CLOUDFLARE_AI_TOKEN|SUPABASE_SERVICE_ROLE_KEY/);
 });
+
+test('PDF preview renders real extracted fields and escapes untrusted PDF text without AI calls',async()=>{
+  const vm=require('node:vm');
+  const handlers={};
+  const app={innerHTML:''};
+  const selected=file(pdf(invoice));
+  let readCount=0;
+  const sandbox={
+    document:{getElementById:id=>id==='ai-bookkeeping-app'?app:
+      id==='ai-pdf-file'?{files:[selected]}:null,
+      addEventListener:(name,fn)=>{handlers[name]=fn}},
+    window:{LTStudioDocumentReader:{readPdf:async(input,type)=>{
+      readCount++;
+      assert.equal(input,selected);
+      assert.equal(type,'supplier-invoice');
+      const result=await reader.readPdf(input,type);
+      result.fields.supplier={value:'<script>alert(1)</script>',evidence:'<b>untrusted</b>',verified:false};
+      return result;
+    }}},
+    location:{search:'?demo=1',hostname:'ludwigberglund-coder.github.io'},
+    URLSearchParams,Intl,Set,Number,Object,Error,String,Array,
+    crypto:{randomUUID:()=> '11111111-1111-4111-8111-111111111111'}
+  };
+  vm.runInNewContext(portal,sandbox);
+  assert.match(app.innerHTML,/Läs PDF lokalt/);
+  handlers.click({target:{closest:selector=>selector==='[data-ai-action]'?
+    {disabled:false,dataset:{aiAction:'read-pdf'}}:null}});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(readCount,1);
+  assert.match(app.innerHTML,/1250|1\\s*250/);
+  assert.match(app.innerHTML,/&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.doesNotMatch(app.innerHTML,/<script>alert\(1\)<\/script>/);
+  assert.match(app.innerHTML,/INTE AI/);
+  assert.match(app.innerHTML,/Ej bokfört/);
+});
