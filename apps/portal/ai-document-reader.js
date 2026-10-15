@@ -167,6 +167,24 @@
     if(typeof text!=='string'||text.length>MAX_TEXT_CHARS)throw failure('PDF_TEXT_TOO_LARGE');
     const fields={supplier:[],reference:[],invoiceDate:[],dueDate:[],netOre:[],vatOre:[],grossOre:[]};
     const lines=text.split(/\n+/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean).slice(0,800);
+    // Credit documents often show *positive* totals. Never reinterpret these as
+    // ordinary purchases simply because net + VAT = gross.
+    const creditNote=/(?:^|[^\\p{L}])(?:kreditfaktura|kreditnota|credit\\s+note|kreditering\\s+av\\s+faktura|fakturatyp\\s*[:\\-]\\s*kredit|returkvitto|återköpskvitto|återbetalningskvitto)(?=$|[^\\p{L}])/iu.test(text);
+    // Detect negative summary amounts even when another positive total exists.
+    // A negative discount line alone is not a negative invoice.
+    const summaryLabel=/^(?:netto(?:belopp)?|summa exkl\\.? moms|belopp exkl\\.? moms|exkl\\.? moms|varav moms|moms(?:belopp)?|summa att betala|att betala|belopp att betala|totalt(?: belopp)?|totalbelopp|summa inkl\\.? moms)\\b/i;
+    const negativeSummary=lines.some(line=>{
+      const label=line.match(summaryLabel);
+      if(!label)return false;
+      const rest=line.slice(label[0].length).trim()
+        .replace(/^\\(?\\s*\\d{1,3}\\s*%\\s*\\)?\\s*/,'').replace(/^:\\s*/,'');
+      return /^[-\\u2212\\u2013]\\s*\\d/.test(rest)||
+        /^\\(\\s*\\d[\\d\\s.,]*(?:\\s*(?:kr|SEK))?\\s*\\)$/i.test(rest);
+    });
+    const declaredRates=[...new Set([...text.matchAll(/(?:^|\\n)\\s*(?:varav\\s+)?moms(?:sats|belopp)?\\s*[:\\s(]*([0-9]{1,3})\\s*%/gim)]
+      .map(match=>Number(match[1])))];
+    const mixedVatRates=declaredRates.length>1;
+    const declaredVatRate=declaredRates.length===1?declaredRates[0]:null;
     const add=(key,value,line)=>{
       if(value===null||value===undefined||value==='')return;
       if(!fields[key].some(x=>x.value===value))fields[key].push({value,evidence:line.slice(0,140)});
@@ -189,14 +207,20 @@
     }
     if(!resolved.grossOre)warnings.push('Totalt belopp kunde inte fastställas säkert.');
     if(!resolved.invoiceDate)warnings.push('Datum måste kontrolleras mot originalet.');
-    if(/\b(?:EUR|USD|GBP)\b|€/i.test(text))warnings.push('Möjlig utländsk valuta. Kontrollera manuellt.');
+    if(/\\b(?:EUR|USD|GBP|NOK|DKK|CHF|PLN|CAD|AUD|JPY|CNY)\\b|[€£]/i.test(text))
+      warnings.push('Möjlig utländsk valuta. Kontrollera manuellt.');
+    if(creditNote)warnings.push('Kreditfaktura eller returkvitto: kräver separat krediteringsflöde.');
+    if(negativeSummary)warnings.push('Negativt netto-, moms- eller totalbelopp: kräver manuell kontroll.');
+    if(mixedVatRates)warnings.push('Flera angivna momssatser: utkastet måste hanteras manuellt.');
+    if(declaredVatRate!==null&&![0,6,12,25].includes(declaredVatRate))
+      warnings.push('Angiven momssats stöds inte i granskningsutkastet.');
     const net=resolved.netOre?.value,vat=resolved.vatOre?.value,gross=resolved.grossOre?.value;
     const amountBalance=Number.isInteger(net)&&Number.isInteger(vat)&&Number.isInteger(gross)
       ?Math.abs(net+vat-gross)<=1:null;
     if(amountBalance===false)warnings.push('Netto + moms stämmer inte med totalbeloppet.');
     if(amountBalance===null)warnings.push('Netto, moms och totalbelopp kan inte stämmas av fullständigt.');
     return {status:'needs-review',posted:false,source:'local-pdf-text',documentType,
-      fields:resolved,checks:{amountBalance},warnings};
+      fields:resolved,checks:{amountBalance,creditNote,negativeSummary,mixedVatRates,declaredVatRate},warnings};
   }
   async function readPdf(file,documentType){
     if(!file||typeof file.arrayBuffer!=='function')throw failure('PDF_ONLY');
