@@ -59,3 +59,15 @@ Efter live-verifiering och deployment av saknade säkerhetsmigrationer gäller:
 - 0 repo-only migrationer återstår som helt overifierade
 
 Det betyder att den kvarvarande P0-frågan är migration-history-paritet, inte känd saknad schemafunktionalitet. History repair får fortfarande endast göras efter separat full effektgranskning per migration och via Supabases officiella `supabase migration repair`.
+
+## AI-kvot: separat staging-paritet 2026-10-15
+
+Detta avsnitt gäller **LT-Studio-Staging** (`rwnqkgbbbxjjfhwtepsi`) och förändrar **inte** UAT:s äldre aliaslista i `supabase/migration-history-parity.json` (den har `project_ref=bwbhnotpuuhgghjpmflk`).
+
+| GitHub-migration | Staging live-version | Live-namn | Verifiering |
+| --- | --- | --- | --- |
+| `20261013071500_ai_pilot_atomic_quota.sql` | `20261015071358` | `ai_pilot_atomic_quota` | installerad 2026-10-15, båda tabeller, RPC och avstängt singleton-läge kontrollerade |
+
+Migrationen applicerades från GitHub-filens oförändrade innehåll via Supabases migrationsverktyg. Schema, `enabled=false`, RLS, tabell- och RPC-behörigheter samt tom reservationskö kontrollerades efteråt. Supabase Security Advisor har två informationsnotiser om avsiktligt policylös RLS för AI-tabellerna. **UAT har inte fått migreringen.**
+
+Framtida staging-`db push` måste hantera detta namngivna versionsalias via granskad Supabase-migreringshantering, annars finns risk att samma GitHub-migration uppfattas som väntande. Ändra aldrig historiken med rå SQL, och applicera aldrig AI-migrationen igen utan objekt-/historikkontroll. Se `docs/AI-PILOT-STAGING-PREFLIGHT.md` och [GitHub Issue #774](https://github.com/ludwigberglund-coder/LT-Studio/issues/774).
