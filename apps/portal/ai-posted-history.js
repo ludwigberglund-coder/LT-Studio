@@ -155,16 +155,40 @@
     }
     const facts=safeStoredSource(source,document,companyId);
     if(!facts)return no('unsafe-document');
-    for(const row of invoices){
-      if(row.id===source.id||row.supplier_id!==facts.supplierId)continue;
-      if((SHA.test(row.pdf_sha256||'')&&row.pdf_sha256.toLowerCase()===facts.sourceHash)||
-        normalizedReference(row.supplier_invoice_number)===facts.reference){
-        return no('possible-duplicate');
-      }
-    }
+    if(hasStoredDuplicate(source,facts,invoices))return no('possible-duplicate');
     return postedHistoryForSupplier(companyId,facts.supplierId,facts.vatRate,invoices);
   }
-  const api=Object.freeze({recommend,recommendStoredInvoice,normalizeName});
+  function hasStoredDuplicate(source,facts,invoices){
+    return invoices.some(row=>row.id!==source.id&&(
+      (SHA.test(row.pdf_sha256||'')&&row.pdf_sha256.toLowerCase()===facts.sourceHash)||
+      (row.supplier_id===facts.supplierId&&
+        normalizedReference(row.supplier_invoice_number)===facts.reference)
+    ));
+  }
+  function buildStoredReview({companyId,source,document,invoices,expenseAccount}={}){
+    const allowed=['4010','6110','5460','6540'];
+    if(typeof companyId!=='string'||!companyId||companyId.length>100||
+      !Array.isArray(invoices)||invoices.length>=MAX_HISTORY||
+      invoices.some(row=>!row||typeof row!=='object'||row.company_id!==companyId)){
+      return no('unsafe-history');
+    }
+    const facts=safeStoredSource(source,document,companyId);
+    if(!facts)return no('unsafe-document');
+    if(hasStoredDuplicate(source,facts,invoices))return no('possible-duplicate');
+    if(!allowed.includes(expenseAccount))return no('manual-account-required');
+    const net=source.total_ore-source.vat_ore,vat=source.vat_ore,gross=source.total_ore;
+    const lines=[
+      {account:expenseAccount,debitOre:net,creditOre:0,text:'Kontrollera inköp',vatCode:'INPUT_VAT'},
+      ...(vat?[{account:'2641',debitOre:vat,creditOre:0,text:'Ingående moms',vatCode:'INPUT_VAT'}]:[]),
+      {account:'2440',debitOre:0,creditOre:gross,text:'Leverantörsskuld',vatCode:''}
+    ];
+    return Object.freeze({
+      status:'manual-review',lines:Object.freeze(lines.map(line=>Object.freeze(line))),
+      vatRate:facts.vatRate,sourceHash:facts.sourceHash,
+      requiresHumanApproval:true,posted:false,saved:false,aiGenerated:false
+    });
+  }
+  const api=Object.freeze({recommend,recommendStoredInvoice,buildStoredReview,normalizeName});
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   if(root)root.LTStudioPostedHistory=api;
 })(typeof window!=='undefined'?window:null);
