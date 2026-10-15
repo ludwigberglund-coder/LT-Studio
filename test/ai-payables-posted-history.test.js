@@ -188,7 +188,7 @@ function liveUi(rows=list(),docs=[document()],opts={}){
     location:{hostname:'ludwigberglund-coder.github.io',search:'',
       pathname:'/portal/payables.html',href:''},
     URLSearchParams,Intl,Map,Set,Number,Boolean,JSON,Object,Error,String,Array,
-    console:{error:()=>{}},structuredClone
+    console:{error:()=>{}},structuredClone,requestAnimationFrame:callback=>callback()
   };
   vm.runInNewContext(script,sandbox,{filename:'payables.js'});
   const click=async action=>{
