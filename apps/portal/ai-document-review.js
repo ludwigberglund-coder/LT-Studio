@@ -39,6 +39,14 @@
        !extraction.fields||typeof extraction.fields!=='object'||Array.isArray(extraction.fields)||
        !extraction.checks||typeof extraction.checks!=='object'||Array.isArray(extraction.checks)||
        ![true,false,null].includes(extraction.checks.amountBalance)||
+       ![true,false].includes(extraction.checks.creditNote)||
+       ![true,false].includes(extraction.checks.negativeSummary)||
+       ![true,false].includes(extraction.checks.mixedVatRates)||
+       (extraction.checks.declaredVatRate!==null&&
+         (!Number.isInteger(extraction.checks.declaredVatRate)||
+          extraction.checks.declaredVatRate<0||extraction.checks.declaredVatRate>999))||
+       Object.keys(extraction.checks).some(key=>
+         !['amountBalance','creditNote','negativeSummary','mixedVatRates','declaredVatRate'].includes(key))||
        !Array.isArray(extraction.warnings)||extraction.warnings.length>30||
        extraction.warnings.some(x=>typeof x!=='string'||x.length>240)){
       throw fail('UNTRUSTED_PDF_RESULT');
@@ -54,6 +62,14 @@
     const warnings=['Förhandsvisning – inga uppgifter är verifierade eller bokförda.',
       'Kontrollera att underlaget inte redan är bokfört och att konto/moms passar inköpet.'];
     const blockers=[];
+    // A credit note or refund may show positive totals. The normal expense +
+    // payable journal is categorically wrong for that document type.
+    if(extraction.checks.creditNote)
+      blockers.push('Kreditfaktura eller returkvitto kräver ett separat krediteringsflöde.');
+    if(extraction.checks.negativeSummary)
+      blockers.push('Negativt netto-, moms- eller totalbelopp kräver manuell kontroll.');
+    if(extraction.checks.mixedVatRates)
+      blockers.push('Flera momssatser kräver uppdelad kontering och manuell kontroll.');
     const supplier=sourceField(extraction,'supplier','string');
     const reference=sourceField(extraction,'reference','string');
     const date=sourceField(extraction,'invoiceDate','string');
@@ -88,6 +104,11 @@
     }
     const rate=net!==null&&vat!==null?rateFor(net,vat):null;
     if(rate===null)blockers.push('Momsbeloppet motsvarar inte entydigt 0, 6, 12 eller 25 procent.');
+    const declared=extraction.checks.declaredVatRate;
+    if(declared!==null&&!VAT_RATES.includes(declared))
+      blockers.push('Momssatsen som anges på underlaget stöds inte.');
+    else if(declared!==null&&rate!==declared)
+      blockers.push('Angiven momssats stämmer inte med nettobelopp och moms.');
     if(receipt)warnings.push('Betalningssättet är valt manuellt, inte verifierat mot banken.');
     if(!receipt)warnings.push('Leverantörsskuld visas som exempel. Kontrollera betalning och eventuella krediter.');
     const result={
