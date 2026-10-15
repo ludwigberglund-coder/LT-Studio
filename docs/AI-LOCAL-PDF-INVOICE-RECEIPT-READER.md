@@ -30,3 +30,16 @@ Inget avläst belopp får direkt bokföras, betalas eller skickas som en godkän
 ## Tester
 
 `node --test test/ai-document-reader.test.js` och hela `npm test` i GitHub CI. Alla ändringar levereras via branch/PR/CI/merge enligt `AGENTS.md`.
+
+## Nästa etapp 2026-10-15: lokal granskningskontering (PR efter #811)
+
+Efter avläsning i **AI-bokföring** kan användaren nu välja inköpstyp på vanlig svenska (kontorsmateriel, förbrukningsmaterial eller IT-tjänster). För kvitton måste användaren dessutom uttryckligen välja företagskonto eller kassa som betalningssätt. Den rena klientmodulen `apps/portal/ai-document-review.js` skapar då ett **tillfälligt granskningsutkast** från PDF-fakta.
+
+- Leverantörsfaktura: valt kostnadskonto + eventuell ingående moms 2641 i debet och leverantörsskuld 2440 i kredit.
+- Kvitto: valt kostnadskonto + eventuell ingående moms 2641 i debet och manuellt valt företagskonto 1930 eller kassa 1910 i kredit.
+- Endast 0/6/12/25 % moms när satsen entydigt kan beräknas i heltalsören och nettobelopp + moms = total. Annars stoppas utkastet. Vid kvitto kan netto beräknas som total minus explicit moms, med tydlig varning.
+- Källfält saknas, felaktig summa, oklar momssats, utländsk valuta, motstridiga värden, negativa/kreditbelopp och okänt konto ger stopp. Dubblettkontroll och faktisk betalningsmetod **kan inte** verifieras av denna lokala modul och måste granskas.
+- Inga knappar för attest, spara, betala eller bokföra. `posted:false`, `saved:false`, `aiGenerated:false`, `requiresHumanApproval:true`. **Inga** Cloudflare-/Supabase-anrop eller kunduppgifter till modellen. Utkastet försvinner vid omladdning.
+- Detta är inte en rekommendation att använda samma kostnadskonto för alla inköp eller ett juridiskt momsgodkännande. Konto väljs uttryckligen av användaren och ska kontrolleras mot inköpet.
+
+Detta är en användbar, kontrollerad övergång från underlag till möjlig kontering, men **inte** det slutliga AI-automationsflödet. AI-gateway och riktiga dokument i automationskön är fortsatt spärrade tills tenant-, GDPR-, IP-, budget-, redovisnings- och releasekrav är uppfyllda. Varken `AI_PILOT_RELEASED` eller Edge Function-releaseflaggorna ändras.

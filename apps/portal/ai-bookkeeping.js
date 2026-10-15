@@ -13,6 +13,7 @@
   const AI_PILOT_RELEASED = false;
   let context=null,selected=options[0].id,busy=false,result=null,status='',statusKind='info';
   let localPdfType='supplier-invoice',localPdfResult=null,localPdfStatus='',localPdfBusy=false;
+  let localPdfAccount='6110',localPdfPayment='1930',localPdfProposal=null;
   const esc=(text)=>String(text??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'":'&#39;'}[char]));
   const kronor=(ore)=>new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK'}).format(Number(ore)/100);
   const scenario=()=>options.find(x=>x.id===selected)||options[0];
@@ -87,7 +88,28 @@
         localPdfResult.checks.amountBalance===false?'Beloppen stämmer inte – manuell kontroll krävs.':
         'Kan inte avgöras automatiskt.')+'</p>'+
       (warnings?'<div class="ai-pdf-warnings"><strong>Kontrollera innan bokföring</strong><ul>'+warnings+'</ul></div>':'')+
-      '<p class="ai-bookkeeping-footnote">Uppgifterna är förslag från PDF-text, inte verifierade fakta. Originalet måste granskas. Inga konton väljs och inga verifikationer skapas.</p></div>';
+      '<p class="ai-bookkeeping-footnote">Uppgifterna kommer från PDF-text och är inte verifierade. Granska originalet. Inga verifikationer skapas.</p>'+
+      '<section class="ai-pdf-proposal"><h4>Visa ett bokföringsutkast</h4><p>Välj själv vad inköpet gäller. Vi räknar ut ett granskningsutkast med beloppen från PDF:en. Det är inte AI och sparas inte.</p>'+
+      '<div class="ai-pdf-proposal-controls"><label for="ai-pdf-account">Vad köptes?<select id="ai-pdf-account">'+
+      Object.entries(window.LTStudioDocumentReview?.ACCOUNTS||{}).map(([key,name])=>'<option value="'+esc(key)+'"'+(localPdfAccount===key?' selected':'')+'>'+esc(name)+'</option>').join('')+
+      '</select></label>'+
+      (localPdfType==='receipt'?'<label for="ai-pdf-payment">Hur betalades kvittot?<select id="ai-pdf-payment">'+
+        Object.entries(window.LTStudioDocumentReview?.PAYMENT||{}).map(([key,name])=>'<option value="'+esc(key)+'"'+(localPdfPayment===key?' selected':'')+'>'+esc(name)+'</option>').join('')+'</select></label>':'')+
+      '<button type="button" class="button" data-ai-action="preview-pdf">Visa granskningsutkast</button></div>'+
+      localPdfProposalMarkup()+'</section></div>';
+  }
+  function localPdfProposalMarkup(){
+    if(!localPdfProposal)return '';
+    const blocked=localPdfProposal.status==='blocked';
+    const notes=[...localPdfProposal.blockers,...localPdfProposal.warnings];
+    return '<div class="ai-pdf-proposal-result" role="status" aria-live="polite">'+
+      '<div class="ai-pdf-result-title"><strong>'+(blocked?'Kan inte skapa säkert utkast':'Granskningsutkast – inte AI')+'</strong>'+
+      '<span>Ej bokfört · ej sparat</span></div>'+
+      (!blocked?'<p>Momssats som stämmer med beloppen: <strong>'+esc(localPdfProposal.checks.vatRate)+' %</strong>. Konto är valt manuellt.</p>'+
+        rowsMarkup(localPdfProposal.rows):'')+
+      '<div class="ai-pdf-warnings"><strong>'+(blocked?'Blockerande fel och kontroller':'Måste kontrolleras före eventuell bokföring')+'</strong>'+
+      '<ul>'+notes.map(note=>'<li>'+esc(note)+'</li>').join('')+'</ul></div>'+
+      '<p class="ai-bookkeeping-footnote">Utkastet kan inte godkännas, sparas eller bokföras här. För verklig bokföring används LT Studios ordinarie behörighetskontroller.</p></div>';
   }
   function sidebar(){
     const suffix=demo?'?demo=1':'';
@@ -170,7 +192,7 @@
     const file=document.getElementById('ai-pdf-file')?.files?.[0];
     if(!file){localPdfStatus='Välj en PDF-fil först.';render();return;}
     if(!window.LTStudioDocumentReader){localPdfStatus='PDF-läsaren kunde inte laddas.';render();return;}
-    localPdfBusy=true;localPdfResult=null;localPdfStatus='Läser PDF lokalt på din enhet…';render();
+    localPdfBusy=true;localPdfResult=null;localPdfProposal=null;localPdfStatus='Läser PDF lokalt på din enhet…';render();
     try{
       localPdfResult=await window.LTStudioDocumentReader.readPdf(file,localPdfType);
       localPdfStatus='PDF-texten är avläst. Kontrollera uppgifterna mot originalet.';
@@ -190,11 +212,32 @@
       localPdfResult=null;
     }finally{localPdfBusy=false;render();}
   }
+  function previewLocalPdf(){
+    if(!localPdfResult||!window.LTStudioDocumentReview)return;
+    try{
+      localPdfProposal=window.LTStudioDocumentReview.buildReview(localPdfResult,{
+        expenseAccount:localPdfAccount,
+        ...(localPdfType==='receipt'?{paymentAccount:localPdfPayment}:{})
+      });
+      localPdfStatus=localPdfProposal.status==='blocked'?
+        'Belopp eller källuppgifter är osäkra. Utkastet stoppades.':
+        'Granskningsutkastet är beräknat lokalt. Det är inte AI och inget har bokförts.';
+    }catch{
+      localPdfProposal=null;localPdfStatus='Utkastet kunde inte skapas. Kontrollera originalet och försök igen.';
+    }
+    render();
+  }
   document.addEventListener('change',event=>{
     const target=event.target;
     if(target?.id==='ai-pdf-type'&&!localPdfBusy){
-      if(['supplier-invoice','receipt'].includes(target.value)){localPdfType=target.value;localPdfResult=null;localPdfStatus='';render();}
+      if(['supplier-invoice','receipt'].includes(target.value)){localPdfType=target.value;localPdfResult=null;localPdfProposal=null;localPdfStatus='';render();}
       return;
+    }
+    if(target?.id==='ai-pdf-account'&&Object.hasOwn(window.LTStudioDocumentReview?.ACCOUNTS||{},target.value)){
+      localPdfAccount=target.value;localPdfProposal=null;render();return;
+    }
+    if(target?.id==='ai-pdf-payment'&&Object.hasOwn(window.LTStudioDocumentReview?.PAYMENT||{},target.value)){
+      localPdfPayment=target.value;localPdfProposal=null;render();return;
     }
     if(target?.id!=='ai-scenario'||busy)return;
     if(options.some(item=>item.id===target.value)){
@@ -207,6 +250,7 @@
     if(button.dataset.aiAction==='example')showExample();
     if(button.dataset.aiAction==='analyze')void runAiPilot();
     if(button.dataset.aiAction==='read-pdf')void readLocalPdf();
+    if(button.dataset.aiAction==='preview-pdf')previewLocalPdf();
   });
   async function init(){
     if(demo){
