@@ -89,7 +89,8 @@ function fixture({category='supplier-invoice',data=invoice}={}){
   };
   return {click,expense,payment,resultNode,row,app,handlers,get modalHtml(){return modalHtml},
     get modalOpen(){return modalOpen},get downloads(){return downloads},get mutations(){return mutations},
-    setCompany:id=>{currentCompany=id}};
+    setCompany:id=>{currentCompany=id},
+    changeLoadedHash:()=>{vm.runInContext("documents[0].sha256='"+'f'.repeat(64)+"'",sandbox)}};
 }
 function settle(){return new Promise(resolve=>setImmediate(resolve));}
 test('archive includes the same local PDF review module as the AI tab',()=>{
@@ -153,7 +154,7 @@ test('changed tenant or altered original hash invalidates existing local review'
   assert.equal(f.mutations,0);
   const g=fixture();await settle();await g.click('read');
   g.expense.value='6110';
-  g.row.sha256='f'.repeat(64);
+  g.changeLoadedHash();
   await g.click('preview');
   assert.equal(g.modalOpen,false);
   assert.equal(g.mutations,0);
