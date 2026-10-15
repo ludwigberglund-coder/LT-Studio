@@ -106,7 +106,13 @@ async function loadSupabasePayables(preferredId=''){
   const batchesById=new Map((batchRows||[]).map(r=>[String(r.id),r]));
   if((invoiceRows||[]).some(r=>r.company_id!==ctx.company.id)||
      (documentRows||[]).some(r=>r.company_id!==ctx.company.id))throw new Error('Företagsdata kunde inte verifieras.');
-  supplierSourceRows=invoiceRows||[];supplierDocumentByInvoice=documentsByInvoice;
+  // Multiple matching document records can be valid revisions, but none of
+  // them alone proves the current original. Block auto-preview on ambiguity.
+  const uniqueReviewDocuments=new Map();
+  for(const row of documentRows||[]){const id=String(row.source_id||'');
+    uniqueReviewDocuments.set(id,uniqueReviewDocuments.has(id)?null:row);
+  }
+  supplierSourceRows=invoiceRows||[];supplierDocumentByInvoice=uniqueReviewDocuments;
   supplierHistoryCompanyId=String(ctx.company.id);
   invoices=(invoiceRows||[]).map(r=>{const s=suppliersById.get(String(r.supplier_id))||{};return{
     id:r.id,companyId:r.company_id,supplierId:r.supplier_id,supplierName:s.name||'Okänd leverantör',supplierNumber:s.supplier_number||'',orgNumber:s.org_number||'',
