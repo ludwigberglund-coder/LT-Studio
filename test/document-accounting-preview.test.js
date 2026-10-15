@@ -43,7 +43,10 @@ function fixture({category='supplier-invoice',data=invoice}={}){
     mime_type:'application/pdf',size_bytes:data.length,sha256,
     category,object_path:path,created_at:'2026-10-15T09:00:00Z'};
   let currentCompany=company,downloads=0,mutations=0,modalOpen=false,modalHtml='';
-  const resultNode={innerHTML:'',textContent:''};
+  const resultNode={_html:'',_text:'',
+    get innerHTML(){return this._html},set innerHTML(value){this._html=value;this._text=''},
+    get textContent(){return this._text},set textContent(value){this._text=value;this._html=''}
+  };
   const expense={value:''},payment={value:''};
   const backdrop={remove:()=>{modalOpen=false},querySelector:s=>s==='.documents-pdf-preview'&&modalOpen?modal:null};
   const modal={dataset:{documentId:'doc-a'},querySelector:s=>({
@@ -87,7 +90,12 @@ function fixture({category='supplier-invoice',data=invoice}={}){
       s===(kind==='read'?'[data-read-document]':kind==='preview'?'[data-preview-document]':'button[data-close]')?target:null};
     await handlers.click({target});
   };
-  return {click,expense,payment,resultNode,row,app,handlers,get modalHtml(){return modalHtml},
+  const change=()=>{
+    const target={dataset:{},matches:s=>s==='[data-document-expense],[data-document-payment]',
+      closest:s=>s==='.documents-pdf-preview'?modal:null};
+    handlers.change({target});
+  };
+  return {click,change,expense,payment,resultNode,row,app,handlers,get modalHtml(){return modalHtml},
     get modalOpen(){return modalOpen},get downloads(){return downloads},get mutations(){return mutations},
     setCompany:id=>{currentCompany=id},
     changeLoadedHash:()=>{vm.runInContext("documents[0].sha256='"+'f'.repeat(64)+"'",sandbox)}};
@@ -123,6 +131,13 @@ test('verified archived invoice can show local balanced draft without storing or
   assert.doesNotMatch(f.resultNode.innerHTML,/data-(?:save|post|approve)-document/);
   assert.equal(f.downloads,1);
   assert.equal(f.mutations,0);
+  f.expense.value='6540';
+  f.change();
+  assert.match(f.resultNode.textContent,/Valet har ändrats/);
+  assert.doesNotMatch(f.resultNode.innerHTML,/5460/);
+  await f.click('preview');
+  assert.match(f.resultNode.innerHTML,/6540/);
+  assert.doesNotMatch(f.resultNode.innerHTML,/5460/);
   await f.click('close');
   assert.equal(f.modalOpen,false);
 });
