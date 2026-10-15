@@ -4,9 +4,23 @@ Senast kontrollerat: 2026-10-15. Spårar #774, #767 och #797.
 
 ## Verifierat nuläge
 
-GitHub `main` är källan till Edge Function, testfall och databasens migrationer. Den versionerade filen `supabase/migrations/20261013071500_ai_pilot_atomic_quota.sql` finns i GitHub, men den har **inte** körts i den delade UAT- eller staging-databasen enligt deras migrationshistorik (kontrollerat 2026-10-15). Den nödvändiga RPC:n och de två AI-kvottabellerna saknas också i båda miljöerna enligt tidigare read-only inventering. Ingen AI-funktion är deployad i staging. Detta är **inte ett godkännande** att applicera filen direkt via SQL Editor.
+GitHub `main` är källan till Edge Function, testfall och databasens migrationer. Den versionerade filen `supabase/migrations/20261013071500_ai_pilot_atomic_quota.sql` **är installerad i LT-Studio-Staging den 15 oktober 2026**, men **inte i UAT**. Ingen AI Edge Function är deployad i staging. Följande steg gäller fortsatt som krav för ny miljö och inför varje aktivering. Att SQL-schema finns är inte godkännande att slå på AI.
 
 Den syntetiska Edge-funktionen `supabase/functions/ai-bookkeeping-pilot/index.ts` har två källkodslås: `RELEASE_APPROVED = false` och `DURABLE_IP_LIMITER_VERIFIED = false`. Kundportalens `AI_PILOT_RELEASED` är också `false`. Frånvaron av databasmigrationen är bara ett av flera releasehinder.
+
+## Staging-installation verifierad 2026-10-15
+
+- Miljö: **LT-Studio-Staging** (`rwnqkgbbbxjjfhwtepsi`); **LT-Studio UAT** (`bwbhnotpuuhgghjpmflk`) lämnades orörd.
+- Källa: exakt innehåll ur GitHub `main`, `supabase/migrations/20261013071500_ai_pilot_atomic_quota.sql` (Git blob `40a6bead9122211a06fdc052ec5b2596b384f57b`). Den befintliga versionsstyrda SQL-filen ändrades inte.
+- Installation: Supabase migrationsverktyg returnerade `success=true`. Staging-historiken innehåller `20261015071358_ai_pilot_atomic_quota`; detta är **ett versionsalias** för GitHub-filen `20261013071500_ai_pilot_atomic_quota.sql`, inte en extra migration som ska köras igen.
+- Efterkontroll av schema: `ai_pilot_runtime_settings`, `ai_pilot_request_reservations` och `reserve_ai_pilot_request_server(text,uuid,uuid,text,text)` finns.
+- Inställningar: exakt en `singleton=true` med **`enabled=false`**. Tak: 20 globalt/dag, 5/företag/dag, 2/användare/dag samt 2/IP per 600 sekunder. Dessa gränser har inte aktiverats eller stresstestats på riktiga företag.
+- Åtkomst: RLS är påslagen på båda tabeller. `anon` och `authenticated` har ingen direkt SELECT/INSERT/UPDATE-åtkomst. RPC:n har ingen EXECUTE-behörighet för dessa roller, men `service_role` har EXECUTE.
+- Verifierat läge: **0 reservationsrader**. Ingen AI Edge Function deployades, inga AI- eller ekonomianrop gjordes och inget ändrades i UAT.
+- Supabase Security Advisor: enbart två **INFO**-notiser om `rls_enabled_no_policy` på de två nya tabellerna. Policylös RLS tillsammans med återkallade tabellrättigheter är här ett avsiktligt spärrläge: lägg inte till breda browserpolicyer för att tysta notiserna.
+- **Kvarstående grind:** Inget synligt staging-resultat från tvåföretags-test, MFA/sessionstest, atomära samtidighets-/kvottester eller verifierad betrodd IP-väg. Ingen produktions- eller UAT-aktivering är godkänd.
+
+**Viktigt om migrationshistorik:** före en framtida `supabase db push` eller `migration repair` ska versionsaliaset ovan granskas tillsammans med övriga redan kända staging-avvikelser. Anta inte att staging-versionen och GitHub-tidsstämpeln är identiska och kör inte samma SQL två gånger. Historik får inte korrigeras med direkt skrivning i `supabase_migrations.schema_migrations`.
 
 ## Staging-förkontroll (endast läsning)
 
