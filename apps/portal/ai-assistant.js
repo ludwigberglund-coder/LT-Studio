@@ -50,6 +50,7 @@
       '<div><strong>3. Bokföring</strong><span>Först granskning. Senare kan godkända standardfall automatbokföras med uttryckligt tillstånd.</span></div>'+
       '</div>'+
       '<div class="ai-bookkeeper-actions"><a href="./documents.html'+q+'">Öppna underlag <span aria-hidden="true">→</span></a>'+
+      (canReview?'<a href="./ai-bookkeeping.html'+q+'">Läs faktura eller kvitto lokalt <span aria-hidden="true">→</span></a>':'')+
       (canReview?'<a href="./automation.html'+q+'">Granska befintliga förslag <span aria-hidden="true">→</span></a>':'')+
       '</div>'+
       '<p class="ai-bookkeeper-queue" id="ai-bookkeeper-queue-status" role="status" aria-live="polite">'+
