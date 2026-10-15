@@ -52,3 +52,20 @@ Det finns redan ett äldre leverantörskonteringsförslag i `packages/automation
 5. Senare: företagsspecifikt opt-in och snäva, serververifierade regler för vissa återkommande fall. **Ingen modell får bokföra, betala eller attestera själv** utan godkänd domän-RPC, idempotens, audit och separat releasebeslut.
 
 Regressionstester: `test/ai-posted-history.test.js` och befintliga PDF-/granskningstester. GitHub CI krävs före merge.
+
+## 2026-10-15: Säkra automatiska granskningsutkast efter PDF-läsning
+
+Efter att användaren har läst en **vanlig, textbaserad leverantörsfaktura** lokalt på AI-bokföringsfliken startar nu historikjämförelsen **automatiskt** när grundkontrollerna inte visar kredit, negativa belopp, flera momssatser eller summeringsproblem. Som tidigare läses endast företagets egna, RLS-skyddade historiska poster via användarens inloggade session.
+
+- Finns exakt **en** historiskt enhetlig kostnadskategori från **minst tre** unika, attesterade och bokförda PDF-original, och den gemensamma granskningsmotorn accepterar beloppen, fylls kostnadskontot i och **ett tillfälligt konteringsutkast visas direkt**.
+- Om historik saknas, är motsägelsefull eller inte går att verifiera, används **inget standardkonto**. Användaren får uttryckligen välja inköpstyp. Vid kvitto krävs dessutom manuellt val av betalningssätt.
+- Om användaren ändrar kostnadskonto medan jämförelsen pågår får det sena historiksvaret **inte** skriva över användarens val. Byte av underlag eller dokumenttyp ogiltigförklarar förra läsningens asynkrona jämförelser.
+- När originalet är osäkert får historiken inte påbörja automatisk förberedelse; inga PDF-uppgifter, historik eller förslag skickas till modell.
+
+**Detta är automatiserad förberedelse, inte automatisk bokföring och inte riktig AI.** All data stannar i befintliga webbläsarminnet och användarens vanliga, RLS-begränsade Supabase-läsningar. En föreslagen kontering är inte verifierad mot aktuell bokföringsperiod, dubbelbokning eller affärstransaktion; det finns fortfarande ingen godkänn-, spara-, attest- eller bokföringsåtgärd i detta steg. Inga externa AI-anrop, ändrade databasbehörigheter eller releaseflaggor.
+
+Regressionstester: `test/ai-posted-history.test.js` (automatisk visning, manuell override, fel tenant, saknad/motsägelsefull historik, krediter, kvitton) samt befintlig `test/ai-document-review.test.js` och Quality/CodeQL/Supabase clean rebuild.
+
+### Nästa säkra etapp
+
+För produktion behövs fortfarande en serverägd dokument- och historikvalidering före förslagskö, en granskningsbar koppling till **befintlig** automationskö och en separat, auditerad bokförings-RPC. En faktisk Cloudflare AI-modell kan först användas med syntetiska fall när pilotens drifts-/IP-/kvotgrind har verifierats; verkliga kunddata kräver dessutom godkänd behandling. Öppna inte bokföringsspärrar enbart baserat på det lokala utkastet.
