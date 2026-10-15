@@ -169,19 +169,19 @@
     const lines=text.split(/\n+/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean).slice(0,800);
     // Credit documents often show *positive* totals. Never reinterpret these as
     // ordinary purchases simply because net + VAT = gross.
-    const creditNote=/(?:^|[^\\p{L}])(?:kreditfaktura|kreditnota|credit\\s+note|kreditering\\s+av\\s+faktura|fakturatyp\\s*[:\\-]\\s*kredit|returkvitto|återköpskvitto|återbetalningskvitto)(?=$|[^\\p{L}])/iu.test(text);
+    const creditNote=/(?:^|[^\p{L}])(?:kreditfaktura|kreditnota|credit\s+note|kreditering\s+av\s+faktura|fakturatyp\s*[:\-]\s*kredit|returkvitto|återköpskvitto|återbetalningskvitto)(?=$|[^\p{L}])/iu.test(text);
     // Detect negative summary amounts even when another positive total exists.
     // A negative discount line alone is not a negative invoice.
-    const summaryLabel=/^(?:netto(?:belopp)?|summa exkl\\.? moms|belopp exkl\\.? moms|exkl\\.? moms|varav moms|moms(?:belopp)?|summa att betala|att betala|belopp att betala|totalt(?: belopp)?|totalbelopp|summa inkl\\.? moms)\\b/i;
+    const summaryLabel=/^(?:netto(?:belopp)?|summa exkl\.? moms|belopp exkl\.? moms|exkl\.? moms|varav moms|moms(?:belopp)?|summa att betala|att betala|belopp att betala|totalt(?: belopp)?|totalbelopp|summa inkl\.? moms)\b/i;
     const negativeSummary=lines.some(line=>{
       const label=line.match(summaryLabel);
       if(!label)return false;
       const rest=line.slice(label[0].length).trim()
-        .replace(/^\\(?\\s*\\d{1,3}\\s*%\\s*\\)?\\s*/,'').replace(/^:\\s*/,'');
-      return /^[-\\u2212\\u2013]\\s*\\d/.test(rest)||
-        /^\\(\\s*\\d[\\d\\s.,]*(?:\\s*(?:kr|SEK))?\\s*\\)$/i.test(rest);
+        .replace(/^\(?\s*\d{1,3}\s*%\s*\)?\s*/,'').replace(/^:\s*/,'');
+      return /^[-\u2212\u2013]\s*\d/.test(rest)||
+        /^\(\s*\d[\d\s.,]*(?:\s*(?:kr|SEK))?\s*\)$/i.test(rest);
     });
-    const declaredRates=[...new Set([...text.matchAll(/(?:^|\\n)\\s*(?:varav\\s+)?moms(?:sats|belopp)?\\s*[:\\s(]*([0-9]{1,3})\\s*%/gim)]
+    const declaredRates=[...new Set([...text.matchAll(/(?:^|\n)\s*(?:varav\s+)?moms(?:sats|belopp)?\s*[:\s(]*([0-9]{1,3})\s*%/gim)]
       .map(match=>Number(match[1])))];
     const mixedVatRates=declaredRates.length>1;
     const declaredVatRate=declaredRates.length===1?declaredRates[0]:null;
@@ -207,7 +207,7 @@
     }
     if(!resolved.grossOre)warnings.push('Totalt belopp kunde inte fastställas säkert.');
     if(!resolved.invoiceDate)warnings.push('Datum måste kontrolleras mot originalet.');
-    if(/\\b(?:EUR|USD|GBP|NOK|DKK|CHF|PLN|CAD|AUD|JPY|CNY)\\b|[€£]/i.test(text))
+    if(/\b(?:EUR|USD|GBP|NOK|DKK|CHF|PLN|CAD|AUD|JPY|CNY)\b|[€£]/i.test(text))
       warnings.push('Möjlig utländsk valuta. Kontrollera manuellt.');
     if(creditNote)warnings.push('Kreditfaktura eller returkvitto: kräver separat krediteringsflöde.');
     if(negativeSummary)warnings.push('Negativt netto-, moms- eller totalbelopp: kräver manuell kontroll.');
