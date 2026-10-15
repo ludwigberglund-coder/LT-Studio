@@ -43,3 +43,19 @@ Efter avläsning i **AI-bokföring** kan användaren nu välja inköpstyp på va
 - Detta är inte en rekommendation att använda samma kostnadskonto för alla inköp eller ett juridiskt momsgodkännande. Konto väljs uttryckligen av användaren och ska kontrolleras mot inköpet.
 
 Detta är en användbar, kontrollerad övergång från underlag till möjlig kontering, men **inte** det slutliga AI-automationsflödet. AI-gateway och riktiga dokument i automationskön är fortsatt spärrade tills tenant-, GDPR-, IP-, budget-, redovisnings- och releasekrav är uppfyllda. Varken `AI_PILOT_RELEASED` eller Edge Function-releaseflaggorna ändras.
+
+## 2026-10-15: Granskningsutkast även i dokumentarkivet
+
+Den befintliga knappen **Läs PDF lokalt** i `Dokument` ger nu samma möjlighet till tillfälligt bokföringsutkast som i `AI-bokföring`. Användaren behöver inte ladda ned och ladda upp PDF:en på nytt:
+
+1. Välj ett redan lagrat kvitto eller en leverantörsfaktura och klicka **Läs PDF lokalt**.
+2. Arkivet kontrollerar aktiv företagskontext, privat Storage-sökväg, MIME, filstorlek och SHA-256 för originalet, och läser PDF-texten i webbläsaren.
+3. Välj **vad som köpts** (kontorsmateriel, förbrukningsmaterial eller IT-tjänster). För kvitto måste användaren även aktivt välja **hur det betalades**.
+4. Klicka **Visa granskningsutkast**. Den gemensamma regelmotorn `LTStudioDocumentReview.buildReview` visar antingen balanserade debet-/kreditrader med tydliga varningar, eller ett **blockerat** utkast med orsaker.
+5. Stäng granskningen: PDF-fakta och konteringsutkast finns bara i webbläsarens arbetsminne under den öppna dialogen. Ingen ny dokumentpost, verifikation, automation eller betalning skapas.
+
+Vid varje begäran om konteringsutkast kontrolleras aktuell session, användare, företag, dokument-id, lagringsväg, kategori och SHA-256 igen. Ändrad företagskontext eller dokumentmetadata stänger dialogen. Alla textfält från PDF och varningar HTML-escapas. Det finns inga attest-, bokförings- eller spara-knappar och inga Cloudflare-/modell-/Edge Function-anrop i detta steg.
+
+**Begränsningar:** Textbaserade, passiva PDF:er; ingen OCR för skannade bilder. En användarvald kostnadskategori är inte ett AI-beslut och garanterar inte korrekt konto eller avdragsgill moms. Faktisk betalning, dubbletter, kreditnotor, komplexa fakturor och momsundantag måste fortfarande kontrolleras i de ordinarie ekonomiflödena. AI-releasegrindarna är oförändrade.
+
+Regressionstest: `test/document-accounting-preview.test.js`, tillsammans med befintliga `test/ai-document-reader.test.js` och `test/ai-document-review.test.js`.
