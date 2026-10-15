@@ -76,6 +76,9 @@
     if(bytes.length>=2&&bytes[0]===0xfe&&bytes[1]===0xff){
       try{return new TextDecoder('utf-16be',{fatal:true}).decode(bytes.subarray(2));}catch{return '';}
     }
+    // Zero-filled CID glyph IDs without a BOM need the font's ToUnicode map.
+    // Dropping NULs would fabricate apparently valid invoice text.
+    if(bytes.includes(0))return '';
     return new TextDecoder('windows-1252').decode(bytes);
   }
   function decodeTextOperand(operand){
@@ -85,6 +88,17 @@
       const hex=token.slice(1,-1).replace(/\s/g,'');
       if(hex.length%2!==0)return '';
       const bytes=new Uint8Array(hex.match(/../g)?.map(h=>parseInt(h,16))||[]);
+      // PDF text can be encoded as UTF-16BE/LE with a BOM, including hex
+      // operands. Decode only when the BOM is explicit: CID font glyph codes
+      // without ToUnicode must never be guessed as readable text.
+      if(bytes.length>=2&&
+        ((bytes[0]===0xfe&&bytes[1]===0xff)||(bytes[0]===0xff&&bytes[1]===0xfe))){
+        try{
+          return new TextDecoder(bytes[0]===0xfe?'utf-16be':'utf-16le',{fatal:true})
+            .decode(bytes.subarray(2));
+        }catch{return '';}
+      }
+      if(bytes.includes(0))return '';
       return new TextDecoder('windows-1252').decode(bytes);
     }).join('');
   }
@@ -140,18 +154,27 @@
     return text;
   }
   function moneyOre(input){
-    let value=String(input||'').trim().replace(/(?:\s*(?:kr|SEK))\s*$/i,'').replace(/[\u00a0\u202f\s]/g,'');
-    if(!/^\d[\d.,]*$/.test(value))return null;
-    const comma=value.lastIndexOf(','),dot=value.lastIndexOf('.');
-    const decimal=Math.max(comma,dot);
-    let fraction='00',whole=value;
-    if(decimal>=0&&value.length-decimal-1===2){
-      fraction=value.slice(decimal+1);
-      whole=value.slice(0,decimal);
+    const value=String(input??'').trim().replace(/(?:\s*(?:kr|SEK))\s*$/i,'')
+      .replace(/[\u00a0\u202f]/g,' ').replace(/\s+/g,' ').trim();
+    if(!/^\d[\d., ]*$/.test(value))return null;
+    const decimal=value.match(/([.,])(\d{2})$/);
+    const decimalSeparator=decimal?.[1]||null;
+    const fraction=decimal?.[2]||'00';
+    const whole=decimal?value.slice(0,-3):value;
+    let digits=whole;
+    if(!/^\d{1,9}$/.test(whole)){
+      // A thousands separator is only valid in consistent 3-digit groups.
+      // Never silently remove malformed punctuation, e.g. 12,34,56 or 1.2.
+      const separator=whole.match(/[., ]/)?.[0];
+      if(!separator||separator===decimalSeparator)return null;
+      const groups=whole.split(separator);
+      if(groups.length<2||!/^\d{1,3}$/.test(groups[0])||
+        groups.slice(1).some(group=>!/^\d{3}$/.test(group))||
+        !/^\d+$/.test(groups.join('')))return null;
+      digits=groups.join('');
     }
-    whole=whole.replace(/[.,]/g,'');
-    if(!/^\d{1,9}$/.test(whole)||!/^[0-9]{2}$/.test(fraction))return null;
-    const ore=Number(whole)*100+Number(fraction);
+    if(!/^\d{1,9}$/.test(digits))return null;
+    const ore=Number(digits)*100+Number(fraction);
     return Number.isSafeInteger(ore)&&ore<=99999999999?ore:null;
   }
   function isoDate(value){
