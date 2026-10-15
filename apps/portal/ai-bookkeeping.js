@@ -12,6 +12,7 @@
   // server + frontend change, not a client-side preference or environment flag.
   const AI_PILOT_RELEASED = false;
   let context=null,selected=options[0].id,busy=false,result=null,status='',statusKind='info';
+  let localPdfType='supplier-invoice',localPdfResult=null,localPdfStatus='',localPdfBusy=false;
   const esc=(text)=>String(text??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'":'&#39;'}[char]));
   const kronor=(ore)=>new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK'}).format(Number(ore)/100);
   const scenario=()=>options.find(x=>x.id===selected)||options[0];
@@ -67,6 +68,27 @@
       '<p class="ai-bookkeeping-footnote"><strong>Mänsklig granskning krävs.</strong> Förslaget är bara en förhandsvisning. Det sparas inte som verifikation eller i automationskön.</p>'+
       '<a class="ai-bookkeeping-textlink" href="./automation.html'+(demo?'?demo=1':'')+'">Öppna automationskön →</a></article>';
   }
+  function localPdfMarkup(){
+    if(!localPdfResult)return '<p class="ai-pdf-empty">Välj en textbaserad PDF för att se uppgifter som behöver kontrolleras. Skannade PDF:er utan text kan ännu inte läsas.</p>';
+    const labels={supplier:'Leverantör / butik',reference:'Faktura- eller kvittonummer',invoiceDate:'Datum',
+      dueDate:'Förfallodatum',netOre:'Exklusive moms',vatOre:'Moms',grossOre:'Totalt belopp'};
+    const items=Object.entries(labels).map(([key,label])=>{
+      const field=localPdfResult.fields[key];
+      const value=field?.value;
+      const display=value===undefined||value===null?'Inte identifierat':
+        key.endsWith('Ore')?kronor(value):String(value);
+      return '<div class="ai-pdf-field"><small>'+esc(label)+'</small><strong>'+esc(display)+'</strong>'+
+        (field?.evidence?'<span>Hittat i: '+esc(field.evidence)+'</span>':'')+'</div>';
+    }).join('');
+    const warnings=localPdfResult.warnings.map(w=>'<li>'+esc(w)+'</li>').join('');
+    return '<div class="ai-pdf-result"><div class="ai-pdf-result-title"><strong>Text avläst lokalt – INTE AI</strong>'+
+      '<span>Ej bokfört · ej sparat</span></div><div class="ai-pdf-fields">'+items+'</div>'+
+      '<p><strong>Beloppskontroll:</strong> '+(localPdfResult.checks.amountBalance===true?'Netto + moms stämmer med totalbeloppet.':
+        localPdfResult.checks.amountBalance===false?'Beloppen stämmer inte – manuell kontroll krävs.':
+        'Kan inte avgöras automatiskt.')+'</p>'+
+      (warnings?'<div class="ai-pdf-warnings"><strong>Kontrollera innan bokföring</strong><ul>'+warnings+'</ul></div>':'')+
+      '<p class="ai-bookkeeping-footnote">Uppgifterna är förslag från PDF-text, inte verifierade fakta. Originalet måste granskas. Inga konton väljs och inga verifikationer skapas.</p></div>';
+  }
   function sidebar(){
     const suffix=demo?'?demo=1':'';
     return '<aside class="sidebar"><div class="logo"><strong>LT Studio</strong><small>FÖRETAGSPORTAL</small></div>'+
@@ -86,7 +108,7 @@
       '<div class="user-chip"><span>'+esc(context?.user?.displayName||(demo?'Demoanvändare':'Inloggad användare'))+'</span></div></header>'+
       '<main class="content ai-bookkeeping-content"><div class="ai-bookkeeping-intro"><span class="eyebrow">Bokföring på enkelt språk</span>'+
       '<h2>Få hjälp att förstå hur en faktura ska bokföras</h2><p>Testa med påhittade inköp innan AI-bokföringen öppnas för riktiga kundunderlag. I detta test bokför eller betalar AI aldrig. Säker automatbokföring kräver separata kontroller och uttryckligt godkännande.</p></div>'+
-      '<section class="ai-bookkeeping-notice"><strong>Begränsat testläge</strong><span>Inga riktiga fakturor får laddas upp här. AI-anslutningen öppnas först efter säkerhetskontroller och godkänd aktivering. Förhandsvisningarna nedan är exempel tills dess.</span></section>'+
+      '<section class="ai-bookkeeping-notice"><strong>Begränsat testläge</strong><span>AI-anslutningen är ännu inte aktiverad för riktiga fakturor. PDF-läsaren längre ned kan däremot läsa text lokalt på din enhet utan uppladdning eller AI-anrop. Bokföringsexemplen ovan är fortfarande fasta exempel.</span></section>'+
       '<div class="ai-bookkeeping-grid"><section class="ai-bookkeeping-panel"><h3>1. Välj ett exempel</h3><label for="ai-scenario">Påhittad leverantörsfaktura</label>'+
       '<select id="ai-scenario" '+(busy?'disabled':'')+'>'+options.map(opt=>'<option value="'+esc(opt.id)+'"'+(opt.id===selected?' selected':'')+'>'+esc(opt.label)+'</option>').join('')+'</select>'+
       '<div class="ai-bookkeeping-facts"><div><small>Leverantör</small><strong>'+esc(current.supplier)+'</strong></div><div><small>Inköp</small><strong>'+esc(current.description)+'</strong></div>'+
@@ -98,6 +120,12 @@
       '<div id="ai-bookkeeping-status" class="ai-bookkeeping-status '+esc(statusKind)+'" role="status" aria-live="polite">'+esc(status)+'</div></section>'+
       '<section class="ai-bookkeeping-panel ai-bookkeeping-result-panel"><h3>2. Granska förslaget</h3>'+resultMarkup()+'</section></div>'+
       '<div class="ai-bookkeeping-next"><h3>Vad händer när AI-bokföringen är färdig?</h3><p>Då ska kunden välja en befintlig faktura eller ett kvitto i LT Studio, få ett kontrollerat förslag och godkänna det i samma automationskö som används i dag. Vi aktiverar inte hantering av riktiga underlag förrän dataskydd, bokföringsregler och företagsisolering har verifierats.</p></div>'+
+      '<section class="ai-bookkeeping-panel ai-pdf-reader" aria-labelledby="ai-pdf-title"><div class="ai-pdf-reader-head"><div><span class="eyebrow">Tillgängligt nu · ingen AI-anslutning</span>'+
+      '<h3 id="ai-pdf-title">Läs faktura eller kvitto från PDF</h3><p>Filen analyseras enbart lokalt i din webbläsare. Den skickas inte till Supabase eller en AI-leverantör. Bara textbaserade, passiva PDF:er stöds (max 10 MB). Ingen OCR av skannade bilder ännu.</p></div></div>'+
+      '<div class="ai-pdf-controls"><label for="ai-pdf-type">Underlagstyp<select id="ai-pdf-type" '+(localPdfBusy?'disabled':'')+'><option value="supplier-invoice"'+(localPdfType==='supplier-invoice'?' selected':'')+'>Leverantörsfaktura</option><option value="receipt"'+(localPdfType==='receipt'?' selected':'')+'>Kvitto</option></select></label>'+
+      '<label for="ai-pdf-file">Välj PDF<input id="ai-pdf-file" type="file" accept="application/pdf,.pdf" '+(localPdfBusy?'disabled':'')+'></label>'+
+      '<button class="button" type="button" data-ai-action="read-pdf" '+(localPdfBusy?'disabled':'')+'>'+(localPdfBusy?'Läser PDF…':'Läs PDF lokalt')+'</button></div>'+
+      '<p class="ai-bookkeeping-status" role="status" aria-live="polite">'+esc(localPdfStatus)+'</p>'+localPdfMarkup()+'</section>'+
       '</main></section></div>';
   }
   function showExample() {
@@ -137,8 +165,37 @@
       statusKind='warning';
     }finally{busy=false;render();}
   }
+  async function readLocalPdf(){
+    if(localPdfBusy)return;
+    const file=document.getElementById('ai-pdf-file')?.files?.[0];
+    if(!file){localPdfStatus='Välj en PDF-fil först.';render();return;}
+    if(!window.LTStudioDocumentReader){localPdfStatus='PDF-läsaren kunde inte laddas.';render();return;}
+    localPdfBusy=true;localPdfResult=null;localPdfStatus='Läser PDF lokalt på din enhet…';render();
+    try{
+      localPdfResult=await window.LTStudioDocumentReader.readPdf(file,localPdfType);
+      localPdfStatus='PDF-texten är avläst. Kontrollera uppgifterna mot originalet.';
+    }catch(error){
+      const messages={
+        PDF_ONLY:'Välj en PDF-fil (inga bilder eller andra filtyper).',
+        PDF_SIZE_INVALID:'PDF-filen måste vara högst 10 MB.',
+        PDF_INVALID:'Filen har inte en giltig passiv PDF-struktur.',
+        PDF_ACTIVE_CONTENT:'PDF-filen innehåller aktiva eller inbäddade funktioner och kan inte läsas.',
+        PDF_NO_SELECTABLE_TEXT:'Ingen läsbar text hittades. Skannade kvitton behöver OCR som inte är aktiverad ännu.',
+        PDF_UNSUPPORTED_STREAM:'PDF:ens textkodning stöds inte. Granska originalet manuellt.',
+        PDF_COMPRESSION_UNAVAILABLE:'Din webbläsare saknar stöd för att läsa den här PDF:en.',
+        PDF_TEXT_TOO_LARGE:'PDF-texten är för omfattande för säker lokal tolkning.',
+        PDF_TOO_MANY_STREAMS:'PDF-filen är för komplex för den lokala läsaren.'
+      };
+      localPdfStatus=messages[error?.code]||'PDF:en kunde inte läsas. Ingen information skickades eller sparades.';
+      localPdfResult=null;
+    }finally{localPdfBusy=false;render();}
+  }
   document.addEventListener('change',event=>{
     const target=event.target;
+    if(target?.id==='ai-pdf-type'&&!localPdfBusy){
+      if(['supplier-invoice','receipt'].includes(target.value)){localPdfType=target.value;localPdfResult=null;localPdfStatus='';render();}
+      return;
+    }
     if(target?.id!=='ai-scenario'||busy)return;
     if(options.some(item=>item.id===target.value)){
       selected=target.value;result=null;status='';render();
@@ -149,6 +206,7 @@
     if(!button||button.disabled||busy)return;
     if(button.dataset.aiAction==='example')showExample();
     if(button.dataset.aiAction==='analyze')void runAiPilot();
+    if(button.dataset.aiAction==='read-pdf')void readLocalPdf();
   });
   async function init(){
     if(demo){
