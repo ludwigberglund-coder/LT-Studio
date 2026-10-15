@@ -43,3 +43,29 @@
 [data-lt-theme="dark"] .ai-bookkeeping-panel select{color:var(--color-ink)}
 @media(max-width:1000px){.ai-bookkeeping-grid{grid-template-columns:1fr}}
 @media(max-width:720px){.ai-bookkeeping-content{padding:16px;gap:14px}.ai-bookkeeping-panel,.ai-bookkeeping-next{padding:18px;border-radius:16px}.ai-bookkeeping-notice{display:grid}.ai-bookkeeping-actions{flex-direction:column}.ai-bookkeeping-actions .button{width:100%}.ai-bookkeeping-facts{gap:8px}.ai-bookkeeping-facts>div{padding:11px}.ai-bookkeeping-line{grid-template-columns:minmax(0,1.25fr) minmax(68px,.8fr) minmax(68px,.8fr);padding:11px 8px;gap:6px;font-size:12px}}
+
+/* Passive local PDF reading. No server or AI request is made by this panel. */
+.ai-pdf-reader{display:grid;gap:16px}
+.ai-pdf-reader-head h3{margin:8px 0 10px}
+.ai-pdf-reader-head p{margin:0;max-width:850px;color:var(--muted);line-height:1.6;font-size:14px}
+.ai-pdf-controls{display:grid;grid-template-columns:minmax(160px,.7fr) minmax(240px,1.4fr) auto;gap:12px;align-items:end}
+.ai-pdf-controls label{display:grid;gap:8px;min-width:0;font-size:13px;font-weight:750;color:var(--color-ink)}
+.ai-pdf-controls input[type=file],.ai-pdf-controls select{display:block;width:100%;min-height:46px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-card,var(--paper));color:var(--color-ink);font:inherit}
+.ai-pdf-controls input[type=file]::file-selector-button{padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-alt,var(--paper));color:var(--color-ink);cursor:pointer}
+.ai-pdf-controls .button{min-height:46px}
+.ai-pdf-empty{margin:0;padding:20px;border:1px dashed var(--line);border-radius:12px;color:var(--muted)}
+.ai-pdf-result{display:grid;gap:15px}
+.ai-pdf-result-title{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.ai-pdf-result-title>span{border:1px solid var(--line);border-radius:999px;padding:6px 11px;font-size:12px;font-weight:750;color:var(--color-ink)}
+.ai-pdf-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.ai-pdf-field{display:grid;align-content:start;gap:5px;min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--surface-alt,var(--paper));padding:13px}
+.ai-pdf-field small{font-size:11px;color:var(--muted)}
+.ai-pdf-field strong{font-size:15px;overflow-wrap:anywhere;color:var(--color-ink)}
+.ai-pdf-field span{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+.ai-pdf-warnings{border:1px solid var(--line);border-radius:12px;padding:14px;color:var(--color-ink)}
+.ai-pdf-warnings ul{margin:8px 0 0;padding-left:20px;line-height:1.55}
+.ai-pdf-result p{margin:0;line-height:1.6;color:var(--color-ink)}
+@media(max-width:850px){.ai-pdf-controls{grid-template-columns:1fr 1fr}.ai-pdf-controls .button{grid-column:1/-1}.ai-pdf-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.ai-pdf-controls,.ai-pdf-fields{grid-template-columns:1fr}.ai-pdf-controls .button{grid-column:auto}}
+html[data-lt-theme="dark"] .ai-pdf-reader :is(p,small,span,strong,label,input,select,button){color:var(--lt-dark-text,#ffffff)}
+html[data-lt-theme="dark"] .ai-pdf-reader :is(.ai-pdf-field,.ai-pdf-empty,.ai-pdf-warnings){border-color:var(--lt-dark-border,var(--line))}
