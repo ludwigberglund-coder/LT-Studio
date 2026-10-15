@@ -69,3 +69,19 @@ Regressionstester: `test/ai-posted-history.test.js` (automatisk visning, manuell
 ### Nästa säkra etapp
 
 För produktion behövs fortfarande en serverägd dokument- och historikvalidering före förslagskö, en granskningsbar koppling till **befintlig** automationskö och en separat, auditerad bokförings-RPC. En faktisk Cloudflare AI-modell kan först användas med syntetiska fall när pilotens drifts-/IP-/kvotgrind har verifierats; verkliga kunddata kräver dessutom godkänd behandling. Öppna inte bokföringsspärrar enbart baserat på det lokala utkastet.
+
+## 2026-10-15: Evidensbaserat konteringsutkast i vanliga Leverantörsfakturor
+
+Den aktiva Supabase-fliken `Leverantörsfakturor` använder nu samma `apps/portal/ai-posted-history.js` som AI-bokföring. Därmed får kunderna en enda restriktiv historikmotor även i det vanliga fakturaflödet. Ingen ny parallell bokföringsväg har skapats.
+
+- Vid **Hämta konteringsförslag** kontrolleras den valda, ännu inte konterade fakturans `company_id`, PDF-originalets SHA-256 mot dokumentregistret, MIME-typ/filstorlek, status, valuta, fakturanummer och momssats. Företagets befintliga historik läses med den redan etablerade personliga RLS- och MFA-skyddade Supabase-sessionen.
+- Konteringsutkast skapas bara om **minst tre** unika, mänskligt attesterade **och bokförda** original från samma `supplier_id` visar samma kostnadskonto och moms. Dubblettkontroll av PDF-hash gäller även andra leverantörer; samma leverantör + fakturanummer är också blockerande. Motsägelsefull historik, oläsbart/orent underlag och olåsta eller felaktiga jämförelser lämnas till granskning.
+- Om säkert historikstöd saknas ges **ingen fiktiv 94-procentig säkerhet och inget automatiskt konto 4010**. En användare kan i stället uttryckligen välja 4010, 6110, 5460 eller 6540 för ett *lokalt, tillfälligt* granskningsutkast – endast om original- och dubblettkontrollerna lyckas. Urvalet är en begränsad första version, inte en fullständig BAS-kontoplan.
+- Utkastet visas som **ej sparat** och **inte AI-genererat**. Att spara kräver fortfarande den befintliga `save_supplier_invoice_coding`-RPC:n. Attest går via `approve_supplier_invoice` med käll-/konteringshash och leverantörsskulden via `post_supplier_invoice_liability` med befintliga finanskontroller. Varken AI:n eller historikförslaget får kalla dem automatiskt.
+- PDF:en hämtas aldrig till en extern AI-modell; inga Cloudflare-anrop, databas-skrivningar, migreringar, nya behörigheter eller ändrade AI-releaseflaggor ingår. Sidan gör fortfarande enbart läsningar vid detta förslag. Klientdata är **aldrig serverbevis** för behörighet eller automatbokning.
+
+Regressionerna i `test/ai-payables-posted-history.test.js` kontrollerar fel företag, samma PDF under annan leverantör, samma fakturanummer, osäker moms, fel dokumenthash, otillräcklig historik, manuell ersättning och UI utan modell-/bokföringsanrop. Utöver detta måste PR:ens fulla Quality/CodeQL/Supabase clean rebuild godkännas innan merge och GitHub Pages publiceringskörningen verifieras efter merge.
+
+### Kvarstår inför skarp AI och automatisk bokföring
+
+En extern modellkoppling behövs fortfarande via hostad, säker och godkänd servergateway. AI-förslag måste kopplas till befintlig automationskö genom versionerade serverbevis, inte genom dessa webbläsarutkast. Produktionsversionen måste även kontrollera aktiva BAS-konton, räkenskapsperiod, momsregler, dubbletter och source-hash atomärt i den vanliga revisionsspårade ekonomiska RPC:n innan en fördefinierad, företagsspecifik opt-in ens får möjliggöra autobokning. Detta ingår **inte** i dagens etapp.
