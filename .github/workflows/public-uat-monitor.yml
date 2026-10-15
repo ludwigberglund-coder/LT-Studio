@@ -1,0 +1,44 @@
+name: Public UAT availability (best effort)
+
+on:
+  schedule:
+    # Avoid minute 00; GitHub may still delay or omit scheduled runs.
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+    inputs:
+      simulate_alert:
+        description: 'Force a failed run to verify that an operator receives GitHub failure notifications'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-uat-monitor
+  cancel-in-progress: false
+
+jobs:
+  public-uat-probes:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout trusted default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+
+      - name: Verify monitoring logic
+        run: node --test test/public-uat-monitor.test.js
+
+      - name: Check public portal and Supabase Auth
+        env:
+          LT_MONITOR_SIMULATE_FAILURE: ${{ inputs.simulate_alert && '1' || '0' }}
+        run: node scripts/public-uat-monitor.js
