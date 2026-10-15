@@ -137,7 +137,7 @@ test('portal loads learning script and never exposes posting controls or model c
   assert.doesNotMatch(source,/\bfetch\s*\(|\.rpc\s*\(|\.insert\s*\(|\.update\s*\(|\.functions\.invoke\s*\(|localStorage|sessionStorage/);
 });
 const settle=async()=>{await new Promise(resolve=>setImmediate(resolve));await new Promise(resolve=>setImmediate(resolve));};
-function uiFixture({switchTenant=false}={}){
+function uiFixture({switchTenant=false,extract=facts(),invoiceHistory=history(),deferInvoice=null}={}){
   const handlers={},app={innerHTML:''};
   const selected={name:'test.pdf',type:'application/pdf',size:300};
   let contexts=0,reads=0,writes=0,readCalls=0;
@@ -148,7 +148,7 @@ function uiFixture({switchTenant=false}={}){
       id==='ai-pdf-file'?{files:[selected]}:null,
       addEventListener:(name,fn)=>{handlers[name]=fn}},
     window:{
-      LTStudioDocumentReader:{readPdf:async()=>{reads++;return facts();}},
+      LTStudioDocumentReader:{readPdf:async()=>{reads++;return extract;}},
       LTStudioDocumentReview:review,LTStudioPostedHistory:learning,
       LTSupabaseUat:{context:async()=>{contexts++;return switchTenant&&contexts>=3?
         {...ctx,company:{id:'tenant-b',name:'Annat AB'}}:ctx;}},
@@ -157,7 +157,7 @@ function uiFixture({switchTenant=false}={}){
           select:async(columns,filter)=>{
             readCalls++;assert.match(filter,/company_id=eq\.tenant-a/);
             assert.match(filter,/limit=200/);
-            return table==='suppliers'?suppliers:history();
+            return table==='suppliers'?suppliers:(deferInvoice||invoiceHistory);
           },
           insert:()=>{writes++;throw Error('unexpected insert')},
           update:()=>{writes++;throw Error('unexpected update')}
@@ -173,33 +173,80 @@ function uiFixture({switchTenant=false}={}){
   vm.runInNewContext(appJs,sandbox);
   const click=action=>handlers.click({target:{closest:selector=>selector==='[data-ai-action]'?
     {disabled:false,dataset:{aiAction:action}}:null}});
-  return {app,click,get reads(){return reads},get readCalls(){return readCalls},
+  return {app,click,choose:(id,value)=>handlers.change({target:{id,value}}),
+    get reads(){return reads},get readCalls(){return readCalls},
     get writes(){return writes},get contexts(){return contexts}};
 }
-test('authenticated AI page learns from RLS-scoped posted history and lets user choose account',async()=>{
+test('after PDF reading, authenticated tenant history automatically prepares a non-postable review',async()=>{
   const u=uiFixture();await settle();
   u.click('read-pdf');await settle();
-  assert.match(u.app.innerHTML,/Hitta konto från tidigare bokföring/);
-  u.click('learn-pdf');await settle();
   assert.equal(u.readCalls,2);
+  assert.equal(u.reads,1);
   assert.equal(u.writes,0);
   assert.match(u.app.innerHTML,/Förslag: 6540/);
   assert.match(u.app.innerHTML,/Antal jämförda original: 3/);
-  assert.doesNotMatch(u.app.innerHTML,/Bokför nu/);
-  u.click('use-learned-account');
+  assert.match(u.app.innerHTML,/Utkastet är förberett automatiskt/);
   assert.match(u.app.innerHTML,/<option value="6540" selected>/);
-  u.click('preview-pdf');
   assert.match(u.app.innerHTML,/Granskningsutkast – inte AI/);
-  assert.match(u.app.innerHTML,/IT-tjänster/);
-  assert.match(u.app.innerHTML,/Ej bokfört/);
-  assert.equal(u.writes,0);
+  assert.match(u.app.innerHTML,/Ej bokfört · ej sparat/);
+  assert.doesNotMatch(u.app.innerHTML,/data-ai-action="(?:post-pdf|approve-pdf|save-pdf)"/);
+  assert.doesNotMatch(u.app.innerHTML,/Bokför nu/);
 });
-test('tenant switch during history fetch fails closed without presenting recommendation',async()=>{
+
+test('tenant switch during automatic history fetch fails closed without a draft',async()=>{
   const u=uiFixture({switchTenant:true});await settle();
   u.click('read-pdf');await settle();
-  u.click('learn-pdf');await settle();
   assert.equal(u.readCalls,2);
   assert.equal(u.writes,0);
   assert.doesNotMatch(u.app.innerHTML,/Förslag: 6540/);
+  assert.doesNotMatch(u.app.innerHTML,/Granskningsutkast – inte AI/);
   assert.match(u.app.innerHTML,/Historiken kunde inte jämföras säkert/);
+});
+
+test('insufficient or conflicting posted history cannot create a draft',async()=>{
+  for(const invoiceHistory of [
+    history().slice(0,2),
+    [historical(1),historical(2),historical(3,{account:'6110'})],
+    history().map(row=>({...row,company_id:'tenant-b'}))
+  ]){
+    const u=uiFixture({invoiceHistory});await settle();
+    u.click('read-pdf');await settle();
+    assert.equal(u.readCalls,2);
+    assert.doesNotMatch(u.app.innerHTML,/Granskningsutkast – inte AI/);
+    assert.match(u.app.innerHTML,/Välj vad som köptes/);
+    assert.equal(u.writes,0);
+  }
+});
+
+test('unsafe credits and receipts never cause automatic history requests or posting',async()=>{
+  const credit=reader.parseFacts(['KREDITFAKTURA',...lines].join('\n'),'supplier-invoice');
+  const a=uiFixture({extract:credit});await settle();
+  a.click('read-pdf');await settle();
+  assert.equal(a.readCalls,0);
+  assert.doesNotMatch(a.app.innerHTML,/Granskningsutkast – inte AI/);
+  const receipt=reader.parseFacts(lines.join('\n'),'receipt');
+  const b=uiFixture({extract:receipt});await settle();
+  b.choose('ai-pdf-type','receipt');
+  b.click('read-pdf');await settle();
+  assert.equal(b.readCalls,0);
+  b.click('preview-pdf');
+  assert.match(b.app.innerHTML,/Välj först vad som köptes/);
+  assert.equal(a.writes+b.writes,0);
+});
+
+test('manual account choice during slow history read wins over later automation',async()=>{
+  let release;
+  const slow=new Promise(resolve=>{release=resolve;});
+  const u=uiFixture({deferInvoice:slow});await settle();
+  u.click('read-pdf');await settle();
+  assert.match(u.app.innerHTML,/Söker endast bland tidigare/);
+  u.choose('ai-pdf-account','6110');
+  release(history());await settle();
+  assert.match(u.app.innerHTML,/<option value="6110" selected>/);
+  assert.doesNotMatch(u.app.innerHTML,/Granskningsutkast – inte AI/);
+  u.click('preview-pdf');
+  assert.match(u.app.innerHTML,/Granskningsutkast – inte AI/);
+  assert.match(u.app.innerHTML,/Kontorsmateriel/);
+  assert.doesNotMatch(u.app.innerHTML,/Utkastet är förberett automatiskt/);
+  assert.equal(u.writes,0);
 });
