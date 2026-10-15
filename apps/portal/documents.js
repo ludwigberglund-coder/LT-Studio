@@ -35,7 +35,14 @@ async function upload(form){const fd=new FormData(form),file=fd.get('file');if(!
   await loadSupabaseDocuments();message='Dokumentet sparades privat i Supabase och fick en SHA-256-kontrollsumma.';return;
 }
 const created=(await api('/documents',{method:'POST',body:meta})).document;const r=await fetch(`/api/v1/documents/${encodeURIComponent(created.id)}/content`,{method:'PUT',credentials:'same-origin',headers:{'Content-Type':mime,'X-CSRF-Token':csrfToken},body:file});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||'Dokumentet registrerades men filinnehållet kunde inte sparas.');documents=(await api('/documents')).documents||[];message='Dokumentet sparades och fick en kontrollsumma.'}
-document.addEventListener('change',e=>{if(e.target.dataset.filter==='category'){category=e.target.value;documentSearchActiveIndex=-1;render()}});
+document.addEventListener('change',e=>{
+  if(e.target.dataset.filter==='category'){category=e.target.value;documentSearchActiveIndex=-1;render();return}
+  if(e.target.matches?.('[data-document-expense],[data-document-payment]')){
+    const modal=e.target.closest('.documents-pdf-preview');
+    const result=modal?.querySelector('[data-document-review-result]');
+    if(result)result.textContent='Valet har ändrats. Klicka på Visa granskningsutkast igen.';
+  }
+});
 document.addEventListener('input',e=>{if(e.target.dataset.filter==='query'){query=e.target.value;documentSearchOpen=Boolean(query.trim());documentSearchActiveIndex=-1;render();requestAnimationFrame(()=>{const field=document.querySelector('[data-filter="query"]');field?.focus();field?.setSelectionRange?.(query.length,query.length)})}});
 document.addEventListener('focusin',e=>{if(e.target.dataset.filter==='query'&&query.trim()){documentSearchOpen=true;const results=document.getElementById('documents-search-results');if(results){results.hidden=false;results.innerHTML=documentSearchResults()}e.target.setAttribute('aria-expanded','true')}});
 document.addEventListener('keydown',e=>{if(e.target.dataset.filter!=='query')return;const rows=documentSearchSuggestions();if(e.key==='Escape'){closeDocumentSearch();return}if(!rows.length)return;if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();const step=e.key==='ArrowDown'?1:-1;documentSearchActiveIndex=(documentSearchActiveIndex+step+rows.length)%rows.length;documentSearchOpen=true;render();requestAnimationFrame(()=>document.querySelector('[data-filter="query"]')?.focus());return}if(e.key==='Enter'&&documentSearchOpen){e.preventDefault();const choice=rows[Math.max(0,documentSearchActiveIndex)];if(choice){query=choice.title||choice.fileName||'';documentSearchOpen=false;documentSearchActiveIndex=-1;render()}}});
