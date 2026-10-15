@@ -128,7 +128,7 @@
     return '<div class="ai-pdf-proposal-result" role="status" aria-live="polite">'+
       '<div class="ai-pdf-result-title"><strong>'+(blocked?'Kan inte skapa säkert utkast':'Granskningsutkast – inte AI')+'</strong>'+
       '<span>Ej bokfört · ej sparat</span></div>'+
-      (!blocked?'<p>Momssats som stämmer med beloppen: <strong>'+esc(localPdfProposal.checks.vatRate)+' %</strong>. Konto är valt manuellt.</p>'+
+      (!blocked?'<p>Momssats som stämmer med beloppen: <strong>'+esc(localPdfProposal.checks.vatRate)+' %</strong>. Ingen uppgift är slutligt verifierad.</p>'+
         '<p>'+(accountSource==='history'?'Kontot har fyllts i från företagets bokförda historik. Kontrollera om inköpet verkligen är likadant.':'Konto är valt manuellt eller behöver bekräftas.')+'</p>'+rowsMarkup(localPdfProposal.rows):'')+
       '<div class="ai-pdf-warnings"><strong>'+(blocked?'Blockerande fel och kontroller':'Måste kontrolleras före eventuell bokföring')+'</strong>'+
       '<ul>'+notes.map(note=>'<li>'+esc(note)+'</li>').join('')+'</ul></div>'+
