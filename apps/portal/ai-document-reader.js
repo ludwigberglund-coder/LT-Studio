@@ -76,6 +76,9 @@
     if(bytes.length>=2&&bytes[0]===0xfe&&bytes[1]===0xff){
       try{return new TextDecoder('utf-16be',{fatal:true}).decode(bytes.subarray(2));}catch{return '';}
     }
+    // Zero-filled CID glyph IDs without a BOM need the font's ToUnicode map.
+    // Dropping NULs would fabricate apparently valid invoice text.
+    if(bytes.includes(0))return '';
     return new TextDecoder('windows-1252').decode(bytes);
   }
   function decodeTextOperand(operand){
@@ -95,6 +98,7 @@
             .decode(bytes.subarray(2));
         }catch{return '';}
       }
+      if(bytes.includes(0))return '';
       return new TextDecoder('windows-1252').decode(bytes);
     }).join('');
   }
