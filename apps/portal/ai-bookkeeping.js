@@ -108,7 +108,7 @@
       '<div class="user-chip"><span>'+esc(context?.user?.displayName||(demo?'Demoanvändare':'Inloggad användare'))+'</span></div></header>'+
       '<main class="content ai-bookkeeping-content"><div class="ai-bookkeeping-intro"><span class="eyebrow">Bokföring på enkelt språk</span>'+
       '<h2>Få hjälp att förstå hur en faktura ska bokföras</h2><p>Testa med påhittade inköp innan AI-bokföringen öppnas för riktiga kundunderlag. I detta test bokför eller betalar AI aldrig. Säker automatbokföring kräver separata kontroller och uttryckligt godkännande.</p></div>'+
-      '<section class="ai-bookkeeping-notice"><strong>Begränsat testläge</strong><span>Inga riktiga fakturor får laddas upp här. AI-anslutningen öppnas först efter säkerhetskontroller och godkänd aktivering. Förhandsvisningarna nedan är exempel tills dess.</span></section>'+
+      '<section class="ai-bookkeeping-notice"><strong>Begränsat testläge</strong><span>AI-anslutningen är ännu inte aktiverad för riktiga fakturor. PDF-läsaren längre ned kan däremot läsa text lokalt på din enhet utan uppladdning eller AI-anrop. Bokföringsexemplen ovan är fortfarande fasta exempel.</span></section>'+
       '<div class="ai-bookkeeping-grid"><section class="ai-bookkeeping-panel"><h3>1. Välj ett exempel</h3><label for="ai-scenario">Påhittad leverantörsfaktura</label>'+
       '<select id="ai-scenario" '+(busy?'disabled':'')+'>'+options.map(opt=>'<option value="'+esc(opt.id)+'"'+(opt.id===selected?' selected':'')+'>'+esc(opt.label)+'</option>').join('')+'</select>'+
       '<div class="ai-bookkeeping-facts"><div><small>Leverantör</small><strong>'+esc(current.supplier)+'</strong></div><div><small>Inköp</small><strong>'+esc(current.description)+'</strong></div>'+
