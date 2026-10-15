@@ -149,7 +149,7 @@ async function previewSupabaseDocument(id){
   }
 }
 async function readSupabaseDocument(id){
-  if(!isSupabase||!window.LTStudioDocumentReader)throw new Error('LOCAL_READER_UNAVAILABLE');
+  if(!isSupabase||!window.LTStudioDocumentReader||!window.LTStudioDocumentReview)throw new Error('LOCAL_READER_UNAVAILABLE');
   const ctx=await window.LTSupabaseUat.context();
   if(!ctx?.authenticated||!ctx.company?.id||!ctx.accessToken)throw new Error('AUTH_REQUIRED');
   const doc=documents.find(d=>String(d.id)===String(id));
