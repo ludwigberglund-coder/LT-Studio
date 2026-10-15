@@ -283,3 +283,18 @@ test('switching PDF document type revokes prior automatic suggestion requests',a
   assert.doesNotMatch(u.app.innerHTML,/Förslag: 6540/);
   assert.equal(u.writes,0);
 });
+
+
+test('a later weaker history check removes an old automatic accounting preview',async()=>{
+  let invoiceRows=history();
+  const u=uiFixture({invoiceHistory:()=>invoiceRows});await settle();
+  u.click('read-pdf');await settle();
+  assert.match(u.app.innerHTML,/Granskningsutkast – inte AI/);
+  invoiceRows=history().slice(0,2);
+  u.click('learn-pdf');
+  assert.doesNotMatch(u.app.innerHTML,/Granskningsutkast – inte AI/);
+  await settle();
+  assert.doesNotMatch(u.app.innerHTML,/Granskningsutkast – inte AI/);
+  assert.match(u.app.innerHTML,/Välj vad som köptes/);
+  assert.equal(u.writes,0);
+});
