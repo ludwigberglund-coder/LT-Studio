@@ -92,7 +92,7 @@
     const blocks=stream.match(/\bBT\b[\s\S]*?\bET\b/g)||[];
     const lines=[];
     for(const block of blocks){
-      const operands=/((?:\((?:\\[\s\S]|[^\\)])*\)|<[0-9a-fA-F\s]+>|\[[^\]]{0,8192}\]))\s*(?:Tj|TJ|'|")\b?/g;
+      const operands=/((?:\((?:\\[\s\S]|[^\\)])*\)|<[0-9a-fA-F\s]+>|\[[^\]]{0,8192}\]))\s*(?:Tj|TJ|'|")/g;
       let match,last=0,parts=[];
       while((match=operands.exec(block))!==null){
         const between=block.slice(last,match.index);
