@@ -78,7 +78,7 @@ function invoiceNextStepPanel(invoice){
   const next=nextInvoiceStep(invoice);
   return `<section class="invoice-next-step" data-guide-stage="${esc(next.stage)}" aria-labelledby="supplier-next-step-heading"><div class="invoice-next-step-top"><span class="invoice-next-step-kicker">Så gör du med fakturan</span><span class="invoice-next-step-stage">${esc(workLabel(invoice))}</span></div><h3 id="supplier-next-step-heading">${esc(next.title)}</h3><p>${esc(next.description)}</p><p class="invoice-next-step-check"><strong>Viktigt att veta:</strong> ${esc(next.check)}</p></section>`;
 }
-function workspace(){if(!selected)return'<div class="panel"><p class="empty">Välj en faktura i arbetskön.</p></div>';const pdfSrc=isDemo?makePdfBlob(selected):(isSupabase?'':`/api/v1/payables/invoices/${encodeURIComponent(selected.id)}/document`),locked=['approved','payment-prepared','paid'].includes(selected.status),liabilityPosted=Boolean(selected.liabilityPosted||selected.liabilityAccountingEntryId),balance=codingBalance(selected.coding||[],selected.totalOre);return `${invoiceNextStepPanel(selected)}<div class="payables-grid"><section class="pdf-panel"><div class="panel-head"><div><span class="eyebrow">Underlag</span><h3>Faktura ${esc(selected.supplierInvoiceNumber)}</h3></div><span class="status-pill ${esc(selected.status)}">${esc(workLabel(selected))}</span></div><div class="invoice-meta"><div><span>Leverantör</span><strong>${esc(selected.supplierName)}</strong></div><div><span>Fakturadatum</span><strong>${esc(selected.invoiceDate)}</strong></div><div><span>Förfallodatum</span><strong>${esc(selected.dueDate)}</strong></div><div><span>Total</span><strong>${ore(selected.totalOre)}</strong></div><div><span>Moms</span><strong>${ore(selected.vatOre)}</strong></div><div><span>Momsbehandling</span><strong>${esc(supplierVatLabel(selected))}</strong></div></div>${isDemo?`<iframe class="pdf-frame" title="Leverantörsfakturans demo-PDF" src="${esc(pdfSrc)}#page=1&view=FitH&navpanes=0"></iframe>`:(isSupabase?(selected.documentPath?'<div class="notice"><b>Privat Supabase-PDF:</b> Originalet ligger i företagets skyddade Storage-yta.</div><p class="pdf-actions"><button class="button small" type="button" data-action="open-supabase-pdf">Öppna PDF</button></p>':'<div class="notice"><b>PDF saknas.</b> Den här fakturan har inget kopplat PDF-original i Supabase.</div>'):`<div class="notice"><b>Säker PDF-hantering:</b> originalet öppnas i en separat, sandboxad PDF-flik eller kan laddas ner oförändrat.</div><p class="pdf-actions"><a class="button small" href="${esc(pdfSrc)}?view=inline" target="_blank" rel="noopener">Öppna PDF</a><a class="button ghost small" href="${esc(pdfSrc)}" download>Ladda ner original-PDF</a></p>`)}</section><section class="coding-panel"><div class="panel-head"><div><span class="eyebrow">Kontering</span><h3>Kontering & attest</h3></div>${!locked?'<button class="button ghost small" data-action="suggest-coding">Hämta konteringsförslag</button>':''}</div>${suggestionBox()}${manualCodingMarkup(locked)}<details class="invoice-accounting-help"><summary>Vad betyder debet, kredit och attest?</summary><p>Debet och kredit är bokföringens två sidor. Beloppen behöver balansera, men du måste även kontrollera att konton, moms och fakturaunderlag stämmer. Attest betyder att fakturan har granskats och godkänts – den blir inte automatiskt betald.</p></details><table class="coding-table"><thead><tr><th>Konto</th><th>Text</th><th>Debet</th><th>Kredit</th></tr></thead><tbody>${codingRows(selected)}</tbody></table>${!selected.coding?.length&&!locked?'<p class="empty coding-empty">Ingen kontering finns ännu. Hämta ett förslag.</p>':''}<div class="coding-balance ${balance.ok?'balanced':'unbalanced'}" data-coding-balance><span>Debet <b data-balance-debit>${ore(balance.debitOre)}</b></span><span>Kredit <b data-balance-credit>${ore(balance.creditOre)}</b></span><span>Differens <b data-balance-diff>${ore(Math.abs(balance.diffOre))}</b></span><strong data-balance-status-balanced>Balanserad</strong><strong data-balance-status-unbalanced>Måste balansera före attest</strong></div><div class="totals"><span>Fakturabelopp</span><strong>${ore(selected.totalOre)}</strong><span>Moms</span><strong>${ore(selected.vatOre)}</strong></div><div class="coding-actions">${!locked&&selected.coding?.length?`<button class="button ghost ${balance.ok?'':'coding-action-blocked'}" data-action="save-coding" aria-disabled="${balance.ok?'false':'true'}">Spara kontering</button><button class="button ${balance.ok?'':'coding-action-blocked'}" data-action="approve" aria-disabled="${balance.ok?'false':'true'}">Attestera faktura</button>`:''}${selected.status==='approved'&&!liabilityPosted&&selected.liabilityBatchId?`<span class="notice">Leverantörsskulden väntar i bunt #${esc(String(selected.liabilityBatchNumber||'').padStart(5,'0'))}. Reskontran påverkas först efter godkännande.</span>`:''}${selected.status==='approved'&&!liabilityPosted&&!selected.liabilityBatchId?'<button class="button" data-action="post-invoice">Skapa bunt för leverantörsskuld</button>':''}${selected.status==='approved'&&liabilityPosted&&!isDemo?'<button class="button ghost" data-action="correct-dates">Rätta datum</button>':''}${selected.status==='approved'&&liabilityPosted?'<span class="notice">Leverantörsskulden är bokförd. Hantera betalningen under Leverantörsreskontra.</span>':''}${selected.status==='payment-prepared'?'<span class="notice">Betalningen hanteras under Leverantörsreskontra.</span>':''}${selected.status==='paid'?'<span class="notice">Fakturan är betald och bokförd.</span>':''}</div></section></div>`}
+function workspace(){if(!selected)return'<div class="panel"><p class="empty">Välj en faktura i arbetskön.</p></div>';const pdfSrc=isDemo?makePdfBlob(selected):(isSupabase?'':`/api/v1/payables/invoices/${encodeURIComponent(selected.id)}/document`),locked=['approved','payment-prepared','paid'].includes(selected.status),liabilityPosted=Boolean(selected.liabilityPosted||selected.liabilityAccountingEntryId),balance=codingBalance(selected.coding||[],selected.totalOre);return `${invoiceNextStepPanel(selected)}<div class="payables-grid"><section class="pdf-panel"><div class="panel-head"><div><span class="eyebrow">Underlag</span><h3>Faktura ${esc(selected.supplierInvoiceNumber)}</h3></div><span class="status-pill ${esc(selected.status)}">${esc(workLabel(selected))}</span></div><div class="invoice-meta"><div><span>Leverantör</span><strong>${esc(selected.supplierName)}</strong></div><div><span>Fakturadatum</span><strong>${esc(selected.invoiceDate)}</strong></div><div><span>Förfallodatum</span><strong>${esc(selected.dueDate)}</strong></div><div><span>Total</span><strong>${ore(selected.totalOre)}</strong></div><div><span>Moms</span><strong>${ore(selected.vatOre)}</strong></div><div><span>Momsbehandling</span><strong>${esc(supplierVatLabel(selected))}</strong></div></div>${isDemo?`<iframe class="pdf-frame" title="Leverantörsfakturans demo-PDF" src="${esc(pdfSrc)}#page=1&view=FitH&navpanes=0"></iframe>`:(isSupabase?(selected.documentPath?'<div class="notice"><b>Privat Supabase-PDF:</b> Originalet ligger i företagets skyddade Storage-yta.</div><p class="pdf-actions"><button class="button small" type="button" data-action="open-supabase-pdf">Öppna PDF</button></p>':'<div class="notice"><b>PDF saknas.</b> Den här fakturan har inget kopplat PDF-original i Supabase.</div>'):`<div class="notice"><b>Säker PDF-hantering:</b> originalet öppnas i en separat, sandboxad PDF-flik eller kan laddas ner oförändrat.</div><p class="pdf-actions"><a class="button small" href="${esc(pdfSrc)}?view=inline" target="_blank" rel="noopener">Öppna PDF</a><a class="button ghost small" href="${esc(pdfSrc)}" download>Ladda ner original-PDF</a></p>`)}</section><section class="coding-panel"><div class="panel-head"><div><span class="eyebrow">Kontering</span><h3>Kontering & attest</h3></div>${!locked&&!selected.coding?.length?'<button class="button ghost small" data-action="suggest-coding">Hämta konteringsförslag</button>':''}</div>${suggestionBox()}${manualCodingMarkup(locked)}<details class="invoice-accounting-help"><summary>Vad betyder debet, kredit och attest?</summary><p>Debet och kredit är bokföringens två sidor. Beloppen behöver balansera, men du måste även kontrollera att konton, moms och fakturaunderlag stämmer. Attest betyder att fakturan har granskats och godkänts – den blir inte automatiskt betald.</p></details><table class="coding-table"><thead><tr><th>Konto</th><th>Text</th><th>Debet</th><th>Kredit</th></tr></thead><tbody>${codingRows(selected)}</tbody></table>${!selected.coding?.length&&!locked?'<p class="empty coding-empty">Ingen kontering finns ännu. Hämta ett förslag.</p>':''}<div class="coding-balance ${balance.ok?'balanced':'unbalanced'}" data-coding-balance><span>Debet <b data-balance-debit>${ore(balance.debitOre)}</b></span><span>Kredit <b data-balance-credit>${ore(balance.creditOre)}</b></span><span>Differens <b data-balance-diff>${ore(Math.abs(balance.diffOre))}</b></span><strong data-balance-status-balanced>Balanserad</strong><strong data-balance-status-unbalanced>Måste balansera före attest</strong></div><div class="totals"><span>Fakturabelopp</span><strong>${ore(selected.totalOre)}</strong><span>Moms</span><strong>${ore(selected.vatOre)}</strong></div><div class="coding-actions">${!locked&&selected.coding?.length?`<button class="button ghost ${balance.ok?'':'coding-action-blocked'}" data-action="save-coding" aria-disabled="${balance.ok?'false':'true'}">Spara kontering</button><button class="button ${balance.ok?'':'coding-action-blocked'}" data-action="approve" aria-disabled="${balance.ok?'false':'true'}">Attestera faktura</button>`:''}${selected.status==='approved'&&!liabilityPosted&&selected.liabilityBatchId?`<span class="notice">Leverantörsskulden väntar i bunt #${esc(String(selected.liabilityBatchNumber||'').padStart(5,'0'))}. Reskontran påverkas först efter godkännande.</span>`:''}${selected.status==='approved'&&!liabilityPosted&&!selected.liabilityBatchId?'<button class="button" data-action="post-invoice">Skapa bunt för leverantörsskuld</button>':''}${selected.status==='approved'&&liabilityPosted&&!isDemo?'<button class="button ghost" data-action="correct-dates">Rätta datum</button>':''}${selected.status==='approved'&&liabilityPosted?'<span class="notice">Leverantörsskulden är bokförd. Hantera betalningen under Leverantörsreskontra.</span>':''}${selected.status==='payment-prepared'?'<span class="notice">Betalningen hanteras under Leverantörsreskontra.</span>':''}${selected.status==='paid'?'<span class="notice">Fakturan är betald och bokförd.</span>':''}</div></section></div>`}
 function render(){const title=isLedger?'Leverantörsreskontra':'Leverantörsfakturor';const subtitle=isLedger?'Öppna skulder · förfall · betalning · avprickning':'Arbetskö · kontering · attest · bokföring';app.innerHTML=`<div class="payables-shell">${sidebar()}<section class="payables-main"><header class="topbar"><div><h1>${title}</h1><p>${subtitle}</p></div><div class="user-chip"><b>${esc(session?.user?.displayName||'Demoanvändare')}</b></div></header><main class="content">${isDemo?'<div class="demo-banner"><b>Gemensamt UAT-scenario.</b> Alla ändringar i demon delas mellan flikarna.</div>':''}${feedbackNotice()}${isLedger?ledgerPanel():queuePanel()}${isLedger?ledgerWorkspace():workspace()}${isLedger?paymentSummary():''}</main></section></div>${actionToastHtml()}${paymentConfirmationModal()}`;if(!isLedger)updateQueueSearchUi();updateCodingBalanceUi();if(paymentConfirmDialog)requestAnimationFrame(()=>document.querySelector('#payment-confirm-form input[name="reference"]')?.focus())}
 function readCoding(){return [...document.querySelectorAll('[data-line][data-field="account"]')].map((_,i)=>{const value=f=>document.querySelector(`[data-line="${i}"][data-field="${f}"]`)?.value||'',parse=v=>{const n=Number(String(v).replace(/\s/g,'').replace(',','.'));return Number.isFinite(n)?Math.round(n*100):0};return{account:value('account'),text:value('text'),debitOre:parse(value('debitOre')),creditOre:parse(value('creditOre')),vatCode:''}})}
 function codingBalance(lines,totalOre=selected?.totalOre||0){const safe=Array.isArray(lines)?lines:[];const debitOre=safe.reduce((sum,line)=>sum+Number(line.debitOre||0),0),creditOre=safe.reduce((sum,line)=>sum+Number(line.creditOre||0),0),diffOre=debitOre-creditOre;const validRows=safe.length>0&&safe.every(line=>/^\d{4}$/.test(String(line.account||'').trim())&&Number(line.debitOre||0)>=0&&Number(line.creditOre||0)>=0&&Boolean(Number(line.debitOre||0))!==Boolean(Number(line.creditOre||0)));return{debitOre,creditOre,diffOre,ok:validRows&&debitOre===creditOre&&debitOre===Number(totalOre||0)}}
@@ -89,8 +89,34 @@ function comparableCoding(lines){return (lines||[]).map(line=>({account:String(l
 function hasUnsavedCoding(){return JSON.stringify(comparableCoding(readCoding()))!==JSON.stringify(comparableCoding(selected?.coding||[]))}
 function syncDemo(selectedId){const state=Demo.state();invoices=structuredClone(state.supplierInvoices);payments=structuredClone(state.supplierPayments);selected=invoices.find(x=>x.id===(selectedId||selected?.id))||Queue.filterInvoices(invoices,{filter:'open'})[0]||invoices[0]||null}
 async function refreshSelected(){if(isDemo){syncDemo();return}if(isSupabase){await loadSupabasePayables(selected?.id);return}invoices=(await api('/payables/invoices')).invoices||[];if(selected)selected=(await api(`/payables/invoices/${selected.id}`)).invoice}
-async function chooseInvoice(id){const wanted=String(id||'');if(!wanted)return;if(selected?.id===wanted)return;const sequence=++chooseInvoiceSequence;suggestionMeta=null;message='';messageKind='info';codingDirty=false;if(isDemo||isSupabase){selected=invoices.find(x=>x.id===wanted)||null;render();return}selected=null;render();const loaded=(await api(`/payables/invoices/${encodeURIComponent(wanted)}`)).invoice;if(sequence!==chooseInvoiceSequence)return;selected=loaded;render()}
+async function chooseInvoice(id){
+  const wanted=String(id||'');
+  if(!wanted||selected?.id===wanted)return;
+  const sequence=++chooseInvoiceSequence;
+  suggestionMeta=null;message='';messageKind='info';codingDirty=false;
+  if(isDemo||isSupabase){
+    selected=invoices.find(x=>x.id===wanted)||null;
+    render();
+    if(isSupabase&&selected&&!isLedger){
+      try{
+        const ctx=await window.LTSupabaseUat.context();
+        // Never let a delayed response overwrite another invoice's editing.
+        if(sequence===chooseInvoiceSequence&&selected?.id===wanted&&!codingDirty){
+          if(autoPrepareStoredReview(ctx))render();
+        }
+      }catch{
+        // An unauthorized or stale suggestion must never alter the invoice.
+      }
+    }
+    return;
+  }
+  selected=null;render();
+  const loaded=(await api('/payables/invoices/'+encodeURIComponent(wanted))).invoice;
+  if(sequence!==chooseInvoiceSequence)return;
+  selected=loaded;render();
+}
 async function loadSupabasePayables(preferredId=''){
+  ++chooseInvoiceSequence; // invalidate stale invoice-selection requests
   const ctx=await window.LTSupabaseUat.context();if(!ctx.authenticated||!ctx.company){location.href='./index.html';return}
   session={user:ctx.user,company:ctx.company};
   const filter='company_id=eq.'+encodeURIComponent(ctx.company.id);
@@ -129,7 +155,16 @@ async function loadSupabasePayables(preferredId=''){
     id:p.id,supplierInvoiceId:p.supplier_invoice_id,paymentDate:p.payment_date,amountOre:Number(p.amount_ore||0),account:p.account,status:p.status,accountingBatchId:p.accounting_batch_id||'',accountingBatchNumber:batchesById.get(String(p.accounting_batch_id))?.batch_number||null,accountingBatchStatus:batchesById.get(String(p.accounting_batch_id))?.status||'',
     preparedBy:p.prepared_by,releasedBy:p.released_by,releasedAt:p.released_at,supplierName:p.recipient_name||invoice.supplierName||'Leverantör',
     supplierInvoiceNumber:invoice.supplierInvoiceNumber||'',bankgiro:p.recipient_bankgiro||'',plusgiro:p.recipient_plusgiro||''
-  }});if(isLedger&&!selected)selected=ledgerFilterRows()[0]||null;render();
+  }});
+  if(isLedger&&!selected)selected=ledgerFilterRows()[0]||null;
+  const fresh=await window.LTSupabaseUat.context();
+  if(!fresh?.authenticated||fresh.company?.id!==ctx.company.id||
+      fresh.accessToken!==ctx.accessToken||
+      String(fresh.authUser?.id||'')!==String(ctx.authUser?.id||'')){
+    throw new Error('Session eller företag ändrades under fakturahämtning. Ladda om.');
+  }
+  if(!isLedger)autoPrepareStoredReview(fresh);
+  render();
 }
 async function load(){if(isLedger)queueFilter='open';if(isDemo){if(!Demo||!Workflows)throw new Error('Det gemensamma demoscenariot eller arbetsflödet kunde inte laddas.');session={user:{displayName:'Demoattestant'}};syncDemo();if(isLedger)selected=ledgerFilterRows()[0]||null;render();return}if(isSupabase){await loadSupabasePayables();return}const s=await api('/session');if(!s.authenticated){location.href='./index.html';return}session=s;invoices=(await api('/payables/invoices')).invoices||[];const first=isLedger?(invoices.find(invoice=>Boolean(invoice.liabilityPosted||invoice.liabilityAccountingEntryId||['payment-prepared','paid'].includes(invoice.status)))||null):(Queue.filterInvoices(invoices,{filter:'open'})[0]||invoices[0]);selected=first?(await api(`/payables/invoices/${first.id}`)).invoice:null;payments=(await api(`/payables/payments?date=${today()}`)).payments||[];render()}
 function currentStoredReview(ctx){
@@ -146,11 +181,38 @@ function currentStoredReview(ctx){
   if(!source||!document)throw new Error('PDF-original och fakturauppgifter måste finnas innan ett förslag kan skapas.');
   return {companyId,source,document,invoices:supplierSourceRows};
 }
+function autoPrepareStoredReview(ctx){
+  // No model, network, storage, approval, or financial mutations here.
+  if(!isSupabase||isLedger||!selected||codingDirty||
+     !['registered','coding-review'].includes(selected.status)||
+     (Array.isArray(selected.coding)&&selected.coding.length>0))return false;
+  try{
+    const input=currentStoredReview(ctx),helper=window.LTStudioPostedHistory;
+    const history=helper.recommendStoredInvoice(input);
+    if(history.status==='no-suggestion'&&history.reason==='possible-duplicate'){
+      message='Möjlig dubblett. Fakturan måste kontrolleras innan du skapar ett utkast.';
+      return true;
+    }
+    if(history.status!=='suggested')return false;
+    const draft=helper.buildStoredReview({...input,expenseAccount:history.account});
+    if(draft.status!=='manual-review')return false;
+    // Never modify the shared invoice snapshot; this draft is NOT saved.
+    selected={...selected,coding:draft.lines.map(line=>({...line}))};
+    suggestionMeta={sampleCount:history.sampleCount,reason:history.reason,ambiguous:false};
+    codingDirty=true;
+    message='Historikbaserat granskningsutkast är förberett automatiskt. Kontrollera originalet. Ej sparat eller bokfört.';
+    return true;
+  }catch{
+    // Incomplete source or revoked session: leave accounting unchanged.
+    return false;
+  }
+}
 async function suggestCoding(){
   if(isSupabase){
     const sourceId=selected?.id;
     const ctx=await window.LTSupabaseUat.context();
     if(selected?.id!==sourceId)return;
+    if(codingDirty&&selected?.coding?.length)throw new Error('Du har redan ett osparat utkast. Granska eller ladda om fakturan före ett nytt förslag.');
     const input=currentStoredReview(ctx),engine=window.LTStudioPostedHistory;
     const historical=engine.recommendStoredInvoice(input);
     if(historical.status!=='suggested'){
@@ -165,7 +227,7 @@ async function suggestCoding(){
       message='Behöver din hjälp: kontrollera dokumentet och välj konto manuellt.';
       return;
     }
-    selected.coding=preview.lines.map(line=>({...line}));
+    selected={...selected,coding:preview.lines.map(line=>({...line}))};
     suggestionMeta={sampleCount:historical.sampleCount,reason:historical.reason,ambiguous:false};
     codingDirty=true;message='Historikbaserat utkast är förberett. Kontrollera originalet och spara konteringen efter granskning.';
     return;
@@ -194,7 +256,7 @@ async function chooseManualStoredCoding(){
     preview.reason==='possible-duplicate'?'Fakturan kan redan vara registrerad. Ingen ny kontering förbereds.':
     'PDF-original, moms eller företagstillhörighet behöver kontrolleras innan ett utkast får förberedas.'
   );
-  selected.coding=preview.lines.map(line=>({...line}));
+  selected={...selected,coding:preview.lines.map(line=>({...line}))};
   suggestionMeta={reason:'Kontot valdes av användaren. Inga historiska fakta intygar att inköpet hör till detta konto.',ambiguous:true};
   codingDirty=true;message='Manuellt konteringsutkast är förberett - kontrollera originalet innan sparande.';
 }
