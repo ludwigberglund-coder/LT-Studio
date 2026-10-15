@@ -44,7 +44,7 @@
 @media(max-width:1000px){.ai-bookkeeping-grid{grid-template-columns:1fr}}
 @media(max-width:720px){.ai-bookkeeping-content{padding:16px;gap:14px}.ai-bookkeeping-panel,.ai-bookkeeping-next{padding:18px;border-radius:16px}.ai-bookkeeping-notice{display:grid}.ai-bookkeeping-actions{flex-direction:column}.ai-bookkeeping-actions .button{width:100%}.ai-bookkeeping-facts{gap:8px}.ai-bookkeeping-facts>div{padding:11px}.ai-bookkeeping-line{grid-template-columns:minmax(0,1.25fr) minmax(68px,.8fr) minmax(68px,.8fr);padding:11px 8px;gap:6px;font-size:12px}}
 
-/* Passive local PDF reading. No server or AI request is made by this panel. */
+/* Passive PDF extraction stays local; optional posted-history lookup is a separate read-only Supabase query. */
 .ai-pdf-reader{display:grid;gap:16px}
 .ai-pdf-reader-head h3{margin:8px 0 10px}
 .ai-pdf-reader-head p{margin:0;max-width:850px;color:var(--muted);line-height:1.6;font-size:14px}
@@ -84,3 +84,16 @@ html[data-lt-theme="dark"] .ai-pdf-reader :is(.ai-pdf-field,.ai-pdf-empty,.ai-pd
 @media(max-width:560px){.ai-pdf-proposal-controls{grid-template-columns:1fr}}
 html[data-lt-theme="dark"] .ai-pdf-proposal :is(h4,p,label,select,strong,span,small){color:var(--lt-dark-text,#fff)}
 html[data-lt-theme="dark"] .ai-pdf-proposal-result{border-color:var(--lt-dark-border,var(--line))}
+
+/* Tenant-scoped, read-only learning from posted history. Never an approval action. */
+.ai-pdf-learning{display:grid;gap:12px;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface-alt,var(--paper))}
+.ai-pdf-learning h4{margin:0;font-size:17px;color:var(--color-ink)}
+.ai-pdf-learning>p,.ai-pdf-learning-match p{margin:0;line-height:1.6;color:var(--color-ink)}
+.ai-pdf-learning>.button{justify-self:start}
+.ai-pdf-learning-match{display:grid;gap:10px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-card,var(--paper))}
+.ai-pdf-learning-match strong{color:var(--color-ink)}
+.ai-pdf-learning-match .button{justify-self:start}
+.ai-pdf-learning-match small{color:var(--muted)}
+html[data-lt-theme="dark"] .ai-pdf-learning :is(h4,p,strong,small,button){color:var(--lt-dark-text,#fff)}
+html[data-lt-theme="dark"] :is(.ai-pdf-learning,.ai-pdf-learning-match){border-color:var(--lt-dark-border,var(--line))}
+@media(max-width:560px){.ai-pdf-learning>.button,.ai-pdf-learning-match .button{width:100%}}
