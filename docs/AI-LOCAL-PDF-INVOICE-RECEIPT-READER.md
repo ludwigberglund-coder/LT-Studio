@@ -85,3 +85,11 @@ Den lokala PDF-läsaren har förstärkts för vanliga digitala leverantörsfaktu
 - Detta är **fortfarande lokal PDF-textläsning, inte OCR eller AI**. Den tolkar inte generella ToUnicode-fontmappningar eller skannade dokument. Den gör inga nätverks-, databas-, AI- eller bokföringsanrop.
 
 Regressionstester: `test/ai-document-reader-numeric-unicode.test.js` samt tidigare PDF- och konteringstester. Releaseflaggorna för extern AI är fortsatt avstängda.
+
+## 2026-10-15: Binärsäkrare läsning av PDF-strömmar
+
+PDF-läsaren läser nu längden för varje dataström från dokumentets `/Length`-fält och accepterar även ett **entydigt** indirekt längdreferensobjekt. På så sätt kan ordinära bytes som råkar innehålla texten `endstream` eller `endobj` inte felaktigt kapa komprimerad eller okomprimerad fakturatext. En komprimerad ström avslutas inte längre genom att godtyckligt klippa bort ett radslut som kan tillhöra dess zlib-data.
+
+Felaktig, saknad, motstridig eller oåtkomlig längdinformation stoppar läsningen. Maxgränserna för PDF, komprimerade strömmar, uppblåst text och antal strömmar är kvar. Detta ger **bättre textläsning**, inte bildtolkning eller en fullständig PDF-standardtolk. Första steget är fortsatt lokalt, helt utan AI-anrop, bokföring eller lagring. Skannade kvitton och vanliga bilder stöds fortfarande inte.
+
+Regressionstester i `test/ai-document-reader.test.js` täcker interna markörer i båda strömtyperna, en zlib-ström vars sista byte är radslut, indirekt längd, fel längd, dubbla referensobjekt och saknad längd.

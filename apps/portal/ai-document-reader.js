@@ -119,35 +119,74 @@
     }
     return lines.join('\n');
   }
+  // Read exact PDF stream lengths. Searching for "endstream" in binary data
+  // truncates valid compressed streams, and stripping a final newline can corrupt
+  // their zlib checksum. A referenced length is accepted only when unambiguous.
+  function streamByteLength(dictionary,raw){
+    const entries=[...dictionary.matchAll(/\/Length\s+(\d+)(?:\s+(\d+)\s+R)?(?=\s|\/|>)/g)];
+    if(entries.length!==1)throw failure('PDF_UNSUPPORTED_STREAM');
+    const entry=entries[0];
+    let length=Number(entry[1]);
+    if(entry[2]!==undefined){
+      const ref=new RegExp('(?:^|[\\r\\n])\\s*'+entry[1]+'\\s+'+entry[2]+
+        '\\s+obj\\s+(\\d+)\\s+endobj\\b','g');
+      const values=[...raw.matchAll(ref)];
+      if(values.length!==1)throw failure('PDF_UNSUPPORTED_STREAM');
+      length=Number(values[0][1]);
+    }
+    if(!Number.isSafeInteger(length)||length<0||length>MAX_BYTES){
+      throw failure('PDF_SIZE_INVALID');
+    }
+    return length;
+  }
   async function extractText(raw){
     const chunks=[];let count=0,total=0;
-    const objectRe=/\b\d+\s+\d+\s+obj\b([\s\S]*?)\bendobj\b/g;
+    // Advance beyond each whole stream object: binary contents may themselves
+    // contain "obj", "endobj" or "endstream" as ordinary byte sequences.
+    const objectRe=/\b\d+\s+\d+\s+obj\b/g;
     let object;
     while((object=objectRe.exec(raw))!==null){
-      const content=object[1];
-      const start=/\bstream\r?\n/.exec(content);
-      if(!start)continue;
+      const beginObject=objectRe.lastIndex;
+      const firstEnd=raw.indexOf('endobj',beginObject);
+      if(firstEnd<0)throw failure('PDF_INVALID');
+      const startRe=/\bstream(?:\r\n|\r|\n)/g;
+      startRe.lastIndex=beginObject;
+      const start=startRe.exec(raw);
+      if(!start||start.index>firstEnd){
+        objectRe.lastIndex=firstEnd+'endobj'.length;
+        continue;
+      }
       if(++count>MAX_STREAMS)throw failure('PDF_TOO_MANY_STREAMS');
-      const begin=start.index+start[0].length;
-      const end=content.indexOf('endstream',begin);
-      if(end<0)throw failure('PDF_INVALID');
-      const dictionary=content.slice(0,start.index);
-      const payload=content.slice(begin,end).replace(/\r?\n$/,'');
-      if(payload.length>MAX_BYTES)throw failure('PDF_SIZE_INVALID');
+      const dictionary=raw.slice(beginObject,start.index);
+      const begin=startRe.lastIndex;
+      const length=streamByteLength(dictionary,raw);
+      const end=begin+length;
+      if(end>raw.length)throw failure('PDF_INVALID');
+      const marker=/^(?:\r\n|\n|\r)?endstream\b/.exec(raw.slice(end,end+24));
+      if(!marker)throw failure('PDF_INVALID');
+      const afterMarker=end+marker[0].length;
+      const closing=/^[\x00\t\n\f\r ]*endobj\b/.exec(raw.slice(afterMarker,afterMarker+256));
+      if(!closing)throw failure('PDF_INVALID');
+      objectRe.lastIndex=afterMarker+closing[0].length;
+      const payload=raw.slice(begin,end);
       let stream;
       if(/\/Filter\s*(?:\[\s*)?\/FlateDecode\b/.test(dictionary)){
         if(/\/Filter\s*\[[^\]]*\/[^\s\]]+\s+\/[^\s\]]+/.test(dictionary))continue;
         stream=await inflateLimited(pdfBytes(payload));
       }else if(/\/Filter\b/.test(dictionary))continue;
       else {
-        if(payload.length>MAX_STREAM_BYTES)throw failure('PDF_TEXT_TOO_LARGE');
+        if(length>MAX_STREAM_BYTES)throw failure('PDF_TEXT_TOO_LARGE');
         stream=payload;
       }
       if(ACTIVE.test(stream.replace(/#([0-9a-fA-F]{2})/g,(_,h)=>String.fromCharCode(parseInt(h,16))))){
         throw failure('PDF_ACTIVE_CONTENT');
       }
       const extracted=textFromStream(stream);
-      if(extracted){total+=extracted.length;if(total>MAX_TEXT_CHARS)throw failure('PDF_TEXT_TOO_LARGE');chunks.push(extracted);}
+      if(extracted){
+        total+=extracted.length;
+        if(total>MAX_TEXT_CHARS)throw failure('PDF_TEXT_TOO_LARGE');
+        chunks.push(extracted);
+      }
     }
     const text=chunks.join('\n').normalize('NFC').trim();
     if(text.length<12)throw failure('PDF_NO_SELECTABLE_TEXT');
