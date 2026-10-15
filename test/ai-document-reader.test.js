@@ -160,3 +160,65 @@ test('PDF preview renders real extracted fields and escapes untrusted PDF text w
   assert.match(app.innerHTML,/INTE AI/);
   assert.match(app.innerHTML,/Ej bokfört/);
 });
+
+
+test('PDF stream length prevents embedded endstream/endobj bytes from truncating invoices',async()=>{
+  const embedded=invoice.replace('Exempel Kontor AB','endstream endobj Kontor AB');
+  for(const flate of [false,true]){
+    const bytes=flate?zlib.deflateSync(Buffer.from(embedded,'latin1'),{level:0}):
+      Buffer.from(embedded,'latin1');
+    const input=Buffer.concat([
+      Buffer.from('%PDF-1.4\n1 0 obj\n<< /Length '+bytes.length+
+        (flate?' /Filter /FlateDecode':'')+' >>\nstream\n','latin1'),
+      bytes,
+      Buffer.from('\nendstream\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n','latin1')
+    ]);
+    assert.ok(input.includes(Buffer.from('endstream endobj')),'synthetic stream includes confusing markers');
+    const result=await reader.readPdf(file(input),'supplier-invoice');
+    assert.equal(result.fields.supplier.value,'endstream endobj Kontor AB');
+    assert.equal(result.fields.grossOre.value,125000);
+    assert.equal(result.checks.amountBalance,true);
+  }
+});
+
+test('FlateDecode payload ending in a literal newline is never silently trimmed',async()=>{
+  const source=Buffer.from(invoice,'latin1');
+  let payload=null;
+  for(let i=0;i<256;i++){
+    const candidate=zlib.deflateSync(Buffer.concat([source,Buffer.from([i])]),{level:0});
+    if(candidate[candidate.length-1]===10){payload=candidate;break;}
+  }
+  assert.ok(payload,'test fixture has a compressed stream ending in newline');
+  const bytes=Buffer.concat([
+    Buffer.from('%PDF-1.4\n1 0 obj\n<< /Length '+payload.length+' /Filter /FlateDecode >>\nstream\n','latin1'),
+    payload,
+    Buffer.from('\nendstream\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n','latin1')
+  ]);
+  const result=await reader.readPdf(file(bytes),'supplier-invoice');
+  assert.equal(result.fields.grossOre.value,125000);
+  assert.equal(result.checks.amountBalance,true);
+});
+
+test('accepts an unambiguous indirect PDF stream length and refuses contradictory length metadata',async()=>{
+  const payload=Buffer.from(invoice,'latin1');
+  const indirect=Buffer.concat([
+    Buffer.from('%PDF-1.4\n1 0 obj\n<< /Length 2 0 R >>\nstream\n','latin1'),
+    payload,
+    Buffer.from('\nendstream\nendobj\n2 0 obj\n'+payload.length+
+      '\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n','latin1')
+  ]);
+  const parsed=await reader.readPdf(file(indirect),'supplier-invoice');
+  assert.equal(parsed.fields.grossOre.value,125000);
+  const shorter=Buffer.from(pdf(invoice).toString('latin1').replace(
+    /\/Length (\d+)/,(_,count)=>'/Length '+(Number(count)-3)),'latin1');
+  await assert.rejects(reader.readPdf(file(shorter),'supplier-invoice'),{code:'PDF_INVALID'});
+  const duplicate=Buffer.from(indirect.toString('latin1').replace(
+    '\n2 0 obj\n'+payload.length+'\nendobj',
+    '\n2 0 obj\n'+payload.length+'\nendobj\n2 0 obj\n'+payload.length+'\nendobj'),'latin1');
+  await assert.rejects(reader.readPdf(file(duplicate),'supplier-invoice'),
+    {code:'PDF_UNSUPPORTED_STREAM'});
+  const noLength=Buffer.from(pdf(invoice).toString('latin1').replace(
+    /\/Length \d+/,''),'latin1');
+  await assert.rejects(reader.readPdf(file(noLength),'supplier-invoice'),
+    {code:'PDF_UNSUPPORTED_STREAM'});
+});
