@@ -154,7 +154,7 @@ test('PDF preview renders real extracted fields and escapes untrusted PDF text w
     {disabled:false,dataset:{aiAction:'read-pdf'}}:null}});
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(readCount,1);
-  assert.match(app.innerHTML,/1250|1\\s*250/);
+  assert.match(app.innerHTML,/1250|1\s*250/);
   assert.match(app.innerHTML,/&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
   assert.doesNotMatch(app.innerHTML,/<script>alert\(1\)<\/script>/);
   assert.match(app.innerHTML,/INTE AI/);
