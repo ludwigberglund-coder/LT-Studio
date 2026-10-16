@@ -1,6 +1,7 @@
 // First-stage synthetic-only Workers AI adapter.
 // Server-side module: never import into GitHub Pages or expose Cloudflare secrets.
 // NO database, storage, payments, or ledger write capability is present.
+import { readBoundedResponseText, cancelQuietly } from './ai-provider-response.mjs';
 const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const EXPENSE_ACCOUNTS = Object.freeze(['6110', '5460', '6540']);
 const MAX_GROSS_ORE = 10_000_000;
@@ -169,6 +170,7 @@ function cloudflareProvider({
       throw guardError('UNTRUSTED_SOURCE', 'Bara verifierat testunderlag får skickas till AI.');
     }
     const request = promptFor(validatedInvoice);
+    const signal = AbortSignal.timeout(timeoutMs);
     let response;
     try {
       response = await fetchImpl(url, {
@@ -179,22 +181,25 @@ function cloudflareProvider({
           Accept: 'application/json'
         },
         body: JSON.stringify(request),
-        signal: AbortSignal.timeout(timeoutMs),
+        signal,
         redirect: 'error'
       });
     } catch {
       throw guardError('PROVIDER_UNAVAILABLE', 'AI-leverantören svarade inte.');
     }
     if (!response || response.ok !== true) {
+      cancelQuietly(response?.body);
       // Never propagate vendor errors/headers: they may contain private data.
       throw guardError('PROVIDER_REJECTED', 'AI-leverantören kunde inte behandla förfrågan.');
     }
     let envelope;
     try {
-      const body = await response.text();
-      if (body.length > 32_768) throw new Error('Oversized response');
+      const body = await readBoundedResponseText(response, { maxBytes: 32_768, signal });
       envelope = JSON.parse(body);
-    } catch {
+    } catch (error) {
+      if (error?.code === 'PROVIDER_UNAVAILABLE') {
+        throw guardError('PROVIDER_UNAVAILABLE', 'AI-leverantören svarade inte.');
+      }
       throw guardError('MODEL_INVALID_RESPONSE', 'AI-svaret kunde inte läsas.');
     }
     if (!plainRecord(envelope) || envelope.success !== true ||

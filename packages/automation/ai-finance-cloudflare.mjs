@@ -4,6 +4,7 @@
 import {
   MODEL_RESPONSE_SCHEMA,isVerifiedSyntheticCase,validateProcessAdvice
 } from './ai-finance-process-contract.mjs';
+import { readBoundedResponseText, cancelQuietly } from './ai-provider-response.mjs';
 const MODEL='@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
 function problem(code) {
@@ -47,6 +48,7 @@ function createFinanceCloudflareProvider({
   const url='https://api.cloudflare.com/client/v4/accounts/'+accountId+'/ai/run/'+MODEL;
   return async function suggestFinanceProcess(testCase) {
     const prompt=promptFor(testCase);
+    const signal=AbortSignal.timeout(timeoutMs);
     let response;
     try{
       response=await fetchImpl(url,{
@@ -57,20 +59,22 @@ function createFinanceCloudflareProvider({
           Accept:'application/json'
         },
         body:JSON.stringify(prompt),
-        signal:AbortSignal.timeout(timeoutMs),
+        signal,
         redirect:'error'
       });
     }catch{
       throw problem('PROVIDER_UNAVAILABLE');
     }
-    if(!response||!response.ok)throw problem('PROVIDER_REJECTED');
+    if(!response||!response.ok){
+      cancelQuietly(response?.body);
+      throw problem('PROVIDER_REJECTED');
+    }
     if(!String(response.headers?.get('content-type')||'').toLowerCase().includes('application/json')){
+      cancelQuietly(response.body);
       throw problem('MODEL_INVALID_RESPONSE');
     }
-    let text;
-    try{text=await response.text();}
-    catch{throw problem('PROVIDER_UNAVAILABLE');}
-    if(!text||text.length>8192)throw problem('MODEL_INVALID_RESPONSE');
+    const text=await readBoundedResponseText(response,{maxBytes:8192,signal});
+    if(!text)throw problem('MODEL_INVALID_RESPONSE');
     let envelope;
     try{envelope=JSON.parse(text);}
     catch{throw problem('MODEL_INVALID_RESPONSE');}
