@@ -29,15 +29,6 @@ jobs:
         with:
           version: 2.118.0
 
-      - name: Generate migration name in isolated authoring directory
-        run: |
-          mkdir -p "$RUNNER_TEMP/ai-admission-authoring"
-          cd "$RUNNER_TEMP/ai-admission-authoring"
-          supabase --version
-          supabase migration new --help
-          supabase migration new ai_pilot_shared_admission
-          find supabase/migrations -type f -name '*.sql' -print
-
       - name: Start clean local Supabase Postgres
         run: supabase db start
 
