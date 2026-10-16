@@ -148,7 +148,7 @@
     if(/CONTEXT_CHANGED|ACCESS_DENIED|AUTH_REQUIRED/.test(code))return 'Företag eller behörighet ändrades. Registreringen har avbrutits för denna vy. Ladda om i rätt företag.';
     if(/INVALID_INTAKE_AMOUNT/.test(code))return 'Kontrollera beloppen. Moms ska vara lägre än totalbeloppet och belopp får ha högst två decimaler.';
     if(/INVALID_INTAKE_DATE/.test(code))return 'Kontrollera giltiga datum. Förfallodatum får inte vara tidigare än fakturadatum.';
-    if(/UNSUPPORTED_INTAKE_VAT/.test(code))return 'Välj verifierad momsbehandling. Detta momsfall kräver manuell hantering utanför det här flödet.';
+    if(/UNSUPPORTED_INTAKE_VAT/.test(code))return 'Detta momsfall stöds inte i registreringen och kräver manuell hantering utanför det här flödet.';
     if(/INVALID_INTAKE_INPUT|SUPPLIER_REQUIRED/.test(code))return 'Välj leverantör och fyll i fakturanummer, datum och leverantörsuppgifter.';
     if(/DUPLICATE|CONFLICT|23505|IDENTITY_ALREADY_EXISTS|supplier_invoices_.*uidx|suppliers_.*key/.test(code))return 'Uppgifterna krockar med en befintlig leverantör, faktura eller ett original. Kontrollera befintlig post; skapa inte en kopia.';
     if(/PDF|DOCUMENT_TOO/.test(code))return 'PDF-originalet kunde inte säkerhetskontrolleras. Använd en giltig, passiv PDF på högst 10 MB.';
