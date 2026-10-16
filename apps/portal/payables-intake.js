@@ -2,56 +2,102 @@ const root=document.getElementById('payables-app');
 const isDemo=new URLSearchParams(location.search).get('demo')==='1';
 const isSupabase=location.hostname==='ludwigberglund-coder.github.io'&&!isDemo;
 const csrfToken=sessionStorage.getItem('rollands-csrf')||'';
-let suppliers=[];
-const SUPPORTED_VAT_TREATMENT='se-domestic-full-input-vat';
-
+const Safety=globalThis.LTStudioIntakeSafety,Store=globalThis.LTStudioSupplierPersistence;
+let suppliers=[],dialog=null,opening=false;
 function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function parseAmount(value,{allowZero=false}={}){const raw=String(value??'').trim().replace(/\s/g,'').replace(',','.');if(!/^\d+(?:\.\d{1,2})?$/.test(raw))throw new Error('Belopp måste anges med högst två decimaler.');const [whole,decimal='']=raw.split('.');const ore=Number(whole)*100+Number((decimal+'00').slice(0,2));if(!Number.isSafeInteger(ore)||ore<0||(!allowZero&&ore===0))throw new Error('Beloppet är ogiltigt.');return ore}
-async function api(path,options={}){const headers={'Accept':'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})};if(options.method&&options.method!=='GET'&&csrfToken)headers['X-CSRF-Token']=csrfToken;const r=await fetch(`/api/v1${path}`,{credentials:'same-origin',...options,headers,body:options.body?JSON.stringify(options.body):undefined});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||'Begäran misslyckades.');return data}
-async function loadSuppliers(){if(isDemo){suppliers=[{id:'supplier-demo-1',supplierNumber:'L-100',name:'Grön Grossist AB',defaultCostAccount:'4010'},{id:'supplier-demo-2',supplierNumber:'L-120',name:'Kustens Emballage AB',defaultCostAccount:'5460'}];return}if(isSupabase){const ctx=await window.LTSupabaseUat.context();if(!ctx.authenticated||!ctx.company)throw new Error('Ingen aktiv Supabase-session.');const rows=await window.LTSupabase.from('suppliers',ctx.accessToken).select('*','company_id=eq.'+encodeURIComponent(ctx.company.id)+'&archived_at=is.null');suppliers=(rows||[]).map(r=>({id:r.id,supplierNumber:r.supplier_number,name:r.name,defaultCostAccount:r.default_cost_account||''}));return}suppliers=(await api('/payables/suppliers')).suppliers||[]}
-function modalHtml(){const options=suppliers.map(s=>`<option value="${esc(s.id)}">${esc(s.name)} (${esc(s.supplierNumber)})</option>`).join('');return `<div class="intake-backdrop" data-intake-backdrop><section class="intake-modal" role="dialog" aria-modal="true" aria-labelledby="intake-title"><header><div><span class="eyebrow">Registrering</span><h2 id="intake-title">Ny leverantörsfaktura</h2><p>Registrera fakturauppgifterna och bifoga originalet som PDF.</p></div><button class="intake-close" type="button" data-intake-close aria-label="Stäng">×</button></header><form id="supplier-invoice-intake"><div class="intake-grid"><label>Leverantör<select name="supplierId" required><option value="">Välj leverantör…</option>${options}<option value="__new__">+ Ny leverantör</option></select></label><div class="new-supplier-fields" hidden><label>Leverantörsnummer<input name="supplierNumber" maxlength="40"></label><label>Namn<input name="supplierName" maxlength="160"></label><label>Organisationsnummer<input name="orgNumber" maxlength="30"></label><label>Bankgiro<input name="bankgiro" maxlength="40"></label><label>Standardkonto<input name="defaultCostAccount" inputmode="numeric" maxlength="4" placeholder="4010"></label></div><label>Leverantörens fakturanummer<input name="supplierInvoiceNumber" maxlength="100" required></label><label>Fakturadatum<input type="date" name="invoiceDate" required></label><label>Förfallodatum<input type="date" name="dueDate" required></label><label>Totalbelopp inkl. moms<input name="totalAmount" inputmode="decimal" placeholder="1 250,00" required></label><label>Moms<input name="vatAmount" inputmode="decimal" placeholder="250,00" required></label><label>Momsbehandling<select name="vatTreatment" required><option value="">Välj momsbehandling…</option><option value="se-domestic-full-input-vat">Svensk faktura · full avdragsrätt</option><option value="unsupported">Annat momsfall · manuell hantering krävs</option></select><small>EU, import, omvänd moms, momsfritt och begränsad avdragsrätt registreras inte automatiskt ännu.</small></label><label class="intake-pdf">Faktura i PDF<input type="file" name="pdf" accept="application/pdf,.pdf" required><small>Max 10 MB. PDF-underlaget krävs innan attest.</small></label></div><div class="intake-error" role="alert" hidden></div><footer><button class="button ghost" type="button" data-intake-close>Avbryt</button><button class="button" type="submit">Registrera faktura</button></footer></form></section></div>`}
-function closeModal(){document.querySelector('.intake-backdrop')?.remove()}
-function showError(message){const el=document.querySelector('.intake-error');if(!el)return;el.hidden=false;el.textContent=message}
-async function submit(form){const data=new FormData(form);const file=data.get('pdf');if(!(file instanceof File)||!file.size)throw new Error('Välj fakturans PDF-underlag.');if(!/\.pdf$/i.test(file.name))throw new Error('Endast filer med .pdf-filändelse kan laddas upp.');if(file.type&&file.type!=='application/pdf')throw new Error('Endast PDF kan laddas upp.');if(file.size>10*1024*1024)throw new Error('PDF-filen får vara högst 10 MB.');const vatTreatment=String(data.get('vatTreatment')||'').trim();if(vatTreatment!==SUPPORTED_VAT_TREATMENT)throw new Error('Detta momsfall stöds inte i det automatiska leverantörsflödet ännu. Hantera fakturan manuellt utanför pilotflödet tills momsregeln är verifierad.');let supplierId=String(data.get('supplierId')||'');if(supplierId==='__new__'){const supplierInput={supplierNumber:String(data.get('supplierNumber')||'').trim(),name:String(data.get('supplierName')||'').trim(),orgNumber:String(data.get('orgNumber')||'').trim(),bankgiro:String(data.get('bankgiro')||'').trim(),defaultCostAccount:String(data.get('defaultCostAccount')||'').trim()};if(!supplierInput.supplierNumber||!supplierInput.name)throw new Error('Leverantörsnummer och namn krävs för en ny leverantör.');if(isDemo)supplierId=`supplier-demo-${Date.now()}`;else if(isSupabase){const ctx=await window.LTSupabaseUat.context();const saved=(await window.LTSupabase.from('suppliers',ctx.accessToken).insert([{id:crypto.randomUUID(),company_id:ctx.company.id,supplier_number:supplierInput.supplierNumber,name:supplierInput.name,org_number:supplierInput.orgNumber||null,bankgiro:supplierInput.bankgiro||null,default_cost_account:supplierInput.defaultCostAccount||null}]))?.[0];if(!saved)throw new Error('Leverantören kunde inte skapas i Supabase.');supplierId=saved.id}else supplierId=(await api('/payables/suppliers',{method:'POST',body:supplierInput})).supplier.id}
-  const totalOre=parseAmount(data.get('totalAmount'));const vatOre=parseAmount(data.get('vatAmount'),{allowZero:true});if(vatOre>totalOre)throw new Error('Momsen kan inte vara större än fakturans totalbelopp.');const input={supplierId,supplierInvoiceNumber:String(data.get('supplierInvoiceNumber')||'').trim(),invoiceDate:String(data.get('invoiceDate')||''),dueDate:String(data.get('dueDate')||''),totalOre,vatOre,currency:'SEK',vatTreatment};
-  if(input.dueDate<input.invoiceDate)throw new Error('Förfallodatum kan inte ligga före fakturadatum.');
-  if(isDemo){closeModal();await window.LTStudioDialog.alert({title:'Demoläge',message:'Registreringsflödet fungerar i gränssnittet men sparar ingen riktig ekonomidata.'});return}
-  if(isSupabase){
-    const ctx=await window.LTSupabaseUat.context();if(!ctx.authenticated||!ctx.company)throw new Error('Ingen aktiv Supabase-session.');
-    const invoiceId=crypto.randomUUID();
-    const safeName=String(file.name||'faktura.pdf').replace(/[^A-Za-z0-9_.-]/g,'_');
-    const path=ctx.company.id+'/supplier-invoices/'+invoiceId+'/'+safeName;
-    const digest=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());
-    const sha256=[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
-    let inserted=null,uploaded=false;
-    try{
-      inserted=(await window.LTSupabase.from('supplier_invoices',ctx.accessToken).insert([{
-        id:invoiceId,company_id:ctx.company.id,supplier_id:supplierId,supplier_invoice_number:input.supplierInvoiceNumber,
-        invoice_date:input.invoiceDate,due_date:input.dueDate,posting_date:input.invoiceDate,total_ore:input.totalOre,vat_ore:input.vatOre,
-        remaining_ore:input.totalOre,status:'registered',pdf_sha256:sha256,currency:'SEK',vat_treatment:input.vatTreatment,registered_by:ctx.authUser.id
-      }]))?.[0];
-      if(!inserted)throw new Error('Leverantörsfakturan kunde inte sparas i Supabase.');
-      await window.LTSupabase.storage.upload('lt-documents',path,file,ctx.accessToken);uploaded=true;
-      await window.LTSupabase.from('documents',ctx.accessToken).insert([{
-        id:crypto.randomUUID(),company_id:ctx.company.id,object_path:path,file_name:file.name,mime_type:'application/pdf',
-        size_bytes:file.size,sha256,source_type:'supplier-invoice',source_id:invoiceId,uploaded_by:ctx.authUser.id,
-        title:'Leverantörsfaktura '+input.supplierInvoiceNumber,category:'supplier-invoice',note:''
-      }]);
-    }catch(error){
-      if(uploaded)await window.LTSupabase.storage.remove('lt-documents',[path],ctx.accessToken).catch(()=>{});
-      await window.LTSupabase.from('documents',ctx.accessToken).delete('source_type=eq.supplier-invoice&source_id=eq.'+encodeURIComponent(invoiceId)+'&company_id=eq.'+encodeURIComponent(ctx.company.id)).catch(()=>{});
-      if(inserted)await window.LTSupabase.from('supplier_invoices',ctx.accessToken).delete('id=eq.'+encodeURIComponent(invoiceId)+'&company_id=eq.'+encodeURIComponent(ctx.company.id)).catch(()=>{});
-      throw error;
-    }
-    closeModal();location.reload();return;
-  }
-  const created=(await api('/payables/invoices',{method:'POST',body:input})).invoice;
-  const upload=await fetch(`/api/v1/payables/invoices/${encodeURIComponent(created.id)}/document`,{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/pdf','X-CSRF-Token':csrfToken,'X-Document-Name':encodeURIComponent(file.name)},body:file});
-  const result=await upload.json().catch(()=>({}));if(!upload.ok)throw new Error(result.error||'Fakturan registrerades men PDF-underlaget kunde inte sparas. Öppna fakturan och försök igen.');
-  location.reload();
+async function api(path,options={}){const headers={Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...(options.headers||{})};if(options.method&&options.method!=='GET'&&csrfToken)headers['X-CSRF-Token']=csrfToken;const r=await fetch(`/api/v1${path}`,{credentials:'same-origin',...options,headers,body:options.body?JSON.stringify(options.body):undefined});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||'Begäran misslyckades.');return data}
+async function loadSuppliers(){
+  if(isDemo){suppliers=[{id:'supplier-demo-1',supplierNumber:'L-100',name:'Grön Grossist AB'},{id:'supplier-demo-2',supplierNumber:'L-120',name:'Kustens Emballage AB'}];return null}
+  if(!isSupabase){suppliers=(await api('/payables/suppliers')).suppliers||[];return null}
+  const ctx=await window.LTSupabaseUat.context(),scope=Store.scope(ctx);
+  if(!['admin','accountant'].includes(scope.role))throw new Error('SUPPLIER_ACCESS_DENIED');
+  const rows=await window.LTSupabase.from('suppliers',ctx.accessToken).select('*','company_id=eq.'+encodeURIComponent(scope.companyId)+'&archived_at=is.null');
+  const fresh=Store.assertScope(scope,await window.LTSupabaseUat.context());
+  if(!Array.isArray(rows)||rows.some(r=>r.company_id!==scope.companyId))throw new Error('SUPPLIER_CONTEXT_CHANGED');
+  suppliers=rows.map(Store.record);return fresh;
 }
-async function openModal(){await loadSuppliers();document.body.insertAdjacentHTML('beforeend',modalHtml());const form=document.getElementById('supplier-invoice-intake');const select=form.elements.supplierId;const fields=form.querySelector('.new-supplier-fields');select.addEventListener('change',()=>{fields.hidden=select.value!=='__new__';for(const input of fields.querySelectorAll('input'))input.required=select.value==='__new__'&&['supplierNumber','supplierName'].includes(input.name)});form.addEventListener('submit',async event=>{event.preventDefault();const button=form.querySelector('[type="submit"]');button.disabled=true;button.textContent='Registrerar…';try{await submit(form)}catch(error){showError(error.message);button.disabled=false;button.textContent='Registrera faktura'}});form.elements.supplierId.focus()}
-function addButton(){const head=document.querySelector('.queue-head');if(!head||head.querySelector('[data-intake-open]'))return;const button=document.createElement('button');button.type='button';button.className='button';button.dataset.intakeOpen='1';button.textContent='Ny leverantörsfaktura';head.querySelector('.queue-overdue')?.before(button)||head.append(button)}
-document.addEventListener('click',event=>{if(event.target.closest('[data-intake-open]'))void openModal().catch(error=>window.LTStudioDialog.alert({title:'Kunde inte öppna registreringen',message:error.message,tone:'danger'}));if(event.target.closest('[data-intake-close]'))closeModal();if(event.target.matches('[data-intake-backdrop]'))closeModal()});
+function modalHtml(){return `<div class="intake-backdrop" data-intake-backdrop><section class="intake-modal" role="dialog" aria-modal="true" aria-labelledby="intake-title"><header><div><span class="eyebrow">Registrering</span><h2 id="intake-title">Ny leverantörsfaktura</h2><p>Kontrollera leverantör, rätt fakturamottagare och belopp mot originalet. Registrering attesterar, bokför eller betalar inte fakturan.</p></div><button class="intake-close" type="button" data-intake-close aria-label="Stäng">×</button></header><form id="supplier-invoice-intake"><div class="intake-grid"><label class="intake-pdf">Faktura i PDF<input type="file" name="pdf" accept="application/pdf,.pdf" required><small>Max 10 MB. Passivt PDF-original krävs.</small></label><div><button type="button" class="button ghost" data-read-intake-pdf>Läs uppgifter från PDF</button><small>Textläsning på din enhet – inte AI. Skannade underlag kan registreras med manuellt ifyllda uppgifter.</small><p data-intake-reading role="status" aria-live="polite"></p></div><label>Leverantör<select name="supplierId" required><option value="">Välj leverantör…</option>${suppliers.map(s=>`<option value="${esc(s.id)}">${esc(s.name)} (${esc(s.supplierNumber)})</option>`).join('')}<option value="__new__">+ Ny leverantör</option></select></label><div class="new-supplier-fields" hidden><label>Leverantörsnummer<input name="supplierNumber" maxlength="40"></label><label>Namn<input name="supplierName" maxlength="160"></label><label>Organisationsnummer<input name="orgNumber" maxlength="40"></label><label>Bankgiro<input name="bankgiro" maxlength="40"><small>Kontrollera betalningsmottagaren separat. PDF-läsningen fyller aldrig i eller ändrar bankgiro.</small></label><label>Standardkonto<input name="defaultCostAccount" inputmode="numeric" maxlength="4" placeholder="4010"></label></div><label>Leverantörens fakturanummer<input name="supplierInvoiceNumber" maxlength="100" required></label><label>Fakturadatum<input type="date" name="invoiceDate" required></label><label>Förfallodatum<input type="date" name="dueDate" required></label><label>Totalbelopp inkl. moms<input name="totalAmount" inputmode="decimal" placeholder="1 250,00" required></label><label>Moms<input name="vatAmount" inputmode="decimal" placeholder="250,00" required></label><label>Momsbehandling<select name="vatTreatment" required><option value="">Välj momsbehandling…</option><option value="se-domestic-full-input-vat">Svensk faktura · full avdragsrätt</option><option value="unsupported">Annat momsfall · manuell hantering krävs</option></select><small>EU, import, omvänd moms, momsfritt och begränsad avdragsrätt kräver separat hantering.</small></label></div><div class="intake-error" role="alert" hidden></div><p data-intake-progress role="status" aria-live="polite"></p><footer><button class="button ghost" type="button" data-intake-close>Avbryt</button><button class="button" type="submit">Registrera faktura</button></footer></form></section></div>`}
+function closeModal(){if(dialog?.busy)return;dialog=null;document.querySelector('.intake-backdrop')?.remove()}
+function showError(message){const el=document.querySelector('.intake-error');if(el){el.hidden=false;el.textContent=message}}
+function showSupplierFields(form){const active=form.elements.supplierId.value==='__new__';const fields=form.querySelector('.new-supplier-fields');fields.hidden=!active;for(const input of fields.querySelectorAll('input'))input.required=active&&['supplierNumber','supplierName'].includes(input.name)}
+function formInput(form){const entries=Object.fromEntries(new FormData(form));delete entries.pdf;return entries}
+async function readPdf(form){
+  const state=dialog;if(!state||state.busy)return;
+  const file=form.elements.pdf.files[0],revision=state.revision,request=++state.readRequest;
+  const status=form.querySelector('[data-intake-reading]');
+  if(!file){status.textContent='Välj PDF-originalet först.';return}
+  status.textContent='Läser PDF-text…';
+  try{
+    const facts=await window.LTStudioDocumentReader.readPdf(file,'supplier-invoice');
+    if(isSupabase)Store.assertScope(state.scope,await window.LTSupabaseUat.context());
+    if(dialog!==state||state.busy||revision!==state.revision||request!==state.readRequest)return;
+    const suggestion=Safety.prefill(facts,suppliers);
+    if(suggestion.blocked){state.unsupported=file;status.textContent='Kredit, blandad moms, utländsk valuta eller motstridiga uppgifter upptäcktes. Underlaget kräver separat granskning och registreras inte här.';return}
+    for(const [name,value] of Object.entries(suggestion.values))if(!form.elements[name].value)form.elements[name].value=value;
+    if(!form.elements.supplierId.value&&suggestion.supplierName){
+      if(suggestion.possibleSupplierId)form.elements.supplierId.value=suggestion.possibleSupplierId;
+      else{
+        form.elements.supplierId.value='__new__';
+        if(!form.elements.supplierName.value)form.elements.supplierName.value=suggestion.supplierName;
+        if(!form.elements.supplierNumber.value){const max=suppliers.reduce((n,s)=>Math.max(n,Number(String(s.supplierNumber||'').replace(/\D/g,''))||0),0);form.elements.supplierNumber.value='L-'+String(max+1).padStart(4,'0');}
+      }
+    }
+    showSupplierFields(form);
+    status.textContent='Tomma fält har förberetts från PDF-texten. Namnmatchningen är bara ett förslag, inte verifierad juridisk identitet. Kontrollera original, leverantör och mottagare. Inget är sparat.';
+  }catch(error){if(dialog===state&&revision===state.revision&&request===state.readRequest)status.textContent='Texten kunde inte läsas säkert. Fyll i uppgifterna manuellt och kontrollera originalet. Inget är sparat.';}
+}
+async function submit(form){
+  const state=dialog;if(!state||state.busy)return;
+  const input=formInput(form),file=form.elements.pdf.files[0];
+  // All amount/date/type validation precedes every supplier mutation.
+  const validated=Safety.validate(input);
+  if(!file||state.unsupported===file)throw new Error('INVALID_INTAKE_PDF');
+  state.busy=true;++state.readRequest;
+  const controls=[...form.querySelectorAll('input,select,button')];controls.forEach(x=>{x.disabled=true});
+  const progress=form.querySelector('[data-intake-progress]');
+  const stages={original:'Kontrollerar och sparar PDF-original…',supplier:'Kontrollerar leverantören…',invoice:'Registrerar fakturan…',document:'Bekräftar kopplingen till PDF-originalet…'};
+  let lastStage='validation';
+  try{
+    if(isSupabase){
+      const ctx=Store.assertScope(state.scope,await window.LTSupabaseUat.context());
+      const operation=await Safety.prepare({input,file,context:ctx,store:Store,pdf:window.LTStudioPassivePdf,pdfLibrary:window.PDFLib});
+      if(dialog!==state)return;
+      await Safety.save({operation,client:window.LTSupabase,store:Store,getContext:()=>window.LTSupabaseUat.context(),onStage:stage=>{lastStage=stage;if(dialog===state)progress.textContent=stages[stage]||''}});
+      if(dialog===state){state.busy=false;closeModal();location.reload()}
+      return;
+    }
+    await window.LTStudioPassivePdf.assertSafePdfDeep(new Uint8Array(await file.arrayBuffer()),{fileName:file.name},window.PDFLib);
+    if(isDemo){state.busy=false;closeModal();await window.LTStudioDialog.alert({title:'Demoläge',message:'Uppgifterna har kontrollerats. Ingen riktig leverantör, faktura eller bokföring sparas i demoläget.'});return}
+    let supplierId=validated.supplierId;
+    if(validated.supplier)supplierId=(await api('/payables/suppliers',{method:'POST',body:validated.supplier})).supplier.id;
+    const invoiceInput={supplierId,supplierInvoiceNumber:validated.supplierInvoiceNumber,invoiceDate:validated.invoiceDate,dueDate:validated.dueDate,totalOre:validated.totalOre,vatOre:validated.vatOre,currency:'SEK',vatTreatment:validated.vatTreatment};
+    const created=(await api('/payables/invoices',{method:'POST',body:invoiceInput})).invoice;
+    const uploaded=await fetch(`/api/v1/payables/invoices/${encodeURIComponent(created.id)}/document`,{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/pdf','X-CSRF-Token':csrfToken,'X-Document-Name':encodeURIComponent(file.name)},body:file});
+    if(!uploaded.ok)throw new Error('PDF_UPLOAD_UNCONFIRMED');
+    location.reload();
+  }catch(error){
+    if(dialog!==state)return;
+    showError(Safety.message(error));
+    progress.textContent=lastStage==='validation'?'Inga registreringssteg har påbörjats.':
+      'Registreringen är inte klar. PDF eller registeruppgifter kan redan vara sparade. Försök igen med samma original och uppgifter för att återanvända stegen. Inget har attesterats, bokförts eller betalats av detta flöde.';
+  }finally{state.busy=false;if(dialog===state)controls.forEach(x=>{x.disabled=false})}
+}
+async function openModal(){
+  if(dialog||opening)return;opening=true;
+  try{
+    const context=await loadSuppliers();
+    dialog={context,scope:context?Store.scope(context):null,busy:false,revision:0,readRequest:0,unsupported:null};
+    document.body.insertAdjacentHTML('beforeend',modalHtml());
+    const form=document.getElementById('supplier-invoice-intake');
+    form.addEventListener('input',()=>{if(dialog){dialog.revision++;form.querySelector('[data-intake-reading]').textContent=''}});
+    form.elements.pdf.addEventListener('change',()=>{if(dialog){dialog.unsupported=null;dialog.revision++}});
+    form.elements.supplierId.addEventListener('change',()=>showSupplierFields(form));
+    form.querySelector('[data-read-intake-pdf]').addEventListener('click',()=>void readPdf(form));
+    form.addEventListener('submit',event=>{event.preventDefault();void submit(form).catch(error=>showError(Safety.message(error)))});
+    form.elements.pdf.focus();
+  }finally{opening=false}
+}
+function addButton(){const head=document.querySelector('.queue-head');if(!head||head.querySelector('[data-intake-open]'))return;const button=document.createElement('button');button.type='button';button.className='button';button.dataset.intakeOpen='1';button.textContent='Ny leverantörsfaktura';const anchor=head.querySelector('.queue-overdue');if(anchor)anchor.before(button);else head.append(button)}
+document.addEventListener('click',event=>{if(event.target.closest('[data-intake-open]'))void openModal().catch(error=>window.LTStudioDialog.alert({title:'Kunde inte öppna registreringen',message:Safety.message(error),tone:'danger'}));if(event.target.closest('[data-intake-close]')||event.target.matches('[data-intake-backdrop]'))closeModal()});
 document.addEventListener('keydown',event=>{if(event.key==='Escape')closeModal()});
 const observer=new MutationObserver(addButton);observer.observe(root,{childList:true,subtree:true});addButton();

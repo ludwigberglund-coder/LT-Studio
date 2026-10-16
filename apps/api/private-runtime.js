@@ -13,7 +13,7 @@ const files = new Map([
   ...['money.js','journal.js'].map(name => [`/shared/accounting/${name}`, path.join(root,'packages','accounting',name)]),
   ['/shared/access-control/authorization.js', path.join(root,'packages','access-control','authorization.js')],
   ['/shared/receivables/customer-receivables.js', path.join(root,'packages','receivables','customer-receivables.js')],
-  ...['invoice.js','pdf.js'].map(name => [`/shared/invoicing/${name}`, path.join(root,'packages','invoicing',name)]),
+  ...['invoice.js','pdf.js','passive-pdf.js'].map(name => [`/shared/invoicing/${name}`, path.join(root,'packages','invoicing',name)]),
   ['/shared/content.js', path.join(root,'packages','shared','browser','content.js')]
 ]);
 
