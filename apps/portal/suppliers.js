@@ -60,7 +60,14 @@ async function saveForm(form){
   if(busy)return;busy=true;
   const epoch=generation,target=selected?{...selected}:null,kind=form.dataset.form;
   const payload=Object.fromEntries(new FormData(form));
-  const button=form.querySelector('[type="submit"]');button.disabled=true;
+  // Read FormData above before locking: disabled controls are excluded from it.
+  // Lock every form and search control, not just the submitting button. Otherwise
+  // a pending save/history response can erase edits made in the meantime.
+  const controlStates=[...app.querySelectorAll('input,select,textarea,button')]
+    .map(control=>({control,disabled:control.disabled}));
+  const previousBusy=app.getAttribute('aria-busy');
+  for(const {control} of controlStates)control.disabled=true;
+  app.setAttribute('aria-busy','true');
   try{
     if(!['create','profile','payment'].includes(kind))throw new Error('INVALID_SUPPLIER_INPUT');
     if(kind!=='create'&&!target)throw new Error('INVALID_SUPPLIER_INPUT');
@@ -104,7 +111,12 @@ async function saveForm(form){
     message=isSupabase?Store.errorMessage(error):error.message;
     const existing=app.querySelector('.notice');if(existing)existing.textContent=message;
     else app.querySelector('.content')?.insertAdjacentHTML('afterbegin',`<div class="notice" role="alert">${esc(message)}</div>`);
-  }finally{busy=false;if(button.isConnected)button.disabled=false;}
+  }finally{
+    busy=false;
+    for(const {control,disabled} of controlStates)if(control.isConnected)control.disabled=disabled;
+    if(previousBusy===null)app.removeAttribute('aria-busy');
+    else app.setAttribute('aria-busy',previousBusy);
+  }
 }
 async function chooseSupplier(id){if(busy)return;const epoch=++generation;creating=false;selected=suppliers.find(s=>s.id===id)||null;history=[];searchQuery='';searchOpen=false;searchActiveIndex=-1;message='';render();await loadHistory();if(epoch===generation){const target=app.querySelector('.history');if(target){const temp=document.createElement('div');temp.innerHTML=detail();target.replaceWith(temp.querySelector('.history'));}}}
 document.addEventListener('click',e=>{
