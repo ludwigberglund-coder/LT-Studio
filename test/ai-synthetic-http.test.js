@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
+const fs=require('node:fs');
 const USER='11111111-1111-4111-8111-111111111111';
 const SESSION='22222222-2222-4222-8222-222222222222';
 const COMPANY='tenant-a-001';
@@ -104,4 +105,14 @@ test('request reader rejects actual oversize, invalid UTF-8, array JSON, stalled
  const stalled=new Request(ENDPOINT,{method:'POST',duplex:'half',headers:{'content-type':'application/json'},body:new ReadableStream({cancel(){return new Promise(()=>{});}})});
  await assert.rejects(()=>readSmallJson(stalled,10),e=>e.code==='INVALID_INPUT');
  assert.deepEqual(await readSmallJson(request()),body);
+});
+
+test('edge entrypoint delegates to the reviewed fail-closed HTTP boundary',()=>{
+ const entry=fs.readFileSync('supabase/functions/ai-bookkeeping-pilot/index.ts','utf8');
+ assert.match(entry,/createSyntheticHttpHandler/);
+ assert.match(entry,/releaseApproved:\s*RELEASE_APPROVED/);
+ assert.match(entry,/const RELEASE_APPROVED = false/);
+ assert.doesNotMatch(entry,/TRUSTED_IP_HEADER|clientIpHash|DURABLE_IP_LIMITER_VERIFIED/);
+ const config=fs.readFileSync('supabase/config.toml','utf8');
+ assert.match(config,/\[functions\.ai-bookkeeping-pilot\]\s+verify_jwt = false/);
 });
