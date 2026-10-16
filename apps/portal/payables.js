@@ -11,8 +11,11 @@ let session=null,invoices=[],selected=null,payments=[],message='',messageKind='i
 // Read-only snapshots from authenticated, RLS-scoped Supabase.
 // A preview never grants permission to approve or post.
 let supplierSourceRows=[],supplierDocumentByInvoice=new Map(),supplierHistoryCompanyId='';
+let supplierHistoryAuthUserId='',supplierHistoryRole='';
+// Unsaved drafts stay in this page's memory only, scoped to the verified snapshot.
+const supplierReviewDrafts=new Map();
 let actionToastTimer=null;
-let chooseInvoiceSequence=0;
+let chooseInvoiceSequence=0,storedReviewRequest=0;
 function today(){return isDemo&&Demo?Demo.AS_OF_DATE:new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
 function esc(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function ore(v){return new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK',minimumFractionDigits:2}).format(Number(v||0)/100)}
@@ -71,7 +74,7 @@ function nextInvoiceStep(invoice){
     return{stage:'payment',title:'Skulden är bokförd',description:'Fakturan är attesterad och leverantörsskulden är bokförd. Hantera och följ betalningen under Leverantörsreskontra.',check:'Att en skuld är bokförd betyder inte att banken har betalat den.'};
   }
   if(status==='coded')return{stage:'approval',title:'Kontrollera och attestera fakturan',description:'Bokföringsrader finns sparade. Jämför leverantör, belopp, moms och rader med fakturaoriginalet före attest.',check:'Debet och kredit måste balansera, men balans ensam visar inte att fakturan är korrekt.'};
-  if(status==='registered'||status==='coding-review')return{stage:'review',title:'Granska faktura och bokföringsförslag',description:'Börja med att kontrollera leverantör, belopp, moms och förfallodatum mot originalet. Hämta sedan ett förslag eller fyll i bokföringsraderna.',check:'Ett förslag är inte godkänt automatiskt. Spara och attestera först när allt stämmer.'};
+  if(status==='registered'||status==='coding-review')return{stage:'review',title:'Granska faktura och bokföringsförslag',description:'Börja med att kontrollera leverantör, belopp, moms och förfallodatum mot originalet. Granska det förberedda utkastet eller välj konto om ett säkert historiskt förslag saknas.',check:'Ett förslag är inte godkänt automatiskt. Spara och attestera först när allt stämmer.'};
   return{stage:'other',title:'Kontrollera fakturans status',description:'Den här fakturan kan inte hanteras i standardflödet just nu. Se status och historik innan du vidtar en åtgärd.',check:'Gör inga nya bokförings- eller betalningsåtgärder utan att kontrollera statusen.'};
 }
 function invoiceNextStepPanel(invoice){
@@ -89,36 +92,76 @@ function comparableCoding(lines){return (lines||[]).map(line=>({account:String(l
 function hasUnsavedCoding(){return JSON.stringify(comparableCoding(readCoding()))!==JSON.stringify(comparableCoding(selected?.coding||[]))}
 function syncDemo(selectedId){const state=Demo.state();invoices=structuredClone(state.supplierInvoices);payments=structuredClone(state.supplierPayments);selected=invoices.find(x=>x.id===(selectedId||selected?.id))||Queue.filterInvoices(invoices,{filter:'open'})[0]||invoices[0]||null}
 async function refreshSelected(){if(isDemo){syncDemo();return}if(isSupabase){await loadSupabasePayables(selected?.id);return}invoices=(await api('/payables/invoices')).invoices||[];if(selected)selected=(await api(`/payables/invoices/${selected.id}`)).invoice}
+function sameStoredSession(ctx){
+  return Boolean(ctx?.authenticated&&ctx.accessToken&&ctx.authUser?.id&&
+    String(ctx.authUser.id)===supplierHistoryAuthUserId&&
+    ctx.membership?.role===supplierHistoryRole&&
+    ctx.company?.id===supplierHistoryCompanyId&&ctx.company.id===session?.company?.id);
+}
+function clearStoredPayables(){
+  session=null;invoices=[];payments=[];selected=null;codingDirty=false;suggestionMeta=null;
+  supplierSourceRows=[];supplierDocumentByInvoice=new Map();supplierHistoryCompanyId='';
+  supplierHistoryAuthUserId='';supplierHistoryRole='';supplierReviewDrafts.clear();
+  paymentConfirmDialog=null;actionToast='';queueQuery='';
+}
+function storedReviewVersion(id){
+  return JSON.stringify([supplierSourceRows.find(row=>row.id===id),supplierDocumentByInvoice.get(id)]);
+}
+function rememberStoredReview(){
+  if(!selected)return;
+  if(!codingDirty){supplierReviewDrafts.delete(selected.id);return;}
+  supplierReviewDrafts.set(selected.id,{invoice:selected,metadata:suggestionMeta,message,
+    version:storedReviewVersion(selected.id)});
+}
+function restoreStoredReview(){
+  const draft=supplierReviewDrafts.get(selected?.id);
+  if(!draft)return false;
+  if(draft.version!==storedReviewVersion(selected.id)){
+    supplierReviewDrafts.delete(selected.id);return false;
+  }
+  selected={...draft.invoice,coding:draft.invoice.coding.map(line=>({...line}))};
+  suggestionMeta=draft.metadata;message=draft.message;codingDirty=true;
+  return true;
+}
 async function chooseInvoice(id){
   const wanted=String(id||'');
   if(!wanted||selected?.id===wanted)return;
   const sequence=++chooseInvoiceSequence;
-  suggestionMeta=null;message='';messageKind='info';codingDirty=false;
-  if(isDemo||isSupabase){
-    selected=invoices.find(x=>x.id===wanted)||null;
-    render();
-    if(isSupabase&&selected&&!isLedger){
-      try{
-        const ctx=await window.LTSupabaseUat.context();
-        // Never let a delayed response overwrite another invoice's editing.
-        if(sequence===chooseInvoiceSequence&&selected?.id===wanted&&!codingDirty){
-          if(autoPrepareStoredReview(ctx))render();
-        }
-      }catch{
-        // An unauthorized or stale suggestion must never alter the invoice.
-      }
+  if(isSupabase){
+    try{
+      const ctx=await window.LTSupabaseUat.context();
+      if(sequence!==chooseInvoiceSequence)return;
+      if(!sameStoredSession(ctx))throw new Error('Session eller företag ändrades. Ladda om sidan.');
+      const next=invoices.find(row=>row.id===wanted);
+      if(!next)return;
+      rememberStoredReview();
+      selected=next;suggestionMeta=null;message='';messageKind='info';codingDirty=false;
+      if(!isLedger&&!restoreStoredReview())autoPrepareStoredReview(ctx);
+      render();
+    }catch{
+      if(sequence!==chooseInvoiceSequence)return;
+      clearStoredPayables();message='Session eller företag kunde inte verifieras. Ladda om sidan.';render();
     }
     return;
   }
+  suggestionMeta=null;message='';messageKind='info';codingDirty=false;
+  if(isDemo){selected=invoices.find(x=>x.id===wanted)||null;render();return;}
   selected=null;render();
   const loaded=(await api('/payables/invoices/'+encodeURIComponent(wanted))).invoice;
   if(sequence!==chooseInvoiceSequence)return;
   selected=loaded;render();
 }
 async function loadSupabasePayables(preferredId=''){
-  ++chooseInvoiceSequence; // invalidate stale invoice-selection requests
-  const ctx=await window.LTSupabaseUat.context();if(!ctx.authenticated||!ctx.company){location.href='./index.html';return}
-  session={user:ctx.user,company:ctx.company};
+  const sequence=++chooseInvoiceSequence;
+  let editingAtStart=selected;
+  const ctx=await window.LTSupabaseUat.context();
+  if(sequence!==chooseInvoiceSequence)return false;
+  if(!ctx?.authenticated||!ctx.company||!ctx.accessToken||!ctx.authUser?.id){
+    clearStoredPayables();app.innerHTML='';location.href='./index.html';return false;
+  }
+  if(supplierHistoryCompanyId&&!sameStoredSession(ctx)){
+    clearStoredPayables();app.innerHTML='';editingAtStart=null;
+  }
   const filter='company_id=eq.'+encodeURIComponent(ctx.company.id);
   const [supplierRows,invoiceRows,documentRows,paymentRows,batchRows]=await Promise.all([
     window.LTSupabase.from('suppliers',ctx.accessToken).select('*',filter),
@@ -127,20 +170,36 @@ async function loadSupabasePayables(preferredId=''){
     window.LTSupabase.from('supplier_payments',ctx.accessToken).select('*',filter),
     window.LTSupabase.from('financial_batches',ctx.accessToken).select('*',filter)
   ]);
-  const suppliersById=new Map((supplierRows||[]).map(r=>[String(r.id),r]));
-  const documentsByInvoice=new Map((documentRows||[]).map(r=>[String(r.source_id),r]));
-  const batchesById=new Map((batchRows||[]).map(r=>[String(r.id),r]));
-  if((invoiceRows||[]).some(r=>r.company_id!==ctx.company.id)||
-     (documentRows||[]).some(r=>r.company_id!==ctx.company.id))throw new Error('Företagsdata kunde inte verifieras.');
-  // Multiple matching document records can be valid revisions, but none of
-  // them alone proves the current original. Block auto-preview on ambiguity.
+  if(sequence!==chooseInvoiceSequence)return false;
+  // Nothing from this request is published into shared UI state before BOTH
+  // the tenant rows and a fresh personal session have been verified.
+  if([supplierRows,invoiceRows,documentRows,paymentRows,batchRows].some(rows=>
+      !Array.isArray(rows)||rows.some(row=>row.company_id!==ctx.company.id))){
+    clearStoredPayables();throw new Error('Företagsdata kunde inte verifieras.');
+  }
+  const fresh=await window.LTSupabaseUat.context();
+  if(sequence!==chooseInvoiceSequence)return false;
+  if(!fresh?.authenticated||fresh.company?.id!==ctx.company.id||
+      fresh.accessToken!==ctx.accessToken||fresh.authUser?.id!==ctx.authUser.id||
+      fresh.membership?.role!==ctx.membership?.role){
+    clearStoredPayables();throw new Error('Session eller företag ändrades under fakturahämtning. Ladda om.');
+  }
+  // A reload must not replace edits made while its reads were pending.
+  if(codingDirty||selected!==editingAtStart)return false;
+  const suppliersById=new Map(supplierRows.map(r=>[String(r.id),r]));
+  const documentsByInvoice=new Map(documentRows.map(r=>[String(r.source_id),r]));
+  const batchesById=new Map(batchRows.map(r=>[String(r.id),r]));
+  // Multiple records may be revisions, but no single record then proves
+  // the current original. Fail closed rather than select the last result.
   const uniqueReviewDocuments=new Map();
-  for(const row of documentRows||[]){const id=String(row.source_id||'');
+  for(const row of documentRows){const id=String(row.source_id||'');
     uniqueReviewDocuments.set(id,uniqueReviewDocuments.has(id)?null:row);
   }
-  supplierSourceRows=invoiceRows||[];supplierDocumentByInvoice=uniqueReviewDocuments;
-  supplierHistoryCompanyId=String(ctx.company.id);
-  invoices=(invoiceRows||[]).map(r=>{const s=suppliersById.get(String(r.supplier_id))||{};return{
+  session={user:fresh.user,company:fresh.company};
+  supplierSourceRows=invoiceRows;supplierDocumentByInvoice=uniqueReviewDocuments;
+  supplierHistoryCompanyId=String(fresh.company.id);
+  supplierHistoryAuthUserId=String(fresh.authUser.id);supplierHistoryRole=fresh.membership?.role||'';
+  invoices=invoiceRows.map(r=>{const s=suppliersById.get(String(r.supplier_id))||{};return{
     id:r.id,companyId:r.company_id,supplierId:r.supplier_id,supplierName:s.name||'Okänd leverantör',supplierNumber:s.supplier_number||'',orgNumber:s.org_number||'',
     supplierInvoiceNumber:r.supplier_invoice_number,invoiceDate:r.invoice_date,dueDate:r.due_date,postingDate:r.posting_date,
     totalOre:Number(r.total_ore||0),vatOre:Number(r.vat_ore||0),remainingOre:Number(r.remaining_ore||0),status:r.status||'registered',
@@ -151,28 +210,23 @@ async function loadSupabasePayables(preferredId=''){
     documentPath:documentsByInvoice.get(String(r.id))?.object_path||'',documentName:documentsByInvoice.get(String(r.id))?.file_name||''
   }});
   selected=invoices.find(x=>x.id===preferredId)||(isLedger?null:(Queue.filterInvoices(invoices,{filter:'open'})[0]||invoices[0]||null));
-  payments=(paymentRows||[]).map(p=>{const invoice=invoices.find(i=>String(i.id)===String(p.supplier_invoice_id))||{};return{
+  suggestionMeta=null;message='';messageKind='info';codingDirty=false;
+  payments=paymentRows.map(p=>{const invoice=invoices.find(i=>String(i.id)===String(p.supplier_invoice_id))||{};return{
     id:p.id,supplierInvoiceId:p.supplier_invoice_id,paymentDate:p.payment_date,amountOre:Number(p.amount_ore||0),account:p.account,status:p.status,accountingBatchId:p.accounting_batch_id||'',accountingBatchNumber:batchesById.get(String(p.accounting_batch_id))?.batch_number||null,accountingBatchStatus:batchesById.get(String(p.accounting_batch_id))?.status||'',
     preparedBy:p.prepared_by,releasedBy:p.released_by,releasedAt:p.released_at,supplierName:p.recipient_name||invoice.supplierName||'Leverantör',
     supplierInvoiceNumber:invoice.supplierInvoiceNumber||'',bankgiro:p.recipient_bankgiro||'',plusgiro:p.recipient_plusgiro||''
   }});
   if(isLedger&&!selected)selected=ledgerFilterRows()[0]||null;
-  const fresh=await window.LTSupabaseUat.context();
-  if(!fresh?.authenticated||fresh.company?.id!==ctx.company.id||
-      fresh.accessToken!==ctx.accessToken||
-      String(fresh.authUser?.id||'')!==String(ctx.authUser?.id||'')){
-    throw new Error('Session eller företag ändrades under fakturahämtning. Ladda om.');
-  }
-  if(!isLedger)autoPrepareStoredReview(fresh);
-  render();
+  if(!isLedger&&!restoreStoredReview())autoPrepareStoredReview(fresh);
+  render();return true;
 }
 async function load(){if(isLedger)queueFilter='open';if(isDemo){if(!Demo||!Workflows)throw new Error('Det gemensamma demoscenariot eller arbetsflödet kunde inte laddas.');session={user:{displayName:'Demoattestant'}};syncDemo();if(isLedger)selected=ledgerFilterRows()[0]||null;render();return}if(isSupabase){await loadSupabasePayables();return}const s=await api('/session');if(!s.authenticated){location.href='./index.html';return}session=s;invoices=(await api('/payables/invoices')).invoices||[];const first=isLedger?(invoices.find(invoice=>Boolean(invoice.liabilityPosted||invoice.liabilityAccountingEntryId||['payment-prepared','paid'].includes(invoice.status)))||null):(Queue.filterInvoices(invoices,{filter:'open'})[0]||invoices[0]);selected=first?(await api(`/payables/invoices/${first.id}`)).invoice:null;payments=(await api(`/payables/payments?date=${today()}`)).payments||[];render()}
 function currentStoredReview(ctx){
   const companyId=String(ctx?.company?.id||''),sourceId=String(selected?.id||'');
-  if(!window.LTStudioPostedHistory||!ctx?.authenticated||!ctx.accessToken||
-      !['admin','accountant'].includes(ctx.membership?.role)||
-      !companyId||companyId!==supplierHistoryCompanyId||
-      companyId!==String(session?.company?.id||'')||
+  if(!sameStoredSession(ctx)){
+    clearStoredPayables();throw new Error('Företagsbehörighet eller underlag kunde inte verifieras. Ladda om sidan.');
+  }
+  if(!window.LTStudioPostedHistory||!['admin','accountant'].includes(ctx.membership?.role)||
       companyId!==String(selected?.companyId||'')){
     throw new Error('Företagsbehörighet eller underlag kunde inte verifieras. Ladda om sidan.');
   }
@@ -209,10 +263,10 @@ function autoPrepareStoredReview(ctx){
 }
 async function suggestCoding(){
   if(isSupabase){
-    const sourceId=selected?.id;
+    const candidate=selected,sequence=chooseInvoiceSequence,request=++storedReviewRequest;
     const ctx=await window.LTSupabaseUat.context();
-    if(selected?.id!==sourceId)return;
-    if(codingDirty&&selected?.coding?.length)throw new Error('Du har redan ett osparat utkast. Granska eller ladda om fakturan före ett nytt förslag.');
+    if(selected!==candidate||sequence!==chooseInvoiceSequence||request!==storedReviewRequest)return;
+    if(codingDirty||selected?.coding?.length)return;
     const input=currentStoredReview(ctx),engine=window.LTStudioPostedHistory;
     const historical=engine.recommendStoredInvoice(input);
     if(historical.status!=='suggested'){
@@ -246,10 +300,12 @@ async function suggestCoding(){
   message='Förslaget är inläst men inte sparat.';
 }
 async function chooseManualStoredCoding(){
-  const sourceId=selected?.id,account=document.getElementById('payables-manual-cost-account')?.value;
+  const candidate=selected,sequence=chooseInvoiceSequence,request=++storedReviewRequest;
+  const account=document.getElementById('payables-manual-cost-account')?.value;
   if(!account)throw new Error('Välj vad som köptes först.');
   const ctx=await window.LTSupabaseUat.context();
-  if(selected?.id!==sourceId)return;
+  if(selected!==candidate||sequence!==chooseInvoiceSequence||request!==storedReviewRequest)return;
+  if(codingDirty||selected?.coding?.length)return;
   const input=currentStoredReview(ctx);
   const preview=window.LTStudioPostedHistory.buildStoredReview({...input,expenseAccount:account});
   if(preview.status!=='manual-review')throw new Error(
