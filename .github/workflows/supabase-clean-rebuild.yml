@@ -29,18 +29,6 @@ jobs:
         with:
           version: 2.118.0
 
-      - name: Generate development migration names in isolated scratch directory
-        run: |
-          supabase --help
-          supabase migration --help
-          supabase migration new --help
-          mkdir -p "$RUNNER_TEMP/lt-823-migration-authoring"
-          cd "$RUNNER_TEMP/lt-823-migration-authoring"
-          supabase migration new supplier_invoice_identity_integrity
-          supabase migration new supplier_atomic_history
-          supabase migration new supplier_intake_finalization
-          ls supabase/migrations
-
       - name: Start clean local Supabase Postgres
         run: supabase db start
 
