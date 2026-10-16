@@ -5,7 +5,7 @@
   const fail=code=>Object.assign(new Error(code),{code});
   function scope(ctx){
     if(!ctx?.authenticated||!ctx.company?.id||!ctx.authUser?.id||!ctx.accessToken||
-       !['admin','accountant'].includes(ctx.membership?.role))throw fail('SUPPLIER_ACCESS_DENIED');
+       typeof ctx.membership?.role!=='string'||!ctx.membership.role)throw fail('SUPPLIER_ACCESS_DENIED');
     return {companyId:String(ctx.company.id),userId:String(ctx.authUser.id),role:ctx.membership.role};
   }
   function assertScope(expected,ctx){
@@ -47,6 +47,7 @@
   }
   function operation({context,supplier,payload,kind,id,requestId}){
     const bound=scope(context),create=kind==='create';
+    if(!['admin','accountant'].includes(bound.role))throw fail('SUPPLIER_ACCESS_DENIED');
     if(!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId||''))
       throw fail('INVALID_SUPPLIER_REQUEST');
     if(!create&&(!supplier?.id||supplier.companyId!==bound.companyId||
@@ -60,6 +61,7 @@
     if(!op||!client||typeof getContext!=='function')throw fail('INVALID_SUPPLIER_REQUEST');
     const filters='company_id=eq.'+encodeURIComponent(op.scope.companyId)+'&id=eq.'+encodeURIComponent(op.id);
     let ctx=assertScope(op.scope,await getContext());
+    if(!['admin','accountant'].includes(ctx.membership.role))throw fail('SUPPLIER_ACCESS_DENIED');
     const existing=await client.from('suppliers',ctx.accessToken).select('*',filters+'&limit=2');
     ctx=assertScope(op.scope,await getContext());
     if(!Array.isArray(existing)||existing.length>1||existing.some(row=>row.company_id!==op.scope.companyId||row.id!==op.id))
