@@ -12,7 +12,7 @@ function fake(initial=null,{failAfterCommit=false,zeroUpdate=false}={}){
     async select(query,filters){assert.match(filters,/company_id=eq.company-a/);assert.match(filters,/id=eq.supplier-a/);return stored?[{...stored}]:[];},
     async insert(rows){writes++;assert.equal(stored,null);stored={...rows[0]};if(failAfterCommit)throw new Error('Network lost after commit');return[{...stored}];},
     async update(values,filters){writes++;assert.match(filters,/row_version=eq.1/);if(zeroUpdate)return[];stored={...stored,...values};if(failAfterCommit)throw new Error('Network lost after commit');return[{...stored}];}
-  }};
+  }}};
   return{client,calls,get stored(){return stored},get writes(){return writes}};
 }
 const createOp=()=>S.operation({context:context(),id:'supplier-a',kind:'create',payload:{supplierNumber:'L1',name:'Synthetic supplier'},requestId});
