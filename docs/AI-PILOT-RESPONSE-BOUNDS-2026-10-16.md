@@ -55,9 +55,15 @@ This document does not claim a run succeeded before its result is verified.
 
 Read-only inspection on 2026-10-16 found the AI pilot absent from deployed Edge
 Functions in staging (`rwnqkgbbbxjjfhwtepsi`) and LT Studio
-(`bwbhnotpuuhgghjpmflk`). Staging runtime was disabled; configured quotas were
-30 global / 10 per company / 5 per user per day, and 10 requests per 300-second IP
-window. These observations are not a proof of live end-to-end enforcement.
+(`bwbhnotpuuhgghjpmflk`). A direct single-query recheck of staging runtime settings
+returned `enabled=false`, 20 global / 5 per company / 2 per user per day, and
+2 requests per 600-second IP window. These latest read-back values supersede
+earlier working notes; no settings were changed by this agent.
+
+A separate LT Studio read of `to_regclass('public.ai_pilot_runtime_settings')`
+returned null: that environment does not have the pilot runtime settings table.
+Do not assume staging quota schema or configuration is present in LT Studio.
+These observations are not a proof of live end-to-end enforcement.
 
 No gates or runtime settings are changed by this patch. In particular, keep
 `RELEASE_APPROVED`, `DURABLE_IP_LIMITER_VERIFIED` and `AI_PILOT_RELEASED` false.
