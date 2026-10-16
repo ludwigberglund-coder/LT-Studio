@@ -27,8 +27,12 @@ function createPortalProxy(backendPort){
       const proxy=http.request({host:'127.0.0.1',port:backendPort,path:req.url,method:req.method,headers:req.headers},upstream=>{res.writeHead(upstream.statusCode||500,upstream.headers);upstream.pipe(res)});
       proxy.on('error',error=>{res.writeHead(502,{'Content-Type':'text/plain'});res.end(error.message)});req.pipe(proxy);return;
     }
-    const relative=url.pathname==='/'?'payables.html':decodeURIComponent(url.pathname).replace(/^\/+/,''),file=path.resolve(root,relative);
-    if(!file.startsWith(root+path.sep)){res.writeHead(403);res.end('Forbidden');return}
+    const shared=new Map([
+      ['/shared/vendor/pdf-lib.min.js',require.resolve('pdf-lib/dist/pdf-lib.min.js')],
+      ['/shared/invoicing/passive-pdf.js',path.resolve(__dirname,'..','packages','invoicing','passive-pdf.js')]
+    ]);
+    const relative=url.pathname==='/'?'payables.html':decodeURIComponent(url.pathname).replace(/^\/+/,''),file=shared.get(url.pathname)||path.resolve(root,relative);
+    if(!shared.has(url.pathname)&&!file.startsWith(root+path.sep)){res.writeHead(403);res.end('Forbidden');return}
     fs.readFile(file,(error,bytes)=>{if(error){res.writeHead(404);res.end('Not found');return}res.writeHead(200,{'Content-Type':contentType(file),'Cache-Control':'no-store'});res.end(bytes)});
   });
 }
