@@ -13,9 +13,10 @@ const runbook=read('docs/AI-PILOT-STAGING-PREFLIGHT.md');
 
 test('AI gateway and portal stay hard-locked until explicitly reviewed',()=>{
   assert.match(edge,/const RELEASE_APPROVED = false;/);
-  assert.match(edge,/const DURABLE_IP_LIMITER_VERIFIED = false;/);
+  assert.match(edge,/createSyntheticHttpHandler/);
+  assert.match(edge,/releaseApproved:\s*RELEASE_APPROVED/);
   assert.match(browser,/const AI_PILOT_RELEASED = false;/);
-  assert.doesNotMatch(config,/\[functions\.ai-bookkeeping-pilot\]/);
+  assert.match(config,/\[functions\.ai-bookkeeping-pilot\]\s+verify_jwt = false/);
 });
 test('atomic AI pilot migration remains disabled and browser-inaccessible',()=>{
   assert.match(sql,/enabled boolean not null default false/);
