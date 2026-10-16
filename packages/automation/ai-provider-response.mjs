@@ -63,7 +63,8 @@ async function readBoundedResponseText(response, { maxBytes, signal } = {}) {
         complete = true;
         return parts.join('');
       }
-      if (!(chunk.value instanceof Uint8Array)) {
+      // Reject zero-byte chunks rather than permit an unbounded no-progress loop.
+      if (!(chunk.value instanceof Uint8Array) || chunk.value.byteLength === 0) {
         throw problem('MODEL_INVALID_RESPONSE');
       }
       bytes += chunk.value.byteLength;
