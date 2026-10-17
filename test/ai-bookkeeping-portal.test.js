@@ -18,7 +18,7 @@ function fixture({demo=false,role='accountant',response,throwInvoke,simulateRevi
   const app={innerHTML:''};
   let calls=0,authCalls=0;
   const context={authenticated:true,company:{id:'tenant-a-001',name:'Test AB'},
-    user:{displayName:'Anna'},membership:{role},accessToken:'test-access-token'};
+    authUser:{id:'synthetic-user-a'},user:{displayName:'Anna'},membership:{role},accessToken:'test-access-token'};
   const win={
     LTSupabaseUat:{context:async()=>{authCalls++;return context;}},
     LTSupabase:{functions:{invoke:async(name,body,token)=>{
@@ -31,7 +31,7 @@ function fixture({demo=false,role='accountant',response,throwInvoke,simulateRevi
       assert.deepEqual(Object.keys(body).sort(),['companyId','requestId','scenario']);
       if(throwInvoke)throw throwInvoke;
       const account={'office-paper':'6110','software-service':'6540','cleaning-supplies':'5460'}[body.scenario];
-      const valid={status:'manual-review',posted:false,companyId:body.companyId,
+      const valid={status:'manual-review',posted:false,synthetic:true,companyId:body.companyId,
         sourceId:'synthetic-'+body.requestId,
         reason:'Detta är en påhittad leverantörsfaktura som måste granskas.',
         suggestion:{expenseAccount:account,invoiceDate:'2026-09-15',
