@@ -12,6 +12,7 @@
   // server + frontend change, not a client-side preference or environment flag.
   const AI_PILOT_RELEASED = false;
   let context=null,selected=options[0].id,busy=false,result=null,status='',statusKind='info';
+  let pilotContextInvalid=false;
   let localPdfType='supplier-invoice',localPdfResult=null,localPdfStatus='',localPdfBusy=false;
   // Never silently choose an expense or payment account for a new PDF.
   let localPdfAccount='',localPdfPayment='',localPdfProposal=null,accountSource='none';
@@ -31,7 +32,7 @@
     // the exact synthetic request, company and expected invoice category.
     const expected=options.find(option=>option.id===requestedScenario);
     if(!expected||typeof requestId!=='string'||!requestId.startsWith('ai-pilot-')||
-      !response||response.status!=='manual-review'||response.posted!==false||
+      !response||response.status!=='manual-review'||response.posted!==false||response.synthetic!==true||
       response.companyId!==companyId||response.sourceId!=='synthetic-'+requestId||
       !Array.isArray(response.suggestion?.rows)||response.suggestion.rows.length!==3||
       response.suggestion.requiresHumanApproval!==true||
@@ -144,6 +145,10 @@
       '<div class="sidebar-footer">Förslag behöver granskas av en behörig person innan bokföring.</div></aside>';
   }
   function render(){
+    if(pilotContextInvalid){
+      app.innerHTML='<main class="boot"><strong>Sessionen eller företaget ändrades</strong><span>Det sena AI-svaret har kastats. Öppna sidan på nytt med rätt inloggning och företag. Ingen bokföring ändrades.</span><a href="./ai-bookkeeping.html">Öppna AI-bokföring igen</a></main>';
+      return;
+    }
     const current=scenario();
     // The Edge gateway is intentionally not deployed and has hard-coded release locks.
     // Keep the action disabled until a separately reviewed release changes that contract.
@@ -178,28 +183,64 @@
     status='Exemplet visas. Det är en fast demonstrationskontering, inte ett AI-svar.';
     statusKind='info';render();
   }
+  // Browser presentation guard, not an authorization boundary. The server still
+  // verifies Auth/AAL2/RLS independently. Snapshot primitives, never a mutable
+  // context reference, and never display or persist the access token.
+  function pilotScope(ctx){
+    if(ctx?.authenticated!==true||typeof ctx.company?.id!=='string'||!ctx.company.id||
+      typeof ctx.authUser?.id!=='string'||!ctx.authUser.id||
+      typeof ctx.accessToken!=='string'||!ctx.accessToken||
+      !['admin','accountant'].includes(ctx.membership?.role))return null;
+    return Object.freeze({companyId:ctx.company.id,userId:ctx.authUser.id,
+      role:ctx.membership.role,token:ctx.accessToken});
+  }
+  async function checkedPilotContext(expected,checkToken){
+    let fresh;
+    try{fresh=await window.LTSupabaseUat.context();}catch{}
+    const actual=pilotScope(fresh);
+    if(!expected||!actual||actual.companyId!==expected.companyId||
+      actual.userId!==expected.userId||actual.role!==expected.role||
+      (checkToken&&actual.token!==expected.token)){
+      throw Object.assign(new Error('AI_CONTEXT_CHANGED'),{code:'AI_CONTEXT_CHANGED'});
+    }
+    return fresh;
+  }
   async function runAiPilot(){
     if(busy)return;
     // Never trust disabled HTML buttons alone: the delegated event handler
     // must also reject calls while the server release is locked.
     if(!AI_PILOT_RELEASED){status='AI-testet är ännu inte aktiverat. Visa bokföringsexemplet så länge.';statusKind='warning';render();return;}
     if(demo||!liveHost){status='AI kräver den inloggade LT Studio-portalen.';statusKind='warning';render();return;}
+    const visibleScope=pilotScope(context),requestedScenario=selected;
     busy=true;result=null;status='Kontrollerar session och skickar endast det påhittade exemplet…';statusKind='info';render();
     try{
-      const ctx=await window.LTSupabaseUat.context();
-      if(!ctx?.authenticated||!ctx.company||!['admin','accountant'].includes(ctx.membership?.role)){
-        throw new Error('AI_TEST_ACCESS_DENIED');
-      }
+      // A token refresh before the request is fine; a different visible company,
+      // verified person or role is not. During the request bind the exact token.
+      const ctx=await checkedPilotContext(visibleScope,false);
       context=ctx;
-      const payload={companyId:String(ctx.company.id),scenario:selected,
+      const requestScope=pilotScope(ctx);
+      const payload={companyId:requestScope.companyId,scenario:requestedScenario,
         requestId:'ai-pilot-'+crypto.randomUUID()};
-      const response=await window.LTSupabase.functions.invoke('ai-bookkeeping-pilot',payload,ctx.accessToken);
+      let response,providerError,providerFailed=false;
+      try{response=await window.LTSupabase.functions.invoke('ai-bookkeeping-pilot',payload,requestScope.token);}
+      catch(error){providerFailed=true;providerError=error;}
+      // Recheck even rejected replies: a delayed error must not redraw a page
+      // containing data from an earlier authenticated context after logout.
+      context=await checkedPilotContext(requestScope,true);
+      if(providerFailed)throw providerError;
       result=validateResponse(response,payload.companyId,payload.scenario,payload.requestId);
       status='AI-förslaget är klart. Det är inte bokfört eller sparat.';
       statusKind='success';
     }catch(error){
       result=null;
       const code=String(error?.code||error?.data?.code||'');
+      if(code==='AI_CONTEXT_CHANGED'){
+        pilotContextInvalid=true;context=null;
+        localPdfRevision++;learningRequest++;
+        localPdfResult=null;localPdfProposal=null;learnResult=null;
+        localPdfAccount='';localPdfPayment='';
+        return;
+      }
       status=code==='AI_TEST_ACCESS_DENIED'||error?.status===401||error?.status===403
         ?'Din session eller behörighet tillåter inte AI-testet. Kontrollera din inloggning.'
         :code==='AI_PILOT_NOT_RELEASED'||code==='AI_PILOT_DISABLED'||error?.status===404
@@ -328,6 +369,7 @@
     render();
   }
   document.addEventListener('change',event=>{
+    if(pilotContextInvalid)return;
     const target=event.target;
     if(target?.id==='ai-pdf-type'&&!localPdfBusy){
       if(['supplier-invoice','receipt'].includes(target.value)){
@@ -350,6 +392,7 @@
     }
   });
   document.addEventListener('click',event=>{
+    if(pilotContextInvalid)return;
     const button=event.target.closest?.('[data-ai-action]');
     if(!button||button.disabled||busy)return;
     if(button.dataset.aiAction==='example')showExample();
