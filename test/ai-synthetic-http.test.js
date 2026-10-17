@@ -12,7 +12,7 @@ const jwt=(patch={})=>['e30',Buffer.from(JSON.stringify({sub:USER,session_id:SES
 const request=(data=body,headers={},method='POST')=>new Request(ENDPOINT,{method,headers:{origin:ORIGIN,authorization:'Bearer '+jwt(),'content-type':'application/json',...headers},...(method==='POST'?{body:JSON.stringify(data)}:{})});
 async function fixture(options={}) {
  const {createSyntheticHttpHandler}=await import('../packages/automation/ai-synthetic-http.mjs');
- const calls={admission:0,auth:0,membership:0,reservations:[],provider:[],secret:0};
+ const calls={admission:0,auth:0,membership:0,reservations:[],provider:[],secret:0,envReads:[]};
  const reserved=new Set();
  const values={SUPABASE_URL:new URL(ENDPOINT).origin,SUPABASE_ANON_KEY:'synthetic-public-key',SUPABASE_SERVICE_ROLE_KEY:'synthetic-service-key',CLOUDFLARE_ACCOUNT_ID:'a'.repeat(32),CLOUDFLARE_AI_TOKEN:'synthetic-token-not-a-real-secret',...options.env};
  const admin={rpc:async(name,params)=>{
@@ -29,7 +29,7 @@ async function fixture(options={}) {
  }};
  const handler=createSyntheticHttpHandler({
   releaseApproved:options.approved!==false,
-  env:name=>{if(name.startsWith('CLOUDFLARE_'))calls.secret++;return values[name];},
+  env:name=>{calls.envReads.push(name);if(name.startsWith('CLOUDFLARE_'))calls.secret++;return values[name];},
   createClient(url,key,config){assert.equal(url,values.SUPABASE_URL);assert.equal(config.auth.persistSession,false);if(key===values.SUPABASE_SERVICE_ROLE_KEY)return admin;assert.equal(key,values.SUPABASE_ANON_KEY);assert.match(config.global.headers.Authorization,/^Bearer /);return user;},
   fetchImpl:async(url,init)=>{
    calls.provider.push({url,init});
@@ -96,6 +96,7 @@ test('provider outage, bad model answer or missing credentials are safe errors w
 test('UAT and unknown projects cannot reuse a staging-approved deployment',async()=>{
  for(const url of ['https://bwbhnotpuuhgghjpmflk.supabase.co','https://unapproved.invalid']){
   const f=await fixture({env:{SUPABASE_URL:url}});assert.equal((await f.handler(request())).status,503);assert.equal(f.calls.admission,0);assert.equal(f.calls.secret,0);
+  assert.deepEqual(f.calls.envReads,['SUPABASE_URL']);
  }
 });
 test('request reader rejects actual oversize, invalid UTF-8, array JSON, stalled and no-progress bodies',async()=>{
