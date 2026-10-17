@@ -6,8 +6,8 @@ import { createFinanceCloudflareProvider } from './ai-finance-cloudflare.mjs';
 
 export const PILOT_ORIGIN = 'https://ludwigberglund-coder.github.io';
 const PROJECT_URLS = new Set([
-  'https://rwnqkgbbbxjjfhwtepsi.supabase.co',
-  'https://bwbhnotpuuhgghjpmflk.supabase.co'
+  // This pilot is approved for isolated staging only. UAT must fail closed.
+  'https://rwnqkgbbbxjjfhwtepsi.supabase.co'
 ]);
 // Reserved aggregate bucket, NOT a hash/verification of a client's IP address.
 // Every caller shares it; changing proxy headers can never evade this ceiling.
