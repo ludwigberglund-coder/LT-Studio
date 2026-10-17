@@ -3,6 +3,7 @@ import { runSyntheticPilot } from './ai-gateway-orchestrator.mjs';
 import { cloudflareProvider } from './cloudflare-bookkeeping.mjs';
 import { runSyntheticFinanceProcess } from './ai-finance-process-orchestrator.mjs';
 import { createFinanceCloudflareProvider } from './ai-finance-cloudflare.mjs';
+import { cancelQuietly } from './ai-provider-response.mjs';
 
 export const PILOT_ORIGIN = 'https://ludwigberglund-coder.github.io';
 const PROJECT_URLS = new Set([
@@ -30,22 +31,62 @@ function safeCode(error) {
     'UNTRUSTED_SOURCE','MODEL_INVALID_RESPONSE','PROVIDER_UNAVAILABLE',
     'PROVIDER_REJECTED','INVALID_PROCESS_REQUEST','UNSUPPORTED_PURPOSE',
     'INVALID_MODEL_ADVICE','UNSAFE_AI_PROPOSAL','UNSAFE_AI_ADVICE',
-    'AI_BACKEND_NOT_CONFIGURED','AI_RATE_LIMITED'
+    'AI_BACKEND_NOT_CONFIGURED','AI_RATE_LIMITED',
+    'AI_REQUEST_TIMEOUT','AI_REQUEST_CANCELLED'
   ]);
   return allowed.has(error?.code) ? error.code : 'AI_PILOT_ERROR';
 }
-export async function readSmallJson(req, timeoutMs=2500) {
+// One lifetime covers admission, Auth, quota, request and response bodies. A
+// browser timeout alone cannot stop an Edge worker from starting model work.
+function requestLifetime(callerSignal, timeoutMs) {
+  const controller=new AbortController(),signal=controller.signal;
+  const cancel=()=>controller.abort(fail('AI_REQUEST_CANCELLED'));
+  const timer=setTimeout(()=>controller.abort(fail('AI_REQUEST_TIMEOUT')),timeoutMs);
+  callerSignal.addEventListener('abort',cancel,{once:true});
+  if(callerSignal.aborted)cancel();
+  const alive=()=>{if(signal.aborted)throw signal.reason;};
+  async function wait(start) {
+    alive();
+    let rejectAbort;
+    const onAbort=()=>rejectAbort(signal.reason);
+    const aborted=new Promise((_,reject)=>{
+      rejectAbort=reject;signal.addEventListener('abort',onAbort,{once:true});
+    });
+    try {
+      const result=await Promise.race([
+        Promise.resolve().then(()=>{alive();return start();}),aborted
+      ]);
+      alive();return result;
+    } finally {signal.removeEventListener('abort',onAbort);}
+  }
+  const fetch=impl=>(input,init={})=>wait(async()=>{
+    const other=init.signal||(input instanceof Request?input.signal:null);
+    const combined=other?AbortSignal.any([signal,other]):signal;
+    const response=await impl(input,{...init,signal:combined});
+    // A custom transport may ignore cancellation. Discard its late response.
+    if(signal.aborted){cancelQuietly(response?.body);alive();}
+    return response;
+  });
+  return {signal,alive,wait,fetch,close(){
+    clearTimeout(timer);callerSignal.removeEventListener('abort',cancel);
+  }};
+}
+export async function readSmallJson(req, timeoutMs=2500, signal=req.signal) {
   if(!/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(req.headers.get('content-type')||'')) throw fail('INVALID_INPUT');
   const length=req.headers.get('content-length');
   if(length!==null&&(!/^\d{1,4}$/.test(length)||Number(length)>1024)) throw fail('INVALID_INPUT');
+  if(signal.aborted)throw fail('INVALID_INPUT');
   const reader=req.body?.getReader();
   if(!reader) throw fail('INVALID_INPUT');
   let timer,done=false,size=0;
   const parts=[];
+  let rejectAbort;
+  const onAbort=()=>rejectAbort(fail('INVALID_INPUT'));
+  const cancelled=new Promise((_,reject)=>{rejectAbort=reject;signal.addEventListener('abort',onAbort,{once:true});});
   const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>reject(fail('INVALID_INPUT')),timeoutMs);});
   try {
     while(true) {
-      const next=await Promise.race([reader.read(),deadline]);
+      const next=await Promise.race([reader.read(),deadline,cancelled]);
       if(next.done){done=true;break;}
       if(!(next.value instanceof Uint8Array)||next.value.length===0) throw fail('INVALID_INPUT');
       size+=next.value.length;
@@ -59,13 +100,16 @@ export async function readSmallJson(req, timeoutMs=2500) {
     return value;
   } catch { throw fail('INVALID_INPUT'); }
   finally {
-    clearTimeout(timer);
+    clearTimeout(timer);signal.removeEventListener('abort',onAbort);
     if(!done) { try { void reader.cancel().catch(()=>{}); } catch { /* do not wait for cancellation */ } }
     try { reader.releaseLock(); } catch { /* no private error propagation */ }
   }
 }
 
-export function createSyntheticHttpHandler({createClient,env,releaseApproved=false,fetchImpl=globalThis.fetch}) {
+export function createSyntheticHttpHandler({createClient,env,releaseApproved=false,
+  fetchImpl=globalThis.fetch,supabaseFetch=globalThis.fetch,requestTimeoutMs=14000}) {
+  // The optional shorter deadline is for isolated tests, never request/env input.
+  if(!Number.isInteger(requestTimeoutMs)||requestTimeoutMs<1||requestTimeoutMs>14000)throw fail('INVALID_INPUT');
   return async function handler(req) {
     const origin=req.headers.get('origin');
     const cors=origin===PILOT_ORIGIN ? {
@@ -75,16 +119,19 @@ export function createSyntheticHttpHandler({createClient,env,releaseApproved=fal
     } : {};
     const reply=(status,body)=>new Response(JSON.stringify(body),{status,headers:{...HEADERS,...cors}});
     if(releaseApproved!==true) return reply(503,{code:'AI_PILOT_NOT_RELEASED'});
+    const lifetime=requestLifetime(req.signal,requestTimeoutMs);
     try {
+      lifetime.alive();
       const url=env('SUPABASE_URL')||'';
       if(!PROJECT_URLS.has(url)) throw fail('AI_BACKEND_NOT_CONFIGURED');
       const publishable=secret(env,'SUPABASE_PUBLISHABLE_KEYS','SUPABASE_ANON_KEY');
       const serviceKey=secret(env,'SUPABASE_SECRET_KEYS','SUPABASE_SERVICE_ROLE_KEY');
       if(!publishable||!serviceKey) throw fail('AI_BACKEND_NOT_CONFIGURED');
-      const admin=createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
+      const backendFetch=lifetime.fetch(supabaseFetch);
+      const admin=createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToken:false},db:{retry:false},global:{fetch:backendFetch}});
       // All methods and clients use one durable admission bucket BEFORE body,
       // Auth or model work. This is deliberately stricter than per-IP admission.
-      const admission=await admin.rpc('admit_ai_pilot_request_server');
+      const admission=await lifetime.wait(()=>admin.rpc('admit_ai_pilot_request_server'));
       if(admission.error) throw fail('BUDGET_NOT_CONFIGURED');
       if(admission.data==='disabled') throw fail('AI_PILOT_DISABLED');
       if(admission.data==='rate-limited') throw fail('AI_RATE_LIMITED');
@@ -96,16 +143,16 @@ export function createSyntheticHttpHandler({createClient,env,releaseApproved=fal
       const bearer=req.headers.get('authorization')||'';
       if(!/^Bearer [A-Za-z0-9._-]{20,8192}$/.test(bearer)) throw fail('AUTH_REQUIRED');
       const token=bearer.slice(7);
-      const body=await readSmallJson(req);
+      const body=await lifetime.wait(()=>readSmallJson(req,2500,lifetime.signal));
       const userClient=createClient(url,publishable,{
-        auth:{persistSession:false,autoRefreshToken:false},global:{headers:{Authorization:bearer}}
+        auth:{persistSession:false,autoRefreshToken:false},db:{retry:false},global:{headers:{Authorization:bearer},fetch:backendFetch}
       });
       const reserveBudget=async params=>{
-        const {data,error}=await admin.rpc('reserve_ai_pilot_request_server',{
+        const {data,error}=await lifetime.wait(()=>admin.rpc('reserve_ai_pilot_request_server',{
           p_company_id:params.companyId,p_actor_uid:params.actorId,
           p_session_id:params.sessionId,p_request_id:params.requestId,
           p_client_ip_hash:SHARED_BUCKET
-        });
+        }));
         if(error||!data)return null;
         return Array.isArray(data)?data[0]:data;
       };
@@ -113,17 +160,18 @@ export function createSyntheticHttpHandler({createClient,env,releaseApproved=fal
       // personal Auth/AAL2/RLS, durable quotas and replay checks. No client data
       // can choose the endpoint, model or supply additional prompt fields.
       const providerFor=finance=>async (...args)=>{
+        lifetime.alive();
         const accountId=env('CLOUDFLARE_ACCOUNT_ID')||'';
         const apiToken=env('CLOUDFLARE_AI_TOKEN')||'';
         if(!/^[0-9a-f]{32}$/i.test(accountId)||!apiToken) throw fail('AI_BACKEND_NOT_CONFIGURED');
         const factory=finance?createFinanceCloudflareProvider:cloudflareProvider;
-        return factory({enabled:true,accountId,apiToken,timeoutMs:12000,fetchImpl})(...args);
+        return lifetime.wait(()=>factory({enabled:true,accountId,apiToken,timeoutMs:12000,fetchImpl:lifetime.fetch(fetchImpl)})(...args));
       };
       if(Object.hasOwn(body,'purpose')) {
-        const proposal=await runSyntheticFinanceProcess({
+        const proposal=await lifetime.wait(()=>runSyntheticFinanceProcess({
           body,accessToken:token,userClient,enabled:true,
           privacyApproved:true,reserveBudget,provider:providerFor(true)
-        });
+        }));
         return reply(200,{
           schemaVersion:proposal.schemaVersion,companyId:proposal.companyId,
           purpose:proposal.purpose,sourceId:proposal.sourceId,
@@ -131,22 +179,23 @@ export function createSyntheticHttpHandler({createClient,env,releaseApproved=fal
           requiresHumanApproval:true,advice:proposal.advice
         });
       }
-      const suggestion=await runSyntheticPilot({
+      const suggestion=await lifetime.wait(()=>runSyntheticPilot({
         body,accessToken:token,userClient,pilotEnabled:true,
         privacyApproved:true,reserveBudget,provider:providerFor(false)
-      });
+      }));
       return reply(200,{
         status:'manual-review',sourceId:suggestion.sourceId,
         companyId:suggestion.companyId,reason:suggestion.reason,
         suggestion:suggestion.suggestion,engine:suggestion.engine,posted:false,synthetic:true
       });
     } catch(error) {
-      const code=safeCode(error);
-      const status=code==='AUTH_REQUIRED'?401:
+      const code=safeCode(lifetime.signal.aborted?lifetime.signal.reason:error);
+      const status=['AI_REQUEST_TIMEOUT','AI_REQUEST_CANCELLED'].includes(code)?408:
+        code==='AUTH_REQUIRED'?401:
         ['ACCESS_DENIED','TENANT_MISMATCH'].includes(code)?403:
         ['INVALID_INPUT','INVALID_COMPANY','UNSUPPORTED_SCENARIO','UNSUPPORTED_PURPOSE','INVALID_PROCESS_REQUEST','INVALID_REQUEST_ID'].includes(code)?422:
         ['BUDGET_NOT_RESERVED','AI_RATE_LIMITED'].includes(code)?429:503;
       return reply(status,{code,error:'AI-testet kunde inte genomforas.'});
-    }
+    } finally {lifetime.close();}
   };
 }

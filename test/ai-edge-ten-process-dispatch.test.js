@@ -30,7 +30,7 @@ test('the same boundary dispatches ten synthetic finance types or three legacy s
 });
 
 test('new flow shares Auth, AAL2, durable admission and reservation protections',()=>{
-  assert.equal((http.match(/const body=await readSmallJson\(req\);/g)||[]).length,1);
+  assert.equal((http.match(/const body=await lifetime\.wait\(\(\)=>readSmallJson\(req,2500,lifetime\.signal\)\);/g)||[]).length,1);
   assert.equal((http.match(/const userClient=createClient\(/g)||[]).length,1);
   assert.equal((http.match(/const reserveBudget=async/g)||[]).length,1);
   assert.match(http,/admin\.rpc\('admit_ai_pilot_request_server'\)/);
@@ -43,8 +43,8 @@ test('new flow shares Auth, AAL2, durable admission and reservation protections'
 });
 
 test('finance output exposes only synthetic human-reviewed advice',()=>{
-  const start=http.indexOf('const proposal=await runSyntheticFinanceProcess(');
-  const finish=http.indexOf('const suggestion=await runSyntheticPilot(',start);
+  const start=http.indexOf('const proposal=await lifetime.wait(()=>runSyntheticFinanceProcess(');
+  const finish=http.indexOf('const suggestion=await lifetime.wait(()=>runSyntheticPilot(',start);
   assert.ok(start>0&&finish>start);
   const response=http.slice(start,finish);
   assert.match(response,/status:'manual-review',posted:false,synthetic:true/);
