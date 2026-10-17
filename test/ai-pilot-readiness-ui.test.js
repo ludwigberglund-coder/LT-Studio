@@ -9,7 +9,8 @@ const assistant=fs.readFileSync(path.join(root,'apps/portal/ai-assistant.js'),'u
 const edge=fs.readFileSync(path.join(root,'supabase/functions/ai-bookkeeping-pilot/index.ts'),'utf8');
 test('AI pilot action stays disabled while server pilot is hard locked',()=>{
   assert.match(edge,/const RELEASE_APPROVED = false;/);
-  assert.match(edge,/const DURABLE_IP_LIMITER_VERIFIED = false;/);
+  assert.match(edge,/createSyntheticHttpHandler/);
+  assert.match(edge,/releaseApproved:\s*RELEASE_APPROVED/);
   assert.match(pilot,/const AI_PILOT_RELEASED = false;/);
   assert.match(pilot,/const canCall=Boolean\(AI_PILOT_RELEASED&&!demo/);
   assert.match(pilot,/if\(!AI_PILOT_RELEASED\)/);

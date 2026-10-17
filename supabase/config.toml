@@ -15,6 +15,11 @@ verify_jwt = false
 [functions.uat-bootstrap]
 verify_jwt = false
 
+# Browser preflight reaches the function without a bearer token. The function
+# then verifies the JWT with getUser and enforces AAL2 + the personal session.
+[functions.ai-bookkeeping-pilot]
+verify_jwt = false
+
 [functions.verify-customer-invoice-document]
 verify_jwt = true
 
