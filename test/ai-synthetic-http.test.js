@@ -6,7 +6,7 @@ const USER='11111111-1111-4111-8111-111111111111';
 const SESSION='22222222-2222-4222-8222-222222222222';
 const COMPANY='tenant-a-001';
 const ORIGIN='https://ludwigberglund-coder.github.io';
-const ENDPOINT='https://bwbhnotpuuhgghjpmflk.supabase.co/functions/v1/ai-bookkeeping-pilot';
+const ENDPOINT='https://rwnqkgbbbxjjfhwtepsi.supabase.co/functions/v1/ai-bookkeeping-pilot';
 const body={companyId:COMPANY,scenario:'office-paper',requestId:'synthetic-request-00001'};
 const jwt=(patch={})=>['e30',Buffer.from(JSON.stringify({sub:USER,session_id:SESSION,aal:'aal2',...patch})).toString('base64url'),'c2ln'].join('.');
 const request=(data=body,headers={},method='POST')=>new Request(ENDPOINT,{method,headers:{origin:ORIGIN,authorization:'Bearer '+jwt(),'content-type':'application/json',...headers},...(method==='POST'?{body:JSON.stringify(data)}:{})});
@@ -93,8 +93,10 @@ test('provider outage, bad model answer or missing credentials are safe errors w
   const f=await fixture(options);const r=await f.handler(request());assert.equal(r.status,503);const text=await r.text();assert.doesNotMatch(text,/private|synthetic-token-not|Bearer/);assert.ok(f.calls.provider.length<=1);
  }
 });
-test('unknown Supabase project cannot reuse an approved deployment',async()=>{
- const f=await fixture({env:{SUPABASE_URL:'https://unapproved.invalid'}});assert.equal((await f.handler(request())).status,503);assert.equal(f.calls.admission,0);assert.equal(f.calls.secret,0);
+test('UAT and unknown projects cannot reuse a staging-approved deployment',async()=>{
+ for(const url of ['https://bwbhnotpuuhgghjpmflk.supabase.co','https://unapproved.invalid']){
+  const f=await fixture({env:{SUPABASE_URL:url}});assert.equal((await f.handler(request())).status,503);assert.equal(f.calls.admission,0);assert.equal(f.calls.secret,0);
+ }
 });
 test('request reader rejects actual oversize, invalid UTF-8, array JSON, stalled and no-progress bodies',async()=>{
  const {readSmallJson}=await import('../packages/automation/ai-synthetic-http.mjs');
