@@ -77,9 +77,10 @@ export function createSyntheticHttpHandler({createClient,env,releaseApproved=fal
     if(releaseApproved!==true) return reply(503,{code:'AI_PILOT_NOT_RELEASED'});
     try {
       const url=env('SUPABASE_URL')||'';
+      if(!PROJECT_URLS.has(url)) throw fail('AI_BACKEND_NOT_CONFIGURED');
       const publishable=secret(env,'SUPABASE_PUBLISHABLE_KEYS','SUPABASE_ANON_KEY');
       const serviceKey=secret(env,'SUPABASE_SECRET_KEYS','SUPABASE_SERVICE_ROLE_KEY');
-      if(!PROJECT_URLS.has(url)||!publishable||!serviceKey) throw fail('AI_BACKEND_NOT_CONFIGURED');
+      if(!publishable||!serviceKey) throw fail('AI_BACKEND_NOT_CONFIGURED');
       const admin=createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
       // All methods and clients use one durable admission bucket BEFORE body,
       // Auth or model work. This is deliberately stricter than per-IP admission.
