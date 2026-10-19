@@ -10,14 +10,14 @@ const source=fs.readFileSync(path.join(root,'apps/portal/ai-assistant.js'),'utf8
 const html=fs.readFileSync(path.join(root,'apps/portal/ai-assistant.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'apps/portal/ai-assistant.css'),'utf8');
 const nav=fs.readFileSync(path.join(root,'apps/portal/portal-nav.js'),'utf8');
-function fixture({demo=false,role='accountant',rows=[],fail=false,authenticated=true}={}){
+function fixture({demo=false,role='accountant',rows=[],fail=false,authenticated=true,token='not-a-real-token'}={}){
   let sessions=0,reads=0;
   const queries=[],callbacks={};
   const app={innerHTML:''},result={innerHTML:''},status={textContent:''},queue={textContent:''};
   const counters={open:{textContent:'–'},ready:{textContent:'–'},review:{textContent:'–'}};
   const refresh={disabled:false,setAttribute(name){if(name==='disabled')this.disabled=true;},removeAttribute(name){if(name==='disabled')this.disabled=false;}};
   const context={authenticated,company:{id:'tenant-a-001',name:'Exempelföretag A'},
-    membership:{role},user:{displayName:'Fiktiv användare'},accessToken:'not-a-real-token'};
+    membership:{role},user:{displayName:'Fiktiv användare'},accessToken:token};
   const sandbox={
     location:{search:demo?'?demo=1':'',hostname:'ludwigberglund-coder.github.io',replace:()=>{}},
     window:{
@@ -199,4 +199,13 @@ test('query errors clear previous numeric totals and keep error details private'
   assert.equal(f.counters.review.textContent,'–');
   assert.match(f.queue.textContent,/Kunde inte läsa automationskön/);
   assert.doesNotMatch(f.queue.textContent,/private upstream message/);
+});
+
+test('missing access token yields explicit session warning instead of endless spinner or zero',async()=>{
+  const f=fixture({token:null});
+  await settle();
+  assert.equal(f.reads,0);
+  assert.equal(f.counters.open.textContent,'–');
+  assert.match(f.queue.textContent,/Saknar en giltig företags- eller inloggningssession/);
+  assert.doesNotMatch(f.queue.textContent,/Kontrollerar företagets befintliga/);
 });
