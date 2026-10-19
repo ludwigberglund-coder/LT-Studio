@@ -29,7 +29,11 @@ function backend({failDocumentOnce=false,failInvoiceOnce=false,lostInvoiceReply=
   async upload(bucket,path,file){uploads.push(path);if(failUpload)throw new Error('Upload unavailable');if(original)throw new Error('Object already exists');original=file;},
   async download(){if(!original)throw new Error('Not found');return original;}
  }};
- return {db,client,writes,uploads,removeOriginal:()=>{original=null;}};
+ return {db,client,writes,uploads,
+  removeOriginal:()=>{original=null;},
+  changeOriginal:async()=>{const bytes=new Uint8Array(await original.arrayBuffer());bytes[0]^=1;original={...original,arrayBuffer:async()=>bytes.buffer};},
+  breakOriginalRead:()=>{original={...original,arrayBuffer:async()=>{throw new Error('Synthetic read failure');}};}
+ };
 }
 const run=(b,operation,getContext=async()=>ctx())=>I.save({operation,client:b.client,store:S,getContext});
 test('input validates dates and amounts before any write adapter exists',()=>{
@@ -70,6 +74,20 @@ test('completed intake is not reported as resumed if its original PDF disappeare
  const b=backend(),operation=await op();await run(b,operation);
  b.removeOriginal();
  await assert.rejects(run(b,operation),/INTAKE_DOCUMENT_CONFLICT/);
+ assert.equal(b.writes.length,3);
+ assert.equal(b.uploads.length,1);
+});
+test('completed intake rejects a changed original even when its byte length is unchanged',async()=>{
+ const b=backend(),operation=await op();await run(b,operation);
+ await b.changeOriginal();
+ await assert.rejects(run(b,operation),/INTAKE_DOCUMENT_CONFLICT/);
+ assert.equal(b.writes.length,3);
+ assert.equal(b.uploads.length,1);
+});
+test('completed intake normalizes original read failures to a document conflict',async()=>{
+ const b=backend(),operation=await op();await run(b,operation);
+ b.breakOriginalRead();
+ await assert.rejects(run(b,operation),e=>e.code==='INTAKE_DOCUMENT_CONFLICT');
  assert.equal(b.writes.length,3);
  assert.equal(b.uploads.length,1);
 });
