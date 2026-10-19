@@ -36,10 +36,14 @@
     }
   }
   async function loadExistingProposalSummary(){
-    if(demo||!liveHost||!mayReadExistingProposals()||!session?.company?.id||
-      !session.accessToken||queueLoading)return;
+    if(demo||!liveHost||!mayReadExistingProposals()||queueLoading)return;
     const status=document.getElementById('ai-bookkeeper-queue-status');
     if(!status)return;
+    if(!session?.authenticated||!session?.company?.id||!session.accessToken){
+      updateQueueCounters(null,null,null);
+      status.textContent='Saknar en giltig företags- eller inloggningssession. Logga in på nytt för att se automationskön.';
+      return;
+    }
     const refresh=document.getElementById('ai-bookkeeper-refresh');
     const companyId=String(session.company.id),accessToken=session.accessToken;
     const sameContext=()=>String(session?.company?.id||'')===companyId&&
