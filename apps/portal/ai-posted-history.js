@@ -110,7 +110,10 @@
   function normalizedReference(value){
     if(typeof value!=='string'||value.length<1||value.length>100||
         /[\u0000-\u001f\u007f]/u.test(value))return '';
-    return value.normalize('NFKC').trim().toLocaleUpperCase('sv-SE');
+    // Match the database's generated invoice_reference_key: NFKC,
+    // uppercase and ALL internal whitespace removed. Keep punctuation.
+    const key=value.normalize('NFKC').replace(/\s+/gu,'').toLocaleUpperCase('sv-SE');
+    return key.length<=100?key:'';
   }
   function validDate(value){
     if(typeof value!=='string'||! /^(?:19|20)\d{2}-\d{2}-\d{2}$/.test(value))return false;
