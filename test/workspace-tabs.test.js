@@ -71,4 +71,7 @@ test('tekniska underflikar finns kvar via tillåtna länkar, direktlänkar och m
   assert.match(styles,/\.lt-workspace-switcher-links>a:focus-visible/);
   assert.match(styles,/html\[data-lt-theme="dark"\] \.lt-workspace-switcher/);
   assert.match(styles,/min-height:44px/);
+  assert.match(styles,/\.lt-workspace-switcher\{[^}]*border-radius:8px/s);
+  assert.match(styles,/\.lt-workspace-switcher-links>a\{[^}]*border-radius:8px/s);
+  assert.doesNotMatch(styles,/\.lt-workspace-switcher[^}]*letter-spacing:(?!0(?:[;}]))/s);
 });
