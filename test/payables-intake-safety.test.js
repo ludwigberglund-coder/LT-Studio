@@ -130,6 +130,7 @@ test('actual intake UI keeps manual fields and discards stale extraction answers
  assert.match(source,/revision!==state.revision/);assert.match(source,/request!==state.readRequest/);
  assert.match(source,/if\(!form.elements\[name\].value\)/);
  assert.match(source,/Safety.validate\(input\)/);
+ assert.match(source,/felaktiga totalsummor, okänd eller blandad moms/);
  assert.doesNotMatch(source,/storage.remove|\.delete\(/);
  const html=fs.readFileSync(require.resolve('../apps/portal/payables.html'),'utf8');
  for(const file of ['passive-pdf.js','supplier-persistence.js','payables-intake-safety.js','ai-document-reader.js'])assert.ok(html.includes(file));
