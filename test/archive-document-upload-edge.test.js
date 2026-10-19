@@ -176,6 +176,8 @@ test('trusted Edge stores validated passive PDF bytes once with server-computed 
   assert.ok(saved.object_path.startsWith(company+'/documents/'+result.body.id+'/'));
   assert.equal(saved.mime_type,'application/pdf');
   assert.ok(saved.sha256.match(/^[a-f0-9]{64}$/));
+  assert.ok(!Number.isNaN(Date.parse(saved.server_verified_at)),
+    'original has server verification provenance');
 });
 
 test('same user request is idempotent and different metadata on same request is rejected',async()=>{
