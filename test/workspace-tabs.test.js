@@ -73,5 +73,6 @@ test('tekniska underflikar finns kvar via tillåtna länkar, direktlänkar och m
   assert.match(styles,/min-height:44px/);
   assert.match(styles,/\.lt-workspace-switcher\{[^}]*border-radius:8px/s);
   assert.match(styles,/\.lt-workspace-switcher-links>a\{[^}]*border-radius:8px/s);
-  assert.doesNotMatch(styles,/\.lt-workspace-switcher[^}]*letter-spacing:(?!0(?:[;}]))/s);
+  assert.match(styles,/\.lt-workspace-switcher-heading>span\{[^}]*letter-spacing:0[;}]/s);
+  assert.match(styles,/\.lt-workspace-switcher-heading>strong\{[^}]*letter-spacing:0[;}]/s);
 });
