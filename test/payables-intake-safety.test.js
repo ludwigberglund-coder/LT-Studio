@@ -36,11 +36,17 @@ test('input validates dates and amounts before any write adapter exists',()=>{
  for(const patch of [{totalAmount:'1,000,00'},{totalAmount:'0'},{vatAmount:'1250,00'},{invoiceDate:'2026-02-30'},{dueDate:'2026-09-30'},{supplierInvoiceNumber:''},{supplierName:''},{vatTreatment:'unsupported'},{company_id:'other'}])
   assert.throws(()=>I.validate({...input(),...patch}));
  assert.equal(I.validate(input()).totalOre,125000);
+ for(const amount of ['1 250,00','1\u00a0250,00','1\u202f250,00','1250.00'])
+  assert.equal(I.validate({...input(),totalAmount:amount}).totalOre,125000);
+ for(const amount of ['1 2 50,00','12 50,00','1 23,45','1 000 0,00'])
+  assert.throws(()=>I.validate({...input(),totalAmount:amount}),/INVALID_INTAKE_AMOUNT/);
 });
 test('preparation validates the same passive PDF policy as the server',async()=>{
  const bytes=new TextEncoder().encode('%PDF-1.4\n/Java#53cript (bad)\n'+'.'.repeat(40)+'\n%%EOF');
  await assert.rejects(op({file:{name:'bad.pdf',type:'application/pdf',size:bytes.length,arrayBuffer:async()=>bytes.buffer}}),e=>e.code==='ACTIVE_PDF_CONTENT_NOT_ALLOWED');
  await assert.rejects(op({input:{...input(),totalAmount:'broken'}}),/INVALID_INTAKE_AMOUNT/);
+ const original=await fixture();
+ await assert.rejects(op({file:{...original,size:original.size-1}}),/INVALID_INTAKE_PDF/);
 });
 test('same original and company produce stable registration ids after page restart',async()=>{
  const file=await fixture(),a=await op({file}),b=await op({file});
@@ -115,6 +121,9 @@ test('PDF prefill only proposes source fields, never banking or default account'
  assert.equal(proposed.values.bankgiro,undefined);assert.equal(proposed.values.defaultCostAccount,undefined);
  assert.equal(I.prefill(facts,[{id:'one',name:'Synthetic supplier'},{id:'two',name:'Synthetic supplier'}]).possibleSupplierId,null);
  assert.equal(I.prefill({...facts,checks:{creditNote:true}}).blocked,true);
+ assert.equal(I.prefill({...facts,checks:{amountBalance:false}}).blocked,true);
+ assert.equal(I.prefill({...facts,checks:{declaredVatRate:19}}).blocked,true);
+ assert.equal(I.prefill({...facts,checks:{amountBalance:true,declaredVatRate:25}}).blocked,false);
 });
 test('actual intake UI keeps manual fields and discards stale extraction answers',()=>{
  const source=fs.readFileSync(require.resolve('../apps/portal/payables-intake.js'),'utf8');
