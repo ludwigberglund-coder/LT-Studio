@@ -56,6 +56,17 @@ test('only three uniquely hashed attested and posted originals create a suggesti
   assert.ok(Object.isFrozen(review.lines));
 });
 
+test('200 invoices show the real capacity block instead of promising a manual draft in the same blocked flow',async()=>{
+ const rows=[source(),...Array.from({length:199},(_,i)=>history(i+1))];
+ const u=liveUi(rows);await u.settle();
+ assert.match(u.app.innerHTML,/200 eller fler leverantörsfakturor/);
+ assertNoDraft(u);
+ await u.click('suggest-coding');
+ assert.match(u.app.innerHTML,/kan inte kontrollera hela historiken/);
+ await u.click('manual-coding');
+ assertNoDraft(u);
+ assert.equal(u.writes,0);
+});
 test('tenant crossings and mixed snapshots are blocked before a history suggestion',()=>{
   const wrongInvoice=history(2,{company_id:'tenant-b'});
   no(suggest({invoices:[source(),history(1),wrongInvoice,history(3)]}));
