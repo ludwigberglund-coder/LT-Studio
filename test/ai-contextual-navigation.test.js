@@ -16,19 +16,21 @@ const workflowPages=[
   'automation.html','batches.html','bokslut.html','payroll.html','inventory.html'
 ];
 
-test('AI has its own protected advanced navigation group without creating new permissions',()=>{
+test('AI stays available in one unified role-filtered navigation',()=>{
   const aiGroup=nav.groups.find(group=>group.id==='ai');
   assert.ok(aiGroup);
   assert.deepEqual(aiGroup.items.map(item=>item[0]),['ai-assistant']);
   assert.match(source,/'ai-assistant':'reports\.view'/);
   for(const role of ['admin','accountant','approver','readonly']){
     const permissions=policy.roles.find(item=>item.id===role).permissions;
-    const groups=nav.visibleGroups({authenticated:true,permissions});
-    const advanced=groups.flatMap(group=>group.items);
-    const simple=nav.simpleGroups(groups).flatMap(group=>group.items);
-    assert.ok(advanced.some(item=>item[0]==='ai-assistant'),role);
-    assert.ok(simple.some(item=>item[0]==='ai-assistant'),role);
-    assert.ok(nav.simpleGroups(groups).length<=7,role+': simple menu is still compact');
+    const allowed=nav.visibleGroups({authenticated:true,permissions});
+    const originals=allowed.flatMap(group=>group.items);
+    const links=nav.unifiedGroups(allowed).flatMap(group=>group.items);
+    assert.ok(originals.some(item=>item[0]==='ai-assistant'),role);
+    assert.ok(links.some(item=>item[0]==='ai-assistant'),role);
+    assert.deepEqual(links.map(item=>item[0]).sort(),originals.map(item=>item[0]).sort(),role);
+    if(permissions.includes('accounting.view'))
+      assert.ok(links.some(item=>item[0]==='ai-bookkeeping'),role+' should retain AI bookkeeping');
   }
   assert.deepEqual(nav.visibleGroups(),[]);
 });
