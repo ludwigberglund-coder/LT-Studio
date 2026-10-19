@@ -76,6 +76,11 @@ test('active authorized company sees only its existing read-only automation coun
   assert.equal(f.queries[1].fields,'id,company_id,status');
   assert.match(f.queries[1].filter,/^company_id=eq\.tenant-a-001&order=created_at\.desc&limit=500$/);
   assert.match(f.queue.textContent,/2 öppna förslag, varav 1 kräver extra granskning/);
+  assert.equal(f.counters.open.textContent,'2');
+  assert.equal(f.counters.ready.textContent,'1');
+  assert.equal(f.counters.review.textContent,'1');
+  assert.equal(f.refresh.disabled,false);
+  assert.match(f.app.innerHTML,/Uppdatera köstatus/);
   assert.match(f.queue.textContent,/inte verifierade som AI-genererade eller bokförda/);
   assert.doesNotMatch(f.app.innerHTML,/p1|p2|p3/);
 });
@@ -84,6 +89,7 @@ test('cross-tenant rows never leak into the summary even if an upstream layer er
   await settle();
   assert.equal(f.reads,1);
   assert.match(f.queue.textContent,/Kunde inte läsa automationskön/);
+  assert.equal(f.counters.open.textContent,'–');
   assert.doesNotMatch(f.queue.textContent,/secret|tenant-b-002/);
 });
 test('readonly users never load the queue or see protected review action',async()=>{
@@ -92,6 +98,7 @@ test('readonly users never load the queue or see protected review action',async(
   assert.equal(f.sessions,1);
   assert.equal(f.reads,0);
   assert.match(f.app.innerHTML,/Förslagskö kräver bokförings- eller granskningsbehörighet/);
+  assert.doesNotMatch(f.app.innerHTML,/data-ai-action="refresh-queue"/);
   assert.doesNotMatch(f.app.innerHTML,/href="\.\/automation\.html"/);
   assert.doesNotMatch(f.app.innerHTML,/ai-bookkeeping\.html/);
 });
