@@ -12,8 +12,10 @@ const css=fs.readFileSync(path.join(root,'apps/portal/ai-assistant.css'),'utf8')
 const nav=fs.readFileSync(path.join(root,'apps/portal/portal-nav.js'),'utf8');
 function fixture({demo=false,role='accountant',rows=[],fail=false,authenticated=true}={}){
   let sessions=0,reads=0;
-  const queries=[];
+  const queries=[],callbacks={};
   const app={innerHTML:''},result={innerHTML:''},status={textContent:''},queue={textContent:''};
+  const counters={open:{textContent:'–'},ready:{textContent:'–'},review:{textContent:'–'}};
+  const refresh={disabled:false,setAttribute(name){if(name==='disabled')this.disabled=true;},removeAttribute(name){if(name==='disabled')this.disabled=false;}};
   const context={authenticated,company:{id:'tenant-a-001',name:'Exempelföretag A'},
     membership:{role},user:{displayName:'Fiktiv användare'},accessToken:'not-a-real-token'};
   const sandbox={
@@ -25,22 +27,27 @@ function fixture({demo=false,role='accountant',rows=[],fail=false,authenticated=
         return {select:async(fields,filter)=>{
           queries.push({fields,filter});
           if(fail)throw new Error('hidden database details');
-          return rows;
+          return typeof rows==='function'?rows():rows;
         }};
       }}
     },
     document:{
       getElementById:id=>({
         'ai-assistant-app':app,'ai-assistant-results':result,
-        'ai-assistant-results-status':status,'ai-bookkeeper-queue-status':queue
+        'ai-assistant-results-status':status,'ai-bookkeeper-queue-status':queue,
+        'ai-bookkeeper-open-count':counters.open,'ai-bookkeeper-ready-count':counters.ready,
+        'ai-bookkeeper-review-count':counters.review,'ai-bookkeeper-refresh':refresh
       })[id]||null,
-      addEventListener:()=>{},
+      addEventListener:(event,handler)=>{callbacks[event]=handler},
       querySelectorAll:()=>[]
     },
     URLSearchParams,String,Set,Object,Array
   };
   vm.runInNewContext(source,sandbox,{filename:'ai-assistant.js'});
-  return {app,result,queue,queries,get sessions(){return sessions},get reads(){return reads}};
+  return {app,result,queue,counters,refresh,context,callbacks,queries,
+    clickRefresh(){callbacks.click({target:{closest:selector=>
+      selector==='[data-ai-action="refresh-queue"]'?{dataset:{aiAction:'refresh-queue'}}:null}});},
+    get sessions(){return sessions},get reads(){return reads}};
 }
 function settle(){return new Promise(resolve=>setImmediate(resolve))}
 test('AI tab prioritizes automated bookkeeping over guides and marks actual readiness honestly',()=>{
