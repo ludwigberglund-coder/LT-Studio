@@ -295,6 +295,14 @@ body.shared-mobile-nav-lock{overflow:hidden}
   min-height:44px;letter-spacing:.015em;font-size:13px;
 }
 .sidebar.shared-sidebar .shared-navigation details[open]>summary{background:#224c3b}
+.sidebar.shared-sidebar .shared-navigation summary::after{
+  content:'›';display:inline-block;margin-left:auto;
+  color:#e4eee6;font:400 23px/1 system-ui,sans-serif;transition:transform .2s ease;
+}
+.sidebar.shared-sidebar .shared-navigation details[open]>summary::after{transform:rotate(90deg)}
+@media(prefers-reduced-motion:reduce){
+  .sidebar.shared-sidebar .shared-navigation summary::after{transition:none}
+}
 .sidebar.shared-sidebar .shared-navigation .shared-links{padding:2px 0 8px}
 .sidebar.shared-sidebar .shared-navigation .shared-links a{min-height:44px}
 .sidebar.shared-sidebar .shared-navigation details[hidden],
