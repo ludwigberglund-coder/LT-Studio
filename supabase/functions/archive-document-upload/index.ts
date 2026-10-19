@@ -70,7 +70,9 @@ function safeText(form:FormData,key:string,required:boolean,max:number){
   if(unsafe)throw problem(422,"INVALID_UPLOAD_FIELDS");
   const text=raw.trim().normalize("NFC");
   if(text.length>max||(required&&!text))throw problem(422,"INVALID_UPLOAD_FIELDS");
-  return text;
+  // Browser multipart normalizes textarea newlines to CRLF. Store one
+  // canonical representation so retries and audit text remain stable.
+  return key==="note"?text.replace(/\r\n?/g,"\n"):text;
 }
 function parseInfo(form:FormData,companyId:string):UploadInfo{
   const keys=new Set(["companyId","requestId","title","category","note",
