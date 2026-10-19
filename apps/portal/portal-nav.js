@@ -34,27 +34,46 @@
     const allowed=new Set(Array.isArray(permissions)?permissions:[]);
     return groups.map(group=>({...group,items:group.items.filter(([id])=>!demoOnlyIds.has(id)&&(!requiredPermission[id]||allowed.has(requiredPermission[id]))).map(item=>item[0]==='receivables'?[item[0],item[1],'portal/index.html']:item)})).filter(group=>group.items.length);
   }
-  // Simple navigation is a projection of the existing permission-filtered menu.
-  // It does not create privileges, new routes, or economic write operations.
-  // Customer-first menu: everyday actions up front, technical detail stays in Advanced.
-  // The permission-filtered routes remain unchanged and accessible in Advanced mode.
-  const simpleNavigation=Object.freeze([
-    {id:'start',label:'Start',items:[['overview','Översikt'],['ai-assistant','Fråga AI-bokföraren']]},
-    {id:'sales',label:'Fakturor & kunder',items:[['invoices','Skapa och visa fakturor'],['receivables','Obetalda fakturor'],['customers','Kunder']]},
-    {id:'purchases',label:'Inköp & kvitton',items:[['documents','Lämna underlag'],['payables','Leverantörsfakturor'],['supplier-ledger','Fakturor att betala']]},
-    {id:'banking',label:'Bank & betalningar',items:[['bank','Bankhändelser'],['unplaced-payments','Betalningar att hantera'],['payments','Alla betalningar']]},
-    {id:'work',label:'Bokföring & resultat',items:[['automation','Förslag att granska'],['batches','Godkänn bokföring'],['accounting','Bokföring och månadskontroll'],['reports','Resultat och rapporter'],['bokslut','Bokslut']]},
-    {id:'preferences',label:'Inställningar',items:[['company-settings','Företagsinställningar']]}
+  // One shared navigation for every authorized function. Grouping is presentation only:
+  // links keep their original routes and server permissions are never expanded.
+  const unifiedNavigation=Object.freeze([
+    {id:'start',label:'Start & AI',items:[['overview','Översikt'],['ai-assistant','AI-bokförare']]},
+    {id:'sales',label:'Fakturor & kunder',items:[['invoices','Kundfakturor'],['receivables','Obetalda kundfakturor'],['customers','Kunder']]},
+    {id:'purchases',label:'Inköp & underlag',items:[['documents','Kvitton & underlag (PDF)'],['payables','Leverantörsfakturor'],['supplier-ledger','Fakturor att betala'],['suppliers','Leverantörer']]},
+    {id:'banking',label:'Bank & betalningar',items:[['bank','Bankhändelser & avstämning'],['unplaced-payments','Betalningar att hantera'],['payments','Alla betalningar']]},
+    {id:'bookkeeping',label:'Bokföring & AI',items:[['ai-bookkeeping','AI-bokföring'],['automation','Förslag att granska'],['batches','Godkänn bokföring'],['accounting','Bokföring & verifikationer'],['accounts','Kontoplan & intäktskonton']]},
+    {id:'closing',label:'Rapporter & bokslut',items:[['reports','Resultat & rapporter'],['bokslut','Bokslut'],['trial-balance','Saldobalans']]},
+    {id:'company',label:'Företaget',items:[['inventory','Lager & svinn'],['payroll','Lön & lönejournal'],['website','Webbplats & innehåll'],['company-settings','Företagsinställningar']]}
   ]);
-  function simpleGroups(allowedGroups){
-    const permitted=new Map((Array.isArray(allowedGroups)?allowedGroups:[]).flatMap(group=>group.items.map(item=>[item[0],item])));
-    return simpleNavigation.map(group=>({
+  function unifiedGroups(allowedGroups){
+    const source=Array.isArray(allowedGroups)?allowedGroups:[];
+    const permitted=new Map(source.flatMap(group=>group.items.map(item=>[item[0],item])));
+    const used=new Set();
+    const result=unifiedNavigation.map(group=>({
       id:group.id,label:group.label,
-      items:group.items.map(([id,label])=>{
-        const allowed=permitted.get(id);
-        return allowed?[id,label,allowed[2]]:null;
-      }).filter(Boolean)
-    })).filter(group=>group.items.length>0);
+      items:group.items.flatMap(([id,label])=>{
+        const original=permitted.get(id);
+        if(!original||used.has(id))return [];
+        used.add(id);
+        return [[id,label,original[2]]];
+      })
+    })).filter(group=>group.items.length);
+    // Future or demo tools must never disappear because a menu definition
+    // was not updated. Keep them reachable in their own final category.
+    const extra=[],demoTools=[];
+    for(const group of source){
+      for(const item of group.items){
+        if(used.has(item[0]))continue;
+        used.add(item[0]);
+        (demoOnlyIds.has(item[0])?demoTools:extra).push(item);
+      }
+    }
+    if(extra.length)result.push({id:'other',label:'Fler funktioner',items:extra});
+    if(demoTools.length)result.push({id:'demo',label:'Demo & äldre verktyg',items:demoTools});
+    return result;
+  }
+  function normalizeNavigationSearch(value){
+    return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('sv-SE').trim();
   }
   // Homepage shortcuts reuse authorized navigation destinations. Nothing here
   // alters role permissions or bypasses server-side authorization.
@@ -74,7 +93,7 @@
       return [{id,label,description,href:'./'+path.slice('portal/'.length)}];
     });
   }
-  if(typeof module==='object'&&module.exports){module.exports={groups,visibleGroups,simpleGroups,quickActionLinks};return;}
+  if(typeof module==='object'&&module.exports){module.exports={groups,visibleGroups,unifiedGroups,normalizeNavigationSearch,quickActionLinks};return;}
   function ensureFavicon(){
     if(document.querySelector('link[rel~="icon"]'))return;
     const link=document.createElement('link');
@@ -88,24 +107,6 @@
   const supabaseUat=location.hostname==='ludwigberglund-coder.github.io'&&!demo;
   const key='rollands-navigation-v3:'+base.pathname;
   const runtimeKey='rollands-runtime-id:'+base.pathname;
-  let transientNavMode='simple';
-  function navigationModeKey(session){
-    const company=String(session?.company?.id||'');
-    const user=String(session?.user?.id||session?.user?.username||'');
-    return company&&user?key+':mode:'+encodeURIComponent(user)+':'+encodeURIComponent(company):null;
-  }
-  function getSavedNavigationMode(session){
-    const preferenceKey=navigationModeKey(session);
-    if(!preferenceKey)return transientNavMode;
-    try{return localStorage.getItem(preferenceKey)==='advanced'?'advanced':'simple';}
-    catch{return transientNavMode;}
-  }
-  function saveNavigationMode(session,mode){
-    transientNavMode=mode==='advanced'?'advanced':'simple';
-    const preferenceKey=navigationModeKey(session);
-    if(!preferenceKey)return;
-    try{localStorage.setItem(preferenceKey,transientNavMode);}catch{}
-  }
   let runtimeCheckInFlight=false;
   let supabaseSessionGuardInFlight=false;
   function portalLoginUrl(){return href('portal/index.html');}
@@ -244,7 +245,7 @@
     send:'<path d="M22 12L3 20L6.5625 12L3 4L22 12ZM6.5 12H22"/>'
   });
   const NAV_ICONS=Object.freeze({
-    overview:'home',invoices:'page',receivables:'wallet',payables:'page','supplier-ledger':'book',payments:'card',bank:'bank',
+    overview:'home',invoices:'page',receivables:'wallet',payables:'page','supplier-ledger':'book',payments:'card',bank:'bank','unplaced-payments':'wallet',bokslut:'book','trial-balance':'book',
     'ai-assistant':'chat','ai-bookkeeping':'book',automation:'settings',accounting:'book',reports:'stats',accounts:'book',payroll:'wallet',money:'card',journal:'book','res-tools':'database',
     batches:'package',inbox:'page',customers:'group',suppliers:'group',inventory:'package','company-settings':'settings',website:'page',documents:'page',decisions:'shield',
     modules:'package',project:'stats',content:'page',audit:'shield',settings:'settings',uat:'shield',legacy:'database',assistant:'help'
@@ -419,7 +420,7 @@
   function mobileFocusables(){
     const {sidebar,toggle}=sidebarParts();
     if(!sidebar||!toggle)return[];
-    return[toggle,...sidebar.querySelectorAll('a[href],button:not([disabled]),summary,[tabindex]:not([tabindex="-1"])')]
+    return[toggle,...sidebar.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),summary,[tabindex]:not([tabindex="-1"])')]
       .filter((element,index,list)=>list.indexOf(element)===index&&element.getClientRects().length>0);
   }
   document.addEventListener('keydown',event=>{
@@ -724,62 +725,80 @@
     const context=await navigationContext();
     lastNavigationContext=context;
     const authorizedGroups=context.groups;
-    const easyGroups=simpleGroups(authorizedGroups);
-    const preferredMode=demo?'advanced':getSavedNavigationMode(context.session);
-    const simpleIds=new Set(easyGroups.flatMap(group=>group.items.map(item=>item[0])));
-    // A direct link to a permitted expert page should keep its entry visible
-    // without silently changing the user's saved simple-mode preference.
-    const advancedRoute=authorizedGroups.some(group=>group.items.some(item=>active(item[2])&&!simpleIds.has(item[0])));
-    const currentMode=preferredMode==='advanced'||advancedRoute?'advanced':'simple';
-    const allowedGroups=currentMode==='advanced'?authorizedGroups:easyGroups;
+    const allowedGroups=unifiedGroups(authorizedGroups);
+    const originalLabels=new Map(authorizedGroups.flatMap(group=>group.items.map(item=>[item[0],item[1]])));
     const brand=document.createElement('a');brand.className='shared-brand';brand.href=href('portal/dashboard.html');
     const companyName=demo?'Demoföretag':String(context.session?.company?.name||'Företaget');
     const brandName=document.createElement('strong');brandName.textContent='LT Studio';
     const brandPlatform=document.createElement('small');brandPlatform.textContent='Ekonomisystem';brand.append(brandName,brandPlatform);
     const info=document.createElement('p');info.className='shared-company';info.textContent=demo?'Demoföretag · fiktiv data':companyName+' · skyddad företagsportal';
-    let modeSwitch=null;
-    if(!demo&&context.session?.authenticated===true){
-      modeSwitch=document.createElement('div');
-      modeSwitch.className='shared-nav-mode-switch';
-      modeSwitch.setAttribute('role','group');
-      modeSwitch.setAttribute('aria-label','Välj visningsläge för menyn');
-      for(const [mode,label] of [['simple','Enkelt'],['advanced','Avancerat']]){
-        const button=document.createElement('button');
-        button.type='button';
-        button.className='shared-nav-mode-button';
-        button.textContent=label;
-        button.setAttribute('aria-pressed',String(currentMode===mode));
-        button.addEventListener('click',()=>{
-          if(currentMode===mode)return;
-          saveNavigationMode(context.session,mode);
-          // On an expert-only page, return to the overview so the simple menu
-          // can actually be selected (instead of forcing expert mode again).
-          if(mode==='simple'&&advancedRoute){location.assign(href('portal/dashboard.html'));return;}
-          delete sidebar.dataset.sharedRoute;
-          void mount();
-        });
-        modeSwitch.append(button);
-      }
-    }
-    const nav=document.createElement('nav');nav.className='shared-navigation';nav.setAttribute('aria-label',currentMode==='simple'?'Förenklad meny':'Avancerad meny');
+    const navSearch=document.createElement('div');navSearch.className='shared-nav-search';
+    const searchLabel=document.createElement('label');searchLabel.htmlFor='shared-nav-search-input';searchLabel.textContent='Hitta en funktion';
+    const searchInput=document.createElement('input');searchInput.id='shared-nav-search-input';
+    searchInput.type='search';searchInput.placeholder='Sök t.ex. kvitto, lön eller konto';
+    searchInput.autocomplete='off';searchInput.spellcheck=false;
+    searchInput.setAttribute('aria-controls','shared-primary-navigation');
+    navSearch.append(searchLabel,searchInput);
+    navSearch.hidden=allowedGroups.length===0;
+    const nav=document.createElement('nav');nav.id='shared-primary-navigation';
+    nav.className='shared-navigation';nav.setAttribute('aria-label','Alla tillgängliga funktioner');
+    const sections=[];
+    const savedHas=(storageId)=>Object.prototype.hasOwnProperty.call(saved,storageId);
+    let filtering=false;
     for(const group of allowedGroups){
       const details=document.createElement('details');details.dataset.navGroup=group.id;
-      const storageId=currentMode==='simple'?'simple:'+group.id:group.id;
+      const storageId='unified:'+group.id;
       details.open=group.items.some(item=>active(item[2]))||
-        (saved[storageId]!==false);
+        (savedHas(storageId)?saved[storageId]===true:group.id==='start');
       const summary=document.createElement('summary');summary.textContent=group.label;details.append(summary);
       const links=document.createElement('div');links.className='shared-links';
       for(const [id,label,path] of group.items){
         const a=document.createElement('a');a.dataset.navId=id;a.textContent=label;a.href=href(path);
-        if(active(path)){a.setAttribute('aria-current','page');a.classList.add('active');}links.append(a);
+        a.dataset.navSearch=normalizeNavigationSearch(label+' '+(originalLabels.get(id)||''));
+        if(active(path)){a.setAttribute('aria-current','page');a.classList.add('active');}
+        links.append(a);
       }
-      details.append(links);nav.append(details);
-      details.addEventListener('toggle',()=>{const s=read();s[storageId]=details.open;persist(s);});
+      details.append(links);nav.append(details);sections.push(details);
+      details.addEventListener('toggle',()=>{
+        if(filtering)return;
+        const s=read();s[storageId]=details.open;persist(s);
+      });
     }
+    const searchEmpty=document.createElement('p');searchEmpty.className='shared-nav-search-empty';
+    searchEmpty.textContent='Ingen funktion matchar sökningen.';searchEmpty.setAttribute('role','status');searchEmpty.hidden=true;
+    const restoreOpen=new Map();
+    function filterNavigation(){
+      const term=normalizeNavigationSearch(searchInput.value);
+      if(term&&!filtering){
+        filtering=true;
+        sections.forEach(details=>restoreOpen.set(details,details.open));
+      }
+      let found=0;
+      for(const details of sections){
+        const groupMatch=Boolean(term)&&normalizeNavigationSearch(details.querySelector('summary')?.textContent).includes(term);
+        let shown=0;
+        for(const link of details.querySelectorAll('a[data-nav-id]')){
+          const match=!term||groupMatch||link.dataset.navSearch.includes(term);
+          link.hidden=!match;
+          if(match)shown++;
+        }
+        details.hidden=shown===0;
+        if(term&&shown)details.open=true;
+        else if(!term&&filtering)details.open=restoreOpen.get(details)===true;
+        found+=shown;
+      }
+      if(!term){filtering=false;restoreOpen.clear();}
+      searchEmpty.hidden=!term||found>0;
+    }
+    searchInput.addEventListener('input',filterNavigation);
+    searchInput.addEventListener('keydown',event=>{
+      if(event.key!=='Escape'||!searchInput.value)return;
+      event.preventDefault();event.stopPropagation();searchInput.value='';filterNavigation();
+    });
     const foot=document.createElement('div');foot.className='shared-foot';
     const home=document.createElement('a');home.href=href(demo?'./':'portal/dashboard.html');home.textContent=demo?'Visa företagets hemsida':'Till arbetsöversikten';foot.append(home);
-    const note=document.createElement('p');note.textContent=demo?'Äldre referensverktyg har separat demodata.':'Menyn följer din roll. Servern kontrollerar varje skyddad åtgärd oavsett vad som visas här.';foot.append(note);
-    sidebar.replaceChildren(brand,info,...(modeSwitch?[modeSwitch]:[]),nav,foot);mountContextualAi(context);decorateUi();applySidebarPreference();await mountPendingBatchBadge(context);
+    const note=document.createElement('p');note.textContent=demo?'Äldre referensverktyg har separat demodata.':'Alla funktioner finns i grupperna ovan. Din roll avgör vad du kan använda.';foot.append(note);
+    sidebar.replaceChildren(brand,info,navSearch,nav,searchEmpty,foot);mountContextualAi(context);decorateUi();applySidebarPreference();await mountPendingBatchBadge(context);
     try{sidebar.scrollTop=Number(sessionStorage.getItem(key+':scroll')||0)}catch{}
     if(!sidebar.dataset.scrollBound){sidebar.addEventListener('scroll',()=>{try{sessionStorage.setItem(key+':scroll',String(sidebar.scrollTop))}catch{}});sidebar.dataset.scrollBound='1';}
   }
