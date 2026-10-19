@@ -9,71 +9,92 @@ const policy=require('../config/access-control.json');
 
 const rolePermissions=role=>policy.roles.find(entry=>entry.id===role).permissions;
 const flatten=groups=>groups.flatMap(group=>group.items);
+const toIdMap=groups=>new Map(flatten(groups).map(([id,label,route])=>[id,{label,route}]));
 
-test('enkelt läge grupperar vardagsuppgifter utan tekniska undermenyer',()=>{
-  const authorized=Nav.visibleGroups({authenticated:true,permissions:rolePermissions('admin')});
-  const simple=Nav.simpleGroups(authorized);
-  assert.deepEqual(simple.map(group=>group.label),[
-    'Start','Fakturor & kunder','Inköp & kvitton',
-    'Bank & betalningar','Bokföring & resultat','Inställningar'
+test('en gemensam meny visar kundens uppgifter i begripliga grupper',()=>{
+  const available=Nav.visibleGroups({authenticated:true,permissions:rolePermissions('admin')});
+  const menu=Nav.unifiedGroups(available);
+  assert.deepEqual(menu.map(group=>group.label),[
+    'Start & AI','Fakturor & kunder','Inköp & underlag','Bank & betalningar',
+    'Bokföring & AI','Rapporter & bokslut','Företaget'
   ]);
-  assert.ok(simple.every(group=>group.items.length<=5));
-  assert.ok(flatten(simple).some(([id,label])=>id==='documents'&&label==='Lämna underlag'));
-  assert.ok(flatten(simple).some(([id,label])=>id==='ai-assistant'&&label==='Fråga AI-bokföraren'));
-  assert.equal(flatten(simple).some(([id])=>id==='suppliers'),false);
-  assert.ok(flatten(simple).some(([id,label])=>id==='unplaced-payments'&&label==='Betalningar att hantera'));
-  assert.ok(flatten(simple).some(([id,label])=>id==='batches'&&label==='Godkänn bokföring'));
-  assert.ok(flatten(simple).some(([id,label])=>id==='automation'&&label==='Förslag att granska'));
-  assert.equal(flatten(simple).some(([id])=>id==='accounts'),false);
-});
-
-test('enkel navigation använder bara redan tillåtna roller och ursprungliga rutter',()=>{
-  for(const role of ['admin','accountant','approver','readonly']){
-    const advanced=Nav.visibleGroups({authenticated:true,permissions:rolePermissions(role)});
-    const simple=Nav.simpleGroups(advanced);
-    const byId=new Map(flatten(advanced).map(([id,label,route])=>[id,route]));
-    const seen=new Set();
-    for(const [id,label,route] of flatten(simple)){
-      assert.ok(byId.has(id),role+': unexpected permission for '+id);
-      assert.equal(route,byId.get(id),role+': route must remain unchanged for '+id);
-      assert.ok(!seen.has(id),role+': duplicate '+id);
-      assert.ok(label.length>0);
-      seen.add(id);
-    }
-    if(role!=='admin')assert.equal(seen.has('company-settings'),false);
-    if(role==='readonly'){
-      assert.equal(seen.has('payroll'),false);
-      assert.equal(seen.has('accounts'),false);
-    }
-    assert.ok(byId.has('accounts'),role+': original advanced access is not removed');
+  for(const [id,label] of [
+    ['documents','Kvitton & underlag (PDF)'],
+    ['unplaced-payments','Betalningar att hantera'],
+    ['automation','Förslag att granska'],
+    ['ai-bookkeeping','AI-bokföring'],
+    ['batches','Godkänn bokföring'],
+    ['accounts','Kontoplan & intäktskonton'],
+    ['trial-balance','Saldobalans'],
+    ['inventory','Lager & svinn'],
+    ['payroll','Lön & lönejournal']
+  ]){
+    assert.ok(flatten(menu).some(item=>item[0]===id&&item[1]===label),id+': missing or unclear');
   }
-  assert.deepEqual(Nav.simpleGroups(Nav.visibleGroups()),[]);
-  assert.deepEqual(Nav.simpleGroups([]),[]);
 });
 
-test('demo och avancerat läge behåller ursprungliga menylänkar',()=>{
+test('alla tidigare funktioner finns kvar med samma behörigheter, rutter och unika länkar',()=>{
+  for(const role of ['admin','accountant','approver','readonly']){
+    const authorized=Nav.visibleGroups({authenticated:true,permissions:rolePermissions(role)});
+    const menu=Nav.unifiedGroups(authorized);
+    const original=toIdMap(authorized);
+    const actual=toIdMap(menu);
+    assert.deepEqual([...actual.keys()].sort(),[...original.keys()].sort(),role+': lost or unexpected functions');
+    assert.equal(flatten(menu).length,original.size,role+': duplicate navigation items');
+    for(const [id,{route}] of actual){
+      assert.equal(route,original.get(id).route,role+': changed route for '+id);
+      assert.ok(menu.some(group=>group.items.some(item=>item[0]===id)),id);
+    }
+    assert.equal(actual.has('legacy'),false,role+': demo-only entry leaked');
+    if(role!=='admin')assert.equal(actual.has('company-settings'),false,role);
+  }
+  assert.deepEqual(Nav.unifiedGroups(Nav.visibleGroups()),[]);
+  assert.deepEqual(Nav.unifiedGroups([]),[]);
+  assert.deepEqual(Nav.unifiedGroups(null),[]);
+});
+
+test('nya verktyg kan inte försvinna ur menyn när de ännu inte har placerats i en grupp',()=>{
+  const future=[{id:'new-group',label:'Framtida',items:[['future-tool','Framtida funktion','portal/future-tool.html']]}];
+  assert.deepEqual(Nav.unifiedGroups(future),[
+    {id:'other',label:'Fler funktioner',items:[['future-tool','Framtida funktion','portal/future-tool.html']]}
+  ]);
+});
+
+test('demo och äldre funktioner finns fortfarande tillgängliga men hålls åtskilda',()=>{
   const demo=Nav.visibleGroups({demo:true});
-  const ids=flatten(demo).map(item=>item[0]);
-  assert.ok(ids.includes('legacy'));
-  assert.ok(ids.includes('journal'));
-  assert.ok(ids.includes('accounts'));
+  const menu=Nav.unifiedGroups(demo);
+  assert.deepEqual([...toIdMap(menu).keys()].sort(),[...toIdMap(demo).keys()].sort());
+  const archive=menu.find(group=>group.id==='demo');
+  assert.ok(archive);
+  for(const id of ['legacy','journal','res-tools','inbox','uat','settings']){
+    assert.ok(archive.items.some(item=>item[0]===id),id);
+  }
 });
 
-test('lägesväxeln sparas separat per användare och företag och är bara presentation',()=>{
+test('menysökningen hanterar svenska bokstäver och behåller ursprungliga ord som sökbara alias',()=>{
+  assert.equal(Nav.normalizeNavigationSearch('  ÖRESkalkylator  '),'oreskalkylator');
+  assert.equal(Nav.normalizeNavigationSearch('Fakturor & Kvitton'),'fakturor & kvitton');
+  assert.equal(Nav.normalizeNavigationSearch(null),'');
+  const source=fs.readFileSync(path.join(__dirname,'..','apps','portal','portal-nav.js'),'utf8');
+  assert.match(source,/a\.dataset\.navSearch=normalizeNavigationSearch\(label\+' '\+\(originalLabels\.get\(id\)/);
+  assert.match(source,/searchInput\.addEventListener\('input',filterNavigation\)/);
+  assert.match(source,/searchEmpty\.hidden=!term\|\|found>0/);
+  assert.match(source,/link\.hidden=!match/);
+  assert.match(source,/input:not\(\[disabled\]\)/);
+});
+
+test('lägesväxeln är borttagen och nya menygrupper är hopfällbara utan förlorade djuplänkar',()=>{
   const source=fs.readFileSync(path.join(__dirname,'..','apps','portal','portal-nav.js'),'utf8');
   const css=fs.readFileSync(path.join(__dirname,'..','apps','portal','shared-nav.css'),'utf8');
-  assert.match(source,/function navigationModeKey\(session\)/);
-  assert.match(source,/session\?\.company\?\.id/);
-  assert.match(source,/session\?\.user\?\.id/);
-  assert.match(source,/getSavedNavigationMode/);
-  assert.match(source,/saveNavigationMode/);
-  assert.match(source,/shared-nav-mode-switch/);
-  assert.match(source,/aria-pressed/);
-  assert.match(source,/advancedRoute/);
-  assert.match(source,/mode==='simple'&&advancedRoute/);
-  assert.match(source,/simpleGroups\(authorizedGroups\)/);
-  // New users must be able to click existing customer links without first expanding categories.
-  assert.match(source,/saved\[storageId\]!==false/);
-  assert.match(css,/shared-nav-mode-button:focus-visible/);
+  for(const obsolete of ['shared-nav-mode-switch','getSavedNavigationMode','saveNavigationMode','navigationModeKey','advancedRoute','simpleGroups(']){
+    assert.equal(source.includes(obsolete),false,obsolete+' remains in JS');
+  }
+  assert.equal(css.includes('shared-nav-mode-button'),false);
+  assert.match(source,/unifiedGroups\(authorizedGroups\)/);
+  assert.match(source,/nav\.setAttribute\('aria-label','Alla tillgängliga funktioner'\)/);
+  assert.match(source,/details\.open=group\.items\.some\(item=>active\(item\[2\]\)\)/);
+  assert.match(source,/const storageId='unified:'\+group\.id/);
+  assert.match(css,/\.shared-navigation \.shared-links a\[hidden\]/);
+  assert.match(css,/\.shared-nav-search input:focus-visible/);
   assert.match(css,/min-height:44px/);
 });
