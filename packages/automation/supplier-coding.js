@@ -31,6 +31,7 @@ function postedCostAccount(invoice,row,expectedRate){
      !['approved','payment-prepared','paid'].includes(row.status)||
      !text(row.approvedBy)||!text(row.approvedAt)||
      !text(row.liabilityAccountingEntryId)||!text(row.liabilityPostedAt)||
+     row.postedSourceVerified!==true||
      !SHA.test(row.documentSha256||'')||row.currency!=='SEK'||
      row.vatTreatment!=='se-domestic-full-input-vat'||
      vatRate(row.totalOre,row.vatOre)!==expectedRate||

@@ -3,6 +3,9 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const Engine=require('../packages/automation/supplier-coding.js');
+const Db=require('../apps/api/database.js');
+const Payables=require('../apps/api/payables.js');
+const SupplierAccounting=require('../apps/api/supplier-accounting.js');
 
 const sha=n=>n.toString(16).padStart(64,'0');
 const invoice=changes=>({
@@ -14,6 +17,7 @@ const posted=(n,changes={})=>({
   id:'old-'+n,companyId:'company-a',supplierId:'supplier-a',
   status:'approved',approvedBy:'human-reviewer',approvedAt:'2026-10-01T12:00:00Z',
   liabilityAccountingEntryId:'journal-'+n,liabilityPostedAt:'2026-10-02T12:00:00Z',
+  postedSourceVerified:true,
   documentSha256:sha(n),currency:'SEK',vatTreatment:'se-domestic-full-input-vat',
   totalOre:100000,vatOre:20000,
   coding:[
@@ -43,7 +47,8 @@ test('three independent, approved and posted originals support a traceable high-
 
 test('one previously approved or posted invoice is never 96% confident',()=>{
   for(const example of [posted(1),posted(1,{liabilityAccountingEntryId:null}),posted(1,{liabilityPostedAt:null}),
-    posted(1,{documentSha256:null}),posted(1,{approvedBy:null})]){
+    posted(1,{documentSha256:null}),posted(1,{approvedBy:null}),
+    posted(1,{postedSourceVerified:false})]){
     const result=suggest([example]);
     manual(result);
     assert.equal(result.coding[0].account,'5460');
@@ -110,7 +115,41 @@ test('legacy tenant-scoped history SQL fetches posted and PDF provenance rather 
   for(const name of ['company_id AS companyId','supplier_id AS supplierId',
     'approved_by AS approvedBy','liability_accounting_entry_id AS liabilityAccountingEntryId',
     'liability_posted_at AS liabilityPostedAt','document_sha256 AS documentSha256',
-    'vat_treatment AS vatTreatment'])
+    'vat_treatment AS vatTreatment','postedSourceVerified'])
     assert.ok(query.includes(name),name);
-  assert.match(query,/WHERE company_id=\? AND supplier_id=\?/);
+  assert.match(query,/WHERE i\.company_id=\? AND i\.supplier_id=\?/);
+  assert.match(query,/accounting_entries/);
+  assert.match(query,/source_type='supplier-invoice'/);
+  assert.match(query,/supplier_invoice_date_corrections/);
+});
+
+test('history verifies the linked source journal instead of trusting a populated entry id',()=>{
+  const db=Db.openDatabase(':memory:');
+  try{
+    SupplierAccounting.initializeSupplierAccounting(db);
+    const company=Db.createCompany(db,{legalName:'History Test AB',displayName:'History Test',orgNumber:'559970-8350'});
+    const user=Db.createUser(db,{username:'history.user',displayName:'History User',passwordHash:'test-only'});
+    Db.addMembership(db,{companyId:company.id,userId:user.id});
+    const supplier=Payables.createSupplier(db,{companyId:company.id,supplierNumber:'H-1',name:'Historik AB'});
+    let old=Payables.createSupplierInvoice(db,{companyId:company.id,supplierId:supplier.id,
+      supplierInvoiceNumber:'OLD-1',invoiceDate:'2026-10-01',dueDate:'2026-10-31',
+      totalOre:100000,vatOre:20000,currency:'SEK',vatTreatment:'se-domestic-full-input-vat',
+      registeredBy:user.id});
+    old=Payables.saveCoding(db,{companyId:company.id,invoiceId:old.id,lines:posted(1).coding});
+    db.prepare(`UPDATE supplier_invoices SET status='approved',approved_by=?,approved_at=?,document_sha256=?
+      WHERE company_id=? AND id=?`).run(user.id,'2026-10-02T12:00:00Z',sha(99),company.id,old.id);
+    SupplierAccounting.postSupplierInvoice(db,{companyId:company.id,invoiceId:old.id,actorId:user.id});
+    let history=Payables.supplierHistory(db,company.id,supplier.id);
+    assert.equal(history.length,1);
+    assert.equal(history[0].postedSourceVerified,true);
+
+    db.prepare(`UPDATE supplier_invoices SET liability_accounting_entry_id='missing-entry'
+      WHERE company_id=? AND id=?`).run(company.id,old.id);
+    history=Payables.supplierHistory(db,company.id,supplier.id);
+    assert.equal(history[0].postedSourceVerified,false);
+    manual(Engine.suggestSupplierCoding(invoice(),{
+      supplier:{companyId:'company-a',defaultCostAccount:'5460'},
+      history:[{...posted(1),postedSourceVerified:history[0].postedSourceVerified}]
+    }));
+  }finally{db.close()}
 });

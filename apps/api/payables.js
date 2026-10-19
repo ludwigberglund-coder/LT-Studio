@@ -108,7 +108,32 @@ function createSupplierInvoiceIdempotent(db,input){
     return{invoice:existing,duplicate:true};
   }
 }
-function supplierHistory(db,companyId,supplierId,{excludeInvoiceId='',limit=20}={}){const safe=Math.max(1,Math.min(100,Number(limit)||20));const rows=excludeInvoiceId?db.prepare(`SELECT id,company_id AS companyId,supplier_id AS supplierId,status,coding_json AS codingJson,total_ore AS totalOre,vat_ore AS vatOre,approved_by AS approvedBy,approved_at AS approvedAt,liability_accounting_entry_id AS liabilityAccountingEntryId,liability_posted_at AS liabilityPostedAt,document_sha256 AS documentSha256,currency,vat_treatment AS vatTreatment FROM supplier_invoices WHERE company_id=? AND supplier_id=? AND id<>? AND status IN ('approved','payment-prepared','paid') ORDER BY approved_at DESC LIMIT ?`).all(companyId,supplierId,excludeInvoiceId,safe):db.prepare(`SELECT id,company_id AS companyId,supplier_id AS supplierId,status,coding_json AS codingJson,total_ore AS totalOre,vat_ore AS vatOre,approved_by AS approvedBy,approved_at AS approvedAt,liability_accounting_entry_id AS liabilityAccountingEntryId,liability_posted_at AS liabilityPostedAt,document_sha256 AS documentSha256,currency,vat_treatment AS vatTreatment FROM supplier_invoices WHERE company_id=? AND supplier_id=? AND status IN ('approved','payment-prepared','paid') ORDER BY approved_at DESC LIMIT ?`).all(companyId,supplierId,safe);return rows.map(row=>({...row,coding:json(row.codingJson,[])}))}
+function supplierHistory(db,companyId,supplierId,{excludeInvoiceId='',limit=20}={}){
+  const safe=Math.max(1,Math.min(100,Number(limit)||20));
+  const select=`SELECT i.id,i.company_id AS companyId,i.supplier_id AS supplierId,i.status,
+    i.coding_json AS codingJson,i.total_ore AS totalOre,i.vat_ore AS vatOre,
+    i.approved_by AS approvedBy,i.approved_at AS approvedAt,
+    i.liability_accounting_entry_id AS liabilityAccountingEntryId,
+    i.liability_posted_at AS liabilityPostedAt,i.document_sha256 AS documentSha256,
+    i.currency,i.vat_treatment AS vatTreatment,
+    CASE WHEN e.id IS NULL THEN 0 ELSE 1 END AS postedSourceVerified
+    FROM supplier_invoices i
+    LEFT JOIN accounting_entries e ON e.id=i.liability_accounting_entry_id
+      AND e.company_id=i.company_id
+      AND ((e.source_type='supplier-invoice' AND e.source_id=i.id)
+        OR (e.source_type='supplier-invoice-date-correction-replacement' AND EXISTS(
+          SELECT 1 FROM supplier_invoice_date_corrections c
+          WHERE c.company_id=i.company_id AND c.invoice_id=i.id
+            AND c.replacement_entry_id=e.id)))`;
+  const rows=excludeInvoiceId?
+    db.prepare(`${select} WHERE i.company_id=? AND i.supplier_id=? AND i.id<>?
+      AND i.status IN ('approved','payment-prepared','paid')
+      ORDER BY i.approved_at DESC LIMIT ?`).all(companyId,supplierId,excludeInvoiceId,safe):
+    db.prepare(`${select} WHERE i.company_id=? AND i.supplier_id=?
+      AND i.status IN ('approved','payment-prepared','paid')
+      ORDER BY i.approved_at DESC LIMIT ?`).all(companyId,supplierId,safe);
+  return rows.map(row=>({...row,postedSourceVerified:Boolean(row.postedSourceVerified),coding:json(row.codingJson,[])}));
+}
 function storeDocument(db,{companyId,invoiceId,name,mime='application/pdf',bytes}){
   const invoice=invoiceById(db,companyId,invoiceId);
   if(!invoice)throw err('Leverantörsfakturan hittades inte.','INVOICE_NOT_FOUND',404);
