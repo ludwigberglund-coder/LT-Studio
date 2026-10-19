@@ -104,8 +104,11 @@ test('unsafe PDF metadata, already coded and posted invoices or invalid VAT fail
   ]){no(suggest({source:source(row)}));no(draft('6540',{source:source(row)}));}
   for(const doc of [
     {sha256:sha(11)},{source_id:'other'},{company_id:'tenant-b'},
-    {source_type:'receipt'},{mime_type:'image/png'},{object_path:''},{size_bytes:10485761}
+    {source_type:'receipt'},{mime_type:'image/png'},{object_path:''},{size_bytes:10485761},
+    {object_path:'tenant-b/foreign.pdf'},{object_path:'tenant-a-backup/foreign.pdf'},
+    {object_path:'tenant-a/../tenant-b/foreign.pdf'}
   ]){no(suggest({document:document(doc)}));no(draft('6540',{document:document(doc)}));}
+  assert.equal(suggest({document:document({object_path:'tenant-a/supplier-invoices/invoice-new/original.pdf'})}).status,'suggested');
 });
 
 test('manual review only accepts listed BAS accounts and requires source/tenant checks',()=>{
