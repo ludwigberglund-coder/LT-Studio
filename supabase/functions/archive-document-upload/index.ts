@@ -268,9 +268,10 @@ async function main(req:Request){
       throw error;
     }
   }catch(error){
-    const known=(error as {status?:number;code?:string})||{};
-    const status=Number.isInteger(known.status)&&Number(known.status)>=400
-      ?Number(known.status):500;
+    const known=(error as {status?:number;statusCode?:number;code?:string})||{};
+    const rawStatus=Number(known.status||known.statusCode||500);
+    const status=Number.isInteger(rawStatus)&&rawStatus>=400&&rawStatus<=599
+      ?rawStatus:500;
     const code=known.code&&/^[A-Z0-9_]{2,64}$/.test(known.code)
       ?known.code:"ARCHIVE_UPLOAD_FAILED";
     console.error("archive-document-upload",code);
