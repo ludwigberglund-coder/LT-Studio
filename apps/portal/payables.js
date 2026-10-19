@@ -235,6 +235,9 @@ function currentStoredReview(ctx){
   if(!source||!document)throw new Error('PDF-original och fakturauppgifter måste finnas innan ett förslag kan skapas.');
   return {companyId,source,document,invoices:supplierSourceRows};
 }
+function historyCapacityMessage(){
+  return 'Företaget har 200 eller fler leverantörsfakturor. Den här vyn kan inte kontrollera hela historiken säkert, och därför skapas inget konteringsutkast här. Välj inte konto på chans – ordna separat granskning.';
+}
 function autoPrepareStoredReview(ctx){
   // No model, network, storage, approval, or financial mutations here.
   if(!isSupabase||isLedger||!selected||codingDirty||
@@ -245,6 +248,10 @@ function autoPrepareStoredReview(ctx){
     const history=helper.recommendStoredInvoice(input);
     if(history.status==='no-suggestion'&&history.reason==='possible-duplicate'){
       message='Möjlig dubblett. Fakturan måste kontrolleras innan du skapar ett utkast.';
+      return true;
+    }
+    if(history.status==='no-suggestion'&&history.reason==='history-incomplete'){
+      message=historyCapacityMessage();
       return true;
     }
     if(history.status!=='suggested')return false;
@@ -270,6 +277,11 @@ async function suggestCoding(){
     const input=currentStoredReview(ctx),engine=window.LTStudioPostedHistory;
     const historical=engine.recommendStoredInvoice(input);
     if(historical.status!=='suggested'){
+      if(historical.reason==='history-incomplete'){
+        suggestionMeta={reason:historyCapacityMessage(),sampleCount:0,ambiguous:true};
+        message=historyCapacityMessage();
+        return;
+      }
       suggestionMeta={reason:'Det finns inte minst tre entydiga, attesterade och bokförda original för ett automatiskt konto. Välj konto manuellt och kontrollera fakturan. Om PDF eller fakturanummer redan förekommer måste dubbletten utredas.',sampleCount:0,ambiguous:true};
       message=historical.reason==='possible-duplicate'?'Möjlig dubblett. Skapa ingen ny kontering förrän underlaget har kontrollerats.':
         'Behöver din hjälp: välj konto och granska original, belopp och moms.';
@@ -310,6 +322,7 @@ async function chooseManualStoredCoding(){
   const preview=window.LTStudioPostedHistory.buildStoredReview({...input,expenseAccount:account});
   if(preview.status!=='manual-review')throw new Error(
     preview.reason==='possible-duplicate'?'Fakturan kan redan vara registrerad. Ingen ny kontering förbereds.':
+    preview.reason==='unsafe-history'&&input.invoices.length>=200?historyCapacityMessage():
     'PDF-original, moms eller företagstillhörighet behöver kontrolleras innan ett utkast får förberedas.'
   );
   selected={...selected,coding:preview.lines.map(line=>({...line}))};
