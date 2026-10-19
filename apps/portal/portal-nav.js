@@ -743,13 +743,14 @@
     const nav=document.createElement('nav');nav.id='shared-primary-navigation';
     nav.className='shared-navigation';nav.setAttribute('aria-label','Alla tillgängliga funktioner');
     const sections=[];
+    const activeGroupIds=new Set(allowedGroups.filter(group=>group.items.some(item=>active(item[2]))).map(group=>group.id));
     const savedHas=(storageId)=>Object.prototype.hasOwnProperty.call(saved,storageId);
     let filtering=false;
     for(const group of allowedGroups){
       const details=document.createElement('details');details.dataset.navGroup=group.id;
       const storageId='unified:'+group.id;
       details.open=group.items.some(item=>active(item[2]))||
-        (savedHas(storageId)?saved[storageId]===true:group.id==='start');
+        (savedHas(storageId)?saved[storageId]===true:activeGroupIds.size===0&&group.id==='start');
       const summary=document.createElement('summary');summary.textContent=group.label;details.append(summary);
       const links=document.createElement('div');links.className='shared-links';
       for(const [id,label,path] of group.items){
