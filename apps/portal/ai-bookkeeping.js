@@ -367,7 +367,7 @@
     if(!localPdfResult||!window.LTStudioDocumentReview)return;
     if(!localPdfAccount||(localPdfType==='receipt'&&!localPdfPayment)||
       (localPdfType==='supplier-invoice'&&!localPdfInvoicePayment)){
-      localPdfStatus='Välj vad som köptes samt betalningssätt eller betalningsstatus. Inget har bokförts.';render();return;
+      localPdfStatus='Välj först vad som köptes samt betalningssätt eller betalningsstatus. Inget har bokförts.';render();return;
     }
     try{
       localPdfProposal=window.LTStudioDocumentReview.buildReview(localPdfResult,{
