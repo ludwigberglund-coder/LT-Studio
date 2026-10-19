@@ -131,9 +131,9 @@ test('500 most recent proposals are explicitly a partial history, never an exact
   }));
   const f=fixture({rows});
   await settle();
-  assert.equal(f.counters.open.textContent,'480');
-  assert.equal(f.counters.ready.textContent,'450');
-  assert.equal(f.counters.review.textContent,'30');
+  assert.equal(f.counters.open.textContent,'≥ 480');
+  assert.equal(f.counters.ready.textContent,'≥ 450');
+  assert.equal(f.counters.review.textContent,'≥ 30');
   assert.match(f.queue.textContent,/Bland de 500 senaste posterna finns minst 480 öppna förslag/);
   assert.match(f.queue.textContent,/varav minst 30 kräver extra granskning/);
   assert.match(f.queue.textContent,/Fler kan finnas/);
