@@ -207,6 +207,13 @@ test('disguised HTML/PDF double-extension is blocked',async()=>{
   assert.equal(fx.state.uploads,0);
 });
 
+test('normal multiline document comment survives server validation',async()=>{
+  const bytes=await passivePdf(),fx=sandboxFixture();
+  const result=await send(fx,form(bytes,{note:'Inköp till kontoret\nKontrollera kvittot'}));
+  assert.equal(result.status,201,JSON.stringify(result.body));
+  assert.equal(fx.state.documents[0].note,'Inköp till kontoret\nKontrollera kvittot');
+});
+
 test('company with no accounting/admin membership cannot upload',async()=>{
   const bytes=await passivePdf(),fx=sandboxFixture({hasMember:false});
   const result=await send(fx,form(bytes));
