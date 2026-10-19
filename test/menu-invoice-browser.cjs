@@ -62,11 +62,41 @@ for(const width of [1440,1024,768,390]){await page.setViewportSize({width,height
   assert.equal(await page.locator('[data-nav-id="payables"]').isVisible(),false,'andra verktyg filtreras');
   await finder.fill('något-som-inte-finns');
   assert.equal(await page.locator('.shared-nav-search-empty').isVisible(),true,'sökning utan träff har ett tydligt svar');
+  await finder.fill('kundreskontra');
+  assert.equal(await page.locator('[data-nav-id="receivables"]').isVisible(),true,'sökning med gammalt fackord hittar obetalda fakturor');
+  await finder.fill('leverantörsreskontra');
+  assert.equal(await page.locator('[data-nav-id="supplier-ledger"]').isVisible(),true,'sökning med gammalt fackord hittar fakturor att betala');
   await finder.fill('');
   assert.equal(await page.locator('.shared-nav-search-empty').isVisible(),false);
   checks.push({kind:'navigation-search'});
-  await page.setViewportSize({width:1440,height:1000});await openMenuLink('accounts');await page.locator('#account-form').waitFor();await page.locator('#account-form [name=number]').fill('3099');await page.locator('#account-form [name=name]').fill('Egen tjänsteintäkt 12 %');await page.locator('#account-form [name=vatRate]').selectOption('12');await page.getByRole('button',{name:'Spara intäktskonto',exact:true}).click();
-  await openMenuLink('invoices');await page.getByRole('button',{name:'Ny kundfaktura',exact:true}).click();await page.locator('#invoice-form').waitFor();await menu();
+  await page.setViewportSize({width:1440,height:1000});
+  assert.equal(await page.locator('[data-nav-id="receivables"]').isVisible(),false,'reskontran nås via faktura-arbetsytan');
+  assert.equal(await page.locator('[data-nav-id="supplier-ledger"]').isVisible(),false,'leverantörsreskontran nås via inköps-arbetsytan');
+  await openMenuLink('payables');
+  await page.locator('.lt-workspace-switcher').waitFor();
+  assert.deepEqual(await page.locator('.lt-workspace-switcher-links a').evaluateAll(nodes=>nodes.map(n=>n.dataset.workspaceTab)),[
+    'documents','payables','supplier-ledger','suppliers'
+  ],'inköpsflikarna ska bevaras');
+  assert.equal(await page.locator('[data-workspace-tab="payables"]').getAttribute('aria-current'),'page');
+  await page.locator('[data-workspace-tab="supplier-ledger"]').click();
+  await menu();await page.locator('.lt-workspace-switcher').waitFor();
+  assert.match(page.url(),/portal\/supplier-ledger\.html/);
+  assert.equal(await page.locator('[data-workspace-tab="supplier-ledger"]').getAttribute('aria-current'),'page');
+  assert.equal(await page.locator('[data-nav-id="supplier-ledger"]').isVisible(),true,'djuplänken visas när sidan är aktiv');
+  await page.locator('[data-workspace-tab="documents"]').click();
+  await menu();await page.locator('.lt-workspace-switcher').waitFor();
+  assert.match(page.url(),/portal\/documents\.html/);
+  assert.equal(await page.locator('[data-workspace-tab="documents"]').getAttribute('aria-current'),'page');
+  checks.push({kind:'purchase-workspace-tabs'});
+  await openMenuLink('accounts');await page.locator('#account-form').waitFor();await page.locator('#account-form [name=number]').fill('3099');await page.locator('#account-form [name=name]').fill('Egen tjänsteintäkt 12 %');await page.locator('#account-form [name=vatRate]').selectOption('12');await page.getByRole('button',{name:'Spara intäktskonto',exact:true}).click();
+  await openMenuLink('invoices');await page.locator('.lt-workspace-switcher').waitFor();
+  assert.deepEqual(await page.locator('.lt-workspace-switcher-links a').evaluateAll(nodes=>nodes.map(n=>n.dataset.workspaceTab)),[
+    'invoices','receivables','customers'
+  ],'kundfakturor och kundreskontra ska dela en arbetsyta');
+  assert.equal(await page.locator('[data-workspace-tab="invoices"]').getAttribute('aria-current'),'page');
+  await page.screenshot({path:path.join(out,'sales-workspace-tabs.png'),fullPage:true});
+  await page.getByRole('button',{name:'Ny kundfaktura',exact:true}).click();await page.locator('#invoice-form').waitFor();await menu();
+  assert.equal(await page.locator('.lt-workspace-switcher').count(),1,'arbetsyteflikarna ska finnas kvar när formuläret öppnas');
   const issueButton=page.getByRole('button',{name:'Skapa och bokför faktura',exact:true});await issueButton.evaluate(button=>{button.disabled=true});const blockedStyle=await issueButton.evaluate(button=>{const style=getComputedStyle(button);return{backgroundColor:style.backgroundColor,color:style.color,opacity:style.opacity,cursor:style.cursor}});assert.deepEqual(blockedStyle,{backgroundColor:'rgb(229, 229, 229)',color:'rgb(115, 115, 115)',opacity:'1',cursor:'not-allowed'});await issueButton.evaluate(button=>{button.disabled=false});
   assert.equal(await page.locator('[name=orderNumber]').count(),0);assert.equal(await page.locator('[name=deliveryDate]').count(),0);assert.equal(await page.locator('[name="buyer.vatNumber"]').count(),0);assert.equal(await page.locator('[name="buyer.phone"]').count(),0);
   await page.locator('[name=customerNumber]').selectOption('K-1001');const customerSection=page.locator('.invoice-section').filter({hasText:'Mottagare & kund'});assert.equal(await page.locator('[name="buyer.address"]').count(),0);assert.equal(await page.locator('[name="buyer.orgNumber"]').count(),0);assert.equal(await page.locator('[name="buyer.email"]').count(),0);assert.equal(await customerSection.getByLabel('Företagsnamn - kund').inputValue(),'Västra Hamnen Logistik AB');assert.equal(await customerSection.getByLabel('Organisationsnummer - kund').inputValue(),'559000-1001');assert.equal(await customerSection.getByLabel('Fakturaadress, postnummer och ort - kund').inputValue(),'Testhamnsgatan 10, 411 00 Göteborg');assert.equal(await customerSection.getByLabel('Mottagarens e-post - kund').inputValue(),'ekonomi@vastrahamnen.example.invalid');
@@ -99,7 +129,7 @@ for(const width of [1440,1024,768,390]){await page.setViewportSize({width,height
   assert.equal(posted.count,before+1);assert.equal(posted.record.ocr,posted.record.invoiceNumber);assert.equal(posted.record.document.ocr,posted.record.invoiceNumber);assert.equal(posted.record.document.lines[1].revenueAccount,'3099');assert.equal(posted.record.document.lines.find(r=>r.kind==='administration').revenueAccount,'3690');assert.equal(posted.record.document.lines.find(r=>r.kind==='administration').vatTreatment,'se-standard-25','intern fakturaavgift ska bära verifierad momsbehandling');assert.equal(posted.record.document.lines.find(r=>r.kind==='freight').revenueAccount,'3520');assert.equal(posted.record.document.lines.find(r=>r.kind==='freight').vatTreatment,'se-standard-25','intern fraktrad ska bära verifierad momsbehandling');assert.equal(posted.entry.lines.reduce((n,r)=>n+r.debitOre-r.creditOre,0),0);assert.equal(posted.entry.lines.find(r=>r.account==='3099').creditOre,25000);
   const pdfBytes=await page.evaluate(async()=>Array.from(await LTStudioInvoicePdf.createInvoicePdf(RollandsDemoScenario.state().customerInvoices.at(-1).document)));const buf=Buffer.from(pdfBytes);fs.writeFileSync(path.join(out,'invoice-browser.pdf'),buf);const pdf=await PDFDocument.load(buf);assert.equal(pdf.getTitle(),'FAKTURA '+posted.record.invoiceNumber);assert.ok(pdf.getPageCount()>=1);
   await page.getByRole('button',{name:'Till fakturalistan',exact:true}).click();await page.locator('.invoice-toolbar h2').getByText('Kundfakturor',{exact:true}).waitFor();const invoiceHeaders=await page.locator('.sales-panel .sales-table thead th').allTextContents();assert.ok(invoiceHeaders.map(v=>v.trim()).includes('Typ'),'Kundfakturor ska visa dokumenttyp');assert.equal(invoiceHeaders.map(v=>v.trim()).includes('Restbelopp'),false,'Kundfakturor ska inte visa reskontrasaldo');
-  await openMenuLink('receivables');await menu();assert.match(page.url(),/portal\/index\.html/,'Kundreskontra ska använda den gemensamma reskontrasidan');assert.ok((await page.locator('body').innerText()).includes(posted.record.invoiceNumber),'fakturan ska synas i kundreskontran');
+  await page.locator('[data-workspace-tab="receivables"]').click();await menu();await page.locator('.lt-workspace-switcher').waitFor();assert.equal(await page.locator('[data-workspace-tab="receivables"]').getAttribute('aria-current'),'page');assert.match(page.url(),/portal\/index\.html/,'Kundreskontra ska använda den gemensamma reskontrasidan');assert.ok((await page.locator('body').innerText()).includes(posted.record.invoiceNumber),'fakturan ska synas i kundreskontran');
   await openMenuLink('accounting');await menu();assert.ok((await page.locator('body').innerText()).includes(posted.record.invoiceNumber),'fakturan ska synas i bokföringen');
   await openMenuLink('reports');await menu();assert.equal(await page.locator('body').innerText().then(t=>t.length>50),true,'rapportsidan ska fortsätta rendera efter fakturabokföring');await page.getByRole('button',{name:'Försäljning',exact:true}).click();await page.getByRole('heading',{name:'Försäljning per dag',exact:true}).waitFor();assert.ok((await page.locator('body').innerText()).includes('Operativ rapport.'),'försäljningsrapporten ska förklara sin operativa databas');checks.push({kind:'sales-report'});
   await page.reload({waitUntil:'networkidle'});await menu();assert.deepEqual(errors,[],'no uncaught browser errors');checks.push({kind:'invoice-chain',invoiceNumber:posted.record.invoiceNumber,ocr:posted.record.ocr,accounts:posted.entry.lines.map(r=>r.account)});fs.writeFileSync(path.join(out,'navigation-invoice-results.json'),JSON.stringify({ok:true,checks,errors},null,2));console.log(`Navigation and invoice browser checks passed: ${checks.length} checks.`);

@@ -48,7 +48,7 @@ test('each bookkeeping-source surface offers safe and contextual AI guidance',()
 
 test('AI guidance survives page rerenders, including alternative accounting layouts',()=>{
   assert.match(source,/\.content, \.accounting-content, \.bokslut-shell, \.batch-shell/);
-  assert.match(source,/if\(lastNavigationContext\)mountContextualAi\(lastNavigationContext\)/);
+  assert.match(source,/if\(lastNavigationContext\)\{\s*mountContextualAi\(lastNavigationContext\);\s*mountCombinedWorkspace\(lastNavigationContext\);/);
   assert.match(source,/document\.getElementById\('lt-contextual-ai'\)/);
   assert.match(source,/section\.className='lt-contextual-ai'/);
   assert.match(source,/content\.prepend\(section\)/);
