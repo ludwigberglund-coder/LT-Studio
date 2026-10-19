@@ -32,7 +32,7 @@ async function readPdf(form){
     if(isSupabase)Store.assertScope(state.scope,await window.LTSupabaseUat.context());
     if(dialog!==state||state.busy||revision!==state.revision||request!==state.readRequest)return;
     const suggestion=Safety.prefill(facts,suppliers);
-    if(suggestion.blocked){state.unsupported=file;status.textContent='Kredit, blandad moms, utländsk valuta eller motstridiga uppgifter upptäcktes. Underlaget kräver separat granskning och registreras inte här.';return}
+    if(suggestion.blocked){state.unsupported=file;status.textContent='PDF-läsningen upptäckte en risk: kredit, felaktiga totalsummor, okänd eller blandad moms, utländsk valuta eller motstridiga uppgifter. Registrera inte här; kontrollera originalet och använd separat manuell hantering.';return}
     for(const [name,value] of Object.entries(suggestion.values))if(!form.elements[name].value)form.elements[name].value=value;
     if(!form.elements.supplierId.value&&suggestion.supplierName){
       if(suggestion.possibleSupplierId)form.elements.supplierId.value=suggestion.possibleSupplierId;
