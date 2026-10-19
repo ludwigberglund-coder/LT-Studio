@@ -273,11 +273,11 @@ body.shared-mobile-nav-lock{overflow:hidden}
 /* Unified, searchable navigation: all permissioned tools in one consistent menu. */
 .sidebar.shared-sidebar .shared-nav-search{
   display:grid;gap:7px;padding:10px 8px 12px;margin:0 0 3px;
-  border-bottom:1px solid #395d4b;flex-shrink:0;
+  border-bottom:1px solid var(--color-hairline,#e5e5e5);flex-shrink:0;
 }
 .sidebar.shared-sidebar .shared-nav-search[hidden]{display:none!important}
 .sidebar.shared-sidebar .shared-nav-search label{
-  display:block;color:#deebe3;font:700 12px/1.35 system-ui,sans-serif;
+  display:block;color:var(--color-ink-soft,#171717);font:700 12px/1.35 system-ui,sans-serif;
   letter-spacing:.02em;
 }
 .sidebar.shared-sidebar .shared-nav-search input{
@@ -297,7 +297,7 @@ body.shared-mobile-nav-lock{overflow:hidden}
 .sidebar.shared-sidebar .shared-navigation details[open]>summary{background:#224c3b}
 .sidebar.shared-sidebar .shared-navigation summary::after{
   content:'›';display:inline-block;margin-left:auto;
-  color:#e4eee6;font:400 23px/1 system-ui,sans-serif;transition:transform .2s ease;
+  color:currentColor;font:400 23px/1 system-ui,sans-serif;transition:transform .2s ease;
 }
 .sidebar.shared-sidebar .shared-navigation details[open]>summary::after{transform:rotate(90deg)}
 @media(prefers-reduced-motion:reduce){
@@ -309,8 +309,17 @@ body.shared-mobile-nav-lock{overflow:hidden}
 .sidebar.shared-sidebar .shared-navigation .shared-links a[hidden],
 .sidebar.shared-sidebar .shared-nav-search-empty[hidden]{display:none!important}
 .sidebar.shared-sidebar .shared-nav-search-empty{
-  margin:8px 9px;padding:11px;border-radius:10px;
-  background:#244d3b;color:#eef5f0;font:500 13px/1.5 system-ui,sans-serif;
+  margin:8px 9px;padding:11px;border:1px solid var(--color-hairline,#dedede);border-radius:10px;
+  background:var(--surface-card,#fff);color:var(--color-ink,#171717);
+  font:500 13px/1.5 system-ui,sans-serif;
+}
+html[data-lt-theme="dark"] .sidebar.shared-sidebar .shared-nav-search label{color:#fff}
+html[data-lt-theme="dark"] .sidebar.shared-sidebar .shared-nav-search input{
+  background:var(--lt-dark-surface,#1b2823);color:#fff;border-color:#829b8f;
+}
+html[data-lt-theme="dark"] .sidebar.shared-sidebar .shared-nav-search input::placeholder{color:#d3e0d9}
+html[data-lt-theme="dark"] .sidebar.shared-sidebar .shared-nav-search-empty{
+  background:var(--lt-dark-surface,#1b2823);color:#fff;border-color:#829b8f;
 }
 @media(max-width:760px){
   .sidebar.shared-sidebar .shared-nav-search{padding:7px 4px 12px}
