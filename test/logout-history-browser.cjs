@@ -172,7 +172,9 @@ function json(route,status,body){
     await page.locator('.shared-user-trigger').waitFor({state:'visible',timeout:10000});
     assert.match(await page.locator('body').innerText(),/Syntetisk UAT-användare/);
 
-    await page.locator('[data-nav-group="sales"] > summary').click();
+    // Technical ledger views are integrated into the workspace but still
+    // searchable as direct links, including before signing out.
+    await page.locator('#shared-nav-search-input').fill('kundreskontra');
     await page.locator('a[data-nav-id="receivables"]').click();
     await page.waitForURL(/\/LT-Studio\/portal\/index\.html$/, {timeout:10000});
     await page.locator('.shared-user-trigger').waitFor({state:'visible',timeout:10000});
