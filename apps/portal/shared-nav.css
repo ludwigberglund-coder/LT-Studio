@@ -270,30 +270,44 @@ body.shared-mobile-nav-lock{overflow:hidden}
 }
 
 
-/* #749: accessible customer-friendly vs advanced navigation. This is a UI setting,
-   never a permission boundary or a change to accounting workflows. */
-.shared-sidebar .shared-nav-mode-switch{
-  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px;
-  margin:0 4px;padding:4px;border-radius:12px;background:#0d3025;
-  border:1px solid #517663;flex-shrink:0;
+/* Unified, searchable navigation: all permissioned tools in one consistent menu. */
+.sidebar.shared-sidebar .shared-nav-search{
+  display:grid;gap:7px;padding:10px 8px 12px;margin:0 0 3px;
+  border-bottom:1px solid #395d4b;flex-shrink:0;
 }
-.shared-sidebar .shared-nav-mode-button{
-  display:block;width:100%;min-height:43px;border:0;border-radius:9px;
-  padding:9px 4px;font:700 12px/1.3 system-ui,sans-serif;
-  color:#e4eee6;background:transparent;cursor:pointer;white-space:nowrap;
+.sidebar.shared-sidebar .shared-nav-search[hidden]{display:none!important}
+.sidebar.shared-sidebar .shared-nav-search label{
+  display:block;color:#deebe3;font:700 12px/1.35 system-ui,sans-serif;
+  letter-spacing:.02em;
 }
-.shared-sidebar .shared-nav-mode-button[aria-pressed="true"]{
-  background:#dce79a;color:#143c30;box-shadow:0 2px 7px rgb(0 0 0 / .16);
+.sidebar.shared-sidebar .shared-nav-search input{
+  display:block;width:100%;max-width:100%;min-width:0;min-height:44px;
+  border:1px solid #8ea99b;border-radius:11px;padding:11px 12px;
+  background:#f7faf8;color:#16372a;
+  font:500 13px/1.35 system-ui,sans-serif;box-sizing:border-box;
 }
-.shared-sidebar .shared-nav-mode-button:hover:not([aria-pressed="true"]){background:#2c5644}
-.shared-sidebar .shared-nav-mode-button:focus-visible{
-  outline:3px solid #fff;outline-offset:2px;
+.sidebar.shared-sidebar .shared-nav-search input::placeholder{color:#536f60;opacity:1}
+.sidebar.shared-sidebar .shared-nav-search input:focus-visible{
+  outline:3px solid #dce79a;outline-offset:2px;border-color:#143c30;
+}
+.sidebar.shared-sidebar .shared-navigation details{padding:3px 0}
+.sidebar.shared-sidebar .shared-navigation summary{
+  min-height:44px;letter-spacing:.015em;font-size:13px;
+}
+.sidebar.shared-sidebar .shared-navigation details[open]>summary{background:#224c3b}
+.sidebar.shared-sidebar .shared-navigation .shared-links{padding:2px 0 8px}
+.sidebar.shared-sidebar .shared-navigation .shared-links a{min-height:44px}
+.sidebar.shared-sidebar .shared-navigation details[hidden],
+.sidebar.shared-sidebar .shared-navigation .shared-links a[hidden],
+.sidebar.shared-sidebar .shared-nav-search-empty[hidden]{display:none!important}
+.sidebar.shared-sidebar .shared-nav-search-empty{
+  margin:8px 9px;padding:11px;border-radius:10px;
+  background:#244d3b;color:#eef5f0;font:500 13px/1.5 system-ui,sans-serif;
 }
 @media(max-width:760px){
-  .shared-sidebar .shared-nav-mode-switch{margin:0 2px}
-  .shared-sidebar .shared-nav-mode-button{min-height:44px;font-size:13px}
+  .sidebar.shared-sidebar .shared-nav-search{padding:7px 4px 12px}
+  .sidebar.shared-sidebar .shared-nav-search input{font-size:16px}
 }
-
 
 /* AI #767: one contextual entry point throughout the private finance portal. */
 .shared-workspace-shell .topbar>.shared-ai-trigger{
