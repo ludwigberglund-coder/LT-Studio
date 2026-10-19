@@ -81,7 +81,19 @@
       if(!Array.isArray(rows)||rows.length>1||rows.some(row=>!sameInvoice(row,op)))throw fail('INTAKE_DUPLICATE_OR_CHANGED');
       let invoice=rows[0]||null;
       if(invoice){
-        if((await originals()).length===1)return {invoiceId:invoice.id,resumed:true};
+        if((await originals()).length===1){
+          // A database link alone does not prove that the passive original is
+          // still retrievable. Never report a complete intake without it.
+          let original;
+          try{
+            const verifiedContext=await context();
+            original=await client.storage.download('lt-documents',op.path,verifiedContext.accessToken);
+          }catch(_error){throw fail('INTAKE_DOCUMENT_CONFLICT');}
+          if(!original||original.size!==op.size||
+             await hash(await original.arrayBuffer())!==op.sha256)throw fail('INTAKE_DOCUMENT_CONFLICT');
+          await context();
+          return {invoiceId:invoice.id,resumed:true};
+        }
         if(!['registered','coding-review'].includes(invoice.status)||invoice.approved_by||invoice.approved_at||invoice.liability_accounting_entry_id)
           throw fail('INTAKE_LOCKED');
       }
