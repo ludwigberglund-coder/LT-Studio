@@ -71,6 +71,19 @@ test('duplicate supplier invoice reference or same original SHA always blocks pr
   assert.equal(suggest({invoices:list()}).status,'suggested','the same source row must not count as a duplicate');
 });
 
+test('reference variants matching the database unique key block unsafe historical previews',()=>{
+ for(const [reference,oldReference] of [
+   ['INV 1001','inv1001'],[' ＩＮＶ１００１ ','INV1001'],
+   ['INV\u00a01001','inv 1001']
+ ]){
+   const incoming=source({supplier_invoice_number:reference});
+   const existing=history(4,{supplier_invoice_number:oldReference});
+   no(suggest({source:incoming,invoices:[incoming,history(1),history(2),history(3),existing]}));
+   no(draft('6540',{source:incoming,invoices:[incoming,history(1),history(2),history(3),existing]}));
+ }
+ // Different supplier references do not collide on reference alone.
+ assert.equal(suggest({invoices:[...list(),history(4,{supplier_id:'unrelated',supplier_invoice_number:'INV-NEW-01'})]}).status,'suggested');
+});
 test('weak, contradictory or duplicated history yields no automatic account',()=>{
   no(suggest({invoices:list().slice(0,3)}));
   no(suggest({invoices:[...list().slice(0,3),history(3,{coding_json:[
