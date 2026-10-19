@@ -24,11 +24,11 @@ select is(
    where schemaname='storage' and tablename='objects'
      and policyname='lt archive requires trusted uploader'),
   'RESTRICTIVE','direct browser archive Storage upload is subject to a restrictive policy');
-select like(
+select ok(
   (select with_check from pg_policies
    where schemaname='storage' and tablename='objects'
-     and policyname='lt archive requires trusted uploader'),
-  '%documents%','restrictive Storage policy explicitly excludes documents folder');
+     and policyname='lt archive requires trusted uploader') like '%documents%',
+  'restrictive Storage policy explicitly excludes documents folder');
 select is(
   (select rowsecurity from pg_tables
    where schemaname='public' and tablename='archive_pdf_upload_rate_windows'),
