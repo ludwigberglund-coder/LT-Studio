@@ -456,6 +456,12 @@ html[data-lt-theme="dark"] .ai-bookkeeping-content{
   --ai-shadow:0 13px 33px rgb(0 0 0 / .2);
   color-scheme:dark;
 }
+/* Explicit dark PDF surface is part of the existing local-reader contract. */
+html[data-lt-theme="dark"] .ai-pdf-reader{
+  color:var(--ai-ink);
+  background:var(--ai-panel);
+  border-color:var(--ai-border);
+}
 html[data-lt-theme="dark"] .ai-bookkeeping-content :is(h2,h3,h4,strong,label){color:var(--ai-ink)}
 html[data-lt-theme="dark"] .ai-bookkeeping-content :is(select,input[type=file]){
   background:var(--ai-panel)!important;
