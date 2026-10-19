@@ -43,8 +43,9 @@ function fixture({rows={},deferTable}={}){
     sessionStorage:{getItem:()=>null},
     URLSearchParams,Intl,Date,structuredClone
   };
-  vm.runInNewContext(source,sandbox,{filename:'apps/portal/automation.js'});
-  return {app,ctx,queries,switchContext:next=>{activeCtx=next;},finish:result=>{
+  vm.runInNewContext(source+'\n;globalThis.__automationTest={mutationContext};',sandbox,{filename:'apps/portal/automation.js'});
+  return {app,ctx,queries,mutationContext:()=>sandbox.__automationTest.mutationContext(),
+    switchContext:next=>{activeCtx=next;},finish:result=>{
     assert.equal(typeof complete,'function');
     complete(result);
   }};
@@ -107,6 +108,17 @@ test('a company or token switch during in-flight joins rejects the older snapsho
   await settle();
   assert.match(a.app.innerHTML,error);
   assert.doesNotMatch(a.app.innerHTML,/proposal-a|tenant-a|synthetic-token-a/);
+});
+
+test('a company switch after rendering blocks the cached context before any mutation',async()=>{
+  const a=fixture();
+  await settle();
+  a.switchContext({
+    ...a.ctx,
+    company:{id:'tenant-b',name:'Fiktivt företag B'},
+    accessToken:'synthetic-token-b'
+  });
+  await assert.rejects(a.mutationContext(),/Företaget eller sessionen har ändrats/);
 });
 
 test('a missing access token cannot read or show tenant records',async()=>{
