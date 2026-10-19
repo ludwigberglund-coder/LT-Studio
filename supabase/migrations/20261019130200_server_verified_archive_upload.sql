@@ -5,6 +5,14 @@
 -- Browser users can still upload generated customer invoices into their
 -- dedicated staging folders, but NEVER archive arbitrary '/documents/' files.
 
+-- Explicit provenance distinguishes new deeply checked uploads from legacy
+-- originals that predate the trusted Edge boundary.
+alter table public.documents
+  add column if not exists server_verified_at timestamptz;
+create unique index if not exists documents_server_verified_sha_idx
+  on public.documents(company_id,sha256)
+  where server_verified_at is not null;
+
 revoke insert on public.documents from authenticated;
 drop policy if exists "members can write company documents" on public.documents;
 
