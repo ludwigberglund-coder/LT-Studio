@@ -94,6 +94,8 @@ test('lägesväxeln är borttagen och nya menygrupper är hopfällbara utan för
   assert.match(source,/nav\.setAttribute\('aria-label','Alla tillgängliga funktioner'\)/);
   assert.match(source,/details\.open=group\.items\.some\(item=>active\(item\[2\]\)\)/);
   assert.match(source,/const storageId='unified:'\+group\.id/);
+  assert.match(source,/summary\\.addEventListener\\('click'/);
+  assert.doesNotMatch(source,/details\\.addEventListener\\('toggle'/);
   assert.match(css,/\.shared-navigation \.shared-links a\[hidden\]/);
   assert.match(css,/\.shared-nav-search input:focus-visible/);
   assert.match(css,/min-height:44px/);
