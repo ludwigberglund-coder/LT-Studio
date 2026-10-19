@@ -495,6 +495,8 @@ html[data-lt-theme="dark"] .ai-bookkeeping-content .ai-bookkeeping-status.succes
   .ai-pdf-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:720px){
+  /* 16px controls avoid Safari's involuntary input-focus zoom on phones. */
+  .ai-bookkeeping-content :is(select,input[type=file]){font-size:16px}
   .ai-bookkeeping-content{padding:17px 13px 32px;gap:15px}
   .ai-bookkeeping-intro{padding:22px 19px;border-radius:17px}
   .ai-bookkeeping-intro h2{font-size:clamp(25px,5vw,31px)}
