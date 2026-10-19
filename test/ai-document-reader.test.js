@@ -60,6 +60,13 @@ test('reads passive Swedish digital supplier invoice PDF and reconciles amounts 
   assert.equal(result.warnings.length,0);
   assert.equal(result.fields.netOre.verified,false);
 });
+test('a safe PDF with browser-unknown MIME is readable; a forged size or wrong MIME is not',async()=>{
+ const bytes=pdf(invoice);
+ const unknownMime=await reader.readPdf(file(bytes,'synthetic-invoice.pdf',''),'supplier-invoice');
+ assert.equal(unknownMime.fields.reference.value,'INV-123');
+ await assert.rejects(reader.readPdf(file(bytes,'synthetic-invoice.pdf','image/png'),'supplier-invoice'),{code:'PDF_ONLY'});
+ await assert.rejects(reader.readPdf({...file(bytes),size:bytes.length+1},'supplier-invoice'),{code:'PDF_SIZE_INVALID'});
+});
 test('reads FlateDecode compressed text-based PDF receipt without OCR or model',async()=>{
   const result=await reader.readPdf(file(pdf(receipt,{flate:true}),'synthetic-receipt.pdf'),'receipt');
   assert.equal(result.documentType,'receipt');
