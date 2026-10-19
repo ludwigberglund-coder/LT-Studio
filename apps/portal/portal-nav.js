@@ -735,7 +735,7 @@
     const navSearch=document.createElement('div');navSearch.className='shared-nav-search';
     const searchLabel=document.createElement('label');searchLabel.htmlFor='shared-nav-search-input';searchLabel.textContent='Hitta en funktion';
     const searchInput=document.createElement('input');searchInput.id='shared-nav-search-input';
-    searchInput.type='search';searchInput.placeholder='Sök t.ex. kvitto, lön eller konto';
+    searchInput.type='text';searchInput.setAttribute('role','searchbox');searchInput.inputMode='search';searchInput.placeholder='Sök t.ex. kvitto, lön eller konto';
     searchInput.autocomplete='off';searchInput.spellcheck=false;
     searchInput.setAttribute('aria-controls','shared-primary-navigation');
     navSearch.append(searchLabel,searchInput);
