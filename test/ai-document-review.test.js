@@ -207,6 +207,7 @@ test('real browser UI flow displays balanced review preview with local PDF facts
   await new Promise(resolve=>setImmediate(resolve));
   assert.match(app.innerHTML,/Visa granskningsutkast/);
   choose('ai-pdf-account','5460');
+  choose('ai-pdf-invoice-payment','unpaid');
   click('preview-pdf');
   assert.match(app.innerHTML,/Granskningsutkast – inte AI/);
   assert.match(app.innerHTML,/Förbrukningsmaterial/);
