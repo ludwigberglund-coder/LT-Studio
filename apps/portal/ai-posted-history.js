@@ -143,7 +143,9 @@
       !SHA.test(document.sha256||'')||
       document.sha256.toLowerCase()!==source.pdf_sha256.toLowerCase()||
       typeof document.object_path!=='string'||!document.object_path||
-      document.object_path.length>512||
+      document.object_path.length>512||!document.object_path.startsWith(companyId+'/')||
+      document.object_path.slice(companyId.length+1).split('/').some(segment=>
+        !segment||segment==='.'||segment==='..')||
       !Number.isSafeInteger(Number(document.size_bytes))||
       Number(document.size_bytes)<1||Number(document.size_bytes)>10485760)return null;
     return {supplierId:source.supplier_id,vatRate,reference:normalizedReference(source.supplier_invoice_number),sourceHash:source.pdf_sha256.toLowerCase()};
