@@ -62,7 +62,35 @@
     mfaChallenge:(token,factorId)=>request('/auth/v1/factors/'+encodeURIComponent(factorId)+'/challenge',{method:'POST',token,body:JSON.stringify({})}),
     mfaVerify:(token,factorId,challengeId,code)=>request('/auth/v1/factors/'+encodeURIComponent(factorId)+'/verify',{method:'POST',token,body:JSON.stringify({challenge_id:challengeId,code:String(code||'')})}),
     rpc:(name,args,token)=>request('/rest/v1/rpc/'+encodeURIComponent(name),{method:'POST',token,headers:{Prefer:'return=representation'},body:JSON.stringify(args||{})}),
-    functions:{invoke:(name,body,token)=>request('/functions/v1/'+encodeURIComponent(name),{method:'POST',token,body:JSON.stringify(body||{})})},
+    functions:{
+      invoke:(name,body,token)=>request('/functions/v1/'+encodeURIComponent(name),
+        {method:'POST',token,body:JSON.stringify(body||{})}),
+      uploadArchiveDocument:async(form,token,companyId)=>{
+        if(!(form instanceof FormData)||!token||!companyId)
+          throw new Error('En giltig företagsinloggning och ett dokument krävs.');
+        // Multipart boundary belongs to the browser: never set Content-Type.
+        const response=await fetch(cfg.url+'/functions/v1/archive-document-upload',{
+          method:'POST',
+          headers:{
+            'apikey':cfg.publishableKey,
+            'Authorization':'Bearer '+token,
+            'x-lt-company-id':String(companyId)
+          },
+          body:form
+        });
+        const payload=await response.json().catch(()=>({}));
+        if(!response.ok){
+          const error=new Error(payload.error||'Dokumentet kunde inte verifieras på servern.');
+          error.code=String(payload.code||'ARCHIVE_UPLOAD_FAILED');
+          error.status=response.status;
+          throw error;
+        }
+        if(!payload?.saved||!/^doc_[a-f0-9]{32}$/.test(String(payload.id||'')))
+          throw new Error('Servern kunde inte bekräfta att dokumentet sparades säkert.');
+        lastMutationAt=Date.now();
+        return payload;
+      }
+    },
     from:(table,token)=>({
       select:(query='*',filters='')=>request('/rest/v1/'+encodeURIComponent(table)+'?select='+encodeURIComponent(query)+(filters?'&'+filters:''),{token}),
       countExact:(filters='')=>request('/rest/v1/'+encodeURIComponent(table)+'?select=id'+(filters?'&'+filters:'')+'&limit=1',{token,headers:{Prefer:'count=exact'},exactCount:true}),
