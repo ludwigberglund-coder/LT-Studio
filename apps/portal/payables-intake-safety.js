@@ -87,13 +87,13 @@
         if((await originals()).length===1){
           // A database link alone does not prove that the passive original is
           // still retrievable. Never report a complete intake without it.
-          let original;
           try{
             const verifiedContext=await context();
-            original=await client.storage.download('lt-documents',op.path,verifiedContext.accessToken);
+            const original=await client.storage.download('lt-documents',op.path,verifiedContext.accessToken);
+            if(!original||original.size!==op.size)throw fail('INTAKE_DOCUMENT_CONFLICT');
+            const bytes=await original.arrayBuffer();
+            if(bytes.byteLength!==op.size||await hash(bytes)!==op.sha256)throw fail('INTAKE_DOCUMENT_CONFLICT');
           }catch(_error){throw fail('INTAKE_DOCUMENT_CONFLICT');}
-          if(!original||original.size!==op.size||
-             await hash(await original.arrayBuffer())!==op.sha256)throw fail('INTAKE_DOCUMENT_CONFLICT');
           await context();
           return {invoiceId:invoice.id,resumed:true};
         }
