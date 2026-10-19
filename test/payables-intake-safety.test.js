@@ -29,7 +29,7 @@ function backend({failDocumentOnce=false,failInvoiceOnce=false,lostInvoiceReply=
   async upload(bucket,path,file){uploads.push(path);if(failUpload)throw new Error('Upload unavailable');if(original)throw new Error('Object already exists');original=file;},
   async download(){if(!original)throw new Error('Not found');return original;}
  }};
- return {db,client,writes,uploads};
+ return {db,client,writes,uploads,removeOriginal:()=>{original=null;}};
 }
 const run=(b,operation,getContext=async()=>ctx())=>I.save({operation,client:b.client,store:S,getContext});
 test('input validates dates and amounts before any write adapter exists',()=>{
@@ -59,6 +59,13 @@ test('successful registration writes one supplier, invoice and original link, ne
 test('exact retry of a completed registration makes no further writes or uploads',async()=>{
  const b=backend(),operation=await op();await run(b,operation);const result=await run(b,operation);
  assert.equal(result.resumed,true);assert.equal(b.writes.length,3);assert.equal(b.uploads.length,1);
+});
+test('completed intake is not reported as resumed if its original PDF disappeared',async()=>{
+ const b=backend(),operation=await op();await run(b,operation);
+ b.removeOriginal();
+ await assert.rejects(run(b,operation),/INTAKE_DOCUMENT_CONFLICT/);
+ assert.equal(b.writes.length,3);
+ assert.equal(b.uploads.length,1);
 });
 test('failed PDF upload creates no supplier or invoice',async()=>{
  const b=backend({failUpload:true});await assert.rejects(run(b,await op()));
