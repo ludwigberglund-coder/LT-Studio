@@ -62,7 +62,12 @@ function safeText(form:FormData,key:string,required:boolean,max:number){
   const values=form.getAll(key);
   if(values.length!==1||typeof values[0]!=="string")throw problem(422,"INVALID_UPLOAD_FIELDS");
   const raw=values[0] as string;
-  if(/[\u0000-\u001f\u007f]/.test(raw))throw problem(422,"INVALID_UPLOAD_FIELDS");
+  // A document comment may contain normal line breaks; other controls are
+  // not valid human-entered archive metadata.
+  const unsafe=key==="note"
+    ?/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(raw)
+    :/[\u0000-\u001f\u007f]/.test(raw);
+  if(unsafe)throw problem(422,"INVALID_UPLOAD_FIELDS");
   const text=raw.trim().normalize("NFC");
   if(text.length>max||(required&&!text))throw problem(422,"INVALID_UPLOAD_FIELDS");
   return text;
