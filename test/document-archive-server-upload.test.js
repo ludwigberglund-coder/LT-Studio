@@ -136,6 +136,7 @@ function fixture({deferUpload=false,uploadResponse={saved:true,id:'doc_'+ 'a'.re
   return {
     form,app,
     submit:()=>{sandbox.currentForm=form;return vm.runInContext('upload(currentForm)',context);},
+    redraw:()=>vm.runInContext('render()',context),
     changeCompany:(id,token)=>{companyId=id;accessToken=token;},
     complete:()=>{assert.equal(typeof complete,'function');complete(uploadResponse);},
     get calls(){return calls},
@@ -148,6 +149,7 @@ test('archive upload uses verified Edge result and never writes browser Storage'
   const f=fixture();
   await settle();
   await f.submit();
+  f.redraw(); // Normal submit handler renders only after upload succeeds.
   assert.equal(f.calls,1);
   assert.equal(f.mutations,0);
   assert.match(f.app.innerHTML,/Servern verifierade PDF-originalet före privat lagring/);
@@ -169,6 +171,7 @@ test('verified idempotent retry remains explicit and creates no browser copies',
   const f=fixture({uploadResponse:{saved:true,id:'doc_'+ 'b'.repeat(32),duplicate:true}});
   await settle();
   await f.submit();
+  f.redraw();
   assert.match(f.app.innerHTML,/redan sparat och verifierat/);
   assert.equal(f.mutations,0);
 });
