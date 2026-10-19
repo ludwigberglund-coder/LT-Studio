@@ -213,7 +213,8 @@ async function main(req:Request){
       size_bytes:bytes.length,sha256:fileSha,
       source_type:info.sourceType,source_id:info.sourceId,
       uploaded_by:userData.user.id,title:info.title,
-      category:info.category,note:info.note
+      category:info.category,note:info.note,
+      server_verified_at:new Date().toISOString()
     };
     const existing=await findDocument(admin,id,companyId);
     if(existing){
@@ -253,6 +254,7 @@ async function main(req:Request){
 
       const {data:inserted,error:insertError}=await admin.from("documents")
         .insert(row).select("id").single();
+      if(insertError?.code==="23505")throw problem(409,"DOCUMENT_ALREADY_EXISTS");
       if(insertError||inserted?.id!==id)throw problem(503,"ARCHIVE_INSERT_UNCONFIRMED");
       return reply(req,201,{saved:true,id,duplicate:false});
     }catch(error){
