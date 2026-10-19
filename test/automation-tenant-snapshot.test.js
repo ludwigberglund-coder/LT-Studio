@@ -21,8 +21,9 @@ function fixture({rows={},deferTable}={}){
     accessToken:'synthetic-token-a',
     user:{displayName:'Testanvändare'}
   };
+  let activeCtx=ctx;
   const window={
-    LTSupabaseUat:{context:async()=>ctx},
+    LTSupabaseUat:{context:async()=>activeCtx},
     LTSupabase:{from:(table,token)=>({
       select:async(fields,filter)=>{
         queries.push({table,token,fields,filter});
@@ -43,7 +44,7 @@ function fixture({rows={},deferTable}={}){
     URLSearchParams,Intl,Date,structuredClone
   };
   vm.runInNewContext(source,sandbox,{filename:'apps/portal/automation.js'});
-  return {app,ctx,queries,finish:result=>{
+  return {app,ctx,queries,switchContext:next=>{activeCtx=next;},finish:result=>{
     assert.equal(typeof complete,'function');
     complete(result);
   }};
@@ -97,8 +98,11 @@ test('a company or token switch during in-flight joins rejects the older snapsho
     automation_proposals:[{id:'proposal-a',company_id:'tenant-a',status:'manual-review'}]
   }});
   await settle();
-  a.ctx.company={id:'tenant-b',name:'Fiktivt företag B'};
-  a.ctx.accessToken='synthetic-token-b';
+  a.switchContext({
+    ...a.ctx,
+    company:{id:'tenant-b',name:'Fiktivt företag B'},
+    accessToken:'synthetic-token-b'
+  });
   a.finish([]);
   await settle();
   assert.match(a.app.innerHTML,error);

@@ -49,10 +49,13 @@ async function loadSupabaseAutomation(){
     window.LTSupabase.from('customers',ctx.accessToken).select('*',filter)
   ]);
   // Reject *all* results before building any previews; a single foreign
-  // bank/customer row must never be combined with a local proposal.
-  if(String(ctx.company?.id||'')!==companyId||ctx.accessToken!==token||
-     String(supabaseCtx?.company?.id||'')!==companyId||supabaseCtx?.accessToken!==token)
+  // bank/customer row must never be combined with a local proposal. Re-read
+  // storage-backed context so a company/session switch cannot pass via cache.
+  const currentCtx=await window.LTSupabaseUat.context();
+  if(!currentCtx?.authenticated||String(currentCtx.company?.id||'')!==companyId||
+     currentCtx.accessToken!==token)
     throw new Error('Automationskön kunde inte läsas säkert. Ladda om sidan och försök igen.');
+  supabaseCtx=currentCtx;
   const [proposalRows,executionRows,reclassRows,bankRowsRaw,invoiceRowsRaw,customerRows]=
     results.map(rows=>verifiedCompanyRows(rows,companyId));
   const executions=new Map(executionRows.map(r=>[String(r.proposal_id),r])),banks=new Map(bankRowsRaw.map(r=>[String(r.id),r])),invoices=new Map(invoiceRowsRaw.map(r=>[String(r.id),r])),customers=new Map(customerRows.map(r=>[String(r.id),r])),latestReclassByBank=new Map();
