@@ -61,6 +61,12 @@ begin
     pg_catalog.hashtextextended('lt-archive-upload:'||p_company_id,0)
   );
 
+  -- Quota is needed only for the current minute/day. Remove stale counters
+  -- under the same company lock so long-lived free-tier databases stay lean.
+  delete from public.archive_pdf_upload_rate_windows
+  where company_id=p_company_id
+    and window_start < now()-interval '2 days';
+
   if exists(
     select 1 from public.archive_pdf_upload_rate_windows q
     where q.company_id=p_company_id
