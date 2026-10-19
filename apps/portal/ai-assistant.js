@@ -24,7 +24,7 @@
   // Never turn a limited history page into a falsely exact company-wide count.
   const QUEUE_PAGE_LIMIT=500;
   let queueLoading=false;
-  function updateQueueCounters(open,ready,review){
+  function updateQueueCounters(open,ready,review,partial=false){
     const values={
       'ai-bookkeeper-open-count':open,
       'ai-bookkeeper-ready-count':ready,
@@ -32,7 +32,10 @@
     };
     for(const [id,value] of Object.entries(values)){
       const element=document.getElementById(id);
-      if(element)element.textContent=Number.isSafeInteger(value)?String(value):'–';
+      if(!element)continue;
+      element.textContent=Number.isSafeInteger(value)?(partial?'≥ '+value:String(value)):'–';
+      if(Number.isSafeInteger(value))element.setAttribute?.('aria-label',(partial?'Minst ':'')+value);
+      else element.removeAttribute?.('aria-label');
     }
   }
   async function loadExistingProposalSummary(){
@@ -70,7 +73,7 @@
       const ready=rows.filter(row=>row.status==='ready-for-approval').length;
       const review=rows.filter(row=>row.status==='manual-review').length;
       const open=ready+review;
-      updateQueueCounters(open,ready,review);
+      updateQueueCounters(open,ready,review,rows.length===QUEUE_PAGE_LIMIT);
       if(rows.length===QUEUE_PAGE_LIMIT){
         status.textContent='Bland de 500 senaste posterna finns minst '+open+
           ' öppna förslag, varav minst '+review+
@@ -100,7 +103,7 @@
       '<button type="button" id="ai-bookkeeper-refresh" class="ai-bookkeeper-refresh" data-ai-action="refresh-queue">Uppdatera köstatus</button></div>'+
       '<div class="ai-bookkeeper-queue-grid">'+
       '<div class="ai-bookkeeper-queue-stat"><span>Öppna förslag</span><strong id="ai-bookkeeper-open-count">–</strong>'+
-      '<small>Totalt som behöver hanteras</small></div>'+
+      '<small>Bland hämtade poster</small></div>'+
       '<div class="ai-bookkeeper-queue-stat"><span>Väntar på godkännande</span><strong id="ai-bookkeeper-ready-count">–</strong>'+
       '<small>Ännu inte bokförda här</small></div>'+
       '<div class="ai-bookkeeper-queue-stat"><span>Extra granskning</span><strong id="ai-bookkeeper-review-count">–</strong>'+
