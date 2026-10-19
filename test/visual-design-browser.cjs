@@ -476,6 +476,10 @@ function visible(element){
           assert.ok(workspace.controlSizes.every(v=>v>=44),
             `AI ${viewport.id} ${theme.id} controls too small: ${JSON.stringify(workspace.controlSizes)}`);
           assert.equal(workspace.total,3,'Visible accounting example requires three review rows');
+          await page.screenshot({
+            path:path.join(out,`ai-overview-${viewport.id}-${theme.id}.png`),
+            fullPage:false,animations:'disabled'
+          });
           await page.locator('.ai-pdf-reader').screenshot({
             path:path.join(out,`ai-pdf-workspace-${viewport.id}-${theme.id}.png`),
             animations:'disabled'
