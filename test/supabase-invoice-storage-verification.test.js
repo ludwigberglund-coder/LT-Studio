@@ -14,7 +14,7 @@ test('Supabase kundfaktura verifierar faktisk PDF via Edge före finalisering',(
   const edge=read('supabase/functions/verify-customer-invoice-document/index.ts');
   const pdfGate=read('supabase/functions/_shared/passive-pdf.ts');
 
-  assert.match(client,/functions:\{invoke:/);
+  assert.match(client,/functions:\s*\{\s*invoke:/);
   assert.match(invoices,/functions\.invoke\('verify-customer-invoice-document'/);
   assert.ok(
     invoices.indexOf("functions.invoke('verify-customer-invoice-document'")<
