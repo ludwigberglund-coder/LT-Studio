@@ -36,13 +36,14 @@
   }
   // Simple navigation is a projection of the existing permission-filtered menu.
   // It does not create privileges, new routes, or economic write operations.
+  // Customer-first menu: everyday actions up front, technical detail stays in Advanced.
+  // The permission-filtered routes remain unchanged and accessible in Advanced mode.
   const simpleNavigation=Object.freeze([
-    {id:'start',label:'Kom igång',items:[['overview','Översikt'],['ai-assistant','AI-bokförare']]},
-    {id:'invoices',label:'Fakturor',items:[['invoices','Skapa & visa fakturor'],['receivables','Obetalda fakturor'],['customers','Kunder']]},
-    {id:'purchases',label:'Inköp & kvitton',items:[['payables','Leverantörsfakturor'],['documents','Underlag (PDF)'],['supplier-ledger','Att betala'],['suppliers','Leverantörer'],['automation','Förslag att granska']]},
-    {id:'money',label:'Pengar & bank',items:[['bank','Bankhändelser'],['unplaced-payments','Betalningar att hantera'],['payments','Alla betalningar']]},
-    {id:'results',label:'Resultat & rapporter',items:[['reports','Se rapporter']]},
-    {id:'closing',label:'Månad & bokslut',items:[['accounting','Stäng månaden & bokföring'],['bokslut','Bokslut'],['batches','Godkänn bokföring']]},
+    {id:'start',label:'Start',items:[['overview','Översikt'],['ai-assistant','Fråga AI-bokföraren']]},
+    {id:'sales',label:'Fakturor & kunder',items:[['invoices','Skapa och visa fakturor'],['receivables','Obetalda fakturor'],['customers','Kunder']]},
+    {id:'purchases',label:'Inköp & kvitton',items:[['documents','Lämna underlag'],['payables','Leverantörsfakturor'],['supplier-ledger','Fakturor att betala']]},
+    {id:'banking',label:'Bank & betalningar',items:[['bank','Bankhändelser'],['unplaced-payments','Betalningar att hantera'],['payments','Alla betalningar']]},
+    {id:'work',label:'Bokföring & resultat',items:[['automation','Förslag att granska'],['batches','Godkänn bokföring'],['accounting','Bokföring och månadskontroll'],['reports','Resultat och rapporter'],['bokslut','Bokslut']]},
     {id:'preferences',label:'Inställningar',items:[['company-settings','Företagsinställningar']]}
   ]);
   function simpleGroups(allowedGroups){
