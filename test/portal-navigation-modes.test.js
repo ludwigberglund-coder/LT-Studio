@@ -10,13 +10,17 @@ const policy=require('../config/access-control.json');
 const rolePermissions=role=>policy.roles.find(entry=>entry.id===role).permissions;
 const flatten=groups=>groups.flatMap(group=>group.items);
 
-test('enkelt läge har högst sju begripliga ämnesgrupper',()=>{
+test('enkelt läge grupperar vardagsuppgifter utan tekniska undermenyer',()=>{
   const authorized=Nav.visibleGroups({authenticated:true,permissions:rolePermissions('admin')});
   const simple=Nav.simpleGroups(authorized);
   assert.deepEqual(simple.map(group=>group.label),[
-    'Kom igång','Fakturor','Inköp & kvitton','Pengar & bank',
-    'Resultat & rapporter','Månad & bokslut','Inställningar'
+    'Start','Fakturor & kunder','Inköp & kvitton',
+    'Bank & betalningar','Bokföring & resultat','Inställningar'
   ]);
+  assert.ok(simple.every(group=>group.items.length<=5));
+  assert.ok(flatten(simple).some(([id,label])=>id==='documents'&&label==='Lämna underlag'));
+  assert.ok(flatten(simple).some(([id,label])=>id==='ai-assistant'&&label==='Fråga AI-bokföraren'));
+  assert.equal(flatten(simple).some(([id])=>id==='suppliers'),false);
   assert.ok(flatten(simple).some(([id,label])=>id==='unplaced-payments'&&label==='Betalningar att hantera'));
   assert.ok(flatten(simple).some(([id,label])=>id==='batches'&&label==='Godkänn bokföring'));
   assert.ok(flatten(simple).some(([id,label])=>id==='automation'&&label==='Förslag att granska'));
