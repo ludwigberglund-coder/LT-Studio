@@ -32,6 +32,7 @@ function backend({failDocumentOnce=false,failInvoiceOnce=false,lostInvoiceReply=
  return {db,client,writes,uploads,
   removeOriginal:()=>{original=null;},
   changeOriginal:async()=>{const bytes=new Uint8Array(await original.arrayBuffer());bytes[0]^=1;original={...original,arrayBuffer:async()=>bytes.buffer};},
+  truncateOriginalRead:async()=>{const bytes=new Uint8Array(await original.arrayBuffer());original={...original,arrayBuffer:async()=>bytes.slice(1).buffer};},
   breakOriginalRead:()=>{original={...original,arrayBuffer:async()=>{throw new Error('Synthetic read failure');}};}
  };
 }
@@ -80,6 +81,13 @@ test('completed intake is not reported as resumed if its original PDF disappeare
 test('completed intake rejects a changed original even when its byte length is unchanged',async()=>{
  const b=backend(),operation=await op();await run(b,operation);
  await b.changeOriginal();
+ await assert.rejects(run(b,operation),/INTAKE_DOCUMENT_CONFLICT/);
+ assert.equal(b.writes.length,3);
+ assert.equal(b.uploads.length,1);
+});
+test('completed intake rejects a short original read despite matching blob metadata',async()=>{
+ const b=backend(),operation=await op();await run(b,operation);
+ await b.truncateOriginalRead();
  await assert.rejects(run(b,operation),/INTAKE_DOCUMENT_CONFLICT/);
  assert.equal(b.writes.length,3);
  assert.equal(b.uploads.length,1);
