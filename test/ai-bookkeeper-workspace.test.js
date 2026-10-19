@@ -123,3 +123,80 @@ test('collapsed guide filters are hidden and have accessible labels',()=>{
   assert.match(css,/\.ai-assistant-guides:not\(\[open\]\)>section\{display:none!important\}/);
   assert.match(source,/aria-label=\"Visa guider för /);
 });
+
+test('500 most recent proposals are explicitly a partial history, never an exact company total',async()=>{
+  const rows=Array.from({length:500},(_,i)=>({
+    id:'synthetic-'+i,company_id:'tenant-a-001',
+    status:i<450?'ready-for-approval':i<480?'manual-review':'approved'
+  }));
+  const f=fixture({rows});
+  await settle();
+  assert.equal(f.counters.open.textContent,'480');
+  assert.equal(f.counters.ready.textContent,'450');
+  assert.equal(f.counters.review.textContent,'30');
+  assert.match(f.queue.textContent,/Bland de 500 senaste posterna finns minst 480 öppna förslag/);
+  assert.match(f.queue.textContent,/varav minst 30 kräver extra granskning/);
+  assert.match(f.queue.textContent,/Fler kan finnas/);
+  assert.doesNotMatch(f.queue.textContent,/Befintlig automationskö: 480 öppna/);
+});
+
+test('authorized refresh reads latest status without changing financial data',async()=>{
+  let currentRows=[{id:'first',company_id:'tenant-a-001',status:'manual-review'}];
+  const f=fixture({rows:()=>currentRows});
+  await settle();
+  assert.equal(f.counters.open.textContent,'1');
+  assert.equal(f.counters.ready.textContent,'0');
+  currentRows=[{id:'second',company_id:'tenant-a-001',status:'ready-for-approval'},
+    {id:'third',company_id:'tenant-a-001',status:'ready-for-approval'}];
+  f.clickRefresh();
+  await settle();
+  assert.equal(f.reads,2);
+  assert.equal(f.counters.open.textContent,'2');
+  assert.equal(f.counters.ready.textContent,'2');
+  assert.equal(f.counters.review.textContent,'0');
+  assert.equal(f.refresh.disabled,false);
+  assert.ok(f.queries.every(q=>q.table!=='journal_entries'));
+});
+
+test('pending queue request ignores repeated refresh clicks',async()=>{
+  let complete;
+  const f=fixture({rows:()=>new Promise(resolve=>{complete=resolve;})});
+  await settle();
+  assert.equal(f.refresh.disabled,true);
+  f.clickRefresh();
+  assert.equal(f.reads,1);
+  complete([{id:'one',company_id:'tenant-a-001',status:'ready-for-approval'}]);
+  await settle();
+  assert.equal(f.counters.open.textContent,'1');
+  assert.equal(f.refresh.disabled,false);
+});
+
+test('late queue response cannot reveal old tenant totals after a company change',async()=>{
+  let complete;
+  const f=fixture({rows:()=>new Promise(resolve=>{complete=resolve;})});
+  await settle();
+  f.context.company={id:'tenant-b-002',name:'Företag B'};
+  complete([{id:'private-a',company_id:'tenant-a-001',status:'manual-review'}]);
+  await settle();
+  assert.equal(f.counters.open.textContent,'–');
+  assert.equal(f.counters.review.textContent,'–');
+  assert.match(f.queue.textContent,/Företaget eller inloggningen har ändrats/);
+  assert.doesNotMatch(f.queue.textContent,/tenant-a|private-a/);
+});
+
+test('query errors clear previous numeric totals and keep error details private',async()=>{
+  let shouldFail=false;
+  const f=fixture({rows:()=>{
+    if(shouldFail)throw new Error('private upstream message');
+    return [{id:'open',company_id:'tenant-a-001',status:'manual-review'}];
+  }});
+  await settle();
+  assert.equal(f.counters.open.textContent,'1');
+  shouldFail=true;
+  f.clickRefresh();
+  await settle();
+  assert.equal(f.counters.open.textContent,'–');
+  assert.equal(f.counters.review.textContent,'–');
+  assert.match(f.queue.textContent,/Kunde inte läsa automationskön/);
+  assert.doesNotMatch(f.queue.textContent,/private upstream message/);
+});
