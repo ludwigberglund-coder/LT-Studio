@@ -72,6 +72,36 @@
     if(demoTools.length)result.push({id:'demo',label:'Demo & äldre verktyg',items:demoTools});
     return result;
   }
+  // Group related screens into one understandable workflow while keeping
+  // their original routes, permissions, records and deep links untouched.
+  const combinedWorkspaces=Object.freeze([
+    {id:'sales',label:'Fakturor & kunder',items:[
+      ['invoices','Skapa & visa fakturor'],
+      ['receivables','Obetalda fakturor & inbetalningar'],
+      ['customers','Kunder']
+    ]},
+    {id:'purchases',label:'Inköp & underlag',items:[
+      ['documents','Kvitton & underlag'],
+      ['payables','Leverantörsfakturor'],
+      ['supplier-ledger','Att betala'],
+      ['suppliers','Leverantörer']
+    ]}
+  ]);
+  const integratedSubpages=new Set(['receivables','supplier-ledger']);
+  function workspaceForRoute(allowedGroups,pathname){
+    const permitted=new Map((Array.isArray(allowedGroups)?allowedGroups:[])
+      .flatMap(group=>group.items.map(item=>[item[0],item])));
+    const pathnameOnly=String(pathname||'').split(/[?#]/)[0];
+    for(const workspace of combinedWorkspaces){
+      const items=workspace.items.flatMap(([id,label])=>{
+        const item=permitted.get(id);
+        return item?[[id,label,item[2]]]:[];
+      });
+      if(items.some(item=>pathnameOnly.endsWith('/'+item[2])))
+        return {id:workspace.id,label:workspace.label,items};
+    }
+    return null;
+  }
   function normalizeNavigationSearch(value){
     return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('sv-SE').trim();
   }
@@ -93,7 +123,7 @@
       return [{id,label,description,href:'./'+path.slice('portal/'.length)}];
     });
   }
-  if(typeof module==='object'&&module.exports){module.exports={groups,visibleGroups,unifiedGroups,normalizeNavigationSearch,quickActionLinks};return;}
+  if(typeof module==='object'&&module.exports){module.exports={groups,visibleGroups,unifiedGroups,combinedWorkspaces,workspaceForRoute,integratedSubpages,normalizeNavigationSearch,quickActionLinks};return;}
   function ensureFavicon(){
     if(document.querySelector('link[rel~="icon"]'))return;
     const link=document.createElement('link');
@@ -709,12 +739,38 @@
     section.append(info,action);
     content.prepend(section);
   }
+  function mountCombinedWorkspace(context){
+    const workspace=workspaceForRoute(context?.groups,location.pathname);
+    if(!workspace)return;
+    const main=document.querySelector('.shared-workspace-main main.content');
+    if(!main||main.querySelector(':scope > .lt-workspace-switcher'))return;
+    const section=document.createElement('section');
+    section.className='lt-workspace-switcher';
+    section.setAttribute('aria-label',workspace.label);
+    const heading=document.createElement('div');heading.className='lt-workspace-switcher-heading';
+    const overline=document.createElement('span');overline.textContent='Arbetsyta';
+    const title=document.createElement('strong');title.textContent=workspace.label;
+    heading.append(overline,title);
+    const tabs=document.createElement('nav');tabs.className='lt-workspace-switcher-links';
+    tabs.setAttribute('aria-label',workspace.label+' – välj uppgift');
+    for(const [id,label,path] of workspace.items){
+      const link=document.createElement('a');
+      link.href=href(path);link.dataset.workspaceTab=id;link.textContent=label;
+      if(active(path))link.setAttribute('aria-current','page');
+      tabs.append(link);
+    }
+    section.append(heading,tabs);
+    main.prepend(section);
+  }
   let lastNavigationContext=null;
   async function mount(){
     const sidebar=document.querySelector('.sidebar');if(!sidebar)return;
     const route=location.pathname+location.hash;
     if(sidebar.dataset.sharedRoute===route&&sidebar.querySelector('.shared-navigation')){
-      if(lastNavigationContext)mountContextualAi(lastNavigationContext);
+      if(lastNavigationContext){
+        mountContextualAi(lastNavigationContext);
+        mountCombinedWorkspace(lastNavigationContext);
+      }
       return;
     }
     sidebar.classList.add('shared-sidebar');
@@ -756,6 +812,7 @@
       for(const [id,label,path] of group.items){
         const a=document.createElement('a');a.dataset.navId=id;a.textContent=label;a.href=href(path);
         a.dataset.navSearch=normalizeNavigationSearch(label+' '+(originalLabels.get(id)||''));
+        if(integratedSubpages.has(id)){a.dataset.workspaceSubpage='';a.hidden=!active(path);}
         if(active(path)){a.setAttribute('aria-current','page');a.classList.add('active');}
         links.append(a);
       }
@@ -781,7 +838,8 @@
         const groupMatch=Boolean(term)&&normalizeNavigationSearch(details.querySelector('summary')?.textContent).includes(term);
         let shown=0;
         for(const link of details.querySelectorAll('a[data-nav-id]')){
-          const match=!term||groupMatch||link.dataset.navSearch.includes(term);
+          const match=term?(groupMatch||link.dataset.navSearch.includes(term)):
+            (!link.hasAttribute('data-workspace-subpage')||link.getAttribute('aria-current')==='page');
           link.hidden=!match;
           if(match)shown++;
         }
@@ -801,7 +859,7 @@
     const foot=document.createElement('div');foot.className='shared-foot';
     const home=document.createElement('a');home.href=href(demo?'./':'portal/dashboard.html');home.textContent=demo?'Visa företagets hemsida':'Till arbetsöversikten';foot.append(home);
     const note=document.createElement('p');note.textContent=demo?'Äldre referensverktyg har separat demodata.':'Alla funktioner finns i grupperna ovan. Din roll avgör vad du kan använda.';foot.append(note);
-    sidebar.replaceChildren(brand,info,navSearch,nav,searchEmpty,foot);mountContextualAi(context);decorateUi();applySidebarPreference();await mountPendingBatchBadge(context);
+    sidebar.replaceChildren(brand,info,navSearch,nav,searchEmpty,foot);mountContextualAi(context);mountCombinedWorkspace(context);decorateUi();applySidebarPreference();await mountPendingBatchBadge(context);
     try{sidebar.scrollTop=Number(sessionStorage.getItem(key+':scroll')||0)}catch{}
     if(!sidebar.dataset.scrollBound){sidebar.addEventListener('scroll',()=>{try{sessionStorage.setItem(key+':scroll',String(sidebar.scrollTop))}catch{}});sidebar.dataset.scrollBound='1';}
   }
