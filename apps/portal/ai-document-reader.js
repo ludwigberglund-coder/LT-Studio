@@ -17,7 +17,7 @@
   function pdfBytes(text){return Uint8Array.from(text,c=>c.charCodeAt(0)&255);}
   function assertPassivePdf(bytes,fileName,mimeType){
     if(typeof fileName!=='string'||fileName.length>180||!/\.pdf$/i.test(fileName)||
-      /[\x00-\x1f\x7f\\/]/.test(fileName)||mimeType!=='application/pdf'){
+      /[\x00-\x1f\x7f\\/]/.test(fileName)||(mimeType&&mimeType!=='application/pdf')){
       throw failure('PDF_ONLY');
     }
     if(bytes.length<32||bytes.length>MAX_BYTES)throw failure('PDF_SIZE_INVALID');
@@ -286,8 +286,9 @@
   }
   async function readPdf(file,documentType){
     if(!file||typeof file.arrayBuffer!=='function')throw failure('PDF_ONLY');
-    if(Number(file.size)>MAX_BYTES)throw failure('PDF_SIZE_INVALID');
+    if(!Number.isSafeInteger(file.size)||file.size<32||file.size>MAX_BYTES)throw failure('PDF_SIZE_INVALID');
     const bytes=new Uint8Array(await file.arrayBuffer());
+    if(bytes.length!==file.size)throw failure('PDF_SIZE_INVALID');
     const raw=assertPassivePdf(bytes,String(file.name||''),String(file.type||''));
     const text=await extractText(raw);
     return parseFacts(text,documentType);
