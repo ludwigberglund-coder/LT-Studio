@@ -174,7 +174,7 @@
   justify-content:center;
   align-items:center;
   min-width:0;
-  min-height:46px;
+  min-height:46px!important;
   padding:10px 17px;
   border:1px solid var(--ai-accent);
   border-radius:11px;
@@ -345,7 +345,7 @@
   font-weight:750;
   cursor:pointer;
 }
-.ai-pdf-controls .button{min-height:48px}
+.ai-bookkeeping-content .ai-pdf-controls .button{min-height:48px!important}
 .ai-pdf-empty{
   margin:0;
   padding:22px 20px;
