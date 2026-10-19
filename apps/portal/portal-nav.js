@@ -760,9 +760,11 @@
         links.append(a);
       }
       details.append(links);nav.append(details);sections.push(details);
-      details.addEventListener('toggle',()=>{
+      // Only explicit user toggles are remembered. Initial and search-driven
+      // expansions must not gradually leave every group permanently open.
+      summary.addEventListener('click',()=>{
         if(filtering)return;
-        const s=read();s[storageId]=details.open;persist(s);
+        const state=read();state[storageId]=!details.open;persist(state);
       });
     }
     const searchEmpty=document.createElement('p');searchEmpty.className='shared-nav-search-empty';
