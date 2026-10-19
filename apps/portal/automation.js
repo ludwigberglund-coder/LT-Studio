@@ -28,9 +28,19 @@ function mapSupabaseProposal(row,executions,bankRows,invoiceRows,customers,lates
     currentAllocation:execution?{invoiceId:currentInvoiceId,invoiceNumber:currentInvoice.invoice_number||'',customerName:currentCustomer.name||'',remainingOre:Number(currentInvoice.remaining_ore||0),sequence:Number(latestReclass?.sequence||0)}:null
   };
 }
+function verifiedCompanyRows(rows,companyId){
+  // RLS is the actual authorization boundary. This is a second fail-closed
+  // guard against a wrong server/filter response or mismatched joined context.
+  if(!Array.isArray(rows)||rows.some(row=>!row||String(row.company_id||'')!==companyId))
+    throw new Error('Automationskön kunde inte läsas säkert. Ladda om sidan och försök igen.');
+  return rows;
+}
 async function loadSupabaseAutomation(){
-  const ctx=await supabaseContext(),filter='company_id=eq.'+encodeURIComponent(ctx.company.id);
-  const [proposalRows,executionRows,reclassRows,bankRowsRaw,invoiceRowsRaw,customerRows]=await Promise.all([
+  const ctx=await supabaseContext();
+  const companyId=String(ctx.company.id||''),token=ctx.accessToken;
+  if(!companyId||!token)throw new Error('Automationskön kunde inte läsas säkert. Ladda om sidan och försök igen.');
+  const filter='company_id=eq.'+encodeURIComponent(companyId);
+  const results=await Promise.all([
     window.LTSupabase.from('automation_proposals',ctx.accessToken).select('*',filter+'&order=created_at.desc'),
     window.LTSupabase.from('customer_payment_executions',ctx.accessToken).select('*',filter),
     window.LTSupabase.from('customer_payment_reclassifications',ctx.accessToken).select('*',filter+'&order=sequence.desc,corrected_at.desc'),
@@ -38,7 +48,14 @@ async function loadSupabaseAutomation(){
     window.LTSupabase.from('invoices',ctx.accessToken).select('*',filter),
     window.LTSupabase.from('customers',ctx.accessToken).select('*',filter)
   ]);
-  const executions=new Map((executionRows||[]).map(r=>[String(r.proposal_id),r])),banks=new Map((bankRowsRaw||[]).map(r=>[String(r.id),r])),invoices=new Map((invoiceRowsRaw||[]).map(r=>[String(r.id),r])),customers=new Map((customerRows||[]).map(r=>[String(r.id),r])),latestReclassByBank=new Map();
+  // Reject *all* results before building any previews; a single foreign
+  // bank/customer row must never be combined with a local proposal.
+  if(String(ctx.company?.id||'')!==companyId||ctx.accessToken!==token||
+     String(supabaseCtx?.company?.id||'')!==companyId||supabaseCtx?.accessToken!==token)
+    throw new Error('Automationskön kunde inte läsas säkert. Ladda om sidan och försök igen.');
+  const [proposalRows,executionRows,reclassRows,bankRowsRaw,invoiceRowsRaw,customerRows]=
+    results.map(rows=>verifiedCompanyRows(rows,companyId));
+  const executions=new Map(executionRows.map(r=>[String(r.proposal_id),r])),banks=new Map(bankRowsRaw.map(r=>[String(r.id),r])),invoices=new Map(invoiceRowsRaw.map(r=>[String(r.id),r])),customers=new Map(customerRows.map(r=>[String(r.id),r])),latestReclassByBank=new Map();
   for(const row of reclassRows||[]){const key=String(row.bank_payment_id);if(!latestReclassByBank.has(key)||Number(row.sequence)>Number(latestReclassByBank.get(key)?.sequence||0))latestReclassByBank.set(key,row)}
   proposals=(proposalRows||[]).map(row=>mapSupabaseProposal(row,executions,banks,invoices,customers,latestReclassByBank));
   accounts=structuredClone(fallbackAccounts);session={user:ctx.user,company:ctx.company};
