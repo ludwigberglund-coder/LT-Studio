@@ -54,6 +54,27 @@ test('receipt needs explicitly selected payment account; derives missing net wit
   const cash=buildReview(receipt,{expenseAccount:'6540',paymentAccount:'1910'});
   assert.equal(cash.rows.at(-1).account,'1910');
 });
+test('already-paid invoices, unknown payment status and private receipts never produce incorrect liability or bank rows',()=>{
+  const invoice=source(25);
+  for(const state of ['already-paid','unsure']){
+    const result=buildReview(invoice,{expenseAccount:'6110',paymentStatus:state});
+    assert.equal(result.status,'blocked',state);
+    assert.deepEqual(result.rows,[]);
+    assert.equal(result.posted,false);
+    assert.ok(result.blockers.some(reason=>/betal|Betal|Faktura/.test(reason)));
+  }
+  const unpaid=buildReview(invoice,{expenseAccount:'6110',paymentStatus:'unpaid'});
+  assert.equal(unpaid.status,'manual-review');
+  assert.equal(unpaid.rows.at(-1).account,'2440');
+  const personal=buildReview(source(25,'receipt'),{expenseAccount:'5460',paymentAccount:'private'});
+  assert.equal(personal.status,'blocked');
+  assert.deepEqual(personal.rows,[]);
+  assert.ok(personal.blockers.some(reason=>/privat/.test(reason)));
+  for(const invalid of ['personal','paid',true,'']){
+    assert.throws(()=>buildReview(invoice,{expenseAccount:'6110',paymentStatus:invalid}),{code:'INVALID_PAYMENT_SELECTION'});
+  }
+});
+
 test('blocks mismatch, unknown VAT rates, foreign currency, absent source fields and credit',()=>{
   const mismatch=reader.parseFacts('Leverantör: Test AB\nFakturanummer: 12\nDatum: 2026-10-15\nNetto: 100,00 kr\nMoms: 25,00 kr\nTotalt: 140,00 kr','supplier-invoice');
   const a=buildReview(mismatch,{expenseAccount:'6110'});
