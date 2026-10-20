@@ -73,12 +73,12 @@ test('Swedish questions give deterministic useful process-specific results',()=>
   assert.equal(catalog.contextForPage('bank.html'),'bank');
 });
 
-test('assistant entry point is permission-filtered and available in simple and advanced menu',()=>{
+test('assistant entry point is available in the unified, permission-filtered menu',()=>{
   for(const role of ['admin','accountant','approver','readonly']){
     const permissions=policy.roles.find(item=>item.id===role).permissions;
     const groups=navigation.visibleGroups({authenticated:true,permissions});
     assert.ok(groups.flatMap(group=>group.items).some(item=>item[0]==='ai-assistant'),role);
-    assert.ok(navigation.simpleGroups(groups).flatMap(group=>group.items).some(item=>item[0]==='ai-assistant'),role);
+    assert.ok(navigation.unifiedGroups(groups).flatMap(group=>group.items).some(item=>item[0]==='ai-assistant'),role);
   }
   assert.equal(navigation.visibleGroups().length,0);
   assert.match(navSource,/'ai-assistant':'reports\.view'/);
