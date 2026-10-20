@@ -140,9 +140,23 @@ function sameOriginal(existing:Record<string,unknown>|null,expected:Record<strin
     "title","category","note"
   ].every(key=>String(existing[key]??"")===String(expected[key]??"")));
 }
+async function requireStoredOriginal(
+  admin:PostgrestAdmin,existing:Record<string,unknown>,expected:Record<string,unknown>
+){
+  // A retry is not proof that Storage still holds the original. Older
+  // records have no verified provenance and must not be grandfathered in.
+  if(!sameOriginal(existing,expected)||!existing.server_verified_at)
+    throw problem(409,"DOCUMENT_REQUEST_CONFLICT");
+  const {data:stored,error:readError}=await admin.storage.from("lt-documents")
+    .download(String(expected.object_path));
+  if(readError||!stored||stored.size!==expected.size_bytes)
+    throw problem(503,"ARCHIVED_ORIGINAL_UNAVAILABLE");
+  const storedHash=await sha256Hex(new Uint8Array(await stored.arrayBuffer()));
+  if(storedHash!==expected.sha256)throw problem(503,"ARCHIVED_ORIGINAL_MISMATCH");
+}
 async function findDocument(admin:PostgrestAdmin,id:string,companyId:string){
   const {data,error}=await admin.from("documents").select(
-    "id,company_id,object_path,file_name,mime_type,size_bytes,sha256,source_type,source_id,uploaded_by,title,category,note"
+    "id,company_id,object_path,file_name,mime_type,size_bytes,sha256,source_type,source_id,uploaded_by,title,category,note,server_verified_at"
   ).eq("company_id",companyId).eq("id",id).maybeSingle();
   if(error)throw problem(503,"ARCHIVE_STATE_UNKNOWN");
   return data as Record<string,unknown>|null;
@@ -220,7 +234,7 @@ async function main(req:Request){
     };
     const existing=await findDocument(admin,id,companyId);
     if(existing){
-      if(!sameOriginal(existing,row))throw problem(409,"DOCUMENT_REQUEST_CONFLICT");
+      await requireStoredOriginal(admin,existing,row);
       return reply(req,200,{saved:true,id,duplicate:true});
     }
     // Avoid a second identical original under another request ID.
@@ -266,8 +280,8 @@ async function main(req:Request){
       try{confirmed=await findDocument(admin,id,companyId)}
       catch{throw problem(503,"ARCHIVE_STATE_UNKNOWN")}
       if(confirmed){
-        if(sameOriginal(confirmed,row))return reply(req,200,{saved:true,id,duplicate:true});
-        throw problem(409,"DOCUMENT_REQUEST_CONFLICT");
+        await requireStoredOriginal(admin,confirmed,row);
+        return reply(req,200,{saved:true,id,duplicate:true});
       }
       if(uploaded){
         const {error:cleanupError}=await admin.storage.from("lt-documents")
