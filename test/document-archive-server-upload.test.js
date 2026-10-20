@@ -62,6 +62,8 @@ test('authenticated Edge upload verifies actual original bytes before Storage me
 test('SQL disables browser inserts, enforces a restrictive Storage policy and keeps quota server-only',()=>{
   assert.match(sql,/revoke insert on public\.documents from authenticated/i);
   assert.match(sql,/documents_server_verified_sha_idx/);
+  assert.match(sql,/lt archive blocks client replacement/);
+  assert.match(sql,/on storage\.objects as restrictive for update to authenticated/i);
   assert.match(sql,/server_verified_at is not null/);
   assert.match(sql,/on storage\.objects as restrictive for insert to authenticated/i);
   assert.match(sql,/and \(storage\.foldername\(name\)\)\[2\]='documents'/);
