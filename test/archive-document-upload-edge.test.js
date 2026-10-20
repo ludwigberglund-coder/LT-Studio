@@ -194,6 +194,45 @@ test('same user request is idempotent and different metadata on same request is 
   assert.equal(fx.state.documents.length,1);
 });
 
+test('retry cannot claim success if previously verified Storage original has disappeared',async()=>{
+  const bytes=await passivePdf(),fx=sandboxFixture();
+  const first=await send(fx,form(bytes));
+  assert.equal(first.status,201);
+  fx.state.objects.clear();
+  const second=await send(fx,form(bytes));
+  assert.equal(second.status,503);
+  assert.equal(second.body.code,'ARCHIVED_ORIGINAL_UNAVAILABLE');
+  assert.equal(fx.state.documents.length,1);
+  assert.equal(fx.state.uploads,1);
+  assert.equal(fx.state.removals,0,'never remove a referenced original');
+});
+
+test('retry cannot claim success when archived PDF original was changed',async()=>{
+  const bytes=await passivePdf(),fx=sandboxFixture();
+  const first=await send(fx,form(bytes));
+  assert.equal(first.status,201);
+  const [originalPath]=fx.state.objects.keys();
+  const changed=Buffer.from(bytes);
+  changed[changed.length-8]=changed[changed.length-8]^1;
+  fx.state.objects.set(originalPath,changed);
+  const second=await send(fx,form(bytes));
+  assert.equal(second.status,503);
+  assert.equal(second.body.code,'ARCHIVED_ORIGINAL_MISMATCH');
+  assert.equal(fx.state.documents.length,1);
+  assert.equal(fx.state.removals,0);
+});
+
+test('legacy row with missing server verification provenance is never silently trusted on retry',async()=>{
+  const bytes=await passivePdf(),fx=sandboxFixture();
+  const first=await send(fx,form(bytes));
+  assert.equal(first.status,201);
+  fx.state.documents[0].server_verified_at=null;
+  const second=await send(fx,form(bytes));
+  assert.equal(second.status,409);
+  assert.equal(second.body.code,'DOCUMENT_REQUEST_CONFLICT');
+  assert.equal(fx.state.uploads,1);
+});
+
 test('embedded active JavaScript is rejected before Storage is touched',async()=>{
   const bytes=await passivePdf(true),fx=sandboxFixture();
   const result=await send(fx,form(bytes));
