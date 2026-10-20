@@ -107,7 +107,7 @@ test('archive includes the same local PDF review module as the AI tab',()=>{
   assert.match(html,/ai-document-review\.js/);
   assert.match(script,/LTStudioDocumentReview\.buildReview/);
   assert.match(script,/crypto\.subtle\.digest\('SHA-256',bytes\)/);
-  assert.match(script,/doc\.objectPath\.startsWith\(String\(ctx\.company\.id\)\+'\/documents\/'\)/);
+  assert.match(script,/validArchivePath\(doc,ctx\.company\.id\)/);
   assert.match(css,/\.documents-pdf-choices/);
   assert.match(css,/html\[data-lt-theme="dark"\] \.documents-pdf-preview/);
   assert.doesNotMatch(script,/CLOUDFLARE_AI_TOKEN|SUPABASE_SERVICE_ROLE_KEY/);
