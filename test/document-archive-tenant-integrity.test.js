@@ -19,7 +19,8 @@ function sample(overrides={}){
     object_path:'tenant-a/documents/doc-a/invoice.pdf',
     created_at:'2026-10-15T09:00:00Z',...overrides};
 }
-function fixture({rows=[sample()],delayedRows=false,delayedDownload=false,downloadBytes=bytes}={}){
+function fixture({rows=[sample()],delayedRows=false,delayedDownload=false,
+  downloadBytes=bytes,expectedPath='tenant-a/documents/doc-a/invoice.pdf'}={}){
   let current={
     authenticated:true,accessToken:'synthetic-token-a',
     company:{id:'tenant-a',name:'Företag A'},
@@ -56,7 +57,7 @@ function fixture({rows=[sample()],delayedRows=false,delayedDownload=false,downlo
           downloads++;
           assert.equal(bucket,'lt-documents');
           assert.equal(token,'synthetic-token-a');
-          assert.equal(objectPath,'tenant-a/documents/doc-a/invoice.pdf');
+          assert.equal(objectPath,expectedPath);
           return delayedDownload?new Promise(resolve=>{finishDownload=resolve;}):
             new Blob([downloadBytes],{type:'application/pdf'});
         }}
@@ -166,6 +167,51 @@ test('original PDF SHA-256 is checked before opening a PDF-only blob',async()=>{
   assert.deepEqual(f.openUrls,[{
     url:'blob:synthetic-verified-file',mode:'_blank',features:'noopener'
   }]);
+});
+
+test('issued customer invoice remains readable from its existing verified Storage folder',async()=>{
+  const path='tenant-a/customer-invoices/request-20261020-abc/invoice.pdf';
+  const f=fixture({
+    rows:[sample({category:'customer-invoice',source_type:'customer-invoice',object_path:path})],
+    expectedPath:path
+  });
+  await settled();
+  await f.open();
+  assert.equal(f.downloads,1);
+  assert.equal(f.opens,1);
+  assert.equal(f.lastBlob?.type,'application/pdf');
+});
+
+test('issued credit note remains readable from its existing verified Storage folder',async()=>{
+  const path='tenant-a/customer-credit-notes/request-20261020-abc/invoice.pdf';
+  const f=fixture({
+    rows:[sample({category:'customer-invoice',source_type:'customer-invoice',object_path:path})],
+    expectedPath:path
+  });
+  await settled();
+  await f.open();
+  assert.equal(f.downloads,1);
+  assert.equal(f.opens,1);
+});
+
+test('a forged invoice category or unrelated folder cannot bypass trusted PDF paths',async()=>{
+  const path='tenant-a/customer-invoices/request-20261020-abc/invoice.pdf';
+  for(const row of [
+    sample({category:'supplier-invoice',source_type:'customer-invoice',object_path:path}),
+    sample({category:'customer-invoice',source_type:'supplier-invoice',object_path:path}),
+    sample({category:'customer-invoice',source_type:'customer-invoice',
+      object_path:'tenant-a/customer-invoices/../invoice.pdf'}),
+    sample({category:'customer-invoice',source_type:'customer-invoice',
+      object_path:'tenant-b/customer-invoices/request-20261020-abc/invoice.pdf'}),
+    sample({category:'supplier-invoice',
+      object_path:'tenant-a/documents/doc-a/../invoice.pdf'})
+  ]){
+    const f=fixture({rows:[row]});
+    await settled();
+    await assert.rejects(f.open(),openError);
+    assert.equal(f.downloads,0);
+    assert.equal(f.opens,0);
+  }
 });
 
 test('late Storage download after tenant switch cannot create a PDF URL',async()=>{
