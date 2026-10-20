@@ -26,6 +26,21 @@ with check (
   )
 );
 
+-- Even if a future permissive Storage UPDATE policy is added, browser
+-- clients must never overwrite/move a finished original into or out of the
+-- archive folder. Service-role Edge processing continues to bypass RLS.
+drop policy if exists "lt archive blocks client replacement" on storage.objects;
+create policy "lt archive blocks client replacement"
+on storage.objects as restrictive for update to authenticated
+using (
+  not (bucket_id='lt-documents'
+    and (storage.foldername(name))[2]='documents')
+)
+with check (
+  not (bucket_id='lt-documents'
+    and (storage.foldername(name))[2]='documents')
+);
+
 create table if not exists public.archive_pdf_upload_rate_windows (
   company_id text not null references public.companies(id) on delete cascade,
   actor_key text not null,
