@@ -1,7 +1,7 @@
 -- Synthetic, rollback-only verification for trusted archive PDF upload gates.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(20);
 
 insert into public.companies(id,legal_name,org_number,display_name) values
  ('test-843-a','Synthetic upload A','000000-8431','Synthetic upload A'),
@@ -29,6 +29,20 @@ select ok(
    where schemaname='storage' and tablename='objects'
      and policyname='lt archive requires trusted uploader') like '%documents%',
   'restrictive Storage policy explicitly excludes documents folder');
+select is(
+  (select permissive from pg_policies
+   where schemaname='storage' and tablename='objects'
+     and policyname='lt archive blocks client replacement'),
+  'RESTRICTIVE','client edits of finished PDF originals are restrictively blocked');
+select ok(
+  (select qual from pg_policies
+   where schemaname='storage' and tablename='objects'
+     and policyname='lt archive blocks client replacement') like '%documents%'
+  and
+  (select with_check from pg_policies
+   where schemaname='storage' and tablename='objects'
+     and policyname='lt archive blocks client replacement') like '%documents%',
+  'both old and new Storage object paths are guarded against archive replacement');
 select is(
   (select rowsecurity from pg_tables
    where schemaname='public' and tablename='archive_pdf_upload_rate_windows'),
