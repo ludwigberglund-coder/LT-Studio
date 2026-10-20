@@ -106,6 +106,25 @@ function sameDocumentSession(expected,current){
     current.accessToken===expected.accessToken&&
     (!expected.authUser?.id||current.authUser?.id===expected.authUser.id));
 }
+function validArchivePath(doc,companyId){
+  if(!doc||String(doc.companyId)!==String(companyId)||
+     typeof doc.objectPath!=='string'||typeof doc.fileName!=='string')
+    return false;
+  const parts=doc.objectPath.split('/');
+  if(parts.length!==4||parts[0]!==String(companyId)||
+     !/^[A-Za-z0-9_.-]+\.pdf$/i.test(parts[3]))
+    return false;
+  // Normal archive originals (including older customer uploads).
+  if(parts[1]==='documents')
+    return parts[2]===String(doc.id)&&parts[2]!=='.'&&parts[2]!=='..'&&
+      /^[A-Za-z0-9_-]{1,140}$/.test(parts[2]);
+  // Issued customer invoices and credit notes have always lived in separate
+  // verified staging folders. Do not break opening these existing originals.
+  return doc.category==='customer-invoice'&&doc.sourceType==='customer-invoice'&&
+    (parts[1]==='customer-invoices'||parts[1]==='customer-credit-notes')&&
+    /^[A-Za-z0-9_-]{16,100}$/.test(parts[2])&&
+    parts[3]===doc.fileName;
+}
 async function loadSupabaseDocuments(){
   const ctx=await window.LTSupabaseUat.context();
   if(!ctx?.authenticated||!ctx.company){documents=[];activePdfReview=null;location.href='./index.html';return false}
@@ -119,7 +138,8 @@ async function loadSupabaseDocuments(){
       throw archiveAccessError();
     }
     const mapped=rows.map(r=>({
-      id:r.id,companyId:r.company_id,title:r.title||r.file_name,fileName:r.file_name,
+      id:r.id,companyId:r.company_id,sourceType:r.source_type||null,
+      title:r.title||r.file_name,fileName:r.file_name,
       mimeType:r.mime_type,sizeBytes:Number(r.size_bytes||0),sha256:r.sha256||'',
       category:r.category||r.source_type||'other',note:r.note||'',createdAt:r.created_at,objectPath:r.object_path,
       links:r.source_type&&r.source_id?[{entityType:r.source_type,entityId:r.source_id,label:''}]:[]
@@ -139,7 +159,7 @@ async function openSupabaseDocument(id){
      !doc||String(doc.companyId)!==String(ctx.company.id)||
      doc.mimeType!=='application/pdf'||
      typeof doc.objectPath!=='string'||
-     !doc.objectPath.startsWith(String(ctx.company.id)+'/documents/')||
+     !validArchivePath(doc,ctx.company.id)||
      !/^[a-f0-9]{64}$/i.test(doc.sha256||'')||
      !Number.isSafeInteger(doc.sizeBytes)||doc.sizeBytes<=0||doc.sizeBytes>10*1024*1024)
     throw documentAccessError();
@@ -188,7 +208,7 @@ async function previewSupabaseDocument(id){
     ctx.company.id!==source.companyId||
     (source.userId&&ctx.authUser?.id!==source.userId)||
     !doc||doc.sha256!==source.sha256||doc.objectPath!==source.objectPath||
-    doc.category!==source.category||!doc.objectPath.startsWith(String(ctx.company.id)+'/documents/')){
+    doc.category!==source.category||!validArchivePath(doc,ctx.company.id)){
     throw new Error('DOCUMENT_REVIEW_EXPIRED');
   }
   const target=modal.querySelector('[data-document-review-result]');
@@ -216,7 +236,7 @@ async function readSupabaseDocument(id){
   if(!doc||String(doc.companyId)!==String(ctx.company.id)||
      !['supplier-invoice','receipt'].includes(doc.category)||
      doc.mimeType!=='application/pdf'||!doc.objectPath||
-     !doc.objectPath.startsWith(String(ctx.company.id)+'/documents/')||
+     !validArchivePath(doc,ctx.company.id)||
      !/^[a-f0-9]{64}$/i.test(doc.sha256||''))throw new Error('DOCUMENT_NOT_VERIFIED');
   const blob=await window.LTSupabase.storage.download('lt-documents',doc.objectPath,ctx.accessToken);
   if(!blob||blob.size!==doc.sizeBytes||blob.size>10*1024*1024)throw new Error('DOCUMENT_SIZE_MISMATCH');
