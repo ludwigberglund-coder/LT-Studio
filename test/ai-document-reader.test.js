@@ -119,7 +119,7 @@ test('existing private document archive checks tenant path and SHA-256 before lo
   assert.match(docsHtml,/ai-document-reader\.js/);
   assert.match(docs,/data-read-document/);
   assert.match(docs,/\['supplier-invoice','receipt'\]\.includes\(doc\.category\)/);
-  assert.match(docs,/doc\.objectPath\.startsWith\(String\(ctx\.company\.id\)\+'\/documents\/'\)/);
+  assert.match(docs,/validArchivePath\(doc,ctx\.company\.id\)/);
   assert.match(docs,/crypto\.subtle\.digest\('SHA-256',bytes\)/);
   assert.match(docs,/actual!==doc\.sha256\.toLowerCase\(\)/);
   assert.match(docs,/LTStudioDocumentReader\.readPdf\(file,doc\.category\)/);
