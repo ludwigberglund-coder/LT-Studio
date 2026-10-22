@@ -107,7 +107,7 @@ test('UI uses local reader and never unlocks Cloudflare pilot or auto-posting',(
   assert.match(portal,/Läs PDF lokalt/);
   assert.match(portal,/Ingen OCR av skannade bilder ännu/);
   assert.match(portal,/LTStudioDocumentReader\.readPdf\(file,localPdfType\)/);
-  assert.match(portal,/const AI_PILOT_RELEASED = false;/);
+  assert.match(portal,/const AI_PILOT_RELEASED = true;/);
   assert.doesNotMatch(reader.readPdf.toString(),/\bfetch\s*\(|\.functions\.invoke\s*\(|\.storage\.upload\s*\(/);
   assert.match(css,/\.ai-pdf-fields/);
   assert.match(css,/html\[data-lt-theme="dark"\] \.ai-pdf-reader/);
