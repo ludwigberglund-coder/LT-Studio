@@ -9,16 +9,16 @@
 .payables-shell .supplier-task-card {
   position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto;
   align-items: center; align-content: center; gap: 8px; min-width: 0;
-  padding: 12px; min-height: 72px; border: 1px solid var(--supplier-border); border-radius: 8px;
-  background: var(--supplier-card); color: var(--supplier-ink); text-align: left; white-space: normal;
+  padding: 12px !important; min-height: 72px !important; border: 1px solid var(--supplier-border) !important; border-radius: 8px !important;
+  background: var(--supplier-card) !important; color: var(--supplier-ink) !important; text-align: left; white-space: normal;
   font: inherit; cursor: pointer; box-shadow: none; letter-spacing: 0;
 }
-.payables-shell .supplier-task-card .supplier-task-label { display: block; margin: 0; padding: 0; border-radius: 0; background: transparent; color: inherit; font-weight: 700; font-size: 15px; line-height: 1.4; overflow-wrap: anywhere; }
+.payables-shell .supplier-task-card .supplier-task-label { display: block; margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0; background: transparent !important; box-shadow: none !important; text-decoration: none !important; color: inherit; font-weight: 700; font-size: 15px; line-height: 1.4; overflow-wrap: anywhere; }
 .payables-shell .supplier-task-card .supplier-task-count { font-size: 24px; line-height: 1.2; font-variant-numeric: tabular-nums; color: inherit; }
 /* Keep secondary descriptions in the accessible name without repeating visible instructions. */
 .payables-shell .supplier-task-card small { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .payables-shell .supplier-task-card:hover { background: var(--supplier-soft); }
-.payables-shell .supplier-task-card[aria-pressed="true"] { border: 2px solid var(--supplier-accent); padding: 11px; background: var(--supplier-soft); color: var(--supplier-ink); }
+.payables-shell .supplier-task-card[aria-pressed="true"] { border: 2px solid var(--supplier-accent) !important; padding: 11px !important; background: var(--supplier-soft) !important; color: var(--supplier-ink) !important; }
 /* Only repeated decorative headings are removed. Never hide warnings or financial controls. */
 .payables-shell .supplier-queue .queue-head .eyebrow,
 .payables-shell .invoice-next-step-top,
@@ -27,7 +27,7 @@
 .payables-shell .invoice-next-step h3 { margin-top: 0; }
 .payables-shell .supplier-queue .queue-head { padding: 16px; }
 .payables-shell .supplier-queue-scope { margin: 0; padding: 0 16px 12px; color: var(--supplier-muted); font-size: 13px; line-height: 1.5; }
-.payables-shell .supplier-queue .queue-tab { min-height: 44px; border-radius: 8px; }
+.payables-shell .supplier-queue .queue-tabs .queue-tab { min-height: 48px !important; border-radius: 8px !important; }
 .payables-shell .supplier-queue .queue-table { color: var(--supplier-ink); }
 .payables-shell .supplier-queue .work-pill { max-width: 100%; white-space: normal; line-height: 1.5; border-radius: 6px; }
 .payables-shell .supplier-open-invoice {
@@ -57,7 +57,7 @@ html[data-lt-theme="dark"] .payables-shell .supplier-queue .work-pill { backgrou
   .payables-shell .supplier-queue .queue-overdue strong { margin: 0; font-size: 16px; }
   .payables-shell .supplier-queue-scope { padding: 0 12px 12px; }
   .payables-shell .supplier-queue .payables-search-shell { width: 100%; min-width: 0; }
-  .payables-shell .supplier-queue .queue-search { width: 100%; font-size: 16px; min-height: 44px; }
+  .payables-shell .supplier-queue .queue-search { width: 100%; font-size: 16px !important; min-height: 48px !important; }
   .payables-shell .supplier-queue .queue-table { min-width: 0; width: 100%; }
   .payables-shell .supplier-queue .queue-table thead { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); }
   .payables-shell .supplier-queue .queue-table tbody { display: grid; gap: 12px; padding: 12px; }
