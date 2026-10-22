@@ -82,6 +82,7 @@ const server=http.createServer((req,res)=>{const u=new URL(req.url,'http://local
       await customerPage.locator('[data-cancel]').click();
       await customerPage.setViewportSize({width:1440,height:1000});
       await customerPage.locator('.customer-register-workspace').waitFor();
+      await customerPage.locator('#customer-register-search').fill('');
       await customerPage.screenshot({path:path.join(out,'customer-register-desktop.png'),fullPage:true});
       await customerPage.locator('[data-toggle-archived]').click();
       assert.match(await customerPage.locator('.customer-register-empty').innerText(),/Inga arkiverade kunder/);
