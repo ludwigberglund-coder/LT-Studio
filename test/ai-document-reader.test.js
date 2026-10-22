@@ -248,3 +248,18 @@ test('supplier invoice without identifiable supplier or invoice number requires 
   const receipt=reader.parseFacts(base,'receipt');
   assert.ok(!receipt.warnings.some(x=>x.includes('kunde inte identifieras')));
 });
+
+
+test('missing or invalid supplier invoice due date is visible for review',()=>{
+  const base='Leverantör: Exempel AB\nFakturanummer: F-10\nFakturadatum: 2026-10-14\nNetto: 100,00 kr\nMoms: 25,00 kr\nTotalt: 125,00 kr';
+  for(const suffix of ['', '\nFörfallodatum: 2026-02-30']){
+    const result=reader.parseFacts(base+suffix,'supplier-invoice');
+    assert.equal(result.status,'needs-review');
+    assert.equal(result.posted,false);
+    assert.ok(result.warnings.some(message=>message.includes('Förfallodatum kunde inte identifieras')));
+  }
+  const valid=reader.parseFacts(base+'\nFörfallodatum: 2026-11-14','supplier-invoice');
+  assert.ok(!valid.warnings.some(message=>message.includes('Förfallodatum kunde inte identifieras')));
+  const receipt=reader.parseFacts(base,'receipt');
+  assert.ok(!receipt.warnings.some(message=>message.includes('Förfallodatum kunde inte identifieras')));
+});
