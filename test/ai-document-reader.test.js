@@ -222,3 +222,15 @@ test('accepts an unambiguous indirect PDF stream length and refuses contradictor
   await assert.rejects(reader.readPdf(file(noLength),'supplier-invoice'),
     {code:'PDF_UNSUPPORTED_STREAM'});
 });
+
+test('flags supplier invoices due before issue date but not equal or later dates',()=>{
+  const base='Fakturanummer: INV-7\nFakturadatum: 2026-10-14\nFörfallodatum: ';
+  const invalid=reader.parseFacts(base+'2026-10-13','supplier-invoice');
+  assert.ok(invalid.warnings.some(message=>message.includes('Förfallodatum ligger före fakturadatum')));
+  for(const due of ['2026-10-14','2026-11-14']){
+    const valid=reader.parseFacts(base+due,'supplier-invoice');
+    assert.ok(!valid.warnings.some(message=>message.includes('Förfallodatum ligger före fakturadatum')));
+  }
+  const receipt=reader.parseFacts(base+'2026-10-13','receipt');
+  assert.ok(!receipt.warnings.some(message=>message.includes('Förfallodatum ligger före fakturadatum')));
+});
