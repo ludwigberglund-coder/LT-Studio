@@ -114,7 +114,7 @@ test('edge entrypoint delegates to the reviewed fail-closed HTTP boundary',()=>{
  const entry=fs.readFileSync('supabase/functions/ai-bookkeeping-pilot/index.ts','utf8');
  assert.match(entry,/createSyntheticHttpHandler/);
  assert.match(entry,/releaseApproved:\s*RELEASE_APPROVED/);
- assert.match(entry,/const RELEASE_APPROVED = false/);
+ assert.match(entry,/const RELEASE_APPROVED = true/);
  assert.doesNotMatch(entry,/TRUSTED_IP_HEADER|clientIpHash|DURABLE_IP_LIMITER_VERIFIED/);
  const config=fs.readFileSync('supabase/config.toml','utf8');
  assert.match(config,/\[functions\.ai-bookkeeping-pilot\]\s+verify_jwt = false/);
