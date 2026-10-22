@@ -39,7 +39,7 @@
   const unifiedNavigation=Object.freeze([
     {id:'start',label:'Start & AI',items:[['overview','Översikt'],['ai-assistant','AI-bokförare']]},
     {id:'sales',label:'Fakturor & kunder',items:[['invoices','Kundfakturor'],['receivables','Obetalda kundfakturor'],['customers','Kunder']]},
-    {id:'purchases',label:'Inköp & underlag',items:[['documents','Kvitton & underlag (PDF)'],['payables','Leverantörsfakturor & betalning'],['suppliers','Leverantörer']]},
+    {id:'purchases',label:'Inköp & underlag',items:[['documents','Kvitton & underlag (PDF)'],['payables','Leverantörsfakturor & betalning'],['supplier-ledger','Leverantörsreskontra (äldre direktlänk)'],['suppliers','Leverantörer']]},
     {id:'banking',label:'Bank & betalningar',items:[['bank','Bankhändelser & avstämning'],['unplaced-payments','Betalningar att hantera'],['payments','Alla betalningar']]},
     {id:'bookkeeping',label:'Bokföring & AI',items:[['ai-bookkeeping','AI-bokföring'],['automation','Förslag att granska'],['batches','Godkänn bokföring'],['accounting','Bokföring & verifikationer'],['accounts','Kontoplan & intäktskonton']]},
     {id:'closing',label:'Rapporter & bokslut',items:[['reports','Resultat & rapporter'],['bokslut','Bokslut'],['trial-balance','Saldobalans']]},
