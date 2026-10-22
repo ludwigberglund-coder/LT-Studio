@@ -57,14 +57,14 @@ test('missing, false or duplicated source release flags remain locked', async ()
   for (const source of ['', undefined, '// ' + server, server.replace('true', 'false'), server + '\n' + server])
     assert.equal(checkReleaseSources(source, browser).server, false);
 });
-test('current checked-in CLI refuses a live run without explicit staging configuration', () => {
+test('current checked-in CLI stays locked until an explicit staging release', () => {
   const out = spawnSync(process.execPath, ['scripts/ai-pilot-staging-smoke.mjs', '--run'], {
     cwd: require('node:path').join(__dirname, '..'), encoding: 'utf8', timeout: 5000,
     env: { ...process.env, RELEASE_APPROVED: 'true', AI_PILOT_RELEASED: 'true', AI_SYNTHETIC_PILOT_ENABLED: 'true' }
   });
   assert.equal(out.status, 1); assert.equal(out.stderr, '');
   const report = JSON.parse(out.stdout);
-  assert.equal(report.code, 'WRONG_STAGING_PROJECT'); assert.equal(report.liveAttempted, false); sanitized(report);
+  assert.equal(report.code, 'AI_PILOT_NOT_RELEASED'); assert.equal(report.liveAttempted, false); sanitized(report);
 });
 test('plan and either unreleased source read no credentials and contact no server', async () => {
   for (const options of [{ args: [] }, { release: { server: false, browser: true } }, { release: { server: true, browser: false } }]) {
