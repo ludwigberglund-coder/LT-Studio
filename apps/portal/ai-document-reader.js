@@ -269,6 +269,10 @@
     }
     if(!resolved.grossOre)warnings.push('Totalt belopp kunde inte fastställas säkert.');
     if(!resolved.invoiceDate)warnings.push('Datum måste kontrolleras mot originalet.');
+    if(documentType==='supplier-invoice'&&resolved.invoiceDate&&resolved.dueDate&&
+      resolved.dueDate.value<resolved.invoiceDate.value){
+      warnings.push('Förfallodatum ligger före fakturadatum. Kontrollera originalet.');
+    }
     if(/\b(?:EUR|USD|GBP|NOK|DKK|CHF|PLN|CAD|AUD|JPY|CNY)\b|[€£]/i.test(text))
       warnings.push('Möjlig utländsk valuta. Kontrollera manuellt.');
     if(creditNote)warnings.push('Kreditfaktura eller returkvitto: kräver separat krediteringsflöde.');
