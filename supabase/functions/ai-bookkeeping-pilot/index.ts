@@ -1,5 +1,5 @@
-// Cloudflare AI pilot gateway. This revision is released only for the isolated synthetic staging pilot.
-// Runtime settings, Auth/MFA, tenant checks and durable quotas still gate every call.
+// Cloudflare AI pilot gateway. This revision remains inert until a separate source-controlled staging release.
+// Runtime settings, Auth/MFA, tenant checks and durable quotas remain additional gates.
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 import { createSyntheticHttpHandler } from "../../../packages/automation/ai-synthetic-http.mjs";
 
