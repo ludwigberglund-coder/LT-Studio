@@ -5,7 +5,7 @@
     {id:'workspace',label:'Arbetsyta',items:[['overview','Översikt','portal/dashboard.html']]},
     {id:'economy',label:'Ekonomi',items:[
       ['invoices','Kundfakturor','portal/invoices.html'],['receivables','Kundreskontra','portal/index.html'],
-      ['payables','Leverantörsfakturor','portal/payables.html'],['supplier-ledger','Leverantörsreskontra','portal/supplier-ledger.html'],['payments','Betalningar','portal/payments.html'],['bank','Bank & avstämning','portal/bank.html'],['unplaced-payments','Oplacerade betalningar','portal/unplaced-payments.html'],
+      ['payables','Leverantörsfakturor & betalning','portal/payables.html'],['supplier-ledger','Leverantörsreskontra','portal/supplier-ledger.html'],['payments','Betalningar','portal/payments.html'],['bank','Bank & avstämning','portal/bank.html'],['unplaced-payments','Oplacerade betalningar','portal/unplaced-payments.html'],
       ['ai-bookkeeping','AI-bokföring','portal/ai-bookkeeping.html'],['automation','Automationskö','portal/automation.html'],['batches','Buntar','portal/batches.html'],['accounting','Bokföring','portal/accounting.html'],
       ['reports','Rapporter','portal/reports.html'],['bokslut','Bokslut','portal/bokslut.html'],['trial-balance','Saldobalans · bokslut','portal/book-close-trial-balance.html'],['accounts','Kontoplan & intäktskonton','portal/accounts.html'],
       ['payroll','Lön & lönejournal','portal/payroll.html'],['money','Öreskalkylator','admin/#/money'],
@@ -39,7 +39,7 @@
   const unifiedNavigation=Object.freeze([
     {id:'start',label:'Start & AI',items:[['overview','Översikt'],['ai-assistant','AI-bokförare']]},
     {id:'sales',label:'Fakturor & kunder',items:[['invoices','Kundfakturor'],['receivables','Obetalda kundfakturor'],['customers','Kunder']]},
-    {id:'purchases',label:'Inköp & underlag',items:[['documents','Kvitton & underlag (PDF)'],['payables','Leverantörsfakturor'],['supplier-ledger','Fakturor att betala'],['suppliers','Leverantörer']]},
+    {id:'purchases',label:'Inköp & underlag',items:[['documents','Kvitton & underlag (PDF)'],['payables','Leverantörsfakturor & betalning'],['suppliers','Leverantörer']]},
     {id:'banking',label:'Bank & betalningar',items:[['bank','Bankhändelser & avstämning'],['unplaced-payments','Betalningar att hantera'],['payments','Alla betalningar']]},
     {id:'bookkeeping',label:'Bokföring & AI',items:[['ai-bookkeeping','AI-bokföring'],['automation','Förslag att granska'],['batches','Godkänn bokföring'],['accounting','Bokföring & verifikationer'],['accounts','Kontoplan & intäktskonton']]},
     {id:'closing',label:'Rapporter & bokslut',items:[['reports','Resultat & rapporter'],['bokslut','Bokslut'],['trial-balance','Saldobalans']]},
@@ -48,7 +48,8 @@
   function unifiedGroups(allowedGroups){
     const source=Array.isArray(allowedGroups)?allowedGroups:[];
     const permitted=new Map(source.flatMap(group=>group.items.map(item=>[item[0],item])));
-    const used=new Set();
+    // The legacy supplier-ledger route still works for bookmarks, but is no longer a separate menu tab.
+    const used=new Set(['supplier-ledger']);
     const result=unifiedNavigation.map(group=>({
       id:group.id,label:group.label,
       items:group.items.flatMap(([id,label])=>{
@@ -82,8 +83,7 @@
     ]},
     {id:'purchases',label:'Inköp & underlag',items:[
       ['documents','Kvitton & underlag'],
-      ['payables','Leverantörsfakturor'],
-      ['supplier-ledger','Att betala'],
+      ['payables','Leverantörsfakturor & betalning'],
       ['suppliers','Leverantörer']
     ]}
   ]);
@@ -109,7 +109,7 @@
   // alters role permissions or bypasses server-side authorization.
   const quickActionDefinitions=Object.freeze([
     ['invoices','Fakturor','Visa och hantera kundfakturor'],
-    ['payables','Inköp','Visa leverantörsfakturor'],
+    ['payables','Leverantörsfakturor','Granska, attestera och förbered betalning'],
     ['documents','Underlag','Öppna dokumentinkorgen'],
     ['unplaced-payments','Oplacerade betalningar','Ta hand om betalningar utan fakturakoppling'],
     ['accounting','Månadskontroll','Kontrollera bokföring och period']
@@ -705,7 +705,7 @@
   // Never reads form fields, sends business data or bypasses the existing approval flows.
   const aiWorkflows=Object.freeze({
     'invoices.html':['Kundfakturor','Hjälp mig skapa en korrekt kundfaktura'],
-    'payables.html':['Leverantörsfakturor','Hjälp mig kontrollera en leverantörsfaktura'],
+    'payables.html':['Leverantörsfakturor & betalning','Hjälp mig kontrollera en leverantörsfaktura'],
     'supplier-ledger.html':['Leverantörsreskontra','Hjälp mig granska en leverantörsbetalning'],
     'documents.html':['Kvitton och dokument','Hjälp mig hantera ett kvitto eller PDF-underlag'],
     'bank.html':['Bankhändelser','Hjälp mig stämma av en bankhändelse'],
