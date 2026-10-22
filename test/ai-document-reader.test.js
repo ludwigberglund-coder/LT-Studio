@@ -234,3 +234,17 @@ test('flags supplier invoices due before issue date but not equal or later dates
   const receipt=reader.parseFacts(base+'2026-10-13','receipt');
   assert.ok(!receipt.warnings.some(message=>message.includes('Förfallodatum ligger före fakturadatum')));
 });
+
+
+test('supplier invoice without identifiable supplier or invoice number requires explicit review',()=>{
+  const base='Fakturadatum: 2026-10-14\nNetto: 100,00 kr\nMoms: 25,00 kr\nTotalt: 125,00 kr';
+  const missing=reader.parseFacts(base,'supplier-invoice');
+  assert.equal(missing.status,'needs-review');
+  assert.equal(missing.posted,false);
+  assert.ok(missing.warnings.some(x=>x.includes('Leverantör kunde inte identifieras')));
+  assert.ok(missing.warnings.some(x=>x.includes('Fakturanummer kunde inte identifieras')));
+  const complete=reader.parseFacts('Leverantör: Exempel AB\nFakturanummer: F-10\n'+base,'supplier-invoice');
+  assert.ok(!complete.warnings.some(x=>x.includes('kunde inte identifieras')));
+  const receipt=reader.parseFacts(base,'receipt');
+  assert.ok(!receipt.warnings.some(x=>x.includes('kunde inte identifieras')));
+});
