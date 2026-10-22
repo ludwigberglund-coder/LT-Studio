@@ -87,7 +87,7 @@ function customerList(){
           aria-live="polite" aria-atomic="true">${customerListCountText()}</span>
       </div>
       <label for="customer-register-search">Sök kund</label>
-      <input id="customer-register-search" type="search" autocomplete="off"
+      <input id="customer-register-search" type="text" inputmode="search" role="searchbox" autocomplete="off"
         placeholder="Namn, kundnummer, organisationsnummer eller e-post"
         aria-controls="customer-register-table" value="${esc(customerSearch)}">
     </div>
@@ -111,7 +111,7 @@ function form(){
       <h3>${c.customerNumber?'Redigera kund '+esc(c.customerNumber):'Lägg till kund'}</h3>
       <p>Fyll i kundens namn och kontaktuppgifter. Extra fakturainställningar hittar du längre ner.</p>
     </header>
-    <form id="customer-form" class="sales-form customer-form">
+    <form id="customer-form" class="sales-form">
       ${field('Kundnamn *','name')}
       ${field('Organisationsnummer','orgNumber')}
       ${field('E-post','email','email')}
