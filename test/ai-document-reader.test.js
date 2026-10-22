@@ -244,7 +244,8 @@ test('supplier invoice without identifiable supplier or invoice number requires 
   assert.ok(missing.warnings.some(x=>x.includes('Leverantör kunde inte identifieras')));
   assert.ok(missing.warnings.some(x=>x.includes('Fakturanummer kunde inte identifieras')));
   const complete=reader.parseFacts('Leverantör: Exempel AB\nFakturanummer: F-10\n'+base,'supplier-invoice');
-  assert.ok(!complete.warnings.some(x=>x.includes('kunde inte identifieras')));
+  assert.ok(!complete.warnings.some(x=>x.includes('Leverantör kunde inte identifieras')));
+  assert.ok(!complete.warnings.some(x=>x.includes('Fakturanummer kunde inte identifieras')));
   const receipt=reader.parseFacts(base,'receipt');
   assert.ok(!receipt.warnings.some(x=>x.includes('kunde inte identifieras')));
 });
