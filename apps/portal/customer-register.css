@@ -56,7 +56,7 @@
   display:block;margin:0 0 8px;font-size:12px;
   font-weight:750;color:var(--color-ink-soft,#1b1b1b);
 }
-.customer-register-tools input[type="search"]{
+.customer-register-tools #customer-register-search{
   display:block;box-sizing:border-box;width:min(580px,100%);max-width:100%;min-width:0;
   min-height:47px;padding:11px 14px;border-radius:12px;
   border:1px solid #b4c1b9;background:#fff;color:#171717;
@@ -115,10 +115,10 @@
 .customer-form-panel{max-width:950px;padding:25px!important;border-radius:20px}
 .customer-form-heading{margin:0 0 22px}
 .customer-form-heading h3{font-size:22px;letter-spacing:-.03em;margin:0 0 7px}
-.customer-form.customer-form{min-width:0;gap:17px}
-.customer-form.customer-form label{min-width:0;font-size:13px;color:var(--color-ink-soft,#171717)}
-.customer-form.customer-form :is(input,select,textarea){min-height:44px;max-width:100%;box-sizing:border-box}
-.customer-form.customer-form textarea{min-height:86px}
+.customer-form-panel .sales-form{min-width:0;gap:17px}
+.customer-form-panel .sales-form label{min-width:0;font-size:13px;color:var(--color-ink-soft,#171717)}
+.customer-form-panel .sales-form :is(input,select,textarea){min-height:44px;max-width:100%;box-sizing:border-box}
+.customer-form-panel .sales-form textarea{min-height:86px}
 .customer-form-advanced{
   border:1px solid var(--color-hairline,#d9e1db);
   border-radius:14px;overflow:hidden;
@@ -157,7 +157,7 @@ html[data-lt-theme="dark"] .customer-register-head{border-left-color:#c6e0c6!imp
 html[data-lt-theme="dark"] .customer-workspace :is(h2,h3,.customer-register-identity>strong,
   .customer-register-contact>span,.customer-register-tools label,.customer-register-id,
   .customer-history-count,.customer-form-heading h3,
-  .customer-form.customer-form label,.customer-form-advanced>summary){
+  .customer-form-panel .sales-form label,.customer-form-advanced>summary){
   color:#fff!important;
 }
 html[data-lt-theme="dark"] .customer-workspace :is(.customer-register-intro .eyebrow,
@@ -180,8 +180,8 @@ html[data-lt-theme="dark"] .customer-register-panel .sales-table td{
 html[data-lt-theme="dark"] .customer-register-status{
   background:#304f3d!important;color:#fff!important;border-color:#9bbbaa!important;
 }
-html[data-lt-theme="dark"] .customer-register-tools input[type="search"],
-html[data-lt-theme="dark"] .customer-form.customer-form :is(input,select,textarea){
+html[data-lt-theme="dark"] .customer-register-tools #customer-register-search,
+html[data-lt-theme="dark"] .customer-form-panel .sales-form :is(input,select,textarea){
   background:var(--lt-dark-surface-soft,#2d3b32)!important;
   color:#fff!important;border:1px solid #94aa9b!important;
 }
@@ -205,7 +205,7 @@ html[data-lt-theme="dark"] .customer-workspace :is(#customer-register-search,
   .customer-register-top-actions .button{flex:1 1 140px}
   .customer-register-tools{padding:18px 16px}
   .customer-register-tools-heading h3{font-size:18px}
-  .customer-register-tools input[type="search"]{font-size:16px}
+  .customer-register-tools #customer-register-search{font-size:16px}
   .customer-form-panel{padding:16px!important}
   .customer-form-advanced-grid{grid-template-columns:1fr}
 }
