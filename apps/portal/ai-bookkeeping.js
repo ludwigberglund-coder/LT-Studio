@@ -8,7 +8,7 @@
     {id:'software-service',label:'IT-tjänst',supplier:'Syntetisk IT AB',description:'IT-drifttjänst under september',account:'6540',accountName:'IT-tjänster'},
     {id:'cleaning-supplies',label:'Förbrukningsmaterial',supplier:'Syntetisk Städ AB',description:'Förbrukningsmaterial för städning',account:'5460',accountName:'Förbrukningsmaterial'}
   ]);
-  // Released only for the isolated synthetic staging pilot. Runtime server checks still gate every call.
+  // Hard-disabled until a separate source-controlled staging release. Runtime server checks are additional gates.
   const AI_PILOT_RELEASED = false;
   let context=null,selected=options[0].id,busy=false,result=null,status='',statusKind='info';
   let pilotContextInvalid=false;
