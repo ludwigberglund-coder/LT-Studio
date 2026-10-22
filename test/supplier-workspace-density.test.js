@@ -39,3 +39,11 @@ test('secondary descriptions remain accessible while task names and totals stay 
   assert.match(css, /font-size:\s*16px/);
   assert.match(css, /data-lt-theme="dark"/);
 });
+
+// The canonical theme loads last and has important segmented-control rules.
+test('component size and selected state survive the last-loaded shared theme', () => {
+  assert.match(css, /min-height:\s*72px\s*!important/);
+  assert.match(css, /border:\s*2px solid var\(--supplier-accent\)\s*!important/);
+  assert.match(css, /font-size:\s*16px\s*!important/);
+  assert.match(css, /border:\s*0\s*!important/);
+});
