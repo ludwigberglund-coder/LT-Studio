@@ -267,6 +267,10 @@
       resolved[key]=found.length===1?{value:found[0].value,evidence:found[0].evidence,verified:false}:null;
       if(found.length>1)warnings.push('Motstridiga uppgifter för '+key+'. Kontrollera originalet.');
     }
+    if(documentType==='supplier-invoice'){
+      if(!resolved.supplier)warnings.push('Leverantör kunde inte identifieras säkert. Kontrollera originalet.');
+      if(!resolved.reference)warnings.push('Fakturanummer kunde inte identifieras säkert. Kontrollera originalet.');
+    }
     if(!resolved.grossOre)warnings.push('Totalt belopp kunde inte fastställas säkert.');
     if(!resolved.invoiceDate)warnings.push('Datum måste kontrolleras mot originalet.');
     if(documentType==='supplier-invoice'&&resolved.invoiceDate&&resolved.dueDate&&
