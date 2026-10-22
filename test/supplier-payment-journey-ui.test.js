@@ -53,6 +53,8 @@ function ui(options = {}) {
     settle: async () => { await new Promise(resolve => setImmediate(resolve)); await new Promise(resolve => setImmediate(resolve)); },
     state: () => JSON.parse(run('JSON.stringify({selected,invoices,queueFilter,message,codingDirty,drafts:supplierReviewDrafts.size})')),
     filter: value => click('[data-filter]', { filter: value }),
+    openPayment: () => click('[data-action]', { action: 'open-payment-plan' }),
+    closePayment: () => click('[data-payment-plan-cancel]', {}),
     choose: id => click('[data-invoice-id]', { invoiceId: id }),
     visible: () => JSON.parse(run('JSON.stringify(queueInvoices().map(row=>row.id))')),
     query: value => { sandbox.searchTerm = value; run('queueQuery=searchTerm;render()'); },
@@ -91,6 +93,25 @@ test('search is intersected with the chosen queue and counters remain loaded-sna
   page.query('approve'); assert.deepEqual(page.visible(), []);
   assert.match(page.app.innerHTML, /Inga fakturor matchar/); assert.match(page.app.innerHTML, /9 inlästa fakturor/);
   assert.equal(page.attempts.length, 0);
+});
+test('one supplier page opens an explicit payment review without any bank or accounting mutation', async () => {
+  const page = ui(); await page.settle(); await page.choose('plan');
+  assert.match(page.app.innerHTML, /Leverantörsfakturor & betalning/);
+  assert.match(page.app.innerHTML, /data-action="open-payment-plan">Betala/);
+  await page.openPayment();
+  assert.match(page.app.innerHTML, /role="dialog" aria-modal="true" aria-labelledby="supplier-plan-title"/);
+  assert.match(page.app.innerHTML, /Förbered betalning – inte skicka/);
+  assert.match(page.app.innerHTML, /Inga pengar skickas till banken/);
+  assert.equal(page.attempts.length,0);
+  await page.closePayment();
+  assert.doesNotMatch(page.app.innerHTML, /supplier-plan-title/);
+  assert.equal(page.attempts.length,0);
+});
+test('unapproved invoice cannot open a payment operation', async () => {
+  const page = ui(); await page.settle(); await page.choose('approve');
+  await page.openPayment();
+  assert.doesNotMatch(page.app.innerHTML, /supplier-plan-title/);
+  assert.equal(page.attempts.length,0);
 });
 test('planning link carries the chosen invoice and company, and opens that invoice on the existing page', async () => {
   const page = ui(); await page.settle(); await page.choose('plan');
