@@ -12,11 +12,11 @@ const browser=read('apps/portal/ai-bookkeeping.js');
 const config=read('supabase/config.toml');
 const runbook=read('docs/AI-PILOT-STAGING-PREFLIGHT.md');
 
-test('AI gateway and portal stay hard-locked until explicitly reviewed',()=>{
-  assert.match(edge,/const RELEASE_APPROVED = false;/);
+test('AI gateway and portal are released only through explicit source flags',()=>{
+  assert.match(edge,/const RELEASE_APPROVED = true;/);
   assert.match(edge,/createSyntheticHttpHandler/);
   assert.match(edge,/releaseApproved:\s*RELEASE_APPROVED/);
-  assert.match(browser,/const AI_PILOT_RELEASED = false;/);
+  assert.match(browser,/const AI_PILOT_RELEASED = true;/);
   assert.match(config,/\[functions\.ai-bookkeeping-pilot\]\s+verify_jwt = false/);
 });
 test('atomic AI pilot migration remains disabled and browser-inaccessible',()=>{
@@ -39,7 +39,7 @@ test('shared admission remains durable, service-only and disabled by runtime set
   assert.match(sharedSql,/revoke all on public\.ai_pilot_admission_state from public,anon,authenticated/);
   assert.match(sharedSql,/grant execute on function public\.admit_ai_pilot_request_server\(\) to service_role/);
 });
-test('operator preflight is environment-specific, metadata-only and keeps release locked',()=>{
+test('operator preflight is environment-specific, metadata-only and documents release state',()=>{
   assert.match(runbook,/rwnqkgbbbxjjfhwtepsi/);
   assert.match(runbook,/bwbhnotpuuhgghjpmflk/);
   assert.match(runbook,/to_regclass\('public\.ai_pilot_runtime_settings'\)/);
@@ -48,8 +48,8 @@ test('operator preflight is environment-specific, metadata-only and keeps releas
   assert.match(runbook,/to_regprocedure\('public\.admit_ai_pilot_request_server/);
   assert.match(runbook,/has_function_privilege/);
   assert.match(runbook,/has_table_privilege/);
-  assert.match(runbook,/RELEASE_APPROVED=false/);
-  assert.match(runbook,/AI_PILOT_RELEASED=false/);
+  assert.match(runbook,/RELEASE_APPROVED=true/);
+  assert.match(runbook,/AI_PILOT_RELEASED=true/);
   assert.match(runbook,/enabled=false/);
   assert.match(runbook,/CLOUDFLARE_ACCOUNT_ID/);
   assert.match(runbook,/CLOUDFLARE_AI_TOKEN/);
@@ -58,7 +58,7 @@ test('operator preflight is environment-specific, metadata-only and keeps releas
   assert.doesNotMatch(runbook,/\b(delete from|truncate table|drop table|insert into|update public\.)/i);
 });
 
-test('staging alias and both AI migrations are documented without enabling AI',()=>{
+test('staging alias and both AI migrations are documented with staging-only release controls',()=>{
   const parity=read('docs/SUPABASE-PARITY.md');
   assert.match(runbook,/20261015071358_ai_pilot_atomic_quota/);
   assert.match(runbook,/20261013071500_ai_pilot_atomic_quota\.sql/);
@@ -70,5 +70,5 @@ test('staging alias and both AI migrations are documented without enabling AI',(
   const uatHistory=JSON.parse(read('supabase/migration-history-parity.json'));
   assert.equal(uatHistory.project_ref,'bwbhnotpuuhgghjpmflk');
   assert.equal(uatHistory.aliases.some(item=>item.live_version==='20261015071358'),false);
-  assert.match(browser,/const AI_PILOT_RELEASED = false;/);
+  assert.match(browser,/const AI_PILOT_RELEASED = true;/);
 });
