@@ -15,8 +15,8 @@ GitHub är källan till Edge Function, tester och migrationer. Dela aldrig API-n
 - Grundmigrationen `supabase/migrations/20261013071500_ai_pilot_atomic_quota.sql` installerades i staging den 15 oktober 2026 som live-version `20261015071358_ai_pilot_atomic_quota`. Kör den inte igen.
 - PR #826:s nya `supabase/migrations/20261016171526_ai_pilot_shared_admission.sql` är inte verifierad som installerad i någon hosted miljö.
 - Ingen AI Edge Function är verifierad som deployad i staging.
-- Databasens singleton ska aktiveras först efter deploy; kundportalens syntetiska pilot är versionsstyrt släppt med `AI_PILOT_RELEASED=true`.
-- PR #826 öppnar serverlåset endast för syntetisk staging med `RELEASE_APPROVED=true`. Den tidigare IP-header-grinden ersätts av en gemensam hållbar admissionsgräns; detta är inte bevis för betrodd klient-IP.
+- Databasens singleton ska vara `enabled=false` före release; kundportalens `AI_PILOT_RELEASED=false`.
+- PR #826 behåller serverlåset `RELEASE_APPROVED=false` tills en separat source-controlled staging-release. Den tidigare IP-header-grinden ersätts av en gemensam hållbar admissionsgräns; detta är inte bevis för betrodd klient-IP.
 - Att secret-namnen uppges finnas är inte samma sak som att rätt projekt, scope eller fungerande värden är verifierade.
 
 Nuvarande tillåtna slutpunkt är därför **förkontroll och dokumentation, ingen deployment och ingen aktivering**.
@@ -39,7 +39,7 @@ Samma GitHub-identitet får inte räknas som oberoende approval. Avbryt om grans
 3. Kopiera endast head-SHA till arbetsprotokollet. Kopiera inga secrets eller testtoken.
 4. Öppna fliken **Checks**.
 5. Kräv grönt resultat för **Quality and security checks**, **CodeQL security analysis** och **Supabase clean rebuild** på samma head-SHA.
-6. Kontrollera att `RELEASE_APPROVED=true`, `AI_PILOT_RELEASED=true` och att runtime fortfarande kan stängas med databasläget `enabled=false`.
+6. Kontrollera att `RELEASE_APPROVED=false`, `AI_PILOT_RELEASED=false` och databasläget `enabled=false` fortfarande är dokumenterade.
 7. Stoppa om head ändras; verifiera om samtliga kontroller på den nya headen.
 
 ### 2. Bekräfta rätt Supabase-projekt
@@ -126,7 +126,7 @@ Krav: RLS är på, `anon` och `authenticated` saknar direkt tabellåtkomst och E
 1. Stäng SQL Editor utan någon skrivande query.
 2. Öppna **Edge Functions** och verifiera att `ai-bookkeeping-pilot` inte har deployats av denna förkontroll.
 3. Dokumentera enbart booleska kontrollresultat, project ref, head-SHA, workflow-runnummer och UTC-tid.
-4. Före deploy: behåll `enabled=false`. Releaseflaggorna är `RELEASE_APPROVED=true` och `AI_PILOT_RELEASED=true` endast för syntetisk staging.
+4. Behåll `RELEASE_APPROVED=false`, `AI_PILOT_RELEASED=false` och `enabled=false` tills den separata staging-releasen är beslutad.
 
 ## Fas B: framtida hosted repetition efter separat godkännande
 
