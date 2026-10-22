@@ -37,12 +37,12 @@ test('leverantörsfakturans detaljvy visar både fakturadatum och förfallodatum
 
 test('leverantörsfakturasidan versionsmärker huvudskriptet för att undvika gammal cache',()=>{
   const html=fs.readFileSync(htmlPath,'utf8');
-  assert.match(html,/src="\.\/payables\.js\?v=20260924-1"/);
+  assert.match(html,/src="\.\/payables\.js\?v=20261022-1"/);
 });
 
 test('leverantörsfakturalistan visar fakturadatum och förfallodatum sida vid sida',()=>{
   const source=fs.readFileSync(payablesPath,'utf8');
   assert.match(source,/<th>Fakturadatum<\/th><th>Förfallodatum<\/th>/);
-  assert.match(source,/\$\{esc\(invoice\.invoiceDate\)\}<\/td><td>\$\{esc\(invoice\.dueDate\)\}/);
+  assert.match(source,/data-label="Fakturadatum">\$\{esc\(invoice\.invoiceDate\)\}<\/td>\s*<td data-label="Förfallodatum">\$\{esc\(invoice\.dueDate\)\}/);
   assert.match(source,/colspan="6" class="empty">Inga fakturor matchar filtret\./);
 });

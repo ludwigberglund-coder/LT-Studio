@@ -12,13 +12,15 @@ function source(file){
 test('leverantörsfakturor skiljer attest från bokföring och betalning',()=>{
   const s=source('apps/portal/payables.js');
   assert.match(s,/approved:'Attesterad'/);
-  assert.match(s,/Attesterad – skuld ej bokförd/);
+  assert.match(s,/const Journey=globalThis\.LTStudioSupplierJourney/);
+  assert.match(s,/return Journey\?Journey\.fromInvoice\(invoice\)\.label/);
   assert.match(s,/Skapa bunt för leverantörsskuld/);
   assert.match(s,/payment-prepared':'Betalning förberedd'/);
-  assert.match(s,/released:'Frisläppt – väntar bankbekräftelse'/);
-  assert.match(s,/paid:'Betald & bokförd'/);
+  assert.match(s,/released:'Godkänd för betalning – inte skickad'/);
+  assert.match(s,/paid:'Registrerad som betald'/);
   assert.doesNotMatch(s,/approved:'Bokförd'/);
   assert.doesNotMatch(s,/payment-prepared':'Betald/);
+  assert.doesNotMatch(s,/paid:'Betald & bokförd'/);
 });
 
 test('automationskön skiljer godkännande från genomförande och bokföring',()=>{

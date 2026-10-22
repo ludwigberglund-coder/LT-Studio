@@ -1,0 +1,69 @@
+/* #849: task-based supplier workspace. Presentation never authorizes payment. */
+.payables-shell .supplier-queue {
+  --supplier-card: #fff; --supplier-soft: #f4f6f7; --supplier-ink: #1c2733;
+  --supplier-muted: #485563; --supplier-border: #c4cdd5; --supplier-accent: #163e63;
+  color: var(--supplier-ink); background: var(--supplier-card); border-radius: 8px;
+}
+/* Compact choices, not four introductory panels before the actual invoices. */
+.payables-shell .supplier-task-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 16px; }
+.payables-shell .supplier-task-card {
+  position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center; align-content: center; gap: 8px; min-width: 0;
+  padding: 12px !important; min-height: 72px !important; border: 1px solid var(--supplier-border) !important; border-radius: 8px !important;
+  background: var(--supplier-card) !important; color: var(--supplier-ink) !important; text-align: left; white-space: normal;
+  font: inherit; cursor: pointer; box-shadow: none; letter-spacing: 0;
+}
+.payables-shell .supplier-task-card .supplier-task-label { display: block; margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0; background: transparent !important; box-shadow: none !important; text-decoration: none !important; color: inherit; font-weight: 700; font-size: 15px; line-height: 1.4; overflow-wrap: anywhere; }
+.payables-shell .supplier-task-card .supplier-task-count { font-size: 24px; line-height: 1.2; font-variant-numeric: tabular-nums; color: inherit; }
+/* Keep secondary descriptions in the accessible name without repeating visible instructions. */
+.payables-shell .supplier-task-card small { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.payables-shell .supplier-task-card:hover { background: var(--supplier-soft); }
+.payables-shell .supplier-task-card[aria-pressed="true"] { border: 2px solid var(--supplier-accent) !important; padding: 11px !important; background: var(--supplier-soft) !important; color: var(--supplier-ink) !important; }
+/* Only repeated decorative headings are removed. Never hide warnings or financial controls. */
+.payables-shell .supplier-queue .queue-head .eyebrow,
+.payables-shell .invoice-next-step-top,
+.payables-shell .payables-grid .coding-panel .panel-head .eyebrow { display: none; }
+.payables-shell .invoice-next-step { padding: 16px; border-radius: 8px; box-shadow: none; }
+.payables-shell .invoice-next-step h3 { margin-top: 0; }
+.payables-shell .supplier-queue .queue-head { padding: 16px; }
+.payables-shell .supplier-queue-scope { margin: 0; padding: 0 16px 12px; color: var(--supplier-muted); font-size: 13px; line-height: 1.5; }
+.payables-shell .supplier-queue .queue-tabs .queue-tab { min-height: 48px !important; border-radius: 8px !important; }
+.payables-shell .supplier-queue .queue-table { color: var(--supplier-ink); }
+.payables-shell .supplier-queue .work-pill { max-width: 100%; white-space: normal; line-height: 1.5; border-radius: 6px; }
+.payables-shell .supplier-open-invoice {
+  display: block; min-height: 44px; padding: 4px 0; border: 0; background: transparent;
+  color: inherit; font: inherit; text-align: left; cursor: pointer; overflow-wrap: anywhere;
+}
+.payables-shell .supplier-open-invoice strong { text-decoration: underline; text-underline-offset: 3px; }
+.payables-shell .supplier-queue button:focus-visible, .payables-shell .supplier-queue input:focus-visible { outline: 3px solid var(--supplier-accent); outline-offset: 3px; }
+html[data-lt-theme="dark"] .payables-shell .supplier-queue {
+  --supplier-card: #202a35; --supplier-soft: #2d3947; --supplier-ink: #f5f7fa;
+  --supplier-muted: #d2dbe4; --supplier-border: #67798c; --supplier-accent: #a6d4ff;
+  border-color: var(--supplier-border);
+}
+html[data-lt-theme="dark"] .payables-shell .supplier-queue .queue-head p,
+html[data-lt-theme="dark"] .payables-shell .supplier-queue td small { color: var(--supplier-muted); }
+html[data-lt-theme="dark"] .payables-shell .supplier-queue .queue-table th,
+html[data-lt-theme="dark"] .payables-shell .supplier-queue .queue-row,
+html[data-lt-theme="dark"] .payables-shell .supplier-queue .queue-row td { background: var(--supplier-card); color: var(--supplier-ink); border-color: var(--supplier-border); }
+html[data-lt-theme="dark"] .payables-shell .supplier-queue .queue-row.selected td,
+html[data-lt-theme="dark"] .payables-shell .supplier-queue .queue-row:hover td { background: var(--supplier-soft); }
+html[data-lt-theme="dark"] .payables-shell .supplier-queue .work-pill { background: var(--supplier-soft); color: var(--supplier-ink); }
+@media (max-width: 1150px) { .payables-shell .supplier-task-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) {
+  .payables-shell .supplier-task-grid { gap: 8px; padding: 12px; }
+  .payables-shell .supplier-queue .queue-head { padding: 12px; }
+  .payables-shell .supplier-queue .queue-overdue { min-width: 0; margin-top: 10px; padding: 8px 10px; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .payables-shell .supplier-queue .queue-overdue strong { margin: 0; font-size: 16px; }
+  .payables-shell .supplier-queue-scope { padding: 0 12px 12px; }
+  .payables-shell .supplier-queue .payables-search-shell { width: 100%; min-width: 0; }
+  .payables-shell .supplier-queue .queue-search { width: 100%; font-size: 16px !important; min-height: 48px !important; }
+  .payables-shell .supplier-queue .queue-table { min-width: 0; width: 100%; }
+  .payables-shell .supplier-queue .queue-table thead { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); }
+  .payables-shell .supplier-queue .queue-table tbody { display: grid; gap: 12px; padding: 12px; }
+  .payables-shell .supplier-queue .queue-row { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--supplier-border); border-radius: 8px; overflow: hidden; }
+  .payables-shell .supplier-queue .queue-row td { display: block; min-width: 0; padding: 10px; overflow-wrap: anywhere; text-align: left; }
+  .payables-shell .supplier-queue .queue-row td:nth-child(-n+2) { grid-column: 1 / -1; }
+  .payables-shell .supplier-queue .queue-row td::before { content: attr(data-label); display: block; margin-bottom: 5px; font-size: 12px; color: var(--supplier-muted); }
+  .payables-shell .supplier-queue .queue-row .money { text-align: left; }
+}
