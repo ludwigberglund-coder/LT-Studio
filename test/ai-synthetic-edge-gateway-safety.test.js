@@ -10,15 +10,15 @@ const http=read('packages/automation/ai-synthetic-http.mjs');
 const conf=read('supabase/config.toml');
 const admission=read('supabase/migrations/20261016171526_ai_pilot_shared_admission.sql');
 
-test('synthetic Edge Function is hard-disabled before handler work',()=>{
-  assert.match(edge,/const RELEASE_APPROVED = false;/);
+test('synthetic Edge Function release remains explicit in source',()=>{
+  assert.match(edge,/const RELEASE_APPROVED = true;/);
   assert.match(edge,/releaseApproved:\s*RELEASE_APPROVED/);
   assert.doesNotMatch(edge,/AI_PILOT_RELEASE_APPROVED/);
 });
 
-test('deployment policy is explicit while the code release remains locked',()=>{
+test('deployment policy remains explicit for the staging-only release',()=>{
   assert.match(conf,/\[functions\.ai-bookkeeping-pilot\]\s+verify_jwt = false/);
-  assert.match(edge,/const RELEASE_APPROVED = false;/);
+  assert.match(edge,/const RELEASE_APPROVED = true;/);
   assert.match(http,/releaseApproved=false/);
 });
 
