@@ -8,9 +8,8 @@
     {id:'software-service',label:'IT-tjänst',supplier:'Syntetisk IT AB',description:'IT-drifttjänst under september',account:'6540',accountName:'IT-tjänster'},
     {id:'cleaning-supplies',label:'Förbrukningsmaterial',supplier:'Syntetisk Städ AB',description:'Förbrukningsmaterial för städning',account:'5460',accountName:'Förbrukningsmaterial'}
   ]);
-  // Matches the hard-disabled server release. A future release requires a reviewed
-  // server + frontend change, not a client-side preference or environment flag.
-  const AI_PILOT_RELEASED = false;
+  // Released only for the isolated synthetic staging pilot. Runtime server checks still gate every call.
+  const AI_PILOT_RELEASED = true;
   let context=null,selected=options[0].id,busy=false,result=null,status='',statusKind='info';
   let pilotContextInvalid=false;
   let localPdfType='supplier-invoice',localPdfResult=null,localPdfStatus='',localPdfBusy=false;
