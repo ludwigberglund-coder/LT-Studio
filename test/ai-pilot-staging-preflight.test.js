@@ -12,11 +12,11 @@ const browser=read('apps/portal/ai-bookkeeping.js');
 const config=read('supabase/config.toml');
 const runbook=read('docs/AI-PILOT-STAGING-PREFLIGHT.md');
 
-test('AI gateway and portal are released only through explicit source flags',()=>{
-  assert.match(edge,/const RELEASE_APPROVED = true;/);
+test('AI gateway and portal remain locked until explicit source changes',()=>{
+  assert.match(edge,/const RELEASE_APPROVED = false;/);
   assert.match(edge,/createSyntheticHttpHandler/);
   assert.match(edge,/releaseApproved:\s*RELEASE_APPROVED/);
-  assert.match(browser,/const AI_PILOT_RELEASED = true;/);
+  assert.match(browser,/const AI_PILOT_RELEASED = false;/);
   assert.match(config,/\[functions\.ai-bookkeeping-pilot\]\s+verify_jwt = false/);
 });
 test('atomic AI pilot migration remains disabled and browser-inaccessible',()=>{
@@ -70,5 +70,5 @@ test('staging alias and both AI migrations are documented with staging-only rele
   const uatHistory=JSON.parse(read('supabase/migration-history-parity.json'));
   assert.equal(uatHistory.project_ref,'bwbhnotpuuhgghjpmflk');
   assert.equal(uatHistory.aliases.some(item=>item.live_version==='20261015071358'),false);
-  assert.match(browser,/const AI_PILOT_RELEASED = true;/);
+  assert.match(browser,/const AI_PILOT_RELEASED = false;/);
 });

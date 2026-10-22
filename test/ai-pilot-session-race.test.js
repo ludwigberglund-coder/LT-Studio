@@ -39,10 +39,10 @@ function fixture({ released = true } = {}) {
     location: { search: '', hostname: 'ludwigberglund-coder.github.io', href: '' },
     URLSearchParams, Intl, crypto: { randomUUID: () => '11111111-1111-4111-8111-111111111111' }
   };
-  // The committed client is released only for the isolated synthetic staging pilot.
-  // This fixture can still simulate the hard-disabled rollback path without network.
-  const code = released ? source : source.replace('const AI_PILOT_RELEASED = true;', 'const AI_PILOT_RELEASED = false;');
-  if (!released) assert.notEqual(code, source);
+  // The committed client remains hard-disabled until a separate staging release.
+  // This fixture can simulate that reviewed release path without network.
+  const code = released ? source.replace('const AI_PILOT_RELEASED = false;', 'const AI_PILOT_RELEASED = true;') : source;
+  if (released) assert.notEqual(code, source);
   vm.runInNewContext(code, sandbox, { filename: 'ai-bookkeeping.js' });
   const click = action => events.click({ target: { closest: () => ({ disabled: false, dataset: { aiAction: action } }) } });
   return {
@@ -131,5 +131,5 @@ test('a fresh token before invocation is usable, but identity must still match t
 test('hard-disabled production path never invokes a provider or triggers extra auth checks', async () => {
   const f = fixture({ released: false }); await tick(); f.click('analyze'); await tick();
   assert.equal(f.calls, 0); assert.equal(f.authCalls, 1);
-  assert.match(source, /const AI_PILOT_RELEASED = true;/);
+  assert.match(source, /const AI_PILOT_RELEASED = false;/);
 });

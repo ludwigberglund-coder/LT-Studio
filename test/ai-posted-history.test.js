@@ -131,7 +131,7 @@ test('portal loads learning script and never exposes posting controls or model c
   assert.match(appJs,/data-ai-action="use-learned-account"/);
   assert.match(appJs,/liability_posted_at=not\.is\.null/);
   assert.match(appJs,/company_id=eq\./);
-  assert.match(appJs,/const AI_PILOT_RELEASED = true;/);
+  assert.match(appJs,/const AI_PILOT_RELEASED = false;/);
   assert.doesNotMatch(appJs,/data-ai-action="(?:post-pdf|approve-pdf|save-pdf)"/);
   const source=fs.readFileSync(path.join(root,'apps/portal/ai-posted-history.js'),'utf8');
   assert.doesNotMatch(source,/\bfetch\s*\(|\.rpc\s*\(|\.insert\s*\(|\.update\s*\(|\.functions\.invoke\s*\(|localStorage|sessionStorage/);

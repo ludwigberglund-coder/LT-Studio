@@ -9,7 +9,7 @@
     {id:'cleaning-supplies',label:'Förbrukningsmaterial',supplier:'Syntetisk Städ AB',description:'Förbrukningsmaterial för städning',account:'5460',accountName:'Förbrukningsmaterial'}
   ]);
   // Released only for the isolated synthetic staging pilot. Runtime server checks still gate every call.
-  const AI_PILOT_RELEASED = true;
+  const AI_PILOT_RELEASED = false;
   let context=null,selected=options[0].id,busy=false,result=null,status='',statusKind='info';
   let pilotContextInvalid=false;
   let localPdfType='supplier-invoice',localPdfResult=null,localPdfStatus='',localPdfBusy=false;

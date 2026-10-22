@@ -3,7 +3,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 import { createSyntheticHttpHandler } from "../../../packages/automation/ai-synthetic-http.mjs";
 
-const RELEASE_APPROVED = true;
+const RELEASE_APPROVED = false;
 
 const handler = createSyntheticHttpHandler({
   createClient,

@@ -50,9 +50,9 @@ function fixture({demo=false,role='accountant',response,throwInvoke,simulateRevi
   // Only this isolated VM can emulate a reviewed release. The committed
   // production file stays hard-disabled, and must never expose a runtime toggle.
   const simulatedScript=simulateReviewedRelease
-    ?script
-    :script.replace('const AI_PILOT_RELEASED = true;', 'const AI_PILOT_RELEASED = false;');
-  if(!simulateReviewedRelease)assert.notEqual(simulatedScript,script);
+    ?script.replace('const AI_PILOT_RELEASED = false;', 'const AI_PILOT_RELEASED = true;')
+    :script;
+  if(simulateReviewedRelease)assert.notEqual(simulatedScript,script);
   vm.runInNewContext(simulatedScript,sandbox,{filename:'ai-bookkeeping.js'});
   const select=(value)=>callbacks.change({target:{id:'ai-scenario',value}});
   const click=(action)=>callbacks.click({target:{

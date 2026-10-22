@@ -10,8 +10,8 @@ const http=read('packages/automation/ai-synthetic-http.mjs');
 const config=read('supabase/config.toml');
 const load=()=>import('../packages/automation/ai-finance-process-contract.mjs');
 
-test('Edge route uses an explicit staging release while delegating to the guarded boundary',()=>{
-  assert.match(edge,/const RELEASE_APPROVED = true;/);
+test('Edge route stays hard locked while delegating to the guarded boundary',()=>{
+  assert.match(edge,/const RELEASE_APPROVED = false;/);
   assert.match(edge,/createSyntheticHttpHandler/);
   assert.match(edge,/releaseApproved:\s*RELEASE_APPROVED/);
   assert.doesNotMatch(edge,/Deno\.env\.get\(["']AI_PILOT_RELEASE_APPROVED/);

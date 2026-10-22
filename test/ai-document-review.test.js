@@ -81,7 +81,7 @@ test('does not trust arbitrary client-provided fields, account codes or fake ver
 test('UI loads preview engine but keeps model disabled, no save/approve button',()=>{
   assert.match(appHtml,/ai-document-reader\.js/);
   assert.match(appHtml,/ai-document-review\.js/);
-  assert.match(appJs,/const AI_PILOT_RELEASED = true;/);
+  assert.match(appJs,/const AI_PILOT_RELEASED = false;/);
   assert.match(appJs,/data-ai-action="preview-pdf"/);
   assert.match(appJs,/Granskningsutkast/);
   assert.doesNotMatch(appJs,/data-ai-action="(?:post-pdf|approve-pdf|save-pdf)"/);
