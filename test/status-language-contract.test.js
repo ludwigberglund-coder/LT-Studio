@@ -17,13 +17,18 @@ test('betalningsstatus skiljer förberedd, frisläppt och betald från bokförd'
   assert.equal(Overview.paymentStatusLabel('out','paid'),'Betald & bokförd');
 });
 
-test('leverantörsfakturor skiljer attest från bokförd skuld och betald faktura',()=>{
+test('leverantörsfakturor skiljer attest från bokförd skuld och bankavstämd betalning',()=>{
   const text=source('payables.js');
+  const journey=source('supplier-journey.js');
   assert.match(text,/approved:'Attesterad'/);
-  assert.match(text,/Attesterad – skuld ej bokförd/);
-  assert.match(text,/Betald & bokförd/);
+  assert.match(text,/released:'Godkänd för betalning – inte skickad'/);
+  assert.match(text,/paid:'Registrerad som betald'/);
   assert.match(text,/Skapa bunt för leverantörsskuld/);
+  assert.match(journey,/Betald och avstämd/);
+  assert.match(journey,/bankSettlementVerified === true/);
+  assert.match(journey,/payment\.invoiceFullySettled === true/);
   assert.doesNotMatch(text,/approved:'Bokförd'/);
+  assert.doesNotMatch(text,/paid:'Betald & bokförd'/);
 });
 
 test('automationskö säger uttryckligen att godkännande inte är genomförande',()=>{
