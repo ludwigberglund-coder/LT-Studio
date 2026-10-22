@@ -71,3 +71,23 @@ Detta avsnitt gäller **LT-Studio-Staging** (`rwnqkgbbbxjjfhwtepsi`) och förän
 Migrationen applicerades från GitHub-filens oförändrade innehåll via Supabases migrationsverktyg. Schema, `enabled=false`, RLS, tabell- och RPC-behörigheter samt tom reservationskö kontrollerades efteråt. Supabase Security Advisor har två informationsnotiser om avsiktligt policylös RLS för AI-tabellerna. **UAT har inte fått migreringen.**
 
 Framtida staging-`db push` måste hantera detta namngivna versionsalias via granskad Supabase-migreringshantering, annars finns risk att samma GitHub-migration uppfattas som väntande. Ändra aldrig historiken med rå SQL, och applicera aldrig AI-migrationen igen utan objekt-/historikkontroll. Se `docs/AI-PILOT-STAGING-PREFLIGHT.md` och [GitHub Issue #774](https://github.com/ludwigberglund-coder/LT-Studio/issues/774).
+
+
+## AI-pilot: staging-paritet och avstängd Edge-installation 2026-10-22
+
+Detta avsnitt gäller **endast** `LT-Studio-Staging` (`rwnqkgbbbxjjfhwtepsi`). Det ändrar inte UAT:s migrationsalias, produktionsnycklar eller bokföring. GitHub är alltid källan till kod, och alla driftavvikelser måste kontrolleras mot versionsstyrda filer.
+
+| GitHub-källa | Installerad staging-version | Resultat |
+| --- | --- | --- |
+| `supabase/migrations/20261016171526_ai_pilot_shared_admission.sql` (PR #826) | `20261022134940_ai_pilot_shared_admission` | Tabell, server-RPC, RLS och nekad klientåtkomst verifierade |
+| `supabase/functions/ai-bookkeeping-pilot/index.ts` med tillhörande 10 moduler (PR #826, commit `8a4eeaaf124df29a1c48d37239784a59a66754bb`) | Edge Function `ai-bookkeeping-pilot`, version 1 | 11 av 11 serverfiler jämförda tecken-för-tecken med GitHub-commiten och matchar |
+
+Edge-paketets rapporterade SHA-256 är `6dd8ff99dce539c824ea5cbf1bbac343cec242fa5fe261418cfbf6c98c6b0d13`; stagingfunktionen rapporterades `ACTIVE` med `verify_jwt=false`. Det är avsiktligt för förfrågningarnas CORS-preflight; **intern autentisering krävs när release senare tillåts**.
+
+**AI:n är inte aktiverad.** Den installerade funktionen har `RELEASE_APPROVED=false` och databasen har `ai_pilot_runtime_settings.enabled=false`. Serverns förstahandskontroll ska därför neka anrop innan autentisering, kvoter eller extern modellkontakt används. UAT-portalen använder ett **annat** Supabase-projekt och får inte visa staging-AI som tillgänglig. Ingen autentiserad HTTP-begäran, verkligt Cloudflare-svar eller secret-scope har verifierats vid denna mätpunkt.
+
+**Säkerhetskontroll:** Tabellen `ai_pilot_admission_state` har RLS, och `anon`/`authenticated` saknar SELECT och EXECUTE på `admit_ai_pilot_request_server()`; endast `service_role` kan anropa. Ingen kunddata har använts.
+
+**Historikregel:** De olika versionsnumren är ett dokumenterat staging-alias, inte en anledning att köra DDL igen. Rör **inte** `supabase_migrations.schema_migrations` direkt. Framtida migreringsreparation får endast göras enligt avsnittet *Säker reparationsregel* ovan, med verifierad schemaeffekt och officiellt verktyg.
+
+**Driftstatus kan förändras efter 2026-10-22**. Kontrollera aktuell PR #826 och faktisk stagingversion före nästa deployment. Att en avstängd Edge Function är installerad innebär inte att piloten eller automatisk bokföring är klar.
