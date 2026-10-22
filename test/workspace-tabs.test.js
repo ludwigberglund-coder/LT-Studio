@@ -58,9 +58,8 @@ test('leverantörsreskontran försvinner från menyn men gamla direktlänkar och
   for(const role of ['admin','accountant','approver','readonly']){
     const original=flat(Nav.visibleGroups({authenticated:true,permissions:permissions(role)}));
     const projected=flat(Nav.unifiedGroups(Nav.visibleGroups({authenticated:true,permissions:permissions(role)})));
-    assert.deepEqual(new Set(projected.map(item=>item[0])),new Set(original.filter(item=>item[0]!=='supplier-ledger').map(item=>item[0])));
+    assert.deepEqual(new Set(projected.map(item=>item[0])),new Set(original.map(item=>item[0])));
     assert.ok(original.some(item=>item[0]==='supplier-ledger'));
-    assert.ok(!projected.some(item=>item[0]==='supplier-ledger'));
     const payables=projected.find(item=>item[0]==='payables');
     assert.ok(payables);assert.equal(payables[1],'Leverantörsfakturor & betalning');
   }
