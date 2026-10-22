@@ -48,8 +48,8 @@
   function unifiedGroups(allowedGroups){
     const source=Array.isArray(allowedGroups)?allowedGroups:[];
     const permitted=new Map(source.flatMap(group=>group.items.map(item=>[item[0],item])));
-    // The legacy supplier-ledger route still works for bookmarks, but is no longer a separate menu tab.
-    const used=new Set(['supplier-ledger']);
+    // Keep every authorized route in the model; the old payment route is hidden by integratedSubpages until explicitly opened.
+    const used=new Set();
     const result=unifiedNavigation.map(group=>({
       id:group.id,label:group.label,
       items:group.items.flatMap(([id,label])=>{
