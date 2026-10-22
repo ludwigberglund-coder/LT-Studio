@@ -26,7 +26,7 @@ test('kundsökningen kan filtrera namn, nummer, organisationsnummer och kontaktu
   assert.match(source,/normalize\('NFD'\)/);
   assert.match(source,/toLocaleLowerCase\('sv-SE'\)/);
   assert.match(source,/customerNumber,c\.name,c\.orgNumber,c\.email,addressText\(c\)/);
-  assert.match(source,/id="customer-register-search" type="search"/);
+  assert.match(source,/id="customer-register-search" type="text" inputmode="search" role="searchbox"/);
   assert.match(source,/data-customer-rows/);
   assert.match(source,/customerSearch=event\.target\.value/);
   assert.match(source,/if\(tbody\)tbody\.innerHTML=customerRows\(\)/);
@@ -74,7 +74,7 @@ test('kundregistret är responsivt och läsbart även i mörkt läge',()=>{
     '.customer-workspace .customer-register-head',
     '.customer-register-workspace',
     '.customer-register-row-actions',
-    '.customer-register-tools input[type="search"]',
+    '.customer-register-tools #customer-register-search',
     '.customer-form-advanced-grid',
     '@media(max-width:760px)',
     '@media(max-width:640px)',
