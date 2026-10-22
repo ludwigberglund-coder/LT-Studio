@@ -307,12 +307,75 @@ function input(){const value=copy(draft);value.seller=sellerFromCompany();value.
 function invoiceRecords(){return isDemo?(Demo.section('customerInvoices')||[]):privateInvoices}
 function invoiceMatches(record,query){const q=String(query||'').trim().toLocaleLowerCase('sv-SE');if(!q)return true;return [record.invoiceNumber,record.ocr,record.customerName,record.customerNumber].some(value=>String(value||'').toLocaleLowerCase('sv-SE').includes(q))}
 function filteredInvoices(){return invoiceRecords().filter(record=>invoiceMatches(record,search))}
-function invoiceRows(){return filteredInvoices().slice().reverse().map(r=>`<tr><td data-label="Faktura / OCR"><b>${esc(r.invoiceNumber)}</b><br>${esc(r.ocr)}</td><td data-label="Kund">${esc(r.customerName)}<br><small>${esc(r.customerNumber)}</small></td><td data-label="Typ">${Number(r.totalOre||0)<0?'Kreditfaktura':'Faktura'}</td><td data-label="Fakturadatum">${esc(r.invoiceDate)}</td><td data-label="Förfallodatum">${esc(r.dueDate)}</td><td data-label="Belopp" class="money">${amount(r.totalOre)}</td><td data-label="Åtgärd"><button class="button ghost small" data-preview="${esc(r.id)}">Visa / skriv ut</button></td></tr>`).join('')||'<tr class="invoice-empty-row"><td colspan="7">Inga fakturor matchar sökningen.</td></tr>'}
+function invoiceRows(){
+  const rows=filteredInvoices();
+  if(!rows.length)return `<tr class="invoice-empty-row"><td colspan="7">${search.trim()?'Inga fakturor matchar sökningen.':'Inga kundfakturor har skapats ännu. Välj Ny kundfaktura för att börja.'}</td></tr>`;
+  return rows.slice().reverse().map(r=>{
+    const credit=Number(r.totalOre||0)<0;
+    return `<tr>
+      <td data-label="Faktura / OCR"><span class="invoice-register-reference"><strong>${esc(r.invoiceNumber)}</strong><small>OCR: ${esc(r.ocr||'Saknas')}</small></span></td>
+      <td data-label="Kund"><span class="invoice-register-customer"><strong>${esc(r.customerName)}</strong><small>${esc(r.customerNumber)}</small></span></td>
+      <td data-label="Typ"><span class="invoice-register-type ${credit?'invoice-register-type--credit':''}">${credit?'Kreditfaktura':'Faktura'}</span></td>
+      <td data-label="Fakturadatum" class="invoice-register-date">${esc(r.invoiceDate)}</td>
+      <td data-label="Förfallodatum" class="invoice-register-date">${esc(r.dueDate)}</td>
+      <td data-label="Belopp" class="money invoice-register-amount">${amount(r.totalOre)}</td>
+      <td data-label="Åtgärd"><button class="button ghost small invoice-register-open" data-preview="${esc(r.id)}">Visa / skriv ut</button></td>
+    </tr>`;
+  }).join('');
+}
+function invoiceListCountText(){
+  const visible=filteredInvoices().length,total=invoiceRecords().length;
+  if(search.trim())return `${visible} av ${total} fakturor visas`;
+  return `${total} ${total===1?'faktura':'fakturor'}`;
+}
 function invoiceSearchSuggestions(){return search?filteredInvoices().slice(0,8):[]}
 function invoiceSearchResults(){const rows=invoiceSearchSuggestions();if(!rows.length)return '<div class="shared-search-empty">Inga kundfakturor matchar sökningen.</div>';return rows.map((r,index)=>`<button type="button" class="shared-search-option ${index===invoiceSearchActiveIndex?'active':''}" role="option" aria-selected="${index===invoiceSearchActiveIndex?'true':'false'}" data-preview="${esc(r.id)}" data-invoice-search-option><span><b>${Number(r.totalOre||0)<0?'Kreditfaktura':'Faktura'} ${esc(r.invoiceNumber)}</b><small>${esc(r.customerName)} · ${esc(r.customerNumber)}</small></span><strong>${amount(r.totalOre)}</strong></button>`).join('')}
-function updateInvoiceSearchUi(){const field=app.querySelector('.invoice-search'),results=document.getElementById('invoice-search-results'),body=app.querySelector('.sales-table tbody');if(body)body.innerHTML=invoiceRows();if(!field||!results)return;const open=Boolean(invoiceSearchOpen&&search);field.setAttribute('aria-expanded',open?'true':'false');results.hidden=!open;if(open)results.innerHTML=invoiceSearchResults()}
+function updateInvoiceSearchUi(){const field=app.querySelector('.invoice-search'),results=document.getElementById('invoice-search-results'),body=app.querySelector('.sales-table tbody');if(body)body.innerHTML=invoiceRows();const count=app.querySelector('[data-invoice-list-count]');if(count)count.textContent=invoiceListCountText();if(!field||!results)return;const open=Boolean(invoiceSearchOpen&&search);field.setAttribute('aria-expanded',open?'true':'false');results.hidden=!open;if(open)results.innerHTML=invoiceSearchResults()}
 function closeInvoiceSearch(){invoiceSearchOpen=false;invoiceSearchActiveIndex=-1;const field=app.querySelector('.invoice-search'),results=document.getElementById('invoice-search-results');field?.setAttribute('aria-expanded','false');if(results)results.hidden=true}
-function listHtml(){return `<div class="invoice-toolbar"><div><span class="eyebrow">Försäljning</span><h2>Kundfakturor</h2><p>Skapa och granska fakturor här. För att registrera inbetalningar använder du fliken Obetalda fakturor ovan.</p></div><button class="button" data-action="new">+ Ny kundfaktura</button></div><div class="shared-search-shell invoice-search-shell"><input class="invoice-search" type="search" role="combobox" aria-autocomplete="list" aria-controls="invoice-search-results" aria-expanded="${invoiceSearchOpen&&search?'true':'false'}" aria-label="Sök fakturor" autocomplete="off" placeholder="Sök fakturanummer, OCR, kund eller kundnummer" value="${esc(search)}"><div id="invoice-search-results" class="shared-search-results" role="listbox" ${invoiceSearchOpen&&search?'':'hidden'}>${invoiceSearchOpen&&search?invoiceSearchResults():''}</div></div><div class="sales-panel invoice-list-panel"><div class="table-scroll"><table class="sales-table"><thead><tr><th>Faktura / OCR</th><th>Kund</th><th>Typ</th><th>Fakturadatum</th><th>Förfallodatum</th><th>Belopp</th><th>Åtgärd</th></tr></thead><tbody>${invoiceRows()}</tbody></table></div></div>`;}
+function listHtml(){
+  return `<div class="invoice-toolbar invoice-toolbar--register">
+    <div class="invoice-toolbar-intro">
+      <span class="eyebrow">Fakturor & kunder</span>
+      <h2>Kundfakturor</h2>
+      <p>Skapa och granska fakturor på ett ställe. Inbetalningar hanteras i fliken Obetalda fakturor.</p>
+    </div>
+    <button class="button invoice-new-button" data-action="new">+ Ny kundfaktura</button>
+  </div>
+  <section class="invoice-register-workspace" aria-label="Registrerade kundfakturor">
+    <div class="invoice-register-controls">
+      <div class="invoice-register-heading">
+        <div>
+          <h3>Fakturalista</h3>
+          <p>Här hittar du dina skapade fakturor och kreditfakturor.</p>
+        </div>
+        <span class="invoice-register-count" data-invoice-list-count role="status" aria-live="polite" aria-atomic="true">${invoiceListCountText()}</span>
+      </div>
+      <label class="invoice-register-search-label" for="invoice-register-search">Sök bland fakturorna</label>
+      <div class="shared-search-shell invoice-search-shell">
+        <input id="invoice-register-search" class="invoice-search" type="search" role="combobox"
+          aria-autocomplete="list" aria-controls="invoice-search-results"
+          aria-expanded="${invoiceSearchOpen&&search?'true':'false'}"
+          aria-label="Sök fakturor" autocomplete="off"
+          placeholder="Fakturanummer, OCR, kund eller kundnummer" value="${esc(search)}">
+        <div id="invoice-search-results" class="shared-search-results" role="listbox"
+          ${invoiceSearchOpen&&search?'':'hidden'}>${invoiceSearchOpen&&search?invoiceSearchResults():''}</div>
+      </div>
+    </div>
+    <div class="sales-panel invoice-list-panel">
+      <div class="table-scroll">
+        <table class="sales-table" aria-label="Kundfakturor">
+          <thead><tr>
+            <th scope="col">Faktura / OCR</th><th scope="col">Kund</th>
+            <th scope="col">Typ</th><th scope="col">Fakturadatum</th>
+            <th scope="col">Förfallodatum</th><th scope="col">Belopp</th>
+            <th scope="col">Åtgärd</th>
+          </tr></thead>
+          <tbody>${invoiceRows()}</tbody>
+        </table>
+      </div>
+    </div>
+  </section>`;
+}
 function previewHtml(){
   const d=preview,isCredit=d.documentType==='KREDITFAKTURA',creditable=Number(previewCreditSummary?.creditableOre||0);
   const canCredit=!isDemo&&previewRecord&&Number(previewRecord.totalOre||0)>0&&creditable>0;
