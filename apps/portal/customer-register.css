@@ -1,0 +1,257 @@
+/* Customer register UX: scoped to the active customer page only.
+ * No customer data or server permissions are changed by this presentation layer.
+ */
+.customer-workspace{min-width:0}
+.customer-workspace .customer-register-head{
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;
+  gap:18px;padding:23px 25px;margin:0 0 20px;
+  background:var(--surface-card,#fff);
+  border:1px solid var(--color-hairline,#e5e5e5);
+  border-left:4px solid #345c49;border-radius:20px;
+  box-shadow:0 8px 24px rgb(13 30 21 / .045);
+}
+.customer-workspace .customer-register-intro{flex:1 1 310px;min-width:0}
+.customer-workspace .customer-register-intro .eyebrow,
+.customer-workspace .customer-form-heading .eyebrow{
+  display:block;margin:0 0 7px;font-size:11px;letter-spacing:.08em;
+  font-weight:750;text-transform:uppercase;color:var(--color-mid-gray,#555e58);
+}
+.customer-workspace .customer-register-intro h2{
+  font-size:clamp(24px,2.4vw,31px);line-height:1.2;letter-spacing:-.035em;
+  font-weight:750;margin:0 0 7px;color:var(--color-ink,#171717);
+}
+.customer-workspace .customer-register-intro p,
+.customer-workspace .customer-register-tools-heading p,
+.customer-workspace .customer-form-heading p{
+  color:var(--color-mid-gray,#555e58);
+  font-size:13px;line-height:1.6;margin:0;max-width:635px;
+}
+.customer-register-top-actions{display:flex;flex:0 1 auto;gap:8px;align-items:center;flex-wrap:wrap}
+.customer-register-top-actions .button{min-height:44px;white-space:normal;text-align:center}
+.customer-register-workspace{
+  min-width:0;overflow:hidden;border:1px solid var(--color-hairline,#e5e5e5);
+  border-radius:20px;background:var(--surface-card,#fff);
+  box-shadow:0 8px 26px rgb(13 30 21 / .04);
+}
+.customer-register-tools{
+  padding:22px 24px 20px;border-bottom:1px solid var(--color-hairline,#e5e5e5);
+}
+.customer-register-tools-heading{
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:12px 18px;margin:0 0 20px;
+}
+.customer-register-tools-heading h3{
+  margin:0 0 5px;color:var(--color-ink,#171717);font-size:19px;
+  line-height:1.35;letter-spacing:-.02em;font-weight:750;
+}
+.customer-register-count{
+  display:inline-flex;justify-content:center;align-items:center;
+  min-height:36px;max-width:100%;padding:8px 13px;border-radius:999px;
+  background:var(--surface-alt,#f5f5f5);
+  color:var(--color-ink,#171717);border:1px solid var(--color-hairline,#e5e5e5);
+  font-size:12px;font-weight:750;line-height:1.35;
+  font-variant-numeric:tabular-nums;text-align:center;
+}
+.customer-register-tools label{
+  display:block;margin:0 0 8px;font-size:12px;
+  font-weight:750;color:var(--color-ink-soft,#1b1b1b);
+}
+.customer-register-tools #customer-register-search{
+  display:block;box-sizing:border-box;width:min(580px,100%);max-width:100%;min-width:0;
+  min-height:47px;padding:11px 14px;border-radius:12px;
+  border:1px solid #b4c1b9;background:#fff;color:#171717;
+  font-size:14px;line-height:1.4;font-family:inherit;
+}
+.customer-register-tools input::placeholder{color:#526258;opacity:1}
+.customer-workspace .customer-register-panel{
+  margin:0;padding:0;min-width:0;overflow:hidden;border:0;
+  border-radius:0;box-shadow:none;background:var(--surface-card,#fff);
+}
+.customer-register-panel .table-scroll{max-width:100%;min-width:0;overflow-x:auto}
+.customer-register-panel .sales-table{width:100%;min-width:0;border-collapse:collapse}
+.customer-register-panel .sales-table th{
+  text-align:left!important;padding:14px 13px;
+  color:var(--color-ink-soft,#171717);background:var(--surface-alt,#f7f7f7);
+  border-bottom:1px solid var(--color-hairline,#e5e5e5);
+  font-size:11px;font-weight:750;letter-spacing:.045em;text-transform:uppercase;
+}
+.customer-register-panel .sales-table td{
+  text-align:left!important;padding:16px 13px;vertical-align:middle;
+  font-size:13px;line-height:1.5;color:var(--color-ink,#171717);
+  border-bottom:1px solid var(--color-hairline,#e5e5e5);
+  overflow-wrap:anywhere;
+}
+.customer-register-panel .sales-table td:first-child,
+.customer-register-panel .sales-table th:first-child{padding-left:22px}
+.customer-register-panel .sales-table td:last-child,
+.customer-register-panel .sales-table th:last-child{padding-right:22px}
+.customer-register-panel .sales-table tbody tr:last-child td{border-bottom:0}
+.customer-register-panel .sales-table tbody tr:not(.customer-register-empty):hover{
+  background:var(--surface-alt,#f7f7f7);
+}
+.customer-register-id{font-size:13px;font-weight:750;font-variant-numeric:tabular-nums}
+.customer-register-identity,.customer-register-contact{
+  display:grid;gap:5px;min-width:0;
+}
+.customer-register-identity>strong{font-size:14px;font-weight:750;color:var(--color-ink,#171717)}
+.customer-register-contact>span{color:var(--color-ink,#171717)}
+.customer-register-identity small,.customer-register-contact small{
+  font-size:12px;line-height:1.5;color:var(--color-mid-gray,#4f5c53);
+  overflow-wrap:anywhere;
+}
+.customer-register-status{
+  display:inline-flex;justify-self:start;padding:4px 9px;border-radius:999px;
+  color:#244a35;background:#eaf2eb;border:1px solid #b7cabb;
+  font-size:11px;font-weight:700;
+}
+.customer-history-count{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.customer-history-unavailable{font-size:12px;color:var(--color-mid-gray,#4f5c53)}
+.customer-register-row-actions{display:flex;gap:8px;flex-wrap:wrap}
+.customer-register-row-actions .button{min-height:44px;min-width:85px;white-space:normal;text-align:center}
+.customer-register-panel .customer-register-empty td{
+  padding:29px 16px!important;white-space:normal;text-align:center!important;
+  font-size:13px;color:var(--color-mid-gray,#525c55);line-height:1.6;
+}
+.customer-form-panel{max-width:950px;padding:25px!important;border-radius:20px}
+.customer-form-heading{margin:0 0 22px}
+.customer-form-heading h3{font-size:22px;letter-spacing:-.03em;margin:0 0 7px}
+.customer-form-panel .sales-form{min-width:0;gap:17px}
+.customer-form-panel .sales-form label{min-width:0;font-size:13px;color:var(--color-ink-soft,#171717)}
+.customer-form-panel .sales-form :is(input,select,textarea){min-height:44px;max-width:100%;box-sizing:border-box}
+.customer-form-panel .sales-form textarea{min-height:86px}
+.customer-form-advanced{
+  border:1px solid var(--color-hairline,#d9e1db);
+  border-radius:14px;overflow:hidden;
+  background:var(--surface-alt,#f9faf9);
+}
+.customer-form-advanced>summary{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  gap:6px 15px;min-height:48px;padding:12px 15px;cursor:pointer;
+  color:var(--color-ink,#171717);
+  font-size:14px;font-weight:750;line-height:1.4;
+}
+.customer-form-advanced>summary small{font-size:12px;font-weight:500;color:var(--color-mid-gray,#59645c)}
+.customer-form-advanced[open]>summary{border-bottom:1px solid var(--color-hairline,#d9e1db)}
+.customer-form-advanced-grid{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px;
+  padding:17px;background:var(--surface-card,#fff);
+}
+.customer-form-advanced-grid label{display:flex;flex-direction:column;gap:7px}
+.customer-form-actions{display:flex;gap:9px;flex-wrap:wrap;padding-top:5px}
+.customer-form-actions .button{min-height:44px}
+.customer-workspace :is(.customer-register-top-actions .button,
+  .customer-register-row-actions .button,
+  .customer-form-actions .button,
+  #customer-register-search,.customer-form-advanced>summary):focus-visible{
+  outline:3px solid var(--color-ink,#171717);outline-offset:3px;
+}
+html[data-lt-theme="dark"] .customer-workspace .customer-register-head,
+html[data-lt-theme="dark"] .customer-register-workspace,
+html[data-lt-theme="dark"] .customer-register-panel,
+html[data-lt-theme="dark"] .customer-form-panel{
+  background:var(--lt-dark-surface,#222b25)!important;
+  border-color:var(--lt-dark-border,#66766b)!important;
+  color:#fff!important;
+}
+html[data-lt-theme="dark"] .customer-register-head{border-left-color:#c6e0c6!important}
+html[data-lt-theme="dark"] .customer-workspace :is(h2,h3,.customer-register-identity>strong,
+  .customer-register-contact>span,.customer-register-tools label,.customer-register-id,
+  .customer-history-count,.customer-form-heading h3,
+  .customer-form-panel .sales-form label,.customer-form-advanced>summary){
+  color:#fff!important;
+}
+html[data-lt-theme="dark"] .customer-workspace :is(.customer-register-intro .eyebrow,
+  .customer-register-intro p,.customer-register-tools-heading p,
+  .customer-form-heading p,.customer-register-identity small,
+  .customer-register-contact small,.customer-history-unavailable,
+  .customer-form-advanced>summary small){color:#d9e4dc!important}
+html[data-lt-theme="dark"] .customer-register-count{
+  color:#fff!important;
+  border-color:var(--lt-dark-border,#66766b)!important;
+  background:var(--lt-dark-surface-soft,#2d3b32)!important;
+}
+html[data-lt-theme="dark"] .customer-register-panel .sales-table th,
+html[data-lt-theme="dark"] .customer-register-panel .sales-table tbody tr:not(.customer-register-empty):hover{
+  color:#fff!important;background:var(--lt-dark-surface-soft,#2d3b32)!important;
+}
+html[data-lt-theme="dark"] .customer-register-panel .sales-table td{
+  color:#fff!important;border-color:var(--lt-dark-border,#66766b)!important;
+}
+html[data-lt-theme="dark"] .customer-register-status{
+  background:#304f3d!important;color:#fff!important;border-color:#9bbbaa!important;
+}
+html[data-lt-theme="dark"] .customer-register-tools #customer-register-search,
+html[data-lt-theme="dark"] .customer-form-panel .sales-form :is(input,select,textarea){
+  background:var(--lt-dark-surface-soft,#2d3b32)!important;
+  color:#fff!important;border:1px solid #94aa9b!important;
+}
+html[data-lt-theme="dark"] .customer-register-tools input::placeholder{color:#d5e4d9!important}
+html[data-lt-theme="dark"] .customer-form-advanced{
+  color:#fff!important;
+  border-color:var(--lt-dark-border,#66766b)!important;
+  background:var(--lt-dark-surface,#222b25)!important;
+}
+html[data-lt-theme="dark"] .customer-form-advanced-grid{
+  background:var(--lt-dark-surface,#222b25)!important;
+}
+html[data-lt-theme="dark"] .customer-workspace :is(#customer-register-search,
+  .customer-form-advanced>summary,.customer-register-row-actions .button):focus-visible{
+  outline-color:#e5f4c0!important;
+}
+@media(max-width:760px){
+  .customer-workspace .customer-register-head{padding:17px 16px;margin-bottom:16px}
+  .customer-workspace .customer-register-intro h2{font-size:25px}
+  .customer-register-top-actions{width:100%}
+  .customer-register-top-actions .button{flex:1 1 140px}
+  .customer-register-tools{padding:18px 16px}
+  .customer-register-tools-heading h3{font-size:18px}
+  .customer-register-tools #customer-register-search{font-size:16px}
+  .customer-form-panel{padding:16px!important}
+  .customer-form-advanced-grid{grid-template-columns:1fr}
+}
+@media(max-width:640px){
+  .customer-register-workspace{border-radius:18px}
+  .customer-register-panel .table-scroll{overflow:visible!important;max-height:none!important}
+  .customer-register-panel .sales-table{display:block;width:100%;font-size:13px}
+  .customer-register-panel .sales-table thead{
+    position:absolute!important;width:1px!important;height:1px!important;
+    padding:0!important;margin:-1px!important;overflow:hidden!important;
+    clip:rect(0 0 0 0)!important;white-space:nowrap!important;border:0!important;
+  }
+  .customer-register-panel .sales-table tbody{display:grid;gap:0}
+  .customer-register-panel .sales-table tr{
+    display:block;padding:14px 16px;background:var(--surface-card,#fff);
+    border-bottom:1px solid var(--color-hairline,#e5e5e5);
+  }
+  html[data-lt-theme="dark"] .customer-register-panel .sales-table tr{
+    background:var(--lt-dark-surface,#222b25)!important;
+    border-color:var(--lt-dark-border,#66766b)!important;
+  }
+  .customer-register-panel .sales-table tr:last-child{border-bottom:0}
+  .customer-register-panel .sales-table td{
+    display:grid;grid-template-columns:91px minmax(0,1fr);
+    gap:9px;align-items:start;
+    width:100%;padding:6px 0!important;border:0!important;
+    overflow-wrap:anywhere;white-space:normal!important;
+  }
+  .customer-register-panel .sales-table td::before{
+    content:attr(data-label);
+    font-size:10px;line-height:1.4;font-weight:700;
+    text-transform:uppercase;letter-spacing:.04em;
+    color:var(--color-mid-gray,#626b65);
+  }
+  html[data-lt-theme="dark"] .customer-register-panel .sales-table td::before{
+    color:#d9e4dc!important;
+  }
+  .customer-register-panel .sales-table td:last-child{
+    display:block;padding-top:12px!important;
+  }
+  .customer-register-panel .sales-table td:last-child::before{content:none}
+  .customer-register-row-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .customer-register-row-actions .button{min-width:0;width:100%}
+  .customer-register-panel .customer-register-empty td{display:block;padding:17px 0!important}
+  .customer-register-panel .customer-register-empty td::before{content:none}
+}
+@media(prefers-reduced-motion:reduce){
+  .customer-workspace .customer-register-row{transition:none!important}
+}

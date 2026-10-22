@@ -22,6 +22,76 @@ const server=http.createServer((req,res)=>{const u=new URL(req.url,'http://local
   }
   const portal=fs.readdirSync(path.join(root,'portal')).filter(f=>f.endsWith('.html')&&!['uat-setup.html','company-activate.html'].includes(f)).map(f=>'portal/'+f),legacy=['overview','res-tools','batches','audit','inbox','assistant','settings'].map(v=>'legacy/?demo=1#/'+v);
   for(const route of [...portal,...legacy]){const target=new URL(route,base);target.searchParams.set('demo','1');const response=await page.goto(target.href,{waitUntil:'networkidle'});if(response)assert.equal(response.status(),200,route);await menu();checks.push({kind:'menu',route});}
+  // Customer registry uses its own browser context so test data cannot
+  // contaminate invoice and accounting scenarios later in this smoke test.
+  {
+    const customerContext=await browser.newContext({viewport:{width:390,height:844},colorScheme:'light'});
+    try{
+      const customerPage=await customerContext.newPage();
+      const customerErrors=[];
+      customerPage.on('pageerror',error=>customerErrors.push(error.message));
+      const response=await customerPage.goto(base+'portal/customers.html?demo=1',{waitUntil:'networkidle'});
+      assert.equal(response.status(),200,'customer register');
+      const register=customerPage.locator('.customer-register-workspace');
+      await register.waitFor({timeout:15000});
+      const rows=register.locator('.customer-register-row');
+      const total=await rows.count();
+      assert.ok(total>=3,'demo should contain registered customers');
+      const count=register.locator('[data-customer-result-count]');
+      assert.equal((await count.innerText()).trim(),total+' kunder');
+      const search=register.locator('#customer-register-search');
+      await search.fill('vastra hamnen');
+      assert.equal(await rows.count(),1,'accent insensitive customer search');
+      assert.equal((await count.innerText()).trim(),'1 av '+total+' kunder visas');
+      assert.match(await rows.first().innerText(),/Västra Hamnen/);
+      assert.match(await rows.first().locator('td[data-label="Historik"]').innerText(),/faktura/);
+      await search.fill('559000-1001');
+      assert.equal(await rows.count(),1,'organization number search');
+      await search.fill('NO_SUCH_CUSTOMER_2026');
+      assert.equal(await rows.count(),0);
+      assert.equal((await count.innerText()).trim(),'0 av '+total+' kunder visas');
+      assert.match(await register.locator('.customer-register-empty').innerText(),/Inga kunder matchar sökningen/);
+      await search.fill('');
+      assert.equal(await rows.count(),total,'clearing search restores the register');
+      assert.equal(await customerPage.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+2),true,
+        'customer register must not cause sideways scrolling on a phone');
+      assert.equal(await rows.first().locator('[data-edit-customer]').isVisible(),true);
+      assert.equal(await rows.first().locator('[data-delete-customer]').isDisabled(),true,
+        'demo customers must not show a destructive action as usable');
+      await customerPage.screenshot({path:path.join(out,'customer-register-mobile.png'),fullPage:true});
+      await customerPage.locator('[data-new]').click();
+      await customerPage.locator('#customer-form').waitFor();
+      assert.equal(await customerPage.locator('.customer-form-advanced').getAttribute('open'),null,
+        'optional invoice fields begin collapsed');
+      await customerPage.locator('.customer-form-advanced > summary').click();
+      await customerPage.locator('input[name=name]').fill('Syntetiskt UX Test AB');
+      await customerPage.locator('input[name=orgNumber]').fill('559999-0099');
+      await customerPage.locator('input[name=email]').fill('syntetiskt-ux@example.invalid');
+      await customerPage.locator('input[name=ourReference]').fill('TESTREF');
+      await customerPage.locator('#customer-form button[type=submit]').click();
+      await register.waitFor({timeout:10000});
+      const savedSearch=register.locator('#customer-register-search');
+      await savedSearch.fill('Syntetiskt UX Test');
+      assert.equal(await register.locator('.customer-register-row').count(),1,
+        'new demo customer must be searchable');
+      await register.locator('[data-edit-customer]').click();
+      await customerPage.locator('#customer-form').waitFor();
+      assert.equal(await customerPage.locator('.customer-form-advanced').getAttribute('open'),'',
+        'previously used optional fields reopen when editing');
+      assert.equal(await customerPage.locator('input[name=ourReference]').inputValue(),'TESTREF');
+      await customerPage.locator('[data-cancel]').click();
+      await customerPage.setViewportSize({width:1440,height:1000});
+      await customerPage.locator('.customer-register-workspace').waitFor();
+      await customerPage.locator('#customer-register-search').fill('');
+      await customerPage.screenshot({path:path.join(out,'customer-register-desktop.png'),fullPage:true});
+      await customerPage.locator('[data-toggle-archived]').click();
+      assert.match(await customerPage.locator('.customer-register-empty').innerText(),/Inga arkiverade kunder/);
+      assert.deepEqual(customerErrors,[],'customer registry browser errors');
+      checks.push({kind:'customer-registry-ui',total,search:'number/name/org',mobile:true,edit:true});
+    }finally{
+      await customerContext.close();
+    }
+  }
   {
     const response=await page.goto(base+'admin/?demo=1#/overview',{waitUntil:'networkidle'});
     if(response)assert.equal(response.status(),200,'admin/');
