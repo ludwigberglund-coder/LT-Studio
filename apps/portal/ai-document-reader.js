@@ -270,6 +270,7 @@
     if(documentType==='supplier-invoice'){
       if(!resolved.supplier)warnings.push('Leverantör kunde inte identifieras säkert. Kontrollera originalet.');
       if(!resolved.reference)warnings.push('Fakturanummer kunde inte identifieras säkert. Kontrollera originalet.');
+      if(!resolved.dueDate)warnings.push('Förfallodatum kunde inte identifieras säkert. Kontrollera originalet.');
     }
     if(!resolved.grossOre)warnings.push('Totalt belopp kunde inte fastställas säkert.');
     if(!resolved.invoiceDate)warnings.push('Datum måste kontrolleras mot originalet.');
