@@ -26,7 +26,7 @@ test('fakturering, inbetalningar och kunder är en gemensam behörig arbetsyta',
   }
 });
 
-test('inköp, PDF-underlag, att betala och leverantörer delar en arbetsyta',()=>{
+test('inköp har en gemensam flik för leverantörsfaktura och betalning',()=>{
   for(const role of ['admin','accountant','approver','readonly']){
     const allowed=Nav.visibleGroups({authenticated:true,permissions:permissions(role)});
     const original=new Map(flat(allowed).map(item=>[item[0],item[2]]));
@@ -38,7 +38,7 @@ test('inköp, PDF-underlag, att betala och leverantörer delar en arbetsyta',()=
       assert.deepEqual(Nav.workspaceForRoute(allowed,'/LT-Studio/'+item[2]),purchases);
     }
     assert.deepEqual(purchases.items.map(item=>item[0]),
-      ['documents','payables','supplier-ledger','suppliers'].filter(id=>original.has(id)));
+      ['documents','payables','suppliers'].filter(id=>original.has(id)));
   }
 });
 
@@ -53,12 +53,16 @@ test('en inloggad användare får inga extra funktioner via arbetsyteflikar',()=
   assert.equal(Nav.workspaceForRoute(limited,'/LT-Studio/portal/ai-assistant.html'),null);
 });
 
-test('tekniska underflikar finns kvar via tillåtna länkar, direktlänkar och menysökning',()=>{
+test('leverantörsreskontran försvinner från menyn men gamla direktlänkar och serverbehörighet finns kvar',()=>{
   assert.deepEqual([...Nav.integratedSubpages].sort(),['receivables','supplier-ledger']);
   for(const role of ['admin','accountant','approver','readonly']){
     const original=flat(Nav.visibleGroups({authenticated:true,permissions:permissions(role)}));
     const projected=flat(Nav.unifiedGroups(Nav.visibleGroups({authenticated:true,permissions:permissions(role)})));
-    assert.deepEqual(new Set(projected.map(item=>item[0])),new Set(original.map(item=>item[0])));
+    assert.deepEqual(new Set(projected.map(item=>item[0])),new Set(original.filter(item=>item[0]!=='supplier-ledger').map(item=>item[0])));
+    assert.ok(original.some(item=>item[0]==='supplier-ledger'));
+    assert.ok(!projected.some(item=>item[0]==='supplier-ledger'));
+    const payables=projected.find(item=>item[0]==='payables');
+    assert.ok(payables);assert.equal(payables[1],'Leverantörsfakturor & betalning');
   }
   const source=fs.readFileSync(path.join(__dirname,'..','apps','portal','portal-nav.js'),'utf8');
   const styles=fs.readFileSync(path.join(__dirname,'..','apps','portal','shared-nav.css'),'utf8');
