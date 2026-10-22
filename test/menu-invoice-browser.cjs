@@ -141,7 +141,17 @@ for(const width of [1440,1024,768,390]){await page.setViewportSize({width,height
   const eligibleTwelve=await revenue1.locator('option').evaluateAll(items=>items.map(item=>item.value).filter(Boolean));
   assert.equal(await revenue1.inputValue(),eligibleTwelve.length===1?eligibleTwelve[0]:'','do not guess between multiple accounts');
   await revenue1.selectOption('3099');assert.equal(await row1.locator('[data-row-field=revenueAccount] option[value="3051"]').count(),0,'25 %-konto får inte visas vid 12 % moms');assert.equal(await row1.locator('[data-row-field=revenueAccount] option[value="3053"]').count(),0,'6 %-konto får inte visas vid 12 % moms');
-  await page.locator('[name=useFees]').check();await page.locator('[name="administration.amount"]').fill('10,00');await page.locator('[name="freight.amount"]').fill('50,00');await page.locator('[name=includeMessage]').check();await page.locator('[name=notes]').fill('Tack för ert köp.');
+  const feesSection=page.locator('.invoice-section').filter({hasText:'Avgifter och öresutjämning'});
+  await feesSection.locator('summary').click();
+  await page.locator('[name=useFees]').check();
+  assert.equal(await feesSection.getAttribute('open'),'','valfria avgifter blir synliga när de väljs');
+  await page.locator('[name="administration.amount"]').fill('10,00');
+  await page.locator('[name="freight.amount"]').fill('50,00');
+  const messageSection=page.locator('.invoice-section').filter({hasText:'6. Meddelanden'});
+  await messageSection.locator('summary').click();
+  await page.locator('[name=includeMessage]').check();
+  assert.equal(await messageSection.getAttribute('open'),'','meddelandefältet öppnas när det aktiveras');
+  await page.locator('[name=notes]').fill('Tack för ert köp.');
   await page.screenshot({path:path.join(out,'invoice-editor.png'),fullPage:true});const before=await page.evaluate(()=>RollandsDemoScenario.state().customerInvoices.length);
   await row1.locator('[data-row-field=description]').press('Enter');await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>RollandsDemoScenario.state().customerInvoices.length),before,'Enter i fakturaformuläret får inte ställa ut fakturan');
   await page.getByRole('button',{name:'Skapa och bokför faktura',exact:true}).click();await page.getByRole('heading',{name:/Faktura 310/}).waitFor();await menu();
