@@ -39,8 +39,8 @@ function fixture({ released = true } = {}) {
     location: { search: '', hostname: 'ludwigberglund-coder.github.io', href: '' },
     URLSearchParams, Intl, crypto: { randomUUID: () => '11111111-1111-4111-8111-111111111111' }
   };
-  // Simulate a FUTURE reviewed release in this isolated VM only. Committed
-  // browser and server release flags remain false. No real network is present.
+  // The committed client remains hard-disabled until a separate staging release.
+  // This fixture can simulate that reviewed release path without network.
   const code = released ? source.replace('const AI_PILOT_RELEASED = false;', 'const AI_PILOT_RELEASED = true;') : source;
   if (released) assert.notEqual(code, source);
   vm.runInNewContext(code, sandbox, { filename: 'ai-bookkeeping.js' });

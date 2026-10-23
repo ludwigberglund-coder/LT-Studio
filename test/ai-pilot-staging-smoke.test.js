@@ -57,7 +57,7 @@ test('missing, false or duplicated source release flags remain locked', async ()
   for (const source of ['', undefined, '// ' + server, server.replace('true', 'false'), server + '\n' + server])
     assert.equal(checkReleaseSources(source, browser).server, false);
 });
-test('current checked-in CLI stays locked even with run requested and enabling environment flags', () => {
+test('current checked-in CLI stays locked until an explicit staging release', () => {
   const out = spawnSync(process.execPath, ['scripts/ai-pilot-staging-smoke.mjs', '--run'], {
     cwd: require('node:path').join(__dirname, '..'), encoding: 'utf8', timeout: 5000,
     env: { ...process.env, RELEASE_APPROVED: 'true', AI_PILOT_RELEASED: 'true', AI_SYNTHETIC_PILOT_ENABLED: 'true' }
