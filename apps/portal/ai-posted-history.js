@@ -110,7 +110,10 @@
   function normalizedReference(value){
     if(typeof value!=='string'||value.length<1||value.length>100||
         /[\u0000-\u001f\u007f]/u.test(value))return '';
-    return value.normalize('NFKC').trim().toLocaleUpperCase('sv-SE');
+    // Match the database's generated invoice_reference_key: NFKC,
+    // uppercase and ALL internal whitespace removed. Keep punctuation.
+    const key=value.normalize('NFKC').replace(/\s+/gu,'').toLocaleUpperCase('sv-SE');
+    return key.length<=100?key:'';
   }
   function validDate(value){
     if(typeof value!=='string'||! /^(?:19|20)\d{2}-\d{2}-\d{2}$/.test(value))return false;
@@ -140,7 +143,9 @@
       !SHA.test(document.sha256||'')||
       document.sha256.toLowerCase()!==source.pdf_sha256.toLowerCase()||
       typeof document.object_path!=='string'||!document.object_path||
-      document.object_path.length>512||
+      document.object_path.length>512||!document.object_path.startsWith(companyId+'/')||
+      document.object_path.slice(companyId.length+1).split('/').some(segment=>
+        !segment||segment==='.'||segment==='..')||
       !Number.isSafeInteger(Number(document.size_bytes))||
       Number(document.size_bytes)<1||Number(document.size_bytes)>10485760)return null;
     return {supplierId:source.supplier_id,vatRate,reference:normalizedReference(source.supplier_invoice_number),sourceHash:source.pdf_sha256.toLowerCase()};

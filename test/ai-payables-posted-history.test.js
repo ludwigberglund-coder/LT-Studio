@@ -56,6 +56,17 @@ test('only three uniquely hashed attested and posted originals create a suggesti
   assert.ok(Object.isFrozen(review.lines));
 });
 
+test('200 invoices show the real capacity block instead of promising a manual draft in the same blocked flow',async()=>{
+ const rows=[source(),...Array.from({length:199},(_,i)=>history(i+1))];
+ const u=liveUi(rows);await u.settle();
+ assert.match(u.app.innerHTML,/200 eller fler leverantörsfakturor/);
+ assertNoDraft(u);
+ await u.click('suggest-coding');
+ assert.match(u.app.innerHTML,/kan inte kontrollera hela historiken/);
+ await u.click('manual-coding');
+ assertNoDraft(u);
+ assert.equal(u.writes,0);
+});
 test('tenant crossings and mixed snapshots are blocked before a history suggestion',()=>{
   const wrongInvoice=history(2,{company_id:'tenant-b'});
   no(suggest({invoices:[source(),history(1),wrongInvoice,history(3)]}));
@@ -71,6 +82,19 @@ test('duplicate supplier invoice reference or same original SHA always blocks pr
   assert.equal(suggest({invoices:list()}).status,'suggested','the same source row must not count as a duplicate');
 });
 
+test('reference variants matching the database unique key block unsafe historical previews',()=>{
+ for(const [reference,oldReference] of [
+   ['INV 1001','inv1001'],[' ＩＮＶ１００１ ','INV1001'],
+   ['INV\u00a01001','inv 1001']
+ ]){
+   const incoming=source({supplier_invoice_number:reference});
+   const existing=history(4,{supplier_invoice_number:oldReference});
+   no(suggest({source:incoming,invoices:[incoming,history(1),history(2),history(3),existing]}));
+   no(draft('6540',{source:incoming,invoices:[incoming,history(1),history(2),history(3),existing]}));
+ }
+ // Different supplier references do not collide on reference alone.
+ assert.equal(suggest({invoices:[...list(),history(4,{supplier_id:'unrelated',supplier_invoice_number:'INV-NEW-01'})]}).status,'suggested');
+});
 test('weak, contradictory or duplicated history yields no automatic account',()=>{
   no(suggest({invoices:list().slice(0,3)}));
   no(suggest({invoices:[...list().slice(0,3),history(3,{coding_json:[
@@ -91,8 +115,11 @@ test('unsafe PDF metadata, already coded and posted invoices or invalid VAT fail
   ]){no(suggest({source:source(row)}));no(draft('6540',{source:source(row)}));}
   for(const doc of [
     {sha256:sha(11)},{source_id:'other'},{company_id:'tenant-b'},
-    {source_type:'receipt'},{mime_type:'image/png'},{object_path:''},{size_bytes:10485761}
+    {source_type:'receipt'},{mime_type:'image/png'},{object_path:''},{size_bytes:10485761},
+    {object_path:'tenant-b/foreign.pdf'},{object_path:'tenant-a-backup/foreign.pdf'},
+    {object_path:'tenant-a/../tenant-b/foreign.pdf'}
   ]){no(suggest({document:document(doc)}));no(draft('6540',{document:document(doc)}));}
+  assert.equal(suggest({document:document({object_path:'tenant-a/supplier-invoices/invoice-new/original.pdf'})}).status,'suggested');
 });
 
 test('manual review only accepts listed BAS accounts and requires source/tenant checks',()=>{
