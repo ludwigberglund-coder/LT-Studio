@@ -88,22 +88,85 @@ document.addEventListener('click',async e=>{
   }
 });
 document.addEventListener('submit',async e=>{if(e.target.id!=='document-upload')return;e.preventDefault();const button=e.target.querySelector('[type="submit"]');button.disabled=true;try{await upload(e.target);document.querySelector('.documents-modal-backdrop')?.remove();render()}catch(err){message=err.message;button.disabled=false;render()}});
+const documentAccessError=()=>new Error('Dokumentet kan inte öppnas säkert. Ladda om arkivet och välj rätt företag.');
+const archiveAccessError=()=>new Error('Dokumentarkivet kunde inte verifieras för valt företag. Ladda om sidan och försök igen.');
+function sameDocumentSession(expected,current){
+  return Boolean(current?.authenticated&&current.company?.id&&current.accessToken&&
+    String(current.company.id)===String(expected.company?.id||'')&&
+    current.accessToken===expected.accessToken&&
+    (!expected.authUser?.id||current.authUser?.id===expected.authUser.id));
+}
+function validArchivePath(doc,companyId){
+  if(!doc||String(doc.companyId)!==String(companyId)||
+     typeof doc.objectPath!=='string'||typeof doc.fileName!=='string')
+    return false;
+  const parts=doc.objectPath.split('/');
+  if(parts.length!==4||parts[0]!==String(companyId)||
+     !/^[A-Za-z0-9_.-]+\.pdf$/i.test(parts[3]))
+    return false;
+  // Normal archive originals (including older customer uploads).
+  if(parts[1]==='documents')
+    return parts[2]===String(doc.id)&&parts[2]!=='.'&&parts[2]!=='..'&&
+      /^[A-Za-z0-9_-]{1,140}$/.test(parts[2]);
+  // Issued customer invoices and credit notes have always lived in separate
+  // verified staging folders. Do not break opening these existing originals.
+  return doc.category==='customer-invoice'&&doc.sourceType==='customer-invoice'&&
+    (parts[1]==='customer-invoices'||parts[1]==='customer-credit-notes')&&
+    /^[A-Za-z0-9_-]{16,100}$/.test(parts[2])&&
+    parts[3]===doc.fileName;
+}
 async function loadSupabaseDocuments(){
-  const ctx=await window.LTSupabaseUat.context();if(!ctx.authenticated||!ctx.company){location.href='./index.html';return false}
-  session={user:ctx.user,company:ctx.company};
-  const rows=await window.LTSupabase.from('documents',ctx.accessToken).select('*','company_id=eq.'+encodeURIComponent(ctx.company.id)+'&order=created_at.desc');
-  documents=(rows||[]).map(r=>({
-    id:r.id,title:r.title||r.file_name,fileName:r.file_name,mimeType:r.mime_type,sizeBytes:Number(r.size_bytes||0),sha256:r.sha256||'',
-    category:r.category||r.source_type||'other',note:r.note||'',createdAt:r.created_at,objectPath:r.object_path,
-    links:r.source_type&&r.source_id?[{entityType:r.source_type,entityId:r.source_id,label:''}]:[]
-  }));
-  return true;
+  const ctx=await window.LTSupabaseUat.context();
+  if(!ctx?.authenticated||!ctx.company){documents=[];activePdfReview=null;location.href='./index.html';return false}
+  if(!ctx.company.id||!ctx.accessToken)throw archiveAccessError();
+  const companyId=String(ctx.company.id),token=ctx.accessToken;
+  try{
+    const rows=await window.LTSupabase.from('documents',token).select('*','company_id=eq.'+encodeURIComponent(companyId)+'&order=created_at.desc');
+    const current=await window.LTSupabaseUat.context();
+    if(!sameDocumentSession(ctx,current)||!Array.isArray(rows)||
+       rows.some(row=>!row||String(row.company_id||'')!==companyId)){
+      throw archiveAccessError();
+    }
+    const mapped=rows.map(r=>({
+      id:r.id,companyId:r.company_id,sourceType:r.source_type||null,
+      title:r.title||r.file_name,fileName:r.file_name,
+      mimeType:r.mime_type,sizeBytes:Number(r.size_bytes||0),sha256:r.sha256||'',
+      category:r.category||r.source_type||'other',note:r.note||'',createdAt:r.created_at,objectPath:r.object_path,
+      links:r.source_type&&r.source_id?[{entityType:r.source_type,entityId:r.source_id,label:''}]:[]
+    }));
+    // Commit a single validated snapshot; no rows from an earlier company remain.
+    documents=mapped;session={user:current.user,company:current.company};activePdfReview=null;
+    return true;
+  }catch{
+    documents=[];session=null;activePdfReview=null;
+    throw archiveAccessError();
+  }
 }
 async function openSupabaseDocument(id){
-  const ctx=await window.LTSupabaseUat.context(),doc=documents.find(d=>String(d.id)===String(id));
-  if(!doc?.objectPath)throw new Error('Dokumentets lagringssökväg saknas.');
+  const ctx=await window.LTSupabaseUat.context();
+  const doc=documents.find(d=>String(d.id)===String(id));
+  if(!ctx?.authenticated||!ctx.company?.id||!ctx.accessToken||
+     !doc||String(doc.companyId)!==String(ctx.company.id)||
+     doc.mimeType!=='application/pdf'||
+     typeof doc.objectPath!=='string'||
+     !validArchivePath(doc,ctx.company.id)||
+     !/^[a-f0-9]{64}$/i.test(doc.sha256||'')||
+     !Number.isSafeInteger(doc.sizeBytes)||doc.sizeBytes<=0||doc.sizeBytes>10*1024*1024)
+    throw documentAccessError();
   const blob=await window.LTSupabase.storage.download('lt-documents',doc.objectPath,ctx.accessToken);
-  const href=URL.createObjectURL(blob),tab=window.open(href,'_blank','noopener');
+  if(!blob||blob.size!==doc.sizeBytes||blob.size>10*1024*1024)throw documentAccessError();
+  const bytes=await blob.arrayBuffer();
+  const digest=await crypto.subtle.digest('SHA-256',bytes);
+  const actual=[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
+  if(actual!==doc.sha256.toLowerCase())throw documentAccessError();
+  const current=await window.LTSupabaseUat.context();
+  if(!sameDocumentSession(ctx,current)||
+     !documents.some(row=>row.id===doc.id&&row.companyId===doc.companyId&&
+       row.sha256===doc.sha256&&row.objectPath===doc.objectPath))
+    throw documentAccessError();
+  // Use a PDF-only blob, not a storage-controlled MIME type or URL.
+  const href=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+  const tab=window.open(href,'_blank','noopener');
   if(!tab){URL.revokeObjectURL(href);throw new Error('Webbläsaren blockerade PDF-fönstret.');}
   setTimeout(()=>URL.revokeObjectURL(href),120000);
 }
@@ -135,7 +198,7 @@ async function previewSupabaseDocument(id){
     ctx.company.id!==source.companyId||
     (source.userId&&ctx.authUser?.id!==source.userId)||
     !doc||doc.sha256!==source.sha256||doc.objectPath!==source.objectPath||
-    doc.category!==source.category||!doc.objectPath.startsWith(String(ctx.company.id)+'/documents/')){
+    doc.category!==source.category||!validArchivePath(doc,ctx.company.id)){
     throw new Error('DOCUMENT_REVIEW_EXPIRED');
   }
   const target=modal.querySelector('[data-document-review-result]');
@@ -160,9 +223,10 @@ async function readSupabaseDocument(id){
   const ctx=await window.LTSupabaseUat.context();
   if(!ctx?.authenticated||!ctx.company?.id||!ctx.accessToken)throw new Error('AUTH_REQUIRED');
   const doc=documents.find(d=>String(d.id)===String(id));
-  if(!doc||!['supplier-invoice','receipt'].includes(doc.category)||
+  if(!doc||String(doc.companyId)!==String(ctx.company.id)||
+     !['supplier-invoice','receipt'].includes(doc.category)||
      doc.mimeType!=='application/pdf'||!doc.objectPath||
-     !doc.objectPath.startsWith(String(ctx.company.id)+'/documents/')||
+     !validArchivePath(doc,ctx.company.id)||
      !/^[a-f0-9]{64}$/i.test(doc.sha256||''))throw new Error('DOCUMENT_NOT_VERIFIED');
   const blob=await window.LTSupabase.storage.download('lt-documents',doc.objectPath,ctx.accessToken);
   if(!blob||blob.size!==doc.sizeBytes||blob.size>10*1024*1024)throw new Error('DOCUMENT_SIZE_MISMATCH');
