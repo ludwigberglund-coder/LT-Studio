@@ -41,3 +41,242 @@ html[data-lt-theme="dark"] .documents-pdf-preview,
 html[data-lt-theme="dark"] .documents-pdf-review-panel{background:var(--surface-card);color:var(--color-ink)}
 html[data-lt-theme="dark"] .documents-pdf-review{background:var(--surface-alt)}
 html[data-lt-theme="dark"] .documents-pdf-preview :is(h2,h3,strong,p,small,label,select,th,td){color:var(--color-ink)}
+
+
+/*
+ * LT Studio document archive usability: a readable table on desktop,
+ * stacked original-document cards on phones and opaque dark theme surfaces.
+ * Does not alter document permissions, upload, verification or bookkeeping.
+ */
+.documents-shell{
+  --docs-surface:#ffffff;
+  --docs-soft:#f2f7f3;
+  --docs-ink:#173c2d;
+  --docs-muted:#4b6155;
+  --docs-line:#cbd9cf;
+  --docs-pill:#e4f1e8;
+  --docs-pill-ink:#225940;
+  --docs-shadow:0 8px 25px rgb(23 61 46 / .05);
+}
+.documents-main .documents-toolbar,
+.documents-main .documents-panel{
+  min-width:0;
+  border:1px solid var(--docs-line);
+  border-radius:16px;
+  background:var(--docs-surface);
+  color:var(--docs-ink);
+  box-shadow:var(--docs-shadow);
+}
+.documents-main .documents-head{
+  align-items:center;
+  border-bottom-color:var(--docs-line);
+}
+.documents-main .documents-head h2{color:var(--docs-ink);letter-spacing:-.025em}
+.documents-main .documents-head>strong{
+  font-size:12px;
+  color:var(--docs-muted);
+  white-space:nowrap;
+}
+.documents-main .documents-table{font-variant-numeric:tabular-nums}
+.documents-main .documents-table th{
+  color:var(--docs-muted);
+  background:var(--docs-soft);
+  border-bottom:1px solid var(--docs-line);
+}
+.documents-main .documents-table td{
+  color:var(--docs-ink);
+  background:var(--docs-surface);
+  border-bottom:1px solid var(--docs-line);
+}
+.documents-main .documents-table small{color:var(--docs-muted);line-height:1.5}
+.documents-main .doc-category{
+  border:1px solid var(--docs-line);
+  border-radius:999px;
+  background:var(--docs-pill);
+  color:var(--docs-pill-ink);
+  font-size:12px;
+  line-height:1.3;
+}
+.documents-main .documents-filters{min-width:0}
+.documents-main .documents-filters :is(input,select){
+  min-height:44px;
+  background:var(--docs-surface);
+  color:var(--docs-ink);
+  border:1px solid var(--docs-line);
+}
+.documents-main .documents-toolbar .button,
+.documents-main .documents-table .button{
+  display:inline-flex;
+  justify-content:center;
+  align-items:center;
+  min-height:44px;
+  max-width:100%;
+  line-height:1.3;
+  white-space:normal;
+}
+.documents-main :is(.documents-toolbar button,.documents-table button,
+  .documents-toolbar input,.documents-toolbar select):focus-visible{
+  outline:3px solid var(--docs-pill-ink);
+  outline-offset:3px;
+}
+.documents-main .documents-table td:nth-child(2) b{
+  color:var(--docs-ink);
+  font-size:14px;
+  overflow-wrap:anywhere;
+}
+.documents-main .documents-table td:nth-child(2) small{
+  overflow-wrap:anywhere;
+}
+.documents-main .documents-table td:last-child{
+  min-width:0;
+  white-space:normal;
+}
+.documents-main .documents-table td:last-child .button{
+  margin:3px 5px 3px 0;
+}
+.documents-main .documents-empty{color:var(--docs-muted);text-align:center}
+@media(max-width:720px){
+  .documents-main .documents-toolbar{padding:15px;gap:12px}
+  .documents-main .documents-filters,
+  .documents-main .documents-search-shell,
+  .documents-main .documents-toolbar>.button,
+  .documents-main .documents-filters select{width:100%;min-width:0}
+  .documents-main .documents-filters{
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    gap:10px;
+  }
+  .documents-main .documents-filters :is(input,select){font-size:16px!important}
+  .documents-main .documents-head{padding:16px;gap:10px;flex-wrap:wrap}
+  .documents-main .documents-head h2{font-size:22px}
+  .documents-main .documents-table-wrap{max-width:100%;overflow-x:visible}
+  .documents-main .documents-table{
+    display:block;
+    min-width:0;
+    width:100%;
+  }
+  /* Keep the native table headers accessible to screen readers. */
+  .documents-main .documents-table thead{
+    position:absolute;
+    width:1px;
+    height:1px;
+    padding:0;
+    margin:-1px;
+    overflow:hidden;
+    clip-path:inset(50%);
+    white-space:nowrap;
+    border:0;
+  }
+  .documents-main .documents-table tbody{
+    display:grid;
+    gap:12px;
+    min-width:0;
+    padding:13px;
+  }
+  .documents-main .documents-table tbody tr{
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+    padding:5px 15px;
+    border:1px solid var(--docs-line);
+    border-radius:13px;
+    background:var(--docs-surface);
+    box-shadow:0 3px 12px rgb(23 61 46 / .035);
+  }
+  .documents-main .documents-table tbody td{
+    display:block;
+    order:3;
+    min-width:0;
+    padding:10px 0;
+    border-bottom:1px solid var(--docs-line);
+    line-height:1.55;
+    overflow-wrap:anywhere;
+  }
+  .documents-main .documents-table tbody td:last-child{border-bottom:0}
+  .documents-main .documents-table tbody td:nth-child(2){order:0}
+  .documents-main .documents-table tbody td:nth-child(1){order:1}
+  .documents-main .documents-table tbody td:nth-child(3){order:2}
+  .documents-main .documents-table tbody td:nth-child(4){order:3}
+  .documents-main .documents-table tbody td:nth-child(5){order:4}
+  .documents-main .documents-table tbody td:nth-child(6){order:5}
+  .documents-main .documents-table tbody td:nth-child(7){order:6}
+  .documents-main .documents-table tbody td:not(.documents-empty)::before{
+    display:block;
+    margin-bottom:5px;
+    color:var(--docs-muted);
+    font-size:11px;
+    font-weight:800;
+    letter-spacing:.04em;
+  }
+  .documents-main .documents-table tbody td:nth-child(1)::before{content:"Kategori"}
+  .documents-main .documents-table tbody td:nth-child(2)::before{content:"Dokument"}
+  .documents-main .documents-table tbody td:nth-child(3)::before{content:"Koppling"}
+  .documents-main .documents-table tbody td:nth-child(4)::before{content:"Storlek"}
+  .documents-main .documents-table tbody td:nth-child(5)::before{content:"Kontrollsumma"}
+  .documents-main .documents-table tbody td:nth-child(6)::before{content:"Registrerat"}
+  .documents-main .documents-table tbody td:nth-child(7)::before{content:"Åtgärder"}
+  .documents-main .documents-table tbody td:nth-child(2) b{
+    display:block;
+    font-size:16px;
+    font-weight:800;
+  }
+  .documents-main .documents-table tbody td:nth-child(7) .button{
+    width:100%;
+    margin:5px 0;
+  }
+  .documents-main .documents-table tbody td[colspan]{
+    order:0;
+    padding:26px 12px;
+    text-align:center;
+  }
+  .documents-main .documents-table tbody td[colspan]::before{content:none}
+}
+html[data-lt-theme="dark"] .documents-shell{
+  --docs-surface:#26372e;
+  --docs-soft:#31453a;
+  --docs-ink:#f4fbf5;
+  --docs-muted:#d4e1d7;
+  --docs-line:#647b6d;
+  --docs-pill:#365645;
+  --docs-pill-ink:#e0f9e6;
+  --docs-shadow:0 8px 28px rgb(0 0 0 / .17);
+}
+html[data-lt-theme="dark"] .documents-main :is(
+  .documents-toolbar,.documents-panel,.documents-table td,.documents-table tbody tr
+){
+  color:var(--docs-ink)!important;
+  background:var(--docs-surface)!important;
+  border-color:var(--docs-line)!important;
+}
+html[data-lt-theme="dark"] .documents-main .documents-table th{
+  color:var(--docs-muted)!important;
+  background:var(--docs-soft)!important;
+  border-color:var(--docs-line)!important;
+}
+html[data-lt-theme="dark"] .documents-main .doc-category{
+  background:var(--docs-pill)!important;
+  color:var(--docs-pill-ink)!important;
+  border-color:var(--docs-line)!important;
+}
+html[data-lt-theme="dark"] .documents-main :is(
+  .documents-head h2,.documents-table td b,.documents-table td .button
+){
+  color:var(--docs-ink);
+}
+html[data-lt-theme="dark"] .documents-main .documents-head>strong,
+html[data-lt-theme="dark"] .documents-main .documents-table small{
+  color:var(--docs-muted)!important;
+}
+html[data-lt-theme="dark"] .documents-main .documents-filters :is(input,select){
+  background:var(--docs-surface)!important;
+  border-color:var(--docs-line)!important;
+  color:var(--docs-ink)!important;
+  -webkit-text-fill-color:var(--docs-ink)!important;
+}
+html[data-lt-theme="dark"] .documents-main :is(
+  .documents-toolbar button,.documents-table button,
+  .documents-toolbar input,.documents-toolbar select
+):focus-visible{
+  outline:3px solid var(--docs-pill-ink)!important;
+  outline-offset:3px!important;
+}
