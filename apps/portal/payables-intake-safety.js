@@ -7,8 +7,10 @@
     const v=value.trim();if(required&&!v)throw fail('INVALID_INTAKE_INPUT');return v;
   }
   function amount(value,allowZero=false){
-    const v=text(value,30,true).replace(/\s/g,'').replace(',','.');
-    if(!/^\d+(?:\.\d{1,2})?$/.test(v))throw fail('INVALID_INTAKE_AMOUNT');
+    // Accept Swedish thousands groups, but never reinterpret "1 2 50" as 1250.
+    const raw=text(value,30,true).replace(/[\u00a0\u202f]/g,' ').replace(/ +/g,' ');
+    if(!/^(?:\d+|\d{1,3}(?: \d{3})+)(?:[,.]\d{1,2})?$/.test(raw))throw fail('INVALID_INTAKE_AMOUNT');
+    const v=raw.replace(/ /g,'').replace(',','.');
     const [whole,decimal='']=v.split('.');const result=Number(whole)*100+Number((decimal+'00').slice(0,2));
     if(!Number.isSafeInteger(result)||result>99999999999||result<0||(!allowZero&&!result))throw fail('INVALID_INTAKE_AMOUNT');
     return result;
@@ -44,6 +46,7 @@
     if(!file||typeof file.arrayBuffer!=='function'||file.size>10485760||file.size<32||
        (file.type&&file.type!=='application/pdf'))throw fail('INVALID_INTAKE_PDF');
     const bytes=new Uint8Array(await file.arrayBuffer());
+    if(bytes.length!==file.size)throw fail('INVALID_INTAKE_PDF');
     await pdf.assertSafePdfDeep(bytes,{fileName:file.name},pdfLibrary);
     const sha256=await hash(bytes);
     const invoiceId=await id(JSON.stringify(['supplier-intake-v1',scope.companyId,sha256]));
@@ -81,7 +84,19 @@
       if(!Array.isArray(rows)||rows.length>1||rows.some(row=>!sameInvoice(row,op)))throw fail('INTAKE_DUPLICATE_OR_CHANGED');
       let invoice=rows[0]||null;
       if(invoice){
-        if((await originals()).length===1)return {invoiceId:invoice.id,resumed:true};
+        if((await originals()).length===1){
+          // A database link alone does not prove that the passive original is
+          // still retrievable. Never report a complete intake without it.
+          try{
+            const verifiedContext=await context();
+            const original=await client.storage.download('lt-documents',op.path,verifiedContext.accessToken);
+            if(!original||original.size!==op.size)throw fail('INTAKE_DOCUMENT_CONFLICT');
+            const bytes=await original.arrayBuffer();
+            if(bytes.byteLength!==op.size||await hash(bytes)!==op.sha256)throw fail('INTAKE_DOCUMENT_CONFLICT');
+          }catch(_error){throw fail('INTAKE_DOCUMENT_CONFLICT');}
+          await context();
+          return {invoiceId:invoice.id,resumed:true};
+        }
         if(!['registered','coding-review'].includes(invoice.status)||invoice.approved_by||invoice.approved_at||invoice.liability_accounting_entry_id)
           throw fail('INTAKE_LOCKED');
       }
@@ -139,8 +154,11 @@
         values[target]=(fields[source].value/100).toFixed(2).replace('.',',');
     const name=fields.supplier?.verified===false?fields.supplier.value:'';
     const matches=typeof name==='string'?suppliers.filter(s=>normalizeName(s.name)===normalizeName(name)):[];
+    const rate=extraction.checks?.declaredVatRate;
+    const unsupportedRate=Number.isInteger(rate)&&![0,6,12,25].includes(rate);
     return {values,supplierName:typeof name==='string'?name:'',possibleSupplierId:matches.length===1?matches[0].id:null,
       blocked:Boolean(extraction.checks?.creditNote||extraction.checks?.negativeSummary||extraction.checks?.mixedVatRates||
+        extraction.checks?.amountBalance===false||unsupportedRate||
         extraction.warnings?.some(w=>/utländsk valuta|motstridiga/i.test(w)))};
   }
   function message(error){
