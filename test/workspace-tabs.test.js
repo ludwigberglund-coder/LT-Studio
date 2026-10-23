@@ -74,4 +74,8 @@ test('leverantörsreskontran försvinner från menyn men gamla direktlänkar och
   assert.match(styles,/\.lt-workspace-switcher-links>a:focus-visible/);
   assert.match(styles,/html\[data-lt-theme="dark"\] \.lt-workspace-switcher/);
   assert.match(styles,/min-height:44px/);
+  assert.match(styles,/\.lt-workspace-switcher\{[^}]*border-radius:8px/s);
+  assert.match(styles,/\.lt-workspace-switcher-links>a\{[^}]*border-radius:8px/s);
+  assert.match(styles,/\.lt-workspace-switcher-heading>span\{[^}]*letter-spacing:0[;}]/s);
+  assert.match(styles,/\.lt-workspace-switcher-heading>strong\{[^}]*letter-spacing:0[;}]/s);
 });
