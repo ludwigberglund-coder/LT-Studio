@@ -21,18 +21,28 @@ function categoryLabel(v){return ({'customer-invoice':'Kundfaktura','supplier-in
 function render(){const rows=visibleDocs();app.innerHTML=`<div class="documents-shell">${sidebar()}<section class="documents-main"><header class="topbar"><div><h1>Dokument</h1><p>Originalunderlag · kontrollsumma · affärskoppling</p></div><div class="user-chip"><b>${esc(session?.user?.displayName||'Demo Dokument')}</b></div></header><main class="content">${isDemo?'<div class="demo-banner"><b>Gemensamt UAT-scenario.</b> Dokumentens kopplingar använder samma interna id som Leverantörsfakturor och Bokföring.</div>':''}${message?`<div class="notice">${esc(message)}</div>`:''}<div class="notice documents-note"><b>Spårbarhet:</b> ett original med kontrollsumma ersätts inte. En korrigerad version registreras som ett nytt dokument.</div><section class="documents-toolbar"><div class="documents-filters"><select data-filter="category"><option value="all">Alla kategorier</option>${['customer-invoice','supplier-invoice','receipt','bank','accounting','inventory','other'].map(v=>`<option value="${v}" ${category===v?'selected':''}>${categoryLabel(v)}</option>`).join('')}</select><div class="shared-search-shell documents-search-shell"><input type="search" role="combobox" aria-autocomplete="list" aria-controls="documents-search-results" aria-expanded="${documentSearchOpen&&query?'true':'false'}" autocomplete="off" data-filter="query" value="${esc(query)}" placeholder="Sök titel, fil eller koppling"><div id="documents-search-results" class="shared-search-results" role="listbox" ${documentSearchOpen&&query?'':'hidden'}>${documentSearchOpen&&query?documentSearchResults():''}</div></div></div><button class="button" data-action="upload">Lägg till dokument</button></section><section class="documents-panel"><div class="documents-head"><div><span class="eyebrow">Arkiv</span><h2>${rows.length} dokument</h2></div><strong>${documents.length} totalt</strong></div><div class="documents-table-wrap"><table class="documents-table"><thead><tr><th>Kategori</th><th>Dokument</th><th>Koppling</th><th>Storlek</th><th>SHA-256</th><th>Registrerat</th><th></th></tr></thead><tbody>${rows.map(d=>`<tr data-document-id="${esc(d.id)}"><td><span class="doc-category">${esc(categoryLabel(d.category))}</span></td><td><b>${esc(d.title)}</b><small>${esc(d.fileName)} · ${esc(d.mimeType)}</small></td><td>${(d.links||[]).map(l=>`${esc(l.label||l.entityType)}<small>${esc(l.entityType)} · ${esc(l.entityId)}</small>`).join('<br>')||'—'}</td><td>${size(d.sizeBytes)}</td><td class="doc-sha" title="${esc(d.sha256||'')}">${esc((d.sha256||'').slice(0,12))}${d.sha256?'…':''}</td><td>${date(d.createdAt)}</td><td>${isDemo?'<span>Demo</span>':isSupabase?`<button class="button ghost small" type="button" data-open-document="${esc(d.id)}">Öppna PDF</button>${['supplier-invoice','receipt'].includes(d.category)?`<button class="button ghost small" type="button" data-read-document="${esc(d.id)}">Läs PDF lokalt</button>`:''} `:`<a class="button ghost small" href="/api/v1/documents/${encodeURIComponent(d.id)}/content" target="_blank" rel="noopener">Ladda ner</a>`}</td></tr>`).join('')||'<tr><td colspan="7" class="documents-empty">Inga dokument matchar filtret.</td></tr>'}</tbody></table></div></section></main></section></div>`}
 function modal(){const requestId=crypto.randomUUID();document.body.insertAdjacentHTML('beforeend',`<div class="documents-modal-backdrop" data-close><section class="documents-modal"><header><div><span class="eyebrow">Nytt original</span><h2>Lägg till dokument</h2></div><button class="documents-close" type="button" data-close>×</button></header><form id="document-upload" data-request-id="${esc(requestId)}"><div class="two"><label>Titel<input name="title" required maxlength="180"></label><label>Kategori<select name="category"><option value="customer-invoice">Kundfaktura</option><option value="supplier-invoice">Leverantörsfaktura</option><option value="receipt">Kvitto</option><option value="bank">Bank</option><option value="accounting">Bokföring</option><option value="inventory">Lager</option><option value="other">Övrigt</option></select></label></div><label>Fil<input type="file" name="file" accept="application/pdf,.pdf" required><small>Endast PDF · max 10 MB</small></label><div class="two"><label>Kopplingstyp<input name="entityType" placeholder="t.ex. supplier-invoice"></label><label>Kopplings-id<input name="entityId" placeholder="internt id"></label></div><label>Kommentar<textarea name="note" rows="3" maxlength="1000"></textarea></label><div class="notice"><b>Originalprincip:</b> efter uppladdning kan filen inte bytas ut.</div><footer><button class="button ghost" type="button" data-close>Avbryt</button><button class="button" type="submit">Ladda upp</button></footer></form></section></div>`)}
 async function upload(form){const fd=new FormData(form),file=fd.get('file');if(!(file instanceof File)||!file.size)throw new Error('Välj en fil.');if(file.size>10*1024*1024)throw new Error('PDF-filen får vara högst 10 MB.');const mime=file.type||({'pdf':'application/pdf'})[file.name.split('.').pop().toLowerCase()]||'';if(!/\.pdf$/i.test(file.name)||mime!=='application/pdf')throw new Error('Endast PDF-filer stöds.');const meta={requestId:String(form.dataset.requestId||''),title:String(fd.get('title')||''),category:String(fd.get('category')||'other'),fileName:file.name,mimeType:mime,note:String(fd.get('note')||''),entityType:String(fd.get('entityType')||''),entityId:String(fd.get('entityId')||'')};if(isDemo){const created={id:`doc-demo-${Date.now()}`,...meta,sha256:`demo-${Date.now().toString(16)}`,sizeBytes:file.size,uploadedBy:'demo-user',createdAt:new Date().toISOString(),links:meta.entityType&&meta.entityId?[{entityType:meta.entityType,entityId:meta.entityId,label:''}]:[]};Demo.patch(state=>state.documents.unshift(created));documents=Demo.section('documents');message='Dokumentmetadata sparades i det gemensamma demoscenariot. Filinnehållet sparades inte.';return}if(isSupabase){
-  const ctx=await window.LTSupabaseUat.context();if(!ctx.authenticated||!ctx.company)throw new Error('Ingen aktiv Supabase-session.');
-  const bytes=new Uint8Array(await file.arrayBuffer()),digest=await crypto.subtle.digest('SHA-256',bytes),sha256=[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
-  const id='doc_'+crypto.randomUUID().replaceAll('-',''),safeName=file.name.replace(/[^A-Za-z0-9_.-]/g,'_'),path=ctx.company.id+'/documents/'+id+'/'+safeName;
-  await window.LTSupabase.storage.upload('lt-documents',path,file,ctx.accessToken);
-  try{
-    const saved=(await window.LTSupabase.from('documents',ctx.accessToken).insert([{
-      id,company_id:ctx.company.id,object_path:path,file_name:file.name,mime_type:'application/pdf',size_bytes:file.size,sha256,
-      source_type:meta.entityType||null,source_id:meta.entityId||null,uploaded_by:ctx.authUser.id,title:meta.title,category:meta.category,note:meta.note
-    }]))?.[0];
-    if(!saved)throw new Error('Dokumentmetadata kunde inte sparas i Supabase.');
-  }catch(error){await window.LTSupabase.storage.remove('lt-documents',[path],ctx.accessToken).catch(()=>{});throw error}
-  await loadSupabaseDocuments();message='Dokumentet sparades privat i Supabase och fick en SHA-256-kontrollsumma.';return;
+  const ctx=await window.LTSupabaseUat.context();
+  if(!ctx?.authenticated||!ctx.company?.id||!ctx.accessToken||!ctx.authUser?.id)
+    throw new Error('Ingen giltig företagsinloggning. Logga in igen.');
+  // Original bytes go to the trusted Edge validator; do NOT write directly
+  // into Storage or 'documents' from the user's browser.
+  const body=new FormData(form);
+  body.set('companyId',String(ctx.company.id));
+  body.set('requestId',meta.requestId);
+  const result=await window.LTSupabase.functions.uploadArchiveDocument(
+    body,ctx.accessToken,ctx.company.id);
+  if(!result?.saved)throw new Error('Dokumentuppladdningen kunde inte verifieras.');
+  const current=await window.LTSupabaseUat.context();
+  if(!current?.authenticated||current.company?.id!==ctx.company.id||
+     current.accessToken!==ctx.accessToken||
+     current.authUser?.id!==ctx.authUser.id){
+    throw new Error('Företaget eller inloggningen har ändrats. Dokumentet kan vara sparat. Kontrollera arkivet innan du försöker igen.');
+  }
+  await loadSupabaseDocuments();
+  message=result.duplicate
+    ?'Dokumentet var redan sparat och verifierat i detta företag.'
+    :'Servern verifierade PDF-originalet före privat lagring i Supabase.';
+  return;
 }
 const created=(await api('/documents',{method:'POST',body:meta})).document;const r=await fetch(`/api/v1/documents/${encodeURIComponent(created.id)}/content`,{method:'PUT',credentials:'same-origin',headers:{'Content-Type':mime,'X-CSRF-Token':csrfToken},body:file});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||'Dokumentet registrerades men filinnehållet kunde inte sparas.');documents=(await api('/documents')).documents||[];message='Dokumentet sparades och fick en kontrollsumma.'}
 document.addEventListener('change',e=>{
@@ -88,22 +98,85 @@ document.addEventListener('click',async e=>{
   }
 });
 document.addEventListener('submit',async e=>{if(e.target.id!=='document-upload')return;e.preventDefault();const button=e.target.querySelector('[type="submit"]');button.disabled=true;try{await upload(e.target);document.querySelector('.documents-modal-backdrop')?.remove();render()}catch(err){message=err.message;button.disabled=false;render()}});
+const documentAccessError=()=>new Error('Dokumentet kan inte öppnas säkert. Ladda om arkivet och välj rätt företag.');
+const archiveAccessError=()=>new Error('Dokumentarkivet kunde inte verifieras för valt företag. Ladda om sidan och försök igen.');
+function sameDocumentSession(expected,current){
+  return Boolean(current?.authenticated&&current.company?.id&&current.accessToken&&
+    String(current.company.id)===String(expected.company?.id||'')&&
+    current.accessToken===expected.accessToken&&
+    (!expected.authUser?.id||current.authUser?.id===expected.authUser.id));
+}
+function validArchivePath(doc,companyId){
+  if(!doc||String(doc.companyId)!==String(companyId)||
+     typeof doc.objectPath!=='string'||typeof doc.fileName!=='string')
+    return false;
+  const parts=doc.objectPath.split('/');
+  if(parts.length!==4||parts[0]!==String(companyId)||
+     !/^[A-Za-z0-9_.-]+\.pdf$/i.test(parts[3]))
+    return false;
+  // Normal archive originals (including older customer uploads).
+  if(parts[1]==='documents')
+    return parts[2]===String(doc.id)&&parts[2]!=='.'&&parts[2]!=='..'&&
+      /^[A-Za-z0-9_-]{1,140}$/.test(parts[2]);
+  // Issued customer invoices and credit notes have always lived in separate
+  // verified staging folders. Do not break opening these existing originals.
+  return doc.category==='customer-invoice'&&doc.sourceType==='customer-invoice'&&
+    (parts[1]==='customer-invoices'||parts[1]==='customer-credit-notes')&&
+    /^[A-Za-z0-9_-]{16,100}$/.test(parts[2])&&
+    parts[3]===doc.fileName;
+}
 async function loadSupabaseDocuments(){
-  const ctx=await window.LTSupabaseUat.context();if(!ctx.authenticated||!ctx.company){location.href='./index.html';return false}
-  session={user:ctx.user,company:ctx.company};
-  const rows=await window.LTSupabase.from('documents',ctx.accessToken).select('*','company_id=eq.'+encodeURIComponent(ctx.company.id)+'&order=created_at.desc');
-  documents=(rows||[]).map(r=>({
-    id:r.id,title:r.title||r.file_name,fileName:r.file_name,mimeType:r.mime_type,sizeBytes:Number(r.size_bytes||0),sha256:r.sha256||'',
-    category:r.category||r.source_type||'other',note:r.note||'',createdAt:r.created_at,objectPath:r.object_path,
-    links:r.source_type&&r.source_id?[{entityType:r.source_type,entityId:r.source_id,label:''}]:[]
-  }));
-  return true;
+  const ctx=await window.LTSupabaseUat.context();
+  if(!ctx?.authenticated||!ctx.company){documents=[];activePdfReview=null;location.href='./index.html';return false}
+  if(!ctx.company.id||!ctx.accessToken)throw archiveAccessError();
+  const companyId=String(ctx.company.id),token=ctx.accessToken;
+  try{
+    const rows=await window.LTSupabase.from('documents',token).select('*','company_id=eq.'+encodeURIComponent(companyId)+'&order=created_at.desc');
+    const current=await window.LTSupabaseUat.context();
+    if(!sameDocumentSession(ctx,current)||!Array.isArray(rows)||
+       rows.some(row=>!row||String(row.company_id||'')!==companyId)){
+      throw archiveAccessError();
+    }
+    const mapped=rows.map(r=>({
+      id:r.id,companyId:r.company_id,sourceType:r.source_type||null,
+      title:r.title||r.file_name,fileName:r.file_name,
+      mimeType:r.mime_type,sizeBytes:Number(r.size_bytes||0),sha256:r.sha256||'',
+      category:r.category||r.source_type||'other',note:r.note||'',createdAt:r.created_at,objectPath:r.object_path,
+      links:r.source_type&&r.source_id?[{entityType:r.source_type,entityId:r.source_id,label:''}]:[]
+    }));
+    // Commit a single validated snapshot; no rows from an earlier company remain.
+    documents=mapped;session={user:current.user,company:current.company};activePdfReview=null;
+    return true;
+  }catch{
+    documents=[];session=null;activePdfReview=null;
+    throw archiveAccessError();
+  }
 }
 async function openSupabaseDocument(id){
-  const ctx=await window.LTSupabaseUat.context(),doc=documents.find(d=>String(d.id)===String(id));
-  if(!doc?.objectPath)throw new Error('Dokumentets lagringssökväg saknas.');
+  const ctx=await window.LTSupabaseUat.context();
+  const doc=documents.find(d=>String(d.id)===String(id));
+  if(!ctx?.authenticated||!ctx.company?.id||!ctx.accessToken||
+     !doc||String(doc.companyId)!==String(ctx.company.id)||
+     doc.mimeType!=='application/pdf'||
+     typeof doc.objectPath!=='string'||
+     !validArchivePath(doc,ctx.company.id)||
+     !/^[a-f0-9]{64}$/i.test(doc.sha256||'')||
+     !Number.isSafeInteger(doc.sizeBytes)||doc.sizeBytes<=0||doc.sizeBytes>10*1024*1024)
+    throw documentAccessError();
   const blob=await window.LTSupabase.storage.download('lt-documents',doc.objectPath,ctx.accessToken);
-  const href=URL.createObjectURL(blob),tab=window.open(href,'_blank','noopener');
+  if(!blob||blob.size!==doc.sizeBytes||blob.size>10*1024*1024)throw documentAccessError();
+  const bytes=await blob.arrayBuffer();
+  const digest=await crypto.subtle.digest('SHA-256',bytes);
+  const actual=[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
+  if(actual!==doc.sha256.toLowerCase())throw documentAccessError();
+  const current=await window.LTSupabaseUat.context();
+  if(!sameDocumentSession(ctx,current)||
+     !documents.some(row=>row.id===doc.id&&row.companyId===doc.companyId&&
+       row.sha256===doc.sha256&&row.objectPath===doc.objectPath))
+    throw documentAccessError();
+  // Use a PDF-only blob, not a storage-controlled MIME type or URL.
+  const href=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+  const tab=window.open(href,'_blank','noopener');
   if(!tab){URL.revokeObjectURL(href);throw new Error('Webbläsaren blockerade PDF-fönstret.');}
   setTimeout(()=>URL.revokeObjectURL(href),120000);
 }
@@ -135,7 +208,7 @@ async function previewSupabaseDocument(id){
     ctx.company.id!==source.companyId||
     (source.userId&&ctx.authUser?.id!==source.userId)||
     !doc||doc.sha256!==source.sha256||doc.objectPath!==source.objectPath||
-    doc.category!==source.category||!doc.objectPath.startsWith(String(ctx.company.id)+'/documents/')){
+    doc.category!==source.category||!validArchivePath(doc,ctx.company.id)){
     throw new Error('DOCUMENT_REVIEW_EXPIRED');
   }
   const target=modal.querySelector('[data-document-review-result]');
@@ -160,9 +233,10 @@ async function readSupabaseDocument(id){
   const ctx=await window.LTSupabaseUat.context();
   if(!ctx?.authenticated||!ctx.company?.id||!ctx.accessToken)throw new Error('AUTH_REQUIRED');
   const doc=documents.find(d=>String(d.id)===String(id));
-  if(!doc||!['supplier-invoice','receipt'].includes(doc.category)||
+  if(!doc||String(doc.companyId)!==String(ctx.company.id)||
+     !['supplier-invoice','receipt'].includes(doc.category)||
      doc.mimeType!=='application/pdf'||!doc.objectPath||
-     !doc.objectPath.startsWith(String(ctx.company.id)+'/documents/')||
+     !validArchivePath(doc,ctx.company.id)||
      !/^[a-f0-9]{64}$/i.test(doc.sha256||''))throw new Error('DOCUMENT_NOT_VERIFIED');
   const blob=await window.LTSupabase.storage.download('lt-documents',doc.objectPath,ctx.accessToken);
   if(!blob||blob.size!==doc.sizeBytes||blob.size>10*1024*1024)throw new Error('DOCUMENT_SIZE_MISMATCH');

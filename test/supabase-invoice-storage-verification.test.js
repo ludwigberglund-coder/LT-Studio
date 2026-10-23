@@ -12,8 +12,9 @@ test('Supabase kundfaktura verifierar faktisk PDF via Edge före finalisering',(
   const invoices=read('apps/portal/invoices.js');
   const client=read('apps/portal/supabase-client.js');
   const edge=read('supabase/functions/verify-customer-invoice-document/index.ts');
+  const pdfGate=read('supabase/functions/_shared/passive-pdf.ts');
 
-  assert.match(client,/functions:\{invoke:/);
+  assert.match(client,/functions:\s*\{\s*invoke:/);
   assert.match(invoices,/functions\.invoke\('verify-customer-invoice-document'/);
   assert.ok(
     invoices.indexOf("functions.invoke('verify-customer-invoice-document'")<
@@ -28,11 +29,12 @@ test('Supabase kundfaktura verifierar faktisk PDF via Edge före finalisering',(
   assert.match(edge,/jwtClaims\(token\)\.aal!==["']aal2["']/);
   assert.match(edge,/storage\.from\(["']lt-documents["']\)\.download\(objectPath\)/);
   assert.match(edge,/storage\.from\(["']lt-documents["']\)\.list\(folder/);
-  assert.match(edge,/isPdfMagic\(bytes\)/);
-  assert.match(edge,/PDFDocument\.load\(bytes/);
-  assert.match(edge,/ACTIVE_PDF_CONTENT_NOT_ALLOWED/);
-  assert.match(edge,/ENCRYPTED_PDF_NOT_ALLOWED/);
-  assert.match(edge,/INVALID_PDF_EOF/);
+  assert.match(edge,/from ["']\.\.\/_shared\/passive-pdf\.ts["']/);
+  assert.match(pdfGate,/isPdfMagic\(bytes\)/);
+  assert.match(pdfGate,/PDFDocument\.load\(bytes/);
+  assert.match(pdfGate,/ACTIVE_PDF_CONTENT_NOT_ALLOWED/);
+  assert.match(pdfGate,/ENCRYPTED_PDF_NOT_ALLOWED/);
+  assert.match(pdfGate,/INVALID_PDF_EOF/);
   assert.match(edge,/calculatedPdfSha!==pdfSha256/);
   assert.match(edge,/calculatedDocumentSha!==documentSha256/);
   assert.match(edge,/storage_object_id:objectInfo\.id/);
