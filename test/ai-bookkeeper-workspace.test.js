@@ -10,12 +10,14 @@ const source=fs.readFileSync(path.join(root,'apps/portal/ai-assistant.js'),'utf8
 const html=fs.readFileSync(path.join(root,'apps/portal/ai-assistant.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'apps/portal/ai-assistant.css'),'utf8');
 const nav=fs.readFileSync(path.join(root,'apps/portal/portal-nav.js'),'utf8');
-function fixture({demo=false,role='accountant',rows=[],fail=false,authenticated=true}={}){
+function fixture({demo=false,role='accountant',rows=[],fail=false,authenticated=true,token='not-a-real-token'}={}){
   let sessions=0,reads=0;
-  const queries=[];
+  const queries=[],callbacks={};
   const app={innerHTML:''},result={innerHTML:''},status={textContent:''},queue={textContent:''};
+  const counters={open:{textContent:'–'},ready:{textContent:'–'},review:{textContent:'–'}};
+  const refresh={disabled:false,setAttribute(name){if(name==='disabled')this.disabled=true;},removeAttribute(name){if(name==='disabled')this.disabled=false;}};
   const context={authenticated,company:{id:'tenant-a-001',name:'Exempelföretag A'},
-    membership:{role},user:{displayName:'Fiktiv användare'},accessToken:'not-a-real-token'};
+    membership:{role},user:{displayName:'Fiktiv användare'},accessToken:token};
   const sandbox={
     location:{search:demo?'?demo=1':'',hostname:'ludwigberglund-coder.github.io',replace:()=>{}},
     window:{
@@ -25,22 +27,27 @@ function fixture({demo=false,role='accountant',rows=[],fail=false,authenticated=
         return {select:async(fields,filter)=>{
           queries.push({fields,filter});
           if(fail)throw new Error('hidden database details');
-          return rows;
+          return typeof rows==='function'?rows():rows;
         }};
       }}
     },
     document:{
       getElementById:id=>({
         'ai-assistant-app':app,'ai-assistant-results':result,
-        'ai-assistant-results-status':status,'ai-bookkeeper-queue-status':queue
+        'ai-assistant-results-status':status,'ai-bookkeeper-queue-status':queue,
+        'ai-bookkeeper-open-count':counters.open,'ai-bookkeeper-ready-count':counters.ready,
+        'ai-bookkeeper-review-count':counters.review,'ai-bookkeeper-refresh':refresh
       })[id]||null,
-      addEventListener:()=>{},
+      addEventListener:(event,handler)=>{callbacks[event]=handler},
       querySelectorAll:()=>[]
     },
     URLSearchParams,String,Set,Object,Array
   };
   vm.runInNewContext(source,sandbox,{filename:'ai-assistant.js'});
-  return {app,result,queue,queries,get sessions(){return sessions},get reads(){return reads}};
+  return {app,result,queue,counters,refresh,context,callbacks,queries,
+    clickRefresh(){callbacks.click({target:{closest:selector=>
+      selector==='[data-ai-action="refresh-queue"]'?{dataset:{aiAction:'refresh-queue'}}:null}});},
+    get sessions(){return sessions},get reads(){return reads}};
 }
 function settle(){return new Promise(resolve=>setImmediate(resolve))}
 test('AI tab prioritizes automated bookkeeping over guides and marks actual readiness honestly',()=>{
@@ -69,6 +76,11 @@ test('active authorized company sees only its existing read-only automation coun
   assert.equal(f.queries[1].fields,'id,company_id,status');
   assert.match(f.queries[1].filter,/^company_id=eq\.tenant-a-001&order=created_at\.desc&limit=500$/);
   assert.match(f.queue.textContent,/2 öppna förslag, varav 1 kräver extra granskning/);
+  assert.equal(f.counters.open.textContent,'2');
+  assert.equal(f.counters.ready.textContent,'1');
+  assert.equal(f.counters.review.textContent,'1');
+  assert.equal(f.refresh.disabled,false);
+  assert.match(f.app.innerHTML,/Uppdatera köstatus/);
   assert.match(f.queue.textContent,/inte verifierade som AI-genererade eller bokförda/);
   assert.doesNotMatch(f.app.innerHTML,/p1|p2|p3/);
 });
@@ -77,6 +89,7 @@ test('cross-tenant rows never leak into the summary even if an upstream layer er
   await settle();
   assert.equal(f.reads,1);
   assert.match(f.queue.textContent,/Kunde inte läsa automationskön/);
+  assert.equal(f.counters.open.textContent,'–');
   assert.doesNotMatch(f.queue.textContent,/secret|tenant-b-002/);
 });
 test('readonly users never load the queue or see protected review action',async()=>{
@@ -85,6 +98,7 @@ test('readonly users never load the queue or see protected review action',async(
   assert.equal(f.sessions,1);
   assert.equal(f.reads,0);
   assert.match(f.app.innerHTML,/Förslagskö kräver bokförings- eller granskningsbehörighet/);
+  assert.doesNotMatch(f.app.innerHTML,/data-ai-action="refresh-queue"/);
   assert.doesNotMatch(f.app.innerHTML,/href="\.\/automation\.html"/);
   assert.doesNotMatch(f.app.innerHTML,/ai-bookkeeping\.html/);
 });
@@ -108,4 +122,90 @@ test('the workspace is read-only and does not release AI posting',()=>{
 test('collapsed guide filters are hidden and have accessible labels',()=>{
   assert.match(css,/\.ai-assistant-guides:not\(\[open\]\)>section\{display:none!important\}/);
   assert.match(source,/aria-label=\"Visa guider för /);
+});
+
+test('500 most recent proposals are explicitly a partial history, never an exact company total',async()=>{
+  const rows=Array.from({length:500},(_,i)=>({
+    id:'synthetic-'+i,company_id:'tenant-a-001',
+    status:i<450?'ready-for-approval':i<480?'manual-review':'approved'
+  }));
+  const f=fixture({rows});
+  await settle();
+  assert.equal(f.counters.open.textContent,'≥ 480');
+  assert.equal(f.counters.ready.textContent,'≥ 450');
+  assert.equal(f.counters.review.textContent,'≥ 30');
+  assert.match(f.queue.textContent,/Bland de 500 senaste posterna finns minst 480 öppna förslag/);
+  assert.match(f.queue.textContent,/varav minst 30 kräver extra granskning/);
+  assert.match(f.queue.textContent,/Fler kan finnas/);
+  assert.doesNotMatch(f.queue.textContent,/Befintlig automationskö: 480 öppna/);
+});
+
+test('authorized refresh reads latest status without changing financial data',async()=>{
+  let currentRows=[{id:'first',company_id:'tenant-a-001',status:'manual-review'}];
+  const f=fixture({rows:()=>currentRows});
+  await settle();
+  assert.equal(f.counters.open.textContent,'1');
+  assert.equal(f.counters.ready.textContent,'0');
+  currentRows=[{id:'second',company_id:'tenant-a-001',status:'ready-for-approval'},
+    {id:'third',company_id:'tenant-a-001',status:'ready-for-approval'}];
+  f.clickRefresh();
+  await settle();
+  assert.equal(f.reads,2);
+  assert.equal(f.counters.open.textContent,'2');
+  assert.equal(f.counters.ready.textContent,'2');
+  assert.equal(f.counters.review.textContent,'0');
+  assert.equal(f.refresh.disabled,false);
+  assert.ok(f.queries.every(q=>q.table!=='journal_entries'));
+});
+
+test('pending queue request ignores repeated refresh clicks',async()=>{
+  let complete;
+  const f=fixture({rows:()=>new Promise(resolve=>{complete=resolve;})});
+  await settle();
+  assert.equal(f.refresh.disabled,true);
+  f.clickRefresh();
+  assert.equal(f.reads,1);
+  complete([{id:'one',company_id:'tenant-a-001',status:'ready-for-approval'}]);
+  await settle();
+  assert.equal(f.counters.open.textContent,'1');
+  assert.equal(f.refresh.disabled,false);
+});
+
+test('late queue response cannot reveal old tenant totals after a company change',async()=>{
+  let complete;
+  const f=fixture({rows:()=>new Promise(resolve=>{complete=resolve;})});
+  await settle();
+  f.context.company={id:'tenant-b-002',name:'Företag B'};
+  complete([{id:'private-a',company_id:'tenant-a-001',status:'manual-review'}]);
+  await settle();
+  assert.equal(f.counters.open.textContent,'–');
+  assert.equal(f.counters.review.textContent,'–');
+  assert.match(f.queue.textContent,/Företaget eller inloggningen har ändrats/);
+  assert.doesNotMatch(f.queue.textContent,/tenant-a|private-a/);
+});
+
+test('query errors clear previous numeric totals and keep error details private',async()=>{
+  let shouldFail=false;
+  const f=fixture({rows:()=>{
+    if(shouldFail)throw new Error('private upstream message');
+    return [{id:'open',company_id:'tenant-a-001',status:'manual-review'}];
+  }});
+  await settle();
+  assert.equal(f.counters.open.textContent,'1');
+  shouldFail=true;
+  f.clickRefresh();
+  await settle();
+  assert.equal(f.counters.open.textContent,'–');
+  assert.equal(f.counters.review.textContent,'–');
+  assert.match(f.queue.textContent,/Kunde inte läsa automationskön/);
+  assert.doesNotMatch(f.queue.textContent,/private upstream message/);
+});
+
+test('missing access token yields explicit session warning instead of endless spinner or zero',async()=>{
+  const f=fixture({token:null});
+  await settle();
+  assert.equal(f.reads,0);
+  assert.equal(f.counters.open.textContent,'–');
+  assert.match(f.queue.textContent,/Saknar en giltig företags- eller inloggningssession/);
+  assert.doesNotMatch(f.queue.textContent,/Kontrollerar företagets befintliga/);
 });
