@@ -14,6 +14,7 @@ fs.mkdirSync(out,{recursive:true});
 const surfaces=[
   {id:'dashboard',route:'portal/dashboard.html?demo=1'},
   {id:'ai-assistant',route:'portal/ai-assistant.html?demo=1'},
+  {id:'ai-bookkeeping',route:'portal/ai-bookkeeping.html?demo=1'},
   {id:'customers',route:'portal/customers.html?demo=1'},
   {id:'invoices',route:'portal/invoices.html?demo=1'},
   {id:'receivables',route:'portal/index.html?demo=1'},
@@ -105,6 +106,12 @@ function visible(element){
         if(response)assert.equal(response.status(),200,`${surface.id} ${viewport.id} returned ${response.status()}`);
         await page.waitForLoadState('load',{timeout:5000}).catch(()=>{});
         await page.waitForTimeout(250);
+        if(surface.id==='ai-bookkeeping'){
+          await page.locator('[data-ai-action="example"]').click();
+          await page.getByText('Så här kan fakturan bokföras').waitFor({state:'visible'});
+          assert.equal(await page.locator('[data-ai-action="analyze"]').isDisabled(),true,
+            'AI model release must stay disabled in the visual demo');
+        }
 
         const layout=await page.evaluate(()=>{
           const html=document.documentElement;
@@ -429,6 +436,55 @@ function visible(element){
           await popup.waitFor({state:'hidden'});
         }
 
+        if(surface.id==='ai-bookkeeping'){
+          const workspace=await page.evaluate(()=>{
+            function luminance(text){
+              const match=String(text||'').match(/^rgba?\(\s*(\d+(?:\.\d+)?)\s*,?\s+(\d+(?:\.\d+)?)\s*,?\s+(\d+(?:\.\d+)?)/);
+              if(!match)return null;
+              const values=[Number(match[1]),Number(match[2]),Number(match[3])].map(x=>{
+                const s=x/255;return s<=.04045?s/12.92:Math.pow((s+.055)/1.055,2.4);
+              });
+              return values[0]*.2126+values[1]*.7152+values[2]*.0722;
+            }
+            const pairs=[
+              ['.ai-bookkeeping-intro h2','.ai-bookkeeping-intro'],
+              ['.ai-bookkeeping-intro p','.ai-bookkeeping-intro'],
+              ['.ai-bookkeeping-notice span','.ai-bookkeeping-notice'],
+              ['.ai-bookkeeping-facts .ai-bookkeeping-total strong','.ai-bookkeeping-facts .ai-bookkeeping-total'],
+              ['.ai-bookkeeping-actions .button:not(.ghost)','.ai-bookkeeping-actions .button:not(.ghost)'],
+              ['.ai-pdf-reader-head p','.ai-pdf-reader'],
+              ['.ai-pdf-empty','.ai-pdf-empty']
+            ];
+            const contrast=pairs.map(([fg,bg])=>{
+              const node=document.querySelector(fg),panel=document.querySelector(bg);
+              if(!node||!panel)return {fg,ratio:0};
+              const f=luminance(getComputedStyle(node).color),b=luminance(getComputedStyle(panel).backgroundColor);
+              return {fg,ratio:f===null||b===null?0:(Math.max(f,b)+.05)/(Math.min(f,b)+.05)};
+            });
+            const select=document.querySelector('#ai-scenario');
+            const pdfSelect=document.querySelector('#ai-pdf-type');
+            const pdfInput=document.querySelector('#ai-pdf-file');
+            const button=document.querySelector('[data-ai-action="read-pdf"]');
+            return {
+              contrast,
+              controlSizes:[select,pdfSelect,pdfInput,button].map(node=>node?.getBoundingClientRect().height||0),
+              total:document.querySelectorAll('.ai-bookkeeping-line:not(.ai-bookkeeping-head)').length
+            };
+          });
+          for(const item of workspace.contrast)assert.ok(item.ratio>=4.5,
+            `AI ${viewport.id} ${theme.id} insufficient contrast ${item.fg}: ${item.ratio.toFixed(2)}`);
+          assert.ok(workspace.controlSizes.every(v=>v>=44),
+            `AI ${viewport.id} ${theme.id} controls too small: ${JSON.stringify(workspace.controlSizes)}`);
+          assert.equal(workspace.total,3,'Visible accounting example requires three review rows');
+          await page.screenshot({
+            path:path.join(out,`ai-overview-${viewport.id}-${theme.id}.png`),
+            fullPage:false,animations:'disabled'
+          });
+          await page.locator('.ai-pdf-reader').screenshot({
+            path:path.join(out,`ai-pdf-workspace-${viewport.id}-${theme.id}.png`),
+            animations:'disabled'
+          });
+        }
         const file=`visual-${surface.id}-${viewport.id}-${theme.id}.png`;
         await page.screenshot({path:path.join(out,file),fullPage:false});
         checks.push({surface:surface.id,viewport:viewport.id,theme:theme.id,...layout,screenshot:file});

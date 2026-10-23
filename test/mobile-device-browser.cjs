@@ -21,6 +21,7 @@ const routes = [
   { id: 'receivables', url: 'portal/index.html?demo=1' },
   { id: 'invoices', url: 'portal/invoices.html?demo=1' },
   { id: 'accounting', url: 'portal/accounting.html?demo=1' },
+  { id: 'ai-bookkeeping', url: 'portal/ai-bookkeeping.html?demo=1' },
   { id: 'payments', url: 'portal/payments.html?demo=1' },
   { id: 'unplaced', url: 'portal/unplaced-payments.html?demo=1' },
   { id: 'payables', url: 'portal/payables.html?demo=1' },
@@ -212,7 +213,7 @@ function check(problemList, condition, description) {
             }
 
             if (
-              (route.id === 'dashboard' || route.id === 'payments' || route.id === 'operator-login') &&
+              (route.id === 'dashboard' || route.id === 'payments' || route.id === 'operator-login' || route.id === 'ai-bookkeeping') &&
               (device.width === 320 || device.width === 430)
             ) {
               await page.screenshot({
