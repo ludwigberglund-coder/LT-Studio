@@ -15,7 +15,7 @@
   let pilotContextInvalid=false;
   let localPdfType='supplier-invoice',localPdfResult=null,localPdfStatus='',localPdfBusy=false;
   // Never silently choose an expense or payment account for a new PDF.
-  let localPdfAccount='',localPdfPayment='',localPdfProposal=null,accountSource='none';
+  let localPdfAccount='',localPdfPayment='',localPdfInvoicePayment='',localPdfProposal=null,accountSource='none';
   let localPdfRevision=0,learningRequest=0,accountEdited=false;
   let learnBusy=false,learnStatus='',learnResult=null;
   const esc=(text)=>String(text??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'":'&#39;'}[char]));
@@ -118,7 +118,12 @@
       '<option value=""'+(localPdfAccount===''?' selected':'')+'>Välj vad som köptes</option>'+Object.entries(window.LTStudioDocumentReview?.ACCOUNTS||{}).map(([key,name])=>'<option value="'+esc(key)+'"'+(localPdfAccount===key?' selected':'')+'>'+esc(name)+'</option>').join('')+
       '</select></label>'+
       (localPdfType==='receipt'?'<label for="ai-pdf-payment">Hur betalades kvittot?<select id="ai-pdf-payment">'+
-        '<option value=""'+(localPdfPayment===''?' selected':'')+'>Välj betalningssätt</option>'+Object.entries(window.LTStudioDocumentReview?.PAYMENT||{}).map(([key,name])=>'<option value="'+esc(key)+'"'+(localPdfPayment===key?' selected':'')+'>'+esc(name)+'</option>').join('')+'</select></label>':'')+
+        '<option value=""'+(localPdfPayment===''?' selected':'')+'>Välj betalningssätt</option>'+Object.entries(window.LTStudioDocumentReview?.PAYMENT||{}).map(([key,name])=>'<option value="'+esc(key)+'"'+(localPdfPayment===key?' selected':'')+'>'+esc(name)+'</option>').join('')+'</select></label>':
+        '<label for="ai-pdf-invoice-payment">Är fakturan redan betald?<select id="ai-pdf-invoice-payment">'+
+        '<option value=""'+(localPdfInvoicePayment===''?' selected':'')+'>Välj betalningsstatus</option>'+
+        '<option value="unpaid"'+(localPdfInvoicePayment==='unpaid'?' selected':'')+'>Nej, inte betald</option>'+
+        '<option value="already-paid"'+(localPdfInvoicePayment==='already-paid'?' selected':'')+'>Ja, redan betald</option>'+
+        '<option value="unsure"'+(localPdfInvoicePayment==='unsure'?' selected':'')+'>Osäker – behöver kontroll</option></select></label>')+
       '<button type="button" class="button" data-ai-action="preview-pdf">Visa granskningsutkast</button></div>'+
       localPdfProposalMarkup()+'</section></div>';
   }
@@ -238,7 +243,7 @@
         pilotContextInvalid=true;context=null;
         localPdfRevision++;learningRequest++;
         localPdfResult=null;localPdfProposal=null;learnResult=null;
-        localPdfAccount='';localPdfPayment='';
+        localPdfAccount='';localPdfPayment='';localPdfInvoicePayment='';
         return;
       }
       status=code==='AI_TEST_ACCESS_DENIED'||error?.status===401||error?.status===403
@@ -324,13 +329,19 @@
     if(!file){localPdfStatus='Välj en PDF-fil först.';render();return;}
     if(!window.LTStudioDocumentReader){localPdfStatus='PDF-läsaren kunde inte laddas.';render();return;}
     // Invalidate any asynchronous history match from the previous PDF.
-    localPdfRevision++;learningRequest++;learnBusy=false;accountEdited=false;
-    localPdfAccount='';localPdfPayment='';accountSource='none';
+    const revision=++localPdfRevision,documentType=localPdfType;
+    learningRequest++;learnBusy=false;accountEdited=false;
+    localPdfAccount='';localPdfPayment='';localPdfInvoicePayment='';accountSource='none';
     localPdfBusy=true;localPdfResult=null;localPdfProposal=null;learnResult=null;learnStatus='';localPdfStatus='Läser PDF lokalt på din enhet…';render();
     try{
-      localPdfResult=await window.LTStudioDocumentReader.readPdf(file,localPdfType);
+      const extracted=await window.LTStudioDocumentReader.readPdf(file,documentType);
+      // Selecting another PDF invalidates this answer, even if its read
+      // finishes after the new document was selected.
+      if(revision!==localPdfRevision)return;
+      localPdfResult=extracted;
       localPdfStatus='PDF-texten är avläst. Kontrollera uppgifterna mot originalet.';
     }catch(error){
+      if(revision!==localPdfRevision)return;
       const messages={
         PDF_ONLY:'Välj en PDF-fil (inga bilder eller andra filtyper).',
         PDF_SIZE_INVALID:'PDF-filen måste vara högst 10 MB.',
@@ -344,24 +355,27 @@
       };
       localPdfStatus=messages[error?.code]||'PDF:en kunde inte läsas. Ingen information skickades eller sparades.';
       localPdfResult=null;
-    }finally{localPdfBusy=false;render();}
-    if(localPdfResult&&safeAutomaticHistoryCheck(localPdfResult)){
+    }finally{
+      if(revision===localPdfRevision){localPdfBusy=false;render();}
+    }
+    if(revision===localPdfRevision&&localPdfResult&&safeAutomaticHistoryCheck(localPdfResult)){
       // Authenticated, RLS-scoped READ only. No provider or bookkeeping call.
       void learnFromPostedHistory({automatic:true});
     }
   }
   function previewLocalPdf(){
     if(!localPdfResult||!window.LTStudioDocumentReview)return;
-    if(!localPdfAccount||(localPdfType==='receipt'&&!localPdfPayment)){
-      localPdfStatus='Välj först vad som köptes och, för kvitto, hur det betalades.';render();return;
+    if(!localPdfAccount||(localPdfType==='receipt'&&!localPdfPayment)||
+      (localPdfType==='supplier-invoice'&&!localPdfInvoicePayment)){
+      localPdfStatus='Välj först vad som köptes samt betalningssätt eller betalningsstatus. Inget har bokförts.';render();return;
     }
     try{
       localPdfProposal=window.LTStudioDocumentReview.buildReview(localPdfResult,{
         expenseAccount:localPdfAccount,
-        ...(localPdfType==='receipt'?{paymentAccount:localPdfPayment}:{})
+        ...(localPdfType==='receipt'?{paymentAccount:localPdfPayment}:{paymentStatus:localPdfInvoicePayment})
       });
       localPdfStatus=localPdfProposal.status==='blocked'?
-        'Belopp eller källuppgifter är osäkra. Utkastet stoppades.':
+        'Betalningssätt eller underlag kräver separat granskning. Inget konteringsutkast skapades.':
         'Granskningsutkastet är beräknat lokalt. Det är inte AI och inget har bokförts.';
     }catch{
       localPdfProposal=null;localPdfStatus='Utkastet kunde inte skapas. Kontrollera originalet och försök igen.';
@@ -371,10 +385,24 @@
   document.addEventListener('change',event=>{
     if(pilotContextInvalid)return;
     const target=event.target;
+    if(target?.id==='ai-pdf-file'){
+      // Do not re-render the file input here: rebuilding it discards FileList.
+      // Remove the stale preview immediately and invalidate all delayed reads.
+      localPdfRevision++;learningRequest++;learnBusy=false;localPdfBusy=false;accountEdited=false;
+      localPdfResult=null;localPdfProposal=null;learnResult=null;learnStatus='';
+      localPdfAccount='';localPdfPayment='';localPdfInvoicePayment='';accountSource='none';
+      localPdfStatus=target.files?.length?
+        'Ny PDF vald. Klicka på Läs PDF lokalt för att kontrollera den nya filen.':
+        'Välj en PDF-fil först.';
+      const statusElement=app.querySelector?.('.ai-pdf-reader .ai-bookkeeping-status');
+      if(statusElement)statusElement.textContent=localPdfStatus;
+      app.querySelector?.('.ai-pdf-result')?.remove();
+      return;
+    }
     if(target?.id==='ai-pdf-type'&&!localPdfBusy){
       if(['supplier-invoice','receipt'].includes(target.value)){
         localPdfRevision++;learningRequest++;learnBusy=false;accountEdited=false;
-        localPdfAccount='';localPdfPayment='';accountSource='none';
+        localPdfAccount='';localPdfPayment='';localPdfInvoicePayment='';accountSource='none';
         localPdfType=target.value;localPdfResult=null;localPdfProposal=null;learnResult=null;learnStatus='';localPdfStatus='';render();
       }
       return;
@@ -385,6 +413,10 @@
     }
     if(target?.id==='ai-pdf-payment'&&Object.hasOwn(window.LTStudioDocumentReview?.PAYMENT||{},target.value)){
       localPdfPayment=target.value;accountEdited=true;localPdfProposal=null;render();return;
+    }
+    if(target?.id==='ai-pdf-invoice-payment'&&
+       ['','unpaid','already-paid','unsure'].includes(target.value)){
+      localPdfInvoicePayment=target.value;localPdfProposal=null;render();return;
     }
     if(target?.id!=='ai-scenario'||busy)return;
     if(options.some(item=>item.id===target.value)){

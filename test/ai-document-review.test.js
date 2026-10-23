@@ -54,6 +54,27 @@ test('receipt needs explicitly selected payment account; derives missing net wit
   const cash=buildReview(receipt,{expenseAccount:'6540',paymentAccount:'1910'});
   assert.equal(cash.rows.at(-1).account,'1910');
 });
+test('already-paid invoices, unknown payment status and private receipts never produce incorrect liability or bank rows',()=>{
+  const invoice=source(25);
+  for(const state of ['already-paid','unsure']){
+    const result=buildReview(invoice,{expenseAccount:'6110',paymentStatus:state});
+    assert.equal(result.status,'blocked',state);
+    assert.deepEqual(result.rows,[]);
+    assert.equal(result.posted,false);
+    assert.ok(result.blockers.some(reason=>/betal|Betal|Faktura/.test(reason)));
+  }
+  const unpaid=buildReview(invoice,{expenseAccount:'6110',paymentStatus:'unpaid'});
+  assert.equal(unpaid.status,'manual-review');
+  assert.equal(unpaid.rows.at(-1).account,'2440');
+  const personal=buildReview(source(25,'receipt'),{expenseAccount:'5460',paymentAccount:'private'});
+  assert.equal(personal.status,'blocked');
+  assert.deepEqual(personal.rows,[]);
+  assert.ok(personal.blockers.some(reason=>/privat/.test(reason)));
+  for(const invalid of ['personal','paid',true,'']){
+    assert.throws(()=>buildReview(invoice,{expenseAccount:'6110',paymentStatus:invalid}),{code:'INVALID_PAYMENT_SELECTION'});
+  }
+});
+
 test('blocks mismatch, unknown VAT rates, foreign currency, absent source fields and credit',()=>{
   const mismatch=reader.parseFacts('Leverantör: Test AB\nFakturanummer: 12\nDatum: 2026-10-15\nNetto: 100,00 kr\nMoms: 25,00 kr\nTotalt: 140,00 kr','supplier-invoice');
   const a=buildReview(mismatch,{expenseAccount:'6110'});
@@ -88,6 +109,79 @@ test('UI loads preview engine but keeps model disabled, no save/approve button',
   const engine=fs.readFileSync(path.join(root,'apps/portal/ai-document-review.js'),'utf8');
   assert.doesNotMatch(engine,/\bfetch\s*\(|\.functions\.invoke\s*\(|\.storage\.upload\s*\(|localStorage|sessionStorage/);
 });
+test('AI PDF workspace blocks already-paid invoices and privately paid receipts before any review rows',async()=>{
+  const handlers={},app={innerHTML:''};
+  let selectedFacts=source(25);
+  const sandbox={
+    document:{getElementById:id=>id==='ai-bookkeeping-app'?app:
+      id==='ai-pdf-file'?{files:[{name:'synthetic.pdf',size:128,type:'application/pdf'}]}:null,
+      addEventListener:(name,fn)=>{handlers[name]=fn}},
+    window:{LTStudioDocumentReader:{readPdf:async()=>selectedFacts},
+      LTStudioDocumentReview:require('../apps/portal/ai-document-review.js')},
+    location:{search:'?demo=1',hostname:'ludwigberglund-coder.github.io'},
+    URLSearchParams,Intl,Set,Number,Object,Error,String,Array,
+    crypto:{randomUUID:()=> '11111111-1111-4111-8111-111111111111'}
+  };
+  vm.runInNewContext(appJs,sandbox);
+  const click=action=>handlers.click({target:{closest:selector=>selector==='[data-ai-action]'?
+    {disabled:false,dataset:{aiAction:action}}:null}});
+  const choose=(id,value)=>handlers.change({target:{id,value}});
+  click('read-pdf');await new Promise(resolve=>setImmediate(resolve));
+  assert.match(app.innerHTML,/Är fakturan redan betald/);
+  choose('ai-pdf-account','6110');
+  choose('ai-pdf-invoice-payment','already-paid');
+  click('preview-pdf');
+  assert.match(app.innerHTML,/Kan inte skapa säkert utkast/);
+  assert.match(app.innerHTML,/Fakturan är redan betald/);
+  choose('ai-pdf-invoice-payment','unpaid');
+  click('preview-pdf');
+  assert.match(app.innerHTML,/Granskningsutkast – inte AI/);
+  assert.match(app.innerHTML,/Leverantörsskulder/);
+
+  selectedFacts=source(25,'receipt');
+  choose('ai-pdf-type','receipt');
+  click('read-pdf');await new Promise(resolve=>setImmediate(resolve));
+  choose('ai-pdf-account','6110');
+  choose('ai-pdf-payment','private');
+  click('preview-pdf');
+  assert.match(app.innerHTML,/Kan inte skapa säkert utkast/);
+  assert.match(app.innerHTML,/betalats privat/);
+  assert.doesNotMatch(app.innerHTML,/role="row"><span><strong>1930/);
+});
+
+test('replacing a PDF invalidates any older asynchronous extraction',async()=>{
+  const handlers={},app={innerHTML:''};
+  const first={name:'first.pdf',size:128,type:'application/pdf'};
+  const second={name:'second.pdf',size:128,type:'application/pdf'};
+  let selected=first,resolveFirst;
+  const later=source(25);
+  later.fields.supplier={value:'Second Supplier AB',evidence:'Second Supplier AB',verified:false};
+  const sandbox={
+    document:{getElementById:id=>id==='ai-bookkeeping-app'?app:
+      id==='ai-pdf-file'?{files:[selected]}:null,
+      addEventListener:(name,fn)=>{handlers[name]=fn}},
+    window:{LTStudioDocumentReader:{readPdf:file=>file===first?
+      new Promise(resolve=>{resolveFirst=resolve;}):Promise.resolve(later)},
+      LTStudioDocumentReview:require('../apps/portal/ai-document-review.js')},
+    location:{search:'?demo=1',hostname:'ludwigberglund-coder.github.io'},
+    URLSearchParams,Intl,Set,Number,Object,Error,String,Array,
+    crypto:{randomUUID:()=> '11111111-1111-4111-8111-111111111111'}
+  };
+  vm.runInNewContext(appJs,sandbox);
+  const click=action=>handlers.click({target:{closest:q=>q==='[data-ai-action]'?
+    {disabled:false,dataset:{aiAction:action}}:null}});
+  click('read-pdf');
+  assert.equal(typeof resolveFirst,'function');
+  selected=second;
+  handlers.change({target:{id:'ai-pdf-file',files:[second]}});
+  resolveFirst(source(25));
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.doesNotMatch(app.innerHTML,/Test Leverantör AB/);
+  click('read-pdf');await new Promise(resolve=>setImmediate(resolve));
+  assert.match(app.innerHTML,/Second Supplier AB/);
+  assert.doesNotMatch(app.innerHTML,/Test Leverantör AB/);
+});
+
 test('real browser UI flow displays balanced review preview with local PDF facts',async()=>{
   const handlers={};
   const app={innerHTML:''};
@@ -113,6 +207,7 @@ test('real browser UI flow displays balanced review preview with local PDF facts
   await new Promise(resolve=>setImmediate(resolve));
   assert.match(app.innerHTML,/Visa granskningsutkast/);
   choose('ai-pdf-account','5460');
+  choose('ai-pdf-invoice-payment','unpaid');
   click('preview-pdf');
   assert.match(app.innerHTML,/Granskningsutkast – inte AI/);
   assert.match(app.innerHTML,/Förbrukningsmaterial/);

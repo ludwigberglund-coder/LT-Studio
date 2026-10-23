@@ -244,6 +244,7 @@ test('manual account choice during slow history read wins over later automation'
   release(history());await settle();
   assert.match(u.app.innerHTML,/<option value="6110" selected>/);
   assert.doesNotMatch(u.app.innerHTML,/Granskningsutkast – inte AI/);
+  u.choose('ai-pdf-invoice-payment','unpaid');
   u.click('preview-pdf');
   assert.match(u.app.innerHTML,/Granskningsutkast – inte AI/);
   assert.match(u.app.innerHTML,/Kontorsmateriel/);

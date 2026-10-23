@@ -9,7 +9,8 @@
   });
   const PAYMENT=Object.freeze({
     '1930':'Företagskonto',
-    '1910':'Företagskassa'
+    '1910':'Företagskassa',
+    'private':'Betalat privat – separat hantering'
   });
   const VAT_RATES=Object.freeze([0,6,12,25]);
   function fail(code){return Object.assign(new Error(code),{code});}
@@ -52,11 +53,13 @@
       throw fail('UNTRUSTED_PDF_RESULT');
     }
     if(!selection||typeof selection!=='object'||Array.isArray(selection)||
-       Object.keys(selection).some(k=>!['expenseAccount','paymentAccount'].includes(k))||
+       Object.keys(selection).some(k=>!['expenseAccount','paymentAccount','paymentStatus'].includes(k))||
        !own(ACCOUNTS,selection.expenseAccount))throw fail('INVALID_ACCOUNT_SELECTION');
     const receipt=extraction.documentType==='receipt';
-    if(receipt ? !own(PAYMENT,selection.paymentAccount):
-      (selection.paymentAccount!==undefined&&selection.paymentAccount!=='')){
+    if(receipt ? (!own(PAYMENT,selection.paymentAccount)||selection.paymentStatus!==undefined):
+      ((selection.paymentAccount!==undefined&&selection.paymentAccount!=='')||
+       (selection.paymentStatus!==undefined&&
+        !['unpaid','already-paid','unsure'].includes(selection.paymentStatus)))){
       throw fail('INVALID_PAYMENT_SELECTION');
     }
     const warnings=['Förhandsvisning – inga uppgifter är verifierade eller bokförda.',
@@ -70,6 +73,14 @@
       blockers.push('Negativt netto-, moms- eller totalbelopp kräver manuell kontroll.');
     if(extraction.checks.mixedVatRates)
       blockers.push('Flera momssatser kräver uppdelad kontering och manuell kontroll.');
+    // An already-paid supplier invoice must not be presented as a new unpaid
+    // liability, and a personally-paid receipt must not imply company cash.
+    if(!receipt&&selection.paymentStatus==='already-paid')
+      blockers.push('Fakturan är redan betald. Kontrollera befintlig bokföring och bankhändelse innan någon ny skuld registreras.');
+    if(!receipt&&selection.paymentStatus==='unsure')
+      blockers.push('Betalningsstatus är okänd. Kontrollera bank och tidigare bokföring innan ett skuldutkast förbereds.');
+    if(receipt&&selection.paymentAccount==='private')
+      blockers.push('Kvittot har betalats privat. Använd separat granskning för privata utlägg, inte företagets bankkonto eller kassa.');
     const supplier=sourceField(extraction,'supplier','string');
     const reference=sourceField(extraction,'reference','string');
     const date=sourceField(extraction,'invoiceDate','string');
