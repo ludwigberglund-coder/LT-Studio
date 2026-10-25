@@ -7,17 +7,17 @@
   gap:18px;padding:23px 25px;margin:0 0 20px;
   background:var(--surface-card,#fff);
   border:1px solid var(--color-hairline,#e5e5e5);
-  border-left:4px solid #345c49;border-radius:20px;
+  border-left:4px solid #345c49;border-radius:8px;
   box-shadow:0 8px 24px rgb(13 30 21 / .045);
 }
 .customer-workspace .customer-register-intro{flex:1 1 310px;min-width:0}
 .customer-workspace .customer-register-intro .eyebrow,
 .customer-workspace .customer-form-heading .eyebrow{
-  display:block;margin:0 0 7px;font-size:11px;letter-spacing:.08em;
+  display:block;margin:0 0 7px;font-size:11px;letter-spacing:0;
   font-weight:750;text-transform:uppercase;color:var(--color-mid-gray,#555e58);
 }
 .customer-workspace .customer-register-intro h2{
-  font-size:clamp(24px,2.4vw,31px);line-height:1.2;letter-spacing:-.035em;
+  font-size:31px;line-height:1.2;letter-spacing:0;
   font-weight:750;margin:0 0 7px;color:var(--color-ink,#171717);
 }
 .customer-workspace .customer-register-intro p,
@@ -30,7 +30,7 @@
 .customer-register-top-actions .button{min-height:44px;white-space:normal;text-align:center}
 .customer-register-workspace{
   min-width:0;overflow:hidden;border:1px solid var(--color-hairline,#e5e5e5);
-  border-radius:20px;background:var(--surface-card,#fff);
+  border-radius:8px;background:var(--surface-card,#fff);
   box-shadow:0 8px 26px rgb(13 30 21 / .04);
 }
 .customer-register-tools{
@@ -42,7 +42,7 @@
 }
 .customer-register-tools-heading h3{
   margin:0 0 5px;color:var(--color-ink,#171717);font-size:19px;
-  line-height:1.35;letter-spacing:-.02em;font-weight:750;
+  line-height:1.35;letter-spacing:0;font-weight:750;
 }
 .customer-register-count{
   display:inline-flex;justify-content:center;align-items:center;
@@ -58,7 +58,7 @@
 }
 .customer-register-tools #customer-register-search{
   display:block;box-sizing:border-box;width:min(580px,100%);max-width:100%;min-width:0;
-  min-height:47px;padding:11px 14px;border-radius:12px;
+  min-height:47px;padding:11px 14px;border-radius:8px;
   border:1px solid #b4c1b9;background:#fff;color:#171717;
   font-size:14px;line-height:1.4;font-family:inherit;
 }
@@ -73,7 +73,7 @@
   text-align:left!important;padding:14px 13px;
   color:var(--color-ink-soft,#171717);background:var(--surface-alt,#f7f7f7);
   border-bottom:1px solid var(--color-hairline,#e5e5e5);
-  font-size:11px;font-weight:750;letter-spacing:.045em;text-transform:uppercase;
+  font-size:11px;font-weight:750;letter-spacing:0;text-transform:uppercase;
 }
 .customer-register-panel .sales-table td{
   text-align:left!important;padding:16px 13px;vertical-align:middle;
@@ -112,16 +112,16 @@
   padding:29px 16px!important;white-space:normal;text-align:center!important;
   font-size:13px;color:var(--color-mid-gray,#525c55);line-height:1.6;
 }
-.customer-form-panel{max-width:950px;padding:25px!important;border-radius:20px}
+.customer-form-panel{max-width:950px;padding:25px!important;border-radius:8px}
 .customer-form-heading{margin:0 0 22px}
-.customer-form-heading h3{font-size:22px;letter-spacing:-.03em;margin:0 0 7px}
+.customer-form-heading h3{font-size:22px;letter-spacing:0;margin:0 0 7px}
 .customer-form-panel .sales-form{min-width:0;gap:17px}
 .customer-form-panel .sales-form label{min-width:0;font-size:13px;color:var(--color-ink-soft,#171717)}
 .customer-form-panel .sales-form :is(input,select,textarea){min-height:44px;max-width:100%;box-sizing:border-box}
 .customer-form-panel .sales-form textarea{min-height:86px}
 .customer-form-advanced{
   border:1px solid var(--color-hairline,#d9e1db);
-  border-radius:14px;overflow:hidden;
+  border-radius:8px;overflow:hidden;
   background:var(--surface-alt,#f9faf9);
 }
 .customer-form-advanced>summary{
@@ -210,7 +210,7 @@ html[data-lt-theme="dark"] .customer-workspace :is(#customer-register-search,
   .customer-form-advanced-grid{grid-template-columns:1fr}
 }
 @media(max-width:640px){
-  .customer-register-workspace{border-radius:18px}
+  .customer-register-workspace{border-radius:8px}
   .customer-register-panel .table-scroll{overflow:visible!important;max-height:none!important}
   .customer-register-panel .sales-table{display:block;width:100%;font-size:13px}
   .customer-register-panel .sales-table thead{
@@ -237,7 +237,7 @@ html[data-lt-theme="dark"] .customer-workspace :is(#customer-register-search,
   .customer-register-panel .sales-table td::before{
     content:attr(data-label);
     font-size:10px;line-height:1.4;font-weight:700;
-    text-transform:uppercase;letter-spacing:.04em;
+    text-transform:uppercase;letter-spacing:0;
     color:var(--color-mid-gray,#626b65);
   }
   html[data-lt-theme="dark"] .customer-register-panel .sales-table td::before{
