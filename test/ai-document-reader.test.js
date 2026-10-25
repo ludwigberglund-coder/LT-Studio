@@ -222,3 +222,45 @@ test('accepts an unambiguous indirect PDF stream length and refuses contradictor
   await assert.rejects(reader.readPdf(file(noLength),'supplier-invoice'),
     {code:'PDF_UNSUPPORTED_STREAM'});
 });
+
+test('flags supplier invoices due before issue date but not equal or later dates',()=>{
+  const base='Fakturanummer: INV-7\nFakturadatum: 2026-10-14\nFörfallodatum: ';
+  const invalid=reader.parseFacts(base+'2026-10-13','supplier-invoice');
+  assert.ok(invalid.warnings.some(message=>message.includes('Förfallodatum ligger före fakturadatum')));
+  for(const due of ['2026-10-14','2026-11-14']){
+    const valid=reader.parseFacts(base+due,'supplier-invoice');
+    assert.ok(!valid.warnings.some(message=>message.includes('Förfallodatum ligger före fakturadatum')));
+  }
+  const receipt=reader.parseFacts(base+'2026-10-13','receipt');
+  assert.ok(!receipt.warnings.some(message=>message.includes('Förfallodatum ligger före fakturadatum')));
+});
+
+
+test('supplier invoice without identifiable supplier or invoice number requires explicit review',()=>{
+  const base='Fakturadatum: 2026-10-14\nNetto: 100,00 kr\nMoms: 25,00 kr\nTotalt: 125,00 kr';
+  const missing=reader.parseFacts(base,'supplier-invoice');
+  assert.equal(missing.status,'needs-review');
+  assert.equal(missing.posted,false);
+  assert.ok(missing.warnings.some(x=>x.includes('Leverantör kunde inte identifieras')));
+  assert.ok(missing.warnings.some(x=>x.includes('Fakturanummer kunde inte identifieras')));
+  const complete=reader.parseFacts('Leverantör: Exempel AB\nFakturanummer: F-10\n'+base,'supplier-invoice');
+  assert.ok(!complete.warnings.some(x=>x.includes('Leverantör kunde inte identifieras')));
+  assert.ok(!complete.warnings.some(x=>x.includes('Fakturanummer kunde inte identifieras')));
+  const receipt=reader.parseFacts(base,'receipt');
+  assert.ok(!receipt.warnings.some(x=>x.includes('kunde inte identifieras')));
+});
+
+
+test('missing or invalid supplier invoice due date is visible for review',()=>{
+  const base='Leverantör: Exempel AB\nFakturanummer: F-10\nFakturadatum: 2026-10-14\nNetto: 100,00 kr\nMoms: 25,00 kr\nTotalt: 125,00 kr';
+  for(const suffix of ['', '\nFörfallodatum: 2026-02-30']){
+    const result=reader.parseFacts(base+suffix,'supplier-invoice');
+    assert.equal(result.status,'needs-review');
+    assert.equal(result.posted,false);
+    assert.ok(result.warnings.some(message=>message.includes('Förfallodatum kunde inte identifieras')));
+  }
+  const valid=reader.parseFacts(base+'\nFörfallodatum: 2026-11-14','supplier-invoice');
+  assert.ok(!valid.warnings.some(message=>message.includes('Förfallodatum kunde inte identifieras')));
+  const receipt=reader.parseFacts(base,'receipt');
+  assert.ok(!receipt.warnings.some(message=>message.includes('Förfallodatum kunde inte identifieras')));
+});

@@ -145,15 +145,17 @@ for(const width of [1440,1024,768,390]){await page.setViewportSize({width,height
   await openMenuLink('payables');
   await page.locator('.lt-workspace-switcher').waitFor();
   assert.deepEqual(await page.locator('.lt-workspace-switcher-links a').evaluateAll(nodes=>nodes.map(n=>n.dataset.workspaceTab)),[
-    'documents','payables','supplier-ledger','suppliers'
-  ],'inköpsflikarna ska bevaras');
+    'documents','payables','suppliers'
+  ],'en enda ordinarie leverantörsfaktura- och betalningsflik ska finnas kvar');
   assert.equal(await page.locator('[data-workspace-tab="payables"]').getAttribute('aria-current'),'page');
-  await page.locator('[data-workspace-tab="supplier-ledger"]').click();
-  await menu();await page.locator('.lt-workspace-switcher').waitFor();
+  assert.equal(await page.locator('[data-workspace-tab="supplier-ledger"]').count(),0,'betalningen ska inte längre ha en separat underflik');
+  // Existing bookmarks must still work, without exposing a second normal tab.
+  await page.goto(base+'portal/supplier-ledger.html?demo=1',{waitUntil:'networkidle'});
+  await menu();await page.getByRole('heading',{name:'Betalningsplanering',exact:true}).waitFor();
   assert.match(page.url(),/portal\/supplier-ledger\.html/);
-  assert.equal(await page.locator('[data-workspace-tab="supplier-ledger"]').getAttribute('aria-current'),'page');
-  assert.equal(await page.locator('[data-nav-id="supplier-ledger"]').isVisible(),true,'djuplänken visas när sidan är aktiv');
-  await page.locator('[data-workspace-tab="documents"]').click();
+  assert.equal(await page.locator('[data-nav-id="supplier-ledger"]').isVisible(),true,'äldre direktlänk förblir åtkomlig när den är aktiv');
+  assert.equal(await page.locator('.lt-workspace-switcher').count(),0,'äldre direktlänk ska inte skapa en andra kundflik');
+  await openMenuLink('documents');
   await menu();await page.locator('.lt-workspace-switcher').waitFor();
   assert.match(page.url(),/portal\/documents\.html/);
   assert.equal(await page.locator('[data-workspace-tab="documents"]').getAttribute('aria-current'),'page');
