@@ -87,3 +87,13 @@ test('kundregistret är responsivt och läsbart även i mörkt läge',()=>{
   assert.match(styles,/min-height:44px/);
   assert.match(styles,/font-variant-numeric:tabular-nums/);
 });
+
+test('kundregistrets ytor följer gränser för radie, typografi och responsiv text',()=>{
+  const radii=[...styles.matchAll(/border-radius:(\d+)px/g)].map(match=>Number(match[1]));
+  assert.ok(radii.length>0);
+  assert.ok(radii.every(radius=>radius<=8||radius===999),'Ytor får högst 8px radie; 999px är reserverat för statusbrickor.');
+  const letterSpacing=[...styles.matchAll(/letter-spacing:([^;}]+)/g)].map(match=>match[1].trim());
+  assert.ok(letterSpacing.length>0);
+  assert.deepEqual(new Set(letterSpacing),new Set(['0']));
+  assert.doesNotMatch(styles,/font-size:clamp\(/);
+});
